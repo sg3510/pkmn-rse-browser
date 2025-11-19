@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { PlayerController } from '../game/PlayerController';
 import { 
   loadMapLayout, 
   loadMetatileDefinitions, 
@@ -48,85 +49,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Player State (Refs for animation loop access)
-  const playerState = useRef({
-    x: 0, // Pixel X (visual)
-    y: 0, // Pixel Y (visual)
-    tileX: 0, // Grid X (logical)
-    tileY: 0, // Grid Y (logical)
-    dir: 'down' as 'down' | 'up' | 'left' | 'right',
-    isMoving: false,
-    pixelsMoved: 0, // Track progress between tiles
-    frameIndex: 0,
-    lastFrameTime: 0
-  });
-  
-  const playerSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  
-  // Movement constants
-  const MOVE_SPEED = 1; // Pixels per frame (must divide 16 evenly)
-  const TILE_PIXELS = 16;
-
-  // Input handling
-  const keysPressed = useRef<{ [key: string]: boolean }>({});
+  // Player Controller
+  const playerControllerRef = useRef<PlayerController | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current[e.key] = true;
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current[e.key] = false;
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
-
-  // Helper to process sprite transparency
-  const loadSpriteWithTransparency = async (src: string): Promise<HTMLCanvasElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-        
-        // Get image data
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Assume top-left pixel is the background color
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-        
-        // Replace all matching pixels with transparent
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-        resolve(canvas);
-      };
-      img.onerror = reject;
-    });
-  };
-
-  useEffect(() => {
+    // Initialize PlayerController
+    playerControllerRef.current = new PlayerController();
+    
     const loadAndRender = async () => {
       try {
         setLoading(true);
@@ -138,10 +67,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const startTileX = Math.floor(mapData.width / 2);
         const startTileY = Math.floor(mapData.height / 2);
         
-        playerState.current.tileX = startTileX;
-        playerState.current.tileY = startTileY;
-        playerState.current.x = startTileX * METATILE_SIZE;
-        playerState.current.y = startTileY * METATILE_SIZE - 16; // Sprite is 32px tall, feet at bottom
+        if (playerControllerRef.current) {
+            playerControllerRef.current.setPosition(startTileX, startTileY);
+        }
 
         // 2. Load Primary Tileset
         const primaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${primaryTilesetPath}/metatiles.bin`);
@@ -172,12 +100,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           console.warn('No flower animations found');
         }
 
-        // 5. Load Player Sprite with Transparency
-        try {
-          const spriteCanvas = await loadSpriteWithTransparency(`${PROJECT_ROOT}/graphics/object_events/pics/people/brendan/walking.png`);
-          playerSpriteRef.current = spriteCanvas;
-        } catch (e) {
-          console.error('Failed to load sprite', e);
+        // 5. Load Player Sprite
+        if (playerControllerRef.current) {
+            try {
+                await playerControllerRef.current.loadSprite(`${PROJECT_ROOT}/graphics/object_events/pics/people/brendan/walking.png`);
+            } catch (e) {
+                console.error('Failed to load sprite', e);
+            }
         }
 
         const palettes = [...primaryPalettes, ...secondaryPalettes];
@@ -202,17 +131,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           if (!lastTime) lastTime = timestamp;
           const delta = timestamp - lastTime;
           
-          // Update Player State
-          updatePlayerState(timestamp);
-
           // ~60 FPS = 16.6ms per frame
           if (delta >= 16.6) {
+            // Update Player State (Fixed 60FPS update)
+            if (playerControllerRef.current && renderContextRef.current) {
+                playerControllerRef.current.update(timestamp, renderContextRef.current.mapData);
+            }
+
             timer++;
-            lastTime = timestamp;
+            // Adjust for drift, but keep it simple for now
+            lastTime = timestamp - (delta % 16.6); 
             
-            // Flower updates every 16 frames (~266ms)
+            // Flower updates every 12 frames (~200ms)
             const flowerFrameIndex = flowerImages.length > 0 
-              ? Math.floor(timer / 16) % flowerImages.length
+              ? Math.floor(timer / 12) % flowerImages.length
               : 0;
               
             renderMap(flowerFrameIndex);
@@ -235,86 +167,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, [mapName, width, height, layoutPath, primaryTilesetPath, secondaryTilesetPath]);
-
-  const updatePlayerState = (timestamp: number) => {
-    const state = playerState.current;
-    const ctx = renderContextRef.current;
-    
-    if (!ctx) return;
-    const { mapData } = ctx;
-
-    if (state.isMoving) {
-      // Continue movement
-      state.pixelsMoved += MOVE_SPEED;
-      
-      if (state.dir === 'up') state.y -= MOVE_SPEED;
-      else if (state.dir === 'down') state.y += MOVE_SPEED;
-      else if (state.dir === 'left') state.x -= MOVE_SPEED;
-      else if (state.dir === 'right') state.x += MOVE_SPEED;
-
-      // Check if movement is complete
-      if (state.pixelsMoved >= TILE_PIXELS) {
-        state.isMoving = false;
-        state.pixelsMoved = 0;
-        
-        // Update logical tile position
-        if (state.dir === 'up') state.tileY--;
-        else if (state.dir === 'down') state.tileY++;
-        else if (state.dir === 'left') state.tileX--;
-        else if (state.dir === 'right') state.tileX++;
-        
-        // Snap to grid (correction for any float drift, though using ints here)
-        state.x = state.tileX * TILE_PIXELS;
-        state.y = state.tileY * TILE_PIXELS - 16;
-      }
-      
-      // Update animation frame every 150ms
-      if (timestamp - state.lastFrameTime > 150) {
-        state.frameIndex = (state.frameIndex + 1) % 2;
-        state.lastFrameTime = timestamp;
-      }
-    } else {
-      // Check for new input
-      let dx = 0;
-      let dy = 0;
-      let newDir = state.dir;
-      let attemptMove = false;
-
-      if (keysPressed.current['ArrowUp']) {
-        dy = -1;
-        newDir = 'up';
-        attemptMove = true;
-      } else if (keysPressed.current['ArrowDown']) {
-        dy = 1;
-        newDir = 'down';
-        attemptMove = true;
-      } else if (keysPressed.current['ArrowLeft']) {
-        dx = -1;
-        newDir = 'left';
-        attemptMove = true;
-      } else if (keysPressed.current['ArrowRight']) {
-        dx = 1;
-        newDir = 'right';
-        attemptMove = true;
-      }
-
-      if (attemptMove) {
-        state.dir = newDir;
-        
-        // Check boundaries
-        const targetTileX = state.tileX + dx;
-        const targetTileY = state.tileY + dy;
-        
-        if (targetTileX >= 0 && targetTileX < mapData.width &&
-            targetTileY >= 0 && targetTileY < mapData.height) {
-          state.isMoving = true;
-          state.pixelsMoved = 0;
-        }
-      } else {
-        state.frameIndex = 0; // Idle
-      }
-    }
-  };
 
   const copyTile = (
     src: Uint8Array, srcX: number, srcY: number, srcStride: number,
@@ -455,40 +307,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     canvasCtx.putImageData(imageData, 0, 0);
 
     // Render Player Sprite
-    if (playerSpriteRef.current) {
-      const sprite = playerSpriteRef.current;
-      const state = playerState.current;
-      const spriteW = 16;
-      const spriteH = 32;
-      
-      let srcIndex = 0;
-      let flip = false;
-
-      if (!state.isMoving) {
-        if (state.dir === 'down') srcIndex = 0;
-        else if (state.dir === 'up') srcIndex = 1;
-        else if (state.dir === 'left') srcIndex = 2;
-        else if (state.dir === 'right') { srcIndex = 2; flip = true; }
-      } else {
-        const offset = state.frameIndex; // 0 or 1
-        if (state.dir === 'down') srcIndex = 3 + offset;
-        else if (state.dir === 'up') srcIndex = 5 + offset;
-        else if (state.dir === 'left') srcIndex = 7 + offset;
-        else if (state.dir === 'right') { srcIndex = 7 + offset; flip = true; }
-      }
-
-      const srcX = srcIndex * spriteW;
-      const srcY = 0;
-
-      canvasCtx.save();
-      if (flip) {
-        canvasCtx.translate(state.x + spriteW, state.y);
-        canvasCtx.scale(-1, 1);
-        canvasCtx.drawImage(sprite, srcX, srcY, spriteW, spriteH, 0, 0, spriteW, spriteH);
-      } else {
-        canvasCtx.drawImage(sprite, srcX, srcY, spriteW, spriteH, state.x, state.y, spriteW, spriteH);
-      }
-      canvasCtx.restore();
+    if (playerControllerRef.current) {
+        playerControllerRef.current.render(canvasCtx);
     }
   };
 
