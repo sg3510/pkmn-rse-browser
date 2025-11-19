@@ -1,4 +1,11 @@
-import type { MapData } from '../utils/mapLoader';
+import type { MapData, MetatileAttributes } from '../utils/mapLoader';
+import { getCollisionFromMapTile, getMetatileIdFromMapTile, isCollisionPassable } from '../utils/mapLoader';
+
+interface RenderContext {
+  mapData: MapData;
+  primaryAttributes: MetatileAttributes[];
+  secondaryAttributes: MetatileAttributes[];
+}
 
 export class PlayerController {
   public x: number = 0;
@@ -9,12 +16,13 @@ export class PlayerController {
   public isMoving: boolean = false;
   
   private pixelsMoved: number = 0;
-  private frameIndex: number = 0;
-  private lastFrameTime: number = 0;
   private sprite: HTMLCanvasElement | null = null;
   private keysPressed: { [key: string]: boolean } = {};
+  private walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
   
-  private readonly MOVE_SPEED = 0.5;
+  // Speed in pixels per millisecond
+  // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
+  private readonly MOVE_SPEED = 0.03; 
   private readonly TILE_PIXELS = 16;
 
   constructor() {
@@ -76,20 +84,60 @@ export class PlayerController {
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
   }
 
-  public update(timestamp: number, mapData: MapData) {
-    if (this.isMoving) {
-      // Continue movement
-      this.pixelsMoved += this.MOVE_SPEED;
-      
-      if (this.dir === 'up') this.y -= this.MOVE_SPEED;
-      else if (this.dir === 'down') this.y += this.MOVE_SPEED;
-      else if (this.dir === 'left') this.x -= this.MOVE_SPEED;
-      else if (this.dir === 'right') this.x += this.MOVE_SPEED;
+  private isCollisionAt(tileX: number, tileY: number, ctx: RenderContext): boolean {
+    const { mapData, primaryAttributes, secondaryAttributes } = ctx;
+    
+    // Check bounds
+    if (tileX < 0 || tileX >= mapData.width || tileY < 0 || tileY >= mapData.height) {
+      return true; // Out of bounds = collision
+    }
+    
+    // Get map tile data
+    const mapTile = mapData.layout[tileY * mapData.width + tileX];
+    
+    // Check collision bits from map.bin (bits 10-11)
+    const collision = getCollisionFromMapTile(mapTile);
+    if (!isCollisionPassable(collision)) {
+      return true; // Collision bit set
+    }
+    
+    // Get metatile ID and check behavior
+    const metatileId = getMetatileIdFromMapTile(mapTile);
+    const isSecondary = metatileId >= 512;
+    const attributes = isSecondary 
+      ? secondaryAttributes[metatileId - 512]
+      : primaryAttributes[metatileId];
+    
+    if (!attributes) {
+      return false; // No attributes = passable
+    }
+    
+    // Check behavior (MB_* constants)
+    // MB_SECRET_BASE_WALL = 1 is impassable
+    // Water tiles (16-20, etc.) are impassable without surf
+    const behavior = attributes.behavior;
+    
+    // Impassable behaviors
+    if (behavior === 1) return true; // MB_SECRET_BASE_WALL
+    if (behavior >= 16 && behavior <= 32) return true; // Water tiles
+    if (behavior >= 48 && behavior <= 55) return true; // Directionally impassable
+    
+    return false; // Passable
+  }
 
-      // Check if movement is complete
+  public update(delta: number, ctx: RenderContext) {
+    if (this.isMoving) {
+      // Continue movement based on time delta
+      const moveAmount = this.MOVE_SPEED * delta;
+      this.pixelsMoved += moveAmount;
+      
+      // Check if movement is complete BEFORE applying movement
       if (this.pixelsMoved >= this.TILE_PIXELS) {
         this.isMoving = false;
         this.pixelsMoved = 0;
+        
+        // Alternate walk frame for next tile
+        this.walkFrameAlternate = !this.walkFrameAlternate;
         
         // Update logical tile position
         if (this.dir === 'up') this.tileY--;
@@ -100,13 +148,26 @@ export class PlayerController {
         // Snap to grid
         this.x = this.tileX * this.TILE_PIXELS;
         this.y = this.tileY * this.TILE_PIXELS - 16;
+        
+        if ((window as any).DEBUG_PLAYER) {
+          console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
+        }
+      } else {
+        // Only apply movement if we haven't completed the tile
+        const oldX = this.x;
+        const oldY = this.y;
+        
+        if (this.dir === 'up') this.y -= moveAmount;
+        else if (this.dir === 'down') this.y += moveAmount;
+        else if (this.dir === 'left') this.x -= moveAmount;
+        else if (this.dir === 'right') this.x += moveAmount;
+        
+        if ((window as any).DEBUG_PLAYER) {
+          console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
+        }
       }
       
-      // Update animation frame every 150ms
-      if (timestamp - this.lastFrameTime > 150) {
-        this.frameIndex = (this.frameIndex + 1) % 2;
-        this.lastFrameTime = timestamp;
-      }
+      // Animation handled in render based on progress
     } else {
       // Check for new input
       let dx = 0;
@@ -135,17 +196,14 @@ export class PlayerController {
       if (attemptMove) {
         this.dir = newDir;
         
-        // Check boundaries
+        // Check collision at target tile
         const targetTileX = this.tileX + dx;
         const targetTileY = this.tileY + dy;
         
-        if (targetTileX >= 0 && targetTileX < mapData.width &&
-            targetTileY >= 0 && targetTileY < mapData.height) {
+        if (!this.isCollisionAt(targetTileX, targetTileY, ctx)) {
           this.isMoving = true;
           this.pixelsMoved = 0;
         }
-      } else {
-        this.frameIndex = 0; // Idle
       }
     }
   }
@@ -156,32 +214,56 @@ export class PlayerController {
     const spriteW = 16;
     const spriteH = 32;
     
+    // Round to whole pixels to prevent sub-pixel blur and ghosting
+    const renderX = Math.floor(this.x);
+    const renderY = Math.floor(this.y);
+    
+    if ((window as any).DEBUG_RENDER && this.isMoving) {
+      console.log(`[Render] x:${this.x.toFixed(2)} y:${this.y.toFixed(2)} -> renderX:${renderX} renderY:${renderY}`);
+    }
+    
     let srcIndex = 0;
     let flip = false;
 
     if (!this.isMoving) {
+      // Idle frames
       if (this.dir === 'down') srcIndex = 0;
       else if (this.dir === 'up') srcIndex = 1;
       else if (this.dir === 'left') srcIndex = 2;
       else if (this.dir === 'right') { srcIndex = 2; flip = true; }
     } else {
-      const offset = this.frameIndex; // 0 or 1
-      if (this.dir === 'down') srcIndex = 3 + offset;
-      else if (this.dir === 'up') srcIndex = 5 + offset;
-      else if (this.dir === 'left') srcIndex = 7 + offset;
-      else if (this.dir === 'right') { srcIndex = 7 + offset; flip = true; }
+      // Walking animation: show walk frame in first half, idle in second half of tile
+      const progress = this.pixelsMoved / this.TILE_PIXELS;
+      if (progress < 0.5) {
+        // First half: walking frame (alternates between frame 1 and 2 each tile)
+        const walkOffset = this.walkFrameAlternate ? 1 : 0;
+        if (this.dir === 'down') srcIndex = 3 + walkOffset;
+        else if (this.dir === 'up') srcIndex = 5 + walkOffset;
+        else if (this.dir === 'left') srcIndex = 7 + walkOffset;
+        else if (this.dir === 'right') { srcIndex = 7 + walkOffset; flip = true; }
+      } else {
+        // Second half: idle frame
+        if (this.dir === 'down') srcIndex = 0;
+        else if (this.dir === 'up') srcIndex = 1;
+        else if (this.dir === 'left') srcIndex = 2;
+        else if (this.dir === 'right') { srcIndex = 2; flip = true; }
+      }
     }
 
     const srcX = srcIndex * spriteW;
     const srcY = 0;
 
+    // Disable image smoothing to prevent ghosting on pixel art
+    ctx.imageSmoothingEnabled = false;
+    
     ctx.save();
     if (flip) {
-      ctx.translate(this.x + spriteW, this.y);
+      // Use whole pixel translation for flipped sprites
+      ctx.translate(renderX + spriteW, renderY);
       ctx.scale(-1, 1);
       ctx.drawImage(this.sprite, srcX, srcY, spriteW, spriteH, 0, 0, spriteW, spriteH);
     } else {
-      ctx.drawImage(this.sprite, srcX, srcY, spriteW, spriteH, this.x, this.y, spriteW, spriteH);
+      ctx.drawImage(this.sprite, srcX, srcY, spriteW, spriteH, renderX, renderY, spriteW, spriteH);
     }
     ctx.restore();
   }

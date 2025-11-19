@@ -11,10 +11,15 @@ export interface Tile {
   palette: number;
 }
 
+export interface MetatileAttributes {
+  behavior: number; // MB_* constants (bits 0-7)
+  layerType: number; // bits 12-15
+}
+
 export interface Metatile {
   id: number;
   tiles: Tile[]; // 8 tiles
-  // We could add attributes here later
+  attributes?: MetatileAttributes;
 }
 
 export interface MapData {
@@ -113,6 +118,22 @@ export async function loadMetatileDefinitions(url: string): Promise<Metatile[]> 
   return metatiles;
 }
 
+export async function loadMetatileAttributes(url: string): Promise<MetatileAttributes[]> {
+  const buffer = await loadBinary(url);
+  const view = new DataView(buffer);
+  const attributes: MetatileAttributes[] = [];
+  const numMetatiles = view.byteLength / 2; // 2 bytes per metatile
+
+  for (let i = 0; i < numMetatiles; i++) {
+    const raw = view.getUint16(i * 2, true); // Little Endian
+    attributes.push({
+      behavior: raw & 0xFF,        // bits 0-7
+      layerType: (raw >> 12) & 0xF // bits 12-15
+    });
+  }
+  return attributes;
+}
+
 export async function loadMapLayout(url: string, width: number, height: number): Promise<MapData> {
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
@@ -123,4 +144,25 @@ export async function loadMapLayout(url: string, width: number, height: number):
   }
   return { width, height, layout };
 }
+
+// Collision bits from map.bin (bits 10-11)
+export function getCollisionFromMapTile(mapTile: number): number {
+  return (mapTile >> 10) & 0x3;
+}
+
+// Metatile ID from map.bin (bits 0-9)
+export function getMetatileIdFromMapTile(mapTile: number): number {
+  return mapTile & 0x3FF;
+}
+
+// Check if a tile is passable based on collision bits
+// In pokeemerald: 0 = passable, 1-3 = impassable
+export function isCollisionPassable(collision: number): boolean {
+  return collision === 0;
+}
+
+// Metatile layer type constants (from pokeemerald)
+export const METATILE_LAYER_TYPE_NORMAL = 0;  // Top layer covers player
+export const METATILE_LAYER_TYPE_COVERED = 1; // Both layers behind player
+export const METATILE_LAYER_TYPE_SPLIT = 2;   // Special rendering
 
