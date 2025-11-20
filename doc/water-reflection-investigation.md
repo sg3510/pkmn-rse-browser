@@ -78,6 +78,13 @@ This outlines how Emerald renders character/NPC reflections on water/ice and wha
 
 This logic gives us the Route 117 pond reflection (and other reflective surfaces) without relying on hardcoded tile IDs.***
 
+## Route 120 “mud vs. puddle” debug notes
+- Route 120 uses the Fortree secondary tileset. Metatiles like 657, 628–629, 636–637, 208–210 are tagged as `MB_PUDDLE` (behavior 22) with fully/mostly transparent BG1. Our dumps show these exact IDs under the player when reflection appears on brown “mud” tiles: reflection mask reports 288–492 pixels coming from those metatiles.
+- Because behavior 22 is in `MetatileBehavior_IsReflective`, reflection will always trigger there regardless of how the art looks. BG1 transparency then lets the full reflection show.
+- True mud logic is separate: `MB_MUDDY_SLOPE` (`MetatileBehavior_IsMuddySlope` and `Task_MuddySlope` in `field_tasks.c`) drives the muddy-footstep animation and is **not** reflective. Reflection code never checks mud behaviors.
+- Likely mismatch: either the wrong secondary tileset/palette is bound to Route 120 (making puddle art look like dirt), or the extracted Fortree `metatile_attributes.bin` genuinely labels these brown tiles as puddles. If the behavior should be non-reflective, those metatile behaviors must change away from 22; otherwise the engine (and our renderer) will keep reflecting there.
+- Puddle ground effects in C: `GetGroundEffectFlags_Puddle` only checks `MetatileBehavior_IsPuddle` (behavior 22) on current/previous tiles and spawns `FLDEFF_SPLASH` (`GroundEffect_StepOnPuddle` in `field_effect_helpers.c`) with the puddle SFX. There is no palette/color gate—behavior alone drives splash + reflection. Masking is purely BG1 transparency; nothing restricts puddles to “blue” pixels. Muddy slopes (`MB_MUDDY_SLOPE`) are animated separately via `Task_MuddySlope` and do not interact with reflection.
+
 ___
 old doc:
 # Water Reflection Implementation in pokeemerald
