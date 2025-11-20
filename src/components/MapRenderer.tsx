@@ -108,14 +108,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
-  const animatedBackgroundImageDataRef = useRef<ImageData | null>(null);
-  const animatedTopImageDataRef = useRef<ImageData | null>(null);
   const staticLayersDirtyRef = useRef<boolean>(false);
-  const animatedLayersDirtyRef = useRef<boolean>(false);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animatedBackgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animatedTopCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const animatedBottomDrawCallsRef = useRef<TileDrawCall[]>([]);
   const animatedTopDrawCallsRef = useRef<TileDrawCall[]>([]);
@@ -241,31 +236,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     if (!topCanvasRef.current) {
       topCanvasRef.current = document.createElement('canvas');
     }
-    if (!animatedBackgroundCanvasRef.current) {
-      animatedBackgroundCanvasRef.current = document.createElement('canvas');
-    }
-    if (!animatedTopCanvasRef.current) {
-      animatedTopCanvasRef.current = document.createElement('canvas');
-    }
-    if (
-      backgroundCanvasRef.current &&
-      topCanvasRef.current &&
-      animatedBackgroundCanvasRef.current &&
-      animatedTopCanvasRef.current
-    ) {
+    if (backgroundCanvasRef.current && topCanvasRef.current) {
       const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
       if (sizeChanged) {
         backgroundCanvasRef.current.width = widthPx;
         backgroundCanvasRef.current.height = heightPx;
         topCanvasRef.current.width = widthPx;
         topCanvasRef.current.height = heightPx;
-        animatedBackgroundCanvasRef.current.width = widthPx;
-        animatedBackgroundCanvasRef.current.height = heightPx;
-        animatedTopCanvasRef.current.width = widthPx;
-        animatedTopCanvasRef.current.height = heightPx;
         canvasSizeRef.current = { w: widthPx, h: heightPx };
         staticLayersDirtyRef.current = true;
-        animatedLayersDirtyRef.current = true;
       }
     }
   };
@@ -465,6 +444,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   xflip: tile.xflip,
                   yflip: tile.yflip,
                   source: tileSource,
+                  layer: layer as 0 | 1,
                 },
                 tiles.primary,
                 tiles.secondary
@@ -556,29 +536,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     animatedTopDrawCallsRef.current = top;
   };
 
-  const renderAnimatedLayer = (
-    drawCalls: TileDrawCall[],
-    tiles: TilesetBuffers,
-    widthPx: number,
-    heightPx: number,
-    pass: 'background' | 'top'
-  ) => {
-    const imageData = new ImageData(widthPx, heightPx);
-    const drawInOrder = (layer: 0 | 1) => {
-      for (const call of drawCalls) {
-        if (call.layer !== layer) continue;
-        drawTileToImageData(imageData, call, tiles.primary, tiles.secondary);
-      }
-    };
-    if (pass === 'background') {
-      drawInOrder(0);
-      drawInOrder(1);
-    } else {
-      drawInOrder(1);
-    }
-    return imageData;
-  };
-
   const compositeScene = useCallback(
     (animKey: string, patchedTiles: TilesetBuffers, animationFrameChanged: boolean) => {
       const ctx = renderContextRef.current;
@@ -594,9 +551,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
       const bgCtx = backgroundCanvasRef.current?.getContext('2d');
       const topCtx = topCanvasRef.current?.getContext('2d');
-      const animBgCtx = animatedBackgroundCanvasRef.current?.getContext('2d');
-      const animTopCtx = animatedTopCanvasRef.current?.getContext('2d');
-      if (!bgCtx || !topCtx || !animBgCtx || !animTopCtx) return;
+      if (!bgCtx || !topCtx) return;
 
       if (!backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged) {
         backgroundImageDataRef.current = renderPass(
@@ -614,11 +569,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           false
         );
         staticLayersDirtyRef.current = true;
-        animatedBackgroundImageDataRef.current = null;
-        animatedTopImageDataRef.current = null;
-        animatedLayersDirtyRef.current = false;
-        animBgCtx.clearRect(0, 0, widthPx, heightPx);
-        animTopCtx.clearRect(0, 0, widthPx, heightPx);
       }
 
       if (staticLayersDirtyRef.current) {
@@ -631,9 +581,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       if (backgroundCanvasRef.current) {
         mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
       }
-      if (animatedBackgroundCanvasRef.current) {
-        mainCtx.drawImage(animatedBackgroundCanvasRef.current, 0, 0);
-      }
 
       if (playerControllerRef.current) {
         playerControllerRef.current.render(mainCtx);
@@ -641,9 +588,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
       if (topCanvasRef.current) {
         mainCtx.drawImage(topCanvasRef.current, 0, 0);
-      }
-      if (animatedTopCanvasRef.current) {
-        mainCtx.drawImage(animatedTopCanvasRef.current, 0, 0);
       }
 
       if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
@@ -666,13 +610,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         setError(null);
         backgroundImageDataRef.current = null;
         topImageDataRef.current = null;
-        animatedBackgroundImageDataRef.current = null;
-        animatedTopImageDataRef.current = null;
         animatedBottomDrawCallsRef.current = [];
         animatedTopDrawCallsRef.current = [];
         patchedTilesRef.current = null;
         staticLayersDirtyRef.current = false;
-        animatedLayersDirtyRef.current = false;
         lastPatchedKeyRef.current = '';
         lastAnimStateKeyRef.current = '';
         animationsRef.current = [];
@@ -728,7 +669,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           secondaryAttributes,
         };
         staticLayersDirtyRef.current = true;
-        animatedLayersDirtyRef.current = true;
         buildAnimatedDrawCalls(renderContextRef.current);
         setLoading(false);
 
