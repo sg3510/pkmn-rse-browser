@@ -5,11 +5,11 @@ This outlines how Emerald renders character/NPC reflections on water/ice and wha
   - `GetGroundEffectFlags_Reflection` sets `GROUND_EFFECT_FLAG_WATER_REFLECTION` or `GROUND_EFFECT_FLAG_ICE_REFLECTION` when the object steps onto a reflective metatile.
   - Reflective detection uses `ObjectEventGetNearbyReflectionType` → `GetReflectionTypeByMetatileBehavior` → `MetatileBehavior_IsReflective`.
   - Reflective metatile behaviors: `MB_POND_WATER`, `MB_PUDDLE`, `MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2`, `MB_ICE`, `MB_SOOTOPOLIS_DEEP_WATER`, `MB_REFLECTION_UNDER_BRIDGE` (`public/pokeemerald/src/metatile_behavior.c`).
-  - The scan searches a rectangle under the sprite: width = ceil((sprite.width + 8)/16) tiles, height = ceil((sprite.height + 8)/16), offset 1 tile downward from the anchor. Both current and previous coords are checked to keep reflections when moving.
+  - The scan searches a rectangle under the sprite: width = `(sprite.width + 8) >> 4` tiles, height = `(sprite.height + 8) >> 4`, offset 1 tile downward from the anchor. Both current and previous coords are checked to keep reflections when moving. (16x32 player → 1×2 tiles.)
 - Reflection sprite rendering: `public/pokeemerald/src/field_effect_helpers.c`
-  - `SetUpReflection` creates a copy sprite with inverted Y (OAM vflip), same tiles as the source, palette remapped via `gReflectionEffectPaletteMap`, priority 3 (so it sits above background but under player/NPC top layer).
+  - `SetUpReflection` creates a copy sprite with inverted Y (OAM vflip), same tiles as the source, palette remapped via `gReflectionEffectPaletteMap`, priority 3 (so it sits above the base BG layers but under the top layer).
   - `UpdateObjectReflectionSprite` keeps the reflection in sync each frame: mirrors matrix (hflip-aware), copies shape/size/subsprites/tileNum, positions it at `(main.x, main.y + heightOffset + bridgeOffset)` and sets `y2 = -main.y2` so bobbing is mirrored. Hidden if `hasReflection` is cleared.
-  - Palette choice: `LoadObjectRegularReflectionPalette` uses a reflectionPaletteTag from graphics info (player/NPC specific) and blends with weather. Bridges use a darker palette via `LoadObjectHighBridgeReflectionPalette` when `MB_REFLECTION_UNDER_BRIDGE` or bridge types hit.
+  - Palette choice: `LoadObjectRegularReflectionPalette` uses a reflectionPaletteTag from graphics info (player/NPC specific) and blends with weather. Bridges use a darker palette via `LoadObjectHighBridgeReflectionPalette` when `MetatileBehavior_GetBridgeType` finds an active bridge in the current/previous metatile; the reflective detection itself is still driven by `MB_REFLECTION_UNDER_BRIDGE` in the scan list.
   - Vertical offsets: base offset = sprite height - 2; bridges add `[12,28,44]` depending on bridge height (`MetatileBehavior_GetBridgeType` keyed off current/previous metatile).
   - Wavy distortion: Two hidden `FLDEFFOBJ_REFLECTION_DISTORTION` sprites are spawned at startup. They run affine animations (`sAffineAnims_ReflectionDistortion`) that cycle the X-scale of affine matrices 0 and 1.
     - **Animation**: The X-scale pulses by roughly 1.5% (adds `4/256` to scale over 4 frames, waits 8 frames, subtracts `4/256` over 4 frames).
@@ -23,13 +23,19 @@ This outlines how Emerald renders character/NPC reflections on water/ice and wha
   - Ice: Shoal Cave ice.
   - Sootopolis deep water (and the unused variant).
   - Under-bridge reflection tiles (Route 120 bridge over water).
-- Determining metatiles: `metatile_attributes.bin` plus `metatile_behaviors.h` mapping; behaviors are encoded in the lower byte of attributes. The behavior applies to the whole 16×16 metatile; there is no per-8×8 clipping. Mixed land/water metatiles still count as reflective for the entire tile if they carry a reflective behavior.
+- Determining metatiles: `metatile_attributes.bin` plus `metatile_behaviors.h` mapping; behaviors are encoded in the lower byte of attributes. The behavior applies to the whole 16×16 metatile. Visibility/clipping is pixel-level via BG1 transparency: any opaque BG1 pixels in the metatile art hide the reflection even if the behavior is reflective (puddle rings, shoreline edges, bridge planks, etc.).
 
 ## Layering considerations
 - Reflections are separate sprites (not tile animations). They render under the main sprite but above most background; priority 3 in OAM matches NPC sprite priority rules.
 - Shadows are suppressed on reflective surfaces (`FieldEffectStop` check in `UpdateShadowFieldEffect`), so reflection replaces shadow.
 - Reflection respects sprite invisibility/hiding and stops when `hasReflection` toggles off.
 - Water surfaces themselves can animate independently: ripples (`GroundEffect_Ripple`, `FLDEFF_RIPPLE`) are spawned when stepping into ripple-enabled water/puddles (`MetatileBehavior_HasRipples`), and shallow flowing water has its own ground effect (`GroundEffect_FlowingWater`). These are separate sprites layered with priority from the triggering sprite and don’t alter the reflection logic, but they add “shiver” motion to water tiles. Combined with the reflection’s subtle affine wobble, still water appears gently flowy (e.g., Route 104/117 ponds).
+
+## Masking and "what part of the tile reflects"
+- The entire mirrored sprite exists; masking is purely by BG layering. BG1 (top layer) pixels sit in front of the reflection (priority 3 sprite), so any non-transparent pixel in the BG1 tiles of the metatile hides the reflection. The water/blue area shows it because the BG1 pixel there is transparent.
+- Puddles: the brown ring lives on BG1 with opaque pixels; only the blue hole (transparent in BG1, colored in BG2/BG3) lets the reflection through. Shorelines and Route 104 animated bridge water work the same way—clipping matches the exact pixel edge of the land art, not 8×8 quadrants.
+- Route 120 bridges: the water under the bridge uses `MB_REFLECTION_UNDER_BRIDGE` (so it counts as reflective), while the bridge tiles themselves drive the palette/offset via `MetatileBehavior_GetBridgeType`. You only see the reflection through the transparent slats/gaps of the bridge art on BG1; if the plank art is opaque across the full tile, no reflection shows.
+- Surfing routes: `MB_OCEAN_WATER`/currents aren’t reflective, so open sea doesn’t mirror the player; calm pond/deep/puddle/ice/under-bridge tiles do.
 
 ## What we need in the browser
 1) Detect reflective tiles:
@@ -53,21 +59,21 @@ This outlines how Emerald renders character/NPC reflections on water/ice and wha
 - Optional palette specifics: `gReflectionEffectPaletteMap` and object palettes in `public/pokeemerald/src/event_object_movement.c` / graphics info tables.
 
 ## Implementation sketch (React)
-- Precompute a set of reflective metatile IDs by reading metatile attributes (behavior byte) and matching reflective behaviors.
+- Precompute a set of reflective metatile IDs by reading metatile attributes (behavior byte) and matching reflective behaviors. Also precompute a per-metatile BG1 transparency mask from tiles 4-7 so the reflection can be clipped to the exact holes left in BG1 (puddle rings, bridge planks, shore edges).
 - On each player/NPC update, determine `hasReflection` by scanning underneath using the width/height heuristic and the 1-tile downward offset.
 - If reflective, render a vflipped copy of the current sprite:
   - Use the same frame/tile sheet already loaded; apply a simple palette transform (e.g., darken + slight alpha) to approximate GBA reflection palettes (`gReflectionEffectPaletteMap` uses dedicated darker palettes).
   - Position at `y + spriteHeight - 2 (+ bridgeOffset)` and negate bobbing offset.
-  - Draw in the same pass as the player sprite, but behind the player and above animated background.
+  - Draw in the same pass as the player sprite, but behind the player and above animated background. Apply the BG1-derived mask so only transparent BG1 pixels reveal the reflection.
 - Remove reflection when `hasReflection` is false or sprite hidden.
 
 ## On-map-load plan (browser)
 1) Parse metatile behaviors for both tilesets; build `reflectiveMetatileIds` by testing behaviors against the reflective set.
 2) At map load, optionally flag whether any reflective tiles exist to enable/disable reflection logic early.
 3) Each frame, when updating sprites:
-   - Compute reflection type and presence by scanning the rectangle under the sprite (width = ceil((sprite.w + 8)/16), height = ceil((sprite.h + 8)/16), offset +1 tile down; current + previous coords).
+   - Compute reflection type and presence by scanning the rectangle under the sprite (width = `(sprite.w + 8) >> 4`, height = `(sprite.h + 8) >> 4`, offset +1 tile down; current + previous coords).
    - If reflective, render the mirrored sprite with palette dampening and apply a small periodic scale wobble (approx ±1–2% at ~1–2 Hz) to mimic `FLDEFFOBJ_REFLECTION_DISTORTION`; Y-offset = spriteHeight - 2 plus bridge offset when the underlying behavior is `MB_REFLECTION_UNDER_BRIDGE`/bridge tiles.
-   - Layer it: after background/animated tiles, before the player/NPC draw, and below top tiles (NORMAL/SPLIT). Suppress shadows while reflection is visible.
+   - Layer it: after background/animated tiles, before the player/NPC draw, and below top tiles (NORMAL/SPLIT). Suppress shadows while reflection is visible. Clip the reflection with the BG1 transparency mask instead of a coarse subtile mask.
    - Hide immediately when leaving reflective surfaces or when the sprite is invisible.
 
 This logic gives us the Route 117 pond reflection (and other reflective surfaces) without relying on hardcoded tile IDs.***
