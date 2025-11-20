@@ -91,7 +91,7 @@ type ReflectionType = 'water' | 'ice';
 interface ReflectionMeta {
   isReflective: boolean;
   reflectionType: ReflectionType | null;
-  quadrantMask: [boolean, boolean, boolean, boolean]; // top-left, top-right, bottom-left, bottom-right
+  pixelMask: Uint8Array; // 16x16 mask where 1 = BG1 transparent (reflection allowed), 0 = opaque
 }
 
 interface TilesetBuffers {
@@ -112,9 +112,56 @@ interface ReflectionState {
   bridgeType: BridgeType;
 }
 
+const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
+
+function buildTileTransparencyLUT(tiles: Uint8Array): Uint8Array[] {
+  const tileCount = Math.floor(tiles.length / (TILE_SIZE * TILE_SIZE));
+  const lut: Uint8Array[] = new Array(tileCount);
+  for (let tileId = 0; tileId < tileCount; tileId++) {
+    const tileX = (tileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
+    const tileY = Math.floor(tileId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
+    const mask = new Uint8Array(TILE_SIZE * TILE_SIZE);
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const pixel = tiles[(tileY + y) * TILESET_STRIDE + (tileX + x)];
+        mask[y * TILE_SIZE + x] = pixel === 0 ? 1 : 0; // 1 = transparent (palette index 0)
+      }
+    }
+    lut[tileId] = mask;
+  }
+  return lut;
+}
+
+function applyTileMaskToMetatile(
+  destMask: Uint8Array,
+  tileMask: Uint8Array | undefined,
+  tileIndex: number,
+  xflip: boolean,
+  yflip: boolean
+) {
+  if (!tileMask) return;
+  const localIndex = tileIndex - 4; // 0..3 within top layer
+  const baseX = (localIndex % 2) * TILE_SIZE;
+  const baseY = Math.floor(localIndex / 2) * TILE_SIZE;
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const srcX = xflip ? TILE_SIZE - 1 - x : x;
+      const srcY = yflip ? TILE_SIZE - 1 - y : y;
+      const allow = tileMask[srcY * TILE_SIZE + srcX];
+      if (allow === 0) {
+        const destX = baseX + x;
+        const destY = baseY + y;
+        destMask[destY * METATILE_SIZE + destX] = 0;
+      }
+    }
+  }
+}
+
 function buildReflectionMeta(
   metatiles: Metatile[],
-  attributes: MetatileAttributes[]
+  attributes: MetatileAttributes[],
+  primaryTileMasks: Uint8Array[],
+  secondaryTileMasks: Uint8Array[]
 ): ReflectionMeta[] {
   return metatiles.map((metatile, index) => {
     const attr = attributes[index];
@@ -125,14 +172,24 @@ function buildReflectionMeta(
         ? 'ice'
         : 'water'
       : null;
-    const top = metatile.tiles.slice(4, 8);
-    const quadrantMask: [boolean, boolean, boolean, boolean] = [
-      top[0]?.tileId === 0,
-      top[1]?.tileId === 0,
-      top[2]?.tileId === 0,
-      top[3]?.tileId === 0,
-    ];
-    return { isReflective, reflectionType, quadrantMask };
+    const pixelMask = new Uint8Array(METATILE_SIZE * METATILE_SIZE);
+    if (!isReflective) {
+      return { isReflective, reflectionType, pixelMask };
+    }
+
+    pixelMask.fill(1); // start fully transparent; opaque BG1 pixels will zero it out
+    for (let i = 4; i < 8; i++) {
+      const tile = metatile.tiles[i];
+      if (!tile) continue;
+      const tileId = tile.tileId;
+      const useSecondary = tileId >= SECONDARY_TILE_OFFSET;
+      const lut = useSecondary
+        ? secondaryTileMasks[tileId - SECONDARY_TILE_OFFSET]
+        : primaryTileMasks[tileId];
+      applyTileMaskToMetatile(pixelMask, lut, i, tile.xflip, tile.yflip);
+    }
+
+    return { isReflective, reflectionType, pixelMask };
   });
 }
 
@@ -182,8 +239,8 @@ function computeReflectionState(
   }
 
   const { width, height } = player.getSpriteSize();
-  const widthTiles = Math.ceil((width + 8) / 16);
-  const heightTiles = Math.ceil((height + 8) / 16);
+  const widthTiles = (width + 8) >> 4;
+  const heightTiles = (height + 8) >> 4;
 
   const bases = [
     { x: player.tileX, y: player.tileY },
@@ -279,39 +336,35 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       maskCanvas.height = frame.sh;
       const maskCtx = maskCanvas.getContext('2d');
       if (!maskCtx) return;
-      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+      const maskData = maskImage.data;
 
       const startTileX = Math.floor(reflectionX / METATILE_SIZE);
       const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
       const startTileY = Math.floor(reflectionY / METATILE_SIZE);
       const endTileY = Math.floor((reflectionY + frame.sh - 1) / METATILE_SIZE);
-      const half = METATILE_SIZE / 2;
-
-      maskCtx.fillStyle = 'black';
       for (let ty = startTileY; ty <= endTileY; ty++) {
         for (let tx = startTileX; tx <= endTileX; tx++) {
           const info = getMetatileBehavior(ctx, tx, ty);
           if (!info?.meta?.isReflective) continue;
+          const mask = info.meta.pixelMask;
           const tileLeft = tx * METATILE_SIZE - reflectionX;
           const tileTop = ty * METATILE_SIZE - reflectionY;
-          const quads: Array<{ allow: boolean; x: number; y: number }> = [
-            { allow: info.meta.quadrantMask[0], x: tileLeft, y: tileTop },
-            { allow: info.meta.quadrantMask[1], x: tileLeft + half, y: tileTop },
-            { allow: info.meta.quadrantMask[2], x: tileLeft, y: tileTop + half },
-            { allow: info.meta.quadrantMask[3], x: tileLeft + half, y: tileTop + half },
-          ];
-          for (const quad of quads) {
-            if (!quad.allow) continue;
-            const rx = Math.max(quad.x, 0);
-            const ry = Math.max(quad.y, 0);
-            const rw = Math.min(half, frame.sw - rx);
-            const rh = Math.min(half, frame.sh - ry);
-            if (rw > 0 && rh > 0) {
-              maskCtx.fillRect(rx, ry, rw, rh);
+          for (let y = 0; y < METATILE_SIZE; y++) {
+            const globalY = tileTop + y;
+            if (globalY < 0 || globalY >= frame.sh) continue;
+            for (let x = 0; x < METATILE_SIZE; x++) {
+              const globalX = tileLeft + x;
+              if (globalX < 0 || globalX >= frame.sw) continue;
+              if (mask[y * METATILE_SIZE + x]) {
+                const index = (globalY * frame.sw + globalX) * 4 + 3;
+                maskData[index] = 255;
+              }
             }
           }
         }
       }
+      maskCtx.putImageData(maskImage, 0, 0);
 
       const reflectionCanvas = document.createElement('canvas');
       reflectionCanvas.width = frame.sw;
@@ -872,19 +925,35 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         playerControllerRef.current?.setPosition(startTileX, startTileY);
 
         const primaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${primaryTilesetPath}/metatiles.bin`);
+        const secondaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatiles.bin`);
+
         const primaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/tiles.png`);
+        const secondaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${secondaryTilesetPath}/tiles.png`);
+
+        const primaryTileMasks = buildTileTransparencyLUT(primaryTilesImage);
+        const secondaryTileMasks = buildTileTransparencyLUT(secondaryTilesImage);
+
         const primaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${primaryTilesetPath}/metatile_attributes.bin`);
-        const primaryReflectionMeta = buildReflectionMeta(primaryMetatiles, primaryAttributes);
+        const secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
+
+        const primaryReflectionMeta = buildReflectionMeta(
+          primaryMetatiles,
+          primaryAttributes,
+          primaryTileMasks,
+          secondaryTileMasks
+        );
         const primaryPalettes: Palette[] = [];
         for (let i = 0; i < 6; i++) {
           const text = await loadText(`${PROJECT_ROOT}/${primaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
           primaryPalettes.push(parsePalette(text));
         }
 
-        const secondaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatiles.bin`);
-        const secondaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${secondaryTilesetPath}/tiles.png`);
-        const secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
-        const secondaryReflectionMeta = buildReflectionMeta(secondaryMetatiles, secondaryAttributes);
+        const secondaryReflectionMeta = buildReflectionMeta(
+          secondaryMetatiles,
+          secondaryAttributes,
+          primaryTileMasks,
+          secondaryTileMasks
+        );
         const secondaryPalettes: Palette[] = [];
         for (let i = 6; i < 13; i++) {
           const text = await loadText(`${PROJECT_ROOT}/${secondaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
