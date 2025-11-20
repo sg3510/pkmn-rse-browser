@@ -151,31 +151,144 @@ The `metatile_attributes.bin` file (bits 12-15 of the attribute word) defines th
 
 ---
 
-## Implementation Guide for React
+## Programmatic Parsing Strategy
 
-To replicate this system in the browser:
+To implement this system "correctly" by reading the source files directly (instead of hardcoding values), you need to follow the dependency chain from the map layout to the raw image assets. Here is the step-by-step parsing logic:
 
-1.  **Map Loading**:
-    -   Read `layouts.json` to get the `primary_tileset` and `secondary_tileset` names.
-    -   Map these names to the corresponding animation logic (e.g., "gTileset_General" -> `TilesetAnim_General`).
+### 1. Entry Point: `layouts.json`
+*   **Source**: `public/pokeemerald/data/layouts/layouts.json`
+*   **Action**: Read the `primary_tileset` and `secondary_tileset` fields for your target map.
+*   **Example**: `"primary_tileset": "gTileset_General"`
 
-2.  **Animation Loop**:
-    -   Maintain a global `frameCounter` (or per-tileset counters).
-    -   Run an update function every ~16.7ms (60fps).
-    -   For each active tileset, check the intervals defined above.
+### 2. Tileset Definition: `headers.h`
+*   **Source**: `public/pokeemerald/src/data/tilesets/headers.h`
+*   **Action**: Search for the struct definition matching the tileset name found in step 1.
+*   **Extract**: The `.callback` function name.
+*   **Example**:
+    ```c
+    const struct Tileset gTileset_General =
+    {
+        ...
+        .callback = InitTilesetAnim_General,
+    };
+    ```
+    *Result: `InitTilesetAnim_General`*
 
-3.  **Rendering**:
-    -   **Do not** re-render the entire map.
-    -   Use a **Canvas Overlay** or **Texture Replacement** approach.
-    -   Identify the *screen coordinates* of the tiles that match the **Dest Tile IDs**.
-    -   Draw the current frame's pixel data over those tiles.
-    -   Respect Z-layering: If the tile is `SPLIT` or `NORMAL`, ensure the animation draws at the correct depth relative to the player.
+### 3. Initialization Logic: `tileset_anims.c`
+*   **Source**: `public/pokeemerald/src/tileset_anims.c`
+*   **Action**: Find the definition of the initialization function.
+*   **Extract**: The function assigned to `sPrimaryTilesetAnimCallback` (or `sSecondary...`).
+*   **Example**:
+    ```c
+    void InitTilesetAnim_General(void)
+    {
+        ...
+        sPrimaryTilesetAnimCallback = TilesetAnim_General;
+    }
+    ```
+    *Result: `TilesetAnim_General`*
 
-4.  **Data Handling**:
-    -   Load the `.4bpp` (or converted PNG) frame files.
-    -   Store them as textures/images.
-    -   Map the frame indices (0, 1, 2...) to these textures.
+### 4. Animation Loop & Timing
+*   **Source**: `public/pokeemerald/src/tileset_anims.c`
+*   **Action**: Parse the callback function found in step 3.
+*   **Logic**:
+    *   Look for `if (timer % INTERVAL == OFFSET)` blocks.
+    *   **Extract**:
+        *   `INTERVAL`: The modulo value (e.g., `16`).
+        *   `OFFSET`: The remainder check (e.g., `0`, `1`, etc.).
+        *   `FUNCTION`: The function called inside the block (e.g., `QueueAnimTiles_General_Flower`).
+*   **Example**:
+    ```c
+    static void TilesetAnim_General(u16 timer)
+    {
+        if (timer % 16 == 0)
+            QueueAnimTiles_General_Flower(timer / 16);
+        ...
+    }
+    ```
 
-5.  **Special Cases**:
-    -   **Phased Animations**: For Rustboro/Mauville/Ever Grande flowers, calculate the frame index based on the *tile position* or slot index to recreate the wave effect.
-    -   **Palette Blending**: For Battle Dome, you might need a shader or CSS filter to handle the color shifts, as this is not just tile swapping.
+### 5. Frame Data & VRAM Destination
+*   **Source**: `public/pokeemerald/src/tileset_anims.c`
+*   **Action**: Parse the `QueueAnimTiles_*` function.
+*   **Extract**:
+    *   **Frame Array**: The array being accessed (e.g., `gTilesetAnims_General_Flower`).
+    *   **Destination ID**: The argument to `TILE_OFFSET_4BPP(...)`.
+        *   *Note*: If it uses `NUM_TILES_IN_PRIMARY + X`, the ID is `512 + X`.
+    *   **Size**: The size argument (e.g., `4 * TILE_SIZE_4BPP` -> 4 tiles).
+*   **Example**:
+    ```c
+    static void QueueAnimTiles_General_Flower(u16 timer)
+    {
+        u16 i = timer % ARRAY_COUNT(gTilesetAnims_General_Flower);
+        AppendTilesetAnimToBuffer(gTilesetAnims_General_Flower[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(508)), 4 * TILE_SIZE_4BPP);
+    }
+    ```
+
+### 6. Frame File Paths
+*   **Source**: `public/pokeemerald/src/tileset_anims.c` (Global scope)
+*   **Action**: Look up the definition of the Frame Array found in step 5.
+*   **Extract**: The list of frame pointers (e.g., `gTilesetAnims_General_Flower_Frame0`).
+*   **Action**: Look up the definition of each frame pointer.
+*   **Extract**: The file path inside `INCBIN_U16("...")`.
+*   **Example**:
+    ```c
+    const u16 gTilesetAnims_General_Flower_Frame0[] = INCBIN_U16("data/tilesets/primary/general/anim/flower/0.4bpp");
+    ```
+    *Result: `data/tilesets/primary/general/anim/flower/0.4bpp`*
+
+### Summary of Extracted Data
+By following this chain, you can build a JSON structure for each tileset:
+
+```json
+{
+  "tilesetName": "gTileset_General",
+  "animations": [
+    {
+      "name": "Flower",
+      "interval": 16,
+      "destinationTileId": 508,
+      "numTiles": 4,
+      "frames": [
+        "data/tilesets/primary/general/anim/flower/0.4bpp",
+        "data/tilesets/primary/general/anim/flower/1.4bpp",
+        "data/tilesets/primary/general/anim/flower/0.4bpp",
+        "data/tilesets/primary/general/anim/flower/2.4bpp"
+      ]
+    }
+  ]
+}
+```
+
+### 7. Advanced Animation Patterns
+Some animations use logic beyond simple looping. Your parser should look for these patterns:
+
+#### A. Phase Shifting (Wave Effects)
+*   **Pattern**: The callback calls the queue function multiple times with different "slot" indices.
+*   **Code**:
+    ```c
+    // TilesetAnim_Rustboro
+    for (i = 0; i < 8; i++)
+        QueueAnimTiles_Rustboro_WindyWater(timer / 8, i);
+    ```
+*   **Logic**: Inside the queue function, the frame index is calculated as `(timer - slot) % COUNT`. This creates a wave effect where each tile is slightly behind the previous one.
+
+#### B. Intro + Loop Sequences
+*   **Pattern**: The queue function checks if the timer is below a threshold to play an "Intro" sequence, otherwise it plays a "Loop" sequence.
+*   **Code**:
+    ```c
+    // QueueAnimTiles_Mauville_Flowers
+    if (timer < 12)
+        Append(IntroArray[timer]);
+    else
+        Append(LoopArray[timer % LoopCount]);
+    ```
+*   **Handling**: You may need to extract *two* frame arrays (`gTilesetAnims_...` and `gTilesetAnims_..._B`) and the threshold logic.
+
+#### C. Palette Animations
+*   **Pattern**: Functions starting with `BlendAnimPalette_` instead of `QueueAnimTiles_`.
+*   **Action**: These do **not** update tile graphics. Instead, they update the palette RAM.
+*   **Code**:
+    ```c
+    CpuCopy16(PaletteArray[i], &gPlttBufferUnfaded[BG_PLTT_ID(8)], ...);
+    ```
+*   **Implementation**: In React, this requires updating the texture palette or using a fragment shader to shift colors for specific palette indices (e.g., Palette 8).

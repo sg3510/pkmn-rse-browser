@@ -68,6 +68,8 @@ function App() {
           layoutPath={selectedMap.layoutPath}
           primaryTilesetPath={selectedMap.primaryTilesetPath}
           secondaryTilesetPath={selectedMap.secondaryTilesetPath}
+          primaryTilesetId={selectedMap.primaryTilesetId}
+          secondaryTilesetId={selectedMap.secondaryTilesetId}
         />
       </div>
     </div>

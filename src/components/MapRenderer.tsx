@@ -21,81 +21,15 @@ import {
   METATILE_LAYER_TYPE_SPLIT,
   getMetatileIdFromMapTile,
 } from '../utils/mapLoader';
+import {
+  TILESET_ANIMATION_CONFIGS,
+  type TilesetAnimationDefinition,
+  type TilesetKind,
+} from '../data/tilesetAnimations';
 
 const PROJECT_ROOT = '/pokeemerald';
-
-const ANIMATED_TILE_IDS = new Set<number>([
-  // Water (30 tiles)
-  ...Array.from({ length: 30 }, (_, i) => 432 + i),
-  // Sand/water edges (10 tiles)
-  ...Array.from({ length: 10 }, (_, i) => 464 + i),
-  // Land/water edges (10 tiles)
-  ...Array.from({ length: 10 }, (_, i) => 480 + i),
-  // Waterfall (6 tiles)
-  ...Array.from({ length: 6 }, (_, i) => 496 + i),
-  // Flowers (4 tiles)
-  508, 509, 510, 511,
-]);
-
-const ANIM_INTERVAL_MS = (1000 / 60) * 16; // matches pokeemerald (16 frames @ 60fps)
-
-type AnimationId = 'flower' | 'water' | 'sandWaterEdge' | 'waterfall' | 'landWaterEdge';
-
-interface TilesetAnimationDef {
-  id: AnimationId;
-  folder: string;
-  destStart: number;
-  frameNames: string[];
-  sequence: number[];
-}
-
-interface LoadedAnimation {
-  id: AnimationId;
-  destStart: number;
-  frames: Uint8Array[];
-  tilesWide: number;
-  tilesHigh: number;
-  sequence: number[];
-  width: number;
-}
-
-const PRIMARY_GENERAL_ANIMATIONS: TilesetAnimationDef[] = [
-  {
-    id: 'flower',
-    folder: 'flower',
-    destStart: 508,
-    frameNames: ['0', '1', '2'],
-    sequence: [0, 1, 0, 2],
-  },
-  {
-    id: 'water',
-    folder: 'water',
-    destStart: 432,
-    frameNames: ['0', '1', '2', '3', '4', '5', '6', '7'],
-    sequence: [0, 1, 2, 3, 4, 5, 6, 7],
-  },
-  {
-    id: 'sandWaterEdge',
-    folder: 'sand_water_edge',
-    destStart: 464,
-    frameNames: ['0', '1', '2', '3', '4', '5', '6'],
-    sequence: [0, 1, 2, 3, 4, 5, 6, 0], // repeats first frame for 8th slot
-  },
-  {
-    id: 'landWaterEdge',
-    folder: 'land_water_edge',
-    destStart: 480,
-    frameNames: ['0', '1', '2', '3'],
-    sequence: [0, 1, 2, 3],
-  },
-  {
-    id: 'waterfall',
-    folder: 'waterfall',
-    destStart: 496,
-    frameNames: ['0', '1', '2', '3'],
-    sequence: [0, 1, 2, 3],
-  },
-];
+const FRAME_MS = 1000 / 60;
+const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
 
 interface MapRendererProps {
   mapName: string;
@@ -104,6 +38,8 @@ interface MapRendererProps {
   layoutPath: string;
   primaryTilesetPath: string;
   secondaryTilesetPath: string;
+  primaryTilesetId: string;
+  secondaryTilesetId: string;
 }
 
 interface RenderContext {
@@ -117,7 +53,22 @@ interface RenderContext {
   secondaryAttributes: MetatileAttributes[];
 }
 
-type AnimationState = Partial<Record<AnimationId, number>>;
+interface AnimationDestination {
+  destStart: number;
+  phase?: number;
+}
+
+interface LoadedAnimation extends Omit<TilesetAnimationDefinition, 'frames'> {
+  frames: Uint8Array[];
+  width: number;
+  height: number;
+  tilesWide: number;
+  tilesHigh: number;
+  destinations: AnimationDestination[];
+  sequence: number[];
+}
+
+type AnimationState = Record<string, number>;
 
 interface TileDrawCall {
   tileId: number;
@@ -126,7 +77,13 @@ interface TileDrawCall {
   palette: Palette;
   xflip: boolean;
   yflip: boolean;
-  source: 'primary' | 'secondary';
+  source: TilesetKind;
+  layer: 0 | 1;
+}
+
+interface TilesetBuffers {
+  primary: Uint8Array;
+  secondary: Uint8Array;
 }
 
 export const MapRenderer: React.FC<MapRendererProps> = ({
@@ -136,11 +93,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   layoutPath,
   primaryTilesetPath,
   secondaryTilesetPath,
+  primaryTilesetId,
+  secondaryTilesetId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
   const animRef = useRef<number>(0);
-  const patchedPrimaryTilesRef = useRef<Uint8Array | null>(null);
+  const patchedTilesRef = useRef<TilesetBuffers | null>(null);
   const hasRenderedRef = useRef<boolean>(false);
   const renderGenerationRef = useRef<number>(0);
   const animationsRef = useRef<LoadedAnimation[]>([]);
@@ -149,10 +108,21 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
+  const animatedBackgroundImageDataRef = useRef<ImageData | null>(null);
+  const animatedTopImageDataRef = useRef<ImageData | null>(null);
+  const staticLayersDirtyRef = useRef<boolean>(false);
+  const animatedLayersDirtyRef = useRef<boolean>(false);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animatedBackgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animatedTopCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const animatedBottomDrawCallsRef = useRef<TileDrawCall[]>([]);
   const animatedTopDrawCallsRef = useRef<TileDrawCall[]>([]);
+  const animatedTileIdsRef = useRef<{ primary: Set<number>; secondary: Set<number> }>({
+    primary: new Set(),
+    secondary: new Set(),
+  });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,49 +155,84 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     }
   };
 
-  const buildPatchedPrimaryTiles = useCallback((animationState: AnimationState): Uint8Array | null => {
-    const ctx = renderContextRef.current;
-    if (!ctx) return null;
+  const buildPatchedTiles = useCallback(
+    (animationState: AnimationState): TilesetBuffers | null => {
+      const ctx = renderContextRef.current;
+      if (!ctx) return null;
 
-    const animKey = animationsRef.current
-      .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
-      .join('|');
+      const animKey = animationsRef.current
+        .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
+        .join('|');
 
-    if (animKey === lastPatchedKeyRef.current && patchedPrimaryTilesRef.current) {
-      return patchedPrimaryTilesRef.current;
-    }
+      if (animKey === lastPatchedKeyRef.current && patchedTilesRef.current) {
+        return patchedTilesRef.current;
+      }
 
-    const patchedPrimaryTiles = new Uint8Array(ctx.primaryTilesImage);
-    for (const anim of animationsRef.current) {
-      const seqIndex = animationState[anim.id] ?? 0;
-      const frameIndex = anim.sequence[seqIndex % anim.sequence.length] ?? 0;
-      const frameData = anim.frames[frameIndex];
-      if (!frameData) continue;
+      let patchedPrimary = ctx.primaryTilesImage;
+      let patchedSecondary = ctx.secondaryTilesImage;
+      let primaryPatched = false;
+      let secondaryPatched = false;
 
-      let destId = anim.destStart;
-      for (let ty = 0; ty < anim.tilesHigh; ty++) {
-        for (let tx = 0; tx < anim.tilesWide; tx++) {
-          const sx = tx * TILE_SIZE;
-          const sy = ty * TILE_SIZE;
-          copyTile(
-            frameData,
-            sx,
-            sy,
-            anim.width,
-            patchedPrimaryTiles,
-            (destId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
-            Math.floor(destId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
-            128
-          );
-          destId++;
+      for (const anim of animationsRef.current) {
+        const rawCycle = animationState[anim.id] ?? 0;
+        const tilesetTarget = anim.tileset;
+        if (tilesetTarget === 'primary' && !primaryPatched) {
+          patchedPrimary = new Uint8Array(ctx.primaryTilesImage);
+          primaryPatched = true;
+        }
+        if (tilesetTarget === 'secondary' && !secondaryPatched) {
+          patchedSecondary = new Uint8Array(ctx.secondaryTilesImage);
+          secondaryPatched = true;
+        }
+
+        for (const destination of anim.destinations) {
+          const effectiveCycle = rawCycle + (destination.phase ?? 0);
+          const useAlt =
+            anim.altSequence !== undefined &&
+            anim.altSequenceThreshold !== undefined &&
+            effectiveCycle >= anim.altSequenceThreshold;
+          const seq = useAlt && anim.altSequence ? anim.altSequence : anim.sequence;
+          const seqIndexRaw = effectiveCycle % seq.length;
+          const seqIndex = seqIndexRaw < 0 ? seqIndexRaw + seq.length : seqIndexRaw;
+          const frameIndex = seq[seqIndex] ?? 0;
+          const frameData = anim.frames[frameIndex];
+          if (!frameData) continue;
+
+          let destId = destination.destStart;
+          for (let ty = 0; ty < anim.tilesHigh; ty++) {
+            for (let tx = 0; tx < anim.tilesWide; tx++) {
+              const sx = tx * TILE_SIZE;
+              const sy = ty * TILE_SIZE;
+              const targetBuffer = tilesetTarget === 'primary' ? patchedPrimary : patchedSecondary;
+              const adjustedDestId =
+                tilesetTarget === 'secondary' ? destId - SECONDARY_TILE_OFFSET : destId; // 512 offset removal
+              copyTile(
+                frameData,
+                sx,
+                sy,
+                anim.width,
+                targetBuffer,
+                (adjustedDestId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
+                Math.floor(adjustedDestId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
+                128
+              );
+              destId++;
+            }
+          }
         }
       }
-    }
 
-    lastPatchedKeyRef.current = animKey;
-    patchedPrimaryTilesRef.current = patchedPrimaryTiles;
-    return patchedPrimaryTiles;
-  }, []);
+      const patched: TilesetBuffers = {
+        primary: patchedPrimary,
+        secondary: patchedSecondary,
+      };
+
+      lastPatchedKeyRef.current = animKey;
+      patchedTilesRef.current = patched;
+      return patched;
+    },
+    []
+  );
 
   const ensureAuxiliaryCanvases = (widthPx: number, heightPx: number) => {
     if (!backgroundCanvasRef.current) {
@@ -236,11 +241,32 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     if (!topCanvasRef.current) {
       topCanvasRef.current = document.createElement('canvas');
     }
-    if (backgroundCanvasRef.current && topCanvasRef.current) {
-      backgroundCanvasRef.current.width = widthPx;
-      backgroundCanvasRef.current.height = heightPx;
-      topCanvasRef.current.width = widthPx;
-      topCanvasRef.current.height = heightPx;
+    if (!animatedBackgroundCanvasRef.current) {
+      animatedBackgroundCanvasRef.current = document.createElement('canvas');
+    }
+    if (!animatedTopCanvasRef.current) {
+      animatedTopCanvasRef.current = document.createElement('canvas');
+    }
+    if (
+      backgroundCanvasRef.current &&
+      topCanvasRef.current &&
+      animatedBackgroundCanvasRef.current &&
+      animatedTopCanvasRef.current
+    ) {
+      const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
+      if (sizeChanged) {
+        backgroundCanvasRef.current.width = widthPx;
+        backgroundCanvasRef.current.height = heightPx;
+        topCanvasRef.current.width = widthPx;
+        topCanvasRef.current.height = heightPx;
+        animatedBackgroundCanvasRef.current.width = widthPx;
+        animatedBackgroundCanvasRef.current.height = heightPx;
+        animatedTopCanvasRef.current.width = widthPx;
+        animatedTopCanvasRef.current.height = heightPx;
+        canvasSizeRef.current = { w: widthPx, h: heightPx };
+        staticLayersDirtyRef.current = true;
+        animatedLayersDirtyRef.current = true;
+      }
     }
   };
 
@@ -265,43 +291,73 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     return { data, width: img.width, height: img.height };
   };
 
-  const loadTilesetAnimations = useCallback(async (baseAnimPath: string) => {
-    const loaded: LoadedAnimation[] = [];
+  const loadTilesetAnimations = useCallback(
+    async (primaryId: string, secondaryId: string) => {
+      const loaded: LoadedAnimation[] = [];
+      const requested = [
+        ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
+        ...(TILESET_ANIMATION_CONFIGS[secondaryId] ?? []),
+      ];
 
-    for (const def of PRIMARY_GENERAL_ANIMATIONS) {
-      try {
-        const frames: Uint8Array[] = [];
-        let width = 0;
-        let height = 0;
+      for (const def of requested) {
+        try {
+          const frames: Uint8Array[] = [];
+          let width = 0;
+          let height = 0;
 
-        for (const frameName of def.frameNames) {
-          const framePath = `${baseAnimPath}/${def.folder}/${frameName}.png`;
-          const frame = await loadIndexedFrame(framePath);
-          frames.push(frame.data);
-          width = frame.width;
-          height = frame.height;
+          for (const framePath of def.frames) {
+            const frame = await loadIndexedFrame(`${PROJECT_ROOT}/${framePath}`);
+            frames.push(frame.data);
+            width = frame.width;
+            height = frame.height;
+          }
+
+          const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
+          const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
+          const sequence = def.sequence ?? frames.map((_, i) => i);
+
+          loaded.push({
+            ...def,
+            frames,
+            width,
+            height,
+            tilesWide,
+            tilesHigh,
+            sequence,
+            destinations: def.destinations,
+          });
+        } catch (err) {
+          console.warn(`Animation ${def.id} not loaded:`, err);
         }
+      }
 
-        const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
-        const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
+      animationsRef.current = loaded;
+    },
+    []
+  );
 
-        loaded.push({
-          id: def.id,
-          destStart: def.destStart,
-          frames,
-          tilesWide,
-          tilesHigh,
-          sequence: def.sequence,
-          width,
-        });
-      } catch (err) {
-        // Skip missing animations for tilesets that don't provide these frames.
-        console.warn(`Animation ${def.id} not loaded:`, err);
+  const computeAnimatedTileIds = (animations: LoadedAnimation[]) => {
+    const primary = new Set<number>();
+    const secondary = new Set<number>();
+
+    for (const anim of animations) {
+      for (const dest of anim.destinations) {
+        let destId = dest.destStart;
+        for (let ty = 0; ty < anim.tilesHigh; ty++) {
+          for (let tx = 0; tx < anim.tilesWide; tx++) {
+            if (anim.tileset === 'primary') {
+              primary.add(destId);
+            } else {
+              secondary.add(destId);
+            }
+            destId++;
+          }
+        }
       }
     }
 
-    animationsRef.current = loaded;
-  }, []);
+    return { primary, secondary };
+  };
 
   const drawTileToImageData = (
     imageData: ImageData,
@@ -312,7 +368,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     const tiles = drawCall.source === 'primary' ? primaryTiles : secondaryTiles;
     let effectiveTileId = drawCall.tileId;
     if (drawCall.source === 'secondary') {
-      effectiveTileId -= 512;
+      effectiveTileId -= SECONDARY_TILE_OFFSET;
     }
 
     const tx = (effectiveTileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
@@ -341,124 +397,156 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     }
   };
 
-  const renderPass = useCallback((
-    ctx: RenderContext,
-    patchedPrimaryTiles: Uint8Array,
-    pass: 'background' | 'top'
-  ): ImageData => {
-    const widthPx = ctx.mapData.width * METATILE_SIZE;
-    const heightPx = ctx.mapData.height * METATILE_SIZE;
-    const imageData = new ImageData(widthPx, heightPx);
-    const { primaryMetatiles, secondaryMetatiles, secondaryTilesImage, palettes, primaryAttributes, secondaryAttributes } = ctx;
+  const renderPass = useCallback(
+    (
+      ctx: RenderContext,
+      tiles: TilesetBuffers,
+      animatedTileIds: { primary: Set<number>; secondary: Set<number> },
+      pass: 'background' | 'top',
+      skipAnimated: boolean
+    ): ImageData => {
+      const widthPx = ctx.mapData.width * METATILE_SIZE;
+      const heightPx = ctx.mapData.height * METATILE_SIZE;
+      const imageData = new ImageData(widthPx, heightPx);
+      const {
+        primaryMetatiles,
+        secondaryMetatiles,
+        palettes,
+        primaryAttributes,
+        secondaryAttributes,
+      } = ctx;
 
-    for (let my = 0; my < ctx.mapData.height; my++) {
-      for (let mx = 0; mx < ctx.mapData.width; mx++) {
-        const rawMetatileId = ctx.mapData.layout[my * ctx.mapData.width + mx];
-        const metatileId = getMetatileIdFromMapTile(rawMetatileId);
-        const isSecondary = metatileId >= 512;
-        const metatile = isSecondary ? secondaryMetatiles[metatileId - 512] : primaryMetatiles[metatileId];
-        if (!metatile) continue;
+      for (let my = 0; my < ctx.mapData.height; my++) {
+        for (let mx = 0; mx < ctx.mapData.width; mx++) {
+          const rawMetatileId = ctx.mapData.layout[my * ctx.mapData.width + mx];
+          const metatileId = getMetatileIdFromMapTile(rawMetatileId);
+          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+          const metatile = isSecondary
+            ? secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
+            : primaryMetatiles[metatileId];
+          if (!metatile) continue;
 
-        const attr = isSecondary ? secondaryAttributes[metatileId - 512] : primaryAttributes[metatileId];
-        const layerType = attr ? attr.layerType : METATILE_LAYER_TYPE_COVERED;
+          const attr = isSecondary
+            ? secondaryAttributes[metatileId - SECONDARY_TILE_OFFSET]
+            : primaryAttributes[metatileId];
+          const layerType = attr ? attr.layerType : METATILE_LAYER_TYPE_COVERED;
 
-        const screenX = mx * METATILE_SIZE;
-        const screenY = my * METATILE_SIZE;
+          const screenX = mx * METATILE_SIZE;
+          const screenY = my * METATILE_SIZE;
 
-        const drawLayer = (layer: number) => {
-          for (let i = 0; i < 4; i++) {
-            const tileIndex = layer * 4 + i;
-            const tile = metatile.tiles[tileIndex];
-            const subX = (i % 2) * TILE_SIZE;
-            const subY = Math.floor(i / 2) * TILE_SIZE;
-            const palette = palettes[tile.palette];
-            if (!palette) continue;
+          const drawLayer = (layer: number) => {
+            for (let i = 0; i < 4; i++) {
+              const tileIndex = layer * 4 + i;
+              const tile = metatile.tiles[tileIndex];
+              const tileSource: TilesetKind =
+                tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+              if (skipAnimated) {
+                const shouldSkip =
+                  tileSource === 'primary'
+                    ? animatedTileIds.primary.has(tile.tileId)
+                    : animatedTileIds.secondary.has(tile.tileId);
+                const skipsForTopPass = pass === 'top' && layer === 1 && shouldSkip;
+                const skipsForBottomPass = pass === 'background' && shouldSkip;
+                if (skipsForTopPass || skipsForBottomPass) continue;
+              }
 
-            const tileSource = tile.tileId >= 512 ? 'secondary' : 'primary';
-            const tileIdAdjusted = tileSource === 'secondary' ? tile.tileId : tile.tileId;
+              const subX = (i % 2) * TILE_SIZE;
+              const subY = Math.floor(i / 2) * TILE_SIZE;
+              const palette = palettes[tile.palette];
+              if (!palette) continue;
 
-            drawTileToImageData(
-              imageData,
-              {
-                tileId: tileIdAdjusted,
-                destX: screenX + subX,
-                destY: screenY + subY,
-                palette,
-                xflip: tile.xflip,
-                yflip: tile.yflip,
-                source: tileSource,
-              },
-              patchedPrimaryTiles,
-              secondaryTilesImage
-            );
-          }
-        };
+              drawTileToImageData(
+                imageData,
+                {
+                  tileId: tile.tileId,
+                  destX: screenX + subX,
+                  destY: screenY + subY,
+                  palette,
+                  xflip: tile.xflip,
+                  yflip: tile.yflip,
+                  source: tileSource,
+                },
+                tiles.primary,
+                tiles.secondary
+              );
+            }
+          };
 
-        if (pass === 'background') {
-          drawLayer(0);
-          if (layerType === METATILE_LAYER_TYPE_COVERED || layerType === METATILE_LAYER_TYPE_SPLIT) {
-            drawLayer(1);
-          }
-        } else {
-          if (layerType === METATILE_LAYER_TYPE_NORMAL) {
-            drawLayer(1);
+          if (pass === 'background') {
+            drawLayer(0);
+            if (layerType === METATILE_LAYER_TYPE_COVERED || layerType === METATILE_LAYER_TYPE_SPLIT) {
+              drawLayer(1);
+            }
+          } else {
+            if (layerType === METATILE_LAYER_TYPE_NORMAL || layerType === METATILE_LAYER_TYPE_SPLIT) {
+              drawLayer(1);
+            }
           }
         }
       }
-    }
 
-    return imageData;
-  }, []);
+      return imageData;
+    },
+    []
+  );
 
   const buildAnimatedDrawCalls = (ctx: RenderContext) => {
     const bottom: TileDrawCall[] = [];
     const top: TileDrawCall[] = [];
+    const animatedTileIds = animatedTileIdsRef.current;
 
     for (let my = 0; my < ctx.mapData.height; my++) {
       for (let mx = 0; mx < ctx.mapData.width; mx++) {
         const rawMetatileId = ctx.mapData.layout[my * ctx.mapData.width + mx];
         const metatileId = getMetatileIdFromMapTile(rawMetatileId);
-        const isSecondary = metatileId >= 512;
-        const metatile = isSecondary ? ctx.secondaryMetatiles[metatileId - 512] : ctx.primaryMetatiles[metatileId];
+        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+        const metatile = isSecondary
+          ? ctx.secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
+          : ctx.primaryMetatiles[metatileId];
         if (!metatile) continue;
         const attr = isSecondary
-          ? ctx.secondaryAttributes[metatileId - 512]
+          ? ctx.secondaryAttributes[metatileId - SECONDARY_TILE_OFFSET]
           : ctx.primaryAttributes[metatileId];
         const layerType = attr ? attr.layerType : METATILE_LAYER_TYPE_COVERED;
 
         const screenX = mx * METATILE_SIZE;
         const screenY = my * METATILE_SIZE;
 
-        const processLayer = (layer: number, destination: TileDrawCall[]) => {
-          for (let i = 0; i < 4; i++) {
-            const tileIndex = layer * 4 + i;
-            const tile = metatile.tiles[tileIndex];
-            if (tile.tileId >= 512) {
-              continue; // animations only patch primary tiles for now
+          const processLayer = (layer: number, destination: TileDrawCall[]) => {
+            for (let i = 0; i < 4; i++) {
+              const tileIndex = layer * 4 + i;
+              const tile = metatile.tiles[tileIndex];
+              const tileSource: TilesetKind =
+                tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+              const isAnimated =
+                tileSource === 'primary'
+                  ? animatedTileIds.primary.has(tile.tileId)
+                  : animatedTileIds.secondary.has(tile.tileId);
+              if (!isAnimated) continue;
+              const subX = (i % 2) * TILE_SIZE;
+              const subY = Math.floor(i / 2) * TILE_SIZE;
+              const palette = ctx.palettes[tile.palette];
+              if (!palette) continue;
+
+              destination.push({
+                tileId: tile.tileId,
+                destX: screenX + subX,
+                destY: screenY + subY,
+                palette,
+                xflip: tile.xflip,
+                yflip: tile.yflip,
+                source: tileSource,
+                layer: layer as 0 | 1,
+              });
             }
-            if (!ANIMATED_TILE_IDS.has(tile.tileId)) continue;
-            const subX = (i % 2) * TILE_SIZE;
-            const subY = Math.floor(i / 2) * TILE_SIZE;
-            const palette = ctx.palettes[tile.palette];
-            if (!palette) continue;
+          };
 
-            destination.push({
-              tileId: tile.tileId,
-              destX: screenX + subX,
-              destY: screenY + subY,
-              palette,
-              xflip: tile.xflip,
-              yflip: tile.yflip,
-              source: 'primary',
-            });
-          }
-        };
-
-        // Background pass tiles
         processLayer(0, bottom);
-        if (layerType === METATILE_LAYER_TYPE_COVERED || layerType === METATILE_LAYER_TYPE_SPLIT) {
+        if (layerType === METATILE_LAYER_TYPE_COVERED) {
           processLayer(1, bottom);
         } else if (layerType === METATILE_LAYER_TYPE_NORMAL) {
+          processLayer(1, top);
+        } else if (layerType === METATILE_LAYER_TYPE_SPLIT) {
           processLayer(1, top);
         }
       }
@@ -468,58 +556,104 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     animatedTopDrawCallsRef.current = top;
   };
 
-  const compositeScene = useCallback((
-    animKey: string,
-    patchedPrimaryTiles: Uint8Array,
-    animationFrameChanged: boolean
+  const renderAnimatedLayer = (
+    drawCalls: TileDrawCall[],
+    tiles: TilesetBuffers,
+    widthPx: number,
+    heightPx: number,
+    pass: 'background' | 'top'
   ) => {
-    const ctx = renderContextRef.current;
-    if (!ctx) return;
-    const mainCanvas = canvasRef.current;
-    if (!mainCanvas) return;
-    const mainCtx = mainCanvas.getContext('2d');
-    if (!mainCtx) return;
-
-    const widthPx = ctx.mapData.width * METATILE_SIZE;
-    const heightPx = ctx.mapData.height * METATILE_SIZE;
-    ensureAuxiliaryCanvases(widthPx, heightPx);
-
-    const bgCtx = backgroundCanvasRef.current?.getContext('2d');
-    const topCtx = topCanvasRef.current?.getContext('2d');
-    if (!bgCtx || !topCtx) return;
-
-    // Rebuild when animation changes to ensure correct layering
-    if (!backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged) {
-      backgroundImageDataRef.current = renderPass(ctx, patchedPrimaryTiles, 'background');
-      topImageDataRef.current = renderPass(ctx, patchedPrimaryTiles, 'top');
+    const imageData = new ImageData(widthPx, heightPx);
+    const drawInOrder = (layer: 0 | 1) => {
+      for (const call of drawCalls) {
+        if (call.layer !== layer) continue;
+        drawTileToImageData(imageData, call, tiles.primary, tiles.secondary);
+      }
+    };
+    if (pass === 'background') {
+      drawInOrder(0);
+      drawInOrder(1);
+    } else {
+      drawInOrder(1);
     }
+    return imageData;
+  };
 
-    if (backgroundImageDataRef.current) {
-      bgCtx.putImageData(backgroundImageDataRef.current, 0, 0);
-    }
-    if (topImageDataRef.current) {
-      topCtx.putImageData(topImageDataRef.current, 0, 0);
-    }
+  const compositeScene = useCallback(
+    (animKey: string, patchedTiles: TilesetBuffers, animationFrameChanged: boolean) => {
+      const ctx = renderContextRef.current;
+      if (!ctx) return;
+      const mainCanvas = canvasRef.current;
+      if (!mainCanvas) return;
+      const mainCtx = mainCanvas.getContext('2d');
+      if (!mainCtx) return;
 
-    mainCtx.clearRect(0, 0, widthPx, heightPx);
-    if (backgroundCanvasRef.current) {
-      mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
-    }
+      const widthPx = ctx.mapData.width * METATILE_SIZE;
+      const heightPx = ctx.mapData.height * METATILE_SIZE;
+      ensureAuxiliaryCanvases(widthPx, heightPx);
 
-    if (playerControllerRef.current) {
-      playerControllerRef.current.render(mainCtx);
-    }
+      const bgCtx = backgroundCanvasRef.current?.getContext('2d');
+      const topCtx = topCanvasRef.current?.getContext('2d');
+      const animBgCtx = animatedBackgroundCanvasRef.current?.getContext('2d');
+      const animTopCtx = animatedTopCanvasRef.current?.getContext('2d');
+      if (!bgCtx || !topCtx || !animBgCtx || !animTopCtx) return;
 
-    if (topCanvasRef.current) {
-      mainCtx.drawImage(topCanvasRef.current, 0, 0);
-    }
+      if (!backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged) {
+        backgroundImageDataRef.current = renderPass(
+          ctx,
+          patchedTiles,
+          animatedTileIdsRef.current,
+          'background',
+          false
+        );
+        topImageDataRef.current = renderPass(
+          ctx,
+          patchedTiles,
+          animatedTileIdsRef.current,
+          'top',
+          false
+        );
+        staticLayersDirtyRef.current = true;
+        animatedBackgroundImageDataRef.current = null;
+        animatedTopImageDataRef.current = null;
+        animatedLayersDirtyRef.current = false;
+        animBgCtx.clearRect(0, 0, widthPx, heightPx);
+        animTopCtx.clearRect(0, 0, widthPx, heightPx);
+      }
 
-    if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
-      console.log(
-        `[MapRender] key:${animKey} player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
-      );
-    }
-  }, [renderPass]);
+      if (staticLayersDirtyRef.current) {
+        bgCtx.putImageData(backgroundImageDataRef.current!, 0, 0);
+        topCtx.putImageData(topImageDataRef.current!, 0, 0);
+        staticLayersDirtyRef.current = false;
+      }
+
+      mainCtx.clearRect(0, 0, widthPx, heightPx);
+      if (backgroundCanvasRef.current) {
+        mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
+      }
+      if (animatedBackgroundCanvasRef.current) {
+        mainCtx.drawImage(animatedBackgroundCanvasRef.current, 0, 0);
+      }
+
+      if (playerControllerRef.current) {
+        playerControllerRef.current.render(mainCtx);
+      }
+
+      if (topCanvasRef.current) {
+        mainCtx.drawImage(topCanvasRef.current, 0, 0);
+      }
+      if (animatedTopCanvasRef.current) {
+        mainCtx.drawImage(animatedTopCanvasRef.current, 0, 0);
+      }
+
+      if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
+        console.log(
+          `[MapRender] key:${animKey} player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
+        );
+      }
+    },
+    [renderPass]
+  );
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
@@ -532,12 +666,18 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         setError(null);
         backgroundImageDataRef.current = null;
         topImageDataRef.current = null;
+        animatedBackgroundImageDataRef.current = null;
+        animatedTopImageDataRef.current = null;
         animatedBottomDrawCallsRef.current = [];
         animatedTopDrawCallsRef.current = [];
-        patchedPrimaryTilesRef.current = null;
+        patchedTilesRef.current = null;
+        staticLayersDirtyRef.current = false;
+        animatedLayersDirtyRef.current = false;
         lastPatchedKeyRef.current = '';
         lastAnimStateKeyRef.current = '';
         animationsRef.current = [];
+        animatedTileIdsRef.current = { primary: new Set(), secondary: new Set() };
+        hasRenderedRef.current = false;
 
         const mapData = await loadMapLayout(`${PROJECT_ROOT}/${layoutPath}/map.bin`, width, height);
         const startTileX = Math.floor(mapData.width / 2);
@@ -573,7 +713,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           console.error('Failed to load sprite', spriteErr);
         }
 
-        await loadTilesetAnimations(`${PROJECT_ROOT}/${primaryTilesetPath}/anim`);
+        await loadTilesetAnimations(primaryTilesetId, secondaryTilesetId);
+        animatedTileIdsRef.current = computeAnimatedTileIds(animationsRef.current);
 
         const palettes = [...primaryPalettes, ...secondaryPalettes];
         renderContextRef.current = {
@@ -586,7 +727,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           primaryAttributes,
           secondaryAttributes,
         };
-
+        staticLayersDirtyRef.current = true;
+        animatedLayersDirtyRef.current = true;
         buildAnimatedDrawCalls(renderContextRef.current);
         setLoading(false);
 
@@ -609,8 +751,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const playerDirty = playerControllerRef.current?.update(safeDelta, ctx) ?? false;
 
           const animationState: AnimationState = {};
+          const frameTick = Math.floor(timestamp / FRAME_MS);
           for (const anim of animationsRef.current) {
-            const seqIndex = Math.floor(timestamp / ANIM_INTERVAL_MS) % anim.sequence.length;
+            const seqIndex = Math.floor(frameTick / anim.interval);
             animationState[anim.id] = seqIndex;
           }
 
@@ -619,15 +762,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             .join('|');
 
           const animationFrameChanged =
-            animKey !== lastAnimStateKeyRef.current || patchedPrimaryTilesRef.current === null;
+            animKey !== lastAnimStateKeyRef.current || patchedTilesRef.current === null;
           lastAnimStateKeyRef.current = animKey;
 
           const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current;
 
           if (shouldRender) {
-            const patchedPrimaryTiles =
-              buildPatchedPrimaryTiles(animationState) ?? ctx.primaryTilesImage;
-            compositeScene(animKey, patchedPrimaryTiles, animationFrameChanged);
+            const patchedTiles = buildPatchedTiles(animationState) ?? {
+              primary: ctx.primaryTilesImage,
+              secondary: ctx.secondaryTilesImage,
+            };
+            compositeScene(animKey, patchedTiles, animationFrameChanged);
             hasRenderedRef.current = true;
           }
 
@@ -649,7 +794,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       renderGenerationRef.current += 1;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [mapName, width, height, layoutPath, primaryTilesetPath, secondaryTilesetPath, buildPatchedPrimaryTiles, compositeScene, loadTilesetAnimations]);
+  }, [
+    mapName,
+    width,
+    height,
+    layoutPath,
+    primaryTilesetPath,
+    secondaryTilesetPath,
+    primaryTilesetId,
+    secondaryTilesetId,
+    buildPatchedTiles,
+    compositeScene,
+    loadTilesetAnimations,
+  ]);
 
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
