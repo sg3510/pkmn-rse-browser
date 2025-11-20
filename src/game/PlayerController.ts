@@ -19,6 +19,8 @@ export class PlayerController {
   private sprite: HTMLCanvasElement | null = null;
   private keysPressed: { [key: string]: boolean } = {};
   private walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
+  private handleKeyDown: (e: KeyboardEvent) => void;
+  private handleKeyUp: (e: KeyboardEvent) => void;
   
   // Speed in pixels per millisecond
   // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
@@ -26,16 +28,19 @@ export class PlayerController {
   private readonly TILE_PIXELS = 16;
 
   constructor() {
+    this.handleKeyDown = (e: KeyboardEvent) => {
+      this.keysPressed[e.key] = true;
+    };
+    this.handleKeyUp = (e: KeyboardEvent) => {
+      this.keysPressed[e.key] = false;
+    };
+
     this.bindInputEvents();
   }
 
   private bindInputEvents() {
-    window.addEventListener('keydown', (e) => {
-      this.keysPressed[e.key] = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      this.keysPressed[e.key] = false;
-    });
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
   }
 
   public async loadSprite(src: string): Promise<void> {
@@ -125,7 +130,9 @@ export class PlayerController {
     return false; // Passable
   }
 
-  public update(delta: number, ctx: RenderContext) {
+  public update(delta: number, ctx: RenderContext): boolean {
+    let didRenderMove = false;
+
     if (this.isMoving) {
       // Continue movement based on time delta
       const moveAmount = this.MOVE_SPEED * delta;
@@ -148,8 +155,9 @@ export class PlayerController {
         // Snap to grid
         this.x = this.tileX * this.TILE_PIXELS;
         this.y = this.tileY * this.TILE_PIXELS - 16;
+        didRenderMove = true;
         
-        if ((window as any).DEBUG_PLAYER) {
+        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
           console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
         }
       } else {
@@ -162,9 +170,11 @@ export class PlayerController {
         else if (this.dir === 'left') this.x -= moveAmount;
         else if (this.dir === 'right') this.x += moveAmount;
         
-        if ((window as any).DEBUG_PLAYER) {
+        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
           console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
         }
+
+        didRenderMove = true;
       }
       
       // Animation handled in render based on progress
@@ -174,6 +184,7 @@ export class PlayerController {
       let dy = 0;
       let newDir = this.dir;
       let attemptMove = false;
+      const prevDir = this.dir;
 
       if (this.keysPressed['ArrowUp']) {
         dy = -1;
@@ -195,6 +206,9 @@ export class PlayerController {
 
       if (attemptMove) {
         this.dir = newDir;
+        if (newDir !== prevDir) {
+          didRenderMove = true;
+        }
         
         // Check collision at target tile
         const targetTileX = this.tileX + dx;
@@ -203,9 +217,12 @@ export class PlayerController {
         if (!this.isCollisionAt(targetTileX, targetTileY, ctx)) {
           this.isMoving = true;
           this.pixelsMoved = 0;
+          didRenderMove = true;
         }
       }
     }
+
+    return didRenderMove || this.isMoving;
   }
 
   public render(ctx: CanvasRenderingContext2D) {
@@ -218,7 +235,7 @@ export class PlayerController {
     const renderX = Math.floor(this.x);
     const renderY = Math.floor(this.y);
     
-    if ((window as any).DEBUG_RENDER && this.isMoving) {
+    if ((window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER && this.isMoving) {
       console.log(`[Render] x:${this.x.toFixed(2)} y:${this.y.toFixed(2)} -> renderX:${renderX} renderY:${renderY}`);
     }
     
@@ -269,8 +286,7 @@ export class PlayerController {
   }
   
   public destroy() {
-      // Remove event listeners if needed, though window listeners are tricky with anonymous functions.
-      // In a real app we'd store the bound functions.
-      // For now, we'll rely on the fact that this component likely persists or we can add cleanup later.
+      window.removeEventListener('keydown', this.handleKeyDown);
+      window.removeEventListener('keyup', this.handleKeyUp);
   }
 }
