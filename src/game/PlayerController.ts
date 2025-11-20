@@ -24,7 +24,7 @@ export class PlayerController {
   
   // Speed in pixels per millisecond
   // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
-  private readonly MOVE_SPEED = 0.03; 
+  private readonly MOVE_SPEED = 0.06; 
   private readonly TILE_PIXELS = 16;
 
   constructor() {

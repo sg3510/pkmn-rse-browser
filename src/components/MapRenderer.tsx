@@ -68,6 +68,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const lastFlowerFrameRef = useRef<number>(-1);
   const patchedPrimaryTilesRef = useRef<Uint8Array | null>(null);
   const hasRenderedRef = useRef<boolean>(false);
+  const renderGenerationRef = useRef<number>(0);
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
@@ -387,6 +388,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
 
     const loadAndRender = async () => {
+      const generation = renderGenerationRef.current;
+
       try {
         setLoading(true);
         setError(null);
@@ -418,6 +421,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         for (let i = 6; i < 13; i++) {
           const text = await loadText(`${PROJECT_ROOT}/${secondaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
           secondaryPalettes.push(parsePalette(text));
+        }
+
+        // Abort if a newer render cycle started while loading
+        if (generation !== renderGenerationRef.current) {
+          return;
         }
 
         const flowerImages: Uint8Array[] = [];
@@ -454,6 +462,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
         let lastTime = 0;
         const loop = (timestamp: number) => {
+          if (generation !== renderGenerationRef.current) {
+            return;
+          }
           if (!lastTime) lastTime = timestamp;
           const delta = timestamp - lastTime;
           lastTime = timestamp;
@@ -497,6 +508,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     loadAndRender();
 
     return () => {
+      renderGenerationRef.current += 1;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, [mapName, width, height, layoutPath, primaryTilesetPath, secondaryTilesetPath, buildPatchedPrimaryTiles, compositeScene]);
