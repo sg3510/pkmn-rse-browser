@@ -8,6 +8,8 @@ import {
   parsePalette,
   loadText,
   loadMetatileAttributes,
+  getCollisionFromMapTile,
+  getElevationFromMapTile,
   loadBinary,
   type MapData,
   type Metatile,
@@ -27,7 +29,12 @@ import {
   type TilesetKind,
 } from '../data/tilesetAnimations';
 import type { BridgeType } from '../utils/metatileBehaviors';
-import { getBridgeTypeFromBehavior, isIceBehavior, isReflectiveBehavior } from '../utils/metatileBehaviors';
+import {
+  MB_SHALLOW_WATER,
+  getBridgeTypeFromBehavior,
+  isIceBehavior,
+  isReflectiveBehavior,
+} from '../utils/metatileBehaviors';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
@@ -56,6 +63,8 @@ interface RenderContext {
   secondaryAttributes: MetatileAttributes[];
   primaryReflectionMeta: ReflectionMeta[];
   secondaryReflectionMeta: ReflectionMeta[];
+  primaryTilesetId: string;
+  secondaryTilesetId: string;
 }
 
 interface AnimationDestination {
@@ -112,7 +121,52 @@ interface ReflectionState {
   bridgeType: BridgeType;
 }
 
+interface ReflectionDebugInfo {
+  maskPixels: number;
+  tilesUsed: Array<{
+    x: number;
+    y: number;
+    metatileId: number | null;
+    behavior: number | null;
+  }>;
+}
+
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
+
+interface TileDebugInfo {
+  x: number;
+  y: number;
+  inBounds: boolean;
+  mapTile?: number;
+  metatileId?: number;
+  tileset?: 'primary' | 'secondary';
+  collision?: number;
+  elevation?: number;
+  behavior?: number;
+  layerType?: number;
+  bridgeType?: BridgeType;
+  reflection?: {
+    isReflective: boolean;
+    reflectionType: ReflectionType | null;
+    transparentPixels: number | null;
+  } | null;
+  layers?: {
+    bottom: {
+      tileId: number;
+      palette: number;
+      xflip: boolean;
+      yflip: boolean;
+      animated: boolean;
+    }[];
+    top: {
+      tileId: number;
+      palette: number;
+      xflip: boolean;
+      yflip: boolean;
+      animated: boolean;
+    }[];
+  };
+}
 
 function buildTileTransparencyLUT(tiles: Uint8Array): Uint8Array[] {
   const tileCount = Math.floor(tiles.length / (TILE_SIZE * TILE_SIZE));
@@ -157,15 +211,37 @@ function applyTileMaskToMetatile(
   }
 }
 
+type BehaviorOverrideMap = Record<string, Record<number, number>>;
+
+const BEHAVIOR_OVERRIDES: BehaviorOverrideMap = {
+  gTileset_Fortree: {
+    628: MB_SHALLOW_WATER,
+    629: MB_SHALLOW_WATER,
+    636: MB_SHALLOW_WATER,
+    637: MB_SHALLOW_WATER,
+    657: MB_SHALLOW_WATER,
+  },
+};
+
+function applyBehaviorOverrides(tilesetId: string, metatileId: number, behavior: number): number {
+  const byTileset = BEHAVIOR_OVERRIDES[tilesetId];
+  if (!byTileset) return behavior;
+  return byTileset[metatileId] ?? behavior;
+}
+
 function buildReflectionMeta(
   metatiles: Metatile[],
   attributes: MetatileAttributes[],
   primaryTileMasks: Uint8Array[],
-  secondaryTileMasks: Uint8Array[]
+  secondaryTileMasks: Uint8Array[],
+  tilesetId: string,
+  isSecondary: boolean
 ): ReflectionMeta[] {
   return metatiles.map((metatile, index) => {
+    const globalMetatileId = isSecondary ? NUM_PRIMARY_METATILES + index : index;
     const attr = attributes[index];
-    const behavior = attr?.behavior ?? -1;
+    const baseBehavior = attr?.behavior ?? -1;
+    const behavior = applyBehaviorOverrides(tilesetId, globalMetatileId, baseBehavior);
     const isReflective = isReflectiveBehavior(behavior);
     const reflectionType: ReflectionType | null = isReflective
       ? isIceBehavior(behavior)
@@ -197,7 +273,7 @@ function getMetatileBehavior(
   ctx: RenderContext,
   tileX: number,
   tileY: number
-): { behavior: number; meta: ReflectionMeta | null } | null {
+): { behavior: number; meta: ReflectionMeta | null; metatileId: number | null } | null {
   if (
     tileX < 0 ||
     tileY < 0 ||
@@ -211,16 +287,20 @@ function getMetatileBehavior(
   const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
   if (isSecondary) {
     const index = metatileId - NUM_PRIMARY_METATILES;
-    const behavior = ctx.secondaryAttributes[index]?.behavior ?? -1;
+    let behavior = ctx.secondaryAttributes[index]?.behavior ?? -1;
+    behavior = applyBehaviorOverrides(ctx.secondaryTilesetId, metatileId, behavior);
     return {
       behavior,
       meta: ctx.secondaryReflectionMeta[index] ?? null,
+      metatileId,
     };
   }
-  const behavior = ctx.primaryAttributes[metatileId]?.behavior ?? -1;
+  let behavior = ctx.primaryAttributes[metatileId]?.behavior ?? -1;
+  behavior = applyBehaviorOverrides(ctx.primaryTilesetId, metatileId, behavior);
   return {
     behavior,
     meta: ctx.primaryReflectionMeta[metatileId] ?? null,
+    metatileId,
   };
 }
 
@@ -303,8 +383,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const hasRenderedRef = useRef<boolean>(false);
   const renderGenerationRef = useRef<number>(0);
   const animationsRef = useRef<LoadedAnimation[]>([]);
+  const [lastDebugDump, setLastDebugDump] = useState<string>('');
   const lastAnimStateKeyRef = useRef<string>('');
   const lastPatchedKeyRef = useRef<string>('');
+  const lastReflectionDebugRef = useRef<ReflectionDebugInfo | null>(null);
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
@@ -338,6 +420,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       if (!maskCtx) return;
       const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
       const maskData = maskImage.data;
+      let filledPixels = 0;
+      const tilesUsed: ReflectionDebugInfo['tilesUsed'] = [];
 
       const startTileX = Math.floor(reflectionX / METATILE_SIZE);
       const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
@@ -347,6 +431,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         for (let tx = startTileX; tx <= endTileX; tx++) {
           const info = getMetatileBehavior(ctx, tx, ty);
           if (!info?.meta?.isReflective) continue;
+          tilesUsed.push({
+            x: tx,
+            y: ty,
+            metatileId: getMetatileIdFromMapTile(
+              ctx.mapData.layout[ty * ctx.mapData.width + tx]
+            ),
+            behavior: info?.behavior ?? null,
+          });
           const mask = info.meta.pixelMask;
           const tileLeft = tx * METATILE_SIZE - reflectionX;
           const tileTop = ty * METATILE_SIZE - reflectionY;
@@ -359,11 +451,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (mask[y * METATILE_SIZE + x]) {
                 const index = (globalY * frame.sw + globalX) * 4 + 3;
                 maskData[index] = 255;
+                filledPixels++;
               }
             }
           }
         }
       }
+      lastReflectionDebugRef.current = { maskPixels: filledPixels, tilesUsed };
+      if (filledPixels === 0) return; // no reflective pixels overlap the reflection footprint
       maskCtx.putImageData(maskImage, 0, 0);
 
       const reflectionCanvas = document.createElement('canvas');
@@ -413,6 +508,131 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [debugRadius, setDebugRadius] = useState<number>(2);
+
+  const dumpDebugTiles = useCallback(() => {
+    const ctx = renderContextRef.current;
+    const player = playerControllerRef.current;
+    if (!ctx || !player) {
+      setLastDebugDump('No context/player loaded');
+      return;
+    }
+    const reflectionState = computeReflectionState(ctx, player);
+    const payload: {
+      player: {
+        tileX: number;
+        tileY: number;
+        renderX: number;
+        renderY: number;
+      };
+      reflectionState: ReflectionState;
+      tiles: TileDebugInfo[];
+      reflectionMask?: ReflectionDebugInfo | null;
+    } = {
+      player: {
+        tileX: player.tileX,
+        tileY: player.tileY,
+        renderX: Math.floor(player.x),
+        renderY: Math.floor(player.y),
+      },
+      reflectionState,
+      tiles: [],
+      reflectionMask: lastReflectionDebugRef.current ?? null,
+    };
+
+    const w = ctx.mapData.width;
+    const h = ctx.mapData.height;
+    const gather = (tx: number, ty: number): TileDebugInfo => {
+      const inBounds = tx >= 0 && ty >= 0 && tx < w && ty < h;
+      if (!inBounds) return { x: tx, y: ty, inBounds };
+      const mapTile = ctx.mapData.layout[ty * w + tx];
+      const metatileId = getMetatileIdFromMapTile(mapTile);
+      const tileset = metatileId >= NUM_PRIMARY_METATILES ? 'secondary' : 'primary';
+      const attr =
+        tileset === 'secondary'
+          ? ctx.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
+          : ctx.primaryAttributes[metatileId];
+      const metatile =
+        tileset === 'secondary'
+          ? ctx.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES]
+          : ctx.primaryMetatiles[metatileId];
+      const reflectionMeta =
+        tileset === 'secondary'
+          ? ctx.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+          : ctx.primaryReflectionMeta[metatileId];
+      const bridgeType = attr ? getBridgeTypeFromBehavior(attr.behavior) : 'none';
+      const reflection = reflectionMeta
+        ? {
+            isReflective: reflectionMeta.isReflective,
+            reflectionType: reflectionMeta.reflectionType,
+            transparentPixels: reflectionMeta.pixelMask.length
+              ? reflectionMeta.pixelMask.reduce((a, b) => a + b, 0)
+              : null,
+          }
+        : null;
+      const collision = getCollisionFromMapTile(mapTile);
+      const elevation = getElevationFromMapTile(mapTile);
+
+      const buildLayer = (layerIndex: number) => {
+        const tiles: {
+          tileId: number;
+          palette: number;
+          xflip: boolean;
+          yflip: boolean;
+          animated: boolean;
+        }[] = [];
+        for (let i = 0; i < 4; i++) {
+          const tile = metatile?.tiles[layerIndex * 4 + i];
+          if (!tile) continue;
+          const animated =
+            (tile.tileId >= SECONDARY_TILE_OFFSET
+              ? animatedTileIdsRef.current.secondary
+              : animatedTileIdsRef.current.primary
+            ).has(tile.tileId);
+          tiles.push({
+            tileId: tile.tileId,
+            palette: tile.palette,
+            xflip: tile.xflip,
+            yflip: tile.yflip,
+            animated,
+          });
+        }
+        return tiles;
+      };
+
+      return {
+        x: tx,
+        y: ty,
+        inBounds,
+        mapTile,
+        metatileId,
+        tileset,
+        collision,
+        elevation,
+        behavior: attr?.behavior,
+        layerType: attr?.layerType,
+        bridgeType,
+        reflection,
+        layers: {
+          bottom: buildLayer(0),
+          top: buildLayer(1),
+        },
+      };
+    };
+
+    const halfSpan = debugRadius; // 1 => 3x3, 2 => 5x5
+    for (let dy = -halfSpan; dy <= halfSpan; dy++) {
+      for (let dx = -halfSpan; dx <= halfSpan; dx++) {
+        payload.tiles.push(gather(player.tileX + dx, player.tileY + dy));
+      }
+    }
+
+    const text = JSON.stringify(payload, null, 2);
+    setLastDebugDump(text);
+    // eslint-disable-next-line no-console
+    console.log('DEBUG_TILE_GRID', payload);
+  }, [computeReflectionState, debugRadius]);
 
   // Player Controller
   const playerControllerRef = useRef<PlayerController | null>(null);
@@ -940,7 +1160,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           primaryMetatiles,
           primaryAttributes,
           primaryTileMasks,
-          secondaryTileMasks
+          secondaryTileMasks,
+          primaryTilesetId,
+          false
         );
         const primaryPalettes: Palette[] = [];
         for (let i = 0; i < 6; i++) {
@@ -952,7 +1174,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           secondaryMetatiles,
           secondaryAttributes,
           primaryTileMasks,
-          secondaryTileMasks
+          secondaryTileMasks,
+          secondaryTilesetId,
+          true
         );
         const secondaryPalettes: Palette[] = [];
         for (let i = 6; i < 13; i++) {
@@ -986,6 +1210,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           secondaryAttributes,
           primaryReflectionMeta,
           secondaryReflectionMeta,
+          primaryTilesetId,
+          secondaryTilesetId,
         };
         staticLayersDirtyRef.current = true;
         buildAnimatedDrawCalls(renderContextRef.current);
@@ -1079,6 +1305,48 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         height={height * METATILE_SIZE}
         style={{ border: '1px solid #ccc', imageRendering: 'pixelated' }}
       />
+      <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <button onClick={dumpDebugTiles}>Dump debug grid</button>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          Radius:
+          <select
+            value={debugRadius}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setDebugRadius(val);
+              (window as unknown as { DEBUG_DUMP_RADIUS?: number }).DEBUG_DUMP_RADIUS = val;
+            }}
+          >
+            <option value={1}>3x3</option>
+            <option value={2}>5x5</option>
+          </select>
+        </label>
+        {lastDebugDump && navigator?.clipboard && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(lastDebugDump).catch(() => {});
+            }}
+          >
+            Copy last dump
+          </button>
+        )}
+        {lastDebugDump && (
+          <details style={{ maxWidth: '100%' }}>
+            <summary>Last debug dump (logged to console)</summary>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: '11px',
+                maxHeight: '300px',
+                overflow: 'auto',
+              }}
+            >
+              {lastDebugDump}
+            </pre>
+          </details>
+        )}
+      </div>
     </div>
   );
 };

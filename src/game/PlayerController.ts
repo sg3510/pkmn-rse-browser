@@ -109,30 +109,23 @@ export class PlayerController {
     // Check collision bits from map.bin (bits 10-11)
     const collision = getCollisionFromMapTile(mapTile);
     if (!isCollisionPassable(collision)) {
+      if ((window as unknown as { DEBUG_COLLISION_LOG?: boolean }).DEBUG_COLLISION_LOG) {
+        const metatileId = getMetatileIdFromMapTile(mapTile);
+        const isSecondary = metatileId >= 512;
+        const attrs = isSecondary
+          ? ctx.secondaryAttributes[metatileId - 512]
+          : ctx.primaryAttributes[metatileId];
+        const behavior = attrs?.behavior ?? -1;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Collision] Blocked at (${tileX}, ${tileY}) coll=${collision} metatile=${metatileId} secondary=${isSecondary} behavior=${behavior}`
+        );
+      }
       return true; // Collision bit set
     }
-    
-    // Get metatile ID and check behavior
-    const metatileId = getMetatileIdFromMapTile(mapTile);
-    const isSecondary = metatileId >= 512;
-    const attributes = isSecondary 
-      ? secondaryAttributes[metatileId - 512]
-      : primaryAttributes[metatileId];
-    
-    if (!attributes) {
-      return false; // No attributes = passable
-    }
-    
-    // Check behavior (MB_* constants)
-    // MB_SECRET_BASE_WALL = 1 is impassable
-    // Water tiles (16-20, etc.) are impassable without surf
-    const behavior = attributes.behavior;
-    
-    // Impassable behaviors
-    if (behavior === 1) return true; // MB_SECRET_BASE_WALL
-    if (behavior >= 16 && behavior <= 32) return true; // Water tiles
-    if (behavior >= 48 && behavior <= 55) return true; // Directionally impassable
-    
+
+    // No extra behavior-based blocking: directional impassables are encoded in collision bits in map.bin for overworld.
+    // Rely on the baked collision so overlays/bridges/walkable puddles stay passable when intended.
     return false; // Passable
   }
 

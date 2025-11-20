@@ -150,6 +150,11 @@ export function getCollisionFromMapTile(mapTile: number): number {
   return (mapTile >> 10) & 0x3;
 }
 
+// Elevation bits from map.bin (bits 12-15)
+export function getElevationFromMapTile(mapTile: number): number {
+  return (mapTile >> 12) & 0xF;
+}
+
 // Metatile ID from map.bin (bits 0-9)
 export function getMetatileIdFromMapTile(mapTile: number): number {
   return mapTile & 0x3FF;
@@ -165,4 +170,3 @@ export function isCollisionPassable(collision: number): boolean {
 export const METATILE_LAYER_TYPE_NORMAL = 0;  // Top layer covers player
 export const METATILE_LAYER_TYPE_COVERED = 1; // Both layers behind player
 export const METATILE_LAYER_TYPE_SPLIT = 2;   // Special rendering
-

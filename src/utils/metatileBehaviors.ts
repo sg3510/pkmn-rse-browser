@@ -5,6 +5,7 @@ export const MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2 = 26;
 export const MB_ICE = 32;
 export const MB_SOOTOPOLIS_DEEP_WATER = 20;
 export const MB_REFLECTION_UNDER_BRIDGE = 43;
+export const MB_SHALLOW_WATER = 23;
 
 export const MB_BRIDGE_OVER_OCEAN = 112;
 export const MB_BRIDGE_OVER_POND_LOW = 113;
