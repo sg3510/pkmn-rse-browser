@@ -27,7 +27,12 @@ import {
   type TilesetKind,
 } from '../data/tilesetAnimations';
 import type { BridgeType } from '../utils/metatileBehaviors';
-import { getBridgeTypeFromBehavior, isIceBehavior, isReflectiveBehavior } from '../utils/metatileBehaviors';
+import {
+  getBridgeTypeFromBehavior,
+  isIceBehavior,
+  isReflectiveBehavior,
+  MB_SHALLOW_WATER,
+} from '../utils/metatileBehaviors';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
@@ -106,13 +111,74 @@ const BRIDGE_OFFSETS: Record<BridgeType, number> = {
   pondHigh: 44,
 };
 
+// Per-tileset behavior fixes: some Fortree marsh/mud metatiles are tagged as puddles (behavior 22),
+// which makes them reflective. Downclass them to shallow water so they keep the foot splash without reflections.
+const BEHAVIOR_OVERRIDES: Record<string, Record<number, number>> = {
+  gTileset_Fortree: {
+    // 628: MB_SHALLOW_WATER,
+    629: MB_SHALLOW_WATER,
+    636: MB_SHALLOW_WATER,
+    637: MB_SHALLOW_WATER,
+    648: MB_SHALLOW_WATER,
+    649: MB_SHALLOW_WATER,
+    650: MB_SHALLOW_WATER,
+    656: MB_SHALLOW_WATER,
+    657: MB_SHALLOW_WATER,
+    658: MB_SHALLOW_WATER,
+    664: MB_SHALLOW_WATER,
+    665: MB_SHALLOW_WATER,
+    666: MB_SHALLOW_WATER,
+  },
+};
+const DEBUG_CELL_SCALE = 3;
+const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
+const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
+
 interface ReflectionState {
   hasReflection: boolean;
   reflectionType: ReflectionType | null;
   bridgeType: BridgeType;
 }
 
+interface DebugTileInfo {
+  inBounds: boolean;
+  tileX: number;
+  tileY: number;
+  mapTile?: number;
+  metatileId?: number;
+  isSecondary?: boolean;
+  behavior?: number;
+  layerType?: number;
+  layerTypeLabel?: string;
+  isReflective?: boolean;
+  reflectionType?: ReflectionType | null;
+  reflectionMaskAllow?: number;
+  reflectionMaskTotal?: number;
+  bottomTiles?: Metatile['tiles'];
+  topTiles?: Metatile['tiles'];
+}
+
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
+
+function applyBehaviorOverrides(
+  attributes: MetatileAttributes[],
+  tilesetId: string,
+  baseMetatileId: number
+): MetatileAttributes[] {
+  const overrides = BEHAVIOR_OVERRIDES[tilesetId];
+  if (!overrides) return attributes;
+
+  const patched = attributes.map((attr) => ({ ...attr }));
+  for (const [metatileIdStr, behavior] of Object.entries(overrides)) {
+    const metatileId = Number(metatileIdStr);
+    const index = metatileId - baseMetatileId;
+    if (index >= 0 && index < patched.length) {
+      patched[index] = { ...patched[index], behavior };
+    }
+  }
+
+  return patched;
+}
 
 function buildTileTransparencyLUT(tiles: Uint8Array): Uint8Array[] {
   const tileCount = Math.floor(tiles.length / (TILE_SIZE * TILE_SIZE));
@@ -224,6 +290,69 @@ function getMetatileBehavior(
   };
 }
 
+function layerTypeToLabel(layerType: number): string {
+  switch (layerType) {
+    case METATILE_LAYER_TYPE_NORMAL:
+      return 'NORMAL';
+    case METATILE_LAYER_TYPE_COVERED:
+      return 'COVERED';
+    case METATILE_LAYER_TYPE_SPLIT:
+      return 'SPLIT';
+    default:
+      return `UNKNOWN_${layerType}`;
+  }
+}
+
+function describeTile(
+  ctx: RenderContext,
+  tileX: number,
+  tileY: number
+): DebugTileInfo {
+  if (
+    tileX < 0 ||
+    tileY < 0 ||
+    tileX >= ctx.mapData.width ||
+    tileY >= ctx.mapData.height
+  ) {
+    return { inBounds: false, tileX, tileY };
+  }
+
+  const mapTile = ctx.mapData.layout[tileY * ctx.mapData.width + tileX];
+  const metatileId = getMetatileIdFromMapTile(mapTile);
+  const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
+  const attr = isSecondary
+    ? ctx.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
+    : ctx.primaryAttributes[metatileId];
+  const meta = isSecondary
+    ? ctx.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES]
+    : ctx.primaryMetatiles[metatileId];
+  const reflectionMeta = isSecondary
+    ? ctx.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+    : ctx.primaryReflectionMeta[metatileId];
+  const behavior = attr?.behavior;
+  const layerType = attr?.layerType;
+  const reflectionMaskAllow = reflectionMeta?.pixelMask?.reduce((acc, v) => acc + (v ? 1 : 0), 0);
+  const reflectionMaskTotal = reflectionMeta?.pixelMask?.length;
+
+  return {
+    inBounds: true,
+    tileX,
+    tileY,
+    mapTile,
+    metatileId,
+    isSecondary,
+    behavior,
+    layerType,
+    layerTypeLabel: layerType !== undefined ? layerTypeToLabel(layerType) : undefined,
+    isReflective: reflectionMeta?.isReflective,
+    reflectionType: reflectionMeta?.reflectionType,
+    reflectionMaskAllow,
+    reflectionMaskTotal,
+    bottomTiles: meta?.tiles.slice(0, 4),
+    topTiles: meta?.tiles.slice(4, 8),
+  };
+}
+
 function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: number): BridgeType {
   const info = getMetatileBehavior(ctx, tileX, tileY);
   if (!info) return 'none';
@@ -250,7 +379,7 @@ function computeReflectionState(
   let found: ReflectionType | null = null;
 
   for (let i = 0; i < heightTiles && !found; i++) {
-    const offsetY = 1 + i;
+    const offsetY = i;
     for (const base of bases) {
       const y = base.y + offsetY;
       const center = getMetatileBehavior(ctx, base.x, y);
@@ -311,6 +440,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const staticLayersDirtyRef = useRef<boolean>(false);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const debugCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const debugEnabledRef = useRef<boolean>(false);
+  const reflectionStateRef = useRef<ReflectionState>({
+    hasReflection: false,
+    reflectionType: null,
+    bridgeType: 'none',
+  });
+  const debugTilesRef = useRef<DebugTileInfo[]>([]);
   const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const animatedBottomDrawCallsRef = useRef<TileDrawCall[]>([]);
   const animatedTopDrawCallsRef = useRef<TileDrawCall[]>([]);
@@ -413,9 +550,71 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showTileDebug, setShowTileDebug] = useState(false);
 
   // Player Controller
   const playerControllerRef = useRef<PlayerController | null>(null);
+
+  const refreshDebugOverlay = useCallback(
+    (ctx: RenderContext, player: PlayerController) => {
+      if (!debugEnabledRef.current) return;
+      const mainCanvas = canvasRef.current;
+      const dbgCanvas = debugCanvasRef.current;
+      if (!dbgCanvas || !mainCanvas) return;
+
+      dbgCanvas.width = DEBUG_GRID_SIZE;
+      dbgCanvas.height = DEBUG_GRID_SIZE;
+      const dbgCtx = dbgCanvas.getContext('2d');
+      if (!dbgCtx) return;
+      dbgCtx.imageSmoothingEnabled = false;
+      dbgCtx.fillStyle = '#111';
+      dbgCtx.fillRect(0, 0, DEBUG_GRID_SIZE, DEBUG_GRID_SIZE);
+
+      const collected: DebugTileInfo[] = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const tileX = player.tileX + dx;
+          const tileY = player.tileY + dy;
+          const info = describeTile(ctx, tileX, tileY);
+          collected.push(info);
+
+          const destX = (dx + 1) * DEBUG_CELL_SIZE;
+          const destY = (dy + 1) * DEBUG_CELL_SIZE;
+          if (info.inBounds) {
+            dbgCtx.drawImage(
+              mainCanvas,
+              tileX * METATILE_SIZE,
+              tileY * METATILE_SIZE,
+              METATILE_SIZE,
+              METATILE_SIZE,
+              destX,
+              destY,
+              DEBUG_CELL_SIZE,
+              DEBUG_CELL_SIZE
+            );
+          } else {
+            dbgCtx.fillStyle = '#333';
+            dbgCtx.fillRect(destX, destY, DEBUG_CELL_SIZE, DEBUG_CELL_SIZE);
+          }
+
+          dbgCtx.fillStyle = 'rgba(0,0,0,0.6)';
+          dbgCtx.fillRect(destX, destY, DEBUG_CELL_SIZE, 16);
+          dbgCtx.strokeStyle = dx === 0 && dy === 0 ? '#ff00aa' : 'rgba(255,255,255,0.3)';
+          dbgCtx.lineWidth = 2;
+          dbgCtx.strokeRect(destX + 1, destY + 1, DEBUG_CELL_SIZE - 2, DEBUG_CELL_SIZE - 2);
+          dbgCtx.fillStyle = '#fff';
+          dbgCtx.font = '12px monospace';
+          const label = info.inBounds
+            ? `${info.metatileId ?? '??'}` + (info.isReflective ? ' •R' : '')
+            : 'OOB';
+          dbgCtx.fillText(label, destX + 4, destY + 12);
+        }
+      }
+
+      debugTilesRef.current = collected;
+    },
+    []
+  );
 
   useEffect(() => {
     playerControllerRef.current = new PlayerController();
@@ -423,6 +622,18 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       playerControllerRef.current?.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    debugEnabledRef.current = showTileDebug;
+    if (
+      showTileDebug &&
+      renderContextRef.current &&
+      canvasRef.current &&
+      playerControllerRef.current
+    ) {
+      refreshDebugOverlay(renderContextRef.current, playerControllerRef.current);
+    }
+  }, [showTileDebug]);
 
   const copyTile = (
     src: Uint8Array,
@@ -441,6 +652,29 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
     }
   };
+
+  const handleCopyTileDebug = useCallback(async () => {
+    const player = playerControllerRef.current;
+    if (!player) return;
+    const payload = {
+      timestamp: new Date().toISOString(),
+      player: {
+        tileX: player.tileX,
+        tileY: player.tileY,
+        x: player.x,
+        y: player.y,
+        dir: player.dir,
+      },
+      reflectionState: reflectionStateRef.current,
+      tiles: debugTilesRef.current,
+    };
+    const text = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('Failed to copy debug info', err);
+    }
+  }, []);
 
   const buildPatchedTiles = useCallback(
     (animationState: AnimationState): TilesetBuffers | null => {
@@ -933,8 +1167,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const primaryTileMasks = buildTileTransparencyLUT(primaryTilesImage);
         const secondaryTileMasks = buildTileTransparencyLUT(secondaryTilesImage);
 
-        const primaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${primaryTilesetPath}/metatile_attributes.bin`);
-        const secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
+        let primaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${primaryTilesetPath}/metatile_attributes.bin`);
+        let secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
+
+        primaryAttributes = applyBehaviorOverrides(primaryAttributes, primaryTilesetId, 0);
+        secondaryAttributes = applyBehaviorOverrides(
+          secondaryAttributes,
+          secondaryTilesetId,
+          NUM_PRIMARY_METATILES
+        );
 
         const primaryReflectionMeta = buildReflectionMeta(
           primaryMetatiles,
@@ -1026,6 +1267,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
           const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current;
           const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
+          reflectionStateRef.current = reflectionState;
 
           if (shouldRender) {
             const patchedTiles = buildPatchedTiles(animationState) ?? {
@@ -1033,6 +1275,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               secondary: ctx.secondaryTilesImage,
             };
             compositeScene(animKey, patchedTiles, animationFrameChanged, reflectionState);
+            if (debugEnabledRef.current && playerControllerRef.current) {
+              refreshDebugOverlay(ctx, playerControllerRef.current);
+            }
             hasRenderedRef.current = true;
           }
 
@@ -1079,6 +1324,34 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         height={height * METATILE_SIZE}
         style={{ border: '1px solid #ccc', imageRendering: 'pixelated' }}
       />
+      <div style={{ marginTop: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={showTileDebug}
+            onChange={(e) => setShowTileDebug(e.target.checked)}
+          />
+          Show 3x3 tile debug
+        </label>
+        {showTileDebug && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <canvas
+              ref={debugCanvasRef}
+              width={DEBUG_GRID_SIZE}
+              height={DEBUG_GRID_SIZE}
+              style={{
+                border: '1px solid #888',
+                imageRendering: 'pixelated',
+                width: DEBUG_GRID_SIZE,
+                height: DEBUG_GRID_SIZE,
+              }}
+            />
+            <button onClick={handleCopyTileDebug} style={{ alignSelf: 'flex-start' }}>
+              Copy tile debug to clipboard
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

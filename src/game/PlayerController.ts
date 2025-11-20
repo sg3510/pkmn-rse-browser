@@ -1,5 +1,17 @@
 import type { MapData, MetatileAttributes } from '../utils/mapLoader';
 import { getCollisionFromMapTile, getMetatileIdFromMapTile, isCollisionPassable } from '../utils/mapLoader';
+import {
+  MB_POND_WATER,
+  MB_INTERIOR_DEEP_WATER,
+  MB_DEEP_WATER,
+  MB_SOOTOPOLIS_DEEP_WATER,
+  MB_OCEAN_WATER,
+  MB_NO_SURFACING,
+  MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2,
+  MB_WATERFALL,
+  MB_SEAWEED,
+  MB_SEAWEED_NO_SURFACING,
+} from '../utils/metatileBehaviors';
 
 interface RenderContext {
   mapData: MapData;
@@ -127,10 +139,24 @@ export class PlayerController {
     // MB_SECRET_BASE_WALL = 1 is impassable
     // Water tiles (16-20, etc.) are impassable without surf
     const behavior = attributes.behavior;
-    
     // Impassable behaviors
     if (behavior === 1) return true; // MB_SECRET_BASE_WALL
-    if (behavior >= 16 && behavior <= 32) return true; // Water tiles
+
+    // Surfable/deep water and waterfalls require surf; puddles/shallow water remain walkable.
+    const surfBlockers = new Set<number>([
+      MB_POND_WATER,
+      MB_INTERIOR_DEEP_WATER,
+      MB_DEEP_WATER,
+      MB_SOOTOPOLIS_DEEP_WATER,
+      MB_OCEAN_WATER,
+      MB_NO_SURFACING,
+      MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2,
+      MB_WATERFALL,
+      MB_SEAWEED,
+      MB_SEAWEED_NO_SURFACING,
+    ]);
+    if (surfBlockers.has(behavior)) return true;
+
     if (behavior >= 48 && behavior <= 55) return true; // Directionally impassable
     
     return false; // Passable

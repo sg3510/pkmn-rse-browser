@@ -1,10 +1,18 @@
 // Behavior constants derived from public/pokeemerald/include/constants/metatile_behaviors.h
 export const MB_POND_WATER = 16;
+export const MB_INTERIOR_DEEP_WATER = 17;
+export const MB_DEEP_WATER = 18;
+export const MB_WATERFALL = 19;
 export const MB_PUDDLE = 22;
 export const MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2 = 26;
 export const MB_ICE = 32;
 export const MB_SOOTOPOLIS_DEEP_WATER = 20;
 export const MB_REFLECTION_UNDER_BRIDGE = 43;
+export const MB_SHALLOW_WATER = 23;
+export const MB_OCEAN_WATER = 21;
+export const MB_NO_SURFACING = 24;
+export const MB_SEAWEED = 33;
+export const MB_SEAWEED_NO_SURFACING = 41;
 
 export const MB_BRIDGE_OVER_OCEAN = 112;
 export const MB_BRIDGE_OVER_POND_LOW = 113;
