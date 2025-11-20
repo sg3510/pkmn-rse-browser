@@ -26,10 +26,13 @@ import {
   type TilesetAnimationDefinition,
   type TilesetKind,
 } from '../data/tilesetAnimations';
+import type { BridgeType } from '../utils/metatileBehaviors';
+import { getBridgeTypeFromBehavior, isIceBehavior, isReflectiveBehavior } from '../utils/metatileBehaviors';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
 const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
+const NUM_PRIMARY_METATILES = 512;
 
 interface MapRendererProps {
   mapName: string;
@@ -51,6 +54,8 @@ interface RenderContext {
   palettes: Palette[];
   primaryAttributes: MetatileAttributes[];
   secondaryAttributes: MetatileAttributes[];
+  primaryReflectionMeta: ReflectionMeta[];
+  secondaryReflectionMeta: ReflectionMeta[];
 }
 
 interface AnimationDestination {
@@ -81,9 +86,147 @@ interface TileDrawCall {
   layer: 0 | 1;
 }
 
+type ReflectionType = 'water' | 'ice';
+
+interface ReflectionMeta {
+  isReflective: boolean;
+  reflectionType: ReflectionType | null;
+  quadrantMask: [boolean, boolean, boolean, boolean]; // top-left, top-right, bottom-left, bottom-right
+}
+
 interface TilesetBuffers {
   primary: Uint8Array;
   secondary: Uint8Array;
+}
+
+const BRIDGE_OFFSETS: Record<BridgeType, number> = {
+  none: 0,
+  pondLow: 12,
+  pondMed: 28,
+  pondHigh: 44,
+};
+
+interface ReflectionState {
+  hasReflection: boolean;
+  reflectionType: ReflectionType | null;
+  bridgeType: BridgeType;
+}
+
+function buildReflectionMeta(
+  metatiles: Metatile[],
+  attributes: MetatileAttributes[]
+): ReflectionMeta[] {
+  return metatiles.map((metatile, index) => {
+    const attr = attributes[index];
+    const behavior = attr?.behavior ?? -1;
+    const isReflective = isReflectiveBehavior(behavior);
+    const reflectionType: ReflectionType | null = isReflective
+      ? isIceBehavior(behavior)
+        ? 'ice'
+        : 'water'
+      : null;
+    const top = metatile.tiles.slice(4, 8);
+    const quadrantMask: [boolean, boolean, boolean, boolean] = [
+      top[0]?.tileId === 0,
+      top[1]?.tileId === 0,
+      top[2]?.tileId === 0,
+      top[3]?.tileId === 0,
+    ];
+    return { isReflective, reflectionType, quadrantMask };
+  });
+}
+
+function getMetatileBehavior(
+  ctx: RenderContext,
+  tileX: number,
+  tileY: number
+): { behavior: number; meta: ReflectionMeta | null } | null {
+  if (
+    tileX < 0 ||
+    tileY < 0 ||
+    tileX >= ctx.mapData.width ||
+    tileY >= ctx.mapData.height
+  ) {
+    return null;
+  }
+  const mapTile = ctx.mapData.layout[tileY * ctx.mapData.width + tileX];
+  const metatileId = getMetatileIdFromMapTile(mapTile);
+  const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
+  if (isSecondary) {
+    const index = metatileId - NUM_PRIMARY_METATILES;
+    const behavior = ctx.secondaryAttributes[index]?.behavior ?? -1;
+    return {
+      behavior,
+      meta: ctx.secondaryReflectionMeta[index] ?? null,
+    };
+  }
+  const behavior = ctx.primaryAttributes[metatileId]?.behavior ?? -1;
+  return {
+    behavior,
+    meta: ctx.primaryReflectionMeta[metatileId] ?? null,
+  };
+}
+
+function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: number): BridgeType {
+  const info = getMetatileBehavior(ctx, tileX, tileY);
+  if (!info) return 'none';
+  return getBridgeTypeFromBehavior(info.behavior);
+}
+
+function computeReflectionState(
+  ctx: RenderContext,
+  player: PlayerController | null
+): ReflectionState {
+  if (!player) {
+    return { hasReflection: false, reflectionType: null, bridgeType: 'none' };
+  }
+
+  const { width, height } = player.getSpriteSize();
+  const widthTiles = Math.ceil((width + 8) / 16);
+  const heightTiles = Math.ceil((height + 8) / 16);
+
+  const bases = [
+    { x: player.tileX, y: player.tileY },
+    { x: player.prevTileX, y: player.prevTileY },
+  ];
+
+  let found: ReflectionType | null = null;
+
+  for (let i = 0; i < heightTiles && !found; i++) {
+    const offsetY = 1 + i;
+    for (const base of bases) {
+      const y = base.y + offsetY;
+      const center = getMetatileBehavior(ctx, base.x, y);
+      if (center?.meta?.isReflective) {
+        found = center.meta.reflectionType;
+        break;
+      }
+      for (let j = 1; j < widthTiles && !found; j++) {
+        const px = base.x + j;
+        const nx = base.x - j;
+        const infos = [
+          getMetatileBehavior(ctx, px, y),
+          getMetatileBehavior(ctx, nx, y),
+        ];
+        for (const info of infos) {
+          if (info?.meta?.isReflective) {
+            found = info.meta.reflectionType;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const bridgeTypeFromCurrent = resolveBridgeType(ctx, player.tileX, player.tileY);
+  const bridgeTypeFromPrev = resolveBridgeType(ctx, player.prevTileX, player.prevTileY);
+  const bridgeType = bridgeTypeFromCurrent !== 'none' ? bridgeTypeFromCurrent : bridgeTypeFromPrev;
+
+  return {
+    hasReflection: !!found,
+    reflectionType: found,
+    bridgeType,
+  };
 }
 
 export const MapRenderer: React.FC<MapRendererProps> = ({
@@ -118,6 +261,102 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     primary: new Set(),
     secondary: new Set(),
   });
+  const renderReflectionLayer = useCallback(
+    (mainCtx: CanvasRenderingContext2D, reflectionState: ReflectionState) => {
+      const ctx = renderContextRef.current;
+      const player = playerControllerRef.current;
+      if (!ctx || !player || !reflectionState.hasReflection) return;
+
+      const frame = player.getFrameInfo();
+      if (!frame || !frame.sprite) return;
+
+      const { height } = player.getSpriteSize();
+      const reflectionX = frame.renderX;
+      const reflectionY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = frame.sw;
+      maskCanvas.height = frame.sh;
+      const maskCtx = maskCanvas.getContext('2d');
+      if (!maskCtx) return;
+      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+
+      const startTileX = Math.floor(reflectionX / METATILE_SIZE);
+      const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
+      const startTileY = Math.floor(reflectionY / METATILE_SIZE);
+      const endTileY = Math.floor((reflectionY + frame.sh - 1) / METATILE_SIZE);
+      const half = METATILE_SIZE / 2;
+
+      maskCtx.fillStyle = 'black';
+      for (let ty = startTileY; ty <= endTileY; ty++) {
+        for (let tx = startTileX; tx <= endTileX; tx++) {
+          const info = getMetatileBehavior(ctx, tx, ty);
+          if (!info?.meta?.isReflective) continue;
+          const tileLeft = tx * METATILE_SIZE - reflectionX;
+          const tileTop = ty * METATILE_SIZE - reflectionY;
+          const quads: Array<{ allow: boolean; x: number; y: number }> = [
+            { allow: info.meta.quadrantMask[0], x: tileLeft, y: tileTop },
+            { allow: info.meta.quadrantMask[1], x: tileLeft + half, y: tileTop },
+            { allow: info.meta.quadrantMask[2], x: tileLeft, y: tileTop + half },
+            { allow: info.meta.quadrantMask[3], x: tileLeft + half, y: tileTop + half },
+          ];
+          for (const quad of quads) {
+            if (!quad.allow) continue;
+            const rx = Math.max(quad.x, 0);
+            const ry = Math.max(quad.y, 0);
+            const rw = Math.min(half, frame.sw - rx);
+            const rh = Math.min(half, frame.sh - ry);
+            if (rw > 0 && rh > 0) {
+              maskCtx.fillRect(rx, ry, rw, rh);
+            }
+          }
+        }
+      }
+
+      const reflectionCanvas = document.createElement('canvas');
+      reflectionCanvas.width = frame.sw;
+      reflectionCanvas.height = frame.sh;
+      const reflectionCtx = reflectionCanvas.getContext('2d');
+      if (!reflectionCtx) return;
+      reflectionCtx.clearRect(0, 0, frame.sw, frame.sh);
+      reflectionCtx.save();
+      reflectionCtx.translate(frame.flip ? frame.sw : 0, frame.sh);
+      reflectionCtx.scale(frame.flip ? -1 : 1, -1);
+      reflectionCtx.drawImage(
+        frame.sprite,
+        frame.sx,
+        frame.sy,
+        frame.sw,
+        frame.sh,
+        0,
+        0,
+        frame.sw,
+        frame.sh
+      );
+      reflectionCtx.restore();
+
+      reflectionCtx.globalCompositeOperation = 'source-atop';
+      const baseTint =
+        reflectionState.reflectionType === 'ice'
+          ? 'rgba(180, 220, 255, 0.35)'
+          : 'rgba(70, 120, 200, 0.35)';
+      const bridgeTint = 'rgba(20, 40, 70, 0.55)';
+      reflectionCtx.fillStyle = reflectionState.bridgeType === 'none' ? baseTint : bridgeTint;
+      reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
+      reflectionCtx.globalCompositeOperation = 'source-over';
+
+      reflectionCtx.globalCompositeOperation = 'destination-in';
+      reflectionCtx.drawImage(maskCanvas, 0, 0);
+      reflectionCtx.globalCompositeOperation = 'source-over';
+
+      mainCtx.save();
+      mainCtx.imageSmoothingEnabled = false;
+      mainCtx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
+      mainCtx.drawImage(reflectionCanvas, reflectionX, reflectionY);
+      mainCtx.restore();
+    },
+    []
+  );
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -537,7 +776,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   };
 
   const compositeScene = useCallback(
-    (animKey: string, patchedTiles: TilesetBuffers, animationFrameChanged: boolean) => {
+    (
+      animKey: string,
+      patchedTiles: TilesetBuffers,
+      animationFrameChanged: boolean,
+      reflectionState: ReflectionState
+    ) => {
       const ctx = renderContextRef.current;
       if (!ctx) return;
       const mainCanvas = canvasRef.current;
@@ -582,6 +826,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
       }
 
+      renderReflectionLayer(mainCtx, reflectionState);
+
       if (playerControllerRef.current) {
         playerControllerRef.current.render(mainCtx);
       }
@@ -596,7 +842,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         );
       }
     },
-    [renderPass]
+    [renderPass, renderReflectionLayer]
   );
 
   useEffect(() => {
@@ -628,6 +874,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const primaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${primaryTilesetPath}/metatiles.bin`);
         const primaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/tiles.png`);
         const primaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${primaryTilesetPath}/metatile_attributes.bin`);
+        const primaryReflectionMeta = buildReflectionMeta(primaryMetatiles, primaryAttributes);
         const primaryPalettes: Palette[] = [];
         for (let i = 0; i < 6; i++) {
           const text = await loadText(`${PROJECT_ROOT}/${primaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
@@ -637,6 +884,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const secondaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatiles.bin`);
         const secondaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${secondaryTilesetPath}/tiles.png`);
         const secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
+        const secondaryReflectionMeta = buildReflectionMeta(secondaryMetatiles, secondaryAttributes);
         const secondaryPalettes: Palette[] = [];
         for (let i = 6; i < 13; i++) {
           const text = await loadText(`${PROJECT_ROOT}/${secondaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
@@ -667,6 +915,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           palettes,
           primaryAttributes,
           secondaryAttributes,
+          primaryReflectionMeta,
+          secondaryReflectionMeta,
         };
         staticLayersDirtyRef.current = true;
         buildAnimatedDrawCalls(renderContextRef.current);
@@ -706,13 +956,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           lastAnimStateKeyRef.current = animKey;
 
           const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current;
+          const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
 
           if (shouldRender) {
             const patchedTiles = buildPatchedTiles(animationState) ?? {
               primary: ctx.primaryTilesImage,
               secondary: ctx.secondaryTilesImage,
             };
-            compositeScene(animKey, patchedTiles, animationFrameChanged);
+            compositeScene(animKey, patchedTiles, animationFrameChanged, reflectionState);
             hasRenderedRef.current = true;
           }
 

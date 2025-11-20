@@ -12,6 +12,8 @@ export class PlayerController {
   public y: number = 0;
   public tileX: number = 0;
   public tileY: number = 0;
+  public prevTileX: number = 0;
+  public prevTileY: number = 0;
   public dir: 'down' | 'up' | 'left' | 'right' = 'down';
   public isMoving: boolean = false;
   
@@ -26,6 +28,8 @@ export class PlayerController {
   // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
   private readonly MOVE_SPEED = 0.06; 
   private readonly TILE_PIXELS = 16;
+  private readonly SPRITE_WIDTH = 16;
+  private readonly SPRITE_HEIGHT = 32;
 
   constructor() {
     this.handleKeyDown = (e: KeyboardEvent) => {
@@ -83,6 +87,8 @@ export class PlayerController {
   }
 
   public setPosition(tileX: number, tileY: number) {
+    this.prevTileX = tileX;
+    this.prevTileY = tileY;
     this.tileX = tileX;
     this.tileY = tileY;
     this.x = tileX * this.TILE_PIXELS;
@@ -147,6 +153,8 @@ export class PlayerController {
         this.walkFrameAlternate = !this.walkFrameAlternate;
         
         // Update logical tile position
+        this.prevTileX = this.tileX;
+        this.prevTileY = this.tileY;
         if (this.dir === 'up') this.tileY--;
         else if (this.dir === 'down') this.tileY++;
         else if (this.dir === 'left') this.tileX--;
@@ -225,20 +233,24 @@ export class PlayerController {
     return didRenderMove || this.isMoving;
   }
 
-  public render(ctx: CanvasRenderingContext2D) {
-    if (!this.sprite) return;
+  public getFrameInfo():
+    | {
+        sprite: HTMLCanvasElement;
+        sx: number;
+        sy: number;
+        sw: number;
+        sh: number;
+        renderX: number;
+        renderY: number;
+        flip: boolean;
+      }
+    | null {
+    if (!this.sprite) return null;
 
-    const spriteW = 16;
-    const spriteH = 32;
-    
     // Round to whole pixels to prevent sub-pixel blur and ghosting
     const renderX = Math.floor(this.x);
     const renderY = Math.floor(this.y);
-    
-    if ((window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER && this.isMoving) {
-      console.log(`[Render] x:${this.x.toFixed(2)} y:${this.y.toFixed(2)} -> renderX:${renderX} renderY:${renderY}`);
-    }
-    
+
     let srcIndex = 0;
     let flip = false;
 
@@ -267,22 +279,52 @@ export class PlayerController {
       }
     }
 
-    const srcX = srcIndex * spriteW;
+    const srcX = srcIndex * this.SPRITE_WIDTH;
     const srcY = 0;
+
+    return {
+      sprite: this.sprite,
+      sx: srcX,
+      sy: srcY,
+      sw: this.SPRITE_WIDTH,
+      sh: this.SPRITE_HEIGHT,
+      renderX,
+      renderY,
+      flip,
+    };
+  }
+
+  public render(ctx: CanvasRenderingContext2D) {
+    const frame = this.getFrameInfo();
+    if (!frame) return;
 
     // Disable image smoothing to prevent ghosting on pixel art
     ctx.imageSmoothingEnabled = false;
     
     ctx.save();
-    if (flip) {
+    if (frame.flip) {
       // Use whole pixel translation for flipped sprites
-      ctx.translate(renderX + spriteW, renderY);
+      ctx.translate(frame.renderX + frame.sw, frame.renderY);
       ctx.scale(-1, 1);
-      ctx.drawImage(this.sprite, srcX, srcY, spriteW, spriteH, 0, 0, spriteW, spriteH);
+      ctx.drawImage(frame.sprite, frame.sx, frame.sy, frame.sw, frame.sh, 0, 0, frame.sw, frame.sh);
     } else {
-      ctx.drawImage(this.sprite, srcX, srcY, spriteW, spriteH, renderX, renderY, spriteW, spriteH);
+      ctx.drawImage(
+        frame.sprite,
+        frame.sx,
+        frame.sy,
+        frame.sw,
+        frame.sh,
+        frame.renderX,
+        frame.renderY,
+        frame.sw,
+        frame.sh
+      );
     }
     ctx.restore();
+  }
+
+  public getSpriteSize() {
+    return { width: this.SPRITE_WIDTH, height: this.SPRITE_HEIGHT };
   }
   
   public destroy() {
