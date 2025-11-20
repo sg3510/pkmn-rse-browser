@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import UPNG from 'upng-js';
 import { PlayerController } from '../game/PlayerController';
 import {
   loadMapLayout,
@@ -7,6 +8,7 @@ import {
   parsePalette,
   loadText,
   loadMetatileAttributes,
+  loadBinary,
   type MapData,
   type Metatile,
   type Palette,
@@ -21,7 +23,79 @@ import {
 } from '../utils/mapLoader';
 
 const PROJECT_ROOT = '/pokeemerald';
-const ANIMATED_TILE_IDS = new Set([508, 509, 510, 511]); // tiles patched by flower animation
+
+const ANIMATED_TILE_IDS = new Set<number>([
+  // Water (30 tiles)
+  ...Array.from({ length: 30 }, (_, i) => 432 + i),
+  // Sand/water edges (10 tiles)
+  ...Array.from({ length: 10 }, (_, i) => 464 + i),
+  // Land/water edges (10 tiles)
+  ...Array.from({ length: 10 }, (_, i) => 480 + i),
+  // Waterfall (6 tiles)
+  ...Array.from({ length: 6 }, (_, i) => 496 + i),
+  // Flowers (4 tiles)
+  508, 509, 510, 511,
+]);
+
+const ANIM_INTERVAL_MS = (1000 / 60) * 16; // matches pokeemerald (16 frames @ 60fps)
+
+type AnimationId = 'flower' | 'water' | 'sandWaterEdge' | 'waterfall' | 'landWaterEdge';
+
+interface TilesetAnimationDef {
+  id: AnimationId;
+  folder: string;
+  destStart: number;
+  frameNames: string[];
+  sequence: number[];
+}
+
+interface LoadedAnimation {
+  id: AnimationId;
+  destStart: number;
+  frames: Uint8Array[];
+  tilesWide: number;
+  tilesHigh: number;
+  sequence: number[];
+  width: number;
+}
+
+const PRIMARY_GENERAL_ANIMATIONS: TilesetAnimationDef[] = [
+  {
+    id: 'flower',
+    folder: 'flower',
+    destStart: 508,
+    frameNames: ['0', '1', '2'],
+    sequence: [0, 1, 0, 2],
+  },
+  {
+    id: 'water',
+    folder: 'water',
+    destStart: 432,
+    frameNames: ['0', '1', '2', '3', '4', '5', '6', '7'],
+    sequence: [0, 1, 2, 3, 4, 5, 6, 7],
+  },
+  {
+    id: 'sandWaterEdge',
+    folder: 'sand_water_edge',
+    destStart: 464,
+    frameNames: ['0', '1', '2', '3', '4', '5', '6'],
+    sequence: [0, 1, 2, 3, 4, 5, 6, 0], // repeats first frame for 8th slot
+  },
+  {
+    id: 'landWaterEdge',
+    folder: 'land_water_edge',
+    destStart: 480,
+    frameNames: ['0', '1', '2', '3'],
+    sequence: [0, 1, 2, 3],
+  },
+  {
+    id: 'waterfall',
+    folder: 'waterfall',
+    destStart: 496,
+    frameNames: ['0', '1', '2', '3'],
+    sequence: [0, 1, 2, 3],
+  },
+];
 
 interface MapRendererProps {
   mapName: string;
@@ -39,10 +113,11 @@ interface RenderContext {
   primaryTilesImage: Uint8Array;
   secondaryTilesImage: Uint8Array;
   palettes: Palette[];
-  flowerFrames: Uint8Array[];
   primaryAttributes: MetatileAttributes[];
   secondaryAttributes: MetatileAttributes[];
 }
+
+type AnimationState = Partial<Record<AnimationId, number>>;
 
 interface TileDrawCall {
   tileId: number;
@@ -65,10 +140,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
   const animRef = useRef<number>(0);
-  const lastFlowerFrameRef = useRef<number>(-1);
   const patchedPrimaryTilesRef = useRef<Uint8Array | null>(null);
   const hasRenderedRef = useRef<boolean>(false);
   const renderGenerationRef = useRef<number>(0);
+  const animationsRef = useRef<LoadedAnimation[]>([]);
+  const lastAnimStateKeyRef = useRef<string>('');
+  const lastPatchedKeyRef = useRef<string>('');
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
@@ -108,30 +185,46 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     }
   };
 
-  const buildPatchedPrimaryTiles = useCallback((flowerFrameIndex: number): Uint8Array | null => {
+  const buildPatchedPrimaryTiles = useCallback((animationState: AnimationState): Uint8Array | null => {
     const ctx = renderContextRef.current;
     if (!ctx) return null;
 
-    if (flowerFrameIndex === lastFlowerFrameRef.current && patchedPrimaryTilesRef.current) {
-      return patchedPrimaryTilesRef.current;
-    }
+    const animKey = animationsRef.current
+      .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
+      .join('|');
 
-    if (ctx.flowerFrames.length === 0) {
-      patchedPrimaryTilesRef.current = ctx.primaryTilesImage;
-      lastFlowerFrameRef.current = flowerFrameIndex;
+    if (animKey === lastPatchedKeyRef.current && patchedPrimaryTilesRef.current) {
       return patchedPrimaryTilesRef.current;
     }
 
     const patchedPrimaryTiles = new Uint8Array(ctx.primaryTilesImage);
-    const currentFlowerFrame = ctx.flowerFrames[flowerFrameIndex];
-    if (currentFlowerFrame) {
-      copyTile(currentFlowerFrame, 0, 0, 16, patchedPrimaryTiles, 96, 248, 128);
-      copyTile(currentFlowerFrame, 8, 0, 16, patchedPrimaryTiles, 104, 248, 128);
-      copyTile(currentFlowerFrame, 0, 8, 16, patchedPrimaryTiles, 112, 248, 128);
-      copyTile(currentFlowerFrame, 8, 8, 16, patchedPrimaryTiles, 120, 248, 128);
+    for (const anim of animationsRef.current) {
+      const seqIndex = animationState[anim.id] ?? 0;
+      const frameIndex = anim.sequence[seqIndex % anim.sequence.length] ?? 0;
+      const frameData = anim.frames[frameIndex];
+      if (!frameData) continue;
+
+      let destId = anim.destStart;
+      for (let ty = 0; ty < anim.tilesHigh; ty++) {
+        for (let tx = 0; tx < anim.tilesWide; tx++) {
+          const sx = tx * TILE_SIZE;
+          const sy = ty * TILE_SIZE;
+          copyTile(
+            frameData,
+            sx,
+            sy,
+            anim.width,
+            patchedPrimaryTiles,
+            (destId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
+            Math.floor(destId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
+            128
+          );
+          destId++;
+        }
+      }
     }
 
-    lastFlowerFrameRef.current = flowerFrameIndex;
+    lastPatchedKeyRef.current = animKey;
     patchedPrimaryTilesRef.current = patchedPrimaryTiles;
     return patchedPrimaryTiles;
   }, []);
@@ -150,6 +243,65 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       topCanvasRef.current.height = heightPx;
     }
   };
+
+  const loadIndexedFrame = async (url: string) => {
+    const buffer = await loadBinary(url);
+    const img = UPNG.decode(buffer);
+
+    let data: Uint8Array;
+    if (img.ctype === 3 && img.depth === 4) {
+      const packed = new Uint8Array(img.data);
+      const unpacked = new Uint8Array(packed.length * 2);
+      for (let i = 0; i < packed.length; i++) {
+        const byte = packed[i];
+        unpacked[i * 2] = (byte >> 4) & 0xF;
+        unpacked[i * 2 + 1] = byte & 0xF;
+      }
+      data = unpacked;
+    } else {
+      data = new Uint8Array(img.data);
+    }
+
+    return { data, width: img.width, height: img.height };
+  };
+
+  const loadTilesetAnimations = useCallback(async (baseAnimPath: string) => {
+    const loaded: LoadedAnimation[] = [];
+
+    for (const def of PRIMARY_GENERAL_ANIMATIONS) {
+      try {
+        const frames: Uint8Array[] = [];
+        let width = 0;
+        let height = 0;
+
+        for (const frameName of def.frameNames) {
+          const framePath = `${baseAnimPath}/${def.folder}/${frameName}.png`;
+          const frame = await loadIndexedFrame(framePath);
+          frames.push(frame.data);
+          width = frame.width;
+          height = frame.height;
+        }
+
+        const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
+        const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
+
+        loaded.push({
+          id: def.id,
+          destStart: def.destStart,
+          frames,
+          tilesWide,
+          tilesHigh,
+          sequence: def.sequence,
+          width,
+        });
+      } catch (err) {
+        // Skip missing animations for tilesets that don't provide these frames.
+        console.warn(`Animation ${def.id} not loaded:`, err);
+      }
+    }
+
+    animationsRef.current = loaded;
+  }, []);
 
   const drawTileToImageData = (
     imageData: ImageData,
@@ -316,20 +468,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     animatedTopDrawCallsRef.current = top;
   };
 
-  const patchAnimatedTiles = useCallback((
-    imageData: ImageData | null,
-    patchedPrimaryTiles: Uint8Array,
-    drawCalls: TileDrawCall[],
-    ctx: RenderContext
-  ) => {
-    if (!imageData || drawCalls.length === 0) return;
-    for (const call of drawCalls) {
-      drawTileToImageData(imageData, call, patchedPrimaryTiles, ctx.secondaryTilesImage);
-    }
-  }, []);
-
   const compositeScene = useCallback((
-    flowerFrameIndex: number,
+    animKey: string,
     patchedPrimaryTiles: Uint8Array,
     animationFrameChanged: boolean
   ) => {
@@ -348,13 +488,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     const topCtx = topCanvasRef.current?.getContext('2d');
     if (!bgCtx || !topCtx) return;
 
-    // Full build on first render or if caches missing
-    if (!backgroundImageDataRef.current || !topImageDataRef.current) {
+    // Rebuild when animation changes to ensure correct layering
+    if (!backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged) {
       backgroundImageDataRef.current = renderPass(ctx, patchedPrimaryTiles, 'background');
       topImageDataRef.current = renderPass(ctx, patchedPrimaryTiles, 'top');
-    } else if (animationFrameChanged) {
-      patchAnimatedTiles(backgroundImageDataRef.current, patchedPrimaryTiles, animatedBottomDrawCallsRef.current, ctx);
-      patchAnimatedTiles(topImageDataRef.current, patchedPrimaryTiles, animatedTopDrawCallsRef.current, ctx);
     }
 
     if (backgroundImageDataRef.current) {
@@ -379,10 +516,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
     if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
       console.log(
-        `[MapRender] frame:${flowerFrameIndex} player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
+        `[MapRender] key:${animKey} player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
       );
     }
-  }, [patchAnimatedTiles, renderPass]);
+  }, [renderPass]);
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
@@ -398,7 +535,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         animatedBottomDrawCallsRef.current = [];
         animatedTopDrawCallsRef.current = [];
         patchedPrimaryTilesRef.current = null;
-        lastFlowerFrameRef.current = -1;
+        lastPatchedKeyRef.current = '';
+        lastAnimStateKeyRef.current = '';
+        animationsRef.current = [];
 
         const mapData = await loadMapLayout(`${PROJECT_ROOT}/${layoutPath}/map.bin`, width, height);
         const startTileX = Math.floor(mapData.width / 2);
@@ -428,21 +567,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           return;
         }
 
-        const flowerImages: Uint8Array[] = [];
-        try {
-          const f0 = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/anim/flower/0.png`);
-          const f1 = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/anim/flower/1.png`);
-          const f2 = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/anim/flower/2.png`);
-          flowerImages.push(f0, f1, f0, f2);
-        } catch {
-          // No animation frames for this tileset
-        }
-
         try {
           await playerControllerRef.current?.loadSprite(`${PROJECT_ROOT}/graphics/object_events/pics/people/brendan/walking.png`);
         } catch (spriteErr) {
           console.error('Failed to load sprite', spriteErr);
         }
+
+        await loadTilesetAnimations(`${PROJECT_ROOT}/${primaryTilesetPath}/anim`);
 
         const palettes = [...primaryPalettes, ...secondaryPalettes];
         renderContextRef.current = {
@@ -452,7 +583,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           primaryTilesImage,
           secondaryTilesImage,
           palettes,
-          flowerFrames: flowerImages,
           primaryAttributes,
           secondaryAttributes,
         };
@@ -478,18 +608,26 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const safeDelta = Math.min(delta, 50);
           const playerDirty = playerControllerRef.current?.update(safeDelta, ctx) ?? false;
 
-          const flowerFrameIndex =
-            ctx.flowerFrames.length > 0 ? Math.floor(timestamp / 200) % ctx.flowerFrames.length : 0;
+          const animationState: AnimationState = {};
+          for (const anim of animationsRef.current) {
+            const seqIndex = Math.floor(timestamp / ANIM_INTERVAL_MS) % anim.sequence.length;
+            animationState[anim.id] = seqIndex;
+          }
+
+          const animKey = animationsRef.current
+            .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
+            .join('|');
 
           const animationFrameChanged =
-            flowerFrameIndex !== lastFlowerFrameRef.current || patchedPrimaryTilesRef.current === null;
+            animKey !== lastAnimStateKeyRef.current || patchedPrimaryTilesRef.current === null;
+          lastAnimStateKeyRef.current = animKey;
 
           const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current;
 
           if (shouldRender) {
             const patchedPrimaryTiles =
-              buildPatchedPrimaryTiles(flowerFrameIndex) ?? ctx.primaryTilesImage;
-            compositeScene(flowerFrameIndex, patchedPrimaryTiles, animationFrameChanged);
+              buildPatchedPrimaryTiles(animationState) ?? ctx.primaryTilesImage;
+            compositeScene(animKey, patchedPrimaryTiles, animationFrameChanged);
             hasRenderedRef.current = true;
           }
 
@@ -511,7 +649,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       renderGenerationRef.current += 1;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [mapName, width, height, layoutPath, primaryTilesetPath, secondaryTilesetPath, buildPatchedPrimaryTiles, compositeScene]);
+  }, [mapName, width, height, layoutPath, primaryTilesetPath, secondaryTilesetPath, buildPatchedPrimaryTiles, compositeScene, loadTilesetAnimations]);
 
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
