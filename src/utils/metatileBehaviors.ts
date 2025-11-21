@@ -114,6 +114,8 @@ const ARROW_WARP_BEHAVIORS = new Set<number>([
   MB_WATER_SOUTH_ARROW_WARP,
 ]);
 
+export type CardinalDirection = 'up' | 'down' | 'left' | 'right';
+
 export function isDoorBehavior(behavior: number): boolean {
   return DOOR_BEHAVIORS.has(behavior);
 }
@@ -140,6 +142,22 @@ export function isTeleportWarpBehavior(behavior: number): boolean {
 
 export function isArrowWarpBehavior(behavior: number): boolean {
   return ARROW_WARP_BEHAVIORS.has(behavior);
+}
+
+export function getArrowDirectionFromBehavior(behavior: number): CardinalDirection | null {
+  switch (behavior) {
+    case MB_SOUTH_ARROW_WARP:
+    case MB_WATER_SOUTH_ARROW_WARP:
+      return 'down';
+    case MB_NORTH_ARROW_WARP:
+      return 'up';
+    case MB_WEST_ARROW_WARP:
+      return 'left';
+    case MB_EAST_ARROW_WARP:
+      return 'right';
+    default:
+      return null;
+  }
 }
 
 export function isWarpBehavior(behavior: number): boolean {

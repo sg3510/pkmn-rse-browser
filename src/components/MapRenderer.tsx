@@ -20,9 +20,10 @@ import {
   type TilesetAnimationDefinition,
   type TilesetKind,
 } from '../data/tilesetAnimations';
-import type { BridgeType } from '../utils/metatileBehaviors';
+import type { BridgeType, CardinalDirection } from '../utils/metatileBehaviors';
 import {
   getBridgeTypeFromBehavior,
+  getArrowDirectionFromBehavior,
   isIceBehavior,
   isReflectiveBehavior,
   isArrowWarpBehavior,
@@ -168,6 +169,7 @@ interface DoorEntrySequence {
   targetY: number;
   metatileId: number;
   isAnimatedDoor?: boolean; // If false, skip door animation but still do entry sequence
+  entryDirection?: CardinalDirection;
   openAnimId?: number;
   closeAnimId?: number;
   playerHidden?: boolean;
@@ -182,6 +184,14 @@ interface DoorExitSequence {
   isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
   openAnimId?: number;
   closeAnimId?: number;
+}
+
+interface ArrowOverlayState {
+  visible: boolean;
+  worldX: number;
+  worldY: number;
+  direction: CardinalDirection;
+  startedAt: number;
 }
 
 interface FadeState {
@@ -332,6 +342,21 @@ const DOOR_ASSET_MAP: Array<{ metatileIds: number[]; path: string; size: DoorSiz
 ];
 const DOOR_FADE_DURATION = 500;
 const DOOR_DEBUG_FLAG = 'DEBUG_DOOR_ANIM';
+const ARROW_SPRITE_PATH = `${PROJECT_ROOT}/graphics/field_effects/pics/arrow.png`;
+const ARROW_FRAME_SIZE = METATILE_SIZE;
+const ARROW_FRAME_DURATION_MS = 533; // GBA uses 32 ticks @ 60fps ≈ 533ms per frame
+const ARROW_FRAME_SEQUENCES: Record<CardinalDirection, number[]> = {
+  down: [3, 7],
+  up: [0, 4],
+  left: [1, 5],
+  right: [2, 6],
+};
+const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
+  up: { dx: 0, dy: -1 },
+  down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
+  right: { dx: 1, dy: 0 },
+};
 
 interface ReflectionState {
   hasReflection: boolean;
@@ -944,6 +969,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const doorAnimIdRef = useRef<number>(1);
   const playerHiddenRef = useRef<boolean>(false);
   const currentTimestampRef = useRef<number>(0);
+  const arrowOverlayRef = useRef<ArrowOverlayState | null>(null);
+  const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
+  const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -1111,6 +1139,25 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     []
   );
 
+  const renderArrowOverlay = useCallback(
+    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, now: number) => {
+      const overlay = arrowOverlayRef.current;
+      const sprite = arrowSpriteRef.current;
+      if (!overlay || !overlay.visible || !sprite) return;
+      const framesPerRow = Math.max(1, Math.floor(sprite.width / ARROW_FRAME_SIZE));
+      const frameSequence = ARROW_FRAME_SEQUENCES[overlay.direction];
+      const elapsed = now - overlay.startedAt;
+      const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
+      const frameIndex = frameSequence[seqIndex];
+      const sx = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
+      const sy = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
+      const dx = Math.round(overlay.worldX * METATILE_SIZE - view.cameraWorldX);
+      const dy = Math.round(overlay.worldY * METATILE_SIZE - view.cameraWorldY);
+      mainCtx.drawImage(sprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);
+    },
+    []
+  );
+
   const spawnDoorAnimation = useCallback(
     async (
       direction: 'open' | 'close',
@@ -1174,6 +1221,112 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       });
     },
     [isDoorAnimDone]
+  );
+
+  const ensureArrowSprite = useCallback((): Promise<HTMLImageElement | HTMLCanvasElement> => {
+    if (arrowSpriteRef.current) {
+      return Promise.resolve(arrowSpriteRef.current);
+    }
+    if (!arrowSpritePromiseRef.current) {
+      arrowSpritePromiseRef.current = new Promise<HTMLImageElement | HTMLCanvasElement>((resolve, reject) => {
+        const img = new Image();
+        img.src = ARROW_SPRITE_PATH;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to acquire arrow sprite context'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          const colorCounts = new Map<number, number>();
+          for (let i = 0; i < data.length; i += 4) {
+            const alpha = data[i + 3];
+            if (alpha === 0) continue;
+            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+            colorCounts.set(key, (colorCounts.get(key) ?? 0) + 1);
+          }
+          let bgKey = 0;
+          let bgCount = -1;
+          for (const [key, count] of colorCounts.entries()) {
+            if (count > bgCount) {
+              bgKey = key;
+              bgCount = count;
+            }
+          }
+          const bgR = (bgKey >> 16) & 0xff;
+          const bgG = (bgKey >> 8) & 0xff;
+          const bgB = bgKey & 0xff;
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+              data[i + 3] = 0;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+          arrowSpriteRef.current = canvas;
+          resolve(canvas);
+        };
+        img.onerror = (err) => reject(err);
+      }).finally(() => {
+        arrowSpritePromiseRef.current = null;
+      }) as Promise<HTMLImageElement | HTMLCanvasElement>;
+    }
+    return arrowSpritePromiseRef.current!;
+  }, []);
+
+  const updateArrowOverlay = useCallback(
+    (
+      player: PlayerController | null,
+      ctx: RenderContext | null,
+      resolvedTile: ResolvedTile | null,
+      now: number,
+      warpInProgress: boolean
+    ) => {
+      if (!player || !ctx || warpInProgress) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      const tile = resolvedTile ?? resolveTileAt(ctx, player.tileX, player.tileY);
+      if (!tile) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      const behavior = tile.attributes?.behavior ?? -1;
+      const arrowDir = getArrowDirectionFromBehavior(behavior);
+      if (!arrowDir || player.dir !== arrowDir) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      if (!arrowSpriteRef.current && !arrowSpritePromiseRef.current) {
+        ensureArrowSprite().catch((err) => console.warn('Failed to load arrow sprite', err));
+      }
+      const vector = DIRECTION_VECTORS[arrowDir];
+      const overlayWorldX = player.tileX + vector.dx;
+      const overlayWorldY = player.tileY + vector.dy;
+      const prev = arrowOverlayRef.current;
+      const isNewOverlay = !prev || !prev.visible || prev.direction !== arrowDir;
+      arrowOverlayRef.current = {
+        visible: true,
+        worldX: overlayWorldX,
+        worldY: overlayWorldY,
+        direction: arrowDir,
+        startedAt: isNewOverlay ? now : prev.startedAt,
+      };
+      if (isNewOverlay) {
+        console.log('[ARROW_OVERLAY_SET]', {
+          direction: arrowDir,
+          playerTile: `(${player.tileX}, ${player.tileY})`,
+          overlayTile: `(${overlayWorldX}, ${overlayWorldY})`,
+          behavior,
+          startedAt: now,
+        });
+      }
+    },
+    [ensureArrowSprite]
   );
 
   const [loading, setLoading] = useState(true);
@@ -1725,6 +1878,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       renderDoorAnimations(mainCtx, view, nowMs);
+      renderArrowOverlay(mainCtx, view, nowMs);
       renderReflectionLayer(mainCtx, reflectionState, view);
 
       if (playerControllerRef.current && !playerHiddenRef.current) {
@@ -1752,7 +1906,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         );
       }
     },
-    [renderPass, renderReflectionLayer, renderDoorAnimations]
+    [renderPass, renderReflectionLayer, renderDoorAnimations, renderArrowOverlay]
   );
 
   useEffect(() => {
@@ -1819,6 +1973,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           targetX: 0,
           targetY: 0,
           metatileId: 0,
+          entryDirection: 'up',
         };
         doorExitRef.current = {
           stage: 'idle',
@@ -1829,7 +1984,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const startAutoDoorWarp = (
           trigger: WarpTrigger,
           resolved: ResolvedTile,
-          player: PlayerController
+          player: PlayerController,
+          entryDirection: CardinalDirection = 'up',
+          options?: { isAnimatedDoor?: boolean }
         ) => {
           if (doorEntry.stage !== 'idle') return false;
           const now = performance.now();
@@ -1840,13 +1997,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             metatileId,
             behavior: trigger.behavior,
           });
+          arrowOverlayRef.current = null;
           doorEntry = {
             stage: 'waitingBeforeFade',
             trigger,
             targetX: player.tileX,
             targetY: player.tileY,
             metatileId,
-            isAnimatedDoor: false,
+            isAnimatedDoor: options?.isAnimatedDoor ?? false,
+            entryDirection,
             playerHidden: false,
             waitStartedAt: now - 250,
           };
@@ -1921,7 +2080,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
             
             // Check if destination tile actually has a door before playing door exit animation
-            if (options?.fromDoor && trigger.kind === 'door' && ctxAfter) {
+            if (options?.fromDoor && ctxAfter) {
               const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
               const destBehavior = destResolved?.attributes?.behavior ?? -1;
               const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
@@ -1992,6 +2151,21 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 playerControllerRef.current?.unlockInput();
                 warpState.inProgress = false;
               }
+            } else if (options?.fromDoor) {
+              fadeRef.current = {
+                mode: 'in',
+                startedAt: currentTimestampRef.current,
+                duration: DOOR_FADE_DURATION,
+              };
+              playerHiddenRef.current = false;
+              doorExitRef.current = {
+                stage: 'idle',
+                doorWorldX: 0,
+                doorWorldY: 0,
+                metatileId: 0,
+              };
+              playerControllerRef.current?.unlockInput();
+              warpState.inProgress = false;
             }
             applyTileResolver();
             warpState.lastCheckedTile = { mapId: destMap.entry.id, x: destWorldX, y: destWorldY };
@@ -2025,13 +2199,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const openDone = !anim || isDoorAnimDone(anim, now);
               if (openDone) {
                 logDoor('entry: door fully open (animated), force step into tile', doorEntry.targetX, doorEntry.targetY);
-                player.forceMove('up', true);
+                player.forceMove(doorEntry.entryDirection ?? 'up', true);
                 doorEntry.stage = 'stepping';
               }
             } else {
               // Non-animated door: skip straight to stepping
               logDoor('entry: non-animated door, force step into tile', doorEntry.targetX, doorEntry.targetY);
-              player.forceMove('up', true);
+              player.forceMove(doorEntry.entryDirection ?? 'up', true);
               doorEntry.stage = 'stepping';
             }
           } else if (doorEntry.stage === 'stepping') {
@@ -2328,14 +2502,22 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (!warpState.inProgress && warpState.cooldownMs <= 0) {
                 const trigger = detectWarpTrigger(ctx, player);
                 if (trigger) {
-                  if (requiresDoorExitSequence(trigger.behavior)) {
-                    startAutoDoorWarp(trigger, resolvedForWarp, player);
+                  if (trigger.kind === 'arrow') {
+                    const arrowDir = getArrowDirectionFromBehavior(trigger.behavior);
+                    if (arrowDir && player.dir === arrowDir) {
+                      startAutoDoorWarp(trigger, resolvedForWarp, player, arrowDir, { isAnimatedDoor: false });
+                    }
+                  } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
+                    startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
                   } else {
                     void performWarp(trigger);
                   }
                 }
               }
             }
+            updateArrowOverlay(player, ctx, resolvedForWarp, timestamp, warpState.inProgress);
+          } else {
+            updateArrowOverlay(null, null, null, timestamp, warpState.inProgress);
           }
           let view: WorldCameraView | null = null;
           if (player) {
@@ -2422,7 +2604,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             !hasRenderedRef.current ||
             viewChanged ||
             doorAnimsRef.current.length > 0 ||
-            fadeRef.current.mode !== null;
+            fadeRef.current.mode !== null ||
+            !!arrowOverlayRef.current?.visible; // Keep rendering while arrow animates
           const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
           reflectionStateRef.current = reflectionState;
 
