@@ -166,3 +166,62 @@ Exit arrows (e.g., in department stores) are standard "Arrow Warps".
 | Warp Execution | `src/field_screen_effect.c` | `DoWarp`, `DoDoorWarp`, `DoTeleportTileWarp` |
 | Door Animations | `src/field_door.c` | `StartDoorOpenAnimation`, `sDoorAnimGraphicsTable` |
 | Warp Data | `src/overworld.c` | `sWarpDestination`, `SetWarpDestination` |
+
+## Deep Dive: Door Warping Internals
+
+This section explores the intricate details of how door warps function, specifically focusing on the interaction between collision, animation, and scripted movement.
+
+### 1. The Trigger Mechanism
+The door warp is NOT triggered by stepping *onto* the tile. Instead, it is triggered by **attempting to step into** the tile.
+*   **File:** `src/field_control_avatar.c`
+*   **Function:** `ProcessPlayerFieldInput`
+*   **Logic:** When the player presses a direction (specifically North for doors), the game calls `TryDoorWarp`.
+*   **Condition:** `TryDoorWarp` checks if the target tile has `MetatileBehavior_IsWarpDoor` (e.g., `MB_ANIMATED_DOOR`).
+*   **Input Consumption:** If `TryDoorWarp` returns `TRUE`, the function `ProcessPlayerFieldInput` returns `TRUE`, effectively consuming the input. This prevents the standard movement logic from executing, which explains why the player doesn't "bump" into the door or walk into it normally.
+
+### 2. The Warp Sequence (`Task_DoDoorWarp`)
+Once triggered, the warp is handled by a state machine in `src/field_screen_effect.c`.
+
+*   **State 0: Animation Start**
+    *   `FreezeObjectEvents()`: Pauses all NPCs.
+    *   `PlaySE()`: Plays the door sound.
+    *   `FieldAnimateDoorOpen()`: Starts the visual animation of the door opening. This uses `StartDoorAnimationTask` in `field_door.c` to cycle through tile graphics. **Crucially, this appears to be a visual-only change; the logical metatile ID in the map grid remains unchanged.**
+
+*   **State 1: Waiting & Forced Movement**
+    *   Waits for the door animation to complete.
+    *   **Scripted Movement:** Calls `ObjectEventSetHeldMovement(..., MOVEMENT_ACTION_WALK_NORMAL_UP)`.
+    *   **Collision Handling:** Since the door tile is typically solid (impassable) in the map data, how does the player walk through it?
+        *   The `TryDoorWarp` trigger consumes the initial input, preventing a standard collision check.
+        *   The forced `heldMovement` is executed directly by the object event system.
+        *   *Investigation Findings:* It is highly likely that door metatiles are technically defined as **passable** in the collision data, but the `TryDoorWarp` check intercepts any attempt to walk into them, effectively acting as a soft collision. This allows the "forced" movement in State 1 to succeed without needing to bypass collision logic.
+
+*   **State 2: Closing & Hiding**
+    *   Waits for the player to finish the step (now standing "inside" the door).
+    *   `FieldAnimateDoorClose()`: Plays the closing animation.
+    *   `SetPlayerVisibility(FALSE)`: Hides the player sprite.
+
+*   **State 4: Screen Fade**
+    *   `WarpFadeOutScreen()`: Fades the screen to black (or white).
+    *   Transitions to `Task_WarpAndLoadMap` to load the new map.
+
+### 3. The Exit Sequence (`Task_ExitDoor`)
+When arriving at a map via a door (e.g., exiting a house), a complementary sequence occurs:
+
+*   **State 0:**
+    *   `SetPlayerVisibility(FALSE)`: Player starts hidden.
+    *   `FieldSetDoorOpened()`: Sets the door to the "open" visual state immediately, so it appears open when the screen fades in.
+
+*   **State 1:**
+    *   Waits for screen fade-in.
+    *   `SetPlayerVisibility(TRUE)`: Shows the player.
+    *   `ObjectEventSetHeldMovement(..., MOVEMENT_ACTION_WALK_NORMAL_DOWN)`: Forces the player to walk out of the door.
+
+*   **State 2:**
+    *   `FieldAnimateDoorClose()`: Closes the door behind the player.
+
+### 4. Visual vs. Logical State
+The door animations in `field_door.c` (`DrawDoor`, `CopyDoorTilesToVram`) manipulate the VRAM and tile graphics but do not appear to change the underlying `MetatileBehavior` or collision data of the map grid. The "door" effect is a carefully choreographed sequence of:
+1.  Intercepting input (preventing normal movement).
+2.  Playing an animation (visuals).
+3.  Forcing movement (ignoring the "soft" collision of the input intercept).
+4.  Hiding the sprite.
