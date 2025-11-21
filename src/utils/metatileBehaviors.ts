@@ -23,6 +23,21 @@ export const MB_BRIDGE_OVER_POND_MED_EDGE_2 = 123;
 export const MB_BRIDGE_OVER_POND_HIGH_EDGE_1 = 124;
 export const MB_BRIDGE_OVER_POND_HIGH_EDGE_2 = 125;
 export const MB_BIKE_BRIDGE_OVER_BARRIER = 127;
+export const MB_BATTLE_PYRAMID_WARP = 13;
+export const MB_MOSSDEEP_GYM_WARP = 14;
+export const MB_MT_PYRE_HOLE = 15;
+export const MB_LAVARIDGE_GYM_B1F_WARP = 41;
+export const MB_NON_ANIMATED_DOOR = 96;
+export const MB_EAST_ARROW_WARP = 98;
+export const MB_WEST_ARROW_WARP = 99;
+export const MB_NORTH_ARROW_WARP = 100;
+export const MB_SOUTH_ARROW_WARP = 101;
+export const MB_AQUA_HIDEOUT_WARP = 103;
+export const MB_LAVARIDGE_GYM_1F_WARP = 104;
+export const MB_ANIMATED_DOOR = 105;
+export const MB_WATER_DOOR = 108;
+export const MB_WATER_SOUTH_ARROW_WARP = 109;
+export const MB_DEEP_SOUTH_WARP = 110;
 
 const REFLECTIVE_BEHAVIORS = new Set([
   MB_POND_WATER,
@@ -60,4 +75,44 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
     default:
       return 'none';
   }
+}
+
+const DOOR_BEHAVIORS = new Set<number>([
+  MB_ANIMATED_DOOR,
+  MB_NON_ANIMATED_DOOR,
+  MB_WATER_DOOR,
+]);
+
+const TELEPORT_PAD_BEHAVIORS = new Set<number>([
+  MB_AQUA_HIDEOUT_WARP,
+  MB_LAVARIDGE_GYM_1F_WARP,
+  MB_LAVARIDGE_GYM_B1F_WARP,
+  MB_BATTLE_PYRAMID_WARP,
+  MB_MOSSDEEP_GYM_WARP,
+  MB_DEEP_SOUTH_WARP,
+  MB_MT_PYRE_HOLE,
+]);
+
+const ARROW_WARP_BEHAVIORS = new Set<number>([
+  MB_EAST_ARROW_WARP,
+  MB_WEST_ARROW_WARP,
+  MB_NORTH_ARROW_WARP,
+  MB_SOUTH_ARROW_WARP,
+  MB_WATER_SOUTH_ARROW_WARP,
+]);
+
+export function isDoorBehavior(behavior: number): boolean {
+  return DOOR_BEHAVIORS.has(behavior);
+}
+
+export function isTeleportWarpBehavior(behavior: number): boolean {
+  return TELEPORT_PAD_BEHAVIORS.has(behavior);
+}
+
+export function isArrowWarpBehavior(behavior: number): boolean {
+  return ARROW_WARP_BEHAVIORS.has(behavior);
+}
+
+export function isWarpBehavior(behavior: number): boolean {
+  return isDoorBehavior(behavior) || isTeleportWarpBehavior(behavior) || isArrowWarpBehavior(behavior);
 }

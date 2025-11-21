@@ -4,6 +4,14 @@ export interface MapConnection {
   direction: string;
 }
 
+export interface WarpEvent {
+  x: number;
+  y: number;
+  elevation: number;
+  destMap: string;
+  destWarpId: number;
+}
+
 export interface MapIndexEntry {
   id: string;
   name: string;

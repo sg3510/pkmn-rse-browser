@@ -11,6 +11,7 @@ import {
   MB_WATERFALL,
   MB_SEAWEED,
   MB_SEAWEED_NO_SURFACING,
+  isDoorBehavior,
 } from '../utils/metatileBehaviors';
 
 export interface ResolvedTileInfo {
@@ -19,6 +20,12 @@ export interface ResolvedTileInfo {
 }
 
 export type TileResolver = (tileX: number, tileY: number) => ResolvedTileInfo | null;
+
+export interface DoorWarpRequest {
+  targetX: number;
+  targetY: number;
+  behavior: number;
+}
 
 export class PlayerController {
   public x: number = 0;
@@ -29,6 +36,7 @@ export class PlayerController {
   public prevTileY: number = 0;
   public dir: 'down' | 'up' | 'left' | 'right' = 'down';
   public isMoving: boolean = false;
+  public inputLocked: boolean = false;
   
   private pixelsMoved: number = 0;
   private sprite: HTMLCanvasElement | null = null;
@@ -37,6 +45,7 @@ export class PlayerController {
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
+  private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   
   // Speed in pixels per millisecond
   // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
@@ -107,6 +116,49 @@ export class PlayerController {
     this.tileY = tileY;
     this.x = tileX * this.TILE_PIXELS;
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
+    this.isMoving = false;
+    this.pixelsMoved = 0;
+  }
+
+  public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
+    this.setPosition(tileX, tileY);
+    this.dir = dir;
+  }
+
+  public lockInput() {
+    this.inputLocked = true;
+    this.keysPressed = {};
+    this.isMoving = false;
+    this.pixelsMoved = 0;
+  }
+
+  public unlockInput() {
+    this.inputLocked = false;
+  }
+
+  public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
+    this.dir = direction;
+    this.isMoving = true;
+    this.pixelsMoved = 0;
+  }
+
+  public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
+    this.dir = direction;
+    if (ignoreCollision) {
+      this.isMoving = true;
+      this.pixelsMoved = 0;
+      return true;
+    }
+    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+    if (!this.isCollisionAt(targetTileX, targetTileY)) {
+      this.isMoving = true;
+      this.pixelsMoved = 0;
+      return true;
+    }
+    return false;
   }
 
   public getCameraFocus() {
@@ -121,13 +173,6 @@ export class PlayerController {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     if (!resolved) return true; // Out of bounds = collision
     const mapTile = resolved.mapTile;
-    
-    // Check collision bits from map.bin (bits 10-11)
-    const collision = getCollisionFromMapTile(mapTile);
-    if (!isCollisionPassable(collision)) {
-      return true; // Collision bit set
-    }
-    
     // Get metatile ID and check behavior
     const attributes = resolved.attributes;
     if (!attributes) {
@@ -135,9 +180,14 @@ export class PlayerController {
     }
     
     // Check behavior (MB_* constants)
-    // MB_SECRET_BASE_WALL = 1 is impassable
-    // Water tiles (16-20, etc.) are impassable without surf
     const behavior = attributes.behavior;
+
+    // Check collision bits from map.bin (bits 10-11)
+    const collision = getCollisionFromMapTile(mapTile);
+    if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) {
+      return true; // Collision bit set
+    }
+
     // Impassable behaviors
     if (behavior === 1) return true; // MB_SECRET_BASE_WALL
 
@@ -163,6 +213,10 @@ export class PlayerController {
 
   public update(delta: number): boolean {
     let didRenderMove = false;
+
+    if (this.inputLocked && !this.isMoving) {
+      return false;
+    }
 
     if (this.isMoving) {
       // Continue movement based on time delta
@@ -242,18 +296,31 @@ export class PlayerController {
         if (newDir !== prevDir) {
           didRenderMove = true;
         }
+
+        // Give door interactions a chance to consume input before collision/movement.
+        const handled = this.tryInteract(newDir);
+        if (handled) {
+          return true;
+        }
         
         // Check collision at target tile
         const targetTileX = this.tileX + dx;
         const targetTileY = this.tileY + dy;
         
-        if (!this.isCollisionAt(targetTileX, targetTileY)) {
+        const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+        const behavior = resolved?.attributes?.behavior ?? -1;
+        const blocked = this.isCollisionAt(targetTileX, targetTileY);
+
+        if (!blocked) {
           this.isMoving = true;
-          this.pixelsMoved = 0;
-          didRenderMove = true;
-        }
+        this.pixelsMoved = 0;
+        didRenderMove = true;
+      } else if (this.doorWarpHandler && isDoorBehavior(behavior)) {
+        this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
+        didRenderMove = true;
       }
     }
+  }
 
     return didRenderMove || this.isMoving;
   }
@@ -361,5 +428,23 @@ export class PlayerController {
 
   public setTileResolver(resolver: TileResolver | null) {
     this.tileResolver = resolver;
+  }
+
+  public setDoorWarpHandler(handler: ((request: DoorWarpRequest) => void) | null) {
+    this.doorWarpHandler = handler;
+  }
+
+  public tryInteract(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+    const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+    if (behavior !== undefined && isDoorBehavior(behavior) && this.doorWarpHandler) {
+      this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
+      return true;
+    }
+    return false;
   }
 }

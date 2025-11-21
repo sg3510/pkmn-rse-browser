@@ -1,5 +1,5 @@
 import mapIndexJson from '../data/mapIndex.json';
-import type { MapIndexEntry, MapConnection } from '../types/maps';
+import type { MapIndexEntry, MapConnection, WarpEvent } from '../types/maps';
 import {
   loadBorderMetatiles,
   loadMapLayout,
@@ -39,6 +39,7 @@ export interface LoadedMapData {
   mapData: MapData;
   borderMetatiles: number[]; // 2x2 repeating metatile IDs
   tilesets: TilesetResources;
+  warpEvents: WarpEvent[];
 }
 
 export interface WorldMapInstance extends LoadedMapData {
@@ -119,6 +120,36 @@ export class MapManager {
     return resources;
   }
 
+  private async loadWarpEvents(entry: MapIndexEntry): Promise<WarpEvent[]> {
+    try {
+      const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${entry.folder}/map.json`);
+      const data = JSON.parse(jsonText) as { warp_events?: Array<Record<string, unknown>> };
+      const warpEventsRaw = Array.isArray(data.warp_events) ? data.warp_events : [];
+      return warpEventsRaw
+        .map((warp, idx) => {
+          const x = Number((warp as { x?: unknown }).x ?? 0);
+          const y = Number((warp as { y?: unknown }).y ?? 0);
+          const elevation = Number((warp as { elevation?: unknown }).elevation ?? 0);
+          const destMap = String((warp as { dest_map?: unknown }).dest_map ?? '');
+          const destWarpId = Number((warp as { dest_warp_id?: unknown }).dest_warp_id ?? idx);
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !destMap) {
+            return null;
+          }
+          return {
+            x,
+            y,
+            elevation: Number.isFinite(elevation) ? elevation : 0,
+            destMap,
+            destWarpId: Number.isFinite(destWarpId) ? destWarpId : idx,
+          } satisfies WarpEvent;
+        })
+        .filter((warp): warp is WarpEvent => !!warp);
+    } catch (err) {
+      console.warn(`Failed to load warp events for ${entry.id}:`, err);
+      return [];
+    }
+  }
+
   public async loadMap(mapId: string): Promise<LoadedMapData> {
     const cached = this.mapCache.get(mapId);
     if (cached) return cached;
@@ -128,10 +159,11 @@ export class MapManager {
       throw new Error(`Unknown map id: ${mapId}`);
     }
 
-    const [mapData, borderMetatiles, tilesets] = await Promise.all([
+    const [mapData, borderMetatiles, tilesets, warpEvents] = await Promise.all([
       loadMapLayout(`${PROJECT_ROOT}/${entry.layoutPath}/map.bin`, entry.width, entry.height),
       loadBorderMetatiles(`${PROJECT_ROOT}/${entry.layoutPath}/border.bin`),
       this.loadTilesets(entry),
+      this.loadWarpEvents(entry),
     ]);
 
     const loaded: LoadedMapData = {
@@ -139,6 +171,7 @@ export class MapManager {
       mapData,
       borderMetatiles,
       tilesets,
+      warpEvents,
     };
 
     this.mapCache.set(mapId, loaded);
