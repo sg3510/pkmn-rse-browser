@@ -182,6 +182,7 @@ interface DoorExitSequence {
   doorWorldY: number;
   metatileId: number;
   isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
+  exitDirection?: 'up' | 'down' | 'left' | 'right'; // Direction to walk when exiting
   openAnimId?: number;
   closeAnimId?: number;
 }
@@ -399,9 +400,11 @@ function applyBehaviorOverrides(attributes: MetatileAttributes[]): MetatileAttri
 }
 
 function classifyWarpKind(behavior: number): WarpKind | null {
+  // Check arrow warps first, before door behaviors
+  // (some behaviors like MB_DEEP_SOUTH_WARP can match multiple categories)
+  if (isArrowWarpBehavior(behavior)) return 'arrow';
   if (requiresDoorExitSequence(behavior)) return 'door';
   if (isTeleportWarpBehavior(behavior)) return 'teleport';
-  if (isArrowWarpBehavior(behavior)) return 'arrow';
   return null;
 }
 
@@ -1316,15 +1319,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         direction: arrowDir,
         startedAt: isNewOverlay ? now : prev.startedAt,
       };
-      if (isNewOverlay) {
-        console.log('[ARROW_OVERLAY_SET]', {
-          direction: arrowDir,
-          playerTile: `(${player.tileX}, ${player.tileY})`,
-          overlayTile: `(${overlayWorldX}, ${overlayWorldY})`,
-          behavior,
-          startedAt: now,
-        });
-      }
     },
     [ensureArrowSprite]
   );
@@ -1932,17 +1926,38 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         if (generation !== renderGenerationRef.current) {
           return;
         }
-
-        try {
-          await playerControllerRef.current?.loadSprite(`${PROJECT_ROOT}/graphics/object_events/pics/people/brendan/walking.png`);
-        } catch (spriteErr) {
-          console.error('Failed to load sprite', spriteErr);
-        }
-
+        // Load player sprite
+        const player = new PlayerController();
+        await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
+        await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
+        
+        // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
         if (!anchor) {
           throw new Error('Failed to determine anchor map for warp setup');
         }
+        const startTileX = Math.floor(anchor.mapData.width / 2);
+        const startTileY = Math.floor(anchor.mapData.height / 2);
+        player.setPositionAndDirection(startTileX, startTileY, 'down');
+
+        const resolveTileForPlayer = (tileX: number, tileY: number) => {
+          const ctx = renderContextRef.current;
+          if (!ctx) return null;
+          const resolved = resolveTileAt(ctx, tileX, tileY);
+          if (!resolved) return null;
+          return { mapTile: resolved.mapTile, attributes: resolved.attributes };
+        };
+        player.setTileResolver(resolveTileForPlayer);
+        // player.setDoorWarpHandler(handleDoorWarp); // This will be defined later
+        playerControllerRef.current = player;
+
+        // The original code had a try/catch block for loading a single sprite here.
+        // This has been replaced by the new PlayerController initialization above.
+
+        // const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
+        // if (!anchor) {
+        //   throw new Error('Failed to determine anchor map for warp setup');
+        // }
         const applyTileResolver = () => {
           playerControllerRef.current?.setTileResolver((tileX, tileY) => {
             const ctx = renderContextRef.current;
@@ -1952,9 +1967,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             return { mapTile: resolved.mapTile, attributes: resolved.attributes };
           });
         };
-        const startTileX = Math.floor(anchor.mapData.width / 2);
-        const startTileY = Math.floor(anchor.mapData.height / 2);
-        playerControllerRef.current?.setPosition(startTileX, startTileY);
+        
         applyTileResolver();
         setLoading(false);
 
@@ -2060,22 +2073,34 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             const destWorldY = destMap.offsetY + destWarp.y;
             
             // Determine facing direction based on context
-            // When warping through a door, check if destination has a door:
-            // - If destination has door: face down (exiting through door)
-            // - If destination has no door (arrow warp): face up (just arrived, standing on floor)
-            // For non-door warps: preserve original facing
             let facing: PlayerController['dir'] = trigger.facing;
             if (trigger.kind === 'door' && options?.fromDoor && ctxAfter) {
               const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
               const destBehavior = destResolved?.attributes?.behavior ?? -1;
+              const destIsArrow = isArrowWarpBehavior(destBehavior);
+              
               if (isDoorBehavior(destBehavior)) {
                 facing = 'down'; // Exiting through a door
+              } else if (destIsArrow) {
+                // Arriving at an arrow warp: preserve movement direction
+                facing = trigger.facing;
               } else {
-                facing = 'up'; // Arrived at non-door destination (arrow warp, stairs)
+                facing = 'up'; // Arrived at non-door, non-arrow destination (stairs, etc.)
               }
             } else if (trigger.kind === 'door') {
               facing = 'down'; // Default for door warps when not using door entry sequence
+            } else if (trigger.kind === 'arrow') {
+              // Arrow warps: always preserve the movement direction
+              // This ensures you face the direction you were moving, not the destination arrow's direction
+              facing = trigger.facing;
             }
+
+            console.log('[WARP_FACING]', {
+              triggerKind: trigger.kind,
+              triggerFacing: trigger.facing,
+              finalFacing: facing,
+              fromDoor: options?.fromDoor,
+            });
 
             playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
             
@@ -2103,6 +2128,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               
               // Check if destination requires exit sequence (animated or non-animated)
               if (requiresExitSequence) {
+                // Determine exit direction: for arrow warps, continue in same direction; for doors, exit down
+                const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
+                
+                console.log('[EXIT_SEQUENCE_START]', {
+                  triggerKind: trigger.kind,
+                  triggerFacing: trigger.facing,
+                  exitDirection,
+                  destBehavior,
+                  isAnimatedDoor,
+                });
+                
                 logDoor('performWarp: destination requires exit sequence', {
                   destWorldX,
                   destWorldY,
@@ -2110,6 +2146,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   destBehavior,
                   isAnimatedDoor,
                   isNonAnimatedDoor,
+                  exitDirection,
+                  triggerKind: trigger.kind,
                 });
                 playerHiddenRef.current = true;
                 doorExitRef.current = {
@@ -2118,6 +2156,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   doorWorldY: destWorldY,
                   metatileId: destMetatileId,
                   isAnimatedDoor, // Store whether to play door animation
+                  exitDirection, // Store which direction to walk when exiting
                 };
                 fadeRef.current = {
                   mode: 'in',
@@ -2125,6 +2164,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   duration: DOOR_FADE_DURATION,
                 };
               } else {
+                console.log('[NO_EXIT_SEQUENCE]', {
+                  triggerKind: trigger.kind,
+                  destBehavior,
+                  requiresExitSequence,
+                  finalFacing: facing,
+                });
                 // No door on destination side (e.g., arrow warp, stairs, teleport pad)
                 // Must unlock input immediately since there's no door exit sequence
                 logDoor('performWarp: destination has no door, simple fade in', {
@@ -2185,6 +2230,29 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             reanchorInFlight = false;
           }
         };
+
+        const handleDoorWarp = (request: DoorWarpRequest) => {
+          const ctx = renderContextRef.current;
+          if (!ctx) return;
+          const resolved = resolveTileAt(ctx, request.targetX, request.targetY);
+          if (!resolved) return;
+          
+          const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
+          if (!warpEvent) return;
+
+          const trigger: WarpTrigger = {
+            kind: classifyWarpKind(request.behavior) ?? 'door',
+            sourceMap: resolved.map,
+            warpEvent,
+            behavior: request.behavior,
+            facing: playerControllerRef.current?.dir ?? 'down'
+          };
+          
+          if (playerControllerRef.current) {
+            startAutoDoorWarp(trigger, resolved, playerControllerRef.current);
+          }
+        };
+        playerControllerRef.current?.setDoorWarpHandler(handleDoorWarp);
 
         const advanceDoorEntry = (now: number) => {
           if (doorEntry.stage === 'idle') return;
@@ -2307,9 +2375,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           if (!warpEvent) return;
           const behavior = resolved.attributes?.behavior ?? -1;
           
-          // CRITICAL: Verify this tile requires door exit sequence
-          // Includes both animated doors (105) AND non-animated doors/stairs (96)
-          // This prevents arrow warps, teleport pads, etc. from triggering door sequences
+          // Check if this is an arrow warp
+          const isArrow = isArrowWarpBehavior(behavior);
           const requiresExitSeq = requiresDoorExitSequence(behavior);
           const isAnimated = isDoorBehavior(behavior);
           
@@ -2320,11 +2387,38 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
             isDoor: isAnimated,
             isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
+            isArrowWarp: isArrow,
             requiresExitSequence: requiresExitSeq,
+            playerDir: player.dir,
           });
           
+          // Handle arrow warps
+          if (isArrow) {
+            const arrowDir = getArrowDirectionFromBehavior(behavior);
+            console.log('[ARROW_WARP_ATTEMPT]', {
+              arrowDir,
+              playerDir: player.dir,
+              match: arrowDir === player.dir,
+            });
+            if (!arrowDir || player.dir !== arrowDir) {
+              console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
+              return;
+            }
+            // Arrow warp: trigger auto door warp with no animation
+            const trigger: WarpTrigger = {
+              kind: 'arrow',
+              sourceMap: resolved.map,
+              warpEvent,
+              behavior,
+              facing: player.dir,
+            };
+            console.log('[ARROW_WARP_START]', { trigger });
+            startAutoDoorWarp(trigger, resolved, player, arrowDir, { isAnimatedDoor: false });
+            return;
+          }
+          
           if (!requiresExitSeq) {
-            console.warn('[DOOR_WARP_ATTEMPT] Called for non-door tile - REJECTING', {
+            console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
               targetX: request.targetX,
               targetY: request.targetY,
               behavior,
@@ -2428,15 +2522,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 : null;
               const done = !anim || isDoorAnimDone(anim, timestamp);
               if (done) {
-                logDoor('exit: step out of door (animated)');
-                playerControllerRef.current?.forceMove('down', true);
+                const exitDir = doorExit.exitDirection ?? 'down';
+                logDoor('exit: step out of door (animated)', { exitDirection: exitDir });
+                playerControllerRef.current?.forceMove(exitDir, true);
                 playerHiddenRef.current = false;
                 doorExitRef.current.stage = 'stepping';
               }
             } else {
               // Non-animated door: skip straight to stepping
-              logDoor('exit: step out of door (non-animated, no door animation)');
-              playerControllerRef.current?.forceMove('down', true);
+              const exitDir = doorExit.exitDirection ?? 'down';
+              logDoor('exit: step out of door (non-animated, no door animation)', { exitDirection: exitDir });
+              playerControllerRef.current?.forceMove(exitDir, true);
               playerHiddenRef.current = false;
               doorExitRef.current.stage = 'stepping';
             }
@@ -2502,11 +2598,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (!warpState.inProgress && warpState.cooldownMs <= 0) {
                 const trigger = detectWarpTrigger(ctx, player);
                 if (trigger) {
+                  // Arrow warps are handled through PlayerController's doorWarpHandler
+                  // (triggered when player tries to move in the arrow direction)
                   if (trigger.kind === 'arrow') {
-                    const arrowDir = getArrowDirectionFromBehavior(trigger.behavior);
-                    if (arrowDir && player.dir === arrowDir) {
-                      startAutoDoorWarp(trigger, resolvedForWarp, player, arrowDir, { isAnimatedDoor: false });
-                    }
+                    // Do nothing - wait for player movement input
+                    console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
                   } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
                     startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
                   } else {

@@ -11,8 +11,14 @@ import {
   MB_WATERFALL,
   MB_SEAWEED,
   MB_SEAWEED_NO_SURFACING,
+  MB_EAST_ARROW_WARP,
+  MB_WEST_ARROW_WARP,
+  MB_NORTH_ARROW_WARP,
+  MB_SOUTH_ARROW_WARP,
+  MB_WATER_SOUTH_ARROW_WARP,
   isDoorBehavior,
   requiresDoorExitSequence,
+  isArrowWarpBehavior,
 } from '../utils/metatileBehaviors';
 
 export interface ResolvedTileInfo {
@@ -28,6 +34,99 @@ export interface DoorWarpRequest {
   behavior: number;
 }
 
+export interface FrameInfo {
+  sprite: HTMLCanvasElement;
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  renderX: number;
+  renderY: number;
+  flip: boolean;
+}
+
+// --- Player States ---
+
+interface PlayerState {
+  enter(controller: PlayerController): void;
+  exit(controller: PlayerController): void;
+  update(controller: PlayerController, delta: number): boolean;
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void;
+  getFrameInfo(controller: PlayerController): FrameInfo | null;
+  getSpeed(): number;
+}
+
+class NormalState implements PlayerState {
+  // Speed in pixels per millisecond
+  // 0.06 px/ms is approx 3.6 px/frame at 60fps (16px tile / 4.4 frames)
+  // Original GBA walk speed is 1 px/frame (running at 60fps) -> 16 frames per tile.
+  // Wait, GBA runs at 60fps. Walk speed is 1 pixel per frame. 16 pixels = 16 frames.
+  // 1 px / 16.66ms = 0.06 px/ms. So 0.06 is correct for walking.
+  private readonly SPEED = 0.06;
+
+  enter(controller: PlayerController): void {
+    // Ensure we are using the walking sprite
+    // controller.setSprite('walking'); // We'll implement sprite switching logic in getFrameInfo or similar
+  }
+
+  exit(controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    return controller.processMovement(delta, this.SPEED);
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // Check for transition to running
+    if (keys['z'] || keys['Z']) { // Z is mapped to B button
+      controller.changeState(new RunningState());
+      return;
+    }
+    controller.handleDirectionInput(keys);
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('walking');
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+class RunningState implements PlayerState {
+  // Running speed is double walking speed
+  private readonly SPEED = 0.12;
+
+  enter(controller: PlayerController): void {
+    // controller.setSprite('running');
+  }
+
+  exit(controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    return controller.processMovement(delta, this.SPEED);
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // Check for transition back to walking
+    if (!keys['z'] && !keys['Z']) {
+      controller.changeState(new NormalState());
+      return;
+    }
+    controller.handleDirectionInput(keys);
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('running');
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+// --- Player Controller ---
+
 export class PlayerController {
   public x: number = 0;
   public y: number = 0;
@@ -39,23 +138,23 @@ export class PlayerController {
   public isMoving: boolean = false;
   public inputLocked: boolean = false;
   
-  private pixelsMoved: number = 0;
-  private sprite: HTMLCanvasElement | null = null;
+  public pixelsMoved: number = 0;
+  private sprites: { [key: string]: HTMLCanvasElement } = {};
   private keysPressed: { [key: string]: boolean } = {};
-  private walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
+  public walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   
-  // Speed in pixels per millisecond
-  // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
-  private readonly MOVE_SPEED = 0.06; 
+  private currentState: PlayerState;
+  
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
   private readonly SPRITE_HEIGHT = 32;
 
   constructor() {
+    this.currentState = new NormalState();
     this.handleKeyDown = (e: KeyboardEvent) => {
       this.keysPressed[e.key] = true;
     };
@@ -71,7 +170,7 @@ export class PlayerController {
     window.addEventListener('keyup', this.handleKeyUp);
   }
 
-  public async loadSprite(src: string): Promise<void> {
+  public async loadSprite(key: string, src: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.src = src;
@@ -103,7 +202,7 @@ export class PlayerController {
         }
         
         ctx.putImageData(imageData, 0, 0);
-        this.sprite = canvas;
+        this.sprites[key] = canvas;
         resolve();
       };
       img.onerror = reject;
@@ -135,6 +234,145 @@ export class PlayerController {
 
   public unlockInput() {
     this.inputLocked = false;
+  }
+
+  public changeState(newState: PlayerState) {
+    this.currentState.exit(this);
+    this.currentState = newState;
+    this.currentState.enter(this);
+  }
+
+  public update(delta: number): boolean {
+    if (this.inputLocked && !this.isMoving) {
+      return false;
+    }
+
+    if (!this.isMoving) {
+      this.currentState.handleInput(this, this.keysPressed);
+    }
+
+    return this.currentState.update(this, delta);
+  }
+
+  // Helper for states to process movement
+  public processMovement(delta: number, speed: number): boolean {
+    let didRenderMove = false;
+
+    if (this.isMoving) {
+      // Continue movement based on time delta
+      const moveAmount = speed * delta;
+      this.pixelsMoved += moveAmount;
+      
+      // Check if movement is complete BEFORE applying movement
+      if (this.pixelsMoved >= this.TILE_PIXELS) {
+        this.isMoving = false;
+        this.pixelsMoved = 0;
+        
+        // Alternate walk frame for next tile
+        this.walkFrameAlternate = !this.walkFrameAlternate;
+        
+        // Update logical tile position
+        this.prevTileX = this.tileX;
+        this.prevTileY = this.tileY;
+        if (this.dir === 'up') this.tileY--;
+        else if (this.dir === 'down') this.tileY++;
+        else if (this.dir === 'left') this.tileX--;
+        else if (this.dir === 'right') this.tileX++;
+        
+        // Snap to grid
+        this.x = this.tileX * this.TILE_PIXELS;
+        this.y = this.tileY * this.TILE_PIXELS - 16;
+        didRenderMove = true;
+        
+        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
+          console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
+        }
+      } else {
+        // Only apply movement if we haven't completed the tile
+        const oldX = this.x;
+        const oldY = this.y;
+        
+        if (this.dir === 'up') this.y -= moveAmount;
+        else if (this.dir === 'down') this.y += moveAmount;
+        else if (this.dir === 'left') this.x -= moveAmount;
+        else if (this.dir === 'right') this.x += moveAmount;
+        
+        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
+          console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
+        }
+
+        didRenderMove = true;
+      }
+    }
+
+    return didRenderMove || this.isMoving;
+  }
+
+  public handleDirectionInput(keys: { [key: string]: boolean }) {
+    let dx = 0;
+    let dy = 0;
+    let newDir = this.dir;
+    let attemptMove = false;
+    const prevDir = this.dir;
+
+    if (keys['ArrowUp']) {
+      dy = -1;
+      newDir = 'up';
+      attemptMove = true;
+    } else if (keys['ArrowDown']) {
+      dy = 1;
+      newDir = 'down';
+      attemptMove = true;
+    } else if (keys['ArrowLeft']) {
+      dx = -1;
+      newDir = 'left';
+      attemptMove = true;
+    } else if (keys['ArrowRight']) {
+      dx = 1;
+      newDir = 'right';
+      attemptMove = true;
+    }
+
+    if (attemptMove) {
+      this.dir = newDir;
+      
+      // Give door interactions a chance to consume input before collision/movement.
+      const handled = this.tryInteract(newDir);
+      if (handled) {
+        return;
+      }
+      
+      // Check collision at target tile
+      const targetTileX = this.tileX + dx;
+      const targetTileY = this.tileY + dy;
+      
+      const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+      const behavior = resolved?.attributes?.behavior ?? -1;
+      const blocked = this.isCollisionAt(targetTileX, targetTileY);
+      
+      // Check if we're standing on an arrow warp tile
+      const currentResolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
+      const currentBehavior = currentResolved?.attributes?.behavior ?? -1;
+      const isOnArrowWarp = isArrowWarpBehavior(currentBehavior);
+
+      if (!blocked) {
+        this.isMoving = true;
+        this.pixelsMoved = 0;
+      } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
+        console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
+        this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
+      } else if (this.doorWarpHandler && isOnArrowWarp) {
+        let arrowDir: 'up' | 'down' | 'left' | 'right' | null = null;
+        if (currentBehavior === MB_NORTH_ARROW_WARP) arrowDir = 'up';
+        else if (currentBehavior === MB_SOUTH_ARROW_WARP || currentBehavior === MB_WATER_SOUTH_ARROW_WARP) arrowDir = 'down';
+        else if (currentBehavior === MB_WEST_ARROW_WARP) arrowDir = 'left';
+        else if (currentBehavior === MB_EAST_ARROW_WARP) arrowDir = 'right';
+        
+        if (arrowDir && arrowDir === newDir) {
+          this.doorWarpHandler({ targetX: this.tileX, targetY: this.tileY, behavior: currentBehavior });
+        }
+      }
+    }
   }
 
   public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
@@ -212,135 +450,14 @@ export class PlayerController {
     return false; // Passable
   }
 
-  public update(delta: number): boolean {
-    let didRenderMove = false;
-
-    if (this.inputLocked && !this.isMoving) {
-      return false;
-    }
-
-    if (this.isMoving) {
-      // Continue movement based on time delta
-      const moveAmount = this.MOVE_SPEED * delta;
-      this.pixelsMoved += moveAmount;
-      
-      // Check if movement is complete BEFORE applying movement
-      if (this.pixelsMoved >= this.TILE_PIXELS) {
-        this.isMoving = false;
-        this.pixelsMoved = 0;
-        
-        // Alternate walk frame for next tile
-        this.walkFrameAlternate = !this.walkFrameAlternate;
-        
-        // Update logical tile position
-        this.prevTileX = this.tileX;
-        this.prevTileY = this.tileY;
-        if (this.dir === 'up') this.tileY--;
-        else if (this.dir === 'down') this.tileY++;
-        else if (this.dir === 'left') this.tileX--;
-        else if (this.dir === 'right') this.tileX++;
-        
-        // Snap to grid
-        this.x = this.tileX * this.TILE_PIXELS;
-        this.y = this.tileY * this.TILE_PIXELS - 16;
-        didRenderMove = true;
-        
-        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
-          console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
-        }
-      } else {
-        // Only apply movement if we haven't completed the tile
-        const oldX = this.x;
-        const oldY = this.y;
-        
-        if (this.dir === 'up') this.y -= moveAmount;
-        else if (this.dir === 'down') this.y += moveAmount;
-        else if (this.dir === 'left') this.x -= moveAmount;
-        else if (this.dir === 'right') this.x += moveAmount;
-        
-        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
-          console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
-        }
-
-        didRenderMove = true;
-      }
-      
-      // Animation handled in render based on progress
-    } else {
-      // Check for new input
-      let dx = 0;
-      let dy = 0;
-      let newDir = this.dir;
-      let attemptMove = false;
-      const prevDir = this.dir;
-
-      if (this.keysPressed['ArrowUp']) {
-        dy = -1;
-        newDir = 'up';
-        attemptMove = true;
-      } else if (this.keysPressed['ArrowDown']) {
-        dy = 1;
-        newDir = 'down';
-        attemptMove = true;
-      } else if (this.keysPressed['ArrowLeft']) {
-        dx = -1;
-        newDir = 'left';
-        attemptMove = true;
-      } else if (this.keysPressed['ArrowRight']) {
-        dx = 1;
-        newDir = 'right';
-        attemptMove = true;
-      }
-
-      if (attemptMove) {
-        this.dir = newDir;
-        if (newDir !== prevDir) {
-          didRenderMove = true;
-        }
-
-        // Give door interactions a chance to consume input before collision/movement.
-        const handled = this.tryInteract(newDir);
-        if (handled) {
-          return true;
-        }
-        
-        // Check collision at target tile
-        const targetTileX = this.tileX + dx;
-        const targetTileY = this.tileY + dy;
-        
-        const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
-        const behavior = resolved?.attributes?.behavior ?? -1;
-        const blocked = this.isCollisionAt(targetTileX, targetTileY);
-
-        if (!blocked) {
-          this.isMoving = true;
-        this.pixelsMoved = 0;
-        didRenderMove = true;
-      } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
-        // Trigger door handler for both animated doors AND non-animated doors (stairs)
-        // This ensures stairs get fade + exit movement sequence
-        this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
-        didRenderMove = true;
-      }
-    }
+  public getFrameInfo(): FrameInfo | null {
+    return this.currentState.getFrameInfo(this);
   }
 
-    return didRenderMove || this.isMoving;
-  }
-
-  public getFrameInfo():
-    | {
-        sprite: HTMLCanvasElement;
-        sx: number;
-        sy: number;
-        sw: number;
-        sh: number;
-        renderX: number;
-        renderY: number;
-        flip: boolean;
-      }
-    | null {
-    if (!this.sprite) return null;
+  // Helper to calculate frame info based on sprite key and current state
+  public calculateFrameInfo(spriteKey: string): FrameInfo | null {
+    const sprite = this.sprites[spriteKey];
+    if (!sprite) return null;
 
     // Round to whole pixels to prevent sub-pixel blur and ghosting
     const renderX = Math.floor(this.x);
@@ -378,7 +495,7 @@ export class PlayerController {
     const srcY = 0;
 
     return {
-      sprite: this.sprite,
+      sprite: sprite,
       sx: srcX,
       sy: srcY,
       sw: this.SPRITE_WIDTH,
@@ -444,6 +561,7 @@ export class PlayerController {
     const targetTileY = this.tileY + dy;
     const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
     const behavior = resolved?.attributes?.behavior;
+    
     // Only animated doors can be interacted with (not stairs)
     if (behavior !== undefined && isDoorBehavior(behavior) && this.doorWarpHandler) {
       this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
