@@ -1930,6 +1930,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const player = new PlayerController();
         await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
+        await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
         
         // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];

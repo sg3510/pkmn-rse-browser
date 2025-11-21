@@ -13,6 +13,10 @@ export const MB_OCEAN_WATER = 21;
 export const MB_NO_SURFACING = 24;
 export const MB_SEAWEED = 33;
 export const MB_SEAWEED_NO_SURFACING = 41;
+export const MB_JUMP_EAST = 56;
+export const MB_JUMP_WEST = 57;
+export const MB_JUMP_NORTH = 58;
+export const MB_JUMP_SOUTH = 59;
 
 export const MB_BRIDGE_OVER_OCEAN = 112;
 export const MB_BRIDGE_OVER_POND_LOW = 113;

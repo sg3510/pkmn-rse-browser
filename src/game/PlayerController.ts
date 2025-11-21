@@ -16,9 +16,14 @@ import {
   MB_NORTH_ARROW_WARP,
   MB_SOUTH_ARROW_WARP,
   MB_WATER_SOUTH_ARROW_WARP,
+  MB_JUMP_EAST,
+  MB_JUMP_WEST,
+  MB_JUMP_NORTH,
+  MB_JUMP_SOUTH,
   isDoorBehavior,
   requiresDoorExitSequence,
   isArrowWarpBehavior,
+
 } from '../utils/metatileBehaviors';
 
 export interface ResolvedTileInfo {
@@ -44,6 +49,16 @@ export interface FrameInfo {
   renderY: number;
   flip: boolean;
 }
+
+// Jump Physics Constants
+const JUMP_DISTANCE = 32; // 2 tiles
+const JUMP_DURATION = 32; // 32 frames
+// Jump height arc (sJumpY_High from pokeemerald)
+// Indexed by (timer / 2)
+const JUMP_HEIGHT_ARC = [
+  -4,  -6,  -8, -10, -11, -12, -12, -12,
+  -11, -10,  -9,  -8,  -6,  -4,   0,   0
+];
 
 // --- Player States ---
 
@@ -81,6 +96,12 @@ class NormalState implements PlayerState {
       controller.changeState(new RunningState());
       return;
     }
+    
+    // Check for ledge jumping
+    if (controller.checkForLedgeJump(keys)) {
+      return;
+    }
+
     controller.handleDirectionInput(keys);
   }
 
@@ -113,11 +134,108 @@ class RunningState implements PlayerState {
       controller.changeState(new NormalState());
       return;
     }
+
+    // Check for ledge jumping
+    if (controller.checkForLedgeJump(keys)) {
+      return;
+    }
+
     controller.handleDirectionInput(keys);
   }
 
   getFrameInfo(controller: PlayerController): FrameInfo | null {
     return controller.calculateFrameInfo('running');
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+
+}
+
+class JumpingState implements PlayerState {
+  private progress: number = 0; // Pixels moved
+  private readonly SPEED = 0.06; // 1px/frame approx
+  private startX: number = 0;
+  private startY: number = 0;
+  private targetX: number = 0;
+  private targetY: number = 0;
+
+  enter(controller: PlayerController): void {
+    controller.lockInput();
+    controller.isMoving = true;
+    controller.showShadow = true;
+    this.progress = 0;
+    this.startX = controller.x;
+    this.startY = controller.y;
+    
+    // Calculate target position (2 tiles away)
+    let dx = 0;
+    let dy = 0;
+    if (controller.dir === 'down') dy = 32;
+    else if (controller.dir === 'up') dy = -32;
+    else if (controller.dir === 'left') dx = -32;
+    else if (controller.dir === 'right') dx = 32;
+    
+    this.targetX = this.startX + dx;
+    this.targetY = this.startY + dy;
+    
+    // Update logical tile position immediately to the destination
+    // This prevents other events from triggering on the jump-over tile
+    controller.tileX += (dx / 16);
+    controller.tileY += (dy / 16);
+  }
+
+  exit(controller: PlayerController): void {
+    controller.unlockInput();
+    controller.isMoving = false;
+    controller.showShadow = false;
+    controller.spriteYOffset = 0;
+    
+    // Snap to exact target position
+    controller.x = this.targetX;
+    controller.y = this.targetY;
+  }
+
+  update(controller: PlayerController, delta: number): boolean {
+    // Move player
+    const moveAmount = this.SPEED * delta;
+    this.progress += moveAmount;
+    
+    if (this.progress >= JUMP_DISTANCE) {
+      // Jump finished
+      controller.changeState(new NormalState());
+      return true;
+    }
+    
+    // Update position
+    if (controller.dir === 'down') controller.y = this.startX + this.progress; // Wait, startY
+    else if (controller.dir === 'up') controller.y = this.startY - this.progress;
+    else if (controller.dir === 'left') controller.x = this.startX - this.progress;
+    else if (controller.dir === 'right') controller.x = this.startX + this.progress;
+    
+    // Fix for 'down' direction typo above
+    if (controller.dir === 'down') controller.y = this.startY + this.progress;
+
+    // Calculate jump height
+    // Map progress (0-32) to index (0-15)
+    const index = Math.min(15, Math.floor(this.progress / 2));
+    controller.spriteYOffset = JUMP_HEIGHT_ARC[index];
+    
+    return true;
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // Input locked during jump
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    // Use walking frame 2 (index 3, 4, 5 depending on dir?)
+    // Actually, pokeemerald uses a specific jump frame or just a fixed frame.
+    // For now, let's use the idle frame or a specific walk frame.
+    // Research said "GetJump2MovementAction".
+    // Let's use the walking frame (frame 1) to look dynamic.
+    return controller.calculateFrameInfo('walking', true); // Force walk frame
   }
 
   getSpeed(): number {
@@ -139,6 +257,8 @@ export class PlayerController {
   public inputLocked: boolean = false;
   
   public pixelsMoved: number = 0;
+  public spriteYOffset: number = 0;
+  public showShadow: boolean = false;
   private sprites: { [key: string]: HTMLCanvasElement } = {};
   private keysPressed: { [key: string]: boolean } = {};
   public walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
@@ -455,18 +575,18 @@ export class PlayerController {
   }
 
   // Helper to calculate frame info based on sprite key and current state
-  public calculateFrameInfo(spriteKey: string): FrameInfo | null {
+  public calculateFrameInfo(spriteKey: string, forceWalkFrame: boolean = false): FrameInfo | null {
     const sprite = this.sprites[spriteKey];
     if (!sprite) return null;
 
     // Round to whole pixels to prevent sub-pixel blur and ghosting
     const renderX = Math.floor(this.x);
-    const renderY = Math.floor(this.y);
+    const renderY = Math.floor(this.y + this.spriteYOffset);
 
     let srcIndex = 0;
     let flip = false;
 
-    if (!this.isMoving) {
+    if (!this.isMoving && !forceWalkFrame) {
       // Idle frames
       if (this.dir === 'down') srcIndex = 0;
       else if (this.dir === 'up') srcIndex = 1;
@@ -474,8 +594,9 @@ export class PlayerController {
       else if (this.dir === 'right') { srcIndex = 2; flip = true; }
     } else {
       // Walking animation: show walk frame in first half, idle in second half of tile
+      // Or if forced (jumping)
       const progress = this.pixelsMoved / this.TILE_PIXELS;
-      if (progress < 0.5) {
+      if (progress < 0.5 || forceWalkFrame) {
         // First half: walking frame (alternates between frame 1 and 2 each tile)
         const walkOffset = this.walkFrameAlternate ? 1 : 0;
         if (this.dir === 'down') srcIndex = 3 + walkOffset;
@@ -507,6 +628,14 @@ export class PlayerController {
   }
 
   public render(ctx: CanvasRenderingContext2D, cameraX: number = 0, cameraY: number = 0) {
+    // Render shadow if enabled
+    if (this.showShadow && this.sprites['shadow']) {
+      const shadow = this.sprites['shadow'];
+      const shadowX = Math.floor(this.x) - cameraX;
+      const shadowY = Math.floor(this.y) - cameraY + 10; // Offset to feet (approx)
+      ctx.drawImage(shadow, shadowX, shadowY);
+    }
+
     const frame = this.getFrameInfo();
     if (!frame) return;
 
@@ -567,6 +696,46 @@ export class PlayerController {
       this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
       return true;
     }
+    return false;
+  }
+
+  public checkForLedgeJump(keys: { [key: string]: boolean }): boolean {
+    let dx = 0;
+    let dy = 0;
+    let dir: 'up' | 'down' | 'left' | 'right' | null = null;
+
+    if (keys['ArrowUp']) { dy = -1; dir = 'up'; }
+    else if (keys['ArrowDown']) { dy = 1; dir = 'down'; }
+    else if (keys['ArrowLeft']) { dx = -1; dir = 'left'; }
+    else if (keys['ArrowRight']) { dx = 1; dir = 'right'; }
+
+    if (!dir) return false;
+
+    // Check if the tile we are moving INTO is a ledge that allows jumping in our direction
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+    const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+
+    if (behavior === undefined) return false;
+
+    let isLedge = false;
+    if (dir === 'down' && behavior === MB_JUMP_SOUTH) isLedge = true;
+    else if (dir === 'up' && behavior === MB_JUMP_NORTH) isLedge = true;
+    else if (dir === 'left' && behavior === MB_JUMP_WEST) isLedge = true;
+    else if (dir === 'right' && behavior === MB_JUMP_EAST) isLedge = true;
+
+    if (isLedge) {
+      // Ensure the tile AFTER the ledge is passable
+      const landTileX = targetTileX + dx;
+      const landTileY = targetTileY + dy;
+      if (!this.isCollisionAt(landTileX, landTileY)) {
+        this.dir = dir; // Face the ledge
+        this.changeState(new JumpingState());
+        return true;
+      }
+    }
+
     return false;
   }
 }
