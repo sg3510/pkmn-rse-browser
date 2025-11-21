@@ -632,7 +632,7 @@ export class PlayerController {
     if (this.showShadow && this.sprites['shadow']) {
       const shadow = this.sprites['shadow'];
       const shadowX = Math.floor(this.x) - cameraX;
-      const shadowY = Math.floor(this.y) - cameraY + 22; // Offset to feet (approx)
+      const shadowY = Math.floor(this.y) - cameraY + 28; // Offset to feet (approx)
       ctx.drawImage(shadow, shadowX, shadowY);
     }
 
