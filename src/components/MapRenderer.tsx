@@ -27,6 +27,8 @@ import {
   isReflectiveBehavior,
   isArrowWarpBehavior,
   isDoorBehavior,
+  isNonAnimatedDoorBehavior,
+  requiresDoorExitSequence,
   isTeleportWarpBehavior,
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
@@ -165,6 +167,7 @@ interface DoorEntrySequence {
   targetX: number;
   targetY: number;
   metatileId: number;
+  isAnimatedDoor?: boolean; // If false, skip door animation but still do entry sequence
   openAnimId?: number;
   closeAnimId?: number;
   playerHidden?: boolean;
@@ -176,6 +179,7 @@ interface DoorExitSequence {
   doorWorldX: number;
   doorWorldY: number;
   metatileId: number;
+  isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
   openAnimId?: number;
   closeAnimId?: number;
 }
@@ -218,10 +222,113 @@ const VIEWPORT_PIXEL_SIZE = getViewportPixelSize(VIEWPORT_CONFIG);
 const CONNECTION_DEPTH = 2; // anchor + direct neighbors + their neighbors
 const DOOR_FRAME_HEIGHT = 32;
 const DOOR_FRAME_DURATION_MS = 90;
+/**
+ * Complete Door Graphics Mapping Table
+ * 
+ * Ported from sDoorAnimGraphicsTable in public/pokeemerald/src/field_door.c
+ * Maps metatile IDs to their corresponding door animation graphics.
+ * 
+ * Structure:
+ * - metatileIds: Array of metatile IDs that use this door graphic
+ * - path: Path to door animation PNG relative to PROJECT_ROOT
+ * - size: 1 for standard 1x2 tile doors, 2 for large 2x2 tile doors
+ * 
+ * The last entry with empty metatileIds array serves as the fallback "general" door.
+ */
 const DOOR_ASSET_MAP: Array<{ metatileIds: number[]; path: string; size: DoorSize }> = [
-  { metatileIds: [0x248], path: `${PROJECT_ROOT}/graphics/door_anims/littleroot.png`, size: 1 },
-  { metatileIds: [0x249], path: `${PROJECT_ROOT}/graphics/door_anims/birchs_lab.png`, size: 1 },
-  { metatileIds: [], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 },
+  // General/Common doors
+  { metatileIds: [0x021], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 }, // METATILE_General_Door
+  { metatileIds: [0x061], path: `${PROJECT_ROOT}/graphics/door_anims/poke_center.png`, size: 1 }, // METATILE_General_Door_PokeCenter
+  { metatileIds: [0x1CD], path: `${PROJECT_ROOT}/graphics/door_anims/gym.png`, size: 1 }, // METATILE_General_Door_Gym
+  { metatileIds: [0x041], path: `${PROJECT_ROOT}/graphics/door_anims/poke_mart.png`, size: 1 }, // METATILE_General_Door_PokeMart
+  { metatileIds: [0x1DB], path: `${PROJECT_ROOT}/graphics/door_anims/contest.png`, size: 1 }, // METATILE_General_Door_Contest
+  
+  // Littleroot/Petalburg/Oldale
+  { metatileIds: [0x248], path: `${PROJECT_ROOT}/graphics/door_anims/littleroot.png`, size: 1 }, // METATILE_Petalburg_Door_Littleroot
+  { metatileIds: [0x249], path: `${PROJECT_ROOT}/graphics/door_anims/birchs_lab.png`, size: 1 }, // METATILE_Petalburg_Door_BirchsLab
+  { metatileIds: [0x287], path: `${PROJECT_ROOT}/graphics/door_anims/oldale.png`, size: 1 }, // METATILE_Petalburg_Door_Oldale
+  { metatileIds: [0x224], path: `${PROJECT_ROOT}/graphics/door_anims/petalburg_gym.png`, size: 1 }, // METATILE_PetalburgGym_Door
+  
+  // Rustboro
+  { metatileIds: [0x22F], path: `${PROJECT_ROOT}/graphics/door_anims/rustboro_tan.png`, size: 1 }, // METATILE_Rustboro_Door_Tan
+  { metatileIds: [0x21F], path: `${PROJECT_ROOT}/graphics/door_anims/rustboro_gray.png`, size: 1 }, // METATILE_Rustboro_Door_Gray
+  
+  // Fallarbor
+  { metatileIds: [0x2A5], path: `${PROJECT_ROOT}/graphics/door_anims/fallarbor_light_roof.png`, size: 1 }, // METATILE_Fallarbor_Door_LightRoof
+  { metatileIds: [0x2F7], path: `${PROJECT_ROOT}/graphics/door_anims/fallarbor_dark_roof.png`, size: 1 }, // METATILE_Fallarbor_Door_DarkRoof
+  { metatileIds: [0x36C], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Fallarbor_Door_BattleTent
+  
+  // Mauville
+  { metatileIds: [0x2AC], path: `${PROJECT_ROOT}/graphics/door_anims/mauville.png`, size: 1 }, // METATILE_Mauville_Door
+  { metatileIds: [0x3A1], path: `${PROJECT_ROOT}/graphics/door_anims/verdanturf.png`, size: 1 }, // METATILE_Mauville_Door_Verdanturf
+  { metatileIds: [0x289], path: `${PROJECT_ROOT}/graphics/door_anims/cycling_road.png`, size: 1 }, // METATILE_Mauville_Door_CyclingRoad
+  { metatileIds: [0x3D4], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Mauville_Door_BattleTent
+  
+  // Slateport
+  { metatileIds: [0x2DC], path: `${PROJECT_ROOT}/graphics/door_anims/slateport.png`, size: 1 }, // METATILE_Slateport_Door
+  { metatileIds: [0x393], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Slateport_Door_BattleTent
+  
+  // Dewford
+  { metatileIds: [0x225], path: `${PROJECT_ROOT}/graphics/door_anims/dewford.png`, size: 1 }, // METATILE_Dewford_Door
+  { metatileIds: [0x25D], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_old.png`, size: 1 }, // METATILE_Dewford_Door_BattleTower
+  
+  // Lilycove
+  { metatileIds: [0x246], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove.png`, size: 1 }, // METATILE_Lilycove_Door
+  { metatileIds: [0x28E], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_wooden.png`, size: 1 }, // METATILE_Lilycove_Door_Wooden
+  { metatileIds: [0x30C], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_dept_store.png`, size: 1 }, // METATILE_Lilycove_Door_DeptStore
+  { metatileIds: [0x32D], path: `${PROJECT_ROOT}/graphics/door_anims/safari_zone.png`, size: 1 }, // METATILE_Lilycove_Door_SafariZone
+  
+  // Mossdeep
+  { metatileIds: [0x2A1], path: `${PROJECT_ROOT}/graphics/door_anims/mossdeep.png`, size: 1 }, // METATILE_Mossdeep_Door
+  { metatileIds: [0x2ED], path: `${PROJECT_ROOT}/graphics/door_anims/mossdeep_space_center.png`, size: 1 }, // METATILE_Mossdeep_Door_SpaceCenter
+  
+  // Sootopolis
+  { metatileIds: [0x21C], path: `${PROJECT_ROOT}/graphics/door_anims/sootopolis_peaked_roof.png`, size: 1 }, // METATILE_Sootopolis_Door_PeakedRoof
+  { metatileIds: [0x21E], path: `${PROJECT_ROOT}/graphics/door_anims/sootopolis.png`, size: 1 }, // METATILE_Sootopolis_Door
+  
+  // Ever Grande / Pokemon League
+  { metatileIds: [0x21D], path: `${PROJECT_ROOT}/graphics/door_anims/pokemon_league.png`, size: 1 }, // METATILE_EverGrande_Door_PokemonLeague
+  
+  // Pacifidlog
+  { metatileIds: [0x21A], path: `${PROJECT_ROOT}/graphics/door_anims/pacifidlog.png`, size: 1 }, // METATILE_Pacifidlog_Door
+  
+  // Special Buildings
+  { metatileIds: [0x264], path: `${PROJECT_ROOT}/graphics/door_anims/cable_club.png`, size: 1 }, // METATILE_PokemonCenter_Door_CableClub
+  { metatileIds: [0x285], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_dept_store_elevator.png`, size: 1 }, // METATILE_Shop_Door_Elevator
+  
+  // Abandoned Ship
+  { metatileIds: [0x22B], path: `${PROJECT_ROOT}/graphics/door_anims/abandoned_ship.png`, size: 1 }, // METATILE_InsideShip_IntactDoor_Bottom_Unlocked
+  { metatileIds: [0x297], path: `${PROJECT_ROOT}/graphics/door_anims/abandoned_ship_room.png`, size: 1 }, // METATILE_InsideShip_IntactDoor_Bottom_Interior
+  
+  // Battle Frontier - Outside West
+  { metatileIds: [0x28A], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_BattleDome
+  { metatileIds: [0x263], path: `${PROJECT_ROOT}/graphics/door_anims/battle_factory.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_BattleFactory
+  { metatileIds: [0x3FC], path: `${PROJECT_ROOT}/graphics/door_anims/battle_frontier.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door
+  { metatileIds: [0x396], path: `${PROJECT_ROOT}/graphics/door_anims/battle_frontier_sliding.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_Sliding
+  
+  // Battle Frontier - Outside East
+  { metatileIds: [0x329], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower.png`, size: 1 }, // METATILE_BattleFrontierOutsideEast_Door_BattleTower
+  { metatileIds: [0x291], path: `${PROJECT_ROOT}/graphics/door_anims/battle_arena.png`, size: 1 }, // METATILE_BattleFrontierOutsideEast_Door_BattleArena
+  
+  // Battle Frontier - Interiors
+  { metatileIds: [0x20E], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_elevator.png`, size: 1 }, // METATILE_BattleFrontier_Door_Elevator
+  { metatileIds: [0x2AD], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_multi_corridor.png`, size: 2 }, // METATILE_BattleFrontier_Door_MultiCorridor (size 2!)
+  { metatileIds: [0x21B], path: `${PROJECT_ROOT}/graphics/door_anims/battle_arena_lobby.png`, size: 1 }, // METATILE_BattleArena_Door
+  { metatileIds: [0x209], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_lobby.png`, size: 1 }, // METATILE_BattleDome_Door_Lobby
+  { metatileIds: [0x25E], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_corridor.png`, size: 1 }, // METATILE_BattleDome_Door_Corridor
+  { metatileIds: [0x20A], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_pre_battle_room.png`, size: 1 }, // METATILE_BattleDome_Door_PreBattleRoom
+  { metatileIds: [0x219], path: `${PROJECT_ROOT}/graphics/door_anims/battle_palace_lobby.png`, size: 1 }, // METATILE_BattlePalace_Door
+  { metatileIds: [0x26B], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent_interior.png`, size: 1 }, // METATILE_BattleTent_Door
+  
+  // Trainer Hill
+  { metatileIds: [0x32C], path: `${PROJECT_ROOT}/graphics/door_anims/trainer_hill_lobby_elevator.png`, size: 1 }, // METATILE_TrainerHill_Door_Elevator_Lobby
+  { metatileIds: [0x383], path: `${PROJECT_ROOT}/graphics/door_anims/trainer_hill_roof_elevator.png`, size: 1 }, // METATILE_TrainerHill_Door_Elevator_Roof
+  
+  // Unused/Cut content
+  { metatileIds: [0x3B0], path: `${PROJECT_ROOT}/graphics/door_anims/unused_battle_frontier.png`, size: 1 }, // Unused Battle Frontier door
+  
+  // Fallback - must be last with empty metatileIds
+  { metatileIds: [], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 }, // Default fallback
 ];
 const DOOR_FADE_DURATION = 500;
 const DOOR_DEBUG_FLAG = 'DEBUG_DOOR_ANIM';
@@ -248,6 +355,16 @@ interface DebugTileInfo {
   reflectionMaskTotal?: number;
   bottomTiles?: Metatile['tiles'];
   topTiles?: Metatile['tiles'];
+  // Additional debug info
+  mapId?: string;
+  mapName?: string;
+  localX?: number;
+  localY?: number;
+  paletteIndex?: number;
+  warpEvent?: WarpEvent | null;
+  warpKind?: WarpKind | null;
+  primaryTilesetId?: string;
+  secondaryTilesetId?: string;
 }
 
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
@@ -257,7 +374,7 @@ function applyBehaviorOverrides(attributes: MetatileAttributes[]): MetatileAttri
 }
 
 function classifyWarpKind(behavior: number): WarpKind | null {
-  if (isDoorBehavior(behavior)) return 'door';
+  if (requiresDoorExitSequence(behavior)) return 'door';
   if (isTeleportWarpBehavior(behavior)) return 'teleport';
   if (isArrowWarpBehavior(behavior)) return 'arrow';
   return null;
@@ -625,7 +742,21 @@ function detectWarpTrigger(ctx: RenderContext, player: PlayerController): WarpTr
   const warpEvent = findWarpEventAt(resolved.map, player.tileX, player.tileY);
   if (!warpEvent) return null;
   const behavior = resolved.attributes?.behavior ?? -1;
+  const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
   const kind = classifyWarpKind(behavior) ?? 'teleport';
+  
+  console.log('[DETECT_WARP_TRIGGER]', {
+    tileX: player.tileX,
+    tileY: player.tileY,
+    metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+    behavior,
+    classifiedKind: kind,
+    isDoor: isDoorBehavior(behavior),
+    isArrow: isArrowWarpBehavior(behavior),
+    isTeleport: isTeleportWarpBehavior(behavior),
+    destMap: warpEvent.destMap,
+  });
+  
   // Skip arrow warps until forced-movement handling is implemented.
   if (kind === 'arrow') return null;
   return {
@@ -676,6 +807,13 @@ function describeTile(
   const reflectionMaskAllow = reflectionMeta?.pixelMask?.reduce((acc, v) => acc + (v ? 1 : 0), 0);
   const reflectionMaskTotal = reflectionMeta?.pixelMask?.length;
 
+  // Additional debug info
+  const localX = tileX - resolved.map.offsetX;
+  const localY = tileY - resolved.map.offsetY;
+  const warpEvent = findWarpEventAt(resolved.map, tileX, tileY);
+  const warpKind = behavior !== undefined ? classifyWarpKind(behavior) : null;
+  const paletteIndex = (mapTile >> 12) & 0xF; // Extract palette bits from map tile
+
   return {
     inBounds: true,
     tileX,
@@ -692,6 +830,16 @@ function describeTile(
     reflectionMaskTotal,
     bottomTiles: meta?.tiles.slice(0, 4),
     topTiles: meta?.tiles.slice(4, 8),
+    // Additional debug info
+    mapId: resolved.map.entry.id,
+    mapName: resolved.map.entry.name,
+    localX,
+    localY,
+    paletteIndex,
+    warpEvent,
+    warpKind,
+    primaryTilesetId: resolved.tileset.primaryTilesetId,
+    secondaryTilesetId: resolved.tileset.secondaryTilesetId,
   };
 }
 
@@ -972,6 +1120,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       startedAt: number,
       holdOnComplete: boolean = false
     ): Promise<number | null> => {
+      // COMPREHENSIVE DEBUG LOGGING
+      const stackTrace = new Error().stack;
+      console.log('[DOOR_SPAWN]', {
+        direction,
+        worldX,
+        worldY,
+        metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+        holdOnComplete,
+        calledFrom: stackTrace?.split('\n')[2]?.trim() || 'unknown',
+      });
+      
       try {
         const { image, size } = await ensureDoorSprite(metatileId);
         const frameCount = Math.max(1, Math.floor(image.height / DOOR_FRAME_HEIGHT));
@@ -1020,6 +1179,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTileDebug, setShowTileDebug] = useState(false);
+  const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
 
   // Player Controller
   const playerControllerRef = useRef<PlayerController | null>(null);
@@ -1089,8 +1249,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       debugTilesRef.current = collected;
+      // Update center tile info for display (index 4 is center of 3x3 grid)
+      const centerTile = collected[4];
+      setCenterTileDebugInfo(centerTile && centerTile.inBounds ? centerTile : null);
     },
-    []
+    [setCenterTileDebugInfo]
   );
 
   useEffect(() => {
@@ -1663,7 +1826,50 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           doorWorldY: 0,
           metatileId: 0,
         };
+        const startAutoDoorWarp = (
+          trigger: WarpTrigger,
+          resolved: ResolvedTile,
+          player: PlayerController
+        ) => {
+          if (doorEntry.stage !== 'idle') return false;
+          const now = performance.now();
+          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+          logDoor('entry: auto door warp (non-animated)', {
+            worldX: player.tileX,
+            worldY: player.tileY,
+            metatileId,
+            behavior: trigger.behavior,
+          });
+          doorEntry = {
+            stage: 'waitingBeforeFade',
+            trigger,
+            targetX: player.tileX,
+            targetY: player.tileY,
+            metatileId,
+            isAnimatedDoor: false,
+            playerHidden: false,
+            waitStartedAt: now - 250,
+          };
+          warpState.inProgress = true;
+          player.lockInput();
+          return true;
+        };
 
+        /**
+         * Perform Warp (Map Transition)
+         * 
+         * Handles the actual map change and player positioning after fade out.
+         * 
+         * Critical Logic for Door Exit Animations:
+         * - Check if DESTINATION tile has door behavior before playing exit animation
+         * - Many indoor exits use arrow warps (behavior 101) or stairs with NO door
+         * - Only play door exit animation if destination tile is actually a door
+         * 
+         * Example: Exiting Brendan's House to Littleroot Town
+         * - Player walks onto arrow warp at (8,8) in BRENDANS_HOUSE_1F (behavior 101, no door)
+         * - Warp destination (5,8) in MAP_LITTLEROOT_TOWN has metatile 0x248 (IS a door)
+         * - We check destination behavior and play door exit animation at (5,8)
+         */
         const performWarp = async (
           trigger: WarpTrigger,
           options?: { force?: boolean; fromDoor?: boolean }
@@ -1693,25 +1899,99 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             }
             const destWorldX = destMap.offsetX + destWarp.x;
             const destWorldY = destMap.offsetY + destWarp.y;
-            const facing: PlayerController['dir'] =
-              trigger.kind === 'door' ? 'down' : trigger.facing;
+            
+            // Determine facing direction based on context
+            // When warping through a door, check if destination has a door:
+            // - If destination has door: face down (exiting through door)
+            // - If destination has no door (arrow warp): face up (just arrived, standing on floor)
+            // For non-door warps: preserve original facing
+            let facing: PlayerController['dir'] = trigger.facing;
+            if (trigger.kind === 'door' && options?.fromDoor && ctxAfter) {
+              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
+              const destBehavior = destResolved?.attributes?.behavior ?? -1;
+              if (isDoorBehavior(destBehavior)) {
+                facing = 'down'; // Exiting through a door
+              } else {
+                facing = 'up'; // Arrived at non-door destination (arrow warp, stairs)
+              }
+            } else if (trigger.kind === 'door') {
+              facing = 'down'; // Default for door warps when not using door entry sequence
+            }
 
             playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
-            if (options?.fromDoor && trigger.kind === 'door') {
-              playerHiddenRef.current = true;
-              doorExitRef.current = {
-                stage: 'opening',
-                doorWorldX: destWorldX,
-                doorWorldY: destWorldY,
-                metatileId: getMetatileIdFromMapTile(
-                  destMap.mapData.layout[destWarp.y * destMap.mapData.width + destWarp.x]
-                ),
-              };
-              fadeRef.current = {
-                mode: 'in',
-                startedAt: currentTimestampRef.current,
-                duration: DOOR_FADE_DURATION,
-              };
+            
+            // Check if destination tile actually has a door before playing door exit animation
+            if (options?.fromDoor && trigger.kind === 'door' && ctxAfter) {
+              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
+              const destBehavior = destResolved?.attributes?.behavior ?? -1;
+              const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
+              
+              const isAnimatedDoor = isDoorBehavior(destBehavior);
+              const isNonAnimatedDoor = isNonAnimatedDoorBehavior(destBehavior);
+              const requiresExitSequence = requiresDoorExitSequence(destBehavior);
+              
+              console.log('[WARP_DEST_CHECK]', {
+                fromDoor: options?.fromDoor,
+                triggerKind: trigger.kind,
+                destWorldX,
+                destWorldY,
+                destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
+                destBehavior,
+                isAnimatedDoor,
+                isNonAnimatedDoor,
+                requiresExitSequence,
+              });
+              
+              // Check if destination requires exit sequence (animated or non-animated)
+              if (requiresExitSequence) {
+                logDoor('performWarp: destination requires exit sequence', {
+                  destWorldX,
+                  destWorldY,
+                  destMetatileId,
+                  destBehavior,
+                  isAnimatedDoor,
+                  isNonAnimatedDoor,
+                });
+                playerHiddenRef.current = true;
+                doorExitRef.current = {
+                  stage: 'opening',
+                  doorWorldX: destWorldX,
+                  doorWorldY: destWorldY,
+                  metatileId: destMetatileId,
+                  isAnimatedDoor, // Store whether to play door animation
+                };
+                fadeRef.current = {
+                  mode: 'in',
+                  startedAt: currentTimestampRef.current,
+                  duration: DOOR_FADE_DURATION,
+                };
+              } else {
+                // No door on destination side (e.g., arrow warp, stairs, teleport pad)
+                // Must unlock input immediately since there's no door exit sequence
+                logDoor('performWarp: destination has no door, simple fade in', {
+                  destWorldX,
+                  destWorldY,
+                  destMetatileId,
+                  destBehavior,
+                  behaviorLabel: classifyWarpKind(destBehavior) ?? 'unknown',
+                });
+                playerHiddenRef.current = false;
+                fadeRef.current = {
+                  mode: 'in',
+                  startedAt: currentTimestampRef.current,
+                  duration: DOOR_FADE_DURATION,
+                };
+                // No door exit sequence needed
+                doorExitRef.current = {
+                  stage: 'idle',
+                  doorWorldX: 0,
+                  doorWorldY: 0,
+                  metatileId: 0,
+                };
+                // CRITICAL: Unlock input here since there's no door exit sequence to handle it
+                playerControllerRef.current?.unlockInput();
+                warpState.inProgress = false;
+              }
             }
             applyTileResolver();
             warpState.lastCheckedTile = { mapId: destMap.entry.id, x: destWorldX, y: destWorldY };
@@ -1737,34 +2017,52 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const player = playerControllerRef.current;
           if (!player || !doorEntry.trigger) return;
           if (doorEntry.stage === 'opening') {
-            const anim = doorEntry.openAnimId
-              ? doorAnimsRef.current.find((a) => a.id === doorEntry.openAnimId)
-              : null;
-            const openDone = !anim || isDoorAnimDone(anim, now);
-            if (openDone) {
-              logDoor('entry: door fully open, force step into tile', doorEntry.targetX, doorEntry.targetY);
+            // Only check for animation completion if this is an animated door
+            if (doorEntry.isAnimatedDoor !== false) {
+              const anim = doorEntry.openAnimId
+                ? doorAnimsRef.current.find((a) => a.id === doorEntry.openAnimId)
+                : null;
+              const openDone = !anim || isDoorAnimDone(anim, now);
+              if (openDone) {
+                logDoor('entry: door fully open (animated), force step into tile', doorEntry.targetX, doorEntry.targetY);
+                player.forceMove('up', true);
+                doorEntry.stage = 'stepping';
+              }
+            } else {
+              // Non-animated door: skip straight to stepping
+              logDoor('entry: non-animated door, force step into tile', doorEntry.targetX, doorEntry.targetY);
               player.forceMove('up', true);
               doorEntry.stage = 'stepping';
             }
           } else if (doorEntry.stage === 'stepping') {
             if (!player.isMoving) {
-              const startedAt = now;
-              logDoor('entry: start door close, hide player');
-              spawnDoorAnimation(
-                'close',
-                doorEntry.targetX,
-                doorEntry.targetY,
-                doorEntry.metatileId,
-                startedAt
-              ).then((closeAnimId) => {
-                doorEntry.closeAnimId = closeAnimId ?? undefined;
-              });
-              doorAnimsRef.current = doorAnimsRef.current.filter(
-                (anim) => anim.id !== doorEntry.openAnimId
-              );
-              doorEntry.stage = 'closing';
-              playerHiddenRef.current = true;
-              doorEntry.playerHidden = true;
+              // Only spawn close animation if this is an animated door
+              if (doorEntry.isAnimatedDoor !== false) {
+                const startedAt = now;
+                logDoor('entry: start door close (animated), hide player');
+                spawnDoorAnimation(
+                  'close',
+                  doorEntry.targetX,
+                  doorEntry.targetY,
+                  doorEntry.metatileId,
+                  startedAt
+                ).then((closeAnimId) => {
+                  doorEntry.closeAnimId = closeAnimId ?? undefined;
+                });
+                doorAnimsRef.current = doorAnimsRef.current.filter(
+                  (anim) => anim.id !== doorEntry.openAnimId
+                );
+                doorEntry.stage = 'closing';
+                playerHiddenRef.current = true;
+                doorEntry.playerHidden = true;
+              } else {
+                // Non-animated door: skip straight to fading
+                logDoor('entry: non-animated door, skip to fade');
+                playerHiddenRef.current = true;
+                doorEntry.playerHidden = true;
+                doorEntry.stage = 'waitingBeforeFade';
+                doorEntry.waitStartedAt = now;
+              }
             }
           } else if (doorEntry.stage === 'closing') {
             const anim = doorEntry.closeAnimId
@@ -1810,6 +2108,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           }
         };
 
+          /**
+           * Door Entry Handler
+           * 
+           * Triggered when player attempts to enter a door (from outdoor → indoor, etc.)
+           * 
+           * Important: Uses the SOURCE tile's metatile ID (the door tile being entered)
+           * to determine which door animation to play. This is correct because we're
+           * animating the door the player is walking INTO, not the destination tile.
+           * 
+           * Example: Entering Brendan's House from Littleroot Town
+           * - Source tile (5,8) in MAP_LITTLEROOT_TOWN has metatile 0x248 (METATILE_Petalburg_Door_Littleroot)
+           * - Destination tile (8,8) in BRENDANS_HOUSE_1F has metatile 514 (arrow warp, NOT a door)
+           * - We play door animation using 0x248, not 514
+           */
           const handleDoorWarpAttempt = async (request: DoorWarpRequest) => {
             if (doorEntry.stage !== 'idle' || warpState.inProgress) return;
             const ctx = renderContextRef.current;
@@ -1820,35 +2132,78 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
           if (!warpEvent) return;
           const behavior = resolved.attributes?.behavior ?? -1;
+          
+          // CRITICAL: Verify this tile requires door exit sequence
+          // Includes both animated doors (105) AND non-animated doors/stairs (96)
+          // This prevents arrow warps, teleport pads, etc. from triggering door sequences
+          const requiresExitSeq = requiresDoorExitSequence(behavior);
+          const isAnimated = isDoorBehavior(behavior);
+          
+          console.log('[DOOR_WARP_ATTEMPT]', {
+            targetX: request.targetX,
+            targetY: request.targetY,
+            behavior,
+            metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
+            isDoor: isAnimated,
+            isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
+            requiresExitSequence: requiresExitSeq,
+          });
+          
+          if (!requiresExitSeq) {
+            console.warn('[DOOR_WARP_ATTEMPT] Called for non-door tile - REJECTING', {
+              targetX: request.targetX,
+              targetY: request.targetY,
+              behavior,
+              metatileId: getMetatileIdFromMapTile(resolved.mapTile),
+            });
+            return;
+          }
+          
           const trigger: WarpTrigger = {
-            kind: classifyWarpKind(behavior) ?? 'door',
+            kind: 'door', // Use 'door' for both animated and non-animated door sequences
             sourceMap: resolved.map,
             warpEvent,
             behavior,
             facing: player.dir,
           };
+            // Use SOURCE tile's metatile ID for door animation (the door being entered)
             const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
             const startedAt = performance.now();
-            logDoor('entry: start door open', {
-              worldX: request.targetX,
-              worldY: request.targetY,
-              metatileId,
-              map: resolved.map.entry.id,
-            });
-            const openAnimId = await spawnDoorAnimation(
-              'open',
-              request.targetX,
-              request.targetY,
-              metatileId,
-              startedAt,
-              true
-            );
+            
+            // Only spawn door animation if this is an animated door
+            // Non-animated doors (stairs) skip animation but still do entry sequence
+            let openAnimId: number | null | undefined = undefined;
+            if (isAnimated) {
+              logDoor('entry: start door open (animated)', {
+                worldX: request.targetX,
+                worldY: request.targetY,
+                metatileId,
+                map: resolved.map.entry.id,
+              });
+              openAnimId = await spawnDoorAnimation(
+                'open',
+                request.targetX,
+                request.targetY,
+                metatileId,
+                startedAt,
+                true
+              );
+            } else {
+              logDoor('entry: start (non-animated, no door animation)', {
+                worldX: request.targetX,
+                worldY: request.targetY,
+                metatileId,
+                map: resolved.map.entry.id,
+              });
+            }
+          
           doorEntry = {
             stage: 'opening',
             trigger,
             targetX: request.targetX,
             targetY: request.targetY,
             metatileId,
+            isAnimatedDoor: isAnimated, // Track whether to animate
             openAnimId: openAnimId ?? undefined,
             playerHidden: false,
           };
@@ -1878,42 +2233,63 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           advanceDoorEntry(timestamp);
           const doorExit = doorExitRef.current;
           if (doorExit.stage === 'opening') {
-            if (doorExit.openAnimId === undefined) {
-              logDoor('exit: start door open', {
-                worldX: doorExit.doorWorldX,
-                worldY: doorExit.doorWorldY,
-                metatileId: doorExit.metatileId,
-              });
-              spawnDoorAnimation('open', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, timestamp, true).then(
-                (id) => {
-                  doorExitRef.current.openAnimId = id ?? undefined;
-                }
-              );
-            }
-            const anim = doorExit.openAnimId
-              ? doorAnimsRef.current.find((a) => a.id === doorExit.openAnimId)
-              : null;
-            const done = !anim || isDoorAnimDone(anim, timestamp);
-            if (done) {
-              logDoor('exit: step out of door');
+            // Only spawn door animation if this is an animated door
+            // Non-animated doors (stairs) skip animation but still do scripted movement
+            if (doorExit.isAnimatedDoor !== false) {
+              if (doorExit.openAnimId === undefined) {
+                logDoor('exit: start door open', {
+                  worldX: doorExit.doorWorldX,
+                  worldY: doorExit.doorWorldY,
+                  metatileId: doorExit.metatileId,
+                  isAnimatedDoor: doorExit.isAnimatedDoor,
+                });
+                spawnDoorAnimation('open', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, timestamp, true).then(
+                  (id) => {
+                    doorExitRef.current.openAnimId = id ?? undefined;
+                  }
+                );
+              }
+              const anim = doorExit.openAnimId
+                ? doorAnimsRef.current.find((a) => a.id === doorExit.openAnimId)
+                : null;
+              const done = !anim || isDoorAnimDone(anim, timestamp);
+              if (done) {
+                logDoor('exit: step out of door (animated)');
+                playerControllerRef.current?.forceMove('down', true);
+                playerHiddenRef.current = false;
+                doorExitRef.current.stage = 'stepping';
+              }
+            } else {
+              // Non-animated door: skip straight to stepping
+              logDoor('exit: step out of door (non-animated, no door animation)');
               playerControllerRef.current?.forceMove('down', true);
               playerHiddenRef.current = false;
               doorExitRef.current.stage = 'stepping';
             }
           } else if (doorExit.stage === 'stepping') {
             if (!playerControllerRef.current?.isMoving) {
-              const start = timestamp;
-              logDoor('exit: start door close');
-              // Remove the open animation now that we're starting the close
-              doorAnimsRef.current = doorAnimsRef.current.filter(
-                (anim) => anim.id !== doorExit.openAnimId
-              );
-              spawnDoorAnimation('close', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, start).then(
-                (id) => {
-                  doorExitRef.current.closeAnimId = id ?? undefined;
-                }
-              );
-              doorExitRef.current.stage = 'closing';
+              // Only close door animation if this is an animated door
+              if (doorExit.isAnimatedDoor !== false) {
+                const start = timestamp;
+                logDoor('exit: start door close (animated)');
+                // Remove the open animation now that we're starting the close
+                doorAnimsRef.current = doorAnimsRef.current.filter(
+                  (anim) => anim.id !== doorExit.openAnimId
+                );
+                spawnDoorAnimation('close', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, start).then(
+                  (id) => {
+                    doorExitRef.current.closeAnimId = id ?? undefined;
+                  }
+                );
+                doorExitRef.current.stage = 'closing';
+              } else {
+                // Non-animated door: skip straight to done, unlock immediately
+                logDoor('exit: done (non-animated, no door close)');
+                doorExitRef.current.stage = 'done';
+                warpState.inProgress = false;
+                playerControllerRef.current?.unlockInput();
+                playerHiddenRef.current = false;
+              }
             }
           } else if (doorExit.stage === 'closing') {
             const anim = doorExit.closeAnimId
@@ -1952,7 +2328,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (!warpState.inProgress && warpState.cooldownMs <= 0) {
                 const trigger = detectWarpTrigger(ctx, player);
                 if (trigger) {
-                  void performWarp(trigger);
+                  if (requiresDoorExitSequence(trigger.behavior)) {
+                    startAutoDoorWarp(trigger, resolvedForWarp, player);
+                  } else {
+                    void performWarp(trigger);
+                  }
                 }
               }
             }
@@ -2121,6 +2501,39 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 height: DEBUG_GRID_SIZE,
               }}
             />
+            {centerTileDebugInfo && (
+              <div style={{ 
+                fontFamily: 'monospace', 
+                fontSize: '12px', 
+                backgroundColor: '#f5f5f5', 
+                padding: '8px', 
+                borderRadius: '4px',
+                maxWidth: '600px'
+              }}>
+                <div><strong>Map:</strong> {centerTileDebugInfo.mapName} ({centerTileDebugInfo.mapId})</div>
+                <div><strong>World Coords:</strong> ({centerTileDebugInfo.tileX}, {centerTileDebugInfo.tileY})</div>
+                <div><strong>Local Coords:</strong> ({centerTileDebugInfo.localX}, {centerTileDebugInfo.localY})</div>
+                <div><strong>Metatile ID:</strong> {centerTileDebugInfo.metatileId} {centerTileDebugInfo.isSecondary ? '(Secondary)' : '(Primary)'}</div>
+                <div><strong>Palette:</strong> {centerTileDebugInfo.paletteIndex}</div>
+                <div><strong>Behavior:</strong> {centerTileDebugInfo.behavior !== undefined ? `0x${centerTileDebugInfo.behavior.toString(16).toUpperCase().padStart(2, '0')}` : 'N/A'}</div>
+                <div><strong>Layer Type:</strong> {centerTileDebugInfo.layerTypeLabel ?? 'N/A'}</div>
+                {centerTileDebugInfo.isReflective && (
+                  <div><strong>Reflection:</strong> {centerTileDebugInfo.reflectionType ?? 'unknown'} ({centerTileDebugInfo.reflectionMaskAllow}/{centerTileDebugInfo.reflectionMaskTotal} pixels)</div>
+                )}
+                <div><strong>Tilesets:</strong> {centerTileDebugInfo.primaryTilesetId} + {centerTileDebugInfo.secondaryTilesetId}</div>
+                {centerTileDebugInfo.warpEvent && (
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                    <div><strong>Warp Event:</strong></div>
+                    <div style={{ marginLeft: '16px' }}>
+                      <div><strong>Kind:</strong> {centerTileDebugInfo.warpKind ?? 'unknown'}</div>
+                      <div><strong>Destination:</strong> {centerTileDebugInfo.warpEvent.destMap}</div>
+                      <div><strong>Dest Warp ID:</strong> {centerTileDebugInfo.warpEvent.destWarpId}</div>
+                      <div><strong>Elevation:</strong> {centerTileDebugInfo.warpEvent.elevation}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <button onClick={handleCopyTileDebug} style={{ alignSelf: 'flex-start' }}>
               Copy tile debug to clipboard
             </button>

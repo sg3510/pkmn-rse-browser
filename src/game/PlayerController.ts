@@ -12,6 +12,7 @@ import {
   MB_SEAWEED,
   MB_SEAWEED_NO_SURFACING,
   isDoorBehavior,
+  requiresDoorExitSequence,
 } from '../utils/metatileBehaviors';
 
 export interface ResolvedTileInfo {
@@ -315,7 +316,9 @@ export class PlayerController {
           this.isMoving = true;
         this.pixelsMoved = 0;
         didRenderMove = true;
-      } else if (this.doorWarpHandler && isDoorBehavior(behavior)) {
+      } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
+        // Trigger door handler for both animated doors AND non-animated doors (stairs)
+        // This ensures stairs get fade + exit movement sequence
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
         didRenderMove = true;
       }
@@ -441,6 +444,7 @@ export class PlayerController {
     const targetTileY = this.tileY + dy;
     const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
     const behavior = resolved?.attributes?.behavior;
+    // Only animated doors can be interacted with (not stairs)
     if (behavior !== undefined && isDoorBehavior(behavior) && this.doorWarpHandler) {
       this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
       return true;

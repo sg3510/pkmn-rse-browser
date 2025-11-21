@@ -77,10 +77,23 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
   }
 }
 
+/**
+ * Door behaviors that trigger door ANIMATIONS
+ * 
+ * IMPORTANT: MB_NON_ANIMATED_DOOR is NOT included here!
+ * In the GBA code, MetatileBehavior_IsDoor (used for door animations) only checks:
+ * - MB_ANIMATED_DOOR
+ * - MB_PETALBURG_GYM_DOOR (same as MB_ANIMATED_DOOR)
+ * 
+ * MB_NON_ANIMATED_DOOR is used for stairs and other warps that should NOT animate.
+ * See public/pokeemerald/src/metatile_behavior.c lines 228-234
+ * and public/pokeemerald/src/field_door.c line 535
+ */
 const DOOR_BEHAVIORS = new Set<number>([
-  MB_ANIMATED_DOOR,
-  MB_NON_ANIMATED_DOOR,
-  MB_WATER_DOOR,
+  MB_ANIMATED_DOOR, // 105 - Standard animated doors
+  MB_WATER_DOOR,    // 108 - Water-based doors (also animated)
+  // NOTE: MB_NON_ANIMATED_DOOR (96) is deliberately NOT included
+  // It represents stairs and other non-animated warps
 ]);
 
 const TELEPORT_PAD_BEHAVIORS = new Set<number>([
@@ -103,6 +116,22 @@ const ARROW_WARP_BEHAVIORS = new Set<number>([
 
 export function isDoorBehavior(behavior: number): boolean {
   return DOOR_BEHAVIORS.has(behavior);
+}
+
+/**
+ * Check if behavior is a non-animated door (stairs, etc.)
+ * These should have exit movement but NO door animation
+ */
+export function isNonAnimatedDoorBehavior(behavior: number): boolean {
+  return behavior === MB_NON_ANIMATED_DOOR || behavior === MB_DEEP_SOUTH_WARP;
+}
+
+/**
+ * Check if behavior requires door exit sequence (with or without animation)
+ * This includes both animated doors AND non-animated doors (stairs)
+ */
+export function requiresDoorExitSequence(behavior: number): boolean {
+  return isDoorBehavior(behavior) || isNonAnimatedDoorBehavior(behavior);
 }
 
 export function isTeleportWarpBehavior(behavior: number): boolean {
