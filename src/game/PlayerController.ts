@@ -1,5 +1,5 @@
-import type { MapData, MetatileAttributes } from '../utils/mapLoader';
-import { getCollisionFromMapTile, getMetatileIdFromMapTile, isCollisionPassable } from '../utils/mapLoader';
+import type { MetatileAttributes } from '../utils/mapLoader';
+import { getCollisionFromMapTile, isCollisionPassable } from '../utils/mapLoader';
 import {
   MB_POND_WATER,
   MB_INTERIOR_DEEP_WATER,
@@ -13,11 +13,12 @@ import {
   MB_SEAWEED_NO_SURFACING,
 } from '../utils/metatileBehaviors';
 
-interface RenderContext {
-  mapData: MapData;
-  primaryAttributes: MetatileAttributes[];
-  secondaryAttributes: MetatileAttributes[];
+export interface ResolvedTileInfo {
+  mapTile: number;
+  attributes?: MetatileAttributes;
 }
+
+export type TileResolver = (tileX: number, tileY: number) => ResolvedTileInfo | null;
 
 export class PlayerController {
   public x: number = 0;
@@ -35,6 +36,7 @@ export class PlayerController {
   private walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
+  private tileResolver: TileResolver | null = null;
   
   // Speed in pixels per millisecond
   // Previous was 0.5px per frame (approx 16.66ms) => 0.5 / 16.66 ≈ 0.03 px/ms
@@ -107,16 +109,18 @@ export class PlayerController {
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
   }
 
-  private isCollisionAt(tileX: number, tileY: number, ctx: RenderContext): boolean {
-    const { mapData, primaryAttributes, secondaryAttributes } = ctx;
-    
-    // Check bounds
-    if (tileX < 0 || tileX >= mapData.width || tileY < 0 || tileY >= mapData.height) {
-      return true; // Out of bounds = collision
-    }
-    
-    // Get map tile data
-    const mapTile = mapData.layout[tileY * mapData.width + tileX];
+  public getCameraFocus() {
+    const { width, height } = this.getSpriteSize();
+    return {
+      x: this.x + width / 2,
+      y: this.y + height - this.TILE_PIXELS / 2,
+    };
+  }
+
+  private isCollisionAt(tileX: number, tileY: number): boolean {
+    const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
+    if (!resolved) return true; // Out of bounds = collision
+    const mapTile = resolved.mapTile;
     
     // Check collision bits from map.bin (bits 10-11)
     const collision = getCollisionFromMapTile(mapTile);
@@ -125,12 +129,7 @@ export class PlayerController {
     }
     
     // Get metatile ID and check behavior
-    const metatileId = getMetatileIdFromMapTile(mapTile);
-    const isSecondary = metatileId >= 512;
-    const attributes = isSecondary 
-      ? secondaryAttributes[metatileId - 512]
-      : primaryAttributes[metatileId];
-    
+    const attributes = resolved.attributes;
     if (!attributes) {
       return false; // No attributes = passable
     }
@@ -162,7 +161,7 @@ export class PlayerController {
     return false; // Passable
   }
 
-  public update(delta: number, ctx: RenderContext): boolean {
+  public update(delta: number): boolean {
     let didRenderMove = false;
 
     if (this.isMoving) {
@@ -248,7 +247,7 @@ export class PlayerController {
         const targetTileX = this.tileX + dx;
         const targetTileY = this.tileY + dy;
         
-        if (!this.isCollisionAt(targetTileX, targetTileY, ctx)) {
+        if (!this.isCollisionAt(targetTileX, targetTileY)) {
           this.isMoving = true;
           this.pixelsMoved = 0;
           didRenderMove = true;
@@ -320,7 +319,7 @@ export class PlayerController {
     };
   }
 
-  public render(ctx: CanvasRenderingContext2D) {
+  public render(ctx: CanvasRenderingContext2D, cameraX: number = 0, cameraY: number = 0) {
     const frame = this.getFrameInfo();
     if (!frame) return;
 
@@ -328,9 +327,11 @@ export class PlayerController {
     ctx.imageSmoothingEnabled = false;
     
     ctx.save();
+    const destX = frame.renderX - cameraX;
+    const destY = frame.renderY - cameraY;
     if (frame.flip) {
       // Use whole pixel translation for flipped sprites
-      ctx.translate(frame.renderX + frame.sw, frame.renderY);
+      ctx.translate(destX + frame.sw, destY);
       ctx.scale(-1, 1);
       ctx.drawImage(frame.sprite, frame.sx, frame.sy, frame.sw, frame.sh, 0, 0, frame.sw, frame.sh);
     } else {
@@ -340,8 +341,8 @@ export class PlayerController {
         frame.sy,
         frame.sw,
         frame.sh,
-        frame.renderX,
-        frame.renderY,
+        destX,
+        destY,
         frame.sw,
         frame.sh
       );
@@ -356,5 +357,9 @@ export class PlayerController {
   public destroy() {
       window.removeEventListener('keydown', this.handleKeyDown);
       window.removeEventListener('keyup', this.handleKeyUp);
+  }
+
+  public setTileResolver(resolver: TileResolver | null) {
+    this.tileResolver = resolver;
   }
 }

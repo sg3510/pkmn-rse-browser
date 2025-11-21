@@ -62,6 +62,7 @@ function App() {
 
       <div className="card">
         <MapRenderer
+          mapId={selectedMap.id}
           mapName={selectedMap.name}
           width={selectedMap.width}
           height={selectedMap.height}

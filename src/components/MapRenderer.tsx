@@ -1,15 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import UPNG from 'upng-js';
 import { PlayerController } from '../game/PlayerController';
+import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
 import {
-  loadMapLayout,
-  loadMetatileDefinitions,
-  loadTilesetImage,
-  parsePalette,
-  loadText,
-  loadMetatileAttributes,
   loadBinary,
-  type MapData,
   type Metatile,
   type Palette,
   type MetatileAttributes,
@@ -32,15 +26,16 @@ import {
   isIceBehavior,
   isReflectiveBehavior,
 } from '../utils/metatileBehaviors';
+import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
+import { computeCameraView, type CameraView } from '../utils/camera';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
 const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
 const NUM_PRIMARY_METATILES = 512;
-const PRIMARY_PALETTE_COUNT = 16;
-const SECONDARY_PALETTE_COUNT = 16;
 
 interface MapRendererProps {
+  mapId: string;
   mapName: string;
   width: number;
   height: number;
@@ -49,20 +44,6 @@ interface MapRendererProps {
   secondaryTilesetPath: string;
   primaryTilesetId: string;
   secondaryTilesetId: string;
-}
-
-interface RenderContext {
-  mapData: MapData;
-  primaryMetatiles: Metatile[];
-  secondaryMetatiles: Metatile[];
-  primaryTilesImage: Uint8Array;
-  secondaryTilesImage: Uint8Array;
-  primaryPalettes: Palette[];
-  secondaryPalettes: Palette[];
-  primaryAttributes: MetatileAttributes[];
-  secondaryAttributes: MetatileAttributes[];
-  primaryReflectionMeta: ReflectionMeta[];
-  secondaryReflectionMeta: ReflectionMeta[];
 }
 
 interface AnimationDestination {
@@ -106,6 +87,58 @@ interface TilesetBuffers {
   secondary: Uint8Array;
 }
 
+interface TilesetRuntime {
+  resources: TilesetResources;
+  primaryTileMasks: Uint8Array[];
+  secondaryTileMasks: Uint8Array[];
+  primaryReflectionMeta: ReflectionMeta[];
+  secondaryReflectionMeta: ReflectionMeta[];
+  animations: LoadedAnimation[];
+  animatedTileIds: { primary: Set<number>; secondary: Set<number> };
+  patchedTiles: TilesetBuffers | null;
+  lastPatchedKey: string;
+}
+
+interface RenderContext {
+  world: WorldState;
+  tilesetRuntimes: Map<string, TilesetRuntime>;
+  anchor: WorldMapInstance;
+}
+
+interface ResolvedTile {
+  map: WorldMapInstance;
+  tileset: TilesetResources;
+  metatile: Metatile | null;
+  attributes: MetatileAttributes | undefined;
+  mapTile: number;
+  isSecondary: boolean;
+  isBorder: boolean;
+}
+
+interface WorldCameraView extends CameraView {
+  worldStartTileX: number;
+  worldStartTileY: number;
+  cameraWorldX: number;
+  cameraWorldY: number;
+}
+
+function shiftWorld(state: WorldState, shiftX: number, shiftY: number): WorldState {
+  const shiftedMaps = state.maps.map((m) => ({
+    ...m,
+    offsetX: m.offsetX + shiftX,
+    offsetY: m.offsetY + shiftY,
+  }));
+  const minX = Math.min(...shiftedMaps.map((m) => m.offsetX));
+  const minY = Math.min(...shiftedMaps.map((m) => m.offsetY));
+  const maxX = Math.max(...shiftedMaps.map((m) => m.offsetX + m.mapData.width));
+  const maxY = Math.max(...shiftedMaps.map((m) => m.offsetY + m.mapData.height));
+  return {
+    anchorId: state.anchorId,
+    maps: shiftedMaps,
+    bounds: { minX, minY, maxX, maxY },
+  };
+}
+
 const BRIDGE_OFFSETS: Record<BridgeType, number> = {
   none: 0,
   pondLow: 12,
@@ -116,6 +149,9 @@ const BRIDGE_OFFSETS: Record<BridgeType, number> = {
 const DEBUG_CELL_SCALE = 3;
 const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
 const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
+const VIEWPORT_CONFIG = DEFAULT_VIEWPORT_CONFIG;
+const VIEWPORT_PIXEL_SIZE = getViewportPixelSize(VIEWPORT_CONFIG);
+const CONNECTION_DEPTH = 2; // anchor + direct neighbors + their neighbors
 
 interface ReflectionState {
   hasReflection: boolean;
@@ -361,34 +397,122 @@ function buildReflectionMeta(
   });
 }
 
+function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime {
+  const primaryTileMasks = buildTileTransparencyLUT(resources.primaryTilesImage);
+  const secondaryTileMasks = buildTileTransparencyLUT(resources.secondaryTilesImage);
+
+  const primaryReflectionMeta = buildReflectionMeta(
+    resources.primaryMetatiles,
+    resources.primaryAttributes,
+    primaryTileMasks,
+    secondaryTileMasks,
+    resources.primaryPalettes,
+    resources.secondaryPalettes,
+    resources.primaryTilesImage,
+    resources.secondaryTilesImage
+  );
+
+  const secondaryReflectionMeta = buildReflectionMeta(
+    resources.secondaryMetatiles,
+    resources.secondaryAttributes,
+    primaryTileMasks,
+    secondaryTileMasks,
+    resources.primaryPalettes,
+    resources.secondaryPalettes,
+    resources.primaryTilesImage,
+    resources.secondaryTilesImage
+  );
+
+  return {
+    resources,
+    primaryTileMasks,
+    secondaryTileMasks,
+    primaryReflectionMeta,
+    secondaryReflectionMeta,
+    animations: [],
+    animatedTileIds: { primary: new Set(), secondary: new Set() },
+    patchedTiles: null,
+    lastPatchedKey: '',
+  };
+}
+
+function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: number): ResolvedTile | null {
+  const map = ctx.world.maps.find(
+    (m) =>
+      worldTileX >= m.offsetX &&
+      worldTileX < m.offsetX + m.mapData.width &&
+      worldTileY >= m.offsetY &&
+      worldTileY < m.offsetY + m.mapData.height
+  );
+
+  if (map) {
+    const localX = worldTileX - map.offsetX;
+    const localY = worldTileY - map.offsetY;
+    const idx = localY * map.mapData.width + localX;
+    const mapTile = map.mapData.layout[idx];
+    const metatileId = getMetatileIdFromMapTile(mapTile);
+    const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
+    const metatile = isSecondary
+      ? map.tilesets.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES] ?? null
+      : map.tilesets.primaryMetatiles[metatileId] ?? null;
+    const attributes = isSecondary
+      ? map.tilesets.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
+      : map.tilesets.primaryAttributes[metatileId];
+    return {
+      map,
+      tileset: map.tilesets,
+      metatile,
+      attributes,
+      mapTile,
+      isSecondary,
+      isBorder: false,
+    };
+  }
+
+  const anchor = ctx.anchor;
+  const borderTiles = anchor.borderMetatiles;
+  if (!borderTiles || borderTiles.length === 0) return null;
+  const anchorLocalX = worldTileX - anchor.offsetX;
+  const anchorLocalY = worldTileY - anchor.offsetY;
+  // Shift pattern one tile up/left so the repeating border visually aligns with GBA behavior.
+  const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
+  const borderMetatileId = borderTiles[borderIndex % borderTiles.length];
+  const isSecondary = borderMetatileId >= NUM_PRIMARY_METATILES;
+  const metatile = isSecondary
+    ? anchor.tilesets.secondaryMetatiles[borderMetatileId - NUM_PRIMARY_METATILES] ?? null
+    : anchor.tilesets.primaryMetatiles[borderMetatileId] ?? null;
+  const attributes = isSecondary
+    ? anchor.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
+    : anchor.tilesets.primaryAttributes[borderMetatileId];
+  const mapTile = borderMetatileId | (1 << 10); // mark as impassable like pokeemerald border
+  return {
+    map: anchor,
+    tileset: anchor.tilesets,
+    metatile,
+    attributes,
+    mapTile,
+    isSecondary,
+    isBorder: true,
+  };
+}
+
 function getMetatileBehavior(
   ctx: RenderContext,
   tileX: number,
   tileY: number
 ): { behavior: number; meta: ReflectionMeta | null } | null {
-  if (
-    tileX < 0 ||
-    tileY < 0 ||
-    tileX >= ctx.mapData.width ||
-    tileY >= ctx.mapData.height
-  ) {
-    return null;
-  }
-  const mapTile = ctx.mapData.layout[tileY * ctx.mapData.width + tileX];
-  const metatileId = getMetatileIdFromMapTile(mapTile);
-  const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
-  if (isSecondary) {
-    const index = metatileId - NUM_PRIMARY_METATILES;
-    const behavior = ctx.secondaryAttributes[index]?.behavior ?? -1;
-    return {
-      behavior,
-      meta: ctx.secondaryReflectionMeta[index] ?? null,
-    };
-  }
-  const behavior = ctx.primaryAttributes[metatileId]?.behavior ?? -1;
+  const resolved = resolveTileAt(ctx, tileX, tileY);
+  if (!resolved) return null;
+  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+  if (!runtime) return null;
+  const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+  const meta = resolved.isSecondary
+    ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+    : runtime.primaryReflectionMeta[metatileId];
+  const behavior = resolved.attributes?.behavior ?? -1;
   return {
     behavior,
-    meta: ctx.primaryReflectionMeta[metatileId] ?? null,
+    meta: meta ?? null,
   };
 }
 
@@ -410,27 +534,22 @@ function describeTile(
   tileX: number,
   tileY: number
 ): DebugTileInfo {
-  if (
-    tileX < 0 ||
-    tileY < 0 ||
-    tileX >= ctx.mapData.width ||
-    tileY >= ctx.mapData.height
-  ) {
+  const resolved = resolveTileAt(ctx, tileX, tileY);
+  if (!resolved || !resolved.metatile) {
     return { inBounds: false, tileX, tileY };
   }
 
-  const mapTile = ctx.mapData.layout[tileY * ctx.mapData.width + tileX];
+  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+  const mapTile = resolved.mapTile;
   const metatileId = getMetatileIdFromMapTile(mapTile);
-  const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
-  const attr = isSecondary
-    ? ctx.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
-    : ctx.primaryAttributes[metatileId];
-  const meta = isSecondary
-    ? ctx.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES]
-    : ctx.primaryMetatiles[metatileId];
-  const reflectionMeta = isSecondary
-    ? ctx.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
-    : ctx.primaryReflectionMeta[metatileId];
+  const isSecondary = resolved.isSecondary;
+  const attr = resolved.attributes;
+  const meta = resolved.metatile;
+  const reflectionMeta = runtime
+    ? isSecondary
+      ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+      : runtime.primaryReflectionMeta[metatileId]
+    : undefined;
   const behavior = attr?.behavior;
   const layerType = attr?.layerType;
   const reflectionMaskAllow = reflectionMeta?.pixelMask?.reduce((acc, v) => acc + (v ? 1 : 0), 0);
@@ -518,28 +637,27 @@ function computeReflectionState(
 }
 
 export const MapRenderer: React.FC<MapRendererProps> = ({
+  mapId,
   mapName,
-  width,
-  height,
-  layoutPath,
-  primaryTilesetPath,
-  secondaryTilesetPath,
-  primaryTilesetId,
-  secondaryTilesetId,
+  width: _width,
+  height: _height,
+  layoutPath: _layoutPath,
+  primaryTilesetPath: _primaryTilesetPath,
+  secondaryTilesetPath: _secondaryTilesetPath,
+  primaryTilesetId: _primaryTilesetId,
+  secondaryTilesetId: _secondaryTilesetId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
+  const cameraViewRef = useRef<WorldCameraView | null>(null);
+  const mapManagerRef = useRef<MapManager>(new MapManager());
   const animRef = useRef<number>(0);
-  const patchedTilesRef = useRef<TilesetBuffers | null>(null);
   const hasRenderedRef = useRef<boolean>(false);
   const renderGenerationRef = useRef<number>(0);
-  const animationsRef = useRef<LoadedAnimation[]>([]);
-  const lastAnimStateKeyRef = useRef<string>('');
-  const lastPatchedKeyRef = useRef<string>('');
+  const lastViewKeyRef = useRef<string>('');
 
   const backgroundImageDataRef = useRef<ImageData | null>(null);
   const topImageDataRef = useRef<ImageData | null>(null);
-  const staticLayersDirtyRef = useRef<boolean>(false);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const debugCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -549,16 +667,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     reflectionType: null,
     bridgeType: 'none',
   });
+  const tilesetRuntimeCacheRef = useRef<Map<string, TilesetRuntime>>(new Map());
   const debugTilesRef = useRef<DebugTileInfo[]>([]);
   const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const animatedBottomDrawCallsRef = useRef<TileDrawCall[]>([]);
-  const animatedTopDrawCallsRef = useRef<TileDrawCall[]>([]);
-  const animatedTileIdsRef = useRef<{ primary: Set<number>; secondary: Set<number> }>({
-    primary: new Set(),
-    secondary: new Set(),
-  });
   const renderReflectionLayer = useCallback(
-    (mainCtx: CanvasRenderingContext2D, reflectionState: ReflectionState) => {
+    (mainCtx: CanvasRenderingContext2D, reflectionState: ReflectionState, view: WorldCameraView) => {
       const ctx = renderContextRef.current;
       const player = playerControllerRef.current;
       if (!ctx || !player || !reflectionState.hasReflection) return;
@@ -569,6 +682,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const { height } = player.getSpriteSize();
       const reflectionX = frame.renderX;
       const reflectionY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+      const screenX = Math.round(reflectionX - view.cameraWorldX);
+      const screenY = Math.round(reflectionY - view.cameraWorldY);
 
       const maskCanvas = document.createElement('canvas');
       maskCanvas.width = frame.sw;
@@ -644,7 +759,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       mainCtx.save();
       mainCtx.imageSmoothingEnabled = false;
       mainCtx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-      mainCtx.drawImage(reflectionCanvas, reflectionX, reflectionY);
+      mainCtx.drawImage(reflectionCanvas, screenX, screenY);
       mainCtx.restore();
     },
     []
@@ -658,8 +773,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const playerControllerRef = useRef<PlayerController | null>(null);
 
   const refreshDebugOverlay = useCallback(
-    (ctx: RenderContext, player: PlayerController) => {
-      if (!debugEnabledRef.current) return;
+    (ctx: RenderContext, player: PlayerController, view: WorldCameraView | null) => {
+      if (!debugEnabledRef.current || !view) return;
       const mainCanvas = canvasRef.current;
       const dbgCanvas = debugCanvasRef.current;
       if (!dbgCanvas || !mainCanvas) return;
@@ -682,11 +797,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
           const destX = (dx + 1) * DEBUG_CELL_SIZE;
           const destY = (dy + 1) * DEBUG_CELL_SIZE;
-          if (info.inBounds) {
+          const screenX = tileX * METATILE_SIZE - view.cameraWorldX;
+          const screenY = tileY * METATILE_SIZE - view.cameraWorldY;
+          const visible =
+            screenX + METATILE_SIZE > 0 &&
+            screenY + METATILE_SIZE > 0 &&
+            screenX < view.pixelWidth &&
+            screenY < view.pixelHeight;
+
+          if (info.inBounds && visible) {
             dbgCtx.drawImage(
               mainCanvas,
-              tileX * METATILE_SIZE,
-              tileY * METATILE_SIZE,
+              screenX,
+              screenY,
               METATILE_SIZE,
               METATILE_SIZE,
               destX,
@@ -734,7 +857,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       canvasRef.current &&
       playerControllerRef.current
     ) {
-      refreshDebugOverlay(renderContextRef.current, playerControllerRef.current);
+      refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
     }
   }, [showTileDebug, refreshDebugOverlay]);
 
@@ -779,33 +902,30 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     }
   }, []);
 
-  const buildPatchedTiles = useCallback(
-    (animationState: AnimationState): TilesetBuffers | null => {
-      const ctx = renderContextRef.current;
-      if (!ctx) return null;
-
-      const animKey = animationsRef.current
+  const buildPatchedTilesForRuntime = useCallback(
+    (runtime: TilesetRuntime, animationState: AnimationState): TilesetBuffers => {
+      const animKey = runtime.animations
         .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
         .join('|');
 
-      if (animKey === lastPatchedKeyRef.current && patchedTilesRef.current) {
-        return patchedTilesRef.current;
+      if (animKey === runtime.lastPatchedKey && runtime.patchedTiles) {
+        return runtime.patchedTiles;
       }
 
-      let patchedPrimary = ctx.primaryTilesImage;
-      let patchedSecondary = ctx.secondaryTilesImage;
+      let patchedPrimary = runtime.resources.primaryTilesImage;
+      let patchedSecondary = runtime.resources.secondaryTilesImage;
       let primaryPatched = false;
       let secondaryPatched = false;
 
-      for (const anim of animationsRef.current) {
+      for (const anim of runtime.animations) {
         const rawCycle = animationState[anim.id] ?? 0;
         const tilesetTarget = anim.tileset;
         if (tilesetTarget === 'primary' && !primaryPatched) {
-          patchedPrimary = new Uint8Array(ctx.primaryTilesImage);
+          patchedPrimary = new Uint8Array(runtime.resources.primaryTilesImage);
           primaryPatched = true;
         }
         if (tilesetTarget === 'secondary' && !secondaryPatched) {
-          patchedSecondary = new Uint8Array(ctx.secondaryTilesImage);
+          patchedSecondary = new Uint8Array(runtime.resources.secondaryTilesImage);
           secondaryPatched = true;
         }
 
@@ -851,8 +971,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         secondary: patchedSecondary,
       };
 
-      lastPatchedKeyRef.current = animKey;
-      patchedTilesRef.current = patched;
+      runtime.lastPatchedKey = animKey;
+      runtime.patchedTiles = patched;
       return patched;
     },
     []
@@ -873,7 +993,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         topCanvasRef.current.width = widthPx;
         topCanvasRef.current.height = heightPx;
         canvasSizeRef.current = { w: widthPx, h: heightPx };
-        staticLayersDirtyRef.current = true;
       }
     }
   };
@@ -900,7 +1019,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   };
 
   const loadTilesetAnimations = useCallback(
-    async (primaryId: string, secondaryId: string) => {
+    async (primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> => {
       const loaded: LoadedAnimation[] = [];
       const requested = [
         ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
@@ -939,7 +1058,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         }
       }
 
-      animationsRef.current = loaded;
+      return loaded;
     },
     []
   );
@@ -966,6 +1085,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
     return { primary, secondary };
   };
+
+  const ensureTilesetRuntime = useCallback(
+    async (tilesets: TilesetResources): Promise<TilesetRuntime> => {
+      const cached = tilesetRuntimeCacheRef.current.get(tilesets.key);
+      if (cached) return cached;
+      const runtime = buildTilesetRuntime(tilesets);
+      const animations = await loadTilesetAnimations(tilesets.primaryTilesetId, tilesets.secondaryTilesetId);
+      runtime.animations = animations;
+      runtime.animatedTileIds = computeAnimatedTileIds(animations);
+      tilesetRuntimeCacheRef.current.set(tilesets.key, runtime);
+      return runtime;
+    },
+    [loadTilesetAnimations]
+  );
 
   const drawTileToImageData = (
     imageData: ImageData,
@@ -1008,47 +1141,41 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const renderPass = useCallback(
     (
       ctx: RenderContext,
-      tiles: TilesetBuffers,
-      animatedTileIds: { primary: Set<number>; secondary: Set<number> },
       pass: 'background' | 'top',
-      skipAnimated: boolean
+      skipAnimated: boolean,
+      view: WorldCameraView
     ): ImageData => {
-      const widthPx = ctx.mapData.width * METATILE_SIZE;
-      const heightPx = ctx.mapData.height * METATILE_SIZE;
+      const widthPx = view.tilesWide * METATILE_SIZE;
+      const heightPx = view.tilesHigh * METATILE_SIZE;
       const imageData = new ImageData(widthPx, heightPx);
-        const {
-          primaryMetatiles,
-          secondaryMetatiles,
-          primaryPalettes,
-          secondaryPalettes,
-          primaryAttributes,
-          secondaryAttributes,
-        } = ctx;
+      for (let localY = 0; localY < view.tilesHigh; localY++) {
+        const tileY = view.worldStartTileY + localY;
+        for (let localX = 0; localX < view.tilesWide; localX++) {
+          const tileX = view.worldStartTileX + localX;
+          const resolved = resolveTileAt(ctx, tileX, tileY);
+          if (!resolved || !resolved.metatile) continue;
+          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+          if (!runtime) continue;
 
-      for (let my = 0; my < ctx.mapData.height; my++) {
-        for (let mx = 0; mx < ctx.mapData.width; mx++) {
-          const rawMetatileId = ctx.mapData.layout[my * ctx.mapData.width + mx];
-          const metatileId = getMetatileIdFromMapTile(rawMetatileId);
-          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-          const metatile = isSecondary
-            ? secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
-            : primaryMetatiles[metatileId];
-          if (!metatile) continue;
-
-          const attr = isSecondary
-            ? secondaryAttributes[metatileId - SECONDARY_TILE_OFFSET]
-            : primaryAttributes[metatileId];
+          const attr = resolved.attributes;
           const layerType = attr ? attr.layerType : METATILE_LAYER_TYPE_COVERED;
 
-          const screenX = mx * METATILE_SIZE;
-          const screenY = my * METATILE_SIZE;
+          const screenX = localX * METATILE_SIZE;
+          const screenY = localY * METATILE_SIZE;
+
+          const patchedTiles = runtime.patchedTiles ?? {
+            primary: runtime.resources.primaryTilesImage,
+            secondary: runtime.resources.secondaryTilesImage,
+          };
+          const animatedTileIds = runtime.animatedTileIds;
+          const metatile = resolved.metatile;
 
           const drawLayer = (layer: number) => {
             for (let i = 0; i < 4; i++) {
               const tileIndex = layer * 4 + i;
               const tile = metatile.tiles[tileIndex];
-        const tileSource: TilesetKind =
-          tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+              const tileSource: TilesetKind =
+                tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
               if (skipAnimated) {
                 const shouldSkip =
                   tileSource === 'primary'
@@ -1063,8 +1190,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const subY = Math.floor(i / 2) * TILE_SIZE;
               const palette =
                 tileSource === 'secondary'
-                  ? secondaryPalettes[tile.palette]
-                  : primaryPalettes[tile.palette];
+                  ? resolved.tileset.secondaryPalettes[tile.palette]
+                  : resolved.tileset.primaryPalettes[tile.palette];
               if (!palette) continue;
 
               drawTileToImageData(
@@ -1079,8 +1206,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   source: tileSource,
                   layer: layer as 0 | 1,
                 },
-                tiles.primary,
-                tiles.secondary
+                patchedTiles.primary,
+                patchedTiles.secondary
               );
             }
           };
@@ -1103,81 +1230,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     []
   );
 
-  const buildAnimatedDrawCalls = (ctx: RenderContext) => {
-    const bottom: TileDrawCall[] = [];
-    const top: TileDrawCall[] = [];
-    const animatedTileIds = animatedTileIdsRef.current;
-
-    for (let my = 0; my < ctx.mapData.height; my++) {
-      for (let mx = 0; mx < ctx.mapData.width; mx++) {
-        const rawMetatileId = ctx.mapData.layout[my * ctx.mapData.width + mx];
-        const metatileId = getMetatileIdFromMapTile(rawMetatileId);
-        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-        const metatile = isSecondary
-          ? ctx.secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
-          : ctx.primaryMetatiles[metatileId];
-        if (!metatile) continue;
-        const attr = isSecondary
-          ? ctx.secondaryAttributes[metatileId - SECONDARY_TILE_OFFSET]
-          : ctx.primaryAttributes[metatileId];
-        const layerType = attr ? attr.layerType : METATILE_LAYER_TYPE_COVERED;
-
-        const screenX = mx * METATILE_SIZE;
-        const screenY = my * METATILE_SIZE;
-
-          const processLayer = (layer: number, destination: TileDrawCall[]) => {
-            for (let i = 0; i < 4; i++) {
-              const tileIndex = layer * 4 + i;
-              const tile = metatile.tiles[tileIndex];
-              const tileSource: TilesetKind =
-                tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
-              const isAnimated =
-                tileSource === 'primary'
-                  ? animatedTileIds.primary.has(tile.tileId)
-                  : animatedTileIds.secondary.has(tile.tileId);
-              if (!isAnimated) continue;
-              const subX = (i % 2) * TILE_SIZE;
-              const subY = Math.floor(i / 2) * TILE_SIZE;
-              const palette =
-                tileSource === 'secondary'
-                  ? ctx.secondaryPalettes[tile.palette]
-                  : ctx.primaryPalettes[tile.palette];
-              if (!palette) continue;
-
-              destination.push({
-                tileId: tile.tileId,
-                destX: screenX + subX,
-                destY: screenY + subY,
-                palette,
-                xflip: tile.xflip,
-                yflip: tile.yflip,
-                source: tileSource,
-                layer: layer as 0 | 1,
-              });
-            }
-          };
-
-        processLayer(0, bottom);
-        if (layerType === METATILE_LAYER_TYPE_COVERED) {
-          processLayer(1, bottom);
-        } else if (layerType === METATILE_LAYER_TYPE_NORMAL) {
-          processLayer(1, top);
-        } else if (layerType === METATILE_LAYER_TYPE_SPLIT) {
-          processLayer(1, top);
-        }
-      }
-    }
-
-    animatedBottomDrawCallsRef.current = bottom;
-    animatedTopDrawCallsRef.current = top;
-  };
-
   const compositeScene = useCallback(
     (
-      animKey: string,
-      patchedTiles: TilesetBuffers,
-      animationFrameChanged: boolean,
-      reflectionState: ReflectionState
+      reflectionState: ReflectionState,
+      view: WorldCameraView,
+      viewChanged: boolean,
+      animationFrameChanged: boolean
     ) => {
       const ctx = renderContextRef.current;
       if (!ctx) return;
@@ -1186,36 +1244,41 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const mainCtx = mainCanvas.getContext('2d');
       if (!mainCtx) return;
 
-      const widthPx = ctx.mapData.width * METATILE_SIZE;
-      const heightPx = ctx.mapData.height * METATILE_SIZE;
+      const widthPx = view.pixelWidth;
+      const heightPx = view.pixelHeight;
       ensureAuxiliaryCanvases(widthPx, heightPx);
 
       const bgCtx = backgroundCanvasRef.current?.getContext('2d');
       const topCtx = topCanvasRef.current?.getContext('2d');
       if (!bgCtx || !topCtx) return;
 
-      if (!backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged) {
+      const needsImageData =
+        !backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged || viewChanged;
+
+      if (needsImageData) {
         backgroundImageDataRef.current = renderPass(
           ctx,
-          patchedTiles,
-          animatedTileIdsRef.current,
           'background',
-          false
+          false,
+          view
         );
         topImageDataRef.current = renderPass(
           ctx,
-          patchedTiles,
-          animatedTileIdsRef.current,
           'top',
-          false
+          false,
+          view
         );
-        staticLayersDirtyRef.current = true;
       }
 
-      if (staticLayersDirtyRef.current) {
-        bgCtx.putImageData(backgroundImageDataRef.current!, 0, 0);
-        topCtx.putImageData(topImageDataRef.current!, 0, 0);
-        staticLayersDirtyRef.current = false;
+      const offsetX = -Math.round(view.subTileOffsetX);
+      const offsetY = -Math.round(view.subTileOffsetY);
+      bgCtx.clearRect(0, 0, widthPx, heightPx);
+      topCtx.clearRect(0, 0, widthPx, heightPx);
+      if (backgroundImageDataRef.current) {
+        bgCtx.putImageData(backgroundImageDataRef.current, offsetX, offsetY);
+      }
+      if (topImageDataRef.current) {
+        topCtx.putImageData(topImageDataRef.current, offsetX, offsetY);
       }
 
       mainCtx.clearRect(0, 0, widthPx, heightPx);
@@ -1223,11 +1286,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
       }
 
-      renderReflectionLayer(mainCtx, reflectionState);
+        renderReflectionLayer(mainCtx, reflectionState, view);
 
-      if (playerControllerRef.current) {
-        playerControllerRef.current.render(mainCtx);
-      }
+        if (playerControllerRef.current) {
+          playerControllerRef.current.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
+        }
 
       if (topCanvasRef.current) {
         mainCtx.drawImage(topCanvasRef.current, 0, 0);
@@ -1235,7 +1298,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
       if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
         console.log(
-          `[MapRender] key:${animKey} player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
+          `[MapRender] view (${view.worldStartTileX}, ${view.worldStartTileY}) player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
         );
       }
     },
@@ -1253,69 +1316,21 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         setError(null);
         backgroundImageDataRef.current = null;
         topImageDataRef.current = null;
-        animatedBottomDrawCallsRef.current = [];
-        animatedTopDrawCallsRef.current = [];
-        patchedTilesRef.current = null;
-        staticLayersDirtyRef.current = false;
-        lastPatchedKeyRef.current = '';
-        lastAnimStateKeyRef.current = '';
-        animationsRef.current = [];
-        animatedTileIdsRef.current = { primary: new Set(), secondary: new Set() };
         hasRenderedRef.current = false;
+        renderContextRef.current = null;
+        cameraViewRef.current = null;
+        lastViewKeyRef.current = '';
 
-        const mapData = await loadMapLayout(`${PROJECT_ROOT}/${layoutPath}/map.bin`, width, height);
-        const startTileX = Math.floor(mapData.width / 2);
-        const startTileY = Math.floor(mapData.height / 2);
-        playerControllerRef.current?.setPosition(startTileX, startTileY);
+        const world = await mapManagerRef.current.buildWorld(mapId, CONNECTION_DEPTH);
+        const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
 
-        const primaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${primaryTilesetPath}/metatiles.bin`);
-        const secondaryMetatiles = await loadMetatileDefinitions(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatiles.bin`);
-
-        const primaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${primaryTilesetPath}/tiles.png`);
-        const secondaryTilesImage = await loadTilesetImage(`${PROJECT_ROOT}/${secondaryTilesetPath}/tiles.png`);
-
-        const primaryTileMasks = buildTileTransparencyLUT(primaryTilesImage);
-        const secondaryTileMasks = buildTileTransparencyLUT(secondaryTilesImage);
-
-        let primaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${primaryTilesetPath}/metatile_attributes.bin`);
-        let secondaryAttributes = await loadMetatileAttributes(`${PROJECT_ROOT}/${secondaryTilesetPath}/metatile_attributes.bin`);
-
-        primaryAttributes = applyBehaviorOverrides(primaryAttributes);
-        secondaryAttributes = applyBehaviorOverrides(secondaryAttributes);
-
-        const primaryPalettes: Palette[] = [];
-        for (let i = 0; i < PRIMARY_PALETTE_COUNT; i++) {
-          const text = await loadText(`${PROJECT_ROOT}/${primaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
-          primaryPalettes.push(parsePalette(text));
+        const tilesetRuntimes = new Map<string, TilesetRuntime>();
+        for (const map of world.maps) {
+          const runtime = await ensureTilesetRuntime(map.tilesets);
+          runtime.resources.primaryAttributes = applyBehaviorOverrides(runtime.resources.primaryAttributes);
+          runtime.resources.secondaryAttributes = applyBehaviorOverrides(runtime.resources.secondaryAttributes);
+          tilesetRuntimes.set(map.tilesets.key, runtime);
         }
-
-        const secondaryPalettes: Palette[] = [];
-        for (let i = 0; i < SECONDARY_PALETTE_COUNT; i++) {
-          const text = await loadText(`${PROJECT_ROOT}/${secondaryTilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
-          secondaryPalettes.push(parsePalette(text));
-        }
-
-        const primaryReflectionMeta = buildReflectionMeta(
-          primaryMetatiles,
-          primaryAttributes,
-          primaryTileMasks,
-          secondaryTileMasks,
-          primaryPalettes,
-          secondaryPalettes,
-          primaryTilesImage,
-          secondaryTilesImage
-        );
-
-        const secondaryReflectionMeta = buildReflectionMeta(
-          secondaryMetatiles,
-          secondaryAttributes,
-          primaryTileMasks,
-          secondaryTileMasks,
-          primaryPalettes,
-          secondaryPalettes,
-          primaryTilesImage,
-          secondaryTilesImage
-        );
 
         // Abort if a newer render cycle started while loading
         if (generation !== renderGenerationRef.current) {
@@ -1328,27 +1343,25 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           console.error('Failed to load sprite', spriteErr);
         }
 
-        await loadTilesetAnimations(primaryTilesetId, secondaryTilesetId);
-        animatedTileIdsRef.current = computeAnimatedTileIds(animationsRef.current);
-
         renderContextRef.current = {
-          mapData,
-          primaryMetatiles,
-          secondaryMetatiles,
-          primaryTilesImage,
-          secondaryTilesImage,
-          primaryPalettes,
-          secondaryPalettes,
-          primaryAttributes,
-          secondaryAttributes,
-          primaryReflectionMeta,
-          secondaryReflectionMeta,
+          world,
+          tilesetRuntimes,
+          anchor,
         };
-        staticLayersDirtyRef.current = true;
-        buildAnimatedDrawCalls(renderContextRef.current);
+        const startTileX = Math.floor(anchor.mapData.width / 2);
+        const startTileY = Math.floor(anchor.mapData.height / 2);
+        playerControllerRef.current?.setPosition(startTileX, startTileY);
+        playerControllerRef.current?.setTileResolver((tileX, tileY) => {
+          const ctx = renderContextRef.current;
+          if (!ctx) return null;
+          const resolved = resolveTileAt(ctx, tileX, tileY);
+          if (!resolved) return null;
+          return { mapTile: resolved.mapTile, attributes: resolved.attributes };
+        });
         setLoading(false);
 
         let lastTime = 0;
+        let reanchorInFlight = false;
         const loop = (timestamp: number) => {
           if (generation !== renderGenerationRef.current) {
             return;
@@ -1364,35 +1377,115 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           }
 
           const safeDelta = Math.min(delta, 50);
-          const playerDirty = playerControllerRef.current?.update(safeDelta, ctx) ?? false;
-
-          const animationState: AnimationState = {};
-          const frameTick = Math.floor(timestamp / FRAME_MS);
-          for (const anim of animationsRef.current) {
-            const seqIndex = Math.floor(frameTick / anim.interval);
-            animationState[anim.id] = seqIndex;
+          const playerDirty = playerControllerRef.current?.update(safeDelta) ?? false;
+          const player = playerControllerRef.current;
+          let view: WorldCameraView | null = null;
+          if (player) {
+            const focus = player.getCameraFocus();
+            if (focus) {
+              const bounds = ctx.world.bounds;
+              const padX = VIEWPORT_CONFIG.tilesWide;
+              const padY = VIEWPORT_CONFIG.tilesHigh;
+              const paddedMinX = bounds.minX - padX;
+              const paddedMinY = bounds.minY - padY;
+              const paddedMaxX = bounds.maxX + padX;
+              const paddedMaxY = bounds.maxY + padY;
+              const worldWidth = paddedMaxX - paddedMinX;
+              const worldHeight = paddedMaxY - paddedMinY;
+              const baseView = computeCameraView(
+                worldWidth,
+                worldHeight,
+                focus.x - paddedMinX * METATILE_SIZE,
+                focus.y - paddedMinY * METATILE_SIZE,
+                VIEWPORT_CONFIG
+              );
+              view = {
+                ...baseView,
+                worldStartTileX: baseView.startTileX + paddedMinX,
+                worldStartTileY: baseView.startTileY + paddedMinY,
+                cameraWorldX: baseView.cameraX + paddedMinX * METATILE_SIZE,
+                cameraWorldY: baseView.cameraY + paddedMinY * METATILE_SIZE,
+              };
+            }
+          }
+          cameraViewRef.current = view;
+          const viewKey = view
+            ? `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`
+            : '';
+          const viewChanged = viewKey !== lastViewKeyRef.current;
+          if (viewChanged) {
+            lastViewKeyRef.current = viewKey;
           }
 
-          const animKey = animationsRef.current
-            .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
-            .join('|');
+          // Detect if player entered a different map; re-anchor world if needed.
+          if (!reanchorInFlight && player) {
+            const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
+            if (resolved && resolved.map.entry.id !== ctx.anchor.entry.id) {
+              reanchorInFlight = true;
+              const targetId = resolved.map.entry.id;
+              const targetOffsetX = resolved.map.offsetX;
+              const targetOffsetY = resolved.map.offsetY;
+              const playerWorldX = player.tileX;
+              const playerWorldY = player.tileY;
+              (async () => {
+                const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
+                // Shift new world so the target map stays at the same world offset as before reanchor.
+                const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
+                const newAnchor =
+                  newWorld.maps.find((m) => m.entry.id === targetId) ?? newWorld.maps[0];
+                const newTilesetRuntimes = new Map<string, TilesetRuntime>();
+                for (const map of newWorld.maps) {
+                  const runtime = await ensureTilesetRuntime(map.tilesets);
+                  runtime.resources.primaryAttributes = applyBehaviorOverrides(runtime.resources.primaryAttributes);
+                  runtime.resources.secondaryAttributes = applyBehaviorOverrides(runtime.resources.secondaryAttributes);
+                  newTilesetRuntimes.set(map.tilesets.key, runtime);
+                }
+                renderContextRef.current = {
+                  world: newWorld,
+                  tilesetRuntimes: newTilesetRuntimes,
+                  anchor: newAnchor,
+                };
+                // Keep absolute world position when entering new anchor.
+                playerControllerRef.current?.setPosition(playerWorldX, playerWorldY);
+                playerControllerRef.current?.setTileResolver((tileX, tileY) => {
+                  const ctxNew = renderContextRef.current;
+                  if (!ctxNew) return null;
+                  const res = resolveTileAt(ctxNew, tileX, tileY);
+                  if (!res) return null;
+                  return { mapTile: res.mapTile, attributes: res.attributes };
+                });
+                backgroundImageDataRef.current = null;
+                topImageDataRef.current = null;
+                hasRenderedRef.current = false;
+              })().finally(() => {
+                reanchorInFlight = false;
+              });
+            }
+          }
 
-          const animationFrameChanged =
-            animKey !== lastAnimStateKeyRef.current || patchedTilesRef.current === null;
-          lastAnimStateKeyRef.current = animKey;
+          const frameTick = Math.floor(timestamp / FRAME_MS);
+          let animationFrameChanged = false;
+          for (const runtime of ctx.tilesetRuntimes.values()) {
+            const animationState: AnimationState = {};
+            for (const anim of runtime.animations) {
+              const seqIndex = Math.floor(frameTick / anim.interval);
+              animationState[anim.id] = seqIndex;
+            }
+            const prevKey = runtime.lastPatchedKey;
+            buildPatchedTilesForRuntime(runtime, animationState);
+            if (runtime.lastPatchedKey !== prevKey) {
+              animationFrameChanged = true;
+            }
+          }
 
-          const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current;
+          const shouldRender = animationFrameChanged || playerDirty || !hasRenderedRef.current || viewChanged;
           const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
           reflectionStateRef.current = reflectionState;
 
-          if (shouldRender) {
-            const patchedTiles = buildPatchedTiles(animationState) ?? {
-              primary: ctx.primaryTilesImage,
-              secondary: ctx.secondaryTilesImage,
-            };
-            compositeScene(animKey, patchedTiles, animationFrameChanged, reflectionState);
+          if (shouldRender && view) {
+            compositeScene(reflectionState, view, viewChanged, animationFrameChanged);
             if (debugEnabledRef.current && playerControllerRef.current) {
-              refreshDebugOverlay(ctx, playerControllerRef.current);
+              refreshDebugOverlay(ctx, playerControllerRef.current, view);
             }
             hasRenderedRef.current = true;
           }
@@ -1416,17 +1509,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, [
+    mapId,
     mapName,
-    width,
-    height,
-    layoutPath,
-    primaryTilesetPath,
-    secondaryTilesetPath,
-    primaryTilesetId,
-    secondaryTilesetId,
-    buildPatchedTiles,
     compositeScene,
     loadTilesetAnimations,
+    buildPatchedTilesForRuntime,
     refreshDebugOverlay,
   ]);
 
@@ -1437,8 +1524,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       {loading && <div>Loading {mapName}...</div>}
       <canvas
         ref={canvasRef}
-        width={width * METATILE_SIZE}
-        height={height * METATILE_SIZE}
+        width={VIEWPORT_PIXEL_SIZE.width}
+        height={VIEWPORT_PIXEL_SIZE.height}
         style={{ border: '1px solid #ccc', imageRendering: 'pixelated' }}
       />
       <div style={{ marginTop: 8 }}>

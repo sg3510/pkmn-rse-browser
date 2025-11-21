@@ -145,6 +145,17 @@ export async function loadMapLayout(url: string, width: number, height: number):
   return { width, height, layout };
 }
 
+// Border.bin stores four uint16 metatile IDs forming a 2x2 repeating pattern.
+export async function loadBorderMetatiles(url: string): Promise<number[]> {
+  const buffer = await loadBinary(url);
+  const view = new DataView(buffer);
+  const metatiles: number[] = [];
+  for (let i = 0; i < view.byteLength; i += 2) {
+    metatiles.push(view.getUint16(i, true));
+  }
+  return metatiles;
+}
+
 // Collision bits from map.bin (bits 10-11)
 export function getCollisionFromMapTile(mapTile: number): number {
   return (mapTile >> 10) & 0x3;
@@ -165,4 +176,3 @@ export function isCollisionPassable(collision: number): boolean {
 export const METATILE_LAYER_TYPE_NORMAL = 0;  // Top layer covers player
 export const METATILE_LAYER_TYPE_COVERED = 1; // Both layers behind player
 export const METATILE_LAYER_TYPE_SPLIT = 2;   // Special rendering
-
