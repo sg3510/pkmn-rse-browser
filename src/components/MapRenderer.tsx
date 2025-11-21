@@ -1772,10 +1772,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
-              const palette =
-                tileSource === 'secondary'
-                  ? resolved.tileset.secondaryPalettes[tile.palette]
-                  : resolved.tileset.primaryPalettes[tile.palette];
+              // Porymap approach: choose tileset based on palette index, not tile source
+              // Secondary tiles can use primary palettes (0-5) and vice versa
+              const NUM_PALS_IN_PRIMARY = 6;
+              const palette = tile.palette < NUM_PALS_IN_PRIMARY
+                ? resolved.tileset.primaryPalettes[tile.palette]
+                : resolved.tileset.secondaryPalettes[tile.palette];
               if (!palette) continue;
 
               drawTileToImageData(
