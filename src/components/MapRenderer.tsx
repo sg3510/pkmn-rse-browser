@@ -887,12 +887,13 @@ function describeTile(
   const collisionPassable = isCollisionPassable(collision);
   
   // Ledge detection
-  const isLedge = behavior === 0x62 || behavior === 0x63 || behavior === 0x64 || behavior === 0x65;
+  // CORRECT values: MB_JUMP_EAST=56(0x38), MB_JUMP_WEST=57(0x39), MB_JUMP_NORTH=58(0x3A), MB_JUMP_SOUTH=59(0x3B)
+  const isLedge = behavior === 0x38 || behavior === 0x39 || behavior === 0x3A || behavior === 0x3B;
   let ledgeDirection = undefined;
-  if (behavior === 0x62) ledgeDirection = 'SOUTH';
-  else if (behavior === 0x63) ledgeDirection = 'NORTH';
-  else if (behavior === 0x64) ledgeDirection = 'WEST';
-  else if (behavior === 0x65) ledgeDirection = 'EAST';
+  if (behavior === 0x38) ledgeDirection = 'EAST';
+  else if (behavior === 0x39) ledgeDirection = 'WEST';
+  else if (behavior === 0x3A) ledgeDirection = 'NORTH';
+  else if (behavior === 0x3B) ledgeDirection = 'SOUTH';
   
   // Transparency calculation for layers
   let bottomLayerTransparency = 0;

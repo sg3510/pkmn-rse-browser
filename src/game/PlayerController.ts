@@ -205,6 +205,10 @@ class JumpingState implements PlayerState {
     // Snap to exact target position
     controller.x = this.targetX;
     controller.y = this.targetY;
+
+    // CRITICAL: Update elevation upon landing!
+    // Otherwise collision system thinks we are still at old elevation
+    controller.updateElevation();
   }
 
   update(controller: PlayerController, delta: number): boolean {
@@ -419,7 +423,7 @@ export class PlayerController {
    * After completing movement, both previousElevation and currentElevation
    * should be set to the new tile's elevation.
    */
-  private updateElevation(): void {
+  public updateElevation(): void {
     const resolved = this.tileResolver?.(this.tileX, this.tileY);
     
     if (resolved) {
@@ -769,7 +773,7 @@ export class PlayerController {
     return false;
   }
 
-  private isCollisionAt(tileX: number, tileY: number): boolean {
+  private isCollisionAt(tileX: number, tileY: number, options?: { ignoreElevation?: boolean }): boolean {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     if (!resolved) {
       if (isDebugMode()) {
@@ -812,7 +816,8 @@ export class PlayerController {
 
     // Elevation mismatch check
     // Reference: public/pokeemerald/src/event_object_movement.c:4667
-    if (this.isElevationMismatchAt(tileX, tileY)) {
+    // SKIP if options.ignoreElevation is true (e.g. for ledge jumping)
+    if (!options?.ignoreElevation && this.isElevationMismatchAt(tileX, tileY)) {
       if (isDebugMode()) {
         console.log(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH`);
       }
@@ -1037,7 +1042,8 @@ export class PlayerController {
       // Ensure the tile AFTER the ledge is passable
       const landTileX = targetTileX + dx;
       const landTileY = targetTileY + dy;
-      if (!this.isCollisionAt(landTileX, landTileY)) {
+      // Check collision but IGNORE elevation mismatch because ledges are designed to change elevation
+      if (!this.isCollisionAt(landTileX, landTileY, { ignoreElevation: true })) {
         this.dir = dir; // Face the ledge
         this.changeState(new JumpingState());
         return true;

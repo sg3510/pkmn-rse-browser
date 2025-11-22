@@ -7,10 +7,10 @@ Implement the ledge jumping mechanic where the player hops over small ledges (e.
 
 ### Metatile Behaviors
 - **Ledge Behaviors**:
-    - `MB_JUMP_EAST` (61)
-    - `MB_JUMP_WEST` (62)
-    - `MB_JUMP_NORTH` (63)
-    - `MB_JUMP_SOUTH` (64)
+    - `MB_JUMP_EAST` (56 decimal, 0x38 hex)
+    - `MB_JUMP_WEST` (57 decimal, 0x39 hex)
+    - `MB_JUMP_NORTH` (58 decimal, 0x3A hex)
+    - `MB_JUMP_SOUTH` (59 decimal, 0x3B hex)
 
 ### Jump Physics
 - **Function**: `InitJumpRegular` -> `DoJumpSpriteMovement`
