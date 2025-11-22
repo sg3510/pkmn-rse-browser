@@ -35,13 +35,14 @@ const BRIDGE_OFFSETS: Record<'none' | 'pondLow' | 'pondMed' | 'pondHigh', number
 };
 
 // Arrow animation constants
+// GBA uses 32 ticks @ 60fps ≈ 533ms per frame
 const ARROW_FRAME_SIZE = 16;
-const ARROW_FRAME_DURATION_MS = 250;
+const ARROW_FRAME_DURATION_MS = 533;
 const ARROW_FRAME_SEQUENCES: Record<'up' | 'down' | 'left' | 'right', number[]> = {
-  down: [0, 1, 2, 1],
-  up: [3, 4, 5, 4],
-  left: [6, 7, 8, 7],
-  right: [9, 10, 11, 10],
+  down: [3, 7],
+  up: [0, 4],
+  left: [1, 5],
+  right: [2, 6],
 };
 
 /**
