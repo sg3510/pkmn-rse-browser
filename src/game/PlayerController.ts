@@ -20,11 +20,13 @@ import {
   MB_JUMP_WEST,
   MB_JUMP_NORTH,
   MB_JUMP_SOUTH,
+  MB_TALL_GRASS,
   isDoorBehavior,
   requiresDoorExitSequence,
   isArrowWarpBehavior,
-
+  isTallGrassBehavior,
 } from '../utils/metatileBehaviors';
+import { GrassEffectManager } from './GrassEffectManager';
 
 export interface ResolvedTileInfo {
   mapTile: number;
@@ -268,6 +270,7 @@ export class PlayerController {
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   
   private currentState: PlayerState;
+  private grassEffectManager: GrassEffectManager = new GrassEffectManager();
   
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
@@ -338,6 +341,9 @@ export class PlayerController {
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
     this.isMoving = false;
     this.pixelsMoved = 0;
+    
+    // Check if spawning on tall grass (skip animation)
+    this.checkAndTriggerGrassEffect(true);
   }
 
   public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
@@ -371,6 +377,14 @@ export class PlayerController {
       this.currentState.handleInput(this, this.keysPressed);
     }
 
+    // Update grass effects
+    this.grassEffectManager.update();
+    
+    // Cleanup completed grass effects
+    const ownerPositions = new Map();
+    ownerPositions.set('player', { tileX: this.tileX, tileY: this.tileY });
+    this.grassEffectManager.cleanup(ownerPositions);
+
     return this.currentState.update(this, delta);
   }
 
@@ -403,6 +417,9 @@ export class PlayerController {
         this.x = this.tileX * this.TILE_PIXELS;
         this.y = this.tileY * this.TILE_PIXELS - 16;
         didRenderMove = true;
+        
+        // Trigger grass effect for new tile (with animation)
+        this.checkAndTriggerGrassEffect(false);
         
         if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
           console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
@@ -737,5 +754,27 @@ export class PlayerController {
     }
 
     return false;
+  }
+
+  /**
+   * Check if current tile is tall grass and trigger grass effect if so.
+   * Based on pokeemerald logic:
+   * - GroundEffect_SpawnOnTallGrass (skip animation)
+   * - GroundEffect_StepOnTallGrass (play animation)
+   */
+  private checkAndTriggerGrassEffect(skipAnimation: boolean) {
+    const resolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+    
+    if (behavior !== undefined && isTallGrassBehavior(behavior)) {
+      this.grassEffectManager.create(this.tileX, this.tileY, skipAnimation, 'player');
+    }
+  }
+
+  /**
+   * Get the grass effect manager for rendering.
+   */
+  public getGrassEffectManager(): GrassEffectManager {
+    return this.grassEffectManager;
   }
 }

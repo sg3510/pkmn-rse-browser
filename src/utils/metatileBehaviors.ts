@@ -1,4 +1,8 @@
 // Behavior constants derived from public/pokeemerald/include/constants/metatile_behaviors.h
+import { MB_TALL_GRASS } from './metatileBehaviors.generated';
+
+export { MB_TALL_GRASS };
+
 export const MB_POND_WATER = 16;
 export const MB_INTERIOR_DEEP_WATER = 17;
 export const MB_DEEP_WATER = 18;
@@ -14,6 +18,7 @@ export const MB_NO_SURFACING = 24;
 export const MB_SEAWEED = 33;
 export const MB_SEAWEED_NO_SURFACING = 41;
 export const MB_JUMP_EAST = 56;
+
 export const MB_JUMP_WEST = 57;
 export const MB_JUMP_NORTH = 58;
 export const MB_JUMP_SOUTH = 59;
@@ -166,4 +171,8 @@ export function getArrowDirectionFromBehavior(behavior: number): CardinalDirecti
 
 export function isWarpBehavior(behavior: number): boolean {
   return isDoorBehavior(behavior) || isTeleportWarpBehavior(behavior) || isArrowWarpBehavior(behavior);
+}
+
+export function isTallGrassBehavior(behavior: number): boolean {
+  return behavior === MB_TALL_GRASS;
 }

@@ -975,6 +975,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const arrowOverlayRef = useRef<ArrowOverlayState | null>(null);
   const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
   const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
+  const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -1877,6 +1878,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       renderArrowOverlay(mainCtx, view, nowMs);
       renderReflectionLayer(mainCtx, reflectionState, view);
 
+      // Render grass effects before player (so they are behind player)
+      renderGrassEffects(mainCtx, view);
+
       if (playerControllerRef.current && !playerHiddenRef.current) {
         playerControllerRef.current.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
@@ -1903,6 +1907,92 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
     },
     [renderPass, renderReflectionLayer, renderDoorAnimations, renderArrowOverlay]
+  );
+
+  /**
+   * Load grass sprite sheet and convert to transparent canvas
+   */
+  const ensureGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (grassSpriteRef.current) {
+      return grassSpriteRef.current;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/field_effects/pics/tall_grass.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get grass sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        grassSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
+
+  /**
+   * Render grass field effect sprites
+   */
+  const renderGrassEffects = useCallback(
+    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView) => {
+      const grassSprite = grassSpriteRef.current;
+      const player = playerControllerRef.current;
+      if (!grassSprite || !player) return;
+
+      const grassManager = player.getGrassEffectManager();
+      const effects = grassManager.getEffectsForRendering();
+
+      for (const effect of effects) {
+        // Each frame is 16x16 pixels
+        const FRAME_SIZE = 16;
+        const sx = effect.frame * FRAME_SIZE; // Frames are horizontal: 0, 16, 32, 48, 64
+        const sy = 0;
+
+        // Calculate screen position
+        // GBA sprites use center-based coordinates, but Canvas uses top-left corner
+        // The GrassEffectManager returns center coordinates (tile*16 + 8)
+        // We need to subtract 8 to convert to top-left corner for Canvas drawImage
+        const screenX = Math.round(effect.worldX - view.cameraWorldX - 8);
+        const screenY = Math.round(effect.worldY - view.cameraWorldY - 8);
+
+        // Render grass sprite
+        mainCtx.imageSmoothingEnabled = false;
+        mainCtx.drawImage(
+          grassSprite,
+          sx,
+          sy,
+          FRAME_SIZE,
+          FRAME_SIZE,
+          screenX,
+          screenY,
+          FRAME_SIZE,
+          FRAME_SIZE
+        );
+      }
+    },
+    []
   );
 
   useEffect(() => {
@@ -1933,6 +2023,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+        
+        // Load grass sprite
+        await ensureGrassSprite();
         
         // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
