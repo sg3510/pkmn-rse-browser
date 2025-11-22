@@ -21,6 +21,7 @@ function App() {
     renderableMaps.find((map) => map.name === 'LittlerootTown') || renderableMaps[0];
 
   const [selectedMapId, setSelectedMapId] = useState<string>(defaultMap?.id ?? '');
+  const [zoom, setZoom] = useState<number>(1);
 
   const selectedMap =
     renderableMaps.find((map) => map.id === selectedMapId) || defaultMap || renderableMaps[0];
@@ -55,8 +56,26 @@ function App() {
             </option>
           ))}
         </select>
-        <div className="selector__meta">
-          <span>Tilesets: {simplifyTilesetName(selectedMap.primaryTilesetId)} / {simplifyTilesetName(selectedMap.secondaryTilesetId)}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+          <div className="selector__meta">
+            <span>Tilesets: {simplifyTilesetName(selectedMap.primaryTilesetId)} / {simplifyTilesetName(selectedMap.secondaryTilesetId)}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="zoom-select" style={{ whiteSpace: 'nowrap' }}>Zoom:</label>
+            <select
+              id="zoom-select"
+              value={zoom}
+              onChange={(e) => {
+                setZoom(Number(e.target.value));
+                e.currentTarget.blur();
+              }}
+              style={{ width: 'auto' }}
+            >
+              <option value={1}>1x</option>
+              <option value={2}>2x</option>
+              <option value={3}>3x</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -71,6 +90,7 @@ function App() {
           secondaryTilesetPath={selectedMap.secondaryTilesetPath}
           primaryTilesetId={selectedMap.primaryTilesetId}
           secondaryTilesetId={selectedMap.secondaryTilesetId}
+          zoom={zoom}
         />
       </div>
     </div>

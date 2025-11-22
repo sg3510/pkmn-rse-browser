@@ -58,6 +58,7 @@ interface MapRendererProps {
   secondaryTilesetPath: string;
   primaryTilesetId: string;
   secondaryTilesetId: string;
+  zoom?: number;
 }
 
 interface AnimationDestination {
@@ -1205,6 +1206,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   secondaryTilesetPath: _secondaryTilesetPath,
   primaryTilesetId: _primaryTilesetId,
   secondaryTilesetId: _secondaryTilesetId,
+  zoom = 1,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
@@ -3572,7 +3574,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         ref={canvasRef}
         width={VIEWPORT_PIXEL_SIZE.width}
         height={VIEWPORT_PIXEL_SIZE.height}
-        style={{ border: '1px solid #ccc', imageRendering: 'pixelated' }}
+        style={{ 
+          border: '1px solid #ccc', 
+          imageRendering: 'pixelated',
+          width: VIEWPORT_PIXEL_SIZE.width * zoom,
+          height: VIEWPORT_PIXEL_SIZE.height * zoom
+        }}
       />
       <div style={{ marginTop: 8 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
