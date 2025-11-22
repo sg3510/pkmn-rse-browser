@@ -23,7 +23,6 @@ import {
 } from '../data/tilesetAnimations';
 import type { BridgeType, CardinalDirection } from '../utils/metatileBehaviors';
 import {
-  getBridgeTypeFromBehavior,
   getArrowDirectionFromBehavior,
   isIceBehavior,
   isReflectiveBehavior,
@@ -31,7 +30,6 @@ import {
   isDoorBehavior,
   isNonAnimatedDoorBehavior,
   requiresDoorExitSequence,
-  isTeleportWarpBehavior,
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
 import { computeCameraView, type CameraView } from '../utils/camera';
@@ -59,7 +57,6 @@ import {
 import {
   resolveTileAt,
   findWarpEventAt,
-  getMetatileBehavior,
   detectWarpTrigger,
   isVerticalObject,
   classifyWarpKind,
@@ -190,12 +187,6 @@ function shiftWorld(state: WorldState, shiftX: number, shiftY: number): WorldSta
   };
 }
 
-const BRIDGE_OFFSETS: Record<BridgeType, number> = {
-  none: 0,
-  pondLow: 12,
-  pondMed: 28,
-  pondHigh: 44,
-};
 
 const DEBUG_CELL_SCALE = 3;
 const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
@@ -316,14 +307,6 @@ const DOOR_ASSET_MAP: Array<{ metatileIds: number[]; path: string; size: DoorSiz
 const DOOR_FADE_DURATION = 500;
 const DEBUG_MODE_FLAG = 'DEBUG_MODE'; // Global debug flag for console logging
 const ARROW_SPRITE_PATH = `${PROJECT_ROOT}/graphics/field_effects/pics/arrow.png`;
-const ARROW_FRAME_SIZE = METATILE_SIZE;
-const ARROW_FRAME_DURATION_MS = 533; // GBA uses 32 ticks @ 60fps ≈ 533ms per frame
-const ARROW_FRAME_SEQUENCES: Record<CardinalDirection, number[]> = {
-  down: [3, 7],
-  up: [0, 4],
-  left: [1, 5],
-  right: [2, 6],
-};
 const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
