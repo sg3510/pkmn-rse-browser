@@ -3,6 +3,7 @@ import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
+import { ChunkManager, type RenderRegion } from '../rendering/ChunkManager';
 import {
   loadBinary,
   type Metatile,
@@ -318,6 +319,8 @@ const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> =
 // Feature flag for hardware-accelerated rendering
 // Set to false to fall back to original ImageData-based rendering
 const USE_HARDWARE_RENDERING = true;
+// Feature flag for chunk-based caching (currently used for background layer only)
+const USE_CHUNK_CACHE = true;
 
 interface ReflectionState {
   hasReflection: boolean;
@@ -656,6 +659,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRendererRef = useRef<CanvasRenderer | null>(null); // Hardware-accelerated renderer
+  const chunkManagerRef = useRef<ChunkManager | null>(null);
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -1242,6 +1246,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       };
       backgroundImageDataRef.current = null;
       topImageDataRef.current = null;
+      backgroundCanvasDataRef.current = null;
+      topBelowCanvasDataRef.current = null;
+      topAboveCanvasDataRef.current = null;
+      chunkManagerRef.current?.clear();
       hasRenderedRef.current = false;
     },
     [ensureTilesetRuntime]
@@ -1295,7 +1303,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     const renderer = canvasRendererRef.current;
     if (!renderer) {
       // Fallback shouldn't happen, but handle gracefully
-      console.warn('Canvas renderer not initialized');
+      if (isDebugMode()) {
+        console.warn('Canvas renderer not initialized');
+      }
       return;
     }
 
@@ -1453,30 +1463,23 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     []
   );
 
-  // NEW: Hardware-accelerated Canvas-based render pass
-  // This is 5-10× faster than renderPass but produces IDENTICAL output
-  const renderPassCanvas = useCallback(
+  const drawRegionToContext = useCallback(
     (
-      ctx: RenderContext,
+      targetCtx: CanvasRenderingContext2D,
+      renderCtx: RenderContext,
       pass: 'background' | 'top',
       skipAnimated: boolean,
-      view: WorldCameraView,
+      startTileX: number,
+      startTileY: number,
+      tilesWide: number,
+      tilesHigh: number,
       elevationFilter?: (mapTile: MapTileData, tileX: number, tileY: number) => boolean
-    ): HTMLCanvasElement => {
-      const widthPx = view.tilesWide * METATILE_SIZE;
-      const heightPx = view.tilesHigh * METATILE_SIZE;
-      
-      // Create offscreen canvas for this pass
-      const canvas = document.createElement('canvas');
-      canvas.width = widthPx;
-      canvas.height = heightPx;
-      const canvasCtx = canvas.getContext('2d', { alpha: true })!;
-
-      for (let localY = 0; localY < view.tilesHigh; localY++) {
-        const tileY = view.worldStartTileY + localY;
-        for (let localX = 0; localX < view.tilesWide; localX++) {
-          const tileX = view.worldStartTileX + localX;
-          const resolved = resolveTileAt(ctx, tileX, tileY);
+    ) => {
+      for (let localY = 0; localY < tilesHigh; localY++) {
+        const tileY = startTileY + localY;
+        for (let localX = 0; localX < tilesWide; localX++) {
+          const tileX = startTileX + localX;
+          const resolved = resolveTileAt(renderCtx, tileX, tileY);
           if (!resolved || !resolved.metatile) continue;
 
           // DEBUG: Trace rendering decision for specific tile
@@ -1495,7 +1498,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             continue;
           }
 
-          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+          const runtime = renderCtx.tilesetRuntimes.get(resolved.tileset.key);
           if (!runtime) continue;
 
           const attr = resolved.attributes;
@@ -1540,7 +1543,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
               // Draw using hardware-accelerated renderer
               drawTileToCanvas(
-                canvasCtx,
+                targetCtx,
                 {
                   tileId: tile.tileId,
                   destX: screenX + subX,
@@ -1578,11 +1581,52 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           }
         }
       }
-
-      return canvas;
     },
     []
   );
+
+  // NEW: Hardware-accelerated Canvas-based render pass
+  // This is 5-10× faster than renderPass but produces IDENTICAL output
+  const renderPassCanvas = useCallback(
+    (
+      ctx: RenderContext,
+      pass: 'background' | 'top',
+      skipAnimated: boolean,
+      view: WorldCameraView,
+      elevationFilter?: (mapTile: MapTileData, tileX: number, tileY: number) => boolean
+    ): HTMLCanvasElement => {
+      const widthPx = view.tilesWide * METATILE_SIZE;
+      const heightPx = view.tilesHigh * METATILE_SIZE;
+      
+      // Create offscreen canvas for this pass
+      const canvas = document.createElement('canvas');
+      canvas.width = widthPx;
+      canvas.height = heightPx;
+      const canvasCtx = canvas.getContext('2d', { alpha: true })!;
+      drawRegionToContext(
+        canvasCtx,
+        ctx,
+        pass,
+        skipAnimated,
+        view.worldStartTileX,
+        view.worldStartTileY,
+        view.tilesWide,
+        view.tilesHigh,
+        elevationFilter
+      );
+
+      return canvas;
+    },
+    [drawRegionToContext]
+  );
+
+  const getAnimationStateHash = useCallback((ctx: RenderContext): string => {
+    const keys: string[] = [];
+    ctx.tilesetRuntimes.forEach((runtime, runtimeKey) => {
+      keys.push(`${runtimeKey}:${runtime.lastPatchedKey ?? ''}`);
+    });
+    return keys.join('|');
+  }, []);
 
   const compositeScene = useCallback(
     (
@@ -1615,19 +1659,33 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       // Split rendering: Top layer split into "Below Player" and "Above Player"
       // This fixes the visual issue where player on a bridge (Elev 4) is covered by the bridge
       
+      const usingChunkCache = USE_HARDWARE_RENDERING && USE_CHUNK_CACHE && !!chunkManagerRef.current;
+
       if (USE_HARDWARE_RENDERING) {
-        // Hardware-accelerated Canvas mode
-        const needsRender =
-          !backgroundCanvasDataRef.current || 
-          !topBelowCanvasDataRef.current || 
-          !topAboveCanvasDataRef.current || 
-          animationFrameChanged || 
+        const needsBackgroundCanvas =
+          !usingChunkCache &&
+          (
+            !backgroundCanvasDataRef.current ||
+            animationFrameChanged ||
+            viewChanged
+          );
+
+        const needsTopRender =
+          !topBelowCanvasDataRef.current ||
+          !topAboveCanvasDataRef.current ||
+          animationFrameChanged ||
           viewChanged ||
           elevationChanged;
 
-        if (needsRender) {
+        if (usingChunkCache) {
+          backgroundCanvasDataRef.current = null;
+        }
+
+        if (needsBackgroundCanvas) {
           backgroundCanvasDataRef.current = renderPassCanvas(ctx, 'background', false, view);
-          
+        }
+
+        if (needsTopRender) {
           topBelowCanvasDataRef.current = renderPassCanvas(
             ctx,
             'top',
@@ -1702,15 +1760,30 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           );
         }
       }
-
       const offsetX = -Math.round(view.subTileOffsetX);
       const offsetY = -Math.round(view.subTileOffsetY);
       
       mainCtx.clearRect(0, 0, widthPx, heightPx);
       
+      const animHash = usingChunkCache ? getAnimationStateHash(ctx) : '';
+
       if (USE_HARDWARE_RENDERING) {
         // Hardware-accelerated Canvas mode - direct drawImage
-        if (backgroundCanvasDataRef.current) {
+        if (usingChunkCache && chunkManagerRef.current) {
+          const renderBackgroundChunk = (chunkCtx: CanvasRenderingContext2D, region: RenderRegion) => {
+            drawRegionToContext(
+              chunkCtx,
+              ctx,
+              'background',
+              false,
+              region.startTileX,
+              region.startTileY,
+              region.width,
+              region.height
+            );
+          };
+          chunkManagerRef.current.drawLayer(mainCtx, view, 'background', animHash, renderBackgroundChunk);
+        } else if (backgroundCanvasDataRef.current) {
           mainCtx.drawImage(backgroundCanvasDataRef.current, offsetX, offsetY);
         }
 
@@ -1805,7 +1878,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         );
       }
     },
-    [renderPass, renderPassCanvas, renderDoorAnimations]
+    [renderPass, renderPassCanvas, renderDoorAnimations, drawRegionToContext, getAnimationStateHash]
   );
 
   /**
@@ -1976,7 +2049,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         // Initialize hardware-accelerated renderer
         if (USE_HARDWARE_RENDERING) {
           canvasRendererRef.current = new CanvasRenderer();
-          console.log('[PERF] Hardware-accelerated rendering enabled');
+          chunkManagerRef.current = USE_CHUNK_CACHE ? new ChunkManager() : null;
+          if (isDebugMode()) {
+            console.log('[PERF] Hardware-accelerated rendering enabled');
+          }
+        } else {
+          chunkManagerRef.current = null;
         }
         
         // Initialize player position
@@ -2166,17 +2244,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const isNonAnimatedDoor = isNonAnimatedDoorBehavior(destBehavior);
               const requiresExitSequence = requiresDoorExitSequence(destBehavior);
               
-              console.log('[WARP_DEST_CHECK]', {
-                fromDoor: options?.fromDoor,
-                triggerKind: trigger.kind,
-                destWorldX,
-                destWorldY,
-                destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
-                destBehavior,
-                isAnimatedDoor,
-                isNonAnimatedDoor,
-                requiresExitSequence,
-              });
+              if (isDebugMode()) {
+                console.log('[WARP_DEST_CHECK]', {
+                  fromDoor: options?.fromDoor,
+                  triggerKind: trigger.kind,
+                  destWorldX,
+                  destWorldY,
+                  destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
+                  destBehavior,
+                  isAnimatedDoor,
+                  isNonAnimatedDoor,
+                  requiresExitSequence,
+                });
+              }
               
               // Check if destination requires exit sequence (animated or non-animated)
               if (requiresExitSequence) {

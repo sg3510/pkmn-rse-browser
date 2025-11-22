@@ -259,11 +259,11 @@ export class ObjectRenderer {
   static renderArrow(
     ctx: CanvasRenderingContext2D,
     overlay: ArrowOverlay,
-    sprite: HTMLImageElement | HTMLCanvasElement,
+    sprite: HTMLImageElement | HTMLCanvasElement | null,
     view: WorldCameraView,
     nowMs: number
   ): void {
-    if (!overlay.visible) return;
+    if (!overlay.visible || !sprite) return;
 
     const framesPerRow = Math.max(1, Math.floor(sprite.width / ARROW_FRAME_SIZE));
     const frameSequence = ARROW_FRAME_SEQUENCES[overlay.direction];

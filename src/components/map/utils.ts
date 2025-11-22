@@ -23,8 +23,6 @@ import {
   isArrowWarpBehavior,
   isTeleportWarpBehavior,
   requiresDoorExitSequence,
-  isReflectiveBehavior,
-  isIceBehavior,
   type BridgeType,
 } from '../../utils/metatileBehaviors';
 

@@ -1,15 +1,4 @@
 import type { Palette } from '../utils/mapLoader';
-import { TILE_SIZE, TILES_PER_ROW_IN_IMAGE, SECONDARY_TILE_OFFSET } from '../utils/mapLoader';
-
-/**
- * Cache key for a specific tileset + palette combination
- */
-interface CacheKey {
-  tilesetId: string;      // e.g., "primary" or "secondary"
-  tilesetDataHash: string; // Hash of Uint8Array (for invalidation)
-  paletteIndex: number;    // 0-15
-  paletteHash: string;     // Hash of palette colors (for invalidation)
-}
 
 /**
  * Pre-rendered canvas for a tileset with a specific palette applied
@@ -137,7 +126,9 @@ export class TilesetCanvasCache {
     // Evict oldest entries if cache is too large (LRU-like)
     if (this.cache.size > this.maxCacheSize) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
 
     return canvas;
@@ -160,4 +151,3 @@ export class TilesetCanvasCache {
     };
   }
 }
-
