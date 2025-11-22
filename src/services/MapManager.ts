@@ -1,5 +1,6 @@
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, MapConnection, WarpEvent } from '../types/maps';
+export type { WarpEvent };
 import {
   loadBorderMetatiles,
   loadMapLayout,

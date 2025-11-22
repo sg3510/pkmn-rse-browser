@@ -28,7 +28,7 @@ import {
   isTallGrassBehavior,
   isLongGrassBehavior,
 } from '../utils/metatileBehaviors';
-import { GrassEffectManager } from './GrassEffectManager';
+import { FieldEffectManager } from './FieldEffectManager';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -280,7 +280,7 @@ export class PlayerController {
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   
   private currentState: PlayerState;
-  private grassEffectManager: GrassEffectManager = new GrassEffectManager();
+  private grassEffectManager: FieldEffectManager = new FieldEffectManager();
   private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
@@ -1122,7 +1122,7 @@ export class PlayerController {
   /**
    * Get the grass effect manager for rendering.
    */
-  public getGrassEffectManager(): GrassEffectManager {
+  public getGrassEffectManager(): FieldEffectManager {
     return this.grassEffectManager;
   }
 

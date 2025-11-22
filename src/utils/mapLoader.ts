@@ -53,6 +53,8 @@ export const NUM_TILES_PER_METATILE = 8;
 export const TILE_SIZE = 8;
 export const METATILE_SIZE = 16;
 export const TILES_PER_ROW_IN_IMAGE = 16; // 128px / 8px
+export const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
+export const NUM_PRIMARY_METATILES = 512;
 
 /**
  * Bit masks and shifts for map.bin tile data

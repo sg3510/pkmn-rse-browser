@@ -1,7 +1,7 @@
 /**
- * GrassEffectManager
+ * FieldEffectManager
  * 
- * Manages grass field effect sprites for tiles with MB_TALL_GRASS behavior.
+ * Manages field effect sprites for tiles with MB_TALL_GRASS behavior and others.
  * Based on pokeemerald C code:
  * - src/field_effect_helpers.c: FldEff_TallGrass, UpdateTallGrassFieldEffect
  * - src/data/field_effects/field_effect_objects.h: Animation frames and timing
@@ -14,7 +14,7 @@ function isDebugMode(): boolean {
   return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
 }
 
-export interface GrassEffect {
+export interface FieldEffect {
   id: string;
   tileX: number;
   tileY: number;
@@ -29,7 +29,7 @@ export interface GrassEffect {
   direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
 }
 
-export interface GrassEffectForRendering {
+export interface FieldEffectForRendering {
   id: string;
   worldX: number;          // World pixel X (tileX * 16 + 8)
   worldY: number;          // World pixel Y (tileY * 16 + 8)
@@ -67,8 +67,8 @@ const TALL_GRASS_TICKS_PER_FRAME = 10;
 const LONG_GRASS_ANIMATION_SEQUENCE = [1, 2, 0, 3, 0, 3, 0];
 const LONG_GRASS_FRAME_DURATIONS = [3, 3, 4, 4, 4, 4, 4];
 
-export class GrassEffectManager {
-  private effects: Map<string, GrassEffect> = new Map();
+export class FieldEffectManager {
+  private effects: Map<string, FieldEffect> = new Map();
   private nextId = 0;
 
   /**
@@ -103,7 +103,7 @@ export class GrassEffectManager {
       }
     }
 
-    const effect: GrassEffect = {
+    const effect: FieldEffect = {
       id,
       tileX,
       tileY,
@@ -247,8 +247,8 @@ export class GrassEffectManager {
    * 
    * @returns Array of grass effects with world coordinates and render info
    */
-  getEffectsForRendering(): GrassEffectForRendering[] {
-    const results: GrassEffectForRendering[] = [];
+  getEffectsForRendering(): FieldEffectForRendering[] {
+    const results: FieldEffectForRendering[] = [];
 
     for (const effect of this.effects.values()) {
       // Convert tile coordinates to world pixel coordinates

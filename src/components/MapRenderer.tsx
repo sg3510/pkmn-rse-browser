@@ -15,11 +15,10 @@ import {
   METATILE_LAYER_TYPE_COVERED,
   METATILE_LAYER_TYPE_SPLIT,
   getMetatileIdFromMapTile,
-  isCollisionPassable,
+  SECONDARY_TILE_OFFSET,
 } from '../utils/mapLoader';
 import {
   TILESET_ANIMATION_CONFIGS,
-  type TilesetAnimationDefinition,
   type TilesetKind,
 } from '../data/tilesetAnimations';
 import type { BridgeType, CardinalDirection } from '../utils/metatileBehaviors';
@@ -40,13 +39,34 @@ import type { WarpEvent } from '../types/maps';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
-const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
-const NUM_PRIMARY_METATILES = 512;
 
 // Helper to check if debug mode is enabled
 function isDebugMode(): boolean {
   return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
 }
+
+import {
+  type ReflectionType,
+  type ReflectionMeta,
+  type TilesetBuffers,
+  type TilesetRuntime,
+  type RenderContext,
+  type ResolvedTile,
+  type LoadedAnimation,
+  type DebugTileInfo,
+  type WarpKind,
+} from './map/types';
+import {
+  resolveTileAt,
+  findWarpEventAt,
+  getMetatileBehavior,
+  detectWarpTrigger,
+  isVerticalObject,
+  classifyWarpKind,
+  computeReflectionState,
+} from './map/utils';
+import { DebugRenderer } from './map/renderers/DebugRenderer';
+import { ObjectRenderer } from './map/renderers/ObjectRenderer';
 
 interface MapRendererProps {
   mapId: string;
@@ -59,21 +79,6 @@ interface MapRendererProps {
   primaryTilesetId: string;
   secondaryTilesetId: string;
   zoom?: number;
-}
-
-interface AnimationDestination {
-  destStart: number;
-  phase?: number;
-}
-
-interface LoadedAnimation extends Omit<TilesetAnimationDefinition, 'frames'> {
-  frames: Uint8Array[];
-  width: number;
-  height: number;
-  tilesWide: number;
-  tilesHigh: number;
-  destinations: AnimationDestination[];
-  sequence: number[];
 }
 
 type AnimationState = Record<string, number>;
@@ -89,55 +94,14 @@ interface TileDrawCall {
   layer: 0 | 1;
 }
 
-type ReflectionType = 'water' | 'ice';
-
-interface ReflectionMeta {
-  isReflective: boolean;
-  reflectionType: ReflectionType | null;
-  pixelMask: Uint8Array; // 16x16 mask where 1 = BG1 transparent (reflection allowed), 0 = opaque
-}
-
-interface TilesetBuffers {
-  primary: Uint8Array;
-  secondary: Uint8Array;
-}
-
-interface TilesetRuntime {
-  resources: TilesetResources;
-  primaryTileMasks: Uint8Array[];
-  secondaryTileMasks: Uint8Array[];
-  primaryReflectionMeta: ReflectionMeta[];
-  secondaryReflectionMeta: ReflectionMeta[];
-  animations: LoadedAnimation[];
-  animatedTileIds: { primary: Set<number>; secondary: Set<number> };
-  patchedTiles: TilesetBuffers | null;
-  lastPatchedKey: string;
-}
-
-interface RenderContext {
-  world: WorldState;
-  tilesetRuntimes: Map<string, TilesetRuntime>;
-  anchor: WorldMapInstance;
-}
-
-interface ResolvedTile {
-  map: WorldMapInstance;
-  tileset: TilesetResources;
-  metatile: Metatile | null;
-  attributes: MetatileAttributes | undefined;
-  mapTile: MapTileData;  // CHANGED: was number, now MapTileData
-  isSecondary: boolean;
-  isBorder: boolean;
-}
-
-interface WorldCameraView extends CameraView {
+export interface WorldCameraView extends CameraView {
   worldStartTileX: number;
   worldStartTileY: number;
   cameraWorldX: number;
   cameraWorldY: number;
 }
 
-type WarpKind = 'door' | 'teleport' | 'arrow';
+
 
 interface WarpTrigger {
   kind: WarpKind;
@@ -373,57 +337,7 @@ interface ReflectionState {
   bridgeType: BridgeType;
 }
 
-interface DebugTileInfo {
-  inBounds: boolean;
-  tileX: number;
-  tileY: number;
-  mapTile?: MapTileData;  // CHANGED: was number, now MapTileData
-  metatileId?: number;
-  isSecondary?: boolean;
-  behavior?: number;
-  layerType?: number;
-  layerTypeLabel?: string;
-  isReflective?: boolean;
-  reflectionType?: ReflectionType | null;
-  reflectionMaskAllow?: number;
-  reflectionMaskTotal?: number;
-  bottomTiles?: Metatile['tiles'];
-  topTiles?: Metatile['tiles'];
-  // Additional debug info
-  mapId?: string;
-  mapName?: string;
-  localX?: number;
-  localY?: number;
-  paletteIndex?: number;
-  warpEvent?: WarpEvent | null;
-  warpKind?: WarpKind | null;
-  primaryTilesetId?: string;
-  secondaryTilesetId?: string;
-  // Elevation and collision info
-  elevation?: number;
-  collision?: number;
-  collisionPassable?: boolean;
-  // Rendering debug info
-  playerElevation?: number;
-  isLedge?: boolean;
-  ledgeDirection?: string;
-  bottomLayerTransparency?: number; // 0-256 (number of transparent pixels out of 256)
-  topLayerTransparency?: number;
-  renderedInBackgroundPass?: boolean;
-  renderedInTopBelowPass?: boolean;
-  renderedInTopAbovePass?: boolean;
-  topBelowPassReason?: string; // Why this tile was/wasn't filtered
-  topAbovePassReason?: string;
-  // Detailed tile info
-  bottomTileDetails?: string[];
-  topTileDetails?: string[];
-  adjacentTileInfo?: {
-    north?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    south?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    east?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    west?: { metatileId: number; layerType: number; layerTypeLabel: string };
-  };
-}
+
 
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
 
@@ -431,14 +345,7 @@ function applyBehaviorOverrides(attributes: MetatileAttributes[]): MetatileAttri
   return attributes;
 }
 
-function classifyWarpKind(behavior: number): WarpKind | null {
-  // Check arrow warps first, before door behaviors
-  // (some behaviors like MB_DEEP_SOUTH_WARP can match multiple categories)
-  if (isArrowWarpBehavior(behavior)) return 'arrow';
-  if (requiresDoorExitSequence(behavior)) return 'door';
-  if (isTeleportWarpBehavior(behavior)) return 'teleport';
-  return null;
-}
+
 
 function getDoorAssetForMetatile(metatileId: number): { path: string; size: DoorSize } {
   for (const asset of DOOR_ASSET_MAP) {
@@ -709,492 +616,9 @@ function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime {
   };
 }
 
-function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: number): ResolvedTile | null {
-  const map = ctx.world.maps.find(
-    (m) =>
-      worldTileX >= m.offsetX &&
-      worldTileX < m.offsetX + m.mapData.width &&
-      worldTileY >= m.offsetY &&
-      worldTileY < m.offsetY + m.mapData.height
-  );
 
-  if (map) {
-    const localX = worldTileX - map.offsetX;
-    const localY = worldTileY - map.offsetY;
-    const idx = localY * map.mapData.width + localX;
-    const mapTileData = map.mapData.layout[idx];  // Now MapTileData
-    const metatileId = mapTileData.metatileId;     // Direct property access
-    const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
-    const metatile = isSecondary
-      ? map.tilesets.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES] ?? null
-      : map.tilesets.primaryMetatiles[metatileId] ?? null;
-    const attributes = isSecondary
-      ? map.tilesets.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
-      : map.tilesets.primaryAttributes[metatileId];
-    return {
-      map,
-      tileset: map.tilesets,
-      metatile,
-      attributes,
-      mapTile: mapTileData,  // Full MapTileData object
-      isSecondary,
-      isBorder: false,
-    };
-  }
 
-  const anchor = ctx.anchor;
-  const borderTiles = anchor.borderMetatiles;
-  if (!borderTiles || borderTiles.length === 0) return null;
-  const anchorLocalX = worldTileX - anchor.offsetX;
-  const anchorLocalY = worldTileY - anchor.offsetY;
-  // Shift pattern one tile up/left so the repeating border visually aligns with GBA behavior.
-  const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
-  const borderMetatileId = borderTiles[borderIndex % borderTiles.length];
-  const isSecondary = borderMetatileId >= NUM_PRIMARY_METATILES;
-  const metatile = isSecondary
-    ? anchor.tilesets.secondaryMetatiles[borderMetatileId - NUM_PRIMARY_METATILES] ?? null
-    : anchor.tilesets.primaryMetatiles[borderMetatileId] ?? null;
-  const attributes = isSecondary
-    ? anchor.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
-    : anchor.tilesets.primaryAttributes[borderMetatileId];
-  // Border tiles: create MapTileData with impassable collision, elevation 0
-  const mapTile: MapTileData = {
-    metatileId: borderMetatileId,
-    collision: 1, // Impassable like pokeemerald border
-    elevation: 0, // Border tiles are always ground level
-  };
-  return {
-    map: anchor,
-    tileset: anchor.tilesets,
-    metatile,
-    attributes,
-    mapTile,
-    isSecondary,
-    isBorder: true,
-  };
-}
 
-function findWarpEventAt(map: WorldMapInstance, worldTileX: number, worldTileY: number): WarpEvent | null {
-  if (!map.warpEvents || map.warpEvents.length === 0) return null;
-  const localX = worldTileX - map.offsetX;
-  const localY = worldTileY - map.offsetY;
-  return map.warpEvents.find((warp) => warp.x === localX && warp.y === localY) ?? null;
-}
-
-function getMetatileBehavior(
-  ctx: RenderContext,
-  tileX: number,
-  tileY: number
-): { behavior: number; meta: ReflectionMeta | null } | null {
-  const resolved = resolveTileAt(ctx, tileX, tileY);
-  if (!resolved) return null;
-  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-  if (!runtime) return null;
-  const metatileId = resolved.mapTile.metatileId;  // Direct property access
-  const meta = resolved.isSecondary
-    ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
-    : runtime.primaryReflectionMeta[metatileId];
-  const behavior = resolved.attributes?.behavior ?? -1;
-  return {
-    behavior,
-    meta: meta ?? null,
-  };
-}
-
-function detectWarpTrigger(ctx: RenderContext, player: PlayerController): WarpTrigger | null {
-  const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
-  if (!resolved || resolved.isBorder) return null;
-  const warpEvent = findWarpEventAt(resolved.map, player.tileX, player.tileY);
-  if (!warpEvent) return null;
-  const behavior = resolved.attributes?.behavior ?? -1;
-  const metatileId = resolved.mapTile.metatileId;  // Direct property access
-  const kind = classifyWarpKind(behavior) ?? 'teleport';
-  
-  if (isDebugMode()) {
-    console.log('[DETECT_WARP_TRIGGER]', {
-      tileX: player.tileX,
-      tileY: player.tileY,
-      metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
-      behavior,
-      classifiedKind: kind,
-      isDoor: isDoorBehavior(behavior),
-      isArrow: isArrowWarpBehavior(behavior),
-      isTeleport: isTeleportWarpBehavior(behavior),
-      destMap: warpEvent.destMap,
-    });
-  }
-  
-  // Skip arrow warps until forced-movement handling is implemented.
-  if (kind === 'arrow') return null;
-  return {
-    kind,
-    sourceMap: resolved.map,
-    warpEvent,
-    behavior,
-    facing: player.dir,
-  };
-}
-
-function layerTypeToLabel(layerType: number): string {
-  switch (layerType) {
-    case METATILE_LAYER_TYPE_NORMAL:
-      return 'NORMAL';
-    case METATILE_LAYER_TYPE_COVERED:
-      return 'COVERED';
-    case METATILE_LAYER_TYPE_SPLIT:
-      return 'SPLIT';
-    default:
-      return `UNKNOWN_${layerType}`;
-  }
-}
-
-function describeTile(
-  ctx: RenderContext,
-  tileX: number,
-  tileY: number,
-  player?: PlayerController | null
-): DebugTileInfo {
-  const resolved = resolveTileAt(ctx, tileX, tileY);
-  if (!resolved || !resolved.metatile) {
-    return { inBounds: false, tileX, tileY };
-  }
-
-  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-  const mapTile = resolved.mapTile;
-  const metatileId = mapTile.metatileId;  // Direct property access
-  const isSecondary = resolved.isSecondary;
-  const attr = resolved.attributes;
-  const meta = resolved.metatile;
-  const reflectionMeta = runtime
-    ? isSecondary
-      ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
-      : runtime.primaryReflectionMeta[metatileId]
-    : undefined;
-  const behavior = attr?.behavior;
-  const layerType = attr?.layerType;
-  const reflectionMaskAllow = reflectionMeta?.pixelMask?.reduce((acc, v) => acc + (v ? 1 : 0), 0);
-  const reflectionMaskTotal = reflectionMeta?.pixelMask?.length;
-
-  // Additional debug info
-  const localX = tileX - resolved.map.offsetX;
-  const localY = tileY - resolved.map.offsetY;
-  const warpEvent = findWarpEventAt(resolved.map, tileX, tileY);
-  const warpKind = behavior !== undefined ? classifyWarpKind(behavior) : null;
-  const paletteIndex = (metatileId >> 12) & 0xF; // Extract palette bits
-  
-  // Elevation and collision info
-  const elevation = mapTile.elevation;
-  const collision = mapTile.collision;
-  const collisionPassable = isCollisionPassable(collision);
-  
-  // Ledge detection
-  // CORRECT values: MB_JUMP_EAST=56(0x38), MB_JUMP_WEST=57(0x39), MB_JUMP_NORTH=58(0x3A), MB_JUMP_SOUTH=59(0x3B)
-  const isLedge = behavior === 0x38 || behavior === 0x39 || behavior === 0x3A || behavior === 0x3B;
-  let ledgeDirection = undefined;
-  if (behavior === 0x38) ledgeDirection = 'EAST';
-  else if (behavior === 0x39) ledgeDirection = 'WEST';
-  else if (behavior === 0x3A) ledgeDirection = 'NORTH';
-  else if (behavior === 0x3B) ledgeDirection = 'SOUTH';
-  
-  // Transparency calculation for layers
-  let bottomLayerTransparency = 0;
-  let topLayerTransparency = 0;
-  const bottomTileDetails: string[] = [];
-  const topTileDetails: string[] = [];
-  
-  if (runtime && meta) {
-    const tileMasks = isSecondary ? runtime.secondaryTileMasks : runtime.primaryTileMasks;
-    
-    // Bottom layer (tiles 0-3)
-    for (let i = 0; i < 4; i++) {
-      const tile = meta.tiles[i];
-      const mask = tileMasks[tile.tileId];
-      if (mask) {
-        const transparentPixels = mask.reduce((sum, val) => sum + val, 0);
-        bottomLayerTransparency += transparentPixels;
-        bottomTileDetails.push(
-          `Tile ${i}: ID=${tile.tileId}, Pal=${tile.palette}, Flip=${tile.xflip ? 'X' : ''}${tile.yflip ? 'Y' : ''}, Transparent=${transparentPixels}/64px`
-        );
-      }
-    }
-    
-    // Top layer (tiles 4-7)
-    for (let i = 4; i < 8; i++) {
-      const tile = meta.tiles[i];
-      const mask = tileMasks[tile.tileId];
-      if (mask) {
-        const transparentPixels = mask.reduce((sum, val) => sum + val, 0);
-        topLayerTransparency += transparentPixels;
-        topTileDetails.push(
-          `Tile ${i}: ID=${tile.tileId}, Pal=${tile.palette}, Flip=${tile.xflip ? 'X' : ''}${tile.yflip ? 'Y' : ''}, Transparent=${transparentPixels}/64px`
-        );
-      }
-    }
-  }
-  
-  // Get adjacent tile information
-  const adjacentTileInfo: {
-    north?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    south?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    east?: { metatileId: number; layerType: number; layerTypeLabel: string };
-    west?: { metatileId: number; layerType: number; layerTypeLabel: string };
-  } = {};
-  
-  const northTile = resolveTileAt(ctx, tileX, tileY - 1);
-  if (northTile?.metatile && northTile.attributes) {
-    adjacentTileInfo.north = {
-      metatileId: northTile.mapTile.metatileId,
-      layerType: northTile.attributes.layerType,
-      layerTypeLabel: layerTypeToLabel(northTile.attributes.layerType),
-    };
-  }
-  
-  const southTile = resolveTileAt(ctx, tileX, tileY + 1);
-  if (southTile?.metatile && southTile.attributes) {
-    adjacentTileInfo.south = {
-      metatileId: southTile.mapTile.metatileId,
-      layerType: southTile.attributes.layerType,
-      layerTypeLabel: layerTypeToLabel(southTile.attributes.layerType),
-    };
-  }
-  
-  const eastTile = resolveTileAt(ctx, tileX + 1, tileY);
-  if (eastTile?.metatile && eastTile.attributes) {
-    adjacentTileInfo.east = {
-      metatileId: eastTile.mapTile.metatileId,
-      layerType: eastTile.attributes.layerType,
-      layerTypeLabel: layerTypeToLabel(eastTile.attributes.layerType),
-    };
-  }
-  
-  const westTile = resolveTileAt(ctx, tileX - 1, tileY);
-  if (westTile?.metatile && westTile.attributes) {
-    adjacentTileInfo.west = {
-      metatileId: westTile.mapTile.metatileId,
-      layerType: westTile.attributes.layerType,
-      layerTypeLabel: layerTypeToLabel(westTile.attributes.layerType),
-    };
-  }
-  
-  // Player elevation comparison
-  const playerElevation = player?.getElevation();
-  
-  // Rendering pass calculation (same logic as compositeScene)
-  const renderedInBackgroundPass = true; // Bottom layer always rendered
-  let renderedInTopBelowPass = false;
-  let renderedInTopAbovePass = false;
-  let topBelowPassReason = 'Not applicable';
-  let topAbovePassReason = 'Not applicable';
-  
-  // NORMAL tiles render their top layer in the TOP passes (with elevation filtering)
-  // COVERED tiles render layer 1 in background (both layers behind player)
-  // SPLIT tiles render layer 0 in background, layer 1 in top passes (with elevation filtering)
-  
-  // Check if this is a vertical object (tree, pole, etc.)
-  // This properly excludes bridges which should respect elevation
-  const isVertical = isVerticalObject(ctx, tileX, tileY);
-  
-  if (layerType === METATILE_LAYER_TYPE_COVERED) {
-    // COVERED: Both layers in background pass
-    topBelowPassReason = 'COVERED: both layers render in background pass (behind player)';
-    topAbovePassReason = 'COVERED: both layers render in background pass (behind player)';
-  } else if (layerType === METATILE_LAYER_TYPE_SPLIT || layerType === METATILE_LAYER_TYPE_NORMAL) {
-    // SPLIT and NORMAL: Layer 1 in top passes with elevation filtering
-    if (playerElevation !== undefined) {
-      // CRITICAL: Vertical objects (trees) ALWAYS render after player
-      if (isVertical) {
-        renderedInTopBelowPass = false;
-        topBelowPassReason = `🌳 VERTICAL OBJECT (tree/pole): Always renders AFTER player (topAbove)`;
-        renderedInTopAbovePass = true;
-        topAbovePassReason = `🌳 VERTICAL OBJECT (tree/pole): Always covers player`;
-      } else {
-        // Top Below Pass filter (rendered BEFORE player)
-        if (playerElevation < 4) {
-          renderedInTopBelowPass = false;
-          topBelowPassReason = `Player elev ${playerElevation} < 4: top layer renders AFTER player (topAbove)`;
-        } else if (elevation === playerElevation && collision === 1) {
-          renderedInTopBelowPass = false;
-          topBelowPassReason = `Same elev (${elevation}) + blocked: obstacle covers player (topAbove)`;
-        } else {
-          renderedInTopBelowPass = true;
-          topBelowPassReason = `Player elev ${playerElevation} >= 4: top layer renders BEFORE player`;
-        }
-        
-        // Top Above Pass filter (rendered AFTER player)
-        if (playerElevation < 4) {
-          renderedInTopAbovePass = true;
-          topAbovePassReason = `Player elev ${playerElevation} < 4: top layer covers player`;
-        } else if (elevation === playerElevation && collision === 1) {
-          renderedInTopAbovePass = true;
-          topAbovePassReason = `Same elev (${elevation}) + blocked: obstacle covers player`;
-        } else {
-          renderedInTopAbovePass = false;
-          topAbovePassReason = `Player elev ${playerElevation} >= 4: player covers top layer`;
-        }
-      }
-    } else {
-      topBelowPassReason = 'No player to compare';
-      topAbovePassReason = 'No player to compare';
-    }
-  }
-
-  return {
-    inBounds: true,
-    tileX,
-    tileY,
-    mapTile,
-    metatileId,
-    isSecondary,
-    behavior,
-    layerType,
-    layerTypeLabel: layerType !== undefined ? layerTypeToLabel(layerType) : undefined,
-    isReflective: reflectionMeta?.isReflective,
-    reflectionType: reflectionMeta?.reflectionType,
-    reflectionMaskAllow,
-    reflectionMaskTotal,
-    bottomTiles: meta?.tiles.slice(0, 4),
-    topTiles: meta?.tiles.slice(4, 8),
-    // Additional debug info
-    mapId: resolved.map.entry.id,
-    mapName: resolved.map.entry.name,
-    localX,
-    localY,
-    paletteIndex,
-    warpEvent,
-    warpKind,
-    primaryTilesetId: resolved.tileset.primaryTilesetId,
-    secondaryTilesetId: resolved.tileset.secondaryTilesetId,
-    // Elevation and collision info
-    elevation,
-    collision,
-    collisionPassable,
-    // Rendering debug info
-    playerElevation,
-    isLedge,
-    ledgeDirection,
-    bottomLayerTransparency,
-    topLayerTransparency,
-    renderedInBackgroundPass,
-    renderedInTopBelowPass,
-    renderedInTopAbovePass,
-    topBelowPassReason,
-    topAbovePassReason,
-    // Detailed tile info
-    bottomTileDetails,
-    topTileDetails,
-    adjacentTileInfo,
-  };
-}
-
-function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: number): BridgeType {
-  const info = getMetatileBehavior(ctx, tileX, tileY);
-  if (!info) return 'none';
-  return getBridgeTypeFromBehavior(info.behavior);
-}
-
-// Helper function to check if a tile is a vertical object (tree, pole, etc.)
-// Vertical objects should always render their top layer AFTER the player
-function isVerticalObject(ctx: RenderContext, tileX: number, tileY: number): boolean {
-  const resolved = resolveTileAt(ctx, tileX, tileY);
-  if (!resolved || !resolved.metatile || !resolved.attributes) return false;
-  
-  const layerType = resolved.attributes.layerType;
-  
-  // Only NORMAL layer types can be vertical objects
-  // COVERED and SPLIT have different behavior
-  if (layerType !== METATILE_LAYER_TYPE_NORMAL) return false;
-  
-  // Check if this is a bridge tile - bridges are HORIZONTAL platforms
-  // that should respect elevation, NOT vertical objects
-  const behaviorInfo = getMetatileBehavior(ctx, tileX, tileY);
-  if (behaviorInfo) {
-    const behavior = behaviorInfo.behavior;
-    // Bridge behaviors: 112-115 (BRIDGE_OVER_OCEAN/POND), 120 (FORTREE_BRIDGE), 
-    // 122-125 (BRIDGE edges), 127 (BIKE_BRIDGE)
-    const isBridge = (behavior >= 112 && behavior <= 115) || 
-                     behavior === 120 || 
-                     (behavior >= 122 && behavior <= 125) || 
-                     behavior === 127;
-    if (isBridge) return false; // Bridges use elevation-based rendering
-  }
-  
-  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-  if (!runtime) return false;
-  
-  const metatile = resolved.metatile;
-  const tileMasks = resolved.isSecondary ? runtime.secondaryTileMasks : runtime.primaryTileMasks;
-  
-  // Calculate top layer transparency
-  let topLayerTransparency = 0;
-  for (let i = 4; i < 8; i++) {
-    const tile = metatile.tiles[i];
-    const mask = tileMasks[tile.tileId];
-    if (mask) {
-      topLayerTransparency += mask.reduce((sum, val) => sum + val, 0);
-    }
-  }
-  
-  // If top layer has more than 50% opaque pixels (< 128/256 transparent), 
-  // it's a vertical object (tree, pole, etc.) that should cover the player
-  // Trees typically have ~56/256 transparent (200 opaque)
-  // Ground/empty tiles have 256/256 transparent (0 opaque)
-  // Bridges have 0/256 transparent but are excluded above
-  const VERTICAL_OBJECT_THRESHOLD = 128;
-  return topLayerTransparency < VERTICAL_OBJECT_THRESHOLD;
-}
-
-function computeReflectionState(
-  ctx: RenderContext,
-  player: PlayerController | null
-): ReflectionState {
-  if (!player) {
-    return { hasReflection: false, reflectionType: null, bridgeType: 'none' };
-  }
-
-  const { width, height } = player.getSpriteSize();
-  const widthTiles = (width + 8) >> 4;
-  const heightTiles = (height + 8) >> 4;
-
-  const bases = [
-    { x: player.tileX, y: player.tileY },
-  ];
-
-  let found: ReflectionType | null = null;
-
-  for (let i = 0; i < heightTiles && !found; i++) {
-    const offsetY = i;
-    for (const base of bases) {
-      const y = base.y + offsetY;
-      const center = getMetatileBehavior(ctx, base.x, y);
-      if (center?.meta?.isReflective) {
-        found = center.meta.reflectionType;
-        break;
-      }
-      for (let j = 1; j < widthTiles && !found; j++) {
-        const px = base.x + j;
-        const nx = base.x - j;
-        const infos = [
-          getMetatileBehavior(ctx, px, y),
-          getMetatileBehavior(ctx, nx, y),
-        ];
-        for (const info of infos) {
-          if (info?.meta?.isReflective) {
-            found = info.meta.reflectionType;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  const bridgeType = resolveBridgeType(ctx, player.tileX, player.tileY);
-
-  return {
-    hasReflection: !!found,
-    reflectionType: found,
-    bridgeType,
-  };
-}
 
 export const MapRenderer: React.FC<MapRendererProps> = ({
   mapId,
@@ -1210,6 +634,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
+  const playerControllerRef = useRef<PlayerController | null>(null);
   const cameraViewRef = useRef<WorldCameraView | null>(null);
   const mapManagerRef = useRef<MapManager>(new MapManager());
   const animRef = useRef<number>(0);
@@ -1253,100 +678,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     startedAt: 0,
     duration: DOOR_FADE_DURATION,
   });
-  const renderReflectionLayer = useCallback(
-    (mainCtx: CanvasRenderingContext2D, reflectionState: ReflectionState, view: WorldCameraView) => {
-      const ctx = renderContextRef.current;
-      const player = playerControllerRef.current;
-      if (!ctx || !player || !reflectionState.hasReflection) return;
-
-      const frame = player.getFrameInfo();
-      if (!frame || !frame.sprite) return;
-
-      const { height } = player.getSpriteSize();
-      const reflectionX = frame.renderX;
-      const reflectionY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
-      const screenX = Math.round(reflectionX - view.cameraWorldX);
-      const screenY = Math.round(reflectionY - view.cameraWorldY);
-
-      const maskCanvas = document.createElement('canvas');
-      maskCanvas.width = frame.sw;
-      maskCanvas.height = frame.sh;
-      const maskCtx = maskCanvas.getContext('2d');
-      if (!maskCtx) return;
-      const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
-      const maskData = maskImage.data;
-
-      const startTileX = Math.floor(reflectionX / METATILE_SIZE);
-      const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
-      const startTileY = Math.floor(reflectionY / METATILE_SIZE);
-      const endTileY = Math.floor((reflectionY + frame.sh - 1) / METATILE_SIZE);
-      for (let ty = startTileY; ty <= endTileY; ty++) {
-        for (let tx = startTileX; tx <= endTileX; tx++) {
-          const info = getMetatileBehavior(ctx, tx, ty);
-          if (!info?.meta?.isReflective) continue;
-          const mask = info.meta.pixelMask;
-          const tileLeft = tx * METATILE_SIZE - reflectionX;
-          const tileTop = ty * METATILE_SIZE - reflectionY;
-          for (let y = 0; y < METATILE_SIZE; y++) {
-            const globalY = tileTop + y;
-            if (globalY < 0 || globalY >= frame.sh) continue;
-            for (let x = 0; x < METATILE_SIZE; x++) {
-              const globalX = tileLeft + x;
-              if (globalX < 0 || globalX >= frame.sw) continue;
-              if (mask[y * METATILE_SIZE + x]) {
-                const index = (globalY * frame.sw + globalX) * 4 + 3;
-                maskData[index] = 255;
-              }
-            }
-          }
-        }
-      }
-      maskCtx.putImageData(maskImage, 0, 0);
-
-      const reflectionCanvas = document.createElement('canvas');
-      reflectionCanvas.width = frame.sw;
-      reflectionCanvas.height = frame.sh;
-      const reflectionCtx = reflectionCanvas.getContext('2d');
-      if (!reflectionCtx) return;
-      reflectionCtx.clearRect(0, 0, frame.sw, frame.sh);
-      reflectionCtx.save();
-      reflectionCtx.translate(frame.flip ? frame.sw : 0, frame.sh);
-      reflectionCtx.scale(frame.flip ? -1 : 1, -1);
-      reflectionCtx.drawImage(
-        frame.sprite,
-        frame.sx,
-        frame.sy,
-        frame.sw,
-        frame.sh,
-        0,
-        0,
-        frame.sw,
-        frame.sh
-      );
-      reflectionCtx.restore();
-
-      reflectionCtx.globalCompositeOperation = 'source-atop';
-      const baseTint =
-        reflectionState.reflectionType === 'ice'
-          ? 'rgba(180, 220, 255, 0.35)'
-          : 'rgba(70, 120, 200, 0.35)';
-      const bridgeTint = 'rgba(20, 40, 70, 0.55)';
-      reflectionCtx.fillStyle = reflectionState.bridgeType === 'none' ? baseTint : bridgeTint;
-      reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
-      reflectionCtx.globalCompositeOperation = 'source-over';
-
-      reflectionCtx.globalCompositeOperation = 'destination-in';
-      reflectionCtx.drawImage(maskCanvas, 0, 0);
-      reflectionCtx.globalCompositeOperation = 'source-over';
-
-      mainCtx.save();
-      mainCtx.imageSmoothingEnabled = false;
-      mainCtx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-      mainCtx.drawImage(reflectionCanvas, screenX, screenY);
-      mainCtx.restore();
-    },
-    []
-  );
 
   const ensureDoorSprite = useCallback(
     async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
@@ -1409,24 +740,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     []
   );
 
-  const renderArrowOverlay = useCallback(
-    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, now: number) => {
-      const overlay = arrowOverlayRef.current;
-      const sprite = arrowSpriteRef.current;
-      if (!overlay || !overlay.visible || !sprite) return;
-      const framesPerRow = Math.max(1, Math.floor(sprite.width / ARROW_FRAME_SIZE));
-      const frameSequence = ARROW_FRAME_SEQUENCES[overlay.direction];
-      const elapsed = now - overlay.startedAt;
-      const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
-      const frameIndex = frameSequence[seqIndex];
-      const sx = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
-      const sy = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
-      const dx = Math.round(overlay.worldX * METATILE_SIZE - view.cameraWorldX);
-      const dy = Math.round(overlay.worldY * METATILE_SIZE - view.cameraWorldY);
-      mainCtx.drawImage(sprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);
-    },
-    []
-  );
 
   const spawnDoorAnimation = useCallback(
     async (
@@ -1614,7 +927,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   }, [showTileDebug]);
 
   // Player Controller
-  const playerControllerRef = useRef<PlayerController | null>(null);
+
 
   const refreshDebugOverlay = useCallback(
     (ctx: RenderContext, player: PlayerController, view: WorldCameraView | null) => {
@@ -1623,67 +936,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const dbgCanvas = debugCanvasRef.current;
       if (!dbgCanvas || !mainCanvas) return;
 
-      dbgCanvas.width = DEBUG_GRID_SIZE;
-      dbgCanvas.height = DEBUG_GRID_SIZE;
-      const dbgCtx = dbgCanvas.getContext('2d');
-      if (!dbgCtx) return;
-      dbgCtx.imageSmoothingEnabled = false;
-      dbgCtx.fillStyle = '#111';
-      dbgCtx.fillRect(0, 0, DEBUG_GRID_SIZE, DEBUG_GRID_SIZE);
-
-      const collected: DebugTileInfo[] = [];
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const tileX = player.tileX + dx;
-          const tileY = player.tileY + dy;
-          const info = describeTile(ctx, tileX, tileY, player);
-          collected.push(info);
-
-          const destX = (dx + 1) * DEBUG_CELL_SIZE;
-          const destY = (dy + 1) * DEBUG_CELL_SIZE;
-          const screenX = tileX * METATILE_SIZE - view.cameraWorldX;
-          const screenY = tileY * METATILE_SIZE - view.cameraWorldY;
-          const visible =
-            screenX + METATILE_SIZE > 0 &&
-            screenY + METATILE_SIZE > 0 &&
-            screenX < view.pixelWidth &&
-            screenY < view.pixelHeight;
-
-          if (info.inBounds && visible) {
-            dbgCtx.drawImage(
-              mainCanvas,
-              screenX,
-              screenY,
-              METATILE_SIZE,
-              METATILE_SIZE,
-              destX,
-              destY,
-              DEBUG_CELL_SIZE,
-              DEBUG_CELL_SIZE
-            );
-          } else {
-            dbgCtx.fillStyle = '#333';
-            dbgCtx.fillRect(destX, destY, DEBUG_CELL_SIZE, DEBUG_CELL_SIZE);
-          }
-
-          dbgCtx.fillStyle = 'rgba(0,0,0,0.6)';
-          dbgCtx.fillRect(destX, destY, DEBUG_CELL_SIZE, 16);
-          dbgCtx.strokeStyle = dx === 0 && dy === 0 ? '#ff00aa' : 'rgba(255,255,255,0.3)';
-          dbgCtx.lineWidth = 2;
-          dbgCtx.strokeRect(destX + 1, destY + 1, DEBUG_CELL_SIZE - 2, DEBUG_CELL_SIZE - 2);
-          dbgCtx.fillStyle = '#fff';
-          dbgCtx.font = '12px monospace';
-          const label = info.inBounds
-            ? `${info.metatileId ?? '??'}` + (info.isReflective ? ' •R' : '')
-            : 'OOB';
-          dbgCtx.fillText(label, destX + 4, destY + 12);
-        }
-      }
-
-      debugTilesRef.current = collected;
-      // Update center tile info for display (index 4 is center of 3x3 grid)
-      const centerTile = collected[4];
-      setCenterTileDebugInfo(centerTile && centerTile.inBounds ? centerTile : null);
+      DebugRenderer.renderDebugOverlay(
+        ctx,
+        player,
+        view,
+        mainCanvas,
+        dbgCanvas,
+        setCenterTileDebugInfo,
+        debugTilesRef
+      );
     },
     [setCenterTileDebugInfo]
   );
@@ -1692,130 +953,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const renderLayerDecomposition = useCallback((ctx: RenderContext, tileInfo: DebugTileInfo) => {
     if (!tileInfo || !tileInfo.inBounds) return;
     
-    const resolved = resolveTileAt(ctx, tileInfo.tileX, tileInfo.tileY);
-    if (!resolved || !resolved.metatile) return;
+    const bottomCanvas = bottomLayerCanvasRef.current;
+    const topCanvas = topLayerCanvasRef.current;
+    const compositeCanvas = compositeLayerCanvasRef.current;
     
-    const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-    if (!runtime) return;
-    
-    const metatile = resolved.metatile;
-    const patchedTiles = runtime.patchedTiles ?? {
-      primary: runtime.resources.primaryTilesImage,
-      secondary: runtime.resources.secondaryTilesImage,
-    };
-    
-    const SCALE = 4; // Scale up for visibility
-    const TILE_SIZE_SCALED = TILE_SIZE * SCALE;
-    const METATILE_SIZE_SCALED = METATILE_SIZE * SCALE;
-    
-    // Helper function to draw a tile
-    const drawTileScaled = (
-      canvas: HTMLCanvasElement,
-      tile: { tileId: number; palette: number; xflip: boolean; yflip: boolean },
-      destX: number,
-      destY: number,
-      tileSource: TilesetKind
-    ) => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      const palette = tile.palette < 6
-        ? resolved.tileset.primaryPalettes[tile.palette]
-        : resolved.tileset.secondaryPalettes[tile.palette];
-      
-      if (!palette) return;
-      
-      const tiles = tileSource === 'primary' ? patchedTiles.primary : patchedTiles.secondary;
-      const tileId = tileSource === 'primary' ? tile.tileId : tile.tileId - SECONDARY_TILE_OFFSET;
-      
-      // Draw tile directly
-      const tileX = (tileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-      const tileY = Math.floor(tileId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-      
-      ctx.imageSmoothingEnabled = false;
-      
-      for (let y = 0; y < TILE_SIZE; y++) {
-        for (let x = 0; x < TILE_SIZE; x++) {
-          const srcX = tile.xflip ? (TILE_SIZE - 1 - x) : x;
-          const srcY = tile.yflip ? (TILE_SIZE - 1 - y) : y;
-          const idx = (tileY + srcY) * TILES_PER_ROW_IN_IMAGE * TILE_SIZE + (tileX + srcX);
-          const paletteIdx = tiles[idx];
-          
-          if (paletteIdx === 0) continue; // Transparent
-          
-          const color = palette.colors[paletteIdx];
-          ctx.fillStyle = color;
-          ctx.fillRect(destX + x * SCALE, destY + y * SCALE, SCALE, SCALE);
-        }
-      }
-    };
-    
-    // Render bottom layer
-    if (bottomLayerCanvasRef.current) {
-      const canvas = bottomLayerCanvasRef.current;
-      canvas.width = METATILE_SIZE_SCALED;
-      canvas.height = METATILE_SIZE_SCALED;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        for (let i = 0; i < 4; i++) {
-          const tile = metatile.tiles[i];
-          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
-          const subX = (i % 2) * TILE_SIZE_SCALED;
-          const subY = Math.floor(i / 2) * TILE_SIZE_SCALED;
-          drawTileScaled(canvas, tile, subX, subY, tileSource);
-        }
-      }
-    }
-    
-    // Render top layer
-    if (topLayerCanvasRef.current) {
-      const canvas = topLayerCanvasRef.current;
-      canvas.width = METATILE_SIZE_SCALED;
-      canvas.height = METATILE_SIZE_SCALED;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        for (let i = 4; i < 8; i++) {
-          const tile = metatile.tiles[i];
-          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
-          const subX = ((i - 4) % 2) * TILE_SIZE_SCALED;
-          const subY = Math.floor((i - 4) / 2) * TILE_SIZE_SCALED;
-          drawTileScaled(canvas, tile, subX, subY, tileSource);
-        }
-      }
-    }
-    
-    // Render composite
-    if (compositeLayerCanvasRef.current) {
-      const canvas = compositeLayerCanvasRef.current;
-      canvas.width = METATILE_SIZE_SCALED;
-      canvas.height = METATILE_SIZE_SCALED;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw bottom layer first
-        for (let i = 0; i < 4; i++) {
-          const tile = metatile.tiles[i];
-          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
-          const subX = (i % 2) * TILE_SIZE_SCALED;
-          const subY = Math.floor(i / 2) * TILE_SIZE_SCALED;
-          drawTileScaled(canvas, tile, subX, subY, tileSource);
-        }
-        
-        // Draw top layer on top
-        for (let i = 4; i < 8; i++) {
-          const tile = metatile.tiles[i];
-          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
-          const subX = ((i - 4) % 2) * TILE_SIZE_SCALED;
-          const subY = Math.floor((i - 4) / 2) * TILE_SIZE_SCALED;
-          drawTileScaled(canvas, tile, subX, subY, tileSource);
-        }
-      }
-    }
+    if (!bottomCanvas || !topCanvas || !compositeCanvas) return;
+
+    DebugRenderer.renderLayerDecomposition(
+      ctx,
+      tileInfo,
+      bottomCanvas,
+      topCanvas,
+      compositeCanvas
+    );
   }, []);
 
   useEffect(() => {
@@ -2425,20 +1575,42 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       renderDoorAnimations(mainCtx, view, nowMs);
-      renderArrowOverlay(mainCtx, view, nowMs);
-      renderReflectionLayer(mainCtx, reflectionState, view);
+      if (arrowOverlayRef.current) {
+        ObjectRenderer.renderArrow(mainCtx, arrowOverlayRef.current, arrowSpriteRef.current!, view, nowMs);
+      }
+      if (player) {
+        ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
+      }
 
       const playerY = player ? player.y : 0;
 
-      // Render grass effects behind player (visually "above" player)
-      renderGrassEffects(mainCtx, view, 'bottom', playerY);
+      // Render field effects behind player
+      if (player) {
+        const effects = player.getGrassEffectManager().getEffectsForRendering();
+        const sprites = {
+          grass: grassSpriteRef.current,
+          longGrass: longGrassSpriteRef.current,
+          sand: sandSpriteRef.current,
+          arrow: arrowSpriteRef.current,
+        };
+        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom');
+      }
 
       if (player && !playerHiddenRef.current) {
         player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
 
-      // Render grass effects in front of player (visually "below" or at same Y)
-      renderGrassEffects(mainCtx, view, 'top', playerY);
+      // Render field effects in front of player
+      if (player) {
+        const effects = player.getGrassEffectManager().getEffectsForRendering();
+        const sprites = {
+          grass: grassSpriteRef.current,
+          longGrass: longGrassSpriteRef.current,
+          sand: sandSpriteRef.current,
+          arrow: arrowSpriteRef.current,
+        };
+        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top');
+      }
 
       // 3. Draw Top Layer (Above Player)
       if (topAboveImageDataRef.current && topCanvasRef.current) {
@@ -2464,7 +1636,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         );
       }
     },
-    [renderPass, renderReflectionLayer, renderDoorAnimations, renderArrowOverlay]
+    [renderPass, renderDoorAnimations]
   );
 
   /**
@@ -2597,103 +1769,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   }, []);
 
 
-  /**
-   * Render grass field effect sprites (both tall and long grass)
-   */
-  /**
-   * Render grass field effect sprites (both tall and long grass)
-   */
-  const renderGrassEffects = useCallback(
-    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, layer: 'bottom' | 'top', playerY: number) => {
-      const tallGrassSprite = grassSpriteRef.current;
-      const longGrassSprite = longGrassSpriteRef.current;
-      const sandSprite = sandSpriteRef.current;
-      const player = playerControllerRef.current;
-      if (!player) return;
-
-      const grassManager = player.getGrassEffectManager();
-      const effects = grassManager.getEffectsForRendering();
-
-      for (const effect of effects) {
-        // Skip if not visible (for flickering effects like sand)
-        if (!effect.visible) continue;
-
-        // Select sprite based on grass type
-        let sprite: HTMLCanvasElement | null = null;
-        if (effect.type === 'tall') sprite = tallGrassSprite;
-        else if (effect.type === 'long') sprite = longGrassSprite;
-        else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sandSprite;
-        
-        if (!sprite) continue;
-
-        // Y-sorting:
-        // Sand always renders behind player (bottom layer)
-        // Grass effects use dynamic Y-sorting
-        let isInFront = effect.worldY >= playerY;
-
-        if (effect.type === 'sand' || effect.type === 'deep_sand') {
-          // Sand footprints always render behind player
-          isInFront = false;
-        } else {
-          // Dynamic layering from subpriority (for tall grass)
-          // If subpriority offset is high (4), it means "lower priority" relative to player, so render BEHIND.
-          if (effect.subpriorityOffset > 0) {
-            isInFront = false;
-          }
-        }
-
-        if (layer === 'bottom' && isInFront) continue;
-        if (layer === 'top' && !isInFront) continue;
-        
-        // Each frame is 16x16 pixels
-        const FRAME_SIZE = 16;
-        const sx = effect.frame * FRAME_SIZE; // Frames are horizontal
-        const sy = 0;
-
-        // Calculate screen position
-        // GBA sprites use center-based coordinates, but Canvas uses top-left corner
-        // The GrassEffectManager returns center coordinates (tile*16 + 8)
-        // We need to subtract 8 to convert to top-left corner for Canvas drawImage
-        const screenX = Math.round(effect.worldX - view.cameraWorldX - 8);
-        const screenY = Math.round(effect.worldY - view.cameraWorldY - 8);
-
-        // Render sprite (with optional horizontal flip for East-facing sand)
-        mainCtx.imageSmoothingEnabled = false;
-        
-        if (effect.flipHorizontal) {
-          // Flip horizontally for East-facing sand footprints
-          mainCtx.save();
-          mainCtx.translate(screenX + FRAME_SIZE, screenY);
-          mainCtx.scale(-1, 1);
-          mainCtx.drawImage(
-            sprite,
-            sx,
-            sy,
-            FRAME_SIZE,
-            FRAME_SIZE,
-            0,
-            0,
-            FRAME_SIZE,
-            FRAME_SIZE
-          );
-          mainCtx.restore();
-        } else {
-          mainCtx.drawImage(
-            sprite,
-            sx,
-            sy,
-            FRAME_SIZE,
-            FRAME_SIZE,
-            screenX,
-            screenY,
-            FRAME_SIZE,
-            FRAME_SIZE
-          );
-        }
-      }
-    },
-    []
-  );
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
