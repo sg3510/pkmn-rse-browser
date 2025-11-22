@@ -12,22 +12,27 @@ export interface GrassEffect {
   id: string;
   tileX: number;
   tileY: number;
-  animationFrame: number;  // Current frame index (0-4 for tall, 0-3 for long)
+  animationFrame: number;  // Current frame index (0-4 for tall, 0-3 for long, 0-1 for sand)
   sequenceIndex: number;   // Index in the animation sequence array
   animationTick: number;   // Tick counter within current frame
-  type: 'tall' | 'long';   // Grass type
+  type: 'tall' | 'long' | 'sand' | 'deep_sand';   // Grass/Field type
   skipAnimation: boolean;  // If true, start at frame 0 (spawn case)
   ownerObjectId: string;   // Player/NPC ID that triggered this
   completed: boolean;      // Animation finished
+  visible: boolean;        // For flickering effects
+  direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
 }
 
 export interface GrassEffectForRendering {
   id: string;
   worldX: number;          // World pixel X (tileX * 16 + 8)
   worldY: number;          // World pixel Y (tileY * 16 + 8)
-  frame: number;           // Current animation frame (0-4 for tall, 0-3 for long)
-  type: 'tall' | 'long';   // Grass type
+  frame: number;           // Current animation frame (0-4 for tall, 0-3 for long, 0-1 for sand)
+  type: 'tall' | 'long' | 'sand' | 'deep_sand';   // Grass/Field type
   subpriorityOffset: number; // 0 or 4 based on frame
+  visible: boolean;
+  direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
+  flipHorizontal?: boolean;  // For East-facing sand footprints
 }
 
 /**
@@ -61,32 +66,59 @@ export class GrassEffectManager {
   private nextId = 0;
 
   /**
-   * Create a new grass effect at the specified tile position.
+   * Create a new grass/field effect at the specified tile position.
    * 
    * @param tileX - Map tile X coordinate
    * @param tileY - Map tile Y coordinate
-   * @param type - Grass type ('tall' or 'long')
-   * @param skipAnimation - If true, skip animation and show frame 0 (for spawn-on-tile)
+   * @param type - Effect type
+   * @param skipAnimation - If true, skip animation and show final frame (for spawn-on-tile)
    * @param ownerObjectId - ID of the player/NPC that triggered this
+   * @param direction - Direction for sand footprints (unused for grass)
    * @returns The created effect ID
    */
-  create(tileX: number, tileY: number, type: 'tall' | 'long', skipAnimation: boolean, ownerObjectId: string): string {
+  create(
+    tileX: number,
+    tileY: number,
+    type: 'tall' | 'long' | 'sand' | 'deep_sand',
+    skipAnimation: boolean,
+    ownerObjectId: string,
+    direction?: 'up' | 'down' | 'left' | 'right'
+  ): string {
     const id = `grass_${this.nextId++}`;
     
+    // Select initial frame based on type and direction
+    let initialFrame = 0;
+    if (!skipAnimation) {
+      if (type === 'tall' || type === 'long') {
+        initialFrame = 1; // Grass starts at frame 1
+      } else if (type === 'sand' || type === 'deep_sand') {
+        // Sand: frame 0 for up/down, frame 1 for left/right
+        initialFrame = (direction === 'left' || direction === 'right') ? 1 : 0;
+      }
+    }
+
     const effect: GrassEffect = {
       id,
       tileX,
       tileY,
       type,
-      animationFrame: skipAnimation ? 0 : (type === 'tall' ? 1 : 1), // Both start at frame 1 for animation
+      animationFrame: initialFrame,
       sequenceIndex: 0,
       animationTick: 0,
       skipAnimation,
       ownerObjectId,
       completed: skipAnimation, // If skipping, mark as completed immediately
+      visible: true,
+      direction,
     };
 
     this.effects.set(id, effect);
+    
+    // Debug logging
+    if (type === 'tall') {
+      console.log(`[GRASS] Created tall grass effect ${id} at (${tileX}, ${tileY}), skipAnimation=${skipAnimation}, frame=${initialFrame}, completed=${effect.completed}`);
+    }
+    
     return id;
   }
 
@@ -112,9 +144,10 @@ export class GrassEffectManager {
             effect.animationFrame = TALL_GRASS_ANIMATION_SEQUENCE[effect.sequenceIndex];
           } else {
             effect.completed = true;
+            console.log(`[GRASS] Tall grass effect ${effect.id} animation completed at frame ${effect.animationFrame}`);
           }
         }
-      } else {
+      } else if (effect.type === 'long') {
         // Long grass: variable frame durations
         // Use sequenceIndex to determine duration, not frame
         const frameDuration = LONG_GRASS_FRAME_DURATIONS[effect.sequenceIndex] || 4;
@@ -129,6 +162,21 @@ export class GrassEffectManager {
             effect.completed = true;
           }
         }
+      } else if (effect.type === 'sand' || effect.type === 'deep_sand') {
+        // Sand footprints:
+        // 0-40 frames: Static (Step 0)
+        // 40-56 frames: Flicker (Step 1)
+        // 56+ frames: End
+        
+        // Note: animationTick here acts as the global timer for this effect
+        
+        if (effect.animationTick > 56) {
+          effect.completed = true;
+        } else if (effect.animationTick > 40) {
+          // Flicker phase: toggle visibility every frame
+          // In C code: sprite->invisible ^= 1
+          effect.visible = !effect.visible;
+        }
       }
     }
   }
@@ -136,16 +184,47 @@ export class GrassEffectManager {
   /**
    * Clean up completed grass effects.
    * 
-   * Updated behavior: Remove effects immediately upon completion.
-   * The static map tile (Layer 1) handles the "covering" of the player,
-   * so the sprite is only needed for the animation duration.
-   * This prevents the sprite from persisting ("staying forever") and looking like a static overlay.
+   * Behavior per pokeemerald:
+   * - Effects that end at frame 0: Keep until player moves away from tile
+   * - Other completed effects: Remove immediately
    * 
-   * @param _ownerPositions - Unused (kept for API compatibility)
+   * Frame 0 is the "resting" frame that shows grass covering player's feet.
+   * It persists whether it got there via animation (1→2→3→4→0) or spawn (start at 0).
+   * 
+   * @param ownerPositions - Map of owner IDs to their current tile positions
    */
-  cleanup(_ownerPositions: Map<string, { tileX: number; tileY: number }>): void {
+  cleanup(ownerPositions: Map<string, { tileX: number; tileY: number }>): void {
     for (const [id, effect] of this.effects.entries()) {
-      if (effect.completed) {
+      if (!effect.completed) {
+        continue; // Don't clean up until animation finishes
+      }
+
+      // For effects at frame 0 (tall/long grass), keep until player moves away
+      // Frame 0 is the final "resting" frame that covers the player's feet
+      if ((effect.type === 'tall' || effect.type === 'long') && effect.animationFrame === 0) {
+        const ownerPos = ownerPositions.get(effect.ownerObjectId);
+        if (!ownerPos) {
+          // Owner doesn't exist anymore, remove effect
+          console.log(`[GRASS] Removing frame 0 effect ${id} - owner doesn't exist`);
+          this.effects.delete(id);
+          continue;
+        }
+
+        // Check if owner moved away from this grass tile
+        const ownerMoved = ownerPos.tileX !== effect.tileX || ownerPos.tileY !== effect.tileY;
+        
+        if (ownerMoved) {
+          console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner moved to (${ownerPos.tileX}, ${ownerPos.tileY})`);
+          this.effects.delete(id);
+        } else {
+          // Keep the frame 0 effect (player still on grass)
+          if (Math.random() < 0.01) {
+            console.log(`[GRASS] Keeping frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner still there`);
+          }
+        }
+      } else {
+        // For animated effects, remove immediately after completion
+        // The static map tile (Layer 1) handles the covering after animation
         this.effects.delete(id);
       }
     }
@@ -175,6 +254,10 @@ export class GrassEffectManager {
         subpriorityOffset = 4;
       }
 
+      // For sand footprints, determine if horizontal flip is needed (East direction)
+      const flipHorizontal = (effect.type === 'sand' || effect.type === 'deep_sand') &&
+                            effect.direction === 'right';
+
       results.push({
         id: effect.id,
         worldX,
@@ -182,6 +265,9 @@ export class GrassEffectManager {
         frame: effect.animationFrame,
         type: effect.type,
         subpriorityOffset,
+        visible: effect.visible,
+        direction: effect.direction,
+        flipHorizontal,
       });
     }
 

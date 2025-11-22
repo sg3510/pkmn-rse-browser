@@ -20,7 +20,8 @@ import {
   MB_JUMP_WEST,
   MB_JUMP_NORTH,
   MB_JUMP_SOUTH,
-
+  MB_SAND,
+  MB_DEEP_SAND,
   isDoorBehavior,
   requiresDoorExitSequence,
   isArrowWarpBehavior,
@@ -253,8 +254,6 @@ export class PlayerController {
   public y: number = 0;
   public tileX: number = 0;
   public tileY: number = 0;
-  public prevTileX: number = 0;
-  public prevTileY: number = 0;
   public dir: 'down' | 'up' | 'left' | 'right' = 'down';
   public isMoving: boolean = false;
   public inputLocked: boolean = false;
@@ -272,7 +271,12 @@ export class PlayerController {
   
   private currentState: PlayerState;
   private grassEffectManager: GrassEffectManager = new GrassEffectManager();
-  private currentGrassType: 'tall' | 'long' | null = null; // Track grass type for player clipping
+  private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
+
+  // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
+  private prevTileX: number;
+  private prevTileY: number;
+  private prevTileBehavior: number | undefined;
   
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
@@ -286,6 +290,11 @@ export class PlayerController {
     this.handleKeyUp = (e: KeyboardEvent) => {
       this.keysPressed[e.key] = false;
     };
+
+    // Initialize prevTileX/Y to current position, behavior to undefined
+    this.prevTileX = this.tileX;
+    this.prevTileY = this.tileY;
+    this.prevTileBehavior = undefined;
 
     this.bindInputEvents();
   }
@@ -335,8 +344,6 @@ export class PlayerController {
   }
 
   public setPosition(tileX: number, tileY: number) {
-    this.prevTileX = tileX;
-    this.prevTileY = tileY;
     this.tileX = tileX;
     this.tileY = tileY;
     this.x = tileX * this.TILE_PIXELS;
@@ -344,7 +351,8 @@ export class PlayerController {
     this.isMoving = false;
     this.pixelsMoved = 0;
     
-    // Check if spawning on tall grass (skip animation)
+    // Initialize previous tile state to current position
+    this.updatePreviousTileState();
     // Check if spawning on tall grass (skip animation)
     this.checkAndTriggerGrassEffect(tileX, tileY, true);
   }
@@ -400,28 +408,37 @@ export class PlayerController {
       const moveAmount = speed * delta;
       this.pixelsMoved += moveAmount;
       
-      // Check if movement is complete BEFORE applying movement
-      if (this.pixelsMoved >= this.TILE_PIXELS) {
-        this.isMoving = false;
+      // Check if movement just completed
+      const movementJustCompleted = this.pixelsMoved >= this.TILE_PIXELS;
+
+      if (movementJustCompleted) {
+        // Movement complete - snap to tile
         this.pixelsMoved = 0;
+        this.isMoving = false;
+        
+        // Calculate target tile
+        let dx = 0;
+        let dy = 0;
+        if (this.dir === 'up') dy = -1;
+        else if (this.dir === 'down') dy = 1;
+        else if (this.dir === 'left') dx = -1;
+        else if (this.dir === 'right') dx = 1;
+
+        this.tileX += dx;
+        this.tileY += dy;
+        this.x = this.tileX * this.TILE_PIXELS;
+        this.y = this.tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
         
         // Alternate walk frame for next tile
         this.walkFrameAlternate = !this.walkFrameAlternate;
-        
-        // Update logical tile position
-        this.prevTileX = this.tileX;
-        this.prevTileY = this.tileY;
-        if (this.dir === 'up') this.tileY--;
-        else if (this.dir === 'down') this.tileY++;
-        else if (this.dir === 'left') this.tileX--;
-        else if (this.dir === 'right') this.tileX++;
-        
-        // Snap to grid
-        this.x = this.tileX * this.TILE_PIXELS;
-        this.y = this.tileY * this.TILE_PIXELS - 16;
-        didRenderMove = true;
-        
 
+        // Update previous tile state for next movement
+        this.updatePreviousTileState();
+
+        // Trigger grass effect on the new tile
+        this.checkAndTriggerGrassEffect(this.tileX, this.tileY, false);
+
+        didRenderMove = true;
         
         if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
           console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
@@ -495,10 +512,12 @@ export class PlayerController {
       const isOnArrowWarp = isArrowWarpBehavior(currentBehavior);
 
       if (!blocked) {
+        // Create sand footprint as we START to move off current tile
+        this.checkAndTriggerSandFootprints();
+        
         this.isMoving = true;
         this.pixelsMoved = 0;
-        // Trigger grass effect at start of movement
-        this.checkAndTriggerGrassEffect(targetTileX, targetTileY, false);
+        // Grass effect will be triggered at the end of movement in processMovement
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
         console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
@@ -518,18 +537,21 @@ export class PlayerController {
 
   public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
     this.dir = direction;
+    
+    // Create sand footprint as we START to move
+    this.checkAndTriggerSandFootprints();
+    
     this.isMoving = true;
     this.pixelsMoved = 0;
     
-    // Calculate target tile
-    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
-    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
-    this.checkAndTriggerGrassEffect(this.tileX + dx, this.tileY + dy, false);
+    // Grass effect will be triggered at the end of movement in processMovement
   }
 
   public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
     this.dir = direction;
     if (ignoreCollision) {
+      // Create sand footprint as we START to move
+      this.checkAndTriggerSandFootprints();
       this.isMoving = true;
       this.pixelsMoved = 0;
       return true;
@@ -539,9 +561,11 @@ export class PlayerController {
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
     if (!this.isCollisionAt(targetTileX, targetTileY)) {
+      // Create sand footprint as we START to move
+      this.checkAndTriggerSandFootprints();
       this.isMoving = true;
       this.pixelsMoved = 0;
-      this.checkAndTriggerGrassEffect(targetTileX, targetTileY, false);
+      // Grass effect will be triggered at the end of movement in processMovement
       return true;
     }
     return false;
@@ -567,6 +591,15 @@ export class PlayerController {
     
     // Check behavior (MB_* constants)
     const behavior = attributes.behavior;
+
+    // Special case: MB_SAND and MB_DEEP_SAND should be walkable
+    // Even if collision bits are set (may be decorative placement)
+    // This allows testing sand footprints
+    const isSand = behavior === MB_SAND || behavior === MB_DEEP_SAND;
+    if (isSand) {
+      // Sand is always walkable (override map collision bits)
+      return false;
+    }
 
     // Check collision bits from map.bin (bits 10-11)
     const collision = getCollisionFromMapTile(mapTile);
@@ -715,6 +748,12 @@ export class PlayerController {
 
   public setTileResolver(resolver: TileResolver | null) {
     this.tileResolver = resolver;
+    
+    // Initialize previous tile to current tile
+    this.prevTileX = this.tileX;
+    this.prevTileY = this.tileY;
+    this.prevTileBehavior = undefined; // Will be set by updatePreviousTileState
+    this.updatePreviousTileState(); // Populate initial prevTileBehavior
   }
 
   public setDoorWarpHandler(handler: ((request: DoorWarpRequest) => void) | null) {
@@ -778,10 +817,51 @@ export class PlayerController {
   }
 
   /**
+   * Update previous tile state after movement.
+   * Called after player position changes.
+   */
+  private updatePreviousTileState(): void {
+    this.prevTileX = this.tileX;
+    this.prevTileY = this.tileY;
+    
+    const resolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
+    this.prevTileBehavior = resolved?.attributes?.behavior;
+  }
+
+  /**
+   * Check if player just left a sand/footprints tile and create footprint effect.
+   * Called at END of movement (pokeemerald: GetGroundEffectFlags_Tracks)
+   * Uses previousMetatileBehavior and previousCoords
+   */
+  private checkAndTriggerSandFootprints(): void {
+    // Check if previous tile was sand (where we're leaving footprints)
+    if (this.prevTileBehavior === undefined) return;
+    
+    const isSand = this.prevTileBehavior === MB_SAND;
+    const isDeepSand = this.prevTileBehavior === MB_DEEP_SAND;
+    
+    if (isSand || isDeepSand) {
+      // Create footprint on the tile we JUST LEFT (prevTile)
+      const type = isDeepSand ? 'deep_sand' : 'sand';
+      this.grassEffectManager.create(
+        this.prevTileX,
+        this.prevTileY,
+        type,
+        false,
+        'player',
+        this.dir  // Pass current facing direction
+      );
+    }
+  }
+
+  /**
    * Check if current tile is tall or long grass and trigger grass effect if so.
    * Based on pokeemerald logic:
    * - GroundEffect_SpawnOnTallGrass / SpawnOnLongGrass (skip animation)
    * - GroundEffect_StepOnTallGrass / StepOnLongGrass (play animation)
+   * 
+   * NOTE: Sand footprints are handled separately in checkAndTriggerSandFootprints()
+   * which uses previousTile, not currentTile
    */
   private checkAndTriggerGrassEffect(tileX: number, tileY: number, skipAnimation: boolean) {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;

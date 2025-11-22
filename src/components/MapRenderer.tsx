@@ -891,7 +891,6 @@ function computeReflectionState(
 
   const bases = [
     { x: player.tileX, y: player.tileY },
-    { x: player.prevTileX, y: player.prevTileY },
   ];
 
   let found: ReflectionType | null = null;
@@ -922,9 +921,7 @@ function computeReflectionState(
     }
   }
 
-  const bridgeTypeFromCurrent = resolveBridgeType(ctx, player.tileX, player.tileY);
-  const bridgeTypeFromPrev = resolveBridgeType(ctx, player.prevTileX, player.prevTileY);
-  const bridgeType = bridgeTypeFromCurrent !== 'none' ? bridgeTypeFromCurrent : bridgeTypeFromPrev;
+  const bridgeType = resolveBridgeType(ctx, player.tileX, player.tileY);
 
   return {
     hasReflection: !!found,
@@ -977,6 +974,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
   const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -2011,6 +2009,49 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     });
   }, []);
 
+  /**
+   * Load sand footprints sprite sheet and convert to transparent canvas
+   */
+  const ensureSandSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (sandSpriteRef.current) {
+      return sandSpriteRef.current;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/field_effects/pics/sand_footprints.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get sand sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        sandSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
+
 
   /**
    * Render grass field effect sprites (both tall and long grass)
@@ -2022,6 +2063,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, layer: 'bottom' | 'top', playerY: number) => {
       const tallGrassSprite = grassSpriteRef.current;
       const longGrassSprite = longGrassSpriteRef.current;
+      const sandSprite = sandSpriteRef.current;
       const player = playerControllerRef.current;
       if (!player) return;
 
@@ -2029,21 +2071,31 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const effects = grassManager.getEffectsForRendering();
 
       for (const effect of effects) {
+        // Skip if not visible (for flickering effects like sand)
+        if (!effect.visible) continue;
+
         // Select sprite based on grass type
-        const sprite = effect.type === 'tall' ? tallGrassSprite : longGrassSprite;
+        let sprite: HTMLCanvasElement | null = null;
+        if (effect.type === 'tall') sprite = tallGrassSprite;
+        else if (effect.type === 'long') sprite = longGrassSprite;
+        else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sandSprite;
+        
         if (!sprite) continue;
 
         // Y-sorting:
-        // If effect is visually "below" or at the same Y as the player, it should render IN FRONT (top layer).
-        // If effect is visually "above" the player, it should render BEHIND (bottom layer).
-        // effect.worldY is center of tile. playerY is top-left of tile.
-        // If effect.worldY >= playerY, it is in front.
+        // Sand always renders behind player (bottom layer)
+        // Grass effects use dynamic Y-sorting
         let isInFront = effect.worldY >= playerY;
 
-        // Dynamic layering from subpriority
-        // If subpriority offset is high (4), it means "lower priority" relative to player, so render BEHIND.
-        if (effect.subpriorityOffset > 0) {
+        if (effect.type === 'sand' || effect.type === 'deep_sand') {
+          // Sand footprints always render behind player
           isInFront = false;
+        } else {
+          // Dynamic layering from subpriority (for tall grass)
+          // If subpriority offset is high (4), it means "lower priority" relative to player, so render BEHIND.
+          if (effect.subpriorityOffset > 0) {
+            isInFront = false;
+          }
         }
 
         if (layer === 'bottom' && isInFront) continue;
@@ -2061,19 +2113,39 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const screenX = Math.round(effect.worldX - view.cameraWorldX - 8);
         const screenY = Math.round(effect.worldY - view.cameraWorldY - 8);
 
-        // Render grass sprite
+        // Render sprite (with optional horizontal flip for East-facing sand)
         mainCtx.imageSmoothingEnabled = false;
-        mainCtx.drawImage(
-          sprite,
-          sx,
-          sy,
-          FRAME_SIZE,
-          FRAME_SIZE,
-          screenX,
-          screenY,
-          FRAME_SIZE,
-          FRAME_SIZE
-        );
+        
+        if (effect.flipHorizontal) {
+          // Flip horizontally for East-facing sand footprints
+          mainCtx.save();
+          mainCtx.translate(screenX + FRAME_SIZE, screenY);
+          mainCtx.scale(-1, 1);
+          mainCtx.drawImage(
+            sprite,
+            sx,
+            sy,
+            FRAME_SIZE,
+            FRAME_SIZE,
+            0,
+            0,
+            FRAME_SIZE,
+            FRAME_SIZE
+          );
+          mainCtx.restore();
+        } else {
+          mainCtx.drawImage(
+            sprite,
+            sx,
+            sy,
+            FRAME_SIZE,
+            FRAME_SIZE,
+            screenX,
+            screenY,
+            FRAME_SIZE,
+            FRAME_SIZE
+          );
+        }
       }
     },
     []
@@ -2111,6 +2183,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         // Load grass sprite
         await ensureGrassSprite();
         await ensureLongGrassSprite();
+        await ensureSandSprite();
         
         // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];

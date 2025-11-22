@@ -3,6 +3,9 @@ import { MB_TALL_GRASS, MB_LONG_GRASS } from './metatileBehaviors.generated';
 
 export { MB_TALL_GRASS, MB_LONG_GRASS };
 
+export const MB_DEEP_SAND = 6;
+export const MB_SAND = 33;
+
 export const MB_POND_WATER = 16;
 export const MB_INTERIOR_DEEP_WATER = 17;
 export const MB_DEEP_WATER = 18;
