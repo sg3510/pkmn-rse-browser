@@ -976,6 +976,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
   const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
   const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -1800,12 +1801,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           };
 
           if (pass === 'background') {
+            // Background pass: always draw layer 0
             drawLayer(0);
-            if (layerType === METATILE_LAYER_TYPE_COVERED || layerType === METATILE_LAYER_TYPE_SPLIT) {
+            // For COVERED type, also draw layer 1 in background (both layers behind player)
+            if (layerType === METATILE_LAYER_TYPE_COVERED) {
               drawLayer(1);
             }
+            // For SPLIT type, layer 1 goes to top pass only (layer 0 behind, layer 1 above player)
           } else {
+            // Top pass: draw layer 1 for NORMAL and SPLIT types (above player)
             if (layerType === METATILE_LAYER_TYPE_NORMAL || layerType === METATILE_LAYER_TYPE_SPLIT) {
+              // Debug logging for metatile 13
+              if (metatile.id === 13 && tileX >= 0 && tileX < 5 && tileY >= 0 && tileY < 5) {
+                console.log(`[METATILE 13] Top pass rendering layer 1 at (${tileX}, ${tileY}), layerType=${layerType}`);
+              }
               drawLayer(1);
             }
           }
@@ -1878,12 +1887,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       renderArrowOverlay(mainCtx, view, nowMs);
       renderReflectionLayer(mainCtx, reflectionState, view);
 
-      // Render grass effects before player (so they are behind player)
-      renderGrassEffects(mainCtx, view);
+      const player = playerControllerRef.current;
+      const playerY = player ? player.y : 0;
 
-      if (playerControllerRef.current && !playerHiddenRef.current) {
-        playerControllerRef.current.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
+      // Render grass effects behind player (visually "above" player)
+      renderGrassEffects(mainCtx, view, 'bottom', playerY);
+
+      if (player && !playerHiddenRef.current) {
+        player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
+
+      // Render grass effects in front of player (visually "below" or at same Y)
+      // This covers the player's feet when standing on tall grass
+      renderGrassEffects(mainCtx, view, 'top', playerY);
 
       if (topCanvasRef.current) {
         mainCtx.drawImage(topCanvasRef.current, 0, 0);
@@ -1953,21 +1969,89 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   }, []);
 
   /**
-   * Render grass field effect sprites
+   * Load long grass sprite sheet and convert to transparent canvas
+   */
+  const ensureLongGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (longGrassSpriteRef.current) {
+      return longGrassSpriteRef.current;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/field_effects/pics/long_grass.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get long grass sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        longGrassSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
+
+
+  /**
+   * Render grass field effect sprites (both tall and long grass)
+   */
+  /**
+   * Render grass field effect sprites (both tall and long grass)
    */
   const renderGrassEffects = useCallback(
-    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView) => {
-      const grassSprite = grassSpriteRef.current;
+    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, layer: 'bottom' | 'top', playerY: number) => {
+      const tallGrassSprite = grassSpriteRef.current;
+      const longGrassSprite = longGrassSpriteRef.current;
       const player = playerControllerRef.current;
-      if (!grassSprite || !player) return;
+      if (!player) return;
 
       const grassManager = player.getGrassEffectManager();
       const effects = grassManager.getEffectsForRendering();
 
       for (const effect of effects) {
+        // Select sprite based on grass type
+        const sprite = effect.type === 'tall' ? tallGrassSprite : longGrassSprite;
+        if (!sprite) continue;
+
+        // Y-sorting:
+        // If effect is visually "below" or at the same Y as the player, it should render IN FRONT (top layer).
+        // If effect is visually "above" the player, it should render BEHIND (bottom layer).
+        // effect.worldY is center of tile. playerY is top-left of tile.
+        // If effect.worldY >= playerY, it is in front.
+        let isInFront = effect.worldY >= playerY;
+
+        // Dynamic layering from subpriority
+        // If subpriority offset is high (4), it means "lower priority" relative to player, so render BEHIND.
+        if (effect.subpriorityOffset > 0) {
+          isInFront = false;
+        }
+
+        if (layer === 'bottom' && isInFront) continue;
+        if (layer === 'top' && !isInFront) continue;
+        
         // Each frame is 16x16 pixels
         const FRAME_SIZE = 16;
-        const sx = effect.frame * FRAME_SIZE; // Frames are horizontal: 0, 16, 32, 48, 64
+        const sx = effect.frame * FRAME_SIZE; // Frames are horizontal
         const sy = 0;
 
         // Calculate screen position
@@ -1980,7 +2064,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         // Render grass sprite
         mainCtx.imageSmoothingEnabled = false;
         mainCtx.drawImage(
-          grassSprite,
+          sprite,
           sx,
           sy,
           FRAME_SIZE,
@@ -2026,6 +2110,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         
         // Load grass sprite
         await ensureGrassSprite();
+        await ensureLongGrassSprite();
         
         // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];

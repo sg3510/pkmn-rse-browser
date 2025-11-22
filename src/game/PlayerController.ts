@@ -20,11 +20,12 @@ import {
   MB_JUMP_WEST,
   MB_JUMP_NORTH,
   MB_JUMP_SOUTH,
-  MB_TALL_GRASS,
+
   isDoorBehavior,
   requiresDoorExitSequence,
   isArrowWarpBehavior,
   isTallGrassBehavior,
+  isLongGrassBehavior,
 } from '../utils/metatileBehaviors';
 import { GrassEffectManager } from './GrassEffectManager';
 
@@ -54,7 +55,7 @@ export interface FrameInfo {
 
 // Jump Physics Constants
 const JUMP_DISTANCE = 32; // 2 tiles
-const JUMP_DURATION = 32; // 32 frames
+
 // Jump height arc (sJumpY_High from pokeemerald)
 // Indexed by (timer / 2)
 const JUMP_HEIGHT_ARC = [
@@ -81,20 +82,20 @@ class NormalState implements PlayerState {
   // 1 px / 16.66ms = 0.06 px/ms. So 0.06 is correct for walking.
   private readonly SPEED = 0.06;
 
-  enter(controller: PlayerController): void {
+  enter(_controller: PlayerController): void {
     // Ensure we are using the walking sprite
     // controller.setSprite('walking'); // We'll implement sprite switching logic in getFrameInfo or similar
   }
 
-  exit(controller: PlayerController): void {}
+  exit(_controller: PlayerController): void {}
 
   update(controller: PlayerController, delta: number): boolean {
     return controller.processMovement(delta, this.SPEED);
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
-    // Check for transition to running
-    if (keys['z'] || keys['Z']) { // Z is mapped to B button
+    // Check for transition to running (disabled on long grass)
+    if ((keys['z'] || keys['Z']) && !controller.isOnLongGrass()) { // Z is mapped to B button
       controller.changeState(new RunningState());
       return;
     }
@@ -120,11 +121,11 @@ class RunningState implements PlayerState {
   // Running speed is double walking speed
   private readonly SPEED = 0.12;
 
-  enter(controller: PlayerController): void {
+  enter(_controller: PlayerController): void {
     // controller.setSprite('running');
   }
 
-  exit(controller: PlayerController): void {}
+  exit(_controller: PlayerController): void {}
 
   update(controller: PlayerController, delta: number): boolean {
     return controller.processMovement(delta, this.SPEED);
@@ -227,7 +228,7 @@ class JumpingState implements PlayerState {
     return true;
   }
 
-  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
     // Input locked during jump
   }
 
@@ -271,6 +272,7 @@ export class PlayerController {
   
   private currentState: PlayerState;
   private grassEffectManager: GrassEffectManager = new GrassEffectManager();
+  private currentGrassType: 'tall' | 'long' | null = null; // Track grass type for player clipping
   
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
@@ -343,7 +345,8 @@ export class PlayerController {
     this.pixelsMoved = 0;
     
     // Check if spawning on tall grass (skip animation)
-    this.checkAndTriggerGrassEffect(true);
+    // Check if spawning on tall grass (skip animation)
+    this.checkAndTriggerGrassEffect(tileX, tileY, true);
   }
 
   public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
@@ -418,8 +421,7 @@ export class PlayerController {
         this.y = this.tileY * this.TILE_PIXELS - 16;
         didRenderMove = true;
         
-        // Trigger grass effect for new tile (with animation)
-        this.checkAndTriggerGrassEffect(false);
+
         
         if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
           console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
@@ -450,7 +452,7 @@ export class PlayerController {
     let dy = 0;
     let newDir = this.dir;
     let attemptMove = false;
-    const prevDir = this.dir;
+
 
     if (keys['ArrowUp']) {
       dy = -1;
@@ -495,6 +497,8 @@ export class PlayerController {
       if (!blocked) {
         this.isMoving = true;
         this.pixelsMoved = 0;
+        // Trigger grass effect at start of movement
+        this.checkAndTriggerGrassEffect(targetTileX, targetTileY, false);
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
         console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
@@ -516,6 +520,11 @@ export class PlayerController {
     this.dir = direction;
     this.isMoving = true;
     this.pixelsMoved = 0;
+    
+    // Calculate target tile
+    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    this.checkAndTriggerGrassEffect(this.tileX + dx, this.tileY + dy, false);
   }
 
   public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
@@ -532,6 +541,7 @@ export class PlayerController {
     if (!this.isCollisionAt(targetTileX, targetTileY)) {
       this.isMoving = true;
       this.pixelsMoved = 0;
+      this.checkAndTriggerGrassEffect(targetTileX, targetTileY, false);
       return true;
     }
     return false;
@@ -649,7 +659,7 @@ export class PlayerController {
     if (this.showShadow && this.sprites['shadow']) {
       const shadow = this.sprites['shadow'];
       const shadowX = Math.floor(this.x) - cameraX;
-      const shadowY = Math.floor(this.y) - cameraY + 28; // Offset to feet (approx)
+      const shadowY = Math.floor(this.y) - cameraY + 28; // Offset to fees (approx)
       ctx.drawImage(shadow, shadowX, shadowY);
     }
 
@@ -660,6 +670,17 @@ export class PlayerController {
     ctx.imageSmoothingEnabled = false;
     
     ctx.save();
+    
+    // Apply clipping for long grass (hide bottom 50% of sprite)
+    if (this.isOnLongGrass()) {
+      const destX = frame.renderX - cameraX;
+      const destY = frame.renderY - cameraY;
+      // Create a clipping rectangle that shows only the top half
+      ctx.beginPath();
+      ctx.rect(destX, destY, frame.sw, frame.sh / 2);
+      ctx.clip();
+    }
+    
     const destX = frame.renderX - cameraX;
     const destY = frame.renderY - cameraY;
     if (frame.flip) {
@@ -757,17 +778,27 @@ export class PlayerController {
   }
 
   /**
-   * Check if current tile is tall grass and trigger grass effect if so.
+   * Check if current tile is tall or long grass and trigger grass effect if so.
    * Based on pokeemerald logic:
-   * - GroundEffect_SpawnOnTallGrass (skip animation)
-   * - GroundEffect_StepOnTallGrass (play animation)
+   * - GroundEffect_SpawnOnTallGrass / SpawnOnLongGrass (skip animation)
+   * - GroundEffect_StepOnTallGrass / StepOnLongGrass (play animation)
    */
-  private checkAndTriggerGrassEffect(skipAnimation: boolean) {
-    const resolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
+  private checkAndTriggerGrassEffect(tileX: number, tileY: number, skipAnimation: boolean) {
+    const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     const behavior = resolved?.attributes?.behavior;
     
-    if (behavior !== undefined && isTallGrassBehavior(behavior)) {
-      this.grassEffectManager.create(this.tileX, this.tileY, skipAnimation, 'player');
+    if (behavior !== undefined) {
+      if (isTallGrassBehavior(behavior)) {
+        this.grassEffectManager.create(tileX, tileY, 'tall', skipAnimation, 'player');
+        this.currentGrassType = null; // Tall grass doesn't clip player
+      } else if (isLongGrassBehavior(behavior)) {
+        this.grassEffectManager.create(tileX, tileY, 'long', skipAnimation, 'player');
+        this.currentGrassType = 'long'; // Long grass clips player bottom half
+      } else {
+        this.currentGrassType = null;
+      }
+    } else {
+      this.currentGrassType = null;
     }
   }
 
@@ -776,5 +807,12 @@ export class PlayerController {
    */
   public getGrassEffectManager(): GrassEffectManager {
     return this.grassEffectManager;
+  }
+
+  /**
+   * Check if player is currently on long grass (for sprite clipping).
+   */
+  public isOnLongGrass(): boolean {
+    return this.currentGrassType === 'long';
   }
 }

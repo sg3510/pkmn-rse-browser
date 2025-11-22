@@ -1,7 +1,7 @@
 // Behavior constants derived from public/pokeemerald/include/constants/metatile_behaviors.h
-import { MB_TALL_GRASS } from './metatileBehaviors.generated';
+import { MB_TALL_GRASS, MB_LONG_GRASS } from './metatileBehaviors.generated';
 
-export { MB_TALL_GRASS };
+export { MB_TALL_GRASS, MB_LONG_GRASS };
 
 export const MB_POND_WATER = 16;
 export const MB_INTERIOR_DEEP_WATER = 17;
@@ -175,4 +175,8 @@ export function isWarpBehavior(behavior: number): boolean {
 
 export function isTallGrassBehavior(behavior: number): boolean {
   return behavior === MB_TALL_GRASS;
+}
+
+export function isLongGrassBehavior(behavior: number): boolean {
+  return behavior === MB_LONG_GRASS;
 }
