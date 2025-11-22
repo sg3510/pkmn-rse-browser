@@ -1469,6 +1469,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       renderCtx: RenderContext,
       pass: 'background' | 'top',
       skipAnimated: boolean,
+      onlyAnimated: boolean,
       startTileX: number,
       startTileY: number,
       tilesWide: number,
@@ -1521,14 +1522,22 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const tileSource = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
 
               if (skipAnimated) {
-                const shouldSkip =
-                  tileSource === 'primary'
-                    ? animatedTileIds.primary.has(tile.tileId)
-                    : animatedTileIds.secondary.has(tile.tileId);
-                const skipsForTopPass = pass === 'top' && layer === 1 && shouldSkip;
-                const skipsForBottomPass = pass === 'background' && shouldSkip;
-                if (skipsForTopPass || skipsForBottomPass) continue;
-              }
+              const shouldSkip =
+                tileSource === 'primary'
+                  ? animatedTileIds.primary.has(tile.tileId)
+                  : animatedTileIds.secondary.has(tile.tileId);
+              const skipsForTopPass = pass === 'top' && layer === 1 && shouldSkip;
+              const skipsForBottomPass = pass === 'background' && shouldSkip;
+              if (skipsForTopPass || skipsForBottomPass) continue;
+            }
+
+            if (onlyAnimated) {
+              const isAnimatedTile =
+                tileSource === 'primary'
+                  ? animatedTileIds.primary.has(tile.tileId)
+                  : animatedTileIds.secondary.has(tile.tileId);
+              if (!isAnimatedTile) continue;
+            }
 
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
@@ -1608,6 +1617,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         ctx,
         pass,
         skipAnimated,
+        false,
         view.worldStartTileX,
         view.worldStartTileY,
         view.tilesWide,
@@ -1765,7 +1775,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       
       mainCtx.clearRect(0, 0, widthPx, heightPx);
       
-      const animHash = usingChunkCache ? getAnimationStateHash(ctx) : '';
+      const animHash = usingChunkCache ? 'static' : getAnimationStateHash(ctx);
 
       if (USE_HARDWARE_RENDERING) {
         // Hardware-accelerated Canvas mode - direct drawImage
@@ -1776,6 +1786,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               ctx,
               'background',
               false,
+              false,
               region.startTileX,
               region.startTileY,
               region.width,
@@ -1783,6 +1794,21 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             );
           };
           chunkManagerRef.current.drawLayer(mainCtx, view, 'background', animHash, renderBackgroundChunk);
+          // Draw animated tiles as a lightweight overlay (no cache key churn)
+          mainCtx.save();
+          mainCtx.translate(offsetX, offsetY);
+          drawRegionToContext(
+            mainCtx,
+            ctx,
+            'background',
+            false,
+            true, // only animated tiles
+            view.worldStartTileX,
+            view.worldStartTileY,
+            view.tilesWide,
+            view.tilesHigh
+          );
+          mainCtx.restore();
         } else if (backgroundCanvasDataRef.current) {
           mainCtx.drawImage(backgroundCanvasDataRef.current, offsetX, offsetY);
         }

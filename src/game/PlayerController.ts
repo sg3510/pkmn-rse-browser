@@ -126,7 +126,7 @@ class NormalState implements PlayerState {
 
 class RunningState implements PlayerState {
   // Running speed is double walking speed
-  private readonly SPEED = 0.12;
+  private readonly SPEED = 1;//0.12;
 
   enter(_controller: PlayerController): void {
     // controller.setSprite('running');
