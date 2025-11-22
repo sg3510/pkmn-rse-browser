@@ -145,7 +145,9 @@ export class MapManager {
         })
         .filter((warp): warp is WarpEvent => !!warp);
     } catch (err) {
-      console.warn(`Failed to load warp events for ${entry.id}:`, err);
+      if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+        console.warn(`Failed to load warp events for ${entry.id}:`, err);
+      }
       return [];
     }
   }
@@ -233,7 +235,9 @@ export class MapManager {
           );
           queue.push({ map: neighbor, offsetX, offsetY, depth: current.depth + 1 });
         } catch (err) {
-          console.warn(`Failed to load connected map ${connection.map}:`, err);
+          if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+            console.warn(`Failed to load connected map ${connection.map}:`, err);
+          }
         }
       }
     }

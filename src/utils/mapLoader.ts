@@ -22,10 +22,25 @@ export interface Metatile {
   attributes?: MetatileAttributes;
 }
 
+/**
+ * Represents a single map tile with all its data from map.bin
+ * 
+ * Reference: public/pokeemerald/include/global.fieldmap.h:4-19
+ * Map grid blocks consist of:
+ * - 10 bit metatile id (bits 0-9)
+ * - 2 bit collision value (bits 10-11)
+ * - 4 bit elevation value (bits 12-15)
+ */
+export interface MapTileData {
+  metatileId: number;   // Bits 0-9
+  collision: number;    // Bits 10-11
+  elevation: number;    // Bits 12-15
+}
+
 export interface MapData {
   width: number;
   height: number;
-  layout: number[]; // Array of metatile IDs
+  layout: MapTileData[]; // CHANGED: was number[], now MapTileData[]
 }
 
 export interface Tileset {
@@ -38,6 +53,18 @@ export const NUM_TILES_PER_METATILE = 8;
 export const TILE_SIZE = 8;
 export const METATILE_SIZE = 16;
 export const TILES_PER_ROW_IN_IMAGE = 16; // 128px / 8px
+
+/**
+ * Bit masks and shifts for map.bin tile data
+ * Reference: public/pokeemerald/include/global.fieldmap.h:7-12
+ */
+const MAPGRID_METATILE_ID_MASK = 0x03FF;  // Bits 0-9
+const MAPGRID_COLLISION_MASK = 0x0C00;    // Bits 10-11
+const MAPGRID_ELEVATION_MASK = 0xF000;    // Bits 12-15
+
+const MAPGRID_METATILE_ID_SHIFT = 0;
+const MAPGRID_COLLISION_SHIFT = 10;
+const MAPGRID_ELEVATION_SHIFT = 12;
 
 export async function loadText(url: string): Promise<string> {
   const response = await fetch(url);
@@ -91,7 +118,10 @@ export async function loadTilesetImage(url: string): Promise<Uint8Array> {
     return new Uint8Array(img.data);
   }
   
-  console.warn('Tileset image is not indexed (ctype != 3). This might cause issues.', url);
+  // Only warn if debug mode is enabled
+  if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+    console.warn('Tileset image is not indexed (ctype != 3). This might cause issues.', url);
+  }
   return new Uint8Array(img.data);
 }
 
@@ -134,14 +164,30 @@ export async function loadMetatileAttributes(url: string): Promise<MetatileAttri
   return attributes;
 }
 
+/**
+ * Parse a single 16-bit map tile value into its components
+ * 
+ * Reference: public/pokeemerald/include/global.fieldmap.h:17-19
+ */
+export function parseMapTile(value: number): MapTileData {
+  return {
+    metatileId: (value & MAPGRID_METATILE_ID_MASK) >>> MAPGRID_METATILE_ID_SHIFT,
+    collision: (value & MAPGRID_COLLISION_MASK) >>> MAPGRID_COLLISION_SHIFT,
+    elevation: (value & MAPGRID_ELEVATION_MASK) >>> MAPGRID_ELEVATION_SHIFT,
+  };
+}
+
 export async function loadMapLayout(url: string, width: number, height: number): Promise<MapData> {
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
-  const layout: number[] = [];
-  // Map bin is just a sequence of uint16 metatile IDs
+  const layout: MapTileData[] = [];
+  
+  // Parse each 16-bit value into structured tile data
   for (let i = 0; i < width * height; i++) {
-    layout.push(view.getUint16(i * 2, true));
+    const value = view.getUint16(i * 2, true);
+    layout.push(parseMapTile(value));
   }
+  
   return { width, height, layout };
 }
 
@@ -156,20 +202,20 @@ export async function loadBorderMetatiles(url: string): Promise<number[]> {
   return metatiles;
 }
 
-// Collision bits from map.bin (bits 10-11)
-export function getCollisionFromMapTile(mapTile: number): number {
-  return (mapTile >> 10) & 0x3;
-}
-
-// Metatile ID from map.bin (bits 0-9)
-export function getMetatileIdFromMapTile(mapTile: number): number {
-  return mapTile & 0x3FF;
-}
-
 // Check if a tile is passable based on collision bits
 // In pokeemerald: 0 = passable, 1-3 = impassable
 export function isCollisionPassable(collision: number): boolean {
   return collision === 0;
+}
+
+// Helper for backward compatibility - extracts collision from MapTileData
+export function getCollisionFromMapTile(mapTileData: MapTileData): number {
+  return mapTileData.collision;
+}
+
+// Helper for backward compatibility - extracts metatileId from MapTileData
+export function getMetatileIdFromMapTile(mapTileData: MapTileData): number {
+  return mapTileData.metatileId;
 }
 
 // Metatile layer type constants (from pokeemerald)

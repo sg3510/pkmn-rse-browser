@@ -1,5 +1,5 @@
-import type { MetatileAttributes } from '../utils/mapLoader';
-import { getCollisionFromMapTile, isCollisionPassable } from '../utils/mapLoader';
+import type { MetatileAttributes, MapTileData } from '../utils/mapLoader';
+import { isCollisionPassable } from '../utils/mapLoader';
 import {
   MB_POND_WATER,
   MB_INTERIOR_DEEP_WATER,
@@ -30,8 +30,14 @@ import {
 } from '../utils/metatileBehaviors';
 import { GrassEffectManager } from './GrassEffectManager';
 
+// Helper to check if debug mode is enabled
+const DEBUG_MODE_FLAG = 'DEBUG_MODE';
+function isDebugMode(): boolean {
+  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
+}
+
 export interface ResolvedTileInfo {
-  mapTile: number;
+  mapTile: MapTileData;  // CHANGED: was number, now MapTileData
   attributes?: MetatileAttributes;
 }
 
@@ -278,6 +284,19 @@ export class PlayerController {
   private prevTileY: number;
   private prevTileBehavior: number | undefined;
   
+  /**
+   * Player's current elevation (from current tile)
+   * Reference: ObjectEvent.currentElevation in public/pokeemerald/include/global.fieldmap.h
+   */
+  private currentElevation: number = 0;
+  
+  /**
+   * Player's previous elevation (used for collision checks)
+   * Reference: ObjectEvent.previousElevation and PlayerGetElevation()
+   * in public/pokeemerald/src/field_player_avatar.c:1188
+   */
+  private previousElevation: number = 0;
+  
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
   private readonly SPRITE_HEIGHT = 32;
@@ -351,6 +370,22 @@ export class PlayerController {
     this.isMoving = false;
     this.pixelsMoved = 0;
     
+    // Initialize elevation from spawn tile
+    const resolved = this.tileResolver?.(this.tileX, this.tileY);
+    if (resolved) {
+      this.currentElevation = resolved.mapTile.elevation;
+      this.previousElevation = resolved.mapTile.elevation;
+      if (isDebugMode()) {
+        console.log(`[SPAWN] Player spawned at (${tileX}, ${tileY}) with elevation ${this.previousElevation}, metatile ${resolved.mapTile.metatileId}`);
+      }
+    } else {
+      this.currentElevation = 0;
+      this.previousElevation = 0;
+      if (isDebugMode()) {
+        console.warn(`[SPAWN] Player spawned at (${tileX}, ${tileY}) but tile not found, defaulting to elevation 0`);
+      }
+    }
+    
     // Initialize previous tile state to current position
     this.updatePreviousTileState();
     // Check if spawning on tall grass (skip animation)
@@ -360,6 +395,66 @@ export class PlayerController {
   public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
     this.setPosition(tileX, tileY);
     this.dir = dir;
+  }
+
+  /**
+   * Get the player's elevation for collision detection
+   * 
+   * Reference: public/pokeemerald/src/field_player_avatar.c:1188
+   * Returns previousElevation, which is the elevation of the tile
+   * the player is currently standing on.
+   */
+  public getElevation(): number {
+    return this.previousElevation;
+  }
+
+  /**
+   * Update player elevation based on current tile
+   * 
+   * Reference: UpdateObjectEventCurrentMovement() and related functions
+   * in public/pokeemerald/src/event_object_movement.c
+   * 
+   * IMPORTANT: In GBA, "previousElevation" represents the elevation of the tile
+   * the player is CURRENTLY standing on (used for collision checks).
+   * After completing movement, both previousElevation and currentElevation
+   * should be set to the new tile's elevation.
+   */
+  private updateElevation(): void {
+    const resolved = this.tileResolver?.(this.tileX, this.tileY);
+    
+    if (resolved) {
+      // Both should reflect the tile we're NOW standing on
+      // This is the stable elevation used for collision detection
+      const oldElevation = this.previousElevation;
+      const mapElevation = resolved.mapTile.elevation;
+      
+      // IMPORTANT: Elevation 15 is UNIVERSAL.
+      // If we step onto a Universal tile, we PRESERVE our previous elevation.
+      // This ensures that if we walk from Elev 4 -> Elev 15, we are still effectively at Elev 4.
+      // This prevents us from walking off the bridge onto Elev 3 tiles.
+      // Reference: public/pokeemerald/src/event_object_movement.c (implied logic)
+      let newElevation = mapElevation;
+      if (mapElevation === 15) {
+        newElevation = oldElevation;
+      }
+      
+      this.currentElevation = newElevation;
+      this.previousElevation = newElevation;
+      
+      if (isDebugMode()) {
+        if (oldElevation !== newElevation) {
+          console.log(`[ELEVATION] Player elevation changed: ${oldElevation} → ${newElevation} at tile (${this.tileX}, ${this.tileY}) (Map Elev: ${mapElevation})`);
+        } else {
+          console.log(`[ELEVATION] Player elevation unchanged: ${newElevation} at tile (${this.tileX}, ${this.tileY}) (Map Elev: ${mapElevation})`);
+        }
+      }
+    } else {
+      // Out of bounds - keep current elevation
+      if (isDebugMode()) {
+        console.warn(`[ELEVATION] Out of bounds at (${this.tileX}, ${this.tileY}), keeping elevation ${this.currentElevation}`);
+      }
+      this.previousElevation = this.currentElevation;
+    }
   }
 
   public lockInput() {
@@ -424,10 +519,20 @@ export class PlayerController {
         else if (this.dir === 'left') dx = -1;
         else if (this.dir === 'right') dx = 1;
 
+        const oldTileX = this.tileX;
+        const oldTileY = this.tileY;
+        
         this.tileX += dx;
         this.tileY += dy;
         this.x = this.tileX * this.TILE_PIXELS;
         this.y = this.tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
+        
+        if (isDebugMode()) {
+          console.log(`[MOVEMENT] Completed move from (${oldTileX}, ${oldTileY}) → (${this.tileX}, ${this.tileY})`);
+        }
+        
+        // Update elevation when changing tiles
+        this.updateElevation();
         
         // Alternate walk frame for next tile
         this.walkFrameAlternate = !this.walkFrameAlternate;
@@ -440,7 +545,7 @@ export class PlayerController {
 
         didRenderMove = true;
         
-        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
+        if (isDebugMode()) {
           console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
         }
       } else {
@@ -453,7 +558,7 @@ export class PlayerController {
         else if (this.dir === 'left') this.x -= moveAmount;
         else if (this.dir === 'right') this.x += moveAmount;
         
-        if ((window as unknown as { DEBUG_PLAYER?: boolean }).DEBUG_PLAYER) {
+        if (isDebugMode()) {
           console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
         }
 
@@ -492,6 +597,10 @@ export class PlayerController {
     if (attemptMove) {
       this.dir = newDir;
       
+      if (isDebugMode()) {
+        console.log(`[INPUT] Attempting to move ${newDir} from (${this.tileX}, ${this.tileY})`);
+      }
+      
       // Give door interactions a chance to consume input before collision/movement.
       const handled = this.tryInteract(newDir);
       if (handled) {
@@ -501,6 +610,10 @@ export class PlayerController {
       // Check collision at target tile
       const targetTileX = this.tileX + dx;
       const targetTileY = this.tileY + dy;
+      
+      if (isDebugMode()) {
+        console.log(`[INPUT] Target tile: (${targetTileX}, ${targetTileY})`);
+      }
       
       const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
       const behavior = resolved?.attributes?.behavior ?? -1;
@@ -512,6 +625,9 @@ export class PlayerController {
       const isOnArrowWarp = isArrowWarpBehavior(currentBehavior);
 
       if (!blocked) {
+        if (isDebugMode()) {
+          console.log(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
+        }
         // Create sand footprint as we START to move off current tile
         this.checkAndTriggerSandFootprints();
         
@@ -519,7 +635,9 @@ export class PlayerController {
         this.pixelsMoved = 0;
         // Grass effect will be triggered at the end of movement in processMovement
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
-        console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
+        if (isDebugMode()) {
+          console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
+        }
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
       } else if (this.doorWarpHandler && isOnArrowWarp) {
         let arrowDir: 'up' | 'down' | 'left' | 'right' | null = null;
@@ -530,6 +648,10 @@ export class PlayerController {
         
         if (arrowDir && arrowDir === newDir) {
           this.doorWarpHandler({ targetX: this.tileX, targetY: this.tileY, behavior: currentBehavior });
+        }
+      } else {
+        if (isDebugMode()) {
+          console.warn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
         }
       }
     }
@@ -579,38 +701,133 @@ export class PlayerController {
     };
   }
 
+  /**
+   * Check if there is an elevation mismatch between player and target tile
+   * 
+   * Reference: IsElevationMismatchAt() in public/pokeemerald/src/event_object_movement.c:7707
+   * 
+   * Logic:
+   * - Ground level (elevation 0) can move anywhere (unless blocked by other collision)
+   * - Tiles with elevation 0 or 15 are accessible from any player elevation
+   * - Different non-zero elevations cannot interact (collision)
+   * 
+   * @param tileX Target tile X coordinate
+   * @param tileY Target tile Y coordinate
+   * @returns true if elevation mismatch prevents movement
+   */
+  private isElevationMismatchAt(tileX: number, tileY: number): boolean {
+    const playerElevation = this.previousElevation;
+    
+    // Ground level (0) can go anywhere
+    // Reference: public/pokeemerald/src/event_object_movement.c:7711-7712
+    if (playerElevation === 0) {
+      if (isDebugMode()) {
+        console.log(`[ELEVATION] Player at ground level (0), can move to (${tileX}, ${tileY})`);
+      }
+      return false;
+    }
+    
+    const resolved = this.tileResolver?.(tileX, tileY);
+    if (!resolved) {
+      if (isDebugMode()) {
+        console.warn(`[ELEVATION] Target tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
+      }
+      return true; // Out of bounds = mismatch
+    }
+    
+    const tileElevation = resolved.mapTile.elevation;
+    
+    // Tiles with elevation 0 or 15 are accessible from any elevation
+    // Reference: public/pokeemerald/src/event_object_movement.c:7716-7717
+    if (tileElevation === 0 || tileElevation === 15) {
+      if (isDebugMode()) {
+        console.log(`[ELEVATION] Target (${tileX}, ${tileY}) is universal (elev ${tileElevation}), player at ${playerElevation} can access - ALLOWED`);
+      }
+      return false;
+    }
+
+    // Player elevation 15 is also universal (can access any target elevation)
+    if (playerElevation === 15) {
+      if (isDebugMode()) {
+        console.log(`[ELEVATION] Player is universal (elev 15), can access target (${tileX}, ${tileY}) at ${tileElevation} - ALLOWED`);
+      }
+      return false;
+    }
+    
+    // Different non-zero elevations = mismatch = COLLISION
+    // Reference: public/pokeemerald/src/event_object_movement.c:7719-7720
+    if (tileElevation !== playerElevation) {
+      if (isDebugMode()) {
+        console.warn(`[ELEVATION MISMATCH] Player at elevation ${playerElevation} CANNOT move to (${tileX}, ${tileY}) at elevation ${tileElevation} - BLOCKED`);
+      }
+      return true;
+    }
+    
+    if (isDebugMode()) {
+      console.log(`[ELEVATION] Player at ${playerElevation} can move to (${tileX}, ${tileY}) at ${tileElevation} - ALLOWED`);
+    }
+    return false;
+  }
+
   private isCollisionAt(tileX: number, tileY: number): boolean {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
-    if (!resolved) return true; // Out of bounds = collision
+    if (!resolved) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
+      }
+      return true; // Out of bounds = collision
+    }
+    
     const mapTile = resolved.mapTile;
-    // Get metatile ID and check behavior
     const attributes = resolved.attributes;
+    
     if (!attributes) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) has no attributes - PASSABLE`);
+      }
       return false; // No attributes = passable
     }
     
-    // Check behavior (MB_* constants)
     const behavior = attributes.behavior;
+    const metatileId = mapTile.metatileId;
+    const collision = mapTile.collision;
+    const elevation = mapTile.elevation;
 
     // Special case: MB_SAND and MB_DEEP_SAND should be walkable
-    // Even if collision bits are set (may be decorative placement)
-    // This allows testing sand footprints
     const isSand = behavior === MB_SAND || behavior === MB_DEEP_SAND;
     if (isSand) {
-      // Sand is always walkable (override map collision bits)
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is sand - PASSABLE`);
+      }
       return false;
     }
 
     // Check collision bits from map.bin (bits 10-11)
-    const collision = getCollisionFromMapTile(mapTile);
     if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) {
-      return true; // Collision bit set
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} has collision bit=${collision}, behavior=${behavior} - BLOCKED`);
+      }
+      return true;
+    }
+
+    // Elevation mismatch check
+    // Reference: public/pokeemerald/src/event_object_movement.c:4667
+    if (this.isElevationMismatchAt(tileX, tileY)) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH`);
+      }
+      return true; // COLLISION_ELEVATION_MISMATCH
     }
 
     // Impassable behaviors
-    if (behavior === 1) return true; // MB_SECRET_BASE_WALL
+    if (behavior === 1) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is SECRET_BASE_WALL - BLOCKED`);
+      }
+      return true;
+    }
 
-    // Surfable/deep water and waterfalls require surf; puddles/shallow water remain walkable.
+    // Surfable/deep water and waterfalls require surf
     const surfBlockers = new Set<number>([
       MB_POND_WATER,
       MB_INTERIOR_DEEP_WATER,
@@ -623,10 +840,24 @@ export class PlayerController {
       MB_SEAWEED,
       MB_SEAWEED_NO_SURFACING,
     ]);
-    if (surfBlockers.has(behavior)) return true;
+    if (surfBlockers.has(behavior)) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water (behavior=${behavior}) without surf - BLOCKED`);
+      }
+      return true;
+    }
 
-    if (behavior >= 48 && behavior <= 55) return true; // Directionally impassable
+    // Directionally impassable
+    if (behavior >= 48 && behavior <= 55) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
+      }
+      return true;
+    }
     
+    if (isDebugMode()) {
+      console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE`);
+    }
     return false; // Passable
   }
 

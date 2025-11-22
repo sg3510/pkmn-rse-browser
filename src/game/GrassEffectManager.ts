@@ -8,6 +8,12 @@
  * - src/event_object_movement.c: Ground effect triggers
  */
 
+// Helper to check if debug mode is enabled
+const DEBUG_MODE_FLAG = 'DEBUG_MODE';
+function isDebugMode(): boolean {
+  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
+}
+
 export interface GrassEffect {
   id: string;
   tileX: number;
@@ -115,7 +121,7 @@ export class GrassEffectManager {
     this.effects.set(id, effect);
     
     // Debug logging
-    if (type === 'tall') {
+    if (isDebugMode() && type === 'tall') {
       console.log(`[GRASS] Created tall grass effect ${id} at (${tileX}, ${tileY}), skipAnimation=${skipAnimation}, frame=${initialFrame}, completed=${effect.completed}`);
     }
     
@@ -144,7 +150,9 @@ export class GrassEffectManager {
             effect.animationFrame = TALL_GRASS_ANIMATION_SEQUENCE[effect.sequenceIndex];
           } else {
             effect.completed = true;
-            console.log(`[GRASS] Tall grass effect ${effect.id} animation completed at frame ${effect.animationFrame}`);
+            if (isDebugMode()) {
+              console.log(`[GRASS] Tall grass effect ${effect.id} animation completed at frame ${effect.animationFrame}`);
+            }
           }
         }
       } else if (effect.type === 'long') {
@@ -205,7 +213,9 @@ export class GrassEffectManager {
         const ownerPos = ownerPositions.get(effect.ownerObjectId);
         if (!ownerPos) {
           // Owner doesn't exist anymore, remove effect
-          console.log(`[GRASS] Removing frame 0 effect ${id} - owner doesn't exist`);
+          if (isDebugMode()) {
+            console.log(`[GRASS] Removing frame 0 effect ${id} - owner doesn't exist`);
+          }
           this.effects.delete(id);
           continue;
         }
@@ -214,11 +224,13 @@ export class GrassEffectManager {
         const ownerMoved = ownerPos.tileX !== effect.tileX || ownerPos.tileY !== effect.tileY;
         
         if (ownerMoved) {
-          console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner moved to (${ownerPos.tileX}, ${ownerPos.tileY})`);
+          if (isDebugMode()) {
+            console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner moved to (${ownerPos.tileX}, ${ownerPos.tileY})`);
+          }
           this.effects.delete(id);
         } else {
           // Keep the frame 0 effect (player still on grass)
-          if (Math.random() < 0.01) {
+          if (isDebugMode() && Math.random() < 0.01) {
             console.log(`[GRASS] Keeping frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner still there`);
           }
         }

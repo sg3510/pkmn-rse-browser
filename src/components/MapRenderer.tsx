@@ -7,6 +7,7 @@ import {
   type Metatile,
   type Palette,
   type MetatileAttributes,
+  type MapTileData,
   METATILE_SIZE,
   TILE_SIZE,
   TILES_PER_ROW_IN_IMAGE,
@@ -14,6 +15,7 @@ import {
   METATILE_LAYER_TYPE_COVERED,
   METATILE_LAYER_TYPE_SPLIT,
   getMetatileIdFromMapTile,
+  isCollisionPassable,
 } from '../utils/mapLoader';
 import {
   TILESET_ANIMATION_CONFIGS,
@@ -40,6 +42,11 @@ const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
 const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
 const NUM_PRIMARY_METATILES = 512;
+
+// Helper to check if debug mode is enabled
+function isDebugMode(): boolean {
+  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
+}
 
 interface MapRendererProps {
   mapId: string;
@@ -117,7 +124,7 @@ interface ResolvedTile {
   tileset: TilesetResources;
   metatile: Metatile | null;
   attributes: MetatileAttributes | undefined;
-  mapTile: number;
+  mapTile: MapTileData;  // CHANGED: was number, now MapTileData
   isSecondary: boolean;
   isBorder: boolean;
 }
@@ -342,7 +349,7 @@ const DOOR_ASSET_MAP: Array<{ metatileIds: number[]; path: string; size: DoorSiz
   { metatileIds: [], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 }, // Default fallback
 ];
 const DOOR_FADE_DURATION = 500;
-const DOOR_DEBUG_FLAG = 'DEBUG_DOOR_ANIM';
+const DEBUG_MODE_FLAG = 'DEBUG_MODE'; // Global debug flag for console logging
 const ARROW_SPRITE_PATH = `${PROJECT_ROOT}/graphics/field_effects/pics/arrow.png`;
 const ARROW_FRAME_SIZE = METATILE_SIZE;
 const ARROW_FRAME_DURATION_MS = 533; // GBA uses 32 ticks @ 60fps ≈ 533ms per frame
@@ -369,7 +376,7 @@ interface DebugTileInfo {
   inBounds: boolean;
   tileX: number;
   tileY: number;
-  mapTile?: number;
+  mapTile?: MapTileData;  // CHANGED: was number, now MapTileData
   metatileId?: number;
   isSecondary?: boolean;
   behavior?: number;
@@ -391,6 +398,30 @@ interface DebugTileInfo {
   warpKind?: WarpKind | null;
   primaryTilesetId?: string;
   secondaryTilesetId?: string;
+  // Elevation and collision info
+  elevation?: number;
+  collision?: number;
+  collisionPassable?: boolean;
+  // Rendering debug info
+  playerElevation?: number;
+  isLedge?: boolean;
+  ledgeDirection?: string;
+  bottomLayerTransparency?: number; // 0-256 (number of transparent pixels out of 256)
+  topLayerTransparency?: number;
+  renderedInBackgroundPass?: boolean;
+  renderedInTopBelowPass?: boolean;
+  renderedInTopAbovePass?: boolean;
+  topBelowPassReason?: string; // Why this tile was/wasn't filtered
+  topAbovePassReason?: string;
+  // Detailed tile info
+  bottomTileDetails?: string[];
+  topTileDetails?: string[];
+  adjacentTileInfo?: {
+    north?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    south?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    east?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    west?: { metatileId: number; layerType: number; layerTypeLabel: string };
+  };
 }
 
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
@@ -418,7 +449,7 @@ function getDoorAssetForMetatile(metatileId: number): { path: string; size: Door
 }
 
 function logDoor(...args: unknown[]) {
-  if ((window as unknown as Record<string, boolean>)[DOOR_DEBUG_FLAG]) {
+  if (isDebugMode()) {
     // eslint-disable-next-line no-console
     console.log('[door]', ...args);
   }
@@ -690,8 +721,8 @@ function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: numbe
     const localX = worldTileX - map.offsetX;
     const localY = worldTileY - map.offsetY;
     const idx = localY * map.mapData.width + localX;
-    const mapTile = map.mapData.layout[idx];
-    const metatileId = getMetatileIdFromMapTile(mapTile);
+    const mapTileData = map.mapData.layout[idx];  // Now MapTileData
+    const metatileId = mapTileData.metatileId;     // Direct property access
     const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
     const metatile = isSecondary
       ? map.tilesets.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES] ?? null
@@ -704,7 +735,7 @@ function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: numbe
       tileset: map.tilesets,
       metatile,
       attributes,
-      mapTile,
+      mapTile: mapTileData,  // Full MapTileData object
       isSecondary,
       isBorder: false,
     };
@@ -725,7 +756,12 @@ function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: numbe
   const attributes = isSecondary
     ? anchor.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
     : anchor.tilesets.primaryAttributes[borderMetatileId];
-  const mapTile = borderMetatileId | (1 << 10); // mark as impassable like pokeemerald border
+  // Border tiles: create MapTileData with impassable collision, elevation 0
+  const mapTile: MapTileData = {
+    metatileId: borderMetatileId,
+    collision: 1, // Impassable like pokeemerald border
+    elevation: 0, // Border tiles are always ground level
+  };
   return {
     map: anchor,
     tileset: anchor.tilesets,
@@ -753,7 +789,7 @@ function getMetatileBehavior(
   if (!resolved) return null;
   const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
   if (!runtime) return null;
-  const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+  const metatileId = resolved.mapTile.metatileId;  // Direct property access
   const meta = resolved.isSecondary
     ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
     : runtime.primaryReflectionMeta[metatileId];
@@ -770,20 +806,22 @@ function detectWarpTrigger(ctx: RenderContext, player: PlayerController): WarpTr
   const warpEvent = findWarpEventAt(resolved.map, player.tileX, player.tileY);
   if (!warpEvent) return null;
   const behavior = resolved.attributes?.behavior ?? -1;
-  const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+  const metatileId = resolved.mapTile.metatileId;  // Direct property access
   const kind = classifyWarpKind(behavior) ?? 'teleport';
   
-  console.log('[DETECT_WARP_TRIGGER]', {
-    tileX: player.tileX,
-    tileY: player.tileY,
-    metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
-    behavior,
-    classifiedKind: kind,
-    isDoor: isDoorBehavior(behavior),
-    isArrow: isArrowWarpBehavior(behavior),
-    isTeleport: isTeleportWarpBehavior(behavior),
-    destMap: warpEvent.destMap,
-  });
+  if (isDebugMode()) {
+    console.log('[DETECT_WARP_TRIGGER]', {
+      tileX: player.tileX,
+      tileY: player.tileY,
+      metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+      behavior,
+      classifiedKind: kind,
+      isDoor: isDoorBehavior(behavior),
+      isArrow: isArrowWarpBehavior(behavior),
+      isTeleport: isTeleportWarpBehavior(behavior),
+      destMap: warpEvent.destMap,
+    });
+  }
   
   // Skip arrow warps until forced-movement handling is implemented.
   if (kind === 'arrow') return null;
@@ -812,7 +850,8 @@ function layerTypeToLabel(layerType: number): string {
 function describeTile(
   ctx: RenderContext,
   tileX: number,
-  tileY: number
+  tileY: number,
+  player?: PlayerController | null
 ): DebugTileInfo {
   const resolved = resolveTileAt(ctx, tileX, tileY);
   if (!resolved || !resolved.metatile) {
@@ -821,7 +860,7 @@ function describeTile(
 
   const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
   const mapTile = resolved.mapTile;
-  const metatileId = getMetatileIdFromMapTile(mapTile);
+  const metatileId = mapTile.metatileId;  // Direct property access
   const isSecondary = resolved.isSecondary;
   const attr = resolved.attributes;
   const meta = resolved.metatile;
@@ -840,7 +879,162 @@ function describeTile(
   const localY = tileY - resolved.map.offsetY;
   const warpEvent = findWarpEventAt(resolved.map, tileX, tileY);
   const warpKind = behavior !== undefined ? classifyWarpKind(behavior) : null;
-  const paletteIndex = (mapTile >> 12) & 0xF; // Extract palette bits from map tile
+  const paletteIndex = (metatileId >> 12) & 0xF; // Extract palette bits
+  
+  // Elevation and collision info
+  const elevation = mapTile.elevation;
+  const collision = mapTile.collision;
+  const collisionPassable = isCollisionPassable(collision);
+  
+  // Ledge detection
+  const isLedge = behavior === 0x62 || behavior === 0x63 || behavior === 0x64 || behavior === 0x65;
+  let ledgeDirection = undefined;
+  if (behavior === 0x62) ledgeDirection = 'SOUTH';
+  else if (behavior === 0x63) ledgeDirection = 'NORTH';
+  else if (behavior === 0x64) ledgeDirection = 'WEST';
+  else if (behavior === 0x65) ledgeDirection = 'EAST';
+  
+  // Transparency calculation for layers
+  let bottomLayerTransparency = 0;
+  let topLayerTransparency = 0;
+  const bottomTileDetails: string[] = [];
+  const topTileDetails: string[] = [];
+  
+  if (runtime && meta) {
+    const tileMasks = isSecondary ? runtime.secondaryTileMasks : runtime.primaryTileMasks;
+    
+    // Bottom layer (tiles 0-3)
+    for (let i = 0; i < 4; i++) {
+      const tile = meta.tiles[i];
+      const mask = tileMasks[tile.tileId];
+      if (mask) {
+        const transparentPixels = mask.reduce((sum, val) => sum + val, 0);
+        bottomLayerTransparency += transparentPixels;
+        bottomTileDetails.push(
+          `Tile ${i}: ID=${tile.tileId}, Pal=${tile.palette}, Flip=${tile.xflip ? 'X' : ''}${tile.yflip ? 'Y' : ''}, Transparent=${transparentPixels}/64px`
+        );
+      }
+    }
+    
+    // Top layer (tiles 4-7)
+    for (let i = 4; i < 8; i++) {
+      const tile = meta.tiles[i];
+      const mask = tileMasks[tile.tileId];
+      if (mask) {
+        const transparentPixels = mask.reduce((sum, val) => sum + val, 0);
+        topLayerTransparency += transparentPixels;
+        topTileDetails.push(
+          `Tile ${i}: ID=${tile.tileId}, Pal=${tile.palette}, Flip=${tile.xflip ? 'X' : ''}${tile.yflip ? 'Y' : ''}, Transparent=${transparentPixels}/64px`
+        );
+      }
+    }
+  }
+  
+  // Get adjacent tile information
+  const adjacentTileInfo: {
+    north?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    south?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    east?: { metatileId: number; layerType: number; layerTypeLabel: string };
+    west?: { metatileId: number; layerType: number; layerTypeLabel: string };
+  } = {};
+  
+  const northTile = resolveTileAt(ctx, tileX, tileY - 1);
+  if (northTile?.metatile && northTile.attributes) {
+    adjacentTileInfo.north = {
+      metatileId: northTile.mapTile.metatileId,
+      layerType: northTile.attributes.layerType,
+      layerTypeLabel: layerTypeToLabel(northTile.attributes.layerType),
+    };
+  }
+  
+  const southTile = resolveTileAt(ctx, tileX, tileY + 1);
+  if (southTile?.metatile && southTile.attributes) {
+    adjacentTileInfo.south = {
+      metatileId: southTile.mapTile.metatileId,
+      layerType: southTile.attributes.layerType,
+      layerTypeLabel: layerTypeToLabel(southTile.attributes.layerType),
+    };
+  }
+  
+  const eastTile = resolveTileAt(ctx, tileX + 1, tileY);
+  if (eastTile?.metatile && eastTile.attributes) {
+    adjacentTileInfo.east = {
+      metatileId: eastTile.mapTile.metatileId,
+      layerType: eastTile.attributes.layerType,
+      layerTypeLabel: layerTypeToLabel(eastTile.attributes.layerType),
+    };
+  }
+  
+  const westTile = resolveTileAt(ctx, tileX - 1, tileY);
+  if (westTile?.metatile && westTile.attributes) {
+    adjacentTileInfo.west = {
+      metatileId: westTile.mapTile.metatileId,
+      layerType: westTile.attributes.layerType,
+      layerTypeLabel: layerTypeToLabel(westTile.attributes.layerType),
+    };
+  }
+  
+  // Player elevation comparison
+  const playerElevation = player?.getElevation();
+  
+  // Rendering pass calculation (same logic as compositeScene)
+  const renderedInBackgroundPass = true; // Bottom layer always rendered
+  let renderedInTopBelowPass = false;
+  let renderedInTopAbovePass = false;
+  let topBelowPassReason = 'Not applicable';
+  let topAbovePassReason = 'Not applicable';
+  
+  // NORMAL tiles render their top layer in the TOP passes (with elevation filtering)
+  // COVERED tiles render layer 1 in background (both layers behind player)
+  // SPLIT tiles render layer 0 in background, layer 1 in top passes (with elevation filtering)
+  
+  // Check if this is a vertical object (tree, pole, etc.)
+  // This properly excludes bridges which should respect elevation
+  const isVertical = isVerticalObject(ctx, tileX, tileY);
+  
+  if (layerType === METATILE_LAYER_TYPE_COVERED) {
+    // COVERED: Both layers in background pass
+    topBelowPassReason = 'COVERED: both layers render in background pass (behind player)';
+    topAbovePassReason = 'COVERED: both layers render in background pass (behind player)';
+  } else if (layerType === METATILE_LAYER_TYPE_SPLIT || layerType === METATILE_LAYER_TYPE_NORMAL) {
+    // SPLIT and NORMAL: Layer 1 in top passes with elevation filtering
+    if (playerElevation !== undefined) {
+      // CRITICAL: Vertical objects (trees) ALWAYS render after player
+      if (isVertical) {
+        renderedInTopBelowPass = false;
+        topBelowPassReason = `🌳 VERTICAL OBJECT (tree/pole): Always renders AFTER player (topAbove)`;
+        renderedInTopAbovePass = true;
+        topAbovePassReason = `🌳 VERTICAL OBJECT (tree/pole): Always covers player`;
+      } else {
+        // Top Below Pass filter (rendered BEFORE player)
+        if (playerElevation < 4) {
+          renderedInTopBelowPass = false;
+          topBelowPassReason = `Player elev ${playerElevation} < 4: top layer renders AFTER player (topAbove)`;
+        } else if (elevation === playerElevation && collision === 1) {
+          renderedInTopBelowPass = false;
+          topBelowPassReason = `Same elev (${elevation}) + blocked: obstacle covers player (topAbove)`;
+        } else {
+          renderedInTopBelowPass = true;
+          topBelowPassReason = `Player elev ${playerElevation} >= 4: top layer renders BEFORE player`;
+        }
+        
+        // Top Above Pass filter (rendered AFTER player)
+        if (playerElevation < 4) {
+          renderedInTopAbovePass = true;
+          topAbovePassReason = `Player elev ${playerElevation} < 4: top layer covers player`;
+        } else if (elevation === playerElevation && collision === 1) {
+          renderedInTopAbovePass = true;
+          topAbovePassReason = `Same elev (${elevation}) + blocked: obstacle covers player`;
+        } else {
+          renderedInTopAbovePass = false;
+          topAbovePassReason = `Player elev ${playerElevation} >= 4: player covers top layer`;
+        }
+      }
+    } else {
+      topBelowPassReason = 'No player to compare';
+      topAbovePassReason = 'No player to compare';
+    }
+  }
 
   return {
     inBounds: true,
@@ -868,6 +1062,25 @@ function describeTile(
     warpKind,
     primaryTilesetId: resolved.tileset.primaryTilesetId,
     secondaryTilesetId: resolved.tileset.secondaryTilesetId,
+    // Elevation and collision info
+    elevation,
+    collision,
+    collisionPassable,
+    // Rendering debug info
+    playerElevation,
+    isLedge,
+    ledgeDirection,
+    bottomLayerTransparency,
+    topLayerTransparency,
+    renderedInBackgroundPass,
+    renderedInTopBelowPass,
+    renderedInTopAbovePass,
+    topBelowPassReason,
+    topAbovePassReason,
+    // Detailed tile info
+    bottomTileDetails,
+    topTileDetails,
+    adjacentTileInfo,
   };
 }
 
@@ -875,6 +1088,57 @@ function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: number): Br
   const info = getMetatileBehavior(ctx, tileX, tileY);
   if (!info) return 'none';
   return getBridgeTypeFromBehavior(info.behavior);
+}
+
+// Helper function to check if a tile is a vertical object (tree, pole, etc.)
+// Vertical objects should always render their top layer AFTER the player
+function isVerticalObject(ctx: RenderContext, tileX: number, tileY: number): boolean {
+  const resolved = resolveTileAt(ctx, tileX, tileY);
+  if (!resolved || !resolved.metatile || !resolved.attributes) return false;
+  
+  const layerType = resolved.attributes.layerType;
+  
+  // Only NORMAL layer types can be vertical objects
+  // COVERED and SPLIT have different behavior
+  if (layerType !== METATILE_LAYER_TYPE_NORMAL) return false;
+  
+  // Check if this is a bridge tile - bridges are HORIZONTAL platforms
+  // that should respect elevation, NOT vertical objects
+  const behaviorInfo = getMetatileBehavior(ctx, tileX, tileY);
+  if (behaviorInfo) {
+    const behavior = behaviorInfo.behavior;
+    // Bridge behaviors: 112-115 (BRIDGE_OVER_OCEAN/POND), 120 (FORTREE_BRIDGE), 
+    // 122-125 (BRIDGE edges), 127 (BIKE_BRIDGE)
+    const isBridge = (behavior >= 112 && behavior <= 115) || 
+                     behavior === 120 || 
+                     (behavior >= 122 && behavior <= 125) || 
+                     behavior === 127;
+    if (isBridge) return false; // Bridges use elevation-based rendering
+  }
+  
+  const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+  if (!runtime) return false;
+  
+  const metatile = resolved.metatile;
+  const tileMasks = resolved.isSecondary ? runtime.secondaryTileMasks : runtime.primaryTileMasks;
+  
+  // Calculate top layer transparency
+  let topLayerTransparency = 0;
+  for (let i = 4; i < 8; i++) {
+    const tile = metatile.tiles[i];
+    const mask = tileMasks[tile.tileId];
+    if (mask) {
+      topLayerTransparency += mask.reduce((sum, val) => sum + val, 0);
+    }
+  }
+  
+  // If top layer has more than 50% opaque pixels (< 128/256 transparent), 
+  // it's a vertical object (tree, pole, etc.) that should cover the player
+  // Trees typically have ~56/256 transparent (200 opaque)
+  // Ground/empty tiles have 256/256 transparent (0 opaque)
+  // Bridges have 0/256 transparent but are excluded above
+  const VERTICAL_OBJECT_THRESHOLD = 128;
+  return topLayerTransparency < VERTICAL_OBJECT_THRESHOLD;
 }
 
 function computeReflectionState(
@@ -1172,14 +1436,16 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     ): Promise<number | null> => {
       // COMPREHENSIVE DEBUG LOGGING
       const stackTrace = new Error().stack;
-      console.log('[DOOR_SPAWN]', {
-        direction,
-        worldX,
-        worldY,
-        metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
-        holdOnComplete,
-        calledFrom: stackTrace?.split('\n')[2]?.trim() || 'unknown',
-      });
+      if (isDebugMode()) {
+        console.log('[DOOR_SPAWN]', {
+          direction,
+          worldX,
+          worldY,
+          metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+          holdOnComplete,
+          calledFrom: stackTrace?.split('\n')[2]?.trim() || 'unknown',
+        });
+      }
       
       try {
         const { image, size } = await ensureDoorSprite(metatileId);
@@ -1202,7 +1468,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         logDoor('anim-start', { id: anim.id, direction, metatileId, frameCount, worldX, worldY });
         return anim.id;
       } catch (err) {
-        console.warn('Failed to spawn door animation', err);
+        if (isDebugMode()) {
+          console.warn('Failed to spawn door animation', err);
+        }
         return null;
       }
     },
@@ -1305,7 +1573,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         return;
       }
       if (!arrowSpriteRef.current && !arrowSpritePromiseRef.current) {
-        ensureArrowSprite().catch((err) => console.warn('Failed to load arrow sprite', err));
+        ensureArrowSprite().catch((err) => {
+          if (isDebugMode()) {
+            console.warn('Failed to load arrow sprite', err);
+          }
+        });
       }
       const vector = DIRECTION_VECTORS[arrowDir];
       const overlayWorldX = player.tileX + vector.dx;
@@ -1327,6 +1599,16 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showTileDebug, setShowTileDebug] = useState(false);
   const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
+  
+  // Canvas refs for layer decomposition
+  const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const topLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const compositeLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  
+  // Set global debug flag when showTileDebug changes
+  useEffect(() => {
+    (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = showTileDebug;
+  }, [showTileDebug]);
 
   // Player Controller
   const playerControllerRef = useRef<PlayerController | null>(null);
@@ -1351,7 +1633,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         for (let dx = -1; dx <= 1; dx++) {
           const tileX = player.tileX + dx;
           const tileY = player.tileY + dy;
-          const info = describeTile(ctx, tileX, tileY);
+          const info = describeTile(ctx, tileX, tileY, player);
           collected.push(info);
 
           const destX = (dx + 1) * DEBUG_CELL_SIZE;
@@ -1403,6 +1685,136 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     [setCenterTileDebugInfo]
   );
 
+  // Render layer decomposition canvases
+  const renderLayerDecomposition = useCallback((ctx: RenderContext, tileInfo: DebugTileInfo) => {
+    if (!tileInfo || !tileInfo.inBounds) return;
+    
+    const resolved = resolveTileAt(ctx, tileInfo.tileX, tileInfo.tileY);
+    if (!resolved || !resolved.metatile) return;
+    
+    const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+    if (!runtime) return;
+    
+    const metatile = resolved.metatile;
+    const patchedTiles = runtime.patchedTiles ?? {
+      primary: runtime.resources.primaryTilesImage,
+      secondary: runtime.resources.secondaryTilesImage,
+    };
+    
+    const SCALE = 4; // Scale up for visibility
+    const TILE_SIZE_SCALED = TILE_SIZE * SCALE;
+    const METATILE_SIZE_SCALED = METATILE_SIZE * SCALE;
+    
+    // Helper function to draw a tile
+    const drawTileScaled = (
+      canvas: HTMLCanvasElement,
+      tile: { tileId: number; palette: number; xflip: boolean; yflip: boolean },
+      destX: number,
+      destY: number,
+      tileSource: TilesetKind
+    ) => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      const palette = tile.palette < 6
+        ? resolved.tileset.primaryPalettes[tile.palette]
+        : resolved.tileset.secondaryPalettes[tile.palette];
+      
+      if (!palette) return;
+      
+      const tiles = tileSource === 'primary' ? patchedTiles.primary : patchedTiles.secondary;
+      const tileId = tileSource === 'primary' ? tile.tileId : tile.tileId - SECONDARY_TILE_OFFSET;
+      
+      // Draw tile directly
+      const tileX = (tileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
+      const tileY = Math.floor(tileId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
+      
+      ctx.imageSmoothingEnabled = false;
+      
+      for (let y = 0; y < TILE_SIZE; y++) {
+        for (let x = 0; x < TILE_SIZE; x++) {
+          const srcX = tile.xflip ? (TILE_SIZE - 1 - x) : x;
+          const srcY = tile.yflip ? (TILE_SIZE - 1 - y) : y;
+          const idx = (tileY + srcY) * TILES_PER_ROW_IN_IMAGE * TILE_SIZE + (tileX + srcX);
+          const paletteIdx = tiles[idx];
+          
+          if (paletteIdx === 0) continue; // Transparent
+          
+          const color = palette.colors[paletteIdx];
+          ctx.fillStyle = color;
+          ctx.fillRect(destX + x * SCALE, destY + y * SCALE, SCALE, SCALE);
+        }
+      }
+    };
+    
+    // Render bottom layer
+    if (bottomLayerCanvasRef.current) {
+      const canvas = bottomLayerCanvasRef.current;
+      canvas.width = METATILE_SIZE_SCALED;
+      canvas.height = METATILE_SIZE_SCALED;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        for (let i = 0; i < 4; i++) {
+          const tile = metatile.tiles[i];
+          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+          const subX = (i % 2) * TILE_SIZE_SCALED;
+          const subY = Math.floor(i / 2) * TILE_SIZE_SCALED;
+          drawTileScaled(canvas, tile, subX, subY, tileSource);
+        }
+      }
+    }
+    
+    // Render top layer
+    if (topLayerCanvasRef.current) {
+      const canvas = topLayerCanvasRef.current;
+      canvas.width = METATILE_SIZE_SCALED;
+      canvas.height = METATILE_SIZE_SCALED;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        for (let i = 4; i < 8; i++) {
+          const tile = metatile.tiles[i];
+          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+          const subX = ((i - 4) % 2) * TILE_SIZE_SCALED;
+          const subY = Math.floor((i - 4) / 2) * TILE_SIZE_SCALED;
+          drawTileScaled(canvas, tile, subX, subY, tileSource);
+        }
+      }
+    }
+    
+    // Render composite
+    if (compositeLayerCanvasRef.current) {
+      const canvas = compositeLayerCanvasRef.current;
+      canvas.width = METATILE_SIZE_SCALED;
+      canvas.height = METATILE_SIZE_SCALED;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw bottom layer first
+        for (let i = 0; i < 4; i++) {
+          const tile = metatile.tiles[i];
+          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+          const subX = (i % 2) * TILE_SIZE_SCALED;
+          const subY = Math.floor(i / 2) * TILE_SIZE_SCALED;
+          drawTileScaled(canvas, tile, subX, subY, tileSource);
+        }
+        
+        // Draw top layer on top
+        for (let i = 4; i < 8; i++) {
+          const tile = metatile.tiles[i];
+          const tileSource: TilesetKind = tile.tileId >= SECONDARY_TILE_OFFSET ? 'secondary' : 'primary';
+          const subX = ((i - 4) % 2) * TILE_SIZE_SCALED;
+          const subY = Math.floor((i - 4) / 2) * TILE_SIZE_SCALED;
+          drawTileScaled(canvas, tile, subX, subY, tileSource);
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
     playerControllerRef.current = new PlayerController();
@@ -1422,6 +1834,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
     }
   }, [showTileDebug, refreshDebugOverlay]);
+  
+  // Update layer decomposition when center tile changes
+  useEffect(() => {
+    if (showTileDebug && centerTileDebugInfo && renderContextRef.current) {
+      renderLayerDecomposition(renderContextRef.current, centerTileDebugInfo);
+    }
+  }, [showTileDebug, centerTileDebugInfo, renderLayerDecomposition]);
 
   const copyTile = (
     src: Uint8Array,
@@ -1616,7 +2035,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             destinations: def.destinations,
           });
         } catch (err) {
-          console.warn(`Animation ${def.id} not loaded:`, err);
+          if (isDebugMode()) {
+            console.warn(`Animation ${def.id} not loaded:`, err);
+          }
         }
       }
 
@@ -1722,12 +2143,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     }
   };
 
+  const topBelowImageDataRef = useRef<ImageData | null>(null);
+  const topAboveImageDataRef = useRef<ImageData | null>(null);
+  const lastPlayerElevationRef = useRef<number>(0);
+
   const renderPass = useCallback(
     (
       ctx: RenderContext,
       pass: 'background' | 'top',
       skipAnimated: boolean,
-      view: WorldCameraView
+      view: WorldCameraView,
+      elevationFilter?: (mapTile: MapTileData, tileX: number, tileY: number) => boolean
     ): ImageData => {
       const widthPx = view.tilesWide * METATILE_SIZE;
       const heightPx = view.tilesHigh * METATILE_SIZE;
@@ -1738,6 +2164,23 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const tileX = view.worldStartTileX + localX;
           const resolved = resolveTileAt(ctx, tileX, tileY);
           if (!resolved || !resolved.metatile) continue;
+
+          // DEBUG: Trace rendering decision for specific tile
+          if (tileX === 19 && tileY === 70) {
+             const playerElev = playerControllerRef.current?.getElevation() ?? 0;
+             const tileElev = resolved.mapTile.elevation;
+             const tileCol = resolved.mapTile.collision;
+             const filteredOut = elevationFilter ? !elevationFilter(resolved.mapTile, tileX, tileY) : false;
+             if (isDebugMode()) {
+               console.log(`[RENDER_DEBUG] Tile (19, 70) Pass=${pass} PlayerElev=${playerElev} TileElev=${tileElev} Col=${tileCol} FilteredOut=${filteredOut}`);
+             }
+          }
+          
+          // Apply elevation filter if provided
+          if (elevationFilter && !elevationFilter(resolved.mapTile, tileX, tileY)) {
+            continue;
+          }
+
           const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
           if (!runtime) continue;
 
@@ -1809,11 +2252,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           } else {
             // Top pass: draw layer 1 for NORMAL and SPLIT types (above player)
             if (layerType === METATILE_LAYER_TYPE_NORMAL || layerType === METATILE_LAYER_TYPE_SPLIT) {
-              // Debug logging for metatile 13
-              if (metatile.id === 13 && tileX >= 0 && tileX < 5 && tileY >= 0 && tileY < 5) {
-                console.log(`[METATILE 13] Top pass rendering layer 1 at (${tileX}, ${tileY}), layerType=${layerType}`);
+              // CRITICAL FIX: Check elevation filter before rendering
+              // If an elevationFilter is provided, only render if the filter returns true
+              // This allows splitting NORMAL tiles between topBelow and topAbove passes
+              const shouldRender = !elevationFilter || elevationFilter(resolved.mapTile, tileX, tileY);
+              
+              if (shouldRender) {
+                // Debug logging for metatile 13
+                if (isDebugMode() && metatile.id === 13 && tileX >= 0 && tileX < 5 && tileY >= 0 && tileY < 5) {
+                  console.log(`[METATILE 13] Top pass rendering layer 1 at (${tileX}, ${tileY}), layerType=${layerType}`);
+                }
+                drawLayer(1);
+              } else if (isDebugMode() && metatile.id >= 14 && metatile.id <= 15) {
+                console.log(`[RENDER_FIX] Skipping metatile ${metatile.id} at (${tileX}, ${tileY}) due to elevation filter. Elev=${resolved.mapTile.elevation}, PlayerElev=${playerControllerRef.current?.getElevation()}`);
               }
-              drawLayer(1);
             }
           }
         }
@@ -1847,8 +2299,20 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const topCtx = topCanvasRef.current?.getContext('2d');
       if (!bgCtx || !topCtx) return;
 
+      const player = playerControllerRef.current;
+      const playerElevation = player ? player.getElevation() : 0;
+      const elevationChanged = lastPlayerElevationRef.current !== playerElevation;
+      lastPlayerElevationRef.current = playerElevation;
+
+      // Split rendering: Top layer split into "Below Player" and "Above Player"
+      // This fixes the visual issue where player on a bridge (Elev 4) is covered by the bridge
       const needsImageData =
-        !backgroundImageDataRef.current || !topImageDataRef.current || animationFrameChanged || viewChanged;
+        !backgroundImageDataRef.current || 
+        !topBelowImageDataRef.current || 
+        !topAboveImageDataRef.current || 
+        animationFrameChanged || 
+        viewChanged ||
+        elevationChanged; // Re-render if elevation changed
 
       if (needsImageData) {
         backgroundImageDataRef.current = renderPass(
@@ -1857,11 +2321,59 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           false,
           view
         );
-        topImageDataRef.current = renderPass(
+        
+        // Pass 1: Top layer tiles BELOW or EQUAL to player elevation
+        // These should be rendered BEFORE the player
+        topBelowImageDataRef.current = renderPass(
           ctx,
           'top',
           false,
-          view
+          view,
+          (mapTile, tileX, tileY) => {
+            // CRITICAL FIX: Check if this is a vertical object (tree, pole, etc.)
+            // Vertical objects should ALWAYS render AFTER player (not in this pass)
+            if (isVerticalObject(ctx, tileX, tileY)) {
+              return false; // Don't render in TopBelow - will render in TopAbove
+            }
+            
+            // Simplified High/Low Logic with Collision Awareness
+            // Player Elevation < 4 (Low): Always covered by Top Layer. (Return False)
+            if (playerElevation < 4) return false;
+
+            // Player Elevation >= 4 (High):
+            // Usually Player (Prio 3) covers Top Layer (Prio 2). (Return True)
+            // EXCEPTION: Same-elevation OBSTACLES (Trees/Walls) should cover the player.
+            // If Tile Elevation == Player Elevation AND Collision == 1 (Blocked), treat as Obstacle.
+            if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
+
+            return true;
+          }
+        );
+
+        // Pass 2: Top layer tiles ABOVE player elevation
+        // These should be rendered AFTER the player (covering them)
+        topAboveImageDataRef.current = renderPass(
+          ctx,
+          'top',
+          false,
+          view,
+          (mapTile, tileX, tileY) => {
+            // CRITICAL FIX: Check if this is a vertical object (tree, pole, etc.)
+            // Vertical objects should ALWAYS render AFTER player (in this pass)
+            if (isVerticalObject(ctx, tileX, tileY)) {
+              return true; // Always render vertical objects after player
+            }
+            
+            // Player Elevation < 4 (Low): Always covered by Top Layer. (Return True)
+            if (playerElevation < 4) return true;
+
+            // Player Elevation >= 4 (High):
+            // Usually covered by Player. (Return False)
+            // EXCEPTION: Same-elevation OBSTACLES (Trees/Walls) should cover the player.
+            if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
+
+            return false;
+          }
         );
       }
 
@@ -1869,23 +2381,50 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       const offsetY = -Math.round(view.subTileOffsetY);
       bgCtx.clearRect(0, 0, widthPx, heightPx);
       topCtx.clearRect(0, 0, widthPx, heightPx);
+      
       if (backgroundImageDataRef.current) {
         bgCtx.putImageData(backgroundImageDataRef.current, offsetX, offsetY);
       }
-      if (topImageDataRef.current) {
-        topCtx.putImageData(topImageDataRef.current, offsetX, offsetY);
-      }
-
+      // We don't composite top into a single canvas anymore, we draw them sequentially
+      // But we need to clear them?
+      // Actually, we can just draw them directly to mainCtx if we have them.
+      // Or we can use auxiliary canvases.
+      // Let's use topCtx for "Above" and draw "Below" directly?
+      // Or maybe just put "Above" into topCtx (which is drawn last).
+      // And put "Below" into... bgCtx? No, "Below" is Top Layer, so it must be above Background.
+      
+      // To avoid creating more canvases, let's draw:
+      // 1. Background Canvas (contains Background Pass)
+      // 2. TopBelow ImageData (Directly to Main?) No, PutImage needs integer coords.
+      //    We can put it into a temp canvas?
+      //    Or just reuse topCtx for "Above".
+      //    We need a place for "Below".
+      //    Let's just render everything to MainCtx in order?
+      //    ImageData drawing is fast.
+      //    But `putImageData` ignores transformation (offset).
+      //    We used `bgCtx.putImageData(..., offsetX, offsetY)`. 
+      //    Wait, `putImageData` destination (dx, dy) are in device pixels.
+      //    So we can just put them onto the main canvas?
+      //    No, Main Canvas is cleared every frame.
+      
       mainCtx.clearRect(0, 0, widthPx, heightPx);
+      
+      // 1. Draw Background Canvas (already populated with Background Pass)
       if (backgroundCanvasRef.current) {
         mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
+      }
+
+      // 2. Draw Top Layer (Below Player)
+      if (topBelowImageDataRef.current && topCanvasRef.current) {
+        topCtx.clearRect(0, 0, widthPx, heightPx);
+        topCtx.putImageData(topBelowImageDataRef.current, offsetX, offsetY);
+        mainCtx.drawImage(topCanvasRef.current, 0, 0);
       }
 
       renderDoorAnimations(mainCtx, view, nowMs);
       renderArrowOverlay(mainCtx, view, nowMs);
       renderReflectionLayer(mainCtx, reflectionState, view);
 
-      const player = playerControllerRef.current;
       const playerY = player ? player.y : 0;
 
       // Render grass effects behind player (visually "above" player)
@@ -1896,10 +2435,12 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       // Render grass effects in front of player (visually "below" or at same Y)
-      // This covers the player's feet when standing on tall grass
       renderGrassEffects(mainCtx, view, 'top', playerY);
 
-      if (topCanvasRef.current) {
+      // 3. Draw Top Layer (Above Player)
+      if (topAboveImageDataRef.current && topCanvasRef.current) {
+        topCtx.clearRect(0, 0, widthPx, heightPx);
+        topCtx.putImageData(topAboveImageDataRef.current, offsetX, offsetY);
         mainCtx.drawImage(topCanvasRef.current, 0, 0);
       }
 
@@ -1914,7 +2455,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         }
       }
 
-      if ((window as unknown as { DEBUG_MAP_RENDER?: boolean }).DEBUG_MAP_RENDER) {
+      if (isDebugMode()) {
         console.log(
           `[MapRender] view (${view.worldStartTileX}, ${view.worldStartTileY}) player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
         );
@@ -2320,7 +2861,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             const warpEvents = destMap?.warpEvents ?? [];
             const destWarp = warpEvents[targetWarpId] ?? warpEvents[0];
             if (!destMap || !destWarp) {
-              console.warn(`Warp target missing for ${targetMapId} warp ${targetWarpId}`);
+              if (isDebugMode()) {
+                console.warn(`Warp target missing for ${targetMapId} warp ${targetWarpId}`);
+              }
               return;
             }
             const destWorldX = destMap.offsetX + destWarp.x;
@@ -2349,12 +2892,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               facing = trigger.facing;
             }
 
-            console.log('[WARP_FACING]', {
-              triggerKind: trigger.kind,
-              triggerFacing: trigger.facing,
-              finalFacing: facing,
-              fromDoor: options?.fromDoor,
-            });
+            if (isDebugMode()) {
+              console.log('[WARP_FACING]', {
+                triggerKind: trigger.kind,
+                triggerFacing: trigger.facing,
+                finalFacing: facing,
+                fromDoor: options?.fromDoor,
+              });
+            }
 
             playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
             
@@ -2385,13 +2930,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 // Determine exit direction: for arrow warps, continue in same direction; for doors, exit down
                 const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
                 
-                console.log('[EXIT_SEQUENCE_START]', {
-                  triggerKind: trigger.kind,
-                  triggerFacing: trigger.facing,
-                  exitDirection,
-                  destBehavior,
-                  isAnimatedDoor,
-                });
+                if (isDebugMode()) {
+                  console.log('[EXIT_SEQUENCE_START]', {
+                    triggerKind: trigger.kind,
+                    triggerFacing: trigger.facing,
+                    exitDirection,
+                    destBehavior,
+                    isAnimatedDoor,
+                  });
+                }
                 
                 logDoor('performWarp: destination requires exit sequence', {
                   destWorldX,
@@ -2418,12 +2965,14 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   duration: DOOR_FADE_DURATION,
                 };
               } else {
-                console.log('[NO_EXIT_SEQUENCE]', {
-                  triggerKind: trigger.kind,
-                  destBehavior,
-                  requiresExitSequence,
-                  finalFacing: facing,
-                });
+                if (isDebugMode()) {
+                  console.log('[NO_EXIT_SEQUENCE]', {
+                    triggerKind: trigger.kind,
+                    destBehavior,
+                    requiresExitSequence,
+                    finalFacing: facing,
+                  });
+                }
                 // No door on destination side (e.g., arrow warp, stairs, teleport pad)
                 // Must unlock input immediately since there's no door exit sequence
                 logDoor('performWarp: destination has no door, simple fade in', {
@@ -2634,28 +3183,34 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           const requiresExitSeq = requiresDoorExitSequence(behavior);
           const isAnimated = isDoorBehavior(behavior);
           
-          console.log('[DOOR_WARP_ATTEMPT]', {
-            targetX: request.targetX,
-            targetY: request.targetY,
-            behavior,
-            metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
-            isDoor: isAnimated,
-            isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
-            isArrowWarp: isArrow,
-            requiresExitSequence: requiresExitSeq,
-            playerDir: player.dir,
-          });
+          if (isDebugMode()) {
+            console.log('[DOOR_WARP_ATTEMPT]', {
+              targetX: request.targetX,
+              targetY: request.targetY,
+              behavior,
+              metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
+              isDoor: isAnimated,
+              isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
+              isArrowWarp: isArrow,
+              requiresExitSequence: requiresExitSeq,
+              playerDir: player.dir,
+            });
+          }
           
           // Handle arrow warps
           if (isArrow) {
             const arrowDir = getArrowDirectionFromBehavior(behavior);
-            console.log('[ARROW_WARP_ATTEMPT]', {
-              arrowDir,
-              playerDir: player.dir,
-              match: arrowDir === player.dir,
-            });
+            if (isDebugMode()) {
+              console.log('[ARROW_WARP_ATTEMPT]', {
+                arrowDir,
+                playerDir: player.dir,
+                match: arrowDir === player.dir,
+              });
+            }
             if (!arrowDir || player.dir !== arrowDir) {
-              console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
+              if (isDebugMode()) {
+                console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
+              }
               return;
             }
             // Arrow warp: trigger auto door warp with no animation
@@ -2666,18 +3221,22 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               behavior,
               facing: player.dir,
             };
-            console.log('[ARROW_WARP_START]', { trigger });
+            if (isDebugMode()) {
+              console.log('[ARROW_WARP_START]', { trigger });
+            }
             startAutoDoorWarp(trigger, resolved, player, arrowDir, { isAnimatedDoor: false });
             return;
           }
           
           if (!requiresExitSeq) {
-            console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
-              targetX: request.targetX,
-              targetY: request.targetY,
-              behavior,
-              metatileId: getMetatileIdFromMapTile(resolved.mapTile),
-            });
+            if (isDebugMode()) {
+              console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
+                targetX: request.targetX,
+                targetY: request.targetY,
+                behavior,
+                metatileId: getMetatileIdFromMapTile(resolved.mapTile),
+              });
+            }
             return;
           }
           
@@ -2856,7 +3415,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   // (triggered when player tries to move in the arrow direction)
                   if (trigger.kind === 'arrow') {
                     // Do nothing - wait for player movement input
-                    console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
+                    if (isDebugMode()) {
+                      console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
+                    }
                   } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
                     startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
                   } else {
@@ -3019,7 +3580,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             checked={showTileDebug}
             onChange={(e) => setShowTileDebug(e.target.checked)}
           />
-          Show 3x3 tile debug
+          Show 3x3 tile debug (Debug Mode)
         </label>
         {showTileDebug && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -3041,7 +3602,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 backgroundColor: '#f5f5f5', 
                 padding: '8px', 
                 borderRadius: '4px',
-                maxWidth: '600px'
+                maxWidth: '900px'
               }}>
                 <div><strong>Map:</strong> {centerTileDebugInfo.mapName} ({centerTileDebugInfo.mapId})</div>
                 <div><strong>World Coords:</strong> ({centerTileDebugInfo.tileX}, {centerTileDebugInfo.tileY})</div>
@@ -3049,14 +3610,145 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                 <div><strong>Metatile ID:</strong> {centerTileDebugInfo.metatileId} {centerTileDebugInfo.isSecondary ? '(Secondary)' : '(Primary)'}</div>
                 <div><strong>Palette:</strong> {centerTileDebugInfo.paletteIndex}</div>
                 <div><strong>Behavior:</strong> {centerTileDebugInfo.behavior !== undefined ? `0x${centerTileDebugInfo.behavior.toString(16).toUpperCase().padStart(2, '0')}` : 'N/A'}</div>
-                <div><strong>Layer Type:</strong> {centerTileDebugInfo.layerTypeLabel ?? 'N/A'}</div>
-                {centerTileDebugInfo.isReflective && (
-                  <div><strong>Reflection:</strong> {centerTileDebugInfo.reflectionType ?? 'unknown'} ({centerTileDebugInfo.reflectionMaskAllow}/{centerTileDebugInfo.reflectionMaskTotal} pixels)</div>
+                
+                {/* Elevation & Collision Section */}
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                  <div><strong>🏔️ Elevation & Collision:</strong></div>
+                  <div style={{ marginLeft: '16px' }}>
+                    <div><strong>Tile Elevation:</strong> {centerTileDebugInfo.elevation ?? 'N/A'}</div>
+                    <div><strong>Player Elevation:</strong> {centerTileDebugInfo.playerElevation ?? 'N/A'}</div>
+                    <div><strong>Collision:</strong> {centerTileDebugInfo.collision ?? 'N/A'} ({centerTileDebugInfo.collisionPassable ? '✅ Passable' : '🚫 Blocked'})</div>
+                    {centerTileDebugInfo.isLedge && (
+                      <div><strong>Ledge:</strong> ✅ {centerTileDebugInfo.ledgeDirection} (Jump {centerTileDebugInfo.ledgeDirection?.toLowerCase()})</div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Layer & Rendering Section */}
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                  <div><strong>🎨 Layer & Rendering:</strong></div>
+                  <div style={{ marginLeft: '16px' }}>
+                    <div><strong>Layer Type:</strong> {centerTileDebugInfo.layerTypeLabel ?? 'N/A'} (raw value: {centerTileDebugInfo.layerType ?? 'N/A'})</div>
+                    <div><strong>Bottom Layer Transparency:</strong> {centerTileDebugInfo.bottomLayerTransparency ?? 0}/256 pixels</div>
+                    <div><strong>Top Layer Transparency:</strong> {centerTileDebugInfo.topLayerTransparency ?? 0}/256 pixels</div>
+                    
+                    {/* Visual Layer Decomposition */}
+                    <div style={{ marginTop: '8px' }}>
+                      <div><strong>🔬 Visual Layer Decomposition (4x scale):</strong></div>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Bottom Layer<br/>(tiles 0-3)</div>
+                          <canvas 
+                            ref={bottomLayerCanvasRef} 
+                            width={64} 
+                            height={64}
+                            style={{ 
+                              border: '1px solid #888', 
+                              imageRendering: 'pixelated',
+                              backgroundColor: '#000'
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Top Layer<br/>(tiles 4-7)</div>
+                          <canvas 
+                            ref={topLayerCanvasRef} 
+                            width={64} 
+                            height={64}
+                            style={{ 
+                              border: '1px solid #888', 
+                              imageRendering: 'pixelated',
+                              backgroundColor: '#000'
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Composite<br/>(both layers)</div>
+                          <canvas 
+                            ref={compositeLayerCanvasRef} 
+                            width={64} 
+                            height={64}
+                            style={{ 
+                              border: '1px solid #888', 
+                              imageRendering: 'pixelated',
+                              backgroundColor: '#000'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ marginTop: '8px' }}>
+                      <div><strong>Render Passes:</strong></div>
+                      <div style={{ marginLeft: '16px', fontSize: '11px' }}>
+                        <div>🟢 <strong>Background Pass:</strong> {centerTileDebugInfo.renderedInBackgroundPass ? '✅ YES' : '❌ NO'} (bottom layer)</div>
+                        <div>🟡 <strong>Top-Below Pass:</strong> {centerTileDebugInfo.renderedInTopBelowPass ? '✅ YES' : '❌ NO'} (before player)</div>
+                        <div style={{ marginLeft: '16px', color: '#666' }}>{centerTileDebugInfo.topBelowPassReason}</div>
+                        <div>🔴 <strong>Top-Above Pass:</strong> {centerTileDebugInfo.renderedInTopAbovePass ? '✅ YES' : '❌ NO'} (after player)</div>
+                        <div style={{ marginLeft: '16px', color: '#666' }}>{centerTileDebugInfo.topAbovePassReason}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Detailed Tile Breakdown */}
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                  <div><strong>🔍 Tile Details (8×8 tiles in this metatile):</strong></div>
+                  <div style={{ marginLeft: '16px', fontSize: '11px' }}>
+                    <div style={{ marginTop: '4px' }}><strong>Bottom Layer (tiles 0-3):</strong></div>
+                    {centerTileDebugInfo.bottomTileDetails && centerTileDebugInfo.bottomTileDetails.length > 0 ? (
+                      centerTileDebugInfo.bottomTileDetails.map((detail, i) => (
+                        <div key={i} style={{ marginLeft: '16px', fontFamily: 'monospace' }}>{detail}</div>
+                      ))
+                    ) : (
+                      <div style={{ marginLeft: '16px', color: '#999' }}>No bottom tiles</div>
+                    )}
+                    
+                    <div style={{ marginTop: '4px' }}><strong>Top Layer (tiles 4-7):</strong></div>
+                    {centerTileDebugInfo.topTileDetails && centerTileDebugInfo.topTileDetails.length > 0 ? (
+                      centerTileDebugInfo.topTileDetails.map((detail, i) => (
+                        <div key={i} style={{ marginLeft: '16px', fontFamily: 'monospace' }}>{detail}</div>
+                      ))
+                    ) : (
+                      <div style={{ marginLeft: '16px', color: '#999' }}>No top tiles</div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Adjacent Tiles */}
+                {centerTileDebugInfo.adjacentTileInfo && (
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                    <div><strong>🧭 Adjacent Tiles (can affect rendering):</strong></div>
+                    <div style={{ marginLeft: '16px', fontSize: '11px' }}>
+                      {centerTileDebugInfo.adjacentTileInfo.north && (
+                        <div>⬆️ <strong>North:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.north.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.north.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.north.layerType})</div>
+                      )}
+                      {centerTileDebugInfo.adjacentTileInfo.south && (
+                        <div>⬇️ <strong>South:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.south.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.south.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.south.layerType})</div>
+                      )}
+                      {centerTileDebugInfo.adjacentTileInfo.east && (
+                        <div>➡️ <strong>East:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.east.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.east.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.east.layerType})</div>
+                      )}
+                      {centerTileDebugInfo.adjacentTileInfo.west && (
+                        <div>⬅️ <strong>West:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.west.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.west.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.west.layerType})</div>
+                      )}
+                    </div>
+                  </div>
                 )}
-                <div><strong>Tilesets:</strong> {centerTileDebugInfo.primaryTilesetId} + {centerTileDebugInfo.secondaryTilesetId}</div>
+                
+                {centerTileDebugInfo.isReflective && (
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                    <div><strong>💧 Reflection:</strong> {centerTileDebugInfo.reflectionType ?? 'unknown'} ({centerTileDebugInfo.reflectionMaskAllow}/{centerTileDebugInfo.reflectionMaskTotal} pixels)</div>
+                  </div>
+                )}
+                
+                <div style={{ marginTop: '4px' }}>
+                  <div><strong>Tilesets:</strong> {centerTileDebugInfo.primaryTilesetId} + {centerTileDebugInfo.secondaryTilesetId}</div>
+                </div>
+                
                 {centerTileDebugInfo.warpEvent && (
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                    <div><strong>Warp Event:</strong></div>
+                    <div><strong>🚪 Warp Event:</strong></div>
                     <div style={{ marginLeft: '16px' }}>
                       <div><strong>Kind:</strong> {centerTileDebugInfo.warpKind ?? 'unknown'}</div>
                       <div><strong>Destination:</strong> {centerTileDebugInfo.warpEvent.destMap}</div>
