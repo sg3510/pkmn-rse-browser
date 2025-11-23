@@ -3139,8 +3139,9 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
 };
 
 export const MapRenderer: React.FC<MapRendererProps> = (props) => {
-  const viewportWidth = VIEWPORT_CONFIG.tilesWide * METATILE_SIZE;
-  const viewportHeight = VIEWPORT_CONFIG.tilesHigh * METATILE_SIZE;
+  const zoom = props.zoom ?? 1;
+  const viewportWidth = VIEWPORT_CONFIG.tilesWide * METATILE_SIZE * zoom;
+  const viewportHeight = VIEWPORT_CONFIG.tilesHigh * METATILE_SIZE * zoom;
 
   return (
     <DialogSystem
