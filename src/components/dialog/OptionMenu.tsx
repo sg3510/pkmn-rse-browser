@@ -8,6 +8,8 @@ interface OptionMenuProps {
   selectedIndex: number;
   config: DialogConfig;
   zoom: number;
+  onSelect: (index: number) => void;
+  onConfirm: () => void;
 }
 
 /**
@@ -21,6 +23,8 @@ export const OptionMenu: React.FC<OptionMenuProps> = ({
   selectedIndex,
   config,
   zoom,
+  onSelect,
+  onConfirm,
 }) => {
   const { choices } = options;
 
@@ -66,6 +70,18 @@ export const OptionMenu: React.FC<OptionMenuProps> = ({
             <div
               key={index}
               className={`option-item ${index === selectedIndex ? 'selected' : ''} ${choice.disabled ? 'disabled' : ''}`}
+              onClick={() => {
+                if (!choice.disabled) {
+                  onSelect(index);
+                  // Small delay before confirming to show selection
+                  setTimeout(() => onConfirm(), 100);
+                }
+              }}
+              onMouseEnter={() => {
+                if (!choice.disabled) {
+                  onSelect(index);
+                }
+              }}
               style={{
                 position: 'relative',
                 display: 'flex',

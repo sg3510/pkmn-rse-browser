@@ -292,7 +292,7 @@ export function useDialog() {
     }
   }, [context]);
 
-  const isOpen = context?.state.type !== 'closed';
+  const isOpen = context ? context.state.type !== 'closed' : false;
 
   // Handle keyboard input
   useEffect(() => {

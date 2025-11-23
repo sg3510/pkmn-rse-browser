@@ -15,6 +15,8 @@ import {
   TILES_PER_ROW_IN_IMAGE,
   SECONDARY_TILE_OFFSET,
 } from '../../../utils/mapLoader';
+import { isSurfableBehavior, MB_WATERFALL } from '../../../utils/metatileBehaviors';
+import { InteractionHandler } from '../../../game/surfing/InteractionHandler';
 
 const DEBUG_CELL_SCALE = 3;
 const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
@@ -91,7 +93,42 @@ export class DebugRenderer {
     debugTilesRef.current = collected;
     // Update center tile info for display (index 4 is center of 3x3 grid)
     const centerTile = collected[4];
-    setCenterTileDebugInfo(centerTile && centerTile.inBounds ? centerTile : null);
+    
+    if (centerTile && centerTile.inBounds) {
+      // Add facing tile info if player exists
+      if (player) {
+        let fx = player.tileX;
+        let fy = player.tileY;
+        if (player.dir === 'up') fy--;
+        else if (player.dir === 'down') fy++;
+        else if (player.dir === 'left') fx--;
+        else if (player.dir === 'right') fx++;
+        
+        const facingResolved = resolveTileAt(ctx, fx, fy);
+        if (facingResolved) {
+          const behavior = facingResolved.attributes?.behavior ?? 0;
+          const interactionHandler = new InteractionHandler();
+          const surfResult = interactionHandler.checkCanSurf(
+            player.tileX,
+            player.tileY,
+            player.dir,
+            (x, y) => resolveTileAt(ctx, x, y)
+          );
+          
+          centerTile.facingTileX = fx;
+          centerTile.facingTileY = fy;
+          centerTile.facingMetatileId = facingResolved.metatile?.id;
+          centerTile.facingBehavior = behavior;
+          centerTile.facingIsSurfable = isSurfableBehavior(behavior);
+          centerTile.facingIsWaterfall = behavior === MB_WATERFALL;
+          centerTile.canSurfResult = surfResult.canSurf ? 'Yes' : surfResult.reason;
+        }
+      }
+      
+      setCenterTileDebugInfo(centerTile);
+    } else {
+      setCenterTileDebugInfo(null);
+    }
   }
 
   static renderLayerDecomposition(

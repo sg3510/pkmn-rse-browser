@@ -36,7 +36,7 @@ import {
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
 import { computeCameraView, type CameraView } from '../utils/camera';
-import { DialogSystem } from './dialog';
+import { DialogSystem, useDialog } from './dialog';
 import type { WarpEvent } from '../types/maps';
 
 const PROJECT_ROOT = '/pokeemerald';
@@ -613,7 +613,7 @@ function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime {
 
 
 
-export const MapRenderer: React.FC<MapRendererProps> = ({
+const MapRendererContent: React.FC<MapRendererProps> = ({
   mapId,
   mapName,
   width: _width,
@@ -673,6 +673,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     startedAt: 0,
     duration: DOOR_FADE_DURATION,
   });
+
+  // Dialog system for surf prompt
+  const dialog = useDialog();
 
   const ensureDoorSprite = useCallback(
     async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
@@ -1915,6 +1918,22 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom');
       }
 
+      // Render surf blob (if surfing) - must be rendered BEFORE player
+      if (player && !playerHiddenRef.current && player.isSurfing()) {
+        const blobRenderer = player.surfBlobRenderer;
+        if (blobRenderer.isReady()) {
+          // Player's world position - feet are at (x, y+16) because sprite is 32px tall
+          // Surf blob is 32x16, should be centered at player's feet
+          // Convert world coordinates to screen coordinates
+          const blobWorldX = player.x; // Player's current pixel X (already accounts for 16px offset)
+          const blobWorldY = player.y + 16; // Player's feet position
+          const screenX = Math.round(blobWorldX - view.cameraWorldX);
+          const screenY = Math.round(blobWorldY - view.cameraWorldY);
+          
+          blobRenderer.render(mainCtx, screenX, screenY, player.dir);
+        }
+      }
+
       if (player && !playerHiddenRef.current) {
         player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
@@ -2093,6 +2112,87 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     });
   }, []);
 
+  // X key handler for surf initiation
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Only handle X key (KeyX)
+      if (e.code !== 'KeyX') return;
+      
+      if (isDebugMode()) {
+        console.log('[DEBUG_X] X key pressed!', { 
+           player: !!playerControllerRef.current,
+           inputLocked: playerControllerRef.current?.inputLocked,
+           isSurfing: playerControllerRef.current?.isSurfing(),
+           dialogOpen: dialog.isOpen
+        });
+      }
+
+      const player = playerControllerRef.current;
+      if (!player || player.inputLocked || player.isSurfing() || dialog.isOpen) return;
+      
+      e.preventDefault();
+      
+      // Get player's facing tile
+      const facingTileX = player.dir === 'left' ? player.tileX - 1 :
+                          player.dir === 'right' ? player.tileX + 1 :
+                          player.tileX;
+      const facingTileY = player.dir === 'up' ? player.tileY - 1 :
+                          player.dir === 'down' ? player.tileY + 1 :
+                          player.tileY;
+      
+      // Check if can surf
+      const result = player.surfingController.canInitiateSurf(
+        player.tileX,
+        player.tileY,
+        player.dir,
+        player.tileResolver ?? undefined
+      );
+      
+      if (!result.canSurf) {
+        if (isDebugMode()) {
+          console.log('[SURF] Cannot surf:', result.reason);
+        }
+        return;
+      }
+      
+      // Show surf dialog
+      const wantToSurf = await dialog.showYesNo(
+        "The water is a deep blue...\nWould you like to SURF?",
+        { defaultYes: true }
+      );
+      
+      if (wantToSurf) {
+        if (isDebugMode()) {
+          console.log('[SURF] Starting surf sequence');
+        }
+        
+        // Start mount sequence
+        player.surfingController.startSurfSequence(facingTileX, facingTileY);
+        
+        // Lock input during animation
+        player.lockInput();
+        
+        // Simple mount: just move onto water and start surfing
+        // (Full animation can be added later)
+        setTimeout(() => {
+          // Move player onto water
+          player.forceMove(player.dir, true);
+          
+          // Wait for movement to complete, then unlock and start surfing
+          setTimeout(() => {
+            player.startSurfing();
+            player.unlockInput();
+            if (isDebugMode()) {
+              console.log('[SURF] Now surfing!');
+            }
+          }, 300); // Wait for 16px movement at 0.06 px/ms = ~267ms
+        }, 100);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dialog]);
 
 
   useEffect(() => {
@@ -3004,16 +3104,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   return (
     <div>
       {loading && <div>Loading {mapName}...</div>}
-      <DialogSystem
-        zoom={zoom}
-        viewportWidth={viewportWidth}
-        viewportHeight={viewportHeight}
-        config={{
-          frameStyle: 1,
-          textSpeed: 'medium',
-          linesVisible: 2,
-        }}
-      >
         <canvas
           ref={canvasRef}
           width={VIEWPORT_PIXEL_SIZE.width}
@@ -3027,7 +3117,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           }}
           onClick={handleCanvasClick}
         />
-      </DialogSystem>
       {/* Debug Panel - slides in from right side */}
       <DebugPanel
         options={debugOptions}
@@ -3046,5 +3135,25 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         debugGridSize={DEBUG_GRID_SIZE}
       />
     </div>
+  );
+};
+
+export const MapRenderer: React.FC<MapRendererProps> = (props) => {
+  const viewportWidth = VIEWPORT_CONFIG.tilesWide * METATILE_SIZE;
+  const viewportHeight = VIEWPORT_CONFIG.tilesHigh * METATILE_SIZE;
+
+  return (
+    <DialogSystem
+      viewportWidth={viewportWidth}
+      viewportHeight={viewportHeight}
+      zoom={props.zoom}
+      config={{
+        frameStyle: 1,
+        textSpeed: 'medium',
+        linesVisible: 2,
+      }}
+    >
+      <MapRendererContent {...props} />
+    </DialogSystem>
   );
 };

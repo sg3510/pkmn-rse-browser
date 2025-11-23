@@ -22,9 +22,26 @@ const DialogSystemInner: React.FC<{
   viewportHeight: number;
   enableDemo?: boolean;
 }> = ({ viewportWidth, viewportHeight, enableDemo = true }) => {
-  const { state, messages, options, config, zoom } = useDialogContext();
+  const { state, messages, options, config, zoom, _dispatch } = useDialogContext();
 
   const isOpen = state.type !== 'closed';
+
+  // Callbacks for mouse interaction
+  const handleAdvance = () => {
+    if (state.type === 'printing') {
+      _dispatch({ type: 'COMPLETE_TEXT' });
+    } else if (state.type === 'waiting') {
+      _dispatch({ type: 'NEXT_MESSAGE' });
+    }
+  };
+
+  const handleSelect = (index: number) => {
+    _dispatch({ type: 'SELECT_OPTION', index });
+  };
+
+  const handleConfirm = () => {
+    _dispatch({ type: 'CONFIRM_OPTION' });
+  };
 
   return (
     <>
@@ -63,6 +80,9 @@ const DialogSystemInner: React.FC<{
           zoom={zoom}
           viewportWidth={viewportWidth}
           viewportHeight={viewportHeight}
+          onAdvance={handleAdvance}
+          onSelect={handleSelect}
+          onConfirm={handleConfirm}
         />
       </div>
     </>

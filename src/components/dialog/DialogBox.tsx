@@ -14,6 +14,9 @@ interface DialogBoxProps {
   zoom: number;
   viewportWidth: number;
   viewportHeight: number;
+  onAdvance?: () => void;
+  onSelect?: (index: number) => void;
+  onConfirm?: () => void;
 }
 
 /**
@@ -34,6 +37,9 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   zoom,
   viewportWidth,
   viewportHeight,
+  onAdvance,
+  onSelect,
+  onConfirm,
 }) => {
   // Calculate dimensions
   const dimensions = useMemo(() => {
@@ -101,6 +107,15 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       >
         <div
           className="dialog-content"
+          onClick={() => {
+            // Click to advance (only if waiting or printing)
+            if (state.type === 'waiting' && onAdvance) {
+              onAdvance();
+            } else if (state.type === 'printing') {
+              // Skip printing animation
+              onAdvance?.();
+            }
+          }}
           style={{
             position: 'relative',
             width: '100%',
@@ -108,6 +123,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             padding: dimensions.paddingPx,
             boxSizing: 'border-box',
             overflow: 'hidden',
+            cursor: (state.type === 'waiting' || state.type === 'printing') ? 'pointer' : 'default',
           }}
         >
           {/* Speaker name (if provided) */}
@@ -148,12 +164,14 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       </DialogFrame>
 
       {/* Option menu (Yes/No, multichoice) */}
-      {showOptions && options && (
+      {showOptions && options && onSelect && onConfirm && (
         <OptionMenu
           options={options}
           selectedIndex={selectedIndex}
           config={config}
           zoom={zoom}
+          onSelect={onSelect}
+          onConfirm={onConfirm}
         />
       )}
     </div>

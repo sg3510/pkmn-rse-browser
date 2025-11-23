@@ -350,6 +350,23 @@ const TileInfoDisplay: React.FC<{
         <div>{info.renderedInTopAbovePass ? '✓' : '✗'} Top-Above (after player)</div>
       </div>
     </div>
+
+    {/* Facing Tile Inspector */}
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+      <div style={{ marginBottom: 4, color: '#888' }}>Facing Tile:</div>
+      <div style={{ fontSize: '9px' }}>
+        <InfoRow label="Coords" value={info.facingTileX !== undefined ? `(${info.facingTileX}, ${info.facingTileY})` : 'N/A'} />
+        <InfoRow label="Metatile ID" value={info.facingMetatileId ?? 'N/A'} />
+        <InfoRow label="Behavior" value={info.facingBehavior !== undefined ? `0x${info.facingBehavior.toString(16).toUpperCase().padStart(2, '0')}` : 'N/A'} />
+        <InfoRow label="Surfable" value={info.facingIsSurfable ? 'YES' : 'NO'} />
+        <InfoRow label="Waterfall" value={info.facingIsWaterfall ? 'YES' : 'NO'} />
+        {info.canSurfResult && (
+           <div style={{ marginTop: 4, color: info.canSurfResult.startsWith('Yes') ? '#4f4' : '#f44' }}>
+             Can Surf: {info.canSurfResult}
+           </div>
+        )}
+      </div>
+    </div>
   </div>
 );
 

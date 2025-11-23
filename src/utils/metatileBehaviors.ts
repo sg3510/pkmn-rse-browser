@@ -183,3 +183,27 @@ export function isTallGrassBehavior(behavior: number): boolean {
 export function isLongGrassBehavior(behavior: number): boolean {
   return behavior === MB_LONG_GRASS;
 }
+
+// Surfing behavior detection
+// Based on pokeemerald/src/metatile_behavior.c - TILE_FLAG_SURFABLE
+const SURFABLE_BEHAVIORS = new Set([
+  MB_POND_WATER,
+  MB_INTERIOR_DEEP_WATER,
+  MB_DEEP_WATER,
+  MB_WATERFALL,
+  MB_OCEAN_WATER,
+  MB_SOOTOPOLIS_DEEP_WATER,
+  MB_SEAWEED,
+  MB_NO_SURFACING, // Can surf, but cannot dismount
+  MB_SEAWEED_NO_SURFACING,
+  MB_WATER_DOOR,
+  MB_WATER_SOUTH_ARROW_WARP,
+]);
+
+export function isSurfableBehavior(behavior: number): boolean {
+  return SURFABLE_BEHAVIORS.has(behavior);
+}
+
+export function isNoSurfacingBehavior(behavior: number): boolean {
+  return behavior === MB_NO_SURFACING || behavior === MB_SEAWEED_NO_SURFACING;
+}

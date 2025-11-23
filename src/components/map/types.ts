@@ -96,6 +96,14 @@ export interface DebugTileInfo {
     east?: { metatileId: number; layerType: number; layerTypeLabel: string };
     west?: { metatileId: number; layerType: number; layerTypeLabel: string };
   };
+  // Facing tile info
+  facingTileX?: number;
+  facingTileY?: number;
+  facingMetatileId?: number;
+  facingBehavior?: number;
+  facingIsSurfable?: boolean;
+  facingIsWaterfall?: boolean;
+  canSurfResult?: string;
 }
 
 import { type BridgeType } from '../../utils/metatileBehaviors';

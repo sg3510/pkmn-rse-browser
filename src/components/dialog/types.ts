@@ -78,7 +78,7 @@ export interface DialogMessage {
 
 export interface DialogChoice {
   label: string;              // Display text
-  value: string | number;     // Return value when selected
+  value: string | number | boolean;     // Return value when selected
   disabled?: boolean;         // Gray out option
 }
 
@@ -86,7 +86,7 @@ export interface DialogOptions {
   choices: DialogChoice[];
   defaultIndex?: number;      // Initially selected (default: 0)
   cancelable?: boolean;       // Can press B/Escape to cancel (default: true)
-  cancelValue?: string | number | null; // Value returned on cancel (default: null)
+  cancelValue?: string | number | boolean | null; // Value returned on cancel (default: null)
 }
 
 export type DialogState =

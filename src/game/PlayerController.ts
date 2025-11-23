@@ -27,8 +27,10 @@ import {
   isArrowWarpBehavior,
   isTallGrassBehavior,
   isLongGrassBehavior,
+  isSurfableBehavior,
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
+import { SurfingController, SurfBlobRenderer } from './surfing';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -257,6 +259,114 @@ class JumpingState implements PlayerState {
   }
 }
 
+class SurfingState implements PlayerState {
+  private readonly SPEED = 0.06; // Same as walking
+  private surfingController: SurfingController;
+  private blobRenderer: SurfBlobRenderer;
+
+  constructor(controller: PlayerController) {
+    this.surfingController = controller.surfingController;
+    this.blobRenderer = controller.surfBlobRenderer;
+  }
+
+  enter(_controller: PlayerController): void {
+    if (isDebugMode()) {
+      console.log('[SURFING] Entered surfing state');
+    }
+    // Sprite should already be changed to surfing variant by the mount sequence
+    _controller.lockInput(); // Will be unlocked when animation completes
+  }
+
+  exit(_controller: PlayerController): void {
+    if (isDebugMode()) {
+      console.log('[SURFING] Exited surfing state');
+    }
+  }
+
+  update(controller: PlayerController, delta: number): boolean {
+    // Update surfing controller animation state
+    this.surfingController.update();
+    // Update blob bobbing animation
+    this.blobRenderer.update();
+    
+    // Update blob direction to match player
+    this.surfingController.updateBlobDirection(controller.dir);
+    
+    // Normal movement processing
+    return controller.processMovement(delta, this.SPEED);
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // Check for transition back to walking (dismount)
+    // This happens when player moves toward land
+    let dx = 0;
+    let dy = 0;
+    let newDir = controller.dir;
+    let attemptMove = false;
+
+    if (keys['ArrowUp']) {
+      dy = -1;
+      newDir = 'up';
+      attemptMove = true;
+    } else if (keys['ArrowDown']) {
+      dy = 1;
+      newDir = 'down';
+      attemptMove = true;
+    } else if (keys['ArrowLeft']) {
+      dx = -1;
+      newDir = 'left';
+      attemptMove = true;
+    } else if (keys['ArrowRight']) {
+      dx = 1;
+      newDir = 'right';
+      attemptMove = true;
+    }
+
+    if (attemptMove) {
+      controller.dir = newDir;
+      const targetTileX = controller.tileX + dx;
+      const targetTileY = controller.tileY + dy;
+      
+      // Check if can dismount at target
+      if (this.surfingController.canDismount(targetTileX, targetTileY, controller.tileResolver ?? undefined)) {
+        if (isDebugMode()) {
+          console.log(`[SURFING] Auto-dismounting to (${targetTileX}, ${targetTileY})`);
+        }
+        this.surfingController.startDismountSequence();
+        controller.isMoving = true;
+        controller.pixelsMoved = 0;
+        // State change will happen when dismount animation completes
+        return;
+      }
+      
+      // Check if target is surfable water
+      const resolved = controller.tileResolver ? controller.tileResolver(targetTileX, targetTileY) : null;
+      const behavior = resolved?.attributes?.behavior ?? -1;
+      
+      if (isSurfableBehavior(behavior)) {
+        // Can move on water
+        controller.isMoving = true;
+        controller.pixelsMoved = 0;
+      } else {
+        // Blocked (not surfable water and not land we can dismount to)
+        if (isDebugMode()) {
+          console.warn(`[SURFING] Blocked - tile (${targetTileX}, ${targetTileY}) not surfable`);
+        }
+      }
+    }
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    // TODO: Use surfing sprite when available
+    // For now, use walking sprite
+    return controller.calculateFrameInfo('walking');
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
 // --- Player Controller ---
 
 export class PlayerController {
@@ -276,12 +386,16 @@ export class PlayerController {
   public walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
-  private tileResolver: TileResolver | null = null;
+  public tileResolver: TileResolver | null = null;
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   
   private currentState: PlayerState;
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
   private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
+
+  // Surfing system
+  public surfingController: SurfingController = new SurfingController();
+  public surfBlobRenderer: SurfBlobRenderer = new SurfBlobRenderer();
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
   private prevTileX: number;
@@ -1188,4 +1302,32 @@ export class PlayerController {
   public isOnLongGrass(): boolean {
     return this.currentGrassType === 'long';
   }
+
+  /**
+   * Check if player is currently surfing
+   */
+  public isSurfing(): boolean {
+    return this.currentState instanceof SurfingState;
+  }
+
+  /**
+   * Start surfing - transition to SurfingState
+   */
+  public startSurfing() {
+    if (!this.isSurfing()) {
+      this.changeState(new SurfingState(this));
+    }
+  }
+
+  /**
+   * Stop surfing - transition back to NormalState
+   */
+  public stopSurfing() {
+    if (this.isSurfing()) {
+      this.changeState(new NormalState());
+    }
+  }
 }
+
+// Export SurfingState for use in other modules
+export { SurfingState };
