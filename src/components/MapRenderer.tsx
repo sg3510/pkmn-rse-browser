@@ -1767,9 +1767,16 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (playerElevation < 4) return false;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
-              return true;
+              // Elevation-based rendering:
+              // - Player above tile elevation: tile renders below player (player is on higher level)
+              // - Player at or below tile elevation: tile renders above player (default top-layer behavior)
+              // This correctly handles:
+              // - Bridges: when player is ON bridge (same elevation), bridge is below player
+              // - Tree tops: when player walks under tree (same elevation), tree top is above player
+              // The key is that bridge FLOOR tiles are in the bottom layer, not top layer.
+              // Top layer contains decorative elements that should overlay the player at same elevation.
+              if (playerElevation > mapTile.elevation) return true;
+              return false;
             }
           );
 
@@ -1782,9 +1789,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerElevation < 4) return true;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
-              return false;
+              // Elevation-based rendering (inverse of topBelow)
+              if (playerElevation > mapTile.elevation) return false;
+              return true;
             }
           );
         }
@@ -1800,7 +1807,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
         if (needsImageData) {
           backgroundImageDataRef.current = renderPass(ctx, 'background', false, view);
-          
+
           topBelowImageDataRef.current = renderPass(
             ctx,
             'top',
@@ -1810,9 +1817,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (playerElevation < 4) return false;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
-              return true;
+              // Elevation-based rendering:
+              // - Player above tile elevation: tile renders below player (player is on higher level)
+              // - Player at or below tile elevation: tile renders above player (default top-layer behavior)
+              if (playerElevation > mapTile.elevation) return true;
+              return false;
             }
           );
 
@@ -1825,9 +1834,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerElevation < 4) return true;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
-              return false;
+              // Elevation-based rendering (inverse of topBelow)
+              if (playerElevation > mapTile.elevation) return false;
+              return true;
             }
           );
         }

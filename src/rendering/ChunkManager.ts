@@ -130,17 +130,28 @@ export class ChunkManager {
     // Precise math: Chunk Origin (World Px) - Camera Origin (World Px)
     const chunkWorldX = cx * CHUNK_SIZE_PX;
     const chunkWorldY = cy * CHUNK_SIZE_PX;
-    
-    const destX = chunkWorldX - view.cameraWorldX;
-    const destY = chunkWorldY - view.cameraWorldY;
+
+    // Round to integers to prevent sub-pixel rendering artifacts (white lines between chunks)
+    const destX = Math.round(chunkWorldX - view.cameraWorldX);
+    const destY = Math.round(chunkWorldY - view.cameraWorldY);
 
     // Debug log if enabled
     if (isDebugMode() && Math.random() < 0.01) {
-      console.log(`[CHUNK DEBUG] cx:${cx} cy:${cy} worldX:${chunkWorldX} destX:${destX.toFixed(2)} camX:${view.cameraWorldX.toFixed(2)}`);
+      console.log(`[CHUNK DEBUG] cx:${cx} cy:${cy} worldX:${chunkWorldX} destX:${destX} camX:${view.cameraWorldX.toFixed(2)}`);
     }
+
+    // Disable image smoothing to prevent anti-aliasing artifacts at chunk edges
+    ctx.imageSmoothingEnabled = false;
 
     // We assume context is already cleared or we are drawing over
     ctx.drawImage(canvas, destX, destY);
+
+    // Draw debug outline if enabled
+    if (isDebugMode()) {
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(destX + 0.5, destY + 0.5, CHUNK_SIZE_PX - 1, CHUNK_SIZE_PX - 1);
+    }
   }
 
   private updateAccess(key: string) {
