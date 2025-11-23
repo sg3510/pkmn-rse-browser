@@ -1,7 +1,24 @@
 import { METATILE_SIZE } from '../utils/mapLoader';
 
-const DEBUG_MODE_FLAG = 'DEBUG_MODE';
-const isDebugMode = () => !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
+// Debug options that can be set from DebugPanel
+export interface ChunkDebugOptions {
+  showBorders: boolean;
+  logOperations: boolean;
+}
+
+const DEFAULT_DEBUG_OPTIONS: ChunkDebugOptions = {
+  showBorders: false,
+  logOperations: false,
+};
+
+// Global debug options (set by DebugPanel)
+let chunkDebugOptions: ChunkDebugOptions = { ...DEFAULT_DEBUG_OPTIONS };
+
+export const setChunkDebugOptions = (options: Partial<ChunkDebugOptions>) => {
+  chunkDebugOptions = { ...chunkDebugOptions, ...options };
+};
+
+export const getChunkDebugOptions = () => chunkDebugOptions;
 
 // Minimal view shape consumed by the chunk manager. Structural typing allows
 // passing the fuller WorldCameraView used elsewhere.
@@ -107,7 +124,7 @@ export class ChunkManager {
         });
       }
       this.cache.set(key, canvas);
-      if (isDebugMode()) {
+      if (chunkDebugOptions.logOperations) {
         console.log(`[CHUNK MISS] Creating ${key}`);
       }
     }
@@ -136,7 +153,7 @@ export class ChunkManager {
     const destY = Math.round(chunkWorldY - view.cameraWorldY);
 
     // Debug log if enabled
-    if (isDebugMode() && Math.random() < 0.01) {
+    if (chunkDebugOptions.logOperations && Math.random() < 0.01) {
       console.log(`[CHUNK DEBUG] cx:${cx} cy:${cy} worldX:${chunkWorldX} destX:${destX} camX:${view.cameraWorldX.toFixed(2)}`);
     }
 
@@ -147,10 +164,14 @@ export class ChunkManager {
     ctx.drawImage(canvas, destX, destY);
 
     // Draw debug outline if enabled
-    if (isDebugMode()) {
-      ctx.strokeStyle = 'red';
+    if (chunkDebugOptions.showBorders) {
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
       ctx.lineWidth = 1;
       ctx.strokeRect(destX + 0.5, destY + 0.5, CHUNK_SIZE_PX - 1, CHUNK_SIZE_PX - 1);
+      // Draw chunk coordinates
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+      ctx.font = '10px monospace';
+      ctx.fillText(`${cx},${cy}`, destX + 4, destY + 12);
     }
   }
 

@@ -3,7 +3,8 @@ import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
-import { ChunkManager, type RenderRegion } from '../rendering/ChunkManager';
+import { ChunkManager, type RenderRegion, setChunkDebugOptions } from '../rendering/ChunkManager';
+import { DebugPanel, type DebugOptions, DEFAULT_DEBUG_OPTIONS } from './DebugPanel';
 import {
   loadBinary,
   type Metatile,
@@ -906,20 +907,27 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showTileDebug, setShowTileDebug] = useState(false);
-  const [debugFocusMode, setDebugFocusMode] = useState<'player' | 'inspect'>('player');
+  const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
   const [inspectTarget, setInspectTarget] = useState<{ tileX: number; tileY: number } | null>(null);
   const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
-  
+
+  // Derived state for backwards compatibility
+  const showTileDebug = debugOptions.enabled;
+  const debugFocusMode = debugOptions.focusMode;
+
   // Canvas refs for layer decomposition
   const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const compositeLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  
-  // Set global debug flag when showTileDebug changes
+
+  // Sync debug options with chunk manager and global flag
   useEffect(() => {
-    (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = showTileDebug;
-  }, [showTileDebug]);
+    (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = debugOptions.enabled;
+    setChunkDebugOptions({
+      showBorders: debugOptions.showChunkBorders,
+      logOperations: debugOptions.logChunkOperations,
+    });
+  }, [debugOptions]);
 
   // Player Controller
 
@@ -3026,223 +3034,23 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         }}
         onClick={handleCanvasClick}
       />
-      <div style={{ marginTop: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input
-            type="checkbox"
-            checked={showTileDebug}
-            onChange={(e) => setShowTileDebug(e.target.checked)}
-          />
-          Show 3x3 tile debug (Debug Mode)
-        </label>
-        {showTileDebug && (
-          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="radio"
-                  name="debug-focus"
-                  value="player"
-                  checked={debugFocusMode === 'player'}
-                  onChange={() => {
-                    setDebugFocusMode('player');
-                    setInspectTarget(null);
-                  }}
-                />
-                Follow player
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="radio"
-                  name="debug-focus"
-                  value="inspect"
-                  checked={debugFocusMode === 'inspect'}
-                  onChange={() => setDebugFocusMode('inspect')}
-                />
-                Click to inspect tile (shows that tile + surrounding)
-              </label>
-            </div>
-            <canvas
-              ref={debugCanvasRef}
-              width={DEBUG_GRID_SIZE}
-              height={DEBUG_GRID_SIZE}
-              style={{
-                border: '1px solid #888',
-                imageRendering: 'pixelated',
-                width: DEBUG_GRID_SIZE,
-                height: DEBUG_GRID_SIZE,
-              }}
-            />
-            {centerTileDebugInfo && (
-              <div style={{ 
-                fontFamily: 'monospace', 
-                fontSize: '12px', 
-                backgroundColor: '#f5f5f5', 
-                padding: '8px', 
-                borderRadius: '4px',
-                maxWidth: '900px'
-              }}>
-                <div><strong>Map:</strong> {centerTileDebugInfo.mapName} ({centerTileDebugInfo.mapId})</div>
-                <div><strong>World Coords:</strong> ({centerTileDebugInfo.tileX}, {centerTileDebugInfo.tileY})</div>
-                <div><strong>Local Coords:</strong> ({centerTileDebugInfo.localX}, {centerTileDebugInfo.localY})</div>
-                <div><strong>Metatile ID:</strong> {centerTileDebugInfo.metatileId} {centerTileDebugInfo.isSecondary ? '(Secondary)' : '(Primary)'}</div>
-                <div><strong>Palette:</strong> {centerTileDebugInfo.paletteIndex}</div>
-                <div><strong>Behavior:</strong> {centerTileDebugInfo.behavior !== undefined ? `0x${centerTileDebugInfo.behavior.toString(16).toUpperCase().padStart(2, '0')}` : 'N/A'}</div>
-                
-                {/* Elevation & Collision Section */}
-                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                  <div><strong>🏔️ Elevation & Collision:</strong></div>
-                  <div style={{ marginLeft: '16px' }}>
-                    <div><strong>Tile Elevation:</strong> {centerTileDebugInfo.elevation ?? 'N/A'}</div>
-                    <div><strong>Player Elevation:</strong> {centerTileDebugInfo.playerElevation ?? 'N/A'}</div>
-                    <div><strong>Collision:</strong> {centerTileDebugInfo.collision ?? 'N/A'} ({centerTileDebugInfo.collisionPassable ? '✅ Passable' : '🚫 Blocked'})</div>
-                    {centerTileDebugInfo.isLedge && (
-                      <div><strong>Ledge:</strong> ✅ {centerTileDebugInfo.ledgeDirection} (Jump {centerTileDebugInfo.ledgeDirection?.toLowerCase()})</div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Layer & Rendering Section */}
-                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                  <div><strong>🎨 Layer & Rendering:</strong></div>
-                  <div style={{ marginLeft: '16px' }}>
-                    <div><strong>Layer Type:</strong> {centerTileDebugInfo.layerTypeLabel ?? 'N/A'} (raw value: {centerTileDebugInfo.layerType ?? 'N/A'})</div>
-                    <div><strong>Bottom Layer Transparency:</strong> {centerTileDebugInfo.bottomLayerTransparency ?? 0}/256 pixels</div>
-                    <div><strong>Top Layer Transparency:</strong> {centerTileDebugInfo.topLayerTransparency ?? 0}/256 pixels</div>
-                    
-                    {/* Visual Layer Decomposition */}
-                    <div style={{ marginTop: '8px' }}>
-                      <div><strong>🔬 Visual Layer Decomposition (4x scale):</strong></div>
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Bottom Layer<br/>(tiles 0-3)</div>
-                          <canvas 
-                            ref={bottomLayerCanvasRef} 
-                            width={64} 
-                            height={64}
-                            style={{ 
-                              border: '1px solid #888', 
-                              imageRendering: 'pixelated',
-                              backgroundColor: '#000'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Top Layer<br/>(tiles 4-7)</div>
-                          <canvas 
-                            ref={topLayerCanvasRef} 
-                            width={64} 
-                            height={64}
-                            style={{ 
-                              border: '1px solid #888', 
-                              imageRendering: 'pixelated',
-                              backgroundColor: '#000'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', marginBottom: '4px', textAlign: 'center' }}>Composite<br/>(both layers)</div>
-                          <canvas 
-                            ref={compositeLayerCanvasRef} 
-                            width={64} 
-                            height={64}
-                            style={{ 
-                              border: '1px solid #888', 
-                              imageRendering: 'pixelated',
-                              backgroundColor: '#000'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div style={{ marginTop: '8px' }}>
-                      <div><strong>Render Passes:</strong></div>
-                      <div style={{ marginLeft: '16px', fontSize: '11px' }}>
-                        <div>🟢 <strong>Background Pass:</strong> {centerTileDebugInfo.renderedInBackgroundPass ? '✅ YES' : '❌ NO'} (bottom layer)</div>
-                        <div>🟡 <strong>Top-Below Pass:</strong> {centerTileDebugInfo.renderedInTopBelowPass ? '✅ YES' : '❌ NO'} (before player)</div>
-                        <div style={{ marginLeft: '16px', color: '#666' }}>{centerTileDebugInfo.topBelowPassReason}</div>
-                        <div>🔴 <strong>Top-Above Pass:</strong> {centerTileDebugInfo.renderedInTopAbovePass ? '✅ YES' : '❌ NO'} (after player)</div>
-                        <div style={{ marginLeft: '16px', color: '#666' }}>{centerTileDebugInfo.topAbovePassReason}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Detailed Tile Breakdown */}
-                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                  <div><strong>🔍 Tile Details (8×8 tiles in this metatile):</strong></div>
-                  <div style={{ marginLeft: '16px', fontSize: '11px' }}>
-                    <div style={{ marginTop: '4px' }}><strong>Bottom Layer (tiles 0-3):</strong></div>
-                    {centerTileDebugInfo.bottomTileDetails && centerTileDebugInfo.bottomTileDetails.length > 0 ? (
-                      centerTileDebugInfo.bottomTileDetails.map((detail, i) => (
-                        <div key={i} style={{ marginLeft: '16px', fontFamily: 'monospace' }}>{detail}</div>
-                      ))
-                    ) : (
-                      <div style={{ marginLeft: '16px', color: '#999' }}>No bottom tiles</div>
-                    )}
-                    
-                    <div style={{ marginTop: '4px' }}><strong>Top Layer (tiles 4-7):</strong></div>
-                    {centerTileDebugInfo.topTileDetails && centerTileDebugInfo.topTileDetails.length > 0 ? (
-                      centerTileDebugInfo.topTileDetails.map((detail, i) => (
-                        <div key={i} style={{ marginLeft: '16px', fontFamily: 'monospace' }}>{detail}</div>
-                      ))
-                    ) : (
-                      <div style={{ marginLeft: '16px', color: '#999' }}>No top tiles</div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Adjacent Tiles */}
-                {centerTileDebugInfo.adjacentTileInfo && (
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                    <div><strong>🧭 Adjacent Tiles (can affect rendering):</strong></div>
-                    <div style={{ marginLeft: '16px', fontSize: '11px' }}>
-                      {centerTileDebugInfo.adjacentTileInfo.north && (
-                        <div>⬆️ <strong>North:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.north.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.north.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.north.layerType})</div>
-                      )}
-                      {centerTileDebugInfo.adjacentTileInfo.south && (
-                        <div>⬇️ <strong>South:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.south.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.south.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.south.layerType})</div>
-                      )}
-                      {centerTileDebugInfo.adjacentTileInfo.east && (
-                        <div>➡️ <strong>East:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.east.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.east.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.east.layerType})</div>
-                      )}
-                      {centerTileDebugInfo.adjacentTileInfo.west && (
-                        <div>⬅️ <strong>West:</strong> Metatile {centerTileDebugInfo.adjacentTileInfo.west.metatileId}, Layer: {centerTileDebugInfo.adjacentTileInfo.west.layerTypeLabel} ({centerTileDebugInfo.adjacentTileInfo.west.layerType})</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {centerTileDebugInfo.isReflective && (
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                    <div><strong>💧 Reflection:</strong> {centerTileDebugInfo.reflectionType ?? 'unknown'} ({centerTileDebugInfo.reflectionMaskAllow}/{centerTileDebugInfo.reflectionMaskTotal} pixels)</div>
-                  </div>
-                )}
-                
-                <div style={{ marginTop: '4px' }}>
-                  <div><strong>Tilesets:</strong> {centerTileDebugInfo.primaryTilesetId} + {centerTileDebugInfo.secondaryTilesetId}</div>
-                </div>
-                
-                {centerTileDebugInfo.warpEvent && (
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                    <div><strong>🚪 Warp Event:</strong></div>
-                    <div style={{ marginLeft: '16px' }}>
-                      <div><strong>Kind:</strong> {centerTileDebugInfo.warpKind ?? 'unknown'}</div>
-                      <div><strong>Destination:</strong> {centerTileDebugInfo.warpEvent.destMap}</div>
-                      <div><strong>Dest Warp ID:</strong> {centerTileDebugInfo.warpEvent.destWarpId}</div>
-                      <div><strong>Elevation:</strong> {centerTileDebugInfo.warpEvent.elevation}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <button onClick={handleCopyTileDebug} style={{ alignSelf: 'flex-start' }}>
-              Copy tile debug to clipboard
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Debug Panel - slides in from right side */}
+      <DebugPanel
+        options={debugOptions}
+        onChange={(newOptions) => {
+          // Handle focus mode change - clear inspect target when switching to player mode
+          if (newOptions.focusMode === 'player' && debugOptions.focusMode === 'inspect') {
+            setInspectTarget(null);
+          }
+          setDebugOptions(newOptions);
+        }}
+        tileInfo={centerTileDebugInfo}
+        debugCanvasRef={debugCanvasRef}
+        bottomLayerCanvasRef={bottomLayerCanvasRef}
+        topLayerCanvasRef={topLayerCanvasRef}
+        compositeLayerCanvasRef={compositeLayerCanvasRef}
+        debugGridSize={DEBUG_GRID_SIZE}
+      />
     </div>
   );
 };

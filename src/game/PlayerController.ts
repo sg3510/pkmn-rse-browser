@@ -307,11 +307,25 @@ export class PlayerController {
 
   constructor() {
     this.currentState = new NormalState();
+    // Keys that control the player - prevent default browser behavior (scrolling)
+    const movementKeys = new Set([
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'w', 'W', 'a', 'A', 's', 'S', 'd', 'D',
+      ' ', // Space bar (often used for interaction)
+    ]);
+
     this.handleKeyDown = (e: KeyboardEvent) => {
       this.keysPressed[e.key] = true;
+      // Prevent browser scrolling when using movement keys
+      if (movementKeys.has(e.key)) {
+        e.preventDefault();
+      }
     };
     this.handleKeyUp = (e: KeyboardEvent) => {
       this.keysPressed[e.key] = false;
+      if (movementKeys.has(e.key)) {
+        e.preventDefault();
+      }
     };
 
     // Initialize prevTileX/Y to current position, behavior to undefined
