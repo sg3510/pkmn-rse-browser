@@ -23,7 +23,8 @@ const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
 export class DebugRenderer {
   static renderDebugOverlay(
     ctx: RenderContext,
-    player: PlayerController,
+    center: { tileX: number; tileY: number },
+    player: PlayerController | undefined,
     view: WorldCameraView,
     mainCanvas: HTMLCanvasElement,
     dbgCanvas: HTMLCanvasElement,
@@ -41,9 +42,9 @@ export class DebugRenderer {
     const collected: DebugTileInfo[] = [];
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const tileX = player.tileX + dx;
-        const tileY = player.tileY + dy;
-        const info = describeTile(ctx, tileX, tileY, player);
+        const tileX = center.tileX + dx;
+        const tileY = center.tileY + dy;
+        const info = describeTile(ctx, tileX, tileY, player ?? null);
         collected.push(info);
 
         const destX = (dx + 1) * DEBUG_CELL_SIZE;

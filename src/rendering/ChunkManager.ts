@@ -51,7 +51,8 @@ export class ChunkManager {
     view: ChunkCameraView,
     layer: string,
     extraHash: string,
-    renderCallback: ChunkRenderCallback
+    renderCallback: ChunkRenderCallback,
+    prewarmPadding: number = 1
   ) {
     // Calculate visible chunks
     // cameraWorldX is the left-most pixel visible
@@ -69,7 +70,49 @@ export class ChunkManager {
       }
     }
 
+    // Prewarm a small ring of chunks around the viewport to avoid hitching when stepping across boundaries.
+    if (prewarmPadding > 0) {
+      for (let cy = startChunkY - prewarmPadding; cy <= endChunkY + prewarmPadding; cy++) {
+        for (let cx = startChunkX - prewarmPadding; cx <= endChunkX + prewarmPadding; cx++) {
+          const isAlreadyDrawn = cy >= startChunkY && cy <= endChunkY && cx >= startChunkX && cx <= endChunkX;
+          if (isAlreadyDrawn) continue;
+          this.ensureChunkCached(cx, cy, layer, extraHash, renderCallback);
+        }
+      }
+    }
+
     this.pruneCache();
+  }
+
+  private ensureChunkCached(
+    cx: number,
+    cy: number,
+    layer: string,
+    extraHash: string,
+    renderCallback: ChunkRenderCallback
+  ): HTMLCanvasElement {
+    const key = this.getCacheKey(cx, cy, layer, extraHash);
+    let canvas = this.cache.get(key);
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.width = CHUNK_SIZE_PX;
+      canvas.height = CHUNK_SIZE_PX;
+      const chunkCtx = canvas.getContext('2d', { alpha: true });
+      if (chunkCtx) {
+        renderCallback(chunkCtx, {
+          startTileX: cx * CHUNK_SIZE_TILES,
+          startTileY: cy * CHUNK_SIZE_TILES,
+          width: CHUNK_SIZE_TILES,
+          height: CHUNK_SIZE_TILES
+        });
+      }
+      this.cache.set(key, canvas);
+      if (isDebugMode()) {
+        console.log(`[CHUNK MISS] Creating ${key}`);
+      }
+    }
+    this.updateAccess(key);
+    return canvas;
   }
 
   private drawChunk(
@@ -81,33 +124,7 @@ export class ChunkManager {
     extraHash: string,
     renderCallback: ChunkRenderCallback
   ) {
-    const key = this.getCacheKey(cx, cy, layer, extraHash);
-    let canvas = this.cache.get(key);
-
-    if (!canvas) {
-      // Render new chunk
-      if (isDebugMode()) {
-         console.log(`[CHUNK MISS] Creating ${key}`);
-      }
-      canvas = document.createElement('canvas');
-      canvas.width = CHUNK_SIZE_PX;
-      canvas.height = CHUNK_SIZE_PX;
-      const chunkCtx = canvas.getContext('2d', { alpha: true });
-      
-      if (chunkCtx) {
-        renderCallback(chunkCtx, {
-          startTileX: cx * CHUNK_SIZE_TILES,
-          startTileY: cy * CHUNK_SIZE_TILES,
-          width: CHUNK_SIZE_TILES,
-          height: CHUNK_SIZE_TILES
-        });
-      }
-      
-      this.cache.set(key, canvas);
-    }
-
-    // Update LRU
-    this.updateAccess(key);
+    const canvas = this.ensureChunkCached(cx, cy, layer, extraHash, renderCallback);
 
     // Calculate screen position
     // Precise math: Chunk Origin (World Px) - Camera Origin (World Px)

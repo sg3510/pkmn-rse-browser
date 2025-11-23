@@ -907,6 +907,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTileDebug, setShowTileDebug] = useState(false);
+  const [debugFocusMode, setDebugFocusMode] = useState<'player' | 'inspect'>('player');
+  const [inspectTarget, setInspectTarget] = useState<{ tileX: number; tileY: number } | null>(null);
   const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
   
   // Canvas refs for layer decomposition
@@ -923,15 +925,31 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
 
   const refreshDebugOverlay = useCallback(
-    (ctx: RenderContext, player: PlayerController, view: WorldCameraView | null) => {
+    (
+      ctx: RenderContext,
+      player: PlayerController | null,
+      view: WorldCameraView | null,
+      centerOverride?: { tileX: number; tileY: number }
+    ) => {
       if (!debugEnabledRef.current || !view) return;
       const mainCanvas = canvasRef.current;
       const dbgCanvas = debugCanvasRef.current;
       if (!dbgCanvas || !mainCanvas) return;
 
+      const centerTile =
+        centerOverride ??
+        (debugFocusMode === 'inspect' && inspectTarget
+          ? inspectTarget
+          : player
+            ? { tileX: player.tileX, tileY: player.tileY }
+            : null);
+
+      if (!centerTile) return;
+
       DebugRenderer.renderDebugOverlay(
         ctx,
-        player,
+        centerTile,
+        player ?? undefined,
         view,
         mainCanvas,
         dbgCanvas,
@@ -939,7 +957,32 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         debugTilesRef
       );
     },
-    [setCenterTileDebugInfo]
+    [debugFocusMode, inspectTarget, setCenterTileDebugInfo]
+  );
+
+  // Click-to-inspect handler for debug overlay
+  const handleCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!showTileDebug || debugFocusMode !== 'inspect') return;
+      const view = cameraViewRef.current;
+      if (!view) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const localX = (e.clientX - rect.left) * scaleX;
+      const localY = (e.clientY - rect.top) * scaleY;
+      const worldPixelX = view.cameraWorldX + localX;
+      const worldPixelY = view.cameraWorldY + localY;
+      const tileX = Math.floor(worldPixelX / METATILE_SIZE);
+      const tileY = Math.floor(worldPixelY / METATILE_SIZE);
+      setInspectTarget({ tileX, tileY });
+      if (renderContextRef.current) {
+        refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, view, { tileX, tileY });
+      }
+    },
+    [debugFocusMode, refreshDebugOverlay, showTileDebug]
   );
 
   // Render layer decomposition canvases
@@ -974,12 +1017,16 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     if (
       showTileDebug &&
       renderContextRef.current &&
-      canvasRef.current &&
-      playerControllerRef.current
+      canvasRef.current
     ) {
       refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
     }
   }, [showTileDebug, refreshDebugOverlay]);
+
+  useEffect(() => {
+    if (!showTileDebug || !renderContextRef.current) return;
+    refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
+  }, [debugFocusMode, inspectTarget, showTileDebug, refreshDebugOverlay]);
   
   // Update layer decomposition when center tile changes
   useEffect(() => {
@@ -1402,10 +1449,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
-              // Porymap approach: choose tileset based on palette index, not tile source
-              // Secondary tiles can use primary palettes (0-5) and vice versa
-              const NUM_PALS_IN_PRIMARY = 6;
-              const palette = tile.palette < NUM_PALS_IN_PRIMARY
+              // Palette selection should follow the tile's source (primary vs secondary)
+              const palette = tileSource === 'primary'
                 ? resolved.tileset.primaryPalettes[tile.palette]
                 : resolved.tileset.secondaryPalettes[tile.palette];
               if (!palette) continue;
@@ -1542,10 +1587,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
               
-              // CRITICAL: Palette selection matches original logic
-              // Choose tileset based on palette index, NOT tile source
-              const NUM_PALS_IN_PRIMARY = 6;
-              const palette = tile.palette < NUM_PALS_IN_PRIMARY
+              // Palette selection should follow the tile's source (primary vs secondary)
+              const palette = tileSource === 'primary'
                 ? resolved.tileset.primaryPalettes[tile.palette]
                 : resolved.tileset.secondaryPalettes[tile.palette];
               if (!palette) continue;
@@ -2828,28 +2871,39 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           }
 
           // Detect if player entered a different map; re-anchor world if needed.
+          // To avoid hitching on every connected-map boundary, only re-anchor when near world edges.
           if (!reanchorInFlight && player) {
             const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
             if (resolved && resolved.map.entry.id !== ctx.anchor.entry.id) {
-              reanchorInFlight = true;
-              const targetId = resolved.map.entry.id;
-              const targetOffsetX = resolved.map.offsetX;
-              const targetOffsetY = resolved.map.offsetY;
-              const playerWorldX = player.tileX;
-              const playerWorldY = player.tileY;
-              (async () => {
-                const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
-                // Shift new world so the target map stays at the same world offset as before reanchor.
-                const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
-                await rebuildContextForWorld(newWorld, targetId);
-                // Keep absolute world position when entering new anchor.
-                playerControllerRef.current?.setPosition(playerWorldX, playerWorldY);
-                applyTileResolver();
-                warpState.lastCheckedTile = { mapId: targetId, x: playerWorldX, y: playerWorldY };
-                warpState.cooldownMs = Math.max(warpState.cooldownMs, 50);
-              })().finally(() => {
-                reanchorInFlight = false;
-              });
+              const bounds = ctx.world.bounds;
+              const marginTiles = Math.max(VIEWPORT_CONFIG.tilesWide, VIEWPORT_CONFIG.tilesHigh);
+              const nearEdge =
+                player.tileX - bounds.minX < marginTiles ||
+                bounds.maxX - player.tileX < marginTiles ||
+                player.tileY - bounds.minY < marginTiles ||
+                bounds.maxY - player.tileY < marginTiles;
+
+              if (nearEdge) {
+                reanchorInFlight = true;
+                const targetId = resolved.map.entry.id;
+                const targetOffsetX = resolved.map.offsetX;
+                const targetOffsetY = resolved.map.offsetY;
+                const playerWorldX = player.tileX;
+                const playerWorldY = player.tileY;
+                (async () => {
+                  const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
+                  // Shift new world so the target map stays at the same world offset as before reanchor.
+                  const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
+                  await rebuildContextForWorld(newWorld, targetId);
+                  // Keep absolute world position when entering new anchor.
+                  playerControllerRef.current?.setPosition(playerWorldX, playerWorldY);
+                  applyTileResolver();
+                  warpState.lastCheckedTile = { mapId: targetId, x: playerWorldX, y: playerWorldY };
+                  warpState.cooldownMs = Math.max(warpState.cooldownMs, 50);
+                })().finally(() => {
+                  reanchorInFlight = false;
+                });
+              }
             }
           }
 
@@ -2942,6 +2996,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           width: VIEWPORT_PIXEL_SIZE.width * zoom,
           height: VIEWPORT_PIXEL_SIZE.height * zoom
         }}
+        onClick={handleCanvasClick}
       />
       <div style={{ marginTop: 8 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2954,6 +3009,31 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         </label>
         {showTileDebug && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="radio"
+                  name="debug-focus"
+                  value="player"
+                  checked={debugFocusMode === 'player'}
+                  onChange={() => {
+                    setDebugFocusMode('player');
+                    setInspectTarget(null);
+                  }}
+                />
+                Follow player
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="radio"
+                  name="debug-focus"
+                  value="inspect"
+                  checked={debugFocusMode === 'inspect'}
+                  onChange={() => setDebugFocusMode('inspect')}
+                />
+                Click to inspect tile (shows that tile + surrounding)
+              </label>
+            </div>
             <canvas
               ref={debugCanvasRef}
               width={DEBUG_GRID_SIZE}
