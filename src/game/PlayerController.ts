@@ -503,10 +503,28 @@ export class PlayerController {
 
     // Update grass effects
     this.grassEffectManager.update();
-    
-    // Cleanup completed grass effects
+
+    // Cleanup completed grass effects with direction-aware removal
+    // Per pokeemerald: moving DOWN removes grass immediately, other directions wait
+    //
+    // IMPORTANT: During movement, tileX/tileY doesn't update until the move completes.
+    // So we need to calculate destTileX/destTileY to know WHERE player is moving TO.
+    const dx = this.dir === 'left' ? -1 : this.dir === 'right' ? 1 : 0;
+    const dy = this.dir === 'up' ? -1 : this.dir === 'down' ? 1 : 0;
+    const destTileX = this.isMoving ? this.tileX + dx : this.tileX;
+    const destTileY = this.isMoving ? this.tileY + dy : this.tileY;
+
     const ownerPositions = new Map();
-    ownerPositions.set('player', { tileX: this.tileX, tileY: this.tileY });
+    ownerPositions.set('player', {
+      tileX: this.tileX,
+      tileY: this.tileY,
+      destTileX,
+      destTileY,
+      prevTileX: this.prevTileX,
+      prevTileY: this.prevTileY,
+      direction: this.dir,
+      isMoving: this.isMoving,
+    });
     this.grassEffectManager.cleanup(ownerPositions);
 
     return this.currentState.update(this, delta);
@@ -648,10 +666,17 @@ export class PlayerController {
         }
         // Create sand footprint as we START to move off current tile
         this.checkAndTriggerSandFootprints();
-        
+
+        // Trigger TALL grass effect at movement START (not end) for squash effect
+        // Per pokeemerald: GetGroundEffectFlags_TallGrassOnBeginStep triggers when stepping TOWARD grass
+        // Long grass still triggers at movement end (different visual behavior)
+        if (isTallGrassBehavior(behavior)) {
+          this.grassEffectManager.create(targetTileX, targetTileY, 'tall', false, 'player');
+        }
+
         this.isMoving = true;
         this.pixelsMoved = 0;
-        // Grass effect will be triggered at the end of movement in processMovement
+        // Long grass effect will be triggered at the end of movement in processMovement
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
         if (isDebugMode()) {
           console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
@@ -703,9 +728,17 @@ export class PlayerController {
     if (!this.isCollisionAt(targetTileX, targetTileY)) {
       // Create sand footprint as we START to move
       this.checkAndTriggerSandFootprints();
+
+      // Trigger TALL grass effect at movement START (not end) for squash effect
+      const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+      const behavior = resolved?.attributes?.behavior;
+      if (behavior !== undefined && isTallGrassBehavior(behavior)) {
+        this.grassEffectManager.create(targetTileX, targetTileY, 'tall', false, 'player');
+      }
+
       this.isMoving = true;
       this.pixelsMoved = 0;
-      // Grass effect will be triggered at the end of movement in processMovement
+      // Long grass effect will be triggered at the end of movement in processMovement
       return true;
     }
     return false;
@@ -1110,17 +1143,26 @@ export class PlayerController {
    * Based on pokeemerald logic:
    * - GroundEffect_SpawnOnTallGrass / SpawnOnLongGrass (skip animation)
    * - GroundEffect_StepOnTallGrass / StepOnLongGrass (play animation)
-   * 
+   *
+   * NOTE: Tall grass animation is now triggered at movement START (not here) for the
+   * squash effect timing. This function only handles:
+   * - Tall grass spawn case (skipAnimation = true)
+   * - Long grass (both spawn and step cases)
+   *
    * NOTE: Sand footprints are handled separately in checkAndTriggerSandFootprints()
    * which uses previousTile, not currentTile
    */
   private checkAndTriggerGrassEffect(tileX: number, tileY: number, skipAnimation: boolean) {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     const behavior = resolved?.attributes?.behavior;
-    
+
     if (behavior !== undefined) {
       if (isTallGrassBehavior(behavior)) {
-        this.grassEffectManager.create(tileX, tileY, 'tall', skipAnimation, 'player');
+        // Tall grass animated step is triggered at movement START, not here
+        // Only handle spawn case (skipAnimation = true)
+        if (skipAnimation) {
+          this.grassEffectManager.create(tileX, tileY, 'tall', true, 'player');
+        }
         this.currentGrassType = null; // Tall grass doesn't clip player
       } else if (isLongGrassBehavior(behavior)) {
         this.grassEffectManager.create(tileX, tileY, 'long', skipAnimation, 'player');

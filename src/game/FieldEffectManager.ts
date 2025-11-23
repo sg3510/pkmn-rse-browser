@@ -191,17 +191,33 @@ export class FieldEffectManager {
 
   /**
    * Clean up completed grass effects.
-   * 
+   *
    * Behavior per pokeemerald:
    * - Effects that end at frame 0: Keep until player moves away from tile
    * - Other completed effects: Remove immediately
-   * 
+   *
    * Frame 0 is the "resting" frame that shows grass covering player's feet.
    * It persists whether it got there via animation (1→2→3→4→0) or spawn (start at 0).
-   * 
-   * @param ownerPositions - Map of owner IDs to their current tile positions
+   *
+   * Direction-aware cleanup (per pokeemerald UpdateTallGrassFieldEffect):
+   * - Moving DOWN: Remove frame 0 immediately (player visually covers grass)
+   * - Moving UP/LEFT/RIGHT: Keep frame 0 until player fully leaves (previousCoords also off tile)
+   *
+   * IMPORTANT: tileX/tileY is the CURRENT logical tile (which doesn't update until movement completes).
+   * destTileX/destTileY is where the player is moving TO (only valid when isMoving=true).
+   *
+   * @param ownerPositions - Map of owner IDs to position info including destination
    */
-  cleanup(ownerPositions: Map<string, { tileX: number; tileY: number }>): void {
+  cleanup(ownerPositions: Map<string, {
+    tileX: number;
+    tileY: number;
+    destTileX: number;
+    destTileY: number;
+    prevTileX: number;
+    prevTileY: number;
+    direction: 'up' | 'down' | 'left' | 'right';
+    isMoving: boolean;
+  }>): void {
     for (const [id, effect] of this.effects.entries()) {
       if (!effect.completed) {
         continue; // Don't clean up until animation finishes
@@ -220,18 +236,44 @@ export class FieldEffectManager {
           continue;
         }
 
-        // Check if owner moved away from this grass tile
-        const ownerMoved = ownerPos.tileX !== effect.tileX || ownerPos.tileY !== effect.tileY;
-        
-        if (ownerMoved) {
+        // Check if owner's current logical tile matches grass tile
+        const currentOnGrass = ownerPos.tileX === effect.tileX && ownerPos.tileY === effect.tileY;
+        // Check if owner's previous position matches grass tile
+        const previousOnGrass = ownerPos.prevTileX === effect.tileX && ownerPos.prevTileY === effect.tileY;
+        // Check if owner is moving AWAY from grass (destination is different tile)
+        const movingAwayFromGrass = ownerPos.isMoving &&
+          (ownerPos.destTileX !== effect.tileX || ownerPos.destTileY !== effect.tileY);
+
+        // Special case: Moving DOWN from grass - remove immediately
+        // When moving down, player sprite visually covers the grass, so hide it right away
+        if (currentOnGrass && movingAwayFromGrass && ownerPos.direction === 'down') {
           if (isDebugMode()) {
-            console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner moved to (${ownerPos.tileX}, ${ownerPos.tileY})`);
+            console.log(`[GRASS] Removing frame 0 effect ${id} - owner moving DOWN away from grass`);
+          }
+          this.effects.delete(id);
+          continue;
+        }
+
+        if (currentOnGrass && !movingAwayFromGrass) {
+          // Player still on this grass tile and not moving away - keep effect
+          if (isDebugMode() && Math.random() < 0.01) {
+            console.log(`[GRASS] Keeping frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner still there`);
+          }
+          continue;
+        }
+
+        // Player has moved off the grass tile (or is moving away in non-down direction)
+        // For UP/LEFT/RIGHT: keep until both current AND previous positions are off grass
+        if (!currentOnGrass && !previousOnGrass) {
+          // Both current and previous positions are off the grass - remove
+          if (isDebugMode()) {
+            console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner fully left`);
           }
           this.effects.delete(id);
         } else {
-          // Keep the frame 0 effect (player still on grass)
-          if (isDebugMode() && Math.random() < 0.01) {
-            console.log(`[GRASS] Keeping frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner still there`);
+          // Still transitioning (UP/LEFT/RIGHT) - keep for now
+          if (isDebugMode() && Math.random() < 0.1) {
+            console.log(`[GRASS] Keeping frame 0 effect ${id} - owner transitioning (prev still on grass)`);
           }
         }
       } else {
