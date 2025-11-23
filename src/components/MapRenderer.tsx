@@ -1449,8 +1449,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
-              // Palette selection should follow the tile's source (primary vs secondary)
-              const palette = tileSource === 'primary'
+              // Palette selection based on palette INDEX, not tile source
+              // Palettes 0-5 come from primary tileset, 6-15 from secondary
+              // (Secondary tiles can use primary palettes and vice versa)
+              const NUM_PALS_IN_PRIMARY = 6;
+              const palette = tile.palette < NUM_PALS_IN_PRIMARY
                 ? resolved.tileset.primaryPalettes[tile.palette]
                 : resolved.tileset.secondaryPalettes[tile.palette];
               if (!palette) continue;
@@ -1582,13 +1585,29 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
                   ? animatedTileIds.primary.has(tile.tileId)
                   : animatedTileIds.secondary.has(tile.tileId);
               if (!isAnimatedTile) continue;
+
+              // FIX: For COVERED metatiles, don't draw animated bottom-layer tiles
+              // at positions where the top layer has content. This prevents the
+              // animated overlay from overwriting static rocks/content that was
+              // already correctly rendered in the cached chunk.
+              if (layerType === METATILE_LAYER_TYPE_COVERED && layer === 0) {
+                const topLayerTileIndex = i + 4;  // Corresponding tile in top layer
+                const topTile = metatile.tiles[topLayerTileIndex];
+                // If top layer has a non-transparent tile (tileId != 0), skip this position
+                if (topTile && topTile.tileId !== 0) {
+                  continue;
+                }
+              }
             }
 
               const subX = (i % 2) * TILE_SIZE;
               const subY = Math.floor(i / 2) * TILE_SIZE;
-              
-              // Palette selection should follow the tile's source (primary vs secondary)
-              const palette = tileSource === 'primary'
+
+              // Palette selection based on palette INDEX, not tile source
+              // Palettes 0-5 come from primary tileset, 6-15 from secondary
+              // (Secondary tiles can use primary palettes and vice versa)
+              const NUM_PALS_IN_PRIMARY = 6;
+              const palette = tile.palette < NUM_PALS_IN_PRIMARY
                 ? resolved.tileset.primaryPalettes[tile.palette]
                 : resolved.tileset.secondaryPalettes[tile.palette];
               if (!palette) continue;
