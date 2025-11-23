@@ -1,0 +1,78 @@
+/**
+ * Dialog System CSS
+ *
+ * Styles for Pokemon Emerald-style dialog boxes.
+ * All sizing is done inline with zoom support.
+ */
+
+/* Load the Pokemon Emerald font */
+@font-face {
+  font-family: 'Pokemon Emerald';
+  src: url('/font/pokemon-emerald.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dialog system container */
+.dialog-system-container {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Ensure pixel-perfect rendering */
+.dialog-system * {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Dialog frame using border-image */
+.dialog-frame {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* Fallback background if frame doesn't load */
+  background-color: #188888;
+}
+
+/* Text styling */
+.dialog-text {
+  /* Text rendering optimization */
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeSpeed;
+}
+
+/* Arrow animation (fallback if JS animation fails) */
+@keyframes dialog-arrow-bounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(1px); }
+  50% { transform: translateY(2px); }
+  75% { transform: translateY(1px); }
+}
+
+.dialog-arrow {
+  animation: dialog-arrow-bounce 0.5s steps(4) infinite;
+}
+
+/* Option menu items */
+.option-item {
+  transition: opacity 0.1s;
+}
+
+.option-item:hover:not(.disabled) {
+  opacity: 0.8;
+}
+
+.option-item.disabled {
+  cursor: not-allowed;
+}
+
+/* Focus state for accessibility */
+.dialog-box-container:focus {
+  outline: none;
+}
+
+/* Ensure dialog content doesn't affect game canvas */
+.dialog-system {
+  contain: layout style;
+}

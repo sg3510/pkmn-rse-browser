@@ -36,6 +36,7 @@ import {
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
 import { computeCameraView, type CameraView } from '../utils/camera';
+import { DialogSystem } from './dialog';
 import type { WarpEvent } from '../types/maps';
 
 const PROJECT_ROOT = '/pokeemerald';
@@ -1060,29 +1061,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
     }
   };
-
-  const handleCopyTileDebug = useCallback(async () => {
-    const player = playerControllerRef.current;
-    if (!player) return;
-    const payload = {
-      timestamp: new Date().toISOString(),
-      player: {
-        tileX: player.tileX,
-        tileY: player.tileY,
-        x: player.x,
-        y: player.y,
-        dir: player.dir,
-      },
-      reflectionState: reflectionStateRef.current,
-      tiles: debugTilesRef.current,
-    };
-    const text = JSON.stringify(payload, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy debug info', err);
-    }
-  }, []);
 
   const buildPatchedTilesForRuntime = useCallback(
     (runtime: TilesetRuntime, animationState: AnimationState): TilesetBuffers => {
@@ -3019,21 +2997,37 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
+  // Calculate viewport dimensions for dialog system
+  const viewportWidth = VIEWPORT_PIXEL_SIZE.width * zoom;
+  const viewportHeight = VIEWPORT_PIXEL_SIZE.height * zoom;
+
   return (
     <div>
       {loading && <div>Loading {mapName}...</div>}
-      <canvas
-        ref={canvasRef}
-        width={VIEWPORT_PIXEL_SIZE.width}
-        height={VIEWPORT_PIXEL_SIZE.height}
-        style={{ 
-          border: '1px solid #ccc', 
-          imageRendering: 'pixelated',
-          width: VIEWPORT_PIXEL_SIZE.width * zoom,
-          height: VIEWPORT_PIXEL_SIZE.height * zoom
+      <DialogSystem
+        zoom={zoom}
+        viewportWidth={viewportWidth}
+        viewportHeight={viewportHeight}
+        config={{
+          frameStyle: 1,
+          textSpeed: 'medium',
+          linesVisible: 2,
         }}
-        onClick={handleCanvasClick}
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          width={VIEWPORT_PIXEL_SIZE.width}
+          height={VIEWPORT_PIXEL_SIZE.height}
+          style={{
+            display: 'block',
+            border: '1px solid #ccc',
+            imageRendering: 'pixelated',
+            width: viewportWidth,
+            height: viewportHeight,
+          }}
+          onClick={handleCanvasClick}
+        />
+      </DialogSystem>
       {/* Debug Panel - slides in from right side */}
       <DebugPanel
         options={debugOptions}
