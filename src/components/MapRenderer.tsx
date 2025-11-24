@@ -677,6 +677,10 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
   // Dialog system for surf prompt
   const dialog = useDialog();
 
+  // Track dialog open state in a ref for the game loop to access
+  const dialogOpenRef = useRef<boolean>(false);
+  dialogOpenRef.current = dialog.isOpen;
+
   const ensureDoorSprite = useCallback(
     async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
       const asset = getDoorAssetForMetatile(metatileId);
@@ -1922,14 +1926,18 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       if (player && !playerHiddenRef.current && player.isSurfing()) {
         const blobRenderer = player.surfBlobRenderer;
         if (blobRenderer.isReady()) {
-          // Player's world position - feet are at (x, y+16) because sprite is 32px tall
-          // Surf blob is 32x16, should be centered at player's feet
-          // Convert world coordinates to screen coordinates
-          const blobWorldX = player.x; // Player's current pixel X (already accounts for 16px offset)
-          const blobWorldY = player.y + 16; // Player's feet position
+          // GBA positioning: blob center = player center + 8 pixels down
+          // In React: player.y is top of 32px sprite, player center Y = player.y + 16
+          // Blob center Y = player.y + 16 + 8 = player.y + 24
+          // Blob top Y = blob center Y - 16 (half of 32px blob) = player.y + 8
+          //
+          // Horizontally: center 32px blob under 16px player position
+          // Offset by (32-16)/2 = 8 to the left
+          const blobWorldX = player.x - 8;
+          const blobWorldY = player.y + 8;
           const screenX = Math.round(blobWorldX - view.cameraWorldX);
           const screenY = Math.round(blobWorldY - view.cameraWorldY);
-          
+
           blobRenderer.render(mainCtx, screenX, screenY, player.dir);
         }
       }
@@ -2156,15 +2164,17 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       }
       
       // Show surf dialog
+      console.log('[SURF] Showing dialog...');
       const wantToSurf = await dialog.showYesNo(
         "The water is a deep blue...\nWould you like to SURF?",
         { defaultYes: true }
       );
-      
+      console.log('[SURF] Dialog returned:', wantToSurf, typeof wantToSurf);
+
       if (wantToSurf) {
-        if (isDebugMode()) {
-          console.log('[SURF] Starting surf sequence');
-        }
+        // Show "Pokemon used SURF!" message
+        await dialog.showMessage("LAPRAS used SURF!");
+        console.log('[SURF] Starting surf sequence');
         
         // Start mount sequence
         player.surfingController.startSurfSequence(facingTileX, facingTileY);
@@ -2222,6 +2232,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         const player = new PlayerController();
         await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
+        await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
         
         // Load grass sprite
@@ -2908,7 +2919,10 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
             }
           }
           warpState.cooldownMs = Math.max(0, warpState.cooldownMs - safeDelta);
-          const playerDirty = playerControllerRef.current?.update(safeDelta) ?? false;
+          // Skip player input processing when dialog is open
+          const playerDirty = dialogOpenRef.current
+            ? false
+            : (playerControllerRef.current?.update(safeDelta) ?? false);
           const player = playerControllerRef.current;
           if (player && ctx) {
             const resolvedForWarp = resolveTileAt(ctx, player.tileX, player.tileY);

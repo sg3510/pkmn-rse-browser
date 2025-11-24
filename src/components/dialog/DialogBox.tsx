@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { DialogFrame } from './DialogFrame';
+import { DialogFrameCanvas } from './DialogFrame';
 import { DialogText } from './DialogText';
 import { DialogArrow } from './DialogArrow';
 import { OptionMenu } from './OptionMenu';
@@ -97,13 +97,11 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         zIndex: 100,
       }}
     >
-      <DialogFrame
+      <DialogFrameCanvas
         frameStyle={config.frameStyle}
         zoom={zoom}
-        style={{
-          width: '100%',
-          height: '100%',
-        }}
+        width={dimensions.width}
+        height={dimensions.height}
       >
         <div
           className="dialog-content"
@@ -161,7 +159,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             color={config.textColor}
           />
         </div>
-      </DialogFrame>
+      </DialogFrameCanvas>
 
       {/* Option menu (Yes/No, multichoice) */}
       {showOptions && options && onSelect && onConfirm && (

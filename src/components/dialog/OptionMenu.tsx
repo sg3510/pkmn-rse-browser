@@ -1,5 +1,5 @@
-import React from 'react';
-import { DialogFrame } from './DialogFrame';
+import React, { useMemo } from 'react';
+import { DialogFrameCanvas } from './DialogFrame';
 import type { DialogConfig, DialogOptions } from './types';
 import { TILE_SIZE } from './types';
 
@@ -35,14 +35,24 @@ export const OptionMenu: React.FC<OptionMenuProps> = ({
   const cursorWidth = 12 * zoom;
 
   // Calculate menu dimensions
-  // Width: longest label + cursor space + padding
-  // Using a minimum width for consistency
-  const minWidthChars = 6; // "YES" / "NO" need some space
-  const maxLabelLength = Math.max(
-    minWidthChars,
-    ...choices.map(c => c.label.length)
-  );
-  const contentWidth = (maxLabelLength * fontSize * 0.7) + cursorWidth + padding;
+  const dimensions = useMemo(() => {
+    // Width: longest label + cursor space + padding
+    const minWidthChars = 6; // "YES" / "NO" need some space
+    const maxLabelLength = Math.max(
+      minWidthChars,
+      ...choices.map(c => c.label.length)
+    );
+    const contentWidth = (maxLabelLength * fontSize * 0.7) + cursorWidth + padding;
+    // Add frame border on both sides
+    const frameWidth = TILE_SIZE * zoom * 2;
+    const width = contentWidth + frameWidth;
+
+    // Height: all choices + padding + frame
+    const contentHeight = choices.length * lineHeight + padding;
+    const height = contentHeight + frameWidth;
+
+    return { width, height };
+  }, [choices, fontSize, cursorWidth, padding, lineHeight, zoom]);
 
   return (
     <div
@@ -54,12 +64,11 @@ export const OptionMenu: React.FC<OptionMenuProps> = ({
         zIndex: 10,
       }}
     >
-      <DialogFrame
+      <DialogFrameCanvas
         frameStyle={config.frameStyle}
         zoom={zoom}
-        style={{
-          minWidth: contentWidth,
-        }}
+        width={dimensions.width}
+        height={dimensions.height}
       >
         <div
           style={{
@@ -115,7 +124,7 @@ export const OptionMenu: React.FC<OptionMenuProps> = ({
             </div>
           ))}
         </div>
-      </DialogFrame>
+      </DialogFrameCanvas>
     </div>
   );
 };

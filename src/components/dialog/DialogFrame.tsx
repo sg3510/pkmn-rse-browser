@@ -84,6 +84,29 @@ export const DialogFrameCanvas: React.FC<DialogFrameProps & {
     img.onload = () => {
       ctx.imageSmoothingEnabled = false;
 
+      // First, process the source image to make background transparent
+      // GBA frame images use indexed color with first color as background
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const tempCtx = tempCanvas.getContext('2d')!;
+      tempCtx.drawImage(img, 0, 0);
+
+      // Get pixel data and make background color transparent
+      const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+      const data = imageData.data;
+      // Top-left pixel is the background color
+      const bgR = data[0];
+      const bgG = data[1];
+      const bgB = data[2];
+
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+          data[i + 3] = 0; // Make transparent
+        }
+      }
+      tempCtx.putImageData(imageData, 0, 0);
+
       const s = TILE_SIZE; // Source tile size (8px)
       const d = TILE_SIZE * zoom; // Dest tile size (scaled)
 
@@ -92,37 +115,34 @@ export const DialogFrameCanvas: React.FC<DialogFrameProps & {
 
       // Draw corners (no scaling needed, just zoom)
       // Top-left
-      ctx.drawImage(img, 0, 0, s, s, 0, 0, d, d);
+      ctx.drawImage(tempCanvas, 0, 0, s, s, 0, 0, d, d);
       // Top-right
-      ctx.drawImage(img, s * 2, 0, s, s, width - d, 0, d, d);
+      ctx.drawImage(tempCanvas, s * 2, 0, s, s, width - d, 0, d, d);
       // Bottom-left
-      ctx.drawImage(img, 0, s * 2, s, s, 0, height - d, d, d);
+      ctx.drawImage(tempCanvas, 0, s * 2, s, s, 0, height - d, d, d);
       // Bottom-right
-      ctx.drawImage(img, s * 2, s * 2, s, s, width - d, height - d, d, d);
+      ctx.drawImage(tempCanvas, s * 2, s * 2, s, s, width - d, height - d, d, d);
 
       // Draw edges (tiled)
-      const innerWidth = width - d * 2;
-      const innerHeight = height - d * 2;
-
       // Top edge
       for (let x = d; x < width - d; x += d) {
         const w = Math.min(d, width - d - x);
-        ctx.drawImage(img, s, 0, s, s, x, 0, w, d);
+        ctx.drawImage(tempCanvas, s, 0, s, s, x, 0, w, d);
       }
       // Bottom edge
       for (let x = d; x < width - d; x += d) {
         const w = Math.min(d, width - d - x);
-        ctx.drawImage(img, s, s * 2, s, s, x, height - d, w, d);
+        ctx.drawImage(tempCanvas, s, s * 2, s, s, x, height - d, w, d);
       }
       // Left edge
       for (let y = d; y < height - d; y += d) {
         const h = Math.min(d, height - d - y);
-        ctx.drawImage(img, 0, s, s, s, 0, y, d, h);
+        ctx.drawImage(tempCanvas, 0, s, s, s, 0, y, d, h);
       }
       // Right edge
       for (let y = d; y < height - d; y += d) {
         const h = Math.min(d, height - d - y);
-        ctx.drawImage(img, s * 2, s, s, s, width - d, y, d, h);
+        ctx.drawImage(tempCanvas, s * 2, s, s, s, width - d, y, d, h);
       }
 
       // Draw center (tiled)
@@ -130,7 +150,7 @@ export const DialogFrameCanvas: React.FC<DialogFrameProps & {
         for (let x = d; x < width - d; x += d) {
           const w = Math.min(d, width - d - x);
           const h = Math.min(d, height - d - y);
-          ctx.drawImage(img, s, s, s, s, x, y, w, h);
+          ctx.drawImage(tempCanvas, s, s, s, s, x, y, w, h);
         }
       }
     };

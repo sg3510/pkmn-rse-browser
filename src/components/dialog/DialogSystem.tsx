@@ -22,7 +22,7 @@ const DialogSystemInner: React.FC<{
   viewportHeight: number;
   enableDemo?: boolean;
 }> = ({ viewportWidth, viewportHeight, enableDemo = true }) => {
-  const { state, messages, options, config, zoom, _dispatch } = useDialogContext();
+  const { state, messages, options, config, zoom, _dispatch, _setResolve, _getResolve } = useDialogContext();
 
   const isOpen = state.type !== 'closed';
 
@@ -40,6 +40,22 @@ const DialogSystemInner: React.FC<{
   };
 
   const handleConfirm = () => {
+    console.log('[DIALOG] handleConfirm called, state:', state.type, 'options:', !!options);
+    // Resolve the promise with the selected value before closing
+    if (state.type === 'choosing' && options) {
+      const selectedChoice = options.choices[state.selectedIndex];
+      const resolve = _getResolve(); // Get current resolve function
+      console.log('[DIALOG] selectedChoice:', selectedChoice, '_resolve:', !!resolve);
+      if (selectedChoice && !selectedChoice.disabled) {
+        if (resolve) {
+          console.log('[DIALOG] Resolving with:', selectedChoice.value);
+          resolve(selectedChoice.value);
+          _setResolve(null);
+        } else {
+          console.log('[DIALOG] WARNING: _resolve is null!');
+        }
+      }
+    }
     _dispatch({ type: 'CONFIRM_OPTION' });
   };
 

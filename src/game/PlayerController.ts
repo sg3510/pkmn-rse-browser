@@ -260,7 +260,8 @@ class JumpingState implements PlayerState {
 }
 
 class SurfingState implements PlayerState {
-  private readonly SPEED = 0.06; // Same as walking
+  // Surfing uses MOVE_SPEED_FAST_1 (same as running) per pokeemerald
+  private readonly SPEED = 0.12;
   private surfingController: SurfingController;
   private blobRenderer: SurfBlobRenderer;
 
@@ -288,12 +289,25 @@ class SurfingState implements PlayerState {
     this.surfingController.update();
     // Update blob bobbing animation
     this.blobRenderer.update();
-    
+
     // Update blob direction to match player
     this.surfingController.updateBlobDirection(controller.dir);
-    
-    // Normal movement processing
-    return controller.processMovement(delta, this.SPEED);
+
+    // Check if movement just completed while dismounting
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+
+    // If we were moving, finished, and were dismounting -> switch to normal state
+    if (wasMoving && !controller.isMoving && this.isDismounting) {
+      if (isDebugMode()) {
+        console.log('[SURFING] Dismount complete, switching to NormalState');
+      }
+      this.isDismounting = false;
+      this.surfingController.reset(); // Reset surfing controller state
+      controller.changeState(new NormalState());
+    }
+
+    return result;
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
@@ -326,40 +340,48 @@ class SurfingState implements PlayerState {
       controller.dir = newDir;
       const targetTileX = controller.tileX + dx;
       const targetTileY = controller.tileY + dy;
-      
-      // Check if can dismount at target
-      if (this.surfingController.canDismount(targetTileX, targetTileY, controller.tileResolver ?? undefined)) {
-        if (isDebugMode()) {
-          console.log(`[SURFING] Auto-dismounting to (${targetTileX}, ${targetTileY})`);
-        }
-        this.surfingController.startDismountSequence();
-        controller.isMoving = true;
-        controller.pixelsMoved = 0;
-        // State change will happen when dismount animation completes
-        return;
-      }
-      
+
       // Check if target is surfable water
       const resolved = controller.tileResolver ? controller.tileResolver(targetTileX, targetTileY) : null;
       const behavior = resolved?.attributes?.behavior ?? -1;
-      
+
       if (isSurfableBehavior(behavior)) {
-        // Can move on water
+        // Can move on water - continue surfing
+        controller.isMoving = true;
+        controller.pixelsMoved = 0;
+      } else if (this.surfingController.canDismount(targetTileX, targetTileY, controller.tileResolver ?? undefined)) {
+        // Target is walkable land - dismount
+        if (isDebugMode()) {
+          console.log(`[SURFING] Dismounting to (${targetTileX}, ${targetTileY})`);
+        }
+        // Mark that we're dismounting so update() knows to change state after movement
+        this.isDismounting = true;
         controller.isMoving = true;
         controller.pixelsMoved = 0;
       } else {
         // Blocked (not surfable water and not land we can dismount to)
         if (isDebugMode()) {
-          console.warn(`[SURFING] Blocked - tile (${targetTileX}, ${targetTileY}) not surfable`);
+          console.warn(`[SURFING] Blocked - tile (${targetTileX}, ${targetTileY}) not passable`);
         }
       }
     }
   }
 
+  private isDismounting: boolean = false;
+
   getFrameInfo(controller: PlayerController): FrameInfo | null {
-    // TODO: Use surfing sprite when available
-    // For now, use walking sprite
-    return controller.calculateFrameInfo('walking');
+    // Use surfing sprite (32x32 frames)
+    const frame = controller.calculateSurfingFrameInfo();
+    if (frame) {
+      // Apply bob offset so player bobs with the surf blob.
+      // Floor the final position AFTER adding bob offset to ensure
+      // player and blob render at the same integer Y position.
+      // This prevents the jitter/flickering caused by rounding mismatches.
+      const bobOffset = controller.surfBlobRenderer.getBobOffset();
+      frame.renderY = Math.floor(frame.renderY + bobOffset);
+      frame.renderX = Math.floor(frame.renderX);
+    }
+    return frame;
   }
 
   getSpeed(): number {
@@ -1078,6 +1100,69 @@ export class PlayerController {
       sy: srcY,
       sw: this.SPRITE_WIDTH,
       sh: this.SPRITE_HEIGHT,
+      renderX,
+      renderY,
+      flip,
+    };
+  }
+
+  /**
+   * Calculate frame info for surfing sprite (32x32 frames)
+   * Surfing sprite layout: 6 frames of 32x32
+   * - Frame 0-1: Down (idle, walk)
+   * - Frame 2-3: Up (idle, walk)
+   * - Frame 4-5: Left/Right (idle, walk) - flip for right
+   */
+  public calculateSurfingFrameInfo(): FrameInfo | null {
+    const sprite = this.sprites['surfing'];
+    if (!sprite) {
+      // Fall back to walking sprite if surfing not loaded
+      return this.calculateFrameInfo('walking');
+    }
+
+    const SURF_FRAME_WIDTH = 32;
+    const SURF_FRAME_HEIGHT = 32;
+
+    // DO NOT floor here - allow smooth sub-pixel positioning during movement.
+    // Flooring will be applied in SurfingState.getFrameInfo() AFTER adding bob offset
+    // to ensure player and blob use the same final integer positions.
+    // Center 32px sprite horizontally on 16px player position: offset by (32-16)/2 = 8
+    const renderX = this.x - 8;
+    // player.y is already set so feet are at tile bottom for 32px tall sprite
+    // Surfing sprite is also 32px tall, so just use player.y directly
+    const renderY = this.y;
+
+    let srcIndex = 0;
+    let flip = false;
+
+    // Surfing sprite layout (6 frames):
+    // 0: down idle, 1: down walk (mount/dismount only)
+    // 2: up idle, 3: up walk (mount/dismount only)
+    // 4: left/right idle, 5: left/right walk (mount/dismount only)
+    //
+    // GBA behavior during CONTINUOUS SURFING:
+    // - Player sprite stays on STATIC IDLE frame (no animation)
+    // - Only the Y-position bobs up/down with the surf blob
+    // - Walk frames (1, 3, 5) are ONLY used during mount/dismount jump sequences
+    //
+    // Reference: sAnimTable_Surfing uses sAnim_FaceSouth etc. which show
+    // a single frame indefinitely (ANIMCMD_FRAME(0, 16), ANIMCMD_JUMP(0))
+
+    // Always use idle frame - movement is shown via bob offset, not frame animation
+    if (this.dir === 'down') srcIndex = 0;
+    else if (this.dir === 'up') srcIndex = 2;
+    else if (this.dir === 'left') srcIndex = 4;
+    else if (this.dir === 'right') { srcIndex = 4; flip = true; }
+
+    const srcX = srcIndex * SURF_FRAME_WIDTH;
+    const srcY = 0;
+
+    return {
+      sprite: sprite,
+      sx: srcX,
+      sy: srcY,
+      sw: SURF_FRAME_WIDTH,
+      sh: SURF_FRAME_HEIGHT,
       renderX,
       renderY,
       flip,

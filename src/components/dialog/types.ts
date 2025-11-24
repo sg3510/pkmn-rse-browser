@@ -51,8 +51,8 @@ export const DEFAULT_DIALOG_CONFIG: DialogConfig = {
   bottomOffsetTiles: 1,       // 8px from bottom at 1x
 
   linesVisible: 2,
-  fontSizeBase: 8,            // 8px base, becomes 16px at 2x zoom, etc.
-  lineHeightMultiplier: 2,    // 16px line height at 1x (8 * 2)
+  fontSizeBase: 16,           // 16px base - scaled up for readability
+  lineHeightMultiplier: 1.5,  // 24px line height at 1x (16 * 1.5)
 
   textSpeed: 'medium',
   charDelayMs: TEXT_SPEED_DELAYS.medium,
@@ -64,8 +64,8 @@ export const DEFAULT_DIALOG_CONFIG: DialogConfig = {
   shadowOffsetX: 1,
   shadowOffsetY: 1,
 
-  advanceKeys: ['Space', 'Enter', 'KeyZ'],
-  cancelKeys: ['Escape', 'KeyX'],
+  advanceKeys: ['Space', 'Enter', 'KeyX'],  // X = A button (confirm)
+  cancelKeys: ['Escape', 'KeyZ'],           // Z = B button (cancel)
   allowSkip: true,
 };
 
@@ -107,6 +107,8 @@ export interface DialogContextValue {
   // Actions (internal - use hook methods instead)
   _dispatch: (action: DialogAction) => void;
   _resolve: ((value: unknown) => void) | null;
+  _setResolve: (fn: ((value: unknown) => void) | null) => void;
+  _getResolve: () => ((value: unknown) => void) | null;
 }
 
 export type DialogAction =

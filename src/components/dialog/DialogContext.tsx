@@ -190,6 +190,14 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     }
   }, [state]);
 
+  // Callback to set the resolve function from useDialog hook
+  const setResolve = useCallback((fn: ((value: unknown) => void) | null) => {
+    resolveRef.current = fn;
+  }, []);
+
+  // Getter to always return current resolve function (not stale captured value)
+  const getResolve = useCallback(() => resolveRef.current, []);
+
   const contextValue: DialogContextValue = {
     state,
     messages: messagesRef.current,
@@ -197,13 +205,10 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     config,
     zoom,
     _dispatch: dispatch,
-    _resolve: resolveRef.current,
+    _resolve: resolveRef.current, // Keep for backwards compat but may be stale
+    _setResolve: setResolve,
+    _getResolve: getResolve, // Use this to get current value
   };
-
-  // Update resolve ref for external access
-  useEffect(() => {
-    contextValue._resolve = resolveRef.current;
-  });
 
   return (
     <DialogContext.Provider value={contextValue}>
@@ -236,7 +241,10 @@ export function useDialog() {
       }
 
       return new Promise((resolve) => {
+        console.log('[DIALOG] showMessages: registering resolve function');
         resolveRef.current = resolve;
+        // Register resolve with context so mouse handlers can use it
+        context._setResolve(resolve);
         context._dispatch({ type: 'OPEN', messages, options });
       });
     },

@@ -6,24 +6,57 @@
 import type { SurfBlobDirection } from './types';
 
 export class SurfBlobRenderer {
-  private sprite: HTMLImageElement | null = null;
-  private bobPhase: number = 0;
-  private readonly BOB_SPEED = 0.15; // Radians per frame
-  private readonly BOB_AMPLITUDE = 2; // Pixels
-  
-  // Surf blob sprite dimensions
+  private sprite: HTMLCanvasElement | null = null;
+
+  // GBA-accurate discrete stepped bobbing (not smooth sine wave)
+  // Reference: pokeemerald/src/field_effect_helpers.c:1107-1135
+  // - Updates every 4 frames (timer & 0x3 == 0)
+  // - Velocity ±1 pixel per update
+  // - Reverses direction every 16 frames (timer & 15 == 0)
+  // - Range: -4 to +4 pixels
+  private bobTimer: number = 0;
+  private bobVelocity: number = 1;  // +1 or -1
+  private bobOffset: number = 0;   // Current Y offset (integer, -4 to +4)
+
+  // Surf blob sprite dimensions (sprite is 96x32: 3 frames of 32x32)
   private readonly FRAME_WIDTH = 32;
-  private readonly FRAME_HEIGHT = 16;
-  
+  private readonly FRAME_HEIGHT = 32;
+
   constructor() {
     this.loadSprite();
   }
-  
+
   private async loadSprite(): Promise<void> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        this.sprite = img;
+        // Create canvas and apply transparency
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Get image data and remove background color (top-left pixel)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        // Replace all matching pixels with transparent
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        this.sprite = canvas;
         resolve();
       };
       img.onerror = (err) => {
@@ -35,20 +68,33 @@ export class SurfBlobRenderer {
   }
   
   /**
-   * Update bobbing animation phase
+   * Update bobbing animation using GBA-accurate discrete stepping.
+   *
+   * Reference: pokeemerald/src/field_effect_helpers.c:1107-1135
+   * - Updates bob position every 4 frames (timer & 0x3 == 0)
+   * - Reverses direction every 16 frames (timer & 15 == 0)
+   * - This creates a stepped sawtooth pattern, not smooth sine
    */
   public update(): void {
-    this.bobPhase += this.BOB_SPEED;
-    if (this.bobPhase >= Math.PI * 2) {
-      this.bobPhase -= Math.PI * 2;
+    this.bobTimer++;
+
+    // Update bob position every 4 frames (timer & 0x3 == 0)
+    if ((this.bobTimer & 0x3) === 0) {
+      this.bobOffset += this.bobVelocity;
+    }
+
+    // Reverse direction every 16 frames (timer & 15 == 0)
+    if ((this.bobTimer & 15) === 0) {
+      this.bobVelocity = -this.bobVelocity;
     }
   }
-  
+
   /**
-   * Get current bob offset (vertical displacement)
+   * Get current bob offset (vertical displacement).
+   * Returns integer value (-4 to +4) for GBA-accurate discrete stepping.
    */
   public getBobOffset(): number {
-    return Math.sin(this.bobPhase) * this.BOB_AMPLITUDE;
+    return this.bobOffset;
   }
   
   /**
@@ -84,17 +130,22 @@ export class SurfBlobRenderer {
     if (!this.sprite) {
       return; // Sprite not loaded yet
     }
-    
+
     const bobOffset = this.getBobOffset();
     const frameIndex = this.getFrameIndex(direction);
     const sourceX = frameIndex * this.FRAME_WIDTH;
     const flip = direction === 'right';
-    
+
+    // Floor final positions to ensure pixel-perfect sync with player sprite
+    // This prevents sub-pixel rendering differences that cause visual desync
+    const finalX = Math.floor(x);
+    const finalY = Math.floor(y + bobOffset);
+
     ctx.save();
-    
+
     // Apply horizontal flip if needed
     if (flip) {
-      ctx.translate(x + this.FRAME_WIDTH, y + bobOffset);
+      ctx.translate(finalX + this.FRAME_WIDTH, finalY);
       ctx.scale(-1, 1);
       ctx.drawImage(
         this.sprite,
@@ -108,11 +159,11 @@ export class SurfBlobRenderer {
         this.sprite,
         sourceX, 0,
         this.FRAME_WIDTH, this.FRAME_HEIGHT,
-        x, y + bobOffset,
+        finalX, finalY,
         this.FRAME_WIDTH, this.FRAME_HEIGHT
       );
     }
-    
+
     ctx.restore();
   }
   
