@@ -275,6 +275,45 @@ export class ChunkManager {
   }
 
   /**
+   * Invalidate cached chunks around a world position (in pixels).
+   * This avoids clearing the entire cache when crossing map boundaries.
+   */
+  invalidateAround(worldX: number, worldY: number, radiusChunks: number = 2) {
+    const centerChunkX = Math.floor(worldX / CHUNK_SIZE_PX);
+    const centerChunkY = Math.floor(worldY / CHUNK_SIZE_PX);
+    const keysToDelete: string[] = [];
+    for (const key of this.cache.keys()) {
+      const [cxStr, cyStr] = key.split(':');
+      const cx = Number(cxStr);
+      const cy = Number(cyStr);
+      if (
+        Number.isFinite(cx) &&
+        Number.isFinite(cy) &&
+        Math.abs(cx - centerChunkX) <= radiusChunks &&
+        Math.abs(cy - centerChunkY) <= radiusChunks
+      ) {
+        keysToDelete.push(key);
+      }
+    }
+
+    if (keysToDelete.length === 0) return;
+
+    for (const key of keysToDelete) {
+      this.cache.delete(key);
+      const idx = this.accessHistory.indexOf(key);
+      if (idx !== -1) {
+        this.accessHistory.splice(idx, 1);
+      }
+    }
+
+    if (chunkDebugOptions.logOperations) {
+      console.log(
+        `[CHUNK] Invalidated ${keysToDelete.length} chunks around (${centerChunkX},${centerChunkY}) radius ${radiusChunks}`
+      );
+    }
+  }
+
+  /**
    * Clear all caches (useful when map changes)
    */
   clear() {

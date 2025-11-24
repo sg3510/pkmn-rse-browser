@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
-import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
+import { MapManager, type TilesetResources, type WorldState } from '../services/MapManager';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { ChunkManager, type RenderRegion, type ChunkStats, setChunkDebugOptions, getChunkDebugOptions } from '../rendering/ChunkManager';
 import { DebugPanel, type DebugOptions, DEFAULT_DEBUG_OPTIONS } from './DebugPanel';
 import {
   loadBinary,
-  type Metatile,
   type Palette,
-  type MetatileAttributes,
   type MapTileData,
   METATILE_SIZE,
   TILE_SIZE,
@@ -27,17 +25,15 @@ import {
 import type { BridgeType, CardinalDirection } from '../utils/metatileBehaviors';
 import {
   getArrowDirectionFromBehavior,
-  isIceBehavior,
-  isReflectiveBehavior,
+
   isArrowWarpBehavior,
   isDoorBehavior,
   isNonAnimatedDoorBehavior,
   requiresDoorExitSequence,
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
-import { computeCameraView, type CameraView } from '../utils/camera';
+import { computeCameraView } from '../utils/camera';
 import { DialogSystem, useDialog } from './dialog';
-import type { WarpEvent } from '../types/maps';
 
 const PROJECT_ROOT = '/pokeemerald';
 const FRAME_MS = 1000 / 60;
@@ -49,14 +45,15 @@ function isDebugMode(): boolean {
 
 import {
   type ReflectionType,
-  type ReflectionMeta,
-  type TilesetBuffers,
   type TilesetRuntime,
   type RenderContext,
   type ResolvedTile,
   type LoadedAnimation,
   type DebugTileInfo,
-  type WarpKind,
+  type AnimationState,
+  type WorldCameraView,
+  type WarpTrigger,
+  type ArrowOverlayState,
 } from './map/types';
 import {
   resolveTileAt,
@@ -68,6 +65,26 @@ import {
 } from './map/utils';
 import { DebugRenderer } from './map/renderers/DebugRenderer';
 import { ObjectRenderer } from './map/renderers/ObjectRenderer';
+import {
+  applyBehaviorOverrides,
+  buildTilesetRuntime,
+  buildPatchedTilesForRuntime,
+} from './map/logic/TilesetProcessing';
+
+import { logDoor } from './map/logic/DoorManager';
+import {
+  ensureGrassSprite,
+  ensureLongGrassSprite,
+  ensureSandSprite,
+  ensureArrowSprite,
+  getGrassSprite,
+  getLongGrassSprite,
+  getSandSprite,
+  getArrowSprite,
+} from './map/logic/FieldEffectAssets';
+import { useDoorSystem } from './map/hooks/useDoorSystem';
+import { useWarpSystem } from './map/hooks/useWarpSystem';
+import { useMapInput } from './map/hooks/useMapInput';
 
 interface MapRendererProps {
   mapId: string;
@@ -82,7 +99,9 @@ interface MapRendererProps {
   zoom?: number;
 }
 
-type AnimationState = Record<string, number>;
+
+
+// AnimationState moved to types.ts
 
 interface TileDrawCall {
   tileId: number;
@@ -95,84 +114,11 @@ interface TileDrawCall {
   layer: 0 | 1;
 }
 
-export interface WorldCameraView extends CameraView {
-  worldStartTileX: number;
-  worldStartTileY: number;
-  cameraWorldX: number;
-  cameraWorldY: number;
-}
 
 
 
-interface WarpTrigger {
-  kind: WarpKind;
-  sourceMap: WorldMapInstance;
-  warpEvent: WarpEvent;
-  behavior: number;
-  facing: PlayerController['dir'];
-}
 
-interface WarpRuntimeState {
-  inProgress: boolean;
-  cooldownMs: number;
-  lastCheckedTile?: { mapId: string; x: number; y: number };
-}
 
-type DoorSize = 1 | 2;
-
-interface DoorAnimDrawable {
-  id: number;
-  image: HTMLImageElement;
-  direction: 'open' | 'close';
-  frameCount: number;
-  frameHeight: number;
-  frameDuration: number;
-  worldX: number;
-  worldY: number;
-  size: DoorSize;
-  startedAt: number;
-  holdOnComplete?: boolean;
-  metatileId: number;
-}
-
-interface DoorEntrySequence {
-  stage: 'idle' | 'opening' | 'stepping' | 'closing' | 'waitingBeforeFade' | 'fadingOut' | 'warping';
-  trigger: WarpTrigger | null;
-  targetX: number;
-  targetY: number;
-  metatileId: number;
-  isAnimatedDoor?: boolean; // If false, skip door animation but still do entry sequence
-  entryDirection?: CardinalDirection;
-  openAnimId?: number;
-  closeAnimId?: number;
-  playerHidden?: boolean;
-  waitStartedAt?: number;
-}
-
-interface DoorExitSequence {
-  stage: 'idle' | 'opening' | 'stepping' | 'closing' | 'done';
-  doorWorldX: number;
-  doorWorldY: number;
-  metatileId: number;
-  isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
-  exitDirection?: 'up' | 'down' | 'left' | 'right'; // Direction to walk when exiting
-  openAnimId?: number;
-  closeAnimId?: number;
-}
-
-interface ArrowOverlayState {
-  visible: boolean;
-  worldX: number;
-  worldY: number;
-  direction: CardinalDirection;
-  startedAt: number;
-}
-
-interface FadeState {
-  mode: 'in' | 'out' | null;
-  startedAt: number;
-  duration: number;
-}
 
 function shiftWorld(state: WorldState, shiftX: number, shiftY: number): WorldState {
   const shiftedMaps = state.maps.map((m) => ({
@@ -198,119 +144,8 @@ const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
 const VIEWPORT_CONFIG = DEFAULT_VIEWPORT_CONFIG;
 const VIEWPORT_PIXEL_SIZE = getViewportPixelSize(VIEWPORT_CONFIG);
 const CONNECTION_DEPTH = 3; // anchor + 3 levels of neighbors (needed for proper coverage when walking between maps)
-const DOOR_FRAME_HEIGHT = 32;
-const DOOR_FRAME_DURATION_MS = 90;
-/**
- * Complete Door Graphics Mapping Table
- * 
- * Ported from sDoorAnimGraphicsTable in public/pokeemerald/src/field_door.c
- * Maps metatile IDs to their corresponding door animation graphics.
- * 
- * Structure:
- * - metatileIds: Array of metatile IDs that use this door graphic
- * - path: Path to door animation PNG relative to PROJECT_ROOT
- * - size: 1 for standard 1x2 tile doors, 2 for large 2x2 tile doors
- * 
- * The last entry with empty metatileIds array serves as the fallback "general" door.
- */
-const DOOR_ASSET_MAP: Array<{ metatileIds: number[]; path: string; size: DoorSize }> = [
-  // General/Common doors
-  { metatileIds: [0x021], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 }, // METATILE_General_Door
-  { metatileIds: [0x061], path: `${PROJECT_ROOT}/graphics/door_anims/poke_center.png`, size: 1 }, // METATILE_General_Door_PokeCenter
-  { metatileIds: [0x1CD], path: `${PROJECT_ROOT}/graphics/door_anims/gym.png`, size: 1 }, // METATILE_General_Door_Gym
-  { metatileIds: [0x041], path: `${PROJECT_ROOT}/graphics/door_anims/poke_mart.png`, size: 1 }, // METATILE_General_Door_PokeMart
-  { metatileIds: [0x1DB], path: `${PROJECT_ROOT}/graphics/door_anims/contest.png`, size: 1 }, // METATILE_General_Door_Contest
-  
-  // Littleroot/Petalburg/Oldale
-  { metatileIds: [0x248], path: `${PROJECT_ROOT}/graphics/door_anims/littleroot.png`, size: 1 }, // METATILE_Petalburg_Door_Littleroot
-  { metatileIds: [0x249], path: `${PROJECT_ROOT}/graphics/door_anims/birchs_lab.png`, size: 1 }, // METATILE_Petalburg_Door_BirchsLab
-  { metatileIds: [0x287], path: `${PROJECT_ROOT}/graphics/door_anims/oldale.png`, size: 1 }, // METATILE_Petalburg_Door_Oldale
-  { metatileIds: [0x224], path: `${PROJECT_ROOT}/graphics/door_anims/petalburg_gym.png`, size: 1 }, // METATILE_PetalburgGym_Door
-  
-  // Rustboro
-  { metatileIds: [0x22F], path: `${PROJECT_ROOT}/graphics/door_anims/rustboro_tan.png`, size: 1 }, // METATILE_Rustboro_Door_Tan
-  { metatileIds: [0x21F], path: `${PROJECT_ROOT}/graphics/door_anims/rustboro_gray.png`, size: 1 }, // METATILE_Rustboro_Door_Gray
-  
-  // Fallarbor
-  { metatileIds: [0x2A5], path: `${PROJECT_ROOT}/graphics/door_anims/fallarbor_light_roof.png`, size: 1 }, // METATILE_Fallarbor_Door_LightRoof
-  { metatileIds: [0x2F7], path: `${PROJECT_ROOT}/graphics/door_anims/fallarbor_dark_roof.png`, size: 1 }, // METATILE_Fallarbor_Door_DarkRoof
-  { metatileIds: [0x36C], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Fallarbor_Door_BattleTent
-  
-  // Mauville
-  { metatileIds: [0x2AC], path: `${PROJECT_ROOT}/graphics/door_anims/mauville.png`, size: 1 }, // METATILE_Mauville_Door
-  { metatileIds: [0x3A1], path: `${PROJECT_ROOT}/graphics/door_anims/verdanturf.png`, size: 1 }, // METATILE_Mauville_Door_Verdanturf
-  { metatileIds: [0x289], path: `${PROJECT_ROOT}/graphics/door_anims/cycling_road.png`, size: 1 }, // METATILE_Mauville_Door_CyclingRoad
-  { metatileIds: [0x3D4], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Mauville_Door_BattleTent
-  
-  // Slateport
-  { metatileIds: [0x2DC], path: `${PROJECT_ROOT}/graphics/door_anims/slateport.png`, size: 1 }, // METATILE_Slateport_Door
-  { metatileIds: [0x393], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent.png`, size: 1 }, // METATILE_Slateport_Door_BattleTent
-  
-  // Dewford
-  { metatileIds: [0x225], path: `${PROJECT_ROOT}/graphics/door_anims/dewford.png`, size: 1 }, // METATILE_Dewford_Door
-  { metatileIds: [0x25D], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_old.png`, size: 1 }, // METATILE_Dewford_Door_BattleTower
-  
-  // Lilycove
-  { metatileIds: [0x246], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove.png`, size: 1 }, // METATILE_Lilycove_Door
-  { metatileIds: [0x28E], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_wooden.png`, size: 1 }, // METATILE_Lilycove_Door_Wooden
-  { metatileIds: [0x30C], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_dept_store.png`, size: 1 }, // METATILE_Lilycove_Door_DeptStore
-  { metatileIds: [0x32D], path: `${PROJECT_ROOT}/graphics/door_anims/safari_zone.png`, size: 1 }, // METATILE_Lilycove_Door_SafariZone
-  
-  // Mossdeep
-  { metatileIds: [0x2A1], path: `${PROJECT_ROOT}/graphics/door_anims/mossdeep.png`, size: 1 }, // METATILE_Mossdeep_Door
-  { metatileIds: [0x2ED], path: `${PROJECT_ROOT}/graphics/door_anims/mossdeep_space_center.png`, size: 1 }, // METATILE_Mossdeep_Door_SpaceCenter
-  
-  // Sootopolis
-  { metatileIds: [0x21C], path: `${PROJECT_ROOT}/graphics/door_anims/sootopolis_peaked_roof.png`, size: 1 }, // METATILE_Sootopolis_Door_PeakedRoof
-  { metatileIds: [0x21E], path: `${PROJECT_ROOT}/graphics/door_anims/sootopolis.png`, size: 1 }, // METATILE_Sootopolis_Door
-  
-  // Ever Grande / Pokemon League
-  { metatileIds: [0x21D], path: `${PROJECT_ROOT}/graphics/door_anims/pokemon_league.png`, size: 1 }, // METATILE_EverGrande_Door_PokemonLeague
-  
-  // Pacifidlog
-  { metatileIds: [0x21A], path: `${PROJECT_ROOT}/graphics/door_anims/pacifidlog.png`, size: 1 }, // METATILE_Pacifidlog_Door
-  
-  // Special Buildings
-  { metatileIds: [0x264], path: `${PROJECT_ROOT}/graphics/door_anims/cable_club.png`, size: 1 }, // METATILE_PokemonCenter_Door_CableClub
-  { metatileIds: [0x285], path: `${PROJECT_ROOT}/graphics/door_anims/lilycove_dept_store_elevator.png`, size: 1 }, // METATILE_Shop_Door_Elevator
-  
-  // Abandoned Ship
-  { metatileIds: [0x22B], path: `${PROJECT_ROOT}/graphics/door_anims/abandoned_ship.png`, size: 1 }, // METATILE_InsideShip_IntactDoor_Bottom_Unlocked
-  { metatileIds: [0x297], path: `${PROJECT_ROOT}/graphics/door_anims/abandoned_ship_room.png`, size: 1 }, // METATILE_InsideShip_IntactDoor_Bottom_Interior
-  
-  // Battle Frontier - Outside West
-  { metatileIds: [0x28A], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_BattleDome
-  { metatileIds: [0x263], path: `${PROJECT_ROOT}/graphics/door_anims/battle_factory.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_BattleFactory
-  { metatileIds: [0x3FC], path: `${PROJECT_ROOT}/graphics/door_anims/battle_frontier.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door
-  { metatileIds: [0x396], path: `${PROJECT_ROOT}/graphics/door_anims/battle_frontier_sliding.png`, size: 1 }, // METATILE_BattleFrontierOutsideWest_Door_Sliding
-  
-  // Battle Frontier - Outside East
-  { metatileIds: [0x329], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower.png`, size: 1 }, // METATILE_BattleFrontierOutsideEast_Door_BattleTower
-  { metatileIds: [0x291], path: `${PROJECT_ROOT}/graphics/door_anims/battle_arena.png`, size: 1 }, // METATILE_BattleFrontierOutsideEast_Door_BattleArena
-  
-  // Battle Frontier - Interiors
-  { metatileIds: [0x20E], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_elevator.png`, size: 1 }, // METATILE_BattleFrontier_Door_Elevator
-  { metatileIds: [0x2AD], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tower_multi_corridor.png`, size: 2 }, // METATILE_BattleFrontier_Door_MultiCorridor (size 2!)
-  { metatileIds: [0x21B], path: `${PROJECT_ROOT}/graphics/door_anims/battle_arena_lobby.png`, size: 1 }, // METATILE_BattleArena_Door
-  { metatileIds: [0x209], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_lobby.png`, size: 1 }, // METATILE_BattleDome_Door_Lobby
-  { metatileIds: [0x25E], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_corridor.png`, size: 1 }, // METATILE_BattleDome_Door_Corridor
-  { metatileIds: [0x20A], path: `${PROJECT_ROOT}/graphics/door_anims/battle_dome_pre_battle_room.png`, size: 1 }, // METATILE_BattleDome_Door_PreBattleRoom
-  { metatileIds: [0x219], path: `${PROJECT_ROOT}/graphics/door_anims/battle_palace_lobby.png`, size: 1 }, // METATILE_BattlePalace_Door
-  { metatileIds: [0x26B], path: `${PROJECT_ROOT}/graphics/door_anims/battle_tent_interior.png`, size: 1 }, // METATILE_BattleTent_Door
-  
-  // Trainer Hill
-  { metatileIds: [0x32C], path: `${PROJECT_ROOT}/graphics/door_anims/trainer_hill_lobby_elevator.png`, size: 1 }, // METATILE_TrainerHill_Door_Elevator_Lobby
-  { metatileIds: [0x383], path: `${PROJECT_ROOT}/graphics/door_anims/trainer_hill_roof_elevator.png`, size: 1 }, // METATILE_TrainerHill_Door_Elevator_Roof
-  
-  // Unused/Cut content
-  { metatileIds: [0x3B0], path: `${PROJECT_ROOT}/graphics/door_anims/unused_battle_frontier.png`, size: 1 }, // Unused Battle Frontier door
-  
-  // Fallback - must be last with empty metatileIds
-  { metatileIds: [], path: `${PROJECT_ROOT}/graphics/door_anims/general.png`, size: 1 }, // Default fallback
-];
-const DOOR_FADE_DURATION = 500;
 const DEBUG_MODE_FLAG = 'DEBUG_MODE'; // Global debug flag for console logging
-const ARROW_SPRITE_PATH = `${PROJECT_ROOT}/graphics/field_effects/pics/arrow.png`;
+// ARROW_SPRITE_PATH moved to map/logic/FieldEffectAssets.ts
 const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
@@ -321,8 +156,18 @@ const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> =
 // Feature flag for hardware-accelerated rendering
 // Set to false to fall back to original ImageData-based rendering
 const USE_HARDWARE_RENDERING = true;
-// Feature flag for chunk-based caching (currently used for background layer only)
-const USE_CHUNK_CACHE = true;
+// Feature flag for chunk-based caching (currently used for background layer only) - off by default
+const USE_CHUNK_CACHE = (() => {
+  // Enable via ?enableChunks=1 or window.ENABLE_CHUNKS = true
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('enableChunks')) return true;
+    if ((window as unknown as { ENABLE_CHUNKS?: boolean }).ENABLE_CHUNKS) return true;
+  } catch {
+    // Ignore in non-browser contexts
+  }
+  return false;
+})();
 
 interface ReflectionState {
   hasReflection: boolean;
@@ -332,282 +177,7 @@ interface ReflectionState {
 
 
 
-const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
-
-function applyBehaviorOverrides(attributes: MetatileAttributes[]): MetatileAttributes[] {
-  return attributes;
-}
-
-
-
-function getDoorAssetForMetatile(metatileId: number): { path: string; size: DoorSize } {
-  for (const asset of DOOR_ASSET_MAP) {
-    if (asset.metatileIds.length > 0 && asset.metatileIds.includes(metatileId)) {
-      return asset;
-    }
-  }
-  return DOOR_ASSET_MAP[DOOR_ASSET_MAP.length - 1];
-}
-
-function logDoor(...args: unknown[]) {
-  if (isDebugMode()) {
-    // eslint-disable-next-line no-console
-    console.log('[door]', ...args);
-  }
-}
-
-function buildTileTransparencyLUT(tiles: Uint8Array): Uint8Array[] {
-  const tileCount = Math.floor(tiles.length / (TILE_SIZE * TILE_SIZE));
-  const lut: Uint8Array[] = new Array(tileCount);
-  for (let tileId = 0; tileId < tileCount; tileId++) {
-    const tileX = (tileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-    const tileY = Math.floor(tileId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-    const mask = new Uint8Array(TILE_SIZE * TILE_SIZE);
-    for (let y = 0; y < TILE_SIZE; y++) {
-      for (let x = 0; x < TILE_SIZE; x++) {
-        const pixel = tiles[(tileY + y) * TILESET_STRIDE + (tileX + x)];
-        mask[y * TILE_SIZE + x] = pixel === 0 ? 1 : 0; // 1 = transparent (palette index 0)
-      }
-    }
-    lut[tileId] = mask;
-  }
-  return lut;
-}
-
-type PaletteRgbLUT = Array<Array<[number, number, number]>>;
-
-function buildPaletteRgbLUT(palettes: Palette[]): PaletteRgbLUT {
-  return palettes.map((palette) =>
-    palette.colors.map((hex) => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return [r, g, b] as [number, number, number];
-    })
-  );
-}
-
-function isWaterColor(rgb: [number, number, number]): boolean {
-  const [r, g, b] = rgb;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  if (max < 40) return false; // too dark to be a visible reflection surface
-
-  const delta = max - min;
-  const saturation = max === 0 ? 0 : delta / max;
-
-  // Hue calculation (0-360)
-  let hue = 0;
-  if (delta !== 0) {
-    if (max === r) hue = ((g - b) / delta) * 60 + 360;
-    else if (max === g) hue = ((b - r) / delta) * 60 + 120;
-    else hue = ((r - g) / delta) * 60 + 240;
-    hue %= 360;
-  }
-
-  // Treat blues/cyans (150-260 deg) with even modest saturation as water.
-  return hue >= 150 && hue <= 260 && saturation >= 0.05;
-}
-
-function isBlueDominantColor(rgb: [number, number, number]): boolean {
-  const [r, g, b] = rgb;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  if (max < 40) return false;
-  const saturation = max === 0 ? 0 : (max - min) / max;
-  if (saturation < 0.05) return false;
-  return b >= g && b >= r + 8;
-}
-
-function buildPaletteWaterFlags(paletteRgb: PaletteRgbLUT): boolean[] {
-  return paletteRgb.map((colors) => colors.some((c, idx) => idx !== 0 && isBlueDominantColor(c)));
-}
-
-function sampleTilePixel(
-  tileId: number,
-  x: number,
-  y: number,
-  tilesPrimary: Uint8Array,
-  tilesSecondary: Uint8Array,
-  useSecondarySheet: boolean
-): number {
-  const localId = tileId >= SECONDARY_TILE_OFFSET ? tileId - SECONDARY_TILE_OFFSET : tileId;
-  const tiles = useSecondarySheet ? tilesSecondary : tilesPrimary;
-  const tileX = (localId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-  const tileY = Math.floor(localId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
-  return tiles[(tileY + y) * TILESET_STRIDE + (tileX + x)];
-}
-
-function applyWaterMaskToMetatile(
-  destMask: Uint8Array,
-  tile: Metatile['tiles'][number],
-  tileIndex: number,
-  tilesPrimary: Uint8Array,
-  tilesSecondary: Uint8Array,
-  paletteRgb: PaletteRgbLUT,
-  useSecondarySheet: boolean
-) {
-  if (!tile) return;
-  const palette = paletteRgb[tile.palette];
-  if (!palette) return;
-
-  const localIndex = tileIndex; // 0..3 bottom layer
-  const baseX = (localIndex % 2) * TILE_SIZE;
-  const baseY = Math.floor(localIndex / 2) * TILE_SIZE;
-
-  for (let y = 0; y < TILE_SIZE; y++) {
-    for (let x = 0; x < TILE_SIZE; x++) {
-      const srcX = tile.xflip ? TILE_SIZE - 1 - x : x;
-      const srcY = tile.yflip ? TILE_SIZE - 1 - y : y;
-      const pixelIndex = sampleTilePixel(
-        tile.tileId,
-        srcX,
-        srcY,
-        tilesPrimary,
-        tilesSecondary,
-        useSecondarySheet
-      );
-      if (pixelIndex === 0) continue; // treat palette index 0 as non-water / background
-      const color = palette[pixelIndex];
-      if (!color) continue;
-      if (!isWaterColor(color)) continue;
-      const destX = baseX + x;
-      const destY = baseY + y;
-      destMask[destY * METATILE_SIZE + destX] = 1;
-    }
-  }
-}
-
-function applyTileMaskToMetatile(
-  destMask: Uint8Array,
-  tileMask: Uint8Array | undefined,
-  tileIndex: number,
-  xflip: boolean,
-  yflip: boolean
-) {
-  if (!tileMask) return;
-  const localIndex = tileIndex - 4; // 0..3 within top layer
-  const baseX = (localIndex % 2) * TILE_SIZE;
-  const baseY = Math.floor(localIndex / 2) * TILE_SIZE;
-  for (let y = 0; y < TILE_SIZE; y++) {
-    for (let x = 0; x < TILE_SIZE; x++) {
-      const srcX = xflip ? TILE_SIZE - 1 - x : x;
-      const srcY = yflip ? TILE_SIZE - 1 - y : y;
-      const allow = tileMask[srcY * TILE_SIZE + srcX];
-      if (allow === 0) {
-        const destX = baseX + x;
-        const destY = baseY + y;
-        destMask[destY * METATILE_SIZE + destX] = 0;
-      }
-    }
-  }
-}
-
-function buildReflectionMeta(
-  metatiles: Metatile[],
-  attributes: MetatileAttributes[],
-  primaryTileMasks: Uint8Array[],
-  secondaryTileMasks: Uint8Array[],
-  primaryPalettes: Palette[],
-  secondaryPalettes: Palette[],
-  primaryTilesImage: Uint8Array,
-  secondaryTilesImage: Uint8Array
-): ReflectionMeta[] {
-  const paletteRgbPrimary = buildPaletteRgbLUT(primaryPalettes);
-  const paletteRgbSecondary = buildPaletteRgbLUT(secondaryPalettes);
-  const paletteWaterFlagsPrimary = buildPaletteWaterFlags(paletteRgbPrimary);
-  const paletteWaterFlagsSecondary = buildPaletteWaterFlags(paletteRgbSecondary);
-
-  return metatiles.map((metatile, index) => {
-    const attr = attributes[index];
-    const behavior = attr?.behavior ?? -1;
-    const isReflective = isReflectiveBehavior(behavior);
-    const reflectionType: ReflectionType | null = isReflective
-      ? isIceBehavior(behavior)
-        ? 'ice'
-        : 'water'
-      : null;
-    const pixelMask = new Uint8Array(METATILE_SIZE * METATILE_SIZE);
-    if (!isReflective) {
-      return { isReflective, reflectionType, pixelMask };
-    }
-
-    // Step 1: mark where the bottom layer visually looks like water (blue/teal pixels).
-    for (let i = 0; i < 4; i++) {
-      const tile = metatile.tiles[i];
-      if (!tile) continue;
-      const useSecondarySheet = tile.tileId >= SECONDARY_TILE_OFFSET;
-      const paletteIndex = tile.palette;
-      const paletteWaterFlags = useSecondarySheet
-        ? paletteWaterFlagsSecondary
-        : paletteWaterFlagsPrimary;
-      if (!paletteWaterFlags[paletteIndex]) continue;
-      applyWaterMaskToMetatile(
-        pixelMask,
-        tile,
-        i,
-        primaryTilesImage,
-        secondaryTilesImage,
-        useSecondarySheet ? paletteRgbSecondary : paletteRgbPrimary,
-        useSecondarySheet
-      );
-    }
-
-    // Step 2: remove any pixels covered by opaque top-layer tiles.
-    for (let i = 4; i < 8; i++) {
-      const tile = metatile.tiles[i];
-      if (!tile) continue;
-      const tileId = tile.tileId;
-      const useSecondarySheet = tileId >= SECONDARY_TILE_OFFSET;
-      const localId = useSecondarySheet ? tileId - SECONDARY_TILE_OFFSET : tileId;
-      const lut = useSecondarySheet
-        ? secondaryTileMasks[localId]
-        : primaryTileMasks[localId];
-      applyTileMaskToMetatile(pixelMask, lut, i, tile.xflip, tile.yflip);
-    }
-
-    return { isReflective, reflectionType, pixelMask };
-  });
-}
-
-function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime {
-  const primaryTileMasks = buildTileTransparencyLUT(resources.primaryTilesImage);
-  const secondaryTileMasks = buildTileTransparencyLUT(resources.secondaryTilesImage);
-
-  const primaryReflectionMeta = buildReflectionMeta(
-    resources.primaryMetatiles,
-    resources.primaryAttributes,
-    primaryTileMasks,
-    secondaryTileMasks,
-    resources.primaryPalettes,
-    resources.secondaryPalettes,
-    resources.primaryTilesImage,
-    resources.secondaryTilesImage
-  );
-
-  const secondaryReflectionMeta = buildReflectionMeta(
-    resources.secondaryMetatiles,
-    resources.secondaryAttributes,
-    primaryTileMasks,
-    secondaryTileMasks,
-    resources.primaryPalettes,
-    resources.secondaryPalettes,
-    resources.primaryTilesImage,
-    resources.secondaryTilesImage
-  );
-
-  return {
-    resources,
-    primaryTileMasks,
-    secondaryTileMasks,
-    primaryReflectionMeta,
-    secondaryReflectionMeta,
-    animations: [],
-    animatedTileIds: { primary: new Set(), secondary: new Set() },
-    patchedTiles: null,
-    lastPatchedKey: '',
-  };
-}
+// Tileset processing logic moved to map/logic/TilesetProcessing.ts
 
 
 
@@ -649,555 +219,32 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
   const tilesetRuntimeCacheRef = useRef<Map<string, TilesetRuntime>>(new Map());
   const debugTilesRef = useRef<DebugTileInfo[]>([]);
   const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const doorSpriteCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
-  const doorAnimsRef = useRef<DoorAnimDrawable[]>([]);
-  const doorAnimIdRef = useRef<number>(1);
-  const playerHiddenRef = useRef<boolean>(false);
-  const currentTimestampRef = useRef<number>(0);
-  const arrowOverlayRef = useRef<ArrowOverlayState | null>(null);
-  const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
-  const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
-  const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const canvasRendererRef = useRef<CanvasRenderer | null>(null); // Hardware-accelerated renderer
-  const chunkManagerRef = useRef<ChunkManager | null>(null);
-  const doorExitRef = useRef<DoorExitSequence>({
-    stage: 'idle',
-    doorWorldX: 0,
-    doorWorldY: 0,
-    metatileId: 0,
-  });
-  const fadeRef = useRef<FadeState>({
-    mode: null,
-    startedAt: 0,
-    duration: DOOR_FADE_DURATION,
-  });
-
-  // Dialog system for surf prompt
-  const dialog = useDialog();
-
-  // Track dialog open state in a ref for the game loop to access
-  const dialogOpenRef = useRef<boolean>(false);
-  dialogOpenRef.current = dialog.isOpen;
-
-  const ensureDoorSprite = useCallback(
-    async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
-      const asset = getDoorAssetForMetatile(metatileId);
-      const cached = doorSpriteCacheRef.current.get(asset.path);
-      if (cached && cached.complete) {
-        return { image: cached, size: asset.size };
-      }
-      const img = new Image();
-      img.src = asset.path;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = (err) => reject(err);
-      });
-      doorSpriteCacheRef.current.set(asset.path, img);
-      return { image: img, size: asset.size };
-    },
-    []
-  );
-
-  const renderDoorAnimations = useCallback(
-    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, now: number) => {
-      const doorAnims = doorAnimsRef.current;
-      if (doorAnims.length === 0) return;
-      for (const anim of doorAnims) {
-        const totalDuration = anim.frameCount * anim.frameDuration;
-        const elapsed = now - anim.startedAt;
-        
-        // Skip rendering if animation is done AND not held
-        if (elapsed >= totalDuration && !anim.holdOnComplete) continue;
-        
-        // Clamp elapsed time to totalDuration when holding on complete
-        const clampedElapsed = anim.holdOnComplete ? Math.min(elapsed, totalDuration - 1) : elapsed;
-        const frameIndexRaw = Math.floor(clampedElapsed / anim.frameDuration);
-        const frameIndex =
-          anim.direction === 'open' ? frameIndexRaw : Math.max(0, anim.frameCount - 1 - frameIndexRaw);
-        const logKey = `${anim.id}:${frameIndex}`;
-        if (!(anim as unknown as { _lastLog?: string })._lastLog || (anim as unknown as { _lastLog?: string })._lastLog !== logKey) {
-          (anim as unknown as { _lastLog?: string })._lastLog = logKey;
-          logDoor('anim-frame', {
-            id: anim.id,
-            dir: anim.direction,
-            metatileId: anim.metatileId,
-            frame: frameIndex,
-            worldX: anim.worldX,
-            worldY: anim.worldY,
-            elapsed,
-          });
-        }
-        const sy = frameIndex * anim.frameHeight;
-        const sw = anim.image.width;
-        const sh = anim.frameHeight;
-        const dx = Math.round(anim.worldX * METATILE_SIZE - view.cameraWorldX);
-        const dy = Math.round((anim.worldY - 1) * METATILE_SIZE - view.cameraWorldY);
-        const dw = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE;
-        const dh = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE * 2;
-        mainCtx.drawImage(anim.image, 0, sy, sw, sh, dx, dy, dw, dh);
-      }
-    },
-    []
-  );
-
-
-  const spawnDoorAnimation = useCallback(
-    async (
-      direction: 'open' | 'close',
-      worldX: number,
-      worldY: number,
-      metatileId: number,
-      startedAt: number,
-      holdOnComplete: boolean = false
-    ): Promise<number | null> => {
-      // COMPREHENSIVE DEBUG LOGGING
-      const stackTrace = new Error().stack;
-      if (isDebugMode()) {
-        console.log('[DOOR_SPAWN]', {
-          direction,
-          worldX,
-          worldY,
-          metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
-          holdOnComplete,
-          calledFrom: stackTrace?.split('\n')[2]?.trim() || 'unknown',
-        });
-      }
-      
-      try {
-        const { image, size } = await ensureDoorSprite(metatileId);
-        const frameCount = Math.max(1, Math.floor(image.height / DOOR_FRAME_HEIGHT));
-        const anim: DoorAnimDrawable = {
-          id: doorAnimIdRef.current++,
-          image,
-          direction,
-          frameCount,
-          frameHeight: DOOR_FRAME_HEIGHT,
-          frameDuration: DOOR_FRAME_DURATION_MS,
-          worldX,
-          worldY,
-          size,
-          startedAt,
-          holdOnComplete,
-          metatileId,
-        };
-        doorAnimsRef.current = [...doorAnimsRef.current, anim];
-        logDoor('anim-start', { id: anim.id, direction, metatileId, frameCount, worldX, worldY });
-        return anim.id;
-      } catch (err) {
-        if (isDebugMode()) {
-          console.warn('Failed to spawn door animation', err);
-        }
-        return null;
-      }
-    },
-    [ensureDoorSprite]
-  );
-
-  const isDoorAnimDone = useCallback((anim: DoorAnimDrawable, now: number) => {
-    const elapsed = now - anim.startedAt;
-    return elapsed >= anim.frameCount * anim.frameDuration;
-  }, []);
-
-  const pruneDoorAnimations = useCallback(
-    (now: number) => {
-      doorAnimsRef.current = doorAnimsRef.current.filter((anim) => {
-        if (anim.holdOnComplete) {
-          return true;
-        }
-        return !isDoorAnimDone(anim, now);
-      });
-    },
-    [isDoorAnimDone]
-  );
-
-  const ensureArrowSprite = useCallback((): Promise<HTMLImageElement | HTMLCanvasElement> => {
-    if (arrowSpriteRef.current) {
-      return Promise.resolve(arrowSpriteRef.current);
-    }
-    if (!arrowSpritePromiseRef.current) {
-      arrowSpritePromiseRef.current = new Promise<HTMLImageElement | HTMLCanvasElement>((resolve, reject) => {
-        const img = new Image();
-        img.src = ARROW_SPRITE_PATH;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Failed to acquire arrow sprite context'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          const colorCounts = new Map<number, number>();
-          for (let i = 0; i < data.length; i += 4) {
-            const alpha = data[i + 3];
-            if (alpha === 0) continue;
-            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-            colorCounts.set(key, (colorCounts.get(key) ?? 0) + 1);
-          }
-          let bgKey = 0;
-          let bgCount = -1;
-          for (const [key, count] of colorCounts.entries()) {
-            if (count > bgCount) {
-              bgKey = key;
-              bgCount = count;
-            }
-          }
-          const bgR = (bgKey >> 16) & 0xff;
-          const bgG = (bgKey >> 8) & 0xff;
-          const bgB = bgKey & 0xff;
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-              data[i + 3] = 0;
-            }
-          }
-          ctx.putImageData(imageData, 0, 0);
-          arrowSpriteRef.current = canvas;
-          resolve(canvas);
-        };
-        img.onerror = (err) => reject(err);
-      }).finally(() => {
-        arrowSpritePromiseRef.current = null;
-      }) as Promise<HTMLImageElement | HTMLCanvasElement>;
-    }
-    return arrowSpritePromiseRef.current!;
-  }, []);
-
-  const updateArrowOverlay = useCallback(
-    (
-      player: PlayerController | null,
-      ctx: RenderContext | null,
-      resolvedTile: ResolvedTile | null,
-      now: number,
-      warpInProgress: boolean
-    ) => {
-      if (!player || !ctx || warpInProgress) {
-        arrowOverlayRef.current = null;
-        return;
-      }
-      const tile = resolvedTile ?? resolveTileAt(ctx, player.tileX, player.tileY);
-      if (!tile) {
-        arrowOverlayRef.current = null;
-        return;
-      }
-      const behavior = tile.attributes?.behavior ?? -1;
-      const arrowDir = getArrowDirectionFromBehavior(behavior);
-      if (!arrowDir || player.dir !== arrowDir) {
-        arrowOverlayRef.current = null;
-        return;
-      }
-      if (!arrowSpriteRef.current && !arrowSpritePromiseRef.current) {
-        ensureArrowSprite().catch((err) => {
-          if (isDebugMode()) {
-            console.warn('Failed to load arrow sprite', err);
-          }
-        });
-      }
-      const vector = DIRECTION_VECTORS[arrowDir];
-      const overlayWorldX = player.tileX + vector.dx;
-      const overlayWorldY = player.tileY + vector.dy;
-      const prev = arrowOverlayRef.current;
-      const isNewOverlay = !prev || !prev.visible || prev.direction !== arrowDir;
-      arrowOverlayRef.current = {
-        visible: true,
-        worldX: overlayWorldX,
-        worldY: overlayWorldY,
-        direction: arrowDir,
-        startedAt: isNewOverlay ? now : prev.startedAt,
-      };
-    },
-    [ensureArrowSprite]
-  );
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
-  const [inspectTarget, setInspectTarget] = useState<{ tileX: number; tileY: number } | null>(null);
-  const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
-  const [chunkStats, setChunkStats] = useState<ChunkStats | null>(null);
-  const chunkStatsUpdateRef = useRef<number>(0); // Throttle stats updates
-
-  // Derived state for backwards compatibility
-  const showTileDebug = debugOptions.enabled;
-  const debugFocusMode = debugOptions.focusMode;
-
-  // Refs to avoid refreshDebugOverlay identity changes (which would trigger full map reload)
-  const debugFocusModeRef = useRef(debugFocusMode);
-  const inspectTargetRef = useRef(inspectTarget);
-  const logChunkOperationsRef = useRef(debugOptions.logChunkOperations);
-  debugFocusModeRef.current = debugFocusMode;
-  inspectTargetRef.current = inspectTarget;
-  logChunkOperationsRef.current = debugOptions.logChunkOperations;
-
-  // Canvas refs for layer decomposition
-  const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const topLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const compositeLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  // Sync debug options with chunk manager and global flag
-  useEffect(() => {
-    (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = debugOptions.enabled;
-    setChunkDebugOptions({
-      showBorders: debugOptions.showChunkBorders,
-      logOperations: debugOptions.logChunkOperations,
-    });
-  }, [debugOptions]);
-
-  // Player Controller
-
-
-  const refreshDebugOverlay = useCallback(
-    (
-      ctx: RenderContext,
-      player: PlayerController | null,
-      view: WorldCameraView | null,
-      centerOverride?: { tileX: number; tileY: number }
-    ) => {
-      if (!debugEnabledRef.current || !view) return;
-      const mainCanvas = canvasRef.current;
-      const dbgCanvas = debugCanvasRef.current;
-      if (!dbgCanvas || !mainCanvas) return;
-
-      // Use refs to avoid callback identity changes triggering map reload
-      const focusMode = debugFocusModeRef.current;
-      const target = inspectTargetRef.current;
-
-      const centerTile =
-        centerOverride ??
-        (focusMode === 'inspect' && target
-          ? target
-          : player
-            ? { tileX: player.tileX, tileY: player.tileY }
-            : null);
-
-      if (!centerTile) return;
-
-      DebugRenderer.renderDebugOverlay(
-        ctx,
-        centerTile,
-        player ?? undefined,
-        view,
-        mainCanvas,
-        dbgCanvas,
-        setCenterTileDebugInfo,
-        debugTilesRef
-      );
-    },
-    [setCenterTileDebugInfo]
-  );
-
-  // Click-to-inspect handler for debug overlay
-  const handleCanvasClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!showTileDebug || debugFocusMode !== 'inspect') return;
-      const view = cameraViewRef.current;
-      if (!view) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const localX = (e.clientX - rect.left) * scaleX;
-      const localY = (e.clientY - rect.top) * scaleY;
-      const worldPixelX = view.cameraWorldX + localX;
-      const worldPixelY = view.cameraWorldY + localY;
-      const tileX = Math.floor(worldPixelX / METATILE_SIZE);
-      const tileY = Math.floor(worldPixelY / METATILE_SIZE);
-      setInspectTarget({ tileX, tileY });
-      if (renderContextRef.current) {
-        refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, view, { tileX, tileY });
-      }
-    },
-    [debugFocusMode, refreshDebugOverlay, showTileDebug]
-  );
-
-  // Render layer decomposition canvases
-  const renderLayerDecomposition = useCallback((ctx: RenderContext, tileInfo: DebugTileInfo) => {
-    if (!tileInfo || !tileInfo.inBounds) return;
-    
-    const bottomCanvas = bottomLayerCanvasRef.current;
-    const topCanvas = topLayerCanvasRef.current;
-    const compositeCanvas = compositeLayerCanvasRef.current;
-    
-    if (!bottomCanvas || !topCanvas || !compositeCanvas) return;
-
-    DebugRenderer.renderLayerDecomposition(
-      ctx,
-      tileInfo,
-      bottomCanvas,
-      topCanvas,
-      compositeCanvas
-    );
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    playerControllerRef.current = new PlayerController();
-    return () => {
-      playerControllerRef.current?.destroy();
-    };
-  }, []);
-
-  useEffect(() => {
-    debugEnabledRef.current = showTileDebug;
-    if (
-      showTileDebug &&
-      renderContextRef.current &&
-      canvasRef.current
-    ) {
-      refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
-    }
-  }, [showTileDebug, refreshDebugOverlay]);
-
-  useEffect(() => {
-    if (!showTileDebug || !renderContextRef.current) return;
-    refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
-  }, [debugFocusMode, inspectTarget, showTileDebug, refreshDebugOverlay]);
   
-  // Update layer decomposition when center tile changes
-  useEffect(() => {
-    if (showTileDebug && centerTileDebugInfo && renderContextRef.current) {
-      renderLayerDecomposition(renderContextRef.current, centerTileDebugInfo);
+  // Door system hook
+  const {
+    doorAnimsRef,
+    doorExitRef,
+    fadeRef,
+    playerHiddenRef,
+    doorEntryRef,
+    spawnDoorAnimation,
+    isDoorAnimDone,
+    pruneDoorAnimations,
+    renderDoorAnimations,
+    handleDoorWarpAttempt,
+    startAutoDoorWarp,
+    advanceDoorEntry,
+  } = useDoorSystem();
+
+  const currentTimestampRef = useRef<number>(0);
+
+  const applyTileResolver = useCallback(() => {
+    if (playerControllerRef.current && renderContextRef.current) {
+      playerControllerRef.current.setTileResolver((x, y) => {
+        return resolveTileAt(renderContextRef.current!, x, y);
+      });
     }
-  }, [showTileDebug, centerTileDebugInfo, renderLayerDecomposition]);
-
-  const copyTile = (
-    src: Uint8Array,
-    srcX: number,
-    srcY: number,
-    srcStride: number,
-    dest: Uint8Array,
-    destX: number,
-    destY: number,
-    destStride: number
-  ) => {
-    for (let y = 0; y < TILE_SIZE; y++) {
-      for (let x = 0; x < TILE_SIZE; x++) {
-        const val = src[(srcY + y) * srcStride + (srcX + x)];
-        dest[(destY + y) * destStride + (destX + x)] = val;
-      }
-    }
-  };
-
-  const buildPatchedTilesForRuntime = useCallback(
-    (runtime: TilesetRuntime, animationState: AnimationState): TilesetBuffers => {
-      const animKey = runtime.animations
-        .map((anim) => `${anim.id}:${animationState[anim.id] ?? 0}`)
-        .join('|');
-
-      if (animKey === runtime.lastPatchedKey && runtime.patchedTiles) {
-        return runtime.patchedTiles;
-      }
-
-      let patchedPrimary = runtime.resources.primaryTilesImage;
-      let patchedSecondary = runtime.resources.secondaryTilesImage;
-      let primaryPatched = false;
-      let secondaryPatched = false;
-
-      for (const anim of runtime.animations) {
-        const rawCycle = animationState[anim.id] ?? 0;
-        const tilesetTarget = anim.tileset;
-        if (tilesetTarget === 'primary' && !primaryPatched) {
-          patchedPrimary = new Uint8Array(runtime.resources.primaryTilesImage);
-          primaryPatched = true;
-        }
-        if (tilesetTarget === 'secondary' && !secondaryPatched) {
-          patchedSecondary = new Uint8Array(runtime.resources.secondaryTilesImage);
-          secondaryPatched = true;
-        }
-
-        for (const destination of anim.destinations) {
-          const effectiveCycle = rawCycle + (destination.phase ?? 0);
-          const useAlt =
-            anim.altSequence !== undefined &&
-            anim.altSequenceThreshold !== undefined &&
-            effectiveCycle >= anim.altSequenceThreshold;
-          const seq = useAlt && anim.altSequence ? anim.altSequence : anim.sequence;
-          const seqIndexRaw = effectiveCycle % seq.length;
-          const seqIndex = seqIndexRaw < 0 ? seqIndexRaw + seq.length : seqIndexRaw;
-          const frameIndex = seq[seqIndex] ?? 0;
-          const frameData = anim.frames[frameIndex];
-          if (!frameData) continue;
-
-          let destId = destination.destStart;
-          for (let ty = 0; ty < anim.tilesHigh; ty++) {
-            for (let tx = 0; tx < anim.tilesWide; tx++) {
-              const sx = tx * TILE_SIZE;
-              const sy = ty * TILE_SIZE;
-              const targetBuffer = tilesetTarget === 'primary' ? patchedPrimary : patchedSecondary;
-              const adjustedDestId =
-                tilesetTarget === 'secondary' ? destId - SECONDARY_TILE_OFFSET : destId; // 512 offset removal
-              copyTile(
-                frameData,
-                sx,
-                sy,
-                anim.width,
-                targetBuffer,
-                (adjustedDestId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
-                Math.floor(adjustedDestId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE,
-                128
-              );
-              destId++;
-            }
-          }
-        }
-      }
-
-      const patched: TilesetBuffers = {
-        primary: patchedPrimary,
-        secondary: patchedSecondary,
-      };
-
-      runtime.lastPatchedKey = animKey;
-      runtime.patchedTiles = patched;
-      return patched;
-    },
-    []
-  );
-
-  const ensureAuxiliaryCanvases = (widthPx: number, heightPx: number) => {
-    if (!backgroundCanvasRef.current) {
-      backgroundCanvasRef.current = document.createElement('canvas');
-    }
-    if (!topCanvasRef.current) {
-      topCanvasRef.current = document.createElement('canvas');
-    }
-    if (backgroundCanvasRef.current && topCanvasRef.current) {
-      const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
-      if (sizeChanged) {
-        backgroundCanvasRef.current.width = widthPx;
-        backgroundCanvasRef.current.height = heightPx;
-        topCanvasRef.current.width = widthPx;
-        topCanvasRef.current.height = heightPx;
-        canvasSizeRef.current = { w: widthPx, h: heightPx };
-      }
-    }
-  };
-
-  const loadIndexedFrame = async (url: string) => {
-    const buffer = await loadBinary(url);
-    const img = UPNG.decode(buffer);
-
-    let data: Uint8Array;
-    if (img.ctype === 3 && img.depth === 4) {
-      const packed = new Uint8Array(img.data);
-      const unpacked = new Uint8Array(packed.length * 2);
-      for (let i = 0; i < packed.length; i++) {
-        const byte = packed[i];
-        unpacked[i * 2] = (byte >> 4) & 0xF;
-        unpacked[i * 2 + 1] = byte & 0xF;
-      }
-      data = unpacked;
-    } else {
-      data = new Uint8Array(img.data);
-    }
-
-    return { data, width: img.width, height: img.height };
-  };
+  }, []);
 
   const loadTilesetAnimations = useCallback(
     async (primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> => {
@@ -1284,7 +331,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
   );
 
   const rebuildContextForWorld = useCallback(
-    async (world: WorldState, anchorId: string) => {
+    async (world: WorldState, anchorId: string, options?: { preserveChunks?: boolean }) => {
       const anchor = world.maps.find((m) => m.entry.id === anchorId) ?? world.maps[0];
       const tilesetRuntimes = new Map<string, TilesetRuntime>();
       for (const map of world.maps) {
@@ -1303,11 +350,368 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       backgroundCanvasDataRef.current = null;
       topBelowCanvasDataRef.current = null;
       topAboveCanvasDataRef.current = null;
-      chunkManagerRef.current?.clear();
+      if (!options?.preserveChunks) {
+        chunkManagerRef.current?.clear();
+      }
       hasRenderedRef.current = false;
     },
     [ensureTilesetRuntime]
   );
+
+  const {
+    warpStateRef,
+    performWarp,
+    reanchorInFlightRef,
+  } = useWarpSystem(
+    mapManagerRef,
+    playerControllerRef,
+    renderContextRef,
+    renderGenerationRef,
+    rebuildContextForWorld,
+    applyTileResolver,
+    doorExitRef,
+    fadeRef,
+    doorAnimsRef,
+    playerHiddenRef,
+    backgroundImageDataRef,
+    topImageDataRef,
+    hasRenderedRef,
+    currentTimestampRef
+  );
+  
+
+  const reanchorPendingRef = useRef<{
+    targetId: string;
+    targetOffsetX: number;
+    targetOffsetY: number;
+    playerWorldX: number;
+    playerWorldY: number;
+    playerX: number;
+    playerY: number;
+    dir: CardinalDirection;
+    pixelsMoved: number;
+    wasMoving: boolean;
+  } | null>(null);
+
+  const performReanchor = useCallback(
+    async (payload: {
+      targetId: string;
+      targetOffsetX: number;
+      targetOffsetY: number;
+      playerWorldX: number;
+      playerWorldY: number;
+      playerX: number;
+      playerY: number;
+      dir: CardinalDirection;
+      pixelsMoved: number;
+      wasMoving: boolean;
+    }) => {
+      if (reanchorInFlightRef.current) return;
+      reanchorInFlightRef.current = true;
+      try {
+        let newWorldRaw: WorldState;
+        const existing = reanchorBuildRef.current;
+        if (existing && existing.targetId === payload.targetId && existing.result) {
+          newWorldRaw = existing.result;
+        } else if (existing && existing.targetId === payload.targetId) {
+          newWorldRaw = await existing.promise;
+          reanchorBuildRef.current = { ...existing, result: newWorldRaw };
+        } else {
+          const promise = mapManagerRef.current.buildWorld(payload.targetId, CONNECTION_DEPTH);
+          reanchorBuildRef.current = {
+            targetId: payload.targetId,
+            offsetX: payload.targetOffsetX,
+            offsetY: payload.targetOffsetY,
+            promise,
+          };
+          newWorldRaw = await promise;
+          reanchorBuildRef.current = { ...reanchorBuildRef.current, result: newWorldRaw };
+        }
+        // Shift new world so the target map stays at the same world offset as before reanchor.
+        const newWorld = shiftWorld(newWorldRaw, payload.targetOffsetX, payload.targetOffsetY);
+        await rebuildContextForWorld(newWorld, payload.targetId, { preserveChunks: true });
+        const player = playerControllerRef.current;
+        if (player) {
+          player.setPosition(payload.playerWorldX, payload.playerWorldY);
+          player.dir = payload.dir;
+          if (payload.wasMoving) {
+            // Restore mid-step interpolation so reanchor does not snap the player back.
+            player.isMoving = true;
+            player.pixelsMoved = payload.pixelsMoved;
+            player.x = payload.playerX;
+            player.y = payload.playerY;
+          }
+        }
+        applyTileResolver();
+        warpStateRef.current.lastCheckedTile = {
+          mapId: payload.targetId,
+          x: payload.playerWorldX,
+          y: payload.playerWorldY,
+        };
+        warpStateRef.current.cooldownMs = Math.max(warpStateRef.current.cooldownMs, 50);
+      } finally {
+        reanchorPendingRef.current = null;
+        reanchorInFlightRef.current = false;
+      }
+    },
+    [applyTileResolver, mapManagerRef, rebuildContextForWorld, warpStateRef, reanchorInFlightRef]
+  );
+
+  const arrowOverlayRef = useRef<ArrowOverlayState | null>(null);
+  const canvasRendererRef = useRef<CanvasRenderer | null>(null);
+  const chunkManagerRef = useRef<ChunkManager | null>(null);
+  const chunkClearPendingRef = useRef<{ mapId: string; worldX: number; worldY: number } | null>(null);
+  const reanchorBuildRef = useRef<{
+    targetId: string;
+    offsetX: number;
+    offsetY: number;
+    promise: Promise<WorldState>;
+    result?: WorldState;
+  } | null>(null);
+
+  const dialog = useDialog();
+  const dialogOpenRef = useRef<boolean>(false);
+  dialogOpenRef.current = dialog.isOpen;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
+  const [inspectTarget, setInspectTarget] = useState<{ tileX: number; tileY: number } | null>(null);
+  const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
+  const [chunkStats, setChunkStats] = useState<ChunkStats | null>(null);
+  const chunkStatsUpdateRef = useRef<number>(0);
+
+  const showTileDebug = debugOptions.enabled;
+  const debugFocusMode = debugOptions.focusMode;
+
+  const { handleCanvasClick } = useMapInput({
+    playerControllerRef,
+    cameraViewRef,
+    canvasRef,
+    showTileDebug,
+    debugFocusMode,
+    dialogIsOpen: dialog.isOpen,
+    onInspectTile: (tileX, tileY) => {
+      setInspectTarget({ tileX, tileY });
+      if (renderContextRef.current) {
+        refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current, { tileX, tileY });
+      }
+    },
+    onSurfDialogShow: async (message, options) => {
+      return await dialog.showYesNo(message, options);
+    },
+    onSurfMessageShow: async (message) => {
+      await dialog.showMessage(message);
+    },
+  });
+
+  const updateArrowOverlay = useCallback(
+    (
+      player: PlayerController | null,
+      ctx: RenderContext | null,
+      resolvedTile: ResolvedTile | null,
+      now: number,
+      warpInProgress: boolean
+    ) => {
+      if (!player || !ctx || warpInProgress) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      const tile = resolvedTile ?? resolveTileAt(ctx, player.tileX, player.tileY);
+      if (!tile) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      const behavior = tile.attributes?.behavior ?? -1;
+      const arrowDir = getArrowDirectionFromBehavior(behavior);
+      if (!arrowDir || player.dir !== arrowDir) {
+        arrowOverlayRef.current = null;
+        return;
+      }
+      if (!getArrowSprite()) {
+        ensureArrowSprite().catch((err) => {
+          if (isDebugMode()) {
+            console.warn('Failed to load arrow sprite', err);
+          }
+        });
+      }
+      const vector = DIRECTION_VECTORS[arrowDir];
+      const overlayWorldX = player.tileX + vector.dx;
+      const overlayWorldY = player.tileY + vector.dy;
+      const prev = arrowOverlayRef.current;
+      const isNewOverlay = !prev || !prev.visible || prev.direction !== arrowDir;
+      arrowOverlayRef.current = {
+        visible: true,
+        worldX: overlayWorldX,
+        worldY: overlayWorldY,
+        direction: arrowDir,
+        startedAt: isNewOverlay ? now : prev.startedAt,
+      };
+    },
+    [ensureArrowSprite]
+  );
+
+
+  // Refs to avoid refreshDebugOverlay identity changes (which would trigger full map reload)
+  const debugFocusModeRef = useRef(debugFocusMode);
+  const inspectTargetRef = useRef(inspectTarget);
+  const logChunkOperationsRef = useRef(debugOptions.logChunkOperations);
+  debugFocusModeRef.current = debugFocusMode;
+  inspectTargetRef.current = inspectTarget;
+  logChunkOperationsRef.current = debugOptions.logChunkOperations;
+
+  // Canvas refs for layer decomposition
+  const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const topLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const compositeLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Sync debug options with chunk manager and global flag
+  useEffect(() => {
+    (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = debugOptions.enabled;
+    setChunkDebugOptions({
+      showBorders: debugOptions.showChunkBorders,
+      logOperations: debugOptions.logChunkOperations,
+    });
+  }, [debugOptions]);
+
+  // Player Controller
+
+
+  const refreshDebugOverlay = useCallback(
+    (
+      ctx: RenderContext,
+      player: PlayerController | null,
+      view: WorldCameraView | null,
+      centerOverride?: { tileX: number; tileY: number }
+    ) => {
+      if (!debugEnabledRef.current || !view) return;
+      const mainCanvas = canvasRef.current;
+      const dbgCanvas = debugCanvasRef.current;
+      if (!dbgCanvas || !mainCanvas) return;
+
+      // Use refs to avoid callback identity changes triggering map reload
+      const focusMode = debugFocusModeRef.current;
+      const target = inspectTargetRef.current;
+
+      const centerTile =
+        centerOverride ??
+        (focusMode === 'inspect' && target
+          ? target
+          : player
+            ? { tileX: player.tileX, tileY: player.tileY }
+            : null);
+
+      if (!centerTile) return;
+
+      DebugRenderer.renderDebugOverlay(
+        ctx,
+        centerTile,
+        player ?? undefined,
+        view,
+        mainCanvas,
+        dbgCanvas,
+        setCenterTileDebugInfo,
+        debugTilesRef
+      );
+    },
+    [setCenterTileDebugInfo]
+  );
+
+
+
+  // Render layer decomposition canvases
+  const renderLayerDecomposition = useCallback((ctx: RenderContext, tileInfo: DebugTileInfo) => {
+    if (!tileInfo || !tileInfo.inBounds) return;
+    
+    const bottomCanvas = bottomLayerCanvasRef.current;
+    const topCanvas = topLayerCanvasRef.current;
+    const compositeCanvas = compositeLayerCanvasRef.current;
+    
+    if (!bottomCanvas || !topCanvas || !compositeCanvas) return;
+
+    DebugRenderer.renderLayerDecomposition(
+      ctx,
+      tileInfo,
+      bottomCanvas,
+      topCanvas,
+      compositeCanvas
+    );
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    playerControllerRef.current = new PlayerController();
+    return () => {
+      playerControllerRef.current?.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    debugEnabledRef.current = showTileDebug;
+    if (
+      showTileDebug &&
+      renderContextRef.current &&
+      canvasRef.current
+    ) {
+      refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
+    }
+  }, [showTileDebug, refreshDebugOverlay]);
+
+  useEffect(() => {
+    if (!showTileDebug || !renderContextRef.current) return;
+    refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
+  }, [debugFocusMode, inspectTarget, showTileDebug, refreshDebugOverlay]);
+  
+  // Update layer decomposition when center tile changes
+  useEffect(() => {
+    if (showTileDebug && centerTileDebugInfo && renderContextRef.current) {
+      renderLayerDecomposition(renderContextRef.current, centerTileDebugInfo);
+    }
+  }, [showTileDebug, centerTileDebugInfo, renderLayerDecomposition]);
+
+// buildPatchedTilesForRuntime moved to map/logic/TilesetProcessing.ts
+
+  const ensureAuxiliaryCanvases = (widthPx: number, heightPx: number) => {
+    if (!backgroundCanvasRef.current) {
+      backgroundCanvasRef.current = document.createElement('canvas');
+    }
+    if (!topCanvasRef.current) {
+      topCanvasRef.current = document.createElement('canvas');
+    }
+    if (backgroundCanvasRef.current && topCanvasRef.current) {
+      const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
+      if (sizeChanged) {
+        backgroundCanvasRef.current.width = widthPx;
+        backgroundCanvasRef.current.height = heightPx;
+        topCanvasRef.current.width = widthPx;
+        topCanvasRef.current.height = heightPx;
+        canvasSizeRef.current = { w: widthPx, h: heightPx };
+      }
+    }
+  };
+
+  const loadIndexedFrame = async (url: string) => {
+    const buffer = await loadBinary(url);
+    const img = UPNG.decode(buffer);
+
+    let data: Uint8Array;
+    if (img.ctype === 3 && img.depth === 4) {
+      const packed = new Uint8Array(img.data);
+      const unpacked = new Uint8Array(packed.length * 2);
+      for (let i = 0; i < packed.length; i++) {
+        const byte = packed[i];
+        unpacked[i * 2] = (byte >> 4) & 0xF;
+        unpacked[i * 2 + 1] = byte & 0xF;
+      }
+      data = unpacked;
+    } else {
+      data = new Uint8Array(img.data);
+    }
+
+    return { data, width: img.width, height: img.height };
+  };
+
+
 
   const drawTileToImageData = (
     imageData: ImageData,
@@ -1755,13 +1159,6 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
             viewChanged
           );
 
-        const needsTopRender =
-          !topBelowCanvasDataRef.current ||
-          !topAboveCanvasDataRef.current ||
-          animationFrameChanged ||
-          viewChanged ||
-          elevationChanged;
-
         if (usingChunkCache) {
           backgroundCanvasDataRef.current = null;
         }
@@ -1769,6 +1166,13 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         if (needsBackgroundCanvas) {
           backgroundCanvasDataRef.current = renderPassCanvas(ctx, 'background', false, view);
         }
+
+        const needsTopRender =
+          !topBelowCanvasDataRef.current ||
+          !topAboveCanvasDataRef.current ||
+          animationFrameChanged ||
+          viewChanged ||
+          elevationChanged;
 
         if (needsTopRender) {
           topBelowCanvasDataRef.current = renderPassCanvas(
@@ -1854,9 +1258,13 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           );
         }
       }
-      const offsetX = -Math.round(view.subTileOffsetX);
-      const offsetY = -Math.round(view.subTileOffsetY);
-      
+      // CRITICAL: Use same coordinate calculation as ChunkManager to avoid rounding artifacts
+      // All layers must round in the same direction to prevent 1px flickering
+      // Canvas starts at worldStartTileX * METATILE_SIZE in world coords
+      // Screen position = world position - camera position
+      const offsetX = Math.round(view.worldStartTileX * METATILE_SIZE - view.cameraWorldX);
+      const offsetY = Math.round(view.worldStartTileY * METATILE_SIZE - view.cameraWorldY);
+
       mainCtx.clearRect(0, 0, widthPx, heightPx);
       
       const animHash = usingChunkCache ? 'static' : getAnimationStateHash(ctx);
@@ -1922,7 +1330,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
 
       renderDoorAnimations(mainCtx, view, nowMs);
       if (arrowOverlayRef.current) {
-        ObjectRenderer.renderArrow(mainCtx, arrowOverlayRef.current, arrowSpriteRef.current!, view, nowMs);
+        ObjectRenderer.renderArrow(mainCtx, arrowOverlayRef.current, getArrowSprite()!, view, nowMs);
       }
       if (player) {
         ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
@@ -1934,10 +1342,10 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       if (player) {
         const effects = player.getGrassEffectManager().getEffectsForRendering();
         const sprites = {
-          grass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
-          sand: sandSpriteRef.current,
-          arrow: arrowSpriteRef.current,
+          grass: getGrassSprite(),
+          longGrass: getLongGrassSprite(),
+          sand: getSandSprite(),
+          arrow: getArrowSprite(),
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom');
       }
@@ -2047,10 +1455,10 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       if (player) {
         const effects = player.getGrassEffectManager().getEffectsForRendering();
         const sprites = {
-          grass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
-          sand: sandSpriteRef.current,
-          arrow: arrowSpriteRef.current,
+          grass: getGrassSprite(),
+          longGrass: getLongGrassSprite(),
+          sand: getSandSprite(),
+          arrow: getArrowSprite(),
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top');
       }
@@ -2088,204 +1496,9 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
     [renderPass, renderPassCanvas, renderDoorAnimations, drawRegionToContext, getAnimationStateHash]
   );
 
-  /**
-   * Load grass sprite sheet and convert to transparent canvas
-   */
-  const ensureGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (grassSpriteRef.current) {
-      return grassSpriteRef.current;
-    }
+  // Sprite loading functions moved to map/logic/FieldEffectAssets.ts
 
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/tall_grass.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get grass sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
 
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        grassSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load long grass sprite sheet and convert to transparent canvas
-   */
-  const ensureLongGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (longGrassSpriteRef.current) {
-      return longGrassSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/long_grass.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get long grass sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        longGrassSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load sand footprints sprite sheet and convert to transparent canvas
-   */
-  const ensureSandSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (sandSpriteRef.current) {
-      return sandSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/sand_footprints.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get sand sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        sandSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  // X key handler for surf initiation
-  useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      // Only handle X key (KeyX)
-      if (e.code !== 'KeyX') return;
-      
-      if (isDebugMode()) {
-        console.log('[DEBUG_X] X key pressed!', { 
-           player: !!playerControllerRef.current,
-           inputLocked: playerControllerRef.current?.inputLocked,
-           isSurfing: playerControllerRef.current?.isSurfing(),
-           dialogOpen: dialog.isOpen
-        });
-      }
-
-      const player = playerControllerRef.current;
-      if (!player || player.inputLocked || player.isSurfing() || dialog.isOpen) return;
-      
-      e.preventDefault();
-      
-      // Get player's facing tile
-      const facingTileX = player.dir === 'left' ? player.tileX - 1 :
-                          player.dir === 'right' ? player.tileX + 1 :
-                          player.tileX;
-      const facingTileY = player.dir === 'up' ? player.tileY - 1 :
-                          player.dir === 'down' ? player.tileY + 1 :
-                          player.tileY;
-      
-      // Check if can surf
-      const result = player.surfingController.canInitiateSurf(
-        player.tileX,
-        player.tileY,
-        player.dir,
-        player.tileResolver ?? undefined
-      );
-      
-      if (!result.canSurf) {
-        if (isDebugMode()) {
-          console.log('[SURF] Cannot surf:', result.reason);
-        }
-        return;
-      }
-      
-      // Show surf dialog
-      console.log('[SURF] Showing dialog...');
-      const wantToSurf = await dialog.showYesNo(
-        "The water is a deep blue...\nWould you like to SURF?",
-        { defaultYes: true }
-      );
-      console.log('[SURF] Dialog returned:', wantToSurf, typeof wantToSurf);
-
-      if (wantToSurf) {
-        // Show "Pokemon used SURF!" message
-        await dialog.showMessage("LAPRAS used SURF!");
-        console.log('[SURF] Starting surf sequence');
-
-        // Start surfing with jump animation
-        // This will lock input, start the jump, and transition to SurfingState
-        player.startSurfing(facingTileX, facingTileY);
-
-        if (isDebugMode()) {
-          console.log('[SURF] Jump animation started to water tile');
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dialog]);
 
 
   useEffect(() => {
@@ -2322,6 +1535,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         await ensureGrassSprite();
         await ensureLongGrassSprite();
         await ensureSandSprite();
+        await ensureArrowSprite();
         
         // Initialize hardware-accelerated renderer
         if (USE_HARDWARE_RENDERING) {
@@ -2361,29 +1575,20 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         // if (!anchor) {
         //   throw new Error('Failed to determine anchor map for warp setup');
         // }
-        const applyTileResolver = () => {
-          playerControllerRef.current?.setTileResolver((tileX, tileY) => {
-            const ctx = renderContextRef.current;
-            if (!ctx) return null;
-            const resolved = resolveTileAt(ctx, tileX, tileY);
-            if (!resolved) return null;
-            return { mapTile: resolved.mapTile, attributes: resolved.attributes };
-          });
-        };
-        
         applyTileResolver();
         setLoading(false);
 
         let lastTime = 0;
-        let reanchorInFlight = false;
-        const warpState: WarpRuntimeState = {
+
+        // Initialize warpStateRef and doorEntryRef from the hook
+        warpStateRef.current = {
           inProgress: false,
           cooldownMs: 0,
           lastCheckedTile: anchor
             ? { mapId: anchor.entry.id, x: startTileX, y: startTileY }
             : undefined,
         };
-        let doorEntry: DoorEntrySequence = {
+        doorEntryRef.current = {
           stage: 'idle',
           trigger: null,
           targetX: 0,
@@ -2397,252 +1602,8 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           doorWorldY: 0,
           metatileId: 0,
         };
-        const startAutoDoorWarp = (
-          trigger: WarpTrigger,
-          resolved: ResolvedTile,
-          player: PlayerController,
-          entryDirection: CardinalDirection = 'up',
-          options?: { isAnimatedDoor?: boolean }
-        ) => {
-          if (doorEntry.stage !== 'idle') return false;
-          const now = performance.now();
-          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
-          logDoor('entry: auto door warp (non-animated)', {
-            worldX: player.tileX,
-            worldY: player.tileY,
-            metatileId,
-            behavior: trigger.behavior,
-          });
-          arrowOverlayRef.current = null;
-          doorEntry = {
-            stage: 'waitingBeforeFade',
-            trigger,
-            targetX: player.tileX,
-            targetY: player.tileY,
-            metatileId,
-            isAnimatedDoor: options?.isAnimatedDoor ?? false,
-            entryDirection,
-            playerHidden: false,
-            waitStartedAt: now - 250,
-          };
-          warpState.inProgress = true;
-          player.lockInput();
-          return true;
-        };
 
-        /**
-         * Perform Warp (Map Transition)
-         * 
-         * Handles the actual map change and player positioning after fade out.
-         * 
-         * Critical Logic for Door Exit Animations:
-         * - Check if DESTINATION tile has door behavior before playing exit animation
-         * - Many indoor exits use arrow warps (behavior 101) or stairs with NO door
-         * - Only play door exit animation if destination tile is actually a door
-         * 
-         * Example: Exiting Brendan's House to Littleroot Town
-         * - Player walks onto arrow warp at (8,8) in BRENDANS_HOUSE_1F (behavior 101, no door)
-         * - Warp destination (5,8) in MAP_LITTLEROOT_TOWN has metatile 0x248 (IS a door)
-         * - We check destination behavior and play door exit animation at (5,8)
-         */
-        const performWarp = async (
-          trigger: WarpTrigger,
-          options?: { force?: boolean; fromDoor?: boolean }
-        ) => {
-          if (warpState.inProgress && !options?.force) return;
-          warpState.inProgress = true;
-          reanchorInFlight = true;
-          const shouldUnlockInput = !options?.fromDoor;
-          playerControllerRef.current?.lockInput();
-          try {
-            const targetMapId = trigger.warpEvent.destMap;
-            const targetWarpId = trigger.warpEvent.destWarpId;
-            const newWorld = await mapManagerRef.current.buildWorld(targetMapId, CONNECTION_DEPTH);
-            if (generation !== renderGenerationRef.current) return;
-            await rebuildContextForWorld(newWorld, targetMapId);
-            if (generation !== renderGenerationRef.current) return;
 
-            const ctxAfter = renderContextRef.current;
-            const anchorAfter = ctxAfter?.anchor ?? newWorld.maps[0];
-            const destMap =
-              ctxAfter?.world.maps.find((m) => m.entry.id === targetMapId) ?? anchorAfter;
-            const warpEvents = destMap?.warpEvents ?? [];
-            const destWarp = warpEvents[targetWarpId] ?? warpEvents[0];
-            if (!destMap || !destWarp) {
-              if (isDebugMode()) {
-                console.warn(`Warp target missing for ${targetMapId} warp ${targetWarpId}`);
-              }
-              return;
-            }
-            const destWorldX = destMap.offsetX + destWarp.x;
-            const destWorldY = destMap.offsetY + destWarp.y;
-            
-            // Determine facing direction based on context
-            let facing: PlayerController['dir'] = trigger.facing;
-            if (trigger.kind === 'door' && options?.fromDoor && ctxAfter) {
-              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-              const destBehavior = destResolved?.attributes?.behavior ?? -1;
-              const destIsArrow = isArrowWarpBehavior(destBehavior);
-              
-              if (isDoorBehavior(destBehavior)) {
-                facing = 'down'; // Exiting through a door
-              } else if (destIsArrow) {
-                // Arriving at an arrow warp: preserve movement direction
-                facing = trigger.facing;
-              } else {
-                facing = 'up'; // Arrived at non-door, non-arrow destination (stairs, etc.)
-              }
-            } else if (trigger.kind === 'door') {
-              facing = 'down'; // Default for door warps when not using door entry sequence
-            } else if (trigger.kind === 'arrow') {
-              // Arrow warps: always preserve the movement direction
-              // This ensures you face the direction you were moving, not the destination arrow's direction
-              facing = trigger.facing;
-            }
-
-            if (isDebugMode()) {
-              console.log('[WARP_FACING]', {
-                triggerKind: trigger.kind,
-                triggerFacing: trigger.facing,
-                finalFacing: facing,
-                fromDoor: options?.fromDoor,
-              });
-            }
-
-            playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
-            
-            // Check if destination tile actually has a door before playing door exit animation
-            if (options?.fromDoor && ctxAfter) {
-              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-              const destBehavior = destResolved?.attributes?.behavior ?? -1;
-              const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
-              
-              const isAnimatedDoor = isDoorBehavior(destBehavior);
-              const isNonAnimatedDoor = isNonAnimatedDoorBehavior(destBehavior);
-              const requiresExitSequence = requiresDoorExitSequence(destBehavior);
-              
-              if (isDebugMode()) {
-                console.log('[WARP_DEST_CHECK]', {
-                  fromDoor: options?.fromDoor,
-                  triggerKind: trigger.kind,
-                  destWorldX,
-                  destWorldY,
-                  destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
-                  destBehavior,
-                  isAnimatedDoor,
-                  isNonAnimatedDoor,
-                  requiresExitSequence,
-                });
-              }
-              
-              // Check if destination requires exit sequence (animated or non-animated)
-              if (requiresExitSequence) {
-                // Determine exit direction: for arrow warps, continue in same direction; for doors, exit down
-                const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
-                
-                if (isDebugMode()) {
-                  console.log('[EXIT_SEQUENCE_START]', {
-                    triggerKind: trigger.kind,
-                    triggerFacing: trigger.facing,
-                    exitDirection,
-                    destBehavior,
-                    isAnimatedDoor,
-                  });
-                }
-                
-                logDoor('performWarp: destination requires exit sequence', {
-                  destWorldX,
-                  destWorldY,
-                  destMetatileId,
-                  destBehavior,
-                  isAnimatedDoor,
-                  isNonAnimatedDoor,
-                  exitDirection,
-                  triggerKind: trigger.kind,
-                });
-                playerHiddenRef.current = true;
-                doorExitRef.current = {
-                  stage: 'opening',
-                  doorWorldX: destWorldX,
-                  doorWorldY: destWorldY,
-                  metatileId: destMetatileId,
-                  isAnimatedDoor, // Store whether to play door animation
-                  exitDirection, // Store which direction to walk when exiting
-                };
-                fadeRef.current = {
-                  mode: 'in',
-                  startedAt: currentTimestampRef.current,
-                  duration: DOOR_FADE_DURATION,
-                };
-              } else {
-                if (isDebugMode()) {
-                  console.log('[NO_EXIT_SEQUENCE]', {
-                    triggerKind: trigger.kind,
-                    destBehavior,
-                    requiresExitSequence,
-                    finalFacing: facing,
-                  });
-                }
-                // No door on destination side (e.g., arrow warp, stairs, teleport pad)
-                // Must unlock input immediately since there's no door exit sequence
-                logDoor('performWarp: destination has no door, simple fade in', {
-                  destWorldX,
-                  destWorldY,
-                  destMetatileId,
-                  destBehavior,
-                  behaviorLabel: classifyWarpKind(destBehavior) ?? 'unknown',
-                });
-                playerHiddenRef.current = false;
-                fadeRef.current = {
-                  mode: 'in',
-                  startedAt: currentTimestampRef.current,
-                  duration: DOOR_FADE_DURATION,
-                };
-                // No door exit sequence needed
-                doorExitRef.current = {
-                  stage: 'idle',
-                  doorWorldX: 0,
-                  doorWorldY: 0,
-                  metatileId: 0,
-                };
-                // CRITICAL: Unlock input here since there's no door exit sequence to handle it
-                playerControllerRef.current?.unlockInput();
-                warpState.inProgress = false;
-              }
-            } else if (options?.fromDoor) {
-              fadeRef.current = {
-                mode: 'in',
-                startedAt: currentTimestampRef.current,
-                duration: DOOR_FADE_DURATION,
-              };
-              playerHiddenRef.current = false;
-              doorExitRef.current = {
-                stage: 'idle',
-                doorWorldX: 0,
-                doorWorldY: 0,
-                metatileId: 0,
-              };
-              playerControllerRef.current?.unlockInput();
-              warpState.inProgress = false;
-            }
-            applyTileResolver();
-            warpState.lastCheckedTile = { mapId: destMap.entry.id, x: destWorldX, y: destWorldY };
-            warpState.cooldownMs = 350;
-            backgroundImageDataRef.current = null;
-            topImageDataRef.current = null;
-            hasRenderedRef.current = false;
-            // Clear any remaining door animations from the previous map
-            doorAnimsRef.current = [];
-          } catch (err) {
-            console.error('Warp failed', err);
-          } finally {
-            if (shouldUnlockInput) {
-              playerControllerRef.current?.unlockInput();
-              warpState.inProgress = false;
-            }
-            reanchorInFlight = false;
-          }
-        };
 
         const handleDoorWarp = (request: DoorWarpRequest) => {
           const ctx = renderContextRef.current;
@@ -2660,108 +1621,16 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
             behavior: request.behavior,
             facing: playerControllerRef.current?.dir ?? 'down'
           };
-          
+
           if (playerControllerRef.current) {
-            startAutoDoorWarp(trigger, resolved, playerControllerRef.current);
+            const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+            arrowOverlayRef.current = null;
+            startAutoDoorWarp(trigger, warpStateRef.current, playerControllerRef.current, metatileId, 'up');
           }
         };
         playerControllerRef.current?.setDoorWarpHandler(handleDoorWarp);
 
-        const advanceDoorEntry = (now: number) => {
-          if (doorEntry.stage === 'idle') return;
-          const player = playerControllerRef.current;
-          if (!player || !doorEntry.trigger) return;
-          if (doorEntry.stage === 'opening') {
-            // Only check for animation completion if this is an animated door
-            if (doorEntry.isAnimatedDoor !== false) {
-              const anim = doorEntry.openAnimId
-                ? doorAnimsRef.current.find((a) => a.id === doorEntry.openAnimId)
-                : null;
-              const openDone = !anim || isDoorAnimDone(anim, now);
-              if (openDone) {
-                logDoor('entry: door fully open (animated), force step into tile', doorEntry.targetX, doorEntry.targetY);
-                player.forceMove(doorEntry.entryDirection ?? 'up', true);
-                doorEntry.stage = 'stepping';
-              }
-            } else {
-              // Non-animated door: skip straight to stepping
-              logDoor('entry: non-animated door, force step into tile', doorEntry.targetX, doorEntry.targetY);
-              player.forceMove(doorEntry.entryDirection ?? 'up', true);
-              doorEntry.stage = 'stepping';
-            }
-          } else if (doorEntry.stage === 'stepping') {
-            if (!player.isMoving) {
-              // Only spawn close animation if this is an animated door
-              if (doorEntry.isAnimatedDoor !== false) {
-                const startedAt = now;
-                logDoor('entry: start door close (animated), hide player');
-                spawnDoorAnimation(
-                  'close',
-                  doorEntry.targetX,
-                  doorEntry.targetY,
-                  doorEntry.metatileId,
-                  startedAt
-                ).then((closeAnimId) => {
-                  doorEntry.closeAnimId = closeAnimId ?? undefined;
-                });
-                doorAnimsRef.current = doorAnimsRef.current.filter(
-                  (anim) => anim.id !== doorEntry.openAnimId
-                );
-                doorEntry.stage = 'closing';
-                playerHiddenRef.current = true;
-                doorEntry.playerHidden = true;
-              } else {
-                // Non-animated door: skip straight to fading
-                logDoor('entry: non-animated door, skip to fade');
-                playerHiddenRef.current = true;
-                doorEntry.playerHidden = true;
-                doorEntry.stage = 'waitingBeforeFade';
-                doorEntry.waitStartedAt = now;
-              }
-            }
-          } else if (doorEntry.stage === 'closing') {
-            const anim = doorEntry.closeAnimId
-              ? doorAnimsRef.current.find((a) => a.id === doorEntry.closeAnimId)
-              : null;
-            const closeDone = !anim || isDoorAnimDone(anim, now);
-            if (closeDone) {
-              logDoor('entry: door close complete, showing base tile');
-              // Remove the close animation so the base tile shows
-              doorAnimsRef.current = doorAnimsRef.current.filter(
-                (a) => a.id !== doorEntry.closeAnimId
-              );
-              doorEntry.stage = 'waitingBeforeFade';
-              doorEntry.waitStartedAt = now;
-            }
-          } else if (doorEntry.stage === 'waitingBeforeFade') {
-            const WAIT_DURATION = 250; // ms to show the closed door base tile before fading
-            const waitDone = now - (doorEntry.waitStartedAt ?? now) >= WAIT_DURATION;
-            if (waitDone) {
-              logDoor('entry: start fade out');
-              fadeRef.current = { mode: 'out', startedAt: now, duration: DOOR_FADE_DURATION };
-              doorEntry.stage = 'fadingOut';
-            }
-          } else if (doorEntry.stage === 'fadingOut') {
-            const fadeDone =
-              fadeRef.current.mode === null ||
-              now - fadeRef.current.startedAt >= fadeRef.current.duration;
-            if (fadeDone) {
-              doorEntry.stage = 'warping';
-              void (async () => {
-                logDoor('entry: warp now');
-                await performWarp(doorEntry.trigger as WarpTrigger, { force: true, fromDoor: true });
-                doorEntry = {
-                  stage: 'idle',
-                  trigger: null,
-                  targetX: 0,
-                  targetY: 0,
-                  metatileId: 0,
-                  playerHidden: false,
-                };
-              })();
-            }
-          }
-        };
+
 
           /**
            * Door Entry Handler
@@ -2777,133 +1646,103 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
            * - Destination tile (8,8) in BRENDANS_HOUSE_1F has metatile 514 (arrow warp, NOT a door)
            * - We play door animation using 0x248, not 514
            */
-          const handleDoorWarpAttempt = async (request: DoorWarpRequest) => {
-            if (doorEntry.stage !== 'idle' || warpState.inProgress) return;
+          const onDoorWarpRequest = async (request: DoorWarpRequest) => {
+            if (doorEntryRef.current.stage !== 'idle' || warpStateRef.current.inProgress) return;
             const ctx = renderContextRef.current;
             const player = playerControllerRef.current;
             if (!ctx || !player) return;
             const resolved = resolveTileAt(ctx, request.targetX, request.targetY);
-          if (!resolved) return;
-          const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
-          if (!warpEvent) return;
-          const behavior = resolved.attributes?.behavior ?? -1;
-          
-          // Check if this is an arrow warp
-          const isArrow = isArrowWarpBehavior(behavior);
-          const requiresExitSeq = requiresDoorExitSequence(behavior);
-          const isAnimated = isDoorBehavior(behavior);
-          
-          if (isDebugMode()) {
-            console.log('[DOOR_WARP_ATTEMPT]', {
-              targetX: request.targetX,
-              targetY: request.targetY,
-              behavior,
-              metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
-              isDoor: isAnimated,
-              isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
-              isArrowWarp: isArrow,
-              requiresExitSequence: requiresExitSeq,
-              playerDir: player.dir,
-            });
-          }
-          
-          // Handle arrow warps
-          if (isArrow) {
-            const arrowDir = getArrowDirectionFromBehavior(behavior);
+            if (!resolved) return;
+            const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
+            if (!warpEvent) return;
+            const behavior = resolved.attributes?.behavior ?? -1;
+            
+            // Check if this is an arrow warp
+            const isArrow = isArrowWarpBehavior(behavior);
+            const requiresExitSeq = requiresDoorExitSequence(behavior);
+            const isAnimated = isDoorBehavior(behavior);
+            
             if (isDebugMode()) {
-              console.log('[ARROW_WARP_ATTEMPT]', {
-                arrowDir,
+              console.log('[DOOR_WARP_ATTEMPT]', {
+                targetX: request.targetX,
+                targetY: request.targetY,
+                behavior,
+                metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
+                isDoor: isAnimated,
+                isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
+                isArrowWarp: isArrow,
+                requiresExitSequence: requiresExitSeq,
                 playerDir: player.dir,
-                match: arrowDir === player.dir,
               });
             }
-            if (!arrowDir || player.dir !== arrowDir) {
+            
+            // Handle arrow warps
+            if (isArrow) {
+              const arrowDir = getArrowDirectionFromBehavior(behavior);
               if (isDebugMode()) {
-                console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
+                console.log('[ARROW_WARP_ATTEMPT]', {
+                  arrowDir,
+                  playerDir: player.dir,
+                  match: arrowDir === player.dir,
+                });
+              }
+              if (!arrowDir || player.dir !== arrowDir) {
+                if (isDebugMode()) {
+                  console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
+                }
+                return;
+              }
+              // Arrow warp: trigger auto door warp with no animation
+              const trigger: WarpTrigger = {
+                kind: 'arrow',
+                sourceMap: resolved.map,
+                warpEvent,
+                behavior,
+                facing: player.dir,
+              };
+              if (isDebugMode()) {
+                console.log('[ARROW_WARP_START]', { trigger });
+              }
+              const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+              arrowOverlayRef.current = null;
+              startAutoDoorWarp(trigger, warpStateRef.current, player, metatileId, arrowDir, { isAnimatedDoor: false });
+              return;
+            }
+            
+            if (!requiresExitSeq) {
+              if (isDebugMode()) {
+                console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
+                  targetX: request.targetX,
+                  targetY: request.targetY,
+                  behavior,
+                  metatileId: getMetatileIdFromMapTile(resolved.mapTile),
+                });
               }
               return;
             }
-            // Arrow warp: trigger auto door warp with no animation
+            
             const trigger: WarpTrigger = {
-              kind: 'arrow',
+              kind: 'door', // Use 'door' for both animated and non-animated door sequences
               sourceMap: resolved.map,
               warpEvent,
               behavior,
               facing: player.dir,
             };
-            if (isDebugMode()) {
-              console.log('[ARROW_WARP_START]', { trigger });
-            }
-            startAutoDoorWarp(trigger, resolved, player, arrowDir, { isAnimatedDoor: false });
-            return;
-          }
-          
-          if (!requiresExitSeq) {
-            if (isDebugMode()) {
-              console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
-                targetX: request.targetX,
-                targetY: request.targetY,
-                behavior,
-                metatileId: getMetatileIdFromMapTile(resolved.mapTile),
-              });
-            }
-            return;
-          }
-          
-          const trigger: WarpTrigger = {
-            kind: 'door', // Use 'door' for both animated and non-animated door sequences
-            sourceMap: resolved.map,
-            warpEvent,
-            behavior,
-            facing: player.dir,
-          };
             // Use SOURCE tile's metatile ID for door animation (the door being entered)
             const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
-            const startedAt = performance.now();
             
-            // Only spawn door animation if this is an animated door
-            // Non-animated doors (stairs) skip animation but still do entry sequence
-            let openAnimId: number | null | undefined = undefined;
-            if (isAnimated) {
-              logDoor('entry: start door open (animated)', {
-                worldX: request.targetX,
-                worldY: request.targetY,
-                metatileId,
-                map: resolved.map.entry.id,
-              });
-              openAnimId = await spawnDoorAnimation(
-                'open',
-                request.targetX,
-                request.targetY,
-                metatileId,
-                startedAt,
-                true
-              );
-            } else {
-              logDoor('entry: start (non-animated, no door animation)', {
-                worldX: request.targetX,
-                worldY: request.targetY,
-                metatileId,
-                map: resolved.map.entry.id,
-              });
-            }
-          
-          doorEntry = {
-            stage: 'opening',
-            trigger,
-            targetX: request.targetX,
-            targetY: request.targetY,
-            metatileId,
-            isAnimatedDoor: isAnimated, // Track whether to animate
-            openAnimId: openAnimId ?? undefined,
-            playerHidden: false,
+            // Call hook function
+            handleDoorWarpAttempt(
+              trigger,
+              request.targetX,
+              request.targetY,
+              metatileId,
+              warpStateRef.current,
+              player
+            );
           };
-          warpState.inProgress = true;
-          playerHiddenRef.current = false;
-          player.lockInput();
-        };
 
-        playerControllerRef.current?.setDoorWarpHandler(handleDoorWarpAttempt);
+        playerControllerRef.current?.setDoorWarpHandler(onDoorWarpRequest);
         const loop = (timestamp: number) => {
           if (generation !== renderGenerationRef.current) {
             return;
@@ -2921,7 +1760,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           const safeDelta = Math.min(delta, 50);
           currentTimestampRef.current = timestamp;
           pruneDoorAnimations(timestamp);
-          advanceDoorEntry(timestamp);
+          advanceDoorEntry(timestamp, playerControllerRef.current!, performWarp);
           const doorExit = doorExitRef.current;
           if (doorExit.stage === 'opening') {
             // Only spawn door animation if this is an animated door
@@ -2934,8 +1773,13 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
                   metatileId: doorExit.metatileId,
                   isAnimatedDoor: doorExit.isAnimatedDoor,
                 });
-                spawnDoorAnimation('open', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, timestamp, true).then(
-                  (id) => {
+                spawnDoorAnimation(
+              doorExit.metatileId,
+              doorExit.doorWorldX,
+              doorExit.doorWorldY,
+              'open',
+              true
+            ).then((id) => {
                     doorExitRef.current.openAnimId = id ?? undefined;
                   }
                 );
@@ -2963,14 +1807,19 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
             if (!playerControllerRef.current?.isMoving) {
               // Only close door animation if this is an animated door
               if (doorExit.isAnimatedDoor !== false) {
-                const start = timestamp;
+
                 logDoor('exit: start door close (animated)');
                 // Remove the open animation now that we're starting the close
                 doorAnimsRef.current = doorAnimsRef.current.filter(
                   (anim) => anim.id !== doorExit.openAnimId
                 );
-                spawnDoorAnimation('close', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, start).then(
-                  (id) => {
+                spawnDoorAnimation(
+              doorExit.metatileId,
+              doorExit.doorWorldX,
+              doorExit.doorWorldY,
+              'close',
+              false
+            ).then((id) => {
                     doorExitRef.current.closeAnimId = id ?? undefined;
                   }
                 );
@@ -2979,7 +1828,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
                 // Non-animated door: skip straight to done, unlock immediately
                 logDoor('exit: done (non-animated, no door close)');
                 doorExitRef.current.stage = 'done';
-                warpState.inProgress = false;
+                warpStateRef.current.inProgress = false;
                 playerControllerRef.current?.unlockInput();
                 playerHiddenRef.current = false;
               }
@@ -2996,12 +1845,12 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
                 (a) => a.id !== doorExit.closeAnimId
               );
               doorExitRef.current.stage = 'done';
-              warpState.inProgress = false;
+              warpStateRef.current.inProgress = false;
               playerControllerRef.current?.unlockInput();
               playerHiddenRef.current = false;
             }
           }
-          warpState.cooldownMs = Math.max(0, warpState.cooldownMs - safeDelta);
+          warpStateRef.current.cooldownMs = Math.max(0, warpStateRef.current.cooldownMs - safeDelta);
           // Skip player input processing when dialog is open
           const playerDirty = dialogOpenRef.current
             ? false
@@ -3009,19 +1858,19 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           const player = playerControllerRef.current;
           if (player && ctx) {
             const resolvedForWarp = resolveTileAt(ctx, player.tileX, player.tileY);
-            const lastChecked = warpState.lastCheckedTile;
+            const lastChecked = warpStateRef.current.lastCheckedTile;
             const tileChanged =
               !lastChecked ||
               lastChecked.mapId !== resolvedForWarp?.map.entry.id ||
               lastChecked.x !== player.tileX ||
               lastChecked.y !== player.tileY;
             if (tileChanged && resolvedForWarp) {
-              warpState.lastCheckedTile = {
+              warpStateRef.current.lastCheckedTile = {
                 mapId: resolvedForWarp.map.entry.id,
                 x: player.tileX,
                 y: player.tileY,
               };
-              if (!warpState.inProgress && warpState.cooldownMs <= 0) {
+              if (!warpStateRef.current.inProgress && warpStateRef.current.cooldownMs <= 0) {
                 const trigger = detectWarpTrigger(ctx, player);
                 if (trigger) {
                   // Arrow warps are handled through PlayerController's doorWarpHandler
@@ -3032,16 +1881,18 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
                       console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
                     }
                   } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
-                    startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
+                    const metatileId = getMetatileIdFromMapTile(resolvedForWarp.mapTile);
+                    arrowOverlayRef.current = null;
+                    startAutoDoorWarp(trigger, warpStateRef.current, player, metatileId, 'up', { isAnimatedDoor: false });
                   } else {
                     void performWarp(trigger);
                   }
                 }
               }
             }
-            updateArrowOverlay(player, ctx, resolvedForWarp, timestamp, warpState.inProgress);
+            updateArrowOverlay(player, ctx, resolvedForWarp, timestamp, warpStateRef.current.inProgress);
           } else {
-            updateArrowOverlay(null, null, null, timestamp, warpState.inProgress);
+            updateArrowOverlay(null, null, null, timestamp, warpStateRef.current.inProgress);
           }
           let view: WorldCameraView | null = null;
           if (player) {
@@ -3083,20 +1934,40 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
 
           // Detect if player entered a different map; re-anchor world if needed.
           // To avoid hitching on every connected-map boundary, only re-anchor when near world edges.
-          if (!reanchorInFlight && player) {
+          if (!reanchorInFlightRef.current && player) {
             const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
 
-            // Clear chunk cache when player enters a different map
-            // This ensures border tiles are correct for the new map
+            // Clear chunk cache when player enters a different map, but avoid doing so mid-move to prevent hitching.
             if (resolved) {
               const currentMapId = resolved.map.entry.id;
               if (currentMapId !== lastPlayerMapIdRef.current) {
                 lastPlayerMapIdRef.current = currentMapId;
-                chunkManagerRef.current?.clear();
-                if (getChunkDebugOptions().logOperations) {
-                  console.log(`[CHUNK] Cleared cache - player entered map: ${currentMapId}`);
+                if (player.isMoving) {
+                  chunkClearPendingRef.current = { mapId: currentMapId, worldX: player.x, worldY: player.y };
+                  if (getChunkDebugOptions().logOperations) {
+                    console.log(`[CHUNK] Deferred cache clear until idle - entered map: ${currentMapId}`);
+                  }
+                } else {
+                  chunkManagerRef.current?.invalidateAround(player.x, player.y, 3);
+                  if (getChunkDebugOptions().logOperations) {
+                    console.log(`[CHUNK] Invalidated chunks near player - entered map: ${currentMapId}`);
+                  }
                 }
               }
+            }
+
+            if (chunkClearPendingRef.current && !player.isMoving) {
+              const pending = chunkClearPendingRef.current;
+              chunkManagerRef.current?.invalidateAround(pending.worldX, pending.worldY, 3);
+              if (pending && getChunkDebugOptions().logOperations) {
+                console.log(`[CHUNK] Cleared deferred cache near player for map: ${pending.mapId}`);
+              }
+              chunkClearPendingRef.current = null;
+            }
+
+            // Run any deferred reanchor once movement has finished.
+            if (reanchorPendingRef.current && !player.isMoving && !reanchorInFlightRef.current) {
+              void performReanchor(reanchorPendingRef.current);
             }
 
             if (resolved && resolved.map.entry.id !== ctx.anchor.entry.id) {
@@ -3108,26 +1979,48 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
                 player.tileY - bounds.minY < marginTiles ||
                 bounds.maxY - player.tileY < marginTiles;
 
-              if (nearEdge) {
-                reanchorInFlight = true;
+              if (nearEdge && !reanchorInFlightRef.current) {
                 const targetId = resolved.map.entry.id;
-                const targetOffsetX = resolved.map.offsetX;
-                const targetOffsetY = resolved.map.offsetY;
-                const playerWorldX = player.tileX;
-                const playerWorldY = player.tileY;
-                (async () => {
-                  const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
-                  // Shift new world so the target map stays at the same world offset as before reanchor.
-                  const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
-                  await rebuildContextForWorld(newWorld, targetId);
-                  // Keep absolute world position when entering new anchor.
-                  playerControllerRef.current?.setPosition(playerWorldX, playerWorldY);
-                  applyTileResolver();
-                  warpState.lastCheckedTile = { mapId: targetId, x: playerWorldX, y: playerWorldY };
-                  warpState.cooldownMs = Math.max(warpState.cooldownMs, 50);
-                })().finally(() => {
-                  reanchorInFlight = false;
-                });
+                const payload = {
+                  targetId,
+                  targetOffsetX: resolved.map.offsetX,
+                  targetOffsetY: resolved.map.offsetY,
+                  playerWorldX: player.tileX,
+                  playerWorldY: player.tileY,
+                  playerX: player.x,
+                  playerY: player.y,
+                  dir: player.dir,
+                  pixelsMoved: player.pixelsMoved,
+                  wasMoving: player.isMoving,
+                };
+                // Kick off background build for this target if not already started
+                if (!reanchorBuildRef.current || reanchorBuildRef.current.targetId !== targetId) {
+                  const promise = mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
+                  reanchorBuildRef.current = {
+                    targetId,
+                    offsetX: resolved.map.offsetX,
+                    offsetY: resolved.map.offsetY,
+                    promise,
+                  };
+                  promise.then((result) => {
+                    // Save result unless another target superseded this one
+                    if (reanchorBuildRef.current?.targetId === targetId) {
+                      reanchorBuildRef.current = { ...reanchorBuildRef.current, result };
+                    }
+                  }).catch((err) => {
+                    if (isDebugMode()) {
+                      console.warn('[REANCHOR] Background build failed', err);
+                    }
+                  });
+                }
+                if (player.isMoving) {
+                  reanchorPendingRef.current = payload;
+                  if (isDebugMode()) {
+                    console.log('[REANCHOR] Deferred until player stops moving', payload);
+                  }
+                } else {
+                  void performReanchor(payload);
+                }
               }
             }
           }

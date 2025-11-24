@@ -2,6 +2,10 @@ import { type WorldMapInstance, type WorldState, type TilesetResources } from '.
 import { type Metatile, type MetatileAttributes, type MapTileData } from '../../utils/mapLoader';
 import { type LoadedAnimation } from '../../hooks/map/useMapAssets';
 import { type TilesetKind } from '../../data/tilesetAnimations';
+import { type WarpEvent } from '../../types/maps';
+import { type CameraView } from '../../utils/camera';
+import { type PlayerController } from '../../game/PlayerController';
+import { type CardinalDirection } from '../../utils/metatileBehaviors';
 export { type LoadedAnimation, type TilesetKind };
 
 export type ReflectionType = 'water' | 'ice';
@@ -112,4 +116,83 @@ export interface ReflectionState {
   hasReflection: boolean;
   reflectionType: ReflectionType | null;
   bridgeType: BridgeType;
+}
+
+export type AnimationState = Record<string, number>;
+
+export type DoorSize = 1 | 2;
+
+export interface WorldCameraView extends CameraView {
+  worldStartTileX: number;
+  worldStartTileY: number;
+  cameraWorldX: number;
+  cameraWorldY: number;
+}
+
+export interface WarpTrigger {
+  kind: WarpKind;
+  sourceMap: WorldMapInstance;
+  warpEvent: WarpEvent;
+  behavior: number;
+  facing: PlayerController['dir'];
+}
+
+export interface WarpRuntimeState {
+  inProgress: boolean;
+  cooldownMs: number;
+  lastCheckedTile?: { mapId: string; x: number; y: number };
+}
+
+export interface DoorAnimDrawable {
+  id: number;
+  image: HTMLImageElement;
+  direction: 'open' | 'close';
+  frameCount: number;
+  frameHeight: number;
+  frameDuration: number;
+  worldX: number;
+  worldY: number;
+  size: DoorSize;
+  startedAt: number;
+  holdOnComplete?: boolean;
+  metatileId: number;
+}
+
+export interface DoorEntrySequence {
+  stage: 'idle' | 'opening' | 'stepping' | 'closing' | 'waitingBeforeFade' | 'fadingOut' | 'warping';
+  trigger: WarpTrigger | null;
+  targetX: number;
+  targetY: number;
+  metatileId: number;
+  isAnimatedDoor?: boolean; // If false, skip door animation but still do entry sequence
+  entryDirection?: CardinalDirection;
+  openAnimId?: number;
+  closeAnimId?: number;
+  playerHidden?: boolean;
+  waitStartedAt?: number;
+}
+
+export interface DoorExitSequence {
+  stage: 'idle' | 'opening' | 'stepping' | 'closing' | 'done';
+  doorWorldX: number;
+  doorWorldY: number;
+  metatileId: number;
+  isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
+  exitDirection?: 'up' | 'down' | 'left' | 'right'; // Direction to walk when exiting
+  openAnimId?: number;
+  closeAnimId?: number;
+}
+
+export interface ArrowOverlayState {
+  visible: boolean;
+  worldX: number;
+  worldY: number;
+  direction: CardinalDirection;
+  startedAt: number;
+}
+
+export interface FadeState {
+  mode: 'in' | 'out' | null;
+  startedAt: number;
+  duration: number;
 }
