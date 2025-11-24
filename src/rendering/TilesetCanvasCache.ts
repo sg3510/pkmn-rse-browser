@@ -1,25 +1,21 @@
 import type { Palette } from '../utils/mapLoader';
-import { TILE_SIZE, TILES_PER_ROW_IN_IMAGE, SECONDARY_TILE_OFFSET } from '../utils/mapLoader';
-
-/**
- * Cache key for a specific tileset + palette combination
- */
-interface CacheKey {
-  tilesetId: string;      // e.g., "primary" or "secondary"
-  tilesetDataHash: string; // Hash of Uint8Array (for invalidation)
-  paletteIndex: number;    // 0-15
-  paletteHash: string;     // Hash of palette colors (for invalidation)
-}
 
 /**
  * Pre-rendered canvas for a tileset with a specific palette applied
- * 
+ *
  * This cache system converts indexed color tilesets into RGB canvases
  * with specific palettes applied, enabling hardware-accelerated rendering.
  */
 export class TilesetCanvasCache {
   private cache = new Map<string, HTMLCanvasElement>();
+  private accessOrder: string[] = []; // LRU tracking
   private maxCacheSize = 64; // Limit memory usage (~8 MB)
+
+  // OPTIMIZATION: Cache tileset hashes to avoid recalculating
+  // Key = Uint8Array reference (uses WeakMap for auto-cleanup)
+  private tilesetHashCache = new WeakMap<Uint8Array, string>();
+  // Palette hash cache (palettes are usually stable objects)
+  private paletteHashCache = new WeakMap<Palette, string>();
 
   /**
    * Generate cache key string
@@ -34,23 +30,44 @@ export class TilesetCanvasCache {
 
   /**
    * Generate a simple hash for Uint8Array (for cache invalidation)
-   * 
-   * Samples every 1000th byte to balance speed vs collision resistance.
-   * This is sufficient for detecting tileset changes (animations, etc.)
+   *
+   * OPTIMIZED: Caches hash results to avoid recalculating every frame
+   * Uses WeakMap so hashes are garbage collected when tilesets change
    */
   private hashTilesetData(data: Uint8Array): string {
+    // Check cache first
+    const cached = this.tilesetHashCache.get(data);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    // Calculate hash - samples every 1000th byte
     let hash = data.length;
     for (let i = 0; i < data.length; i += 1000) {
       hash = ((hash << 5) - hash + data[i]) | 0;
     }
-    return hash.toString(36);
+    const result = hash.toString(36);
+
+    // Cache for future calls
+    this.tilesetHashCache.set(data, result);
+    return result;
   }
 
   /**
    * Generate hash for palette (for cache invalidation)
+   *
+   * OPTIMIZED: Caches hash results
    */
   private hashPalette(palette: Palette): string {
-    return palette.colors.join(',');
+    // Check cache first
+    const cached = this.paletteHashCache.get(palette);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const result = palette.colors.join(',');
+    this.paletteHashCache.set(palette, result);
+    return result;
   }
 
   /**
@@ -76,8 +93,9 @@ export class TilesetCanvasCache {
     const paletteHash = this.hashPalette(palette);
     const cacheKey = this.getCacheKey(tilesetId, tilesetHash, paletteHash);
 
-    // Return cached canvas if available
+    // Return cached canvas if available (with LRU touch)
     if (this.cache.has(cacheKey)) {
+      this.touchCacheEntry(cacheKey);
       return this.cache.get(cacheKey)!;
     }
 
@@ -131,16 +149,30 @@ export class TilesetCanvasCache {
     // After this, all subsequent draws use GPU-accelerated drawImage
     ctx.putImageData(imageData, 0, 0);
 
-    // Cache the result
+    // Cache the result with proper LRU tracking
     this.cache.set(cacheKey, canvas);
+    this.accessOrder.push(cacheKey);
 
-    // Evict oldest entries if cache is too large (LRU-like)
-    if (this.cache.size > this.maxCacheSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+    // Evict oldest entries if cache is too large (proper LRU)
+    while (this.cache.size > this.maxCacheSize && this.accessOrder.length > 0) {
+      const oldestKey = this.accessOrder.shift();
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
     }
 
     return canvas;
+  }
+
+  /**
+   * Touch a cache entry to mark it as recently used
+   */
+  private touchCacheEntry(cacheKey: string): void {
+    const idx = this.accessOrder.indexOf(cacheKey);
+    if (idx !== -1) {
+      this.accessOrder.splice(idx, 1);
+    }
+    this.accessOrder.push(cacheKey);
   }
 
   /**
@@ -148,6 +180,7 @@ export class TilesetCanvasCache {
    */
   clear() {
     this.cache.clear();
+    this.accessOrder = [];
   }
 
   /**

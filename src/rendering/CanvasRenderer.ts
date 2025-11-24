@@ -29,15 +29,17 @@ export class CanvasRenderer {
 
   /**
    * Draw a single 8x8 tile to a canvas context
-   * 
+   *
    * This replaces drawTileToImageData with GPU-accelerated drawImage.
-   * 
+   *
    * Key features preserved from original:
    * - Palette-based color lookup
    * - Transparency (palette index 0)
    * - Horizontal and vertical flipping
    * - Primary vs secondary tileset handling
-   * 
+   *
+   * OPTIMIZED: Avoids save()/restore() for non-flipped tiles (majority of cases)
+   *
    * @param ctx - Canvas rendering context to draw to
    * @param params - Tile drawing parameters
    * @param primaryTiles - Primary tileset indexed color data
@@ -53,7 +55,7 @@ export class CanvasRenderer {
 
     // Get the appropriate tileset data
     const tiles = source === 'primary' ? primaryTiles : secondaryTiles;
-    
+
     // Handle secondary tile offset (tiles 512+ are in secondary tileset)
     const effectiveTileId = source === 'secondary' ? tileId % SECONDARY_TILE_OFFSET : tileId;
 
@@ -71,28 +73,34 @@ export class CanvasRenderer {
     const srcX = (effectiveTileId % TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
     const srcY = Math.floor(effectiveTileId / TILES_PER_ROW_IN_IMAGE) * TILE_SIZE;
 
-    // Handle flipping with canvas transforms
-    // This matches the original xflip/yflip logic
+    // OPTIMIZATION: Skip save/restore for non-flipped tiles (vast majority)
+    // This saves ~2 expensive canvas state operations per tile
+    if (!xflip && !yflip) {
+      // Fast path: direct draw without transforms
+      ctx.drawImage(
+        tilesetCanvas,
+        srcX, srcY, TILE_SIZE, TILE_SIZE,
+        destX, destY, TILE_SIZE, TILE_SIZE
+      );
+      return;
+    }
+
+    // Slow path: flipped tiles need transforms
     ctx.save();
     ctx.translate(destX, destY);
 
-    if (xflip || yflip) {
-      const scaleX = xflip ? -1 : 1;
-      const scaleY = yflip ? -1 : 1;
-      const offsetX = xflip ? -TILE_SIZE : 0;
-      const offsetY = yflip ? -TILE_SIZE : 0;
-      
-      ctx.scale(scaleX, scaleY);
-      ctx.translate(offsetX, offsetY);
-    }
+    const scaleX = xflip ? -1 : 1;
+    const scaleY = yflip ? -1 : 1;
+    const offsetX = xflip ? -TILE_SIZE : 0;
+    const offsetY = yflip ? -TILE_SIZE : 0;
 
-    // GPU-accelerated drawImage
-    // This is the KEY performance optimization: hardware-accelerated blit
-    // instead of manual pixel manipulation
+    ctx.scale(scaleX, scaleY);
+    ctx.translate(offsetX, offsetY);
+
     ctx.drawImage(
       tilesetCanvas,
-      srcX, srcY, TILE_SIZE, TILE_SIZE,  // Source rect
-      0, 0, TILE_SIZE, TILE_SIZE          // Dest rect (relative to transform)
+      srcX, srcY, TILE_SIZE, TILE_SIZE,
+      0, 0, TILE_SIZE, TILE_SIZE
     );
 
     ctx.restore();

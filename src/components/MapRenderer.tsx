@@ -3,6 +3,8 @@ import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
+import { ViewportBuffer, type BufferTileResolver } from '../rendering/ViewportBuffer';
+import { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
 import {
   loadBinary,
   type Metatile,
@@ -318,6 +320,12 @@ const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> =
 // Feature flag for hardware-accelerated rendering
 // Set to false to fall back to original ImageData-based rendering
 const USE_HARDWARE_RENDERING = true;
+
+// Feature flag for viewport buffer (overscan scrolling optimization)
+// DISABLED: The incremental edge rendering approach has bugs with sub-tile offsets
+// The old_refactor/ChunkManager approach is better - it uses fixed chunks with extraHash
+// For now, fall back to the working hardware rendering (renderPassCanvas)
+const USE_VIEWPORT_BUFFER = false;
 
 interface ReflectionState {
   hasReflection: boolean;
@@ -656,6 +664,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRendererRef = useRef<CanvasRenderer | null>(null); // Hardware-accelerated renderer
+  const viewportBufferRef = useRef<ViewportBuffer | null>(null); // Viewport buffer for smooth scrolling
+  const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null); // Shared tileset cache
   const doorExitRef = useRef<DoorExitSequence>({
     stage: 'idle',
     doorWorldX: 0,
@@ -1461,16 +1471,25 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       pass: 'background' | 'top',
       skipAnimated: boolean,
       view: WorldCameraView,
-      elevationFilter?: (mapTile: MapTileData, tileX: number, tileY: number) => boolean
+      elevationFilter?: (mapTile: MapTileData, tileX: number, tileY: number) => boolean,
+      existingCanvas?: HTMLCanvasElement | null
     ): HTMLCanvasElement => {
       const widthPx = view.tilesWide * METATILE_SIZE;
       const heightPx = view.tilesHigh * METATILE_SIZE;
-      
-      // Create offscreen canvas for this pass
-      const canvas = document.createElement('canvas');
-      canvas.width = widthPx;
-      canvas.height = heightPx;
+
+      // OPTIMIZATION: Reuse existing canvas if dimensions match
+      let canvas: HTMLCanvasElement;
+      if (existingCanvas && existingCanvas.width === widthPx && existingCanvas.height === heightPx) {
+        canvas = existingCanvas;
+      } else {
+        canvas = document.createElement('canvas');
+        canvas.width = widthPx;
+        canvas.height = heightPx;
+      }
       const canvasCtx = canvas.getContext('2d', { alpha: true })!;
+
+      // Clear canvas before redrawing
+      canvasCtx.clearRect(0, 0, widthPx, heightPx);
 
       for (let localY = 0; localY < view.tilesHigh; localY++) {
         const tileY = view.worldStartTileY + localY;
@@ -1614,8 +1633,90 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
       // Split rendering: Top layer split into "Below Player" and "Above Player"
       // This fixes the visual issue where player on a bridge (Elev 4) is covered by the bridge
-      
-      if (USE_HARDWARE_RENDERING) {
+
+      // VIEWPORT BUFFER MODE: Buttery smooth scrolling with overscan buffer
+      if (USE_VIEWPORT_BUFFER && viewportBufferRef.current) {
+        const vbuffer = viewportBufferRef.current;
+
+        // Update buffer state
+        vbuffer.setPlayerElevation(playerElevation);
+        vbuffer.setAnimationFrame(animationFrameChanged ? Date.now() : 0);
+
+        // Create tile resolver for the buffer
+        const bufferResolveTile: BufferTileResolver = (tileX, tileY) => {
+          const resolved = resolveTileAt(ctx, tileX, tileY);
+          if (!resolved || !resolved.metatile) return null;
+
+          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+          if (!runtime) return null;
+
+          const patchedTiles = runtime.patchedTiles ?? {
+            primary: runtime.resources.primaryTilesImage,
+            secondary: runtime.resources.secondaryTilesImage,
+          };
+
+          return {
+            metatile: resolved.metatile,
+            attributes: resolved.attributes ?? null,
+            mapTile: resolved.mapTile,
+            tileset: {
+              key: resolved.tileset.key,
+              primaryPalettes: resolved.tileset.primaryPalettes,
+              secondaryPalettes: resolved.tileset.secondaryPalettes,
+            },
+            patchedTiles,
+            animatedTileIds: runtime.animatedTileIds,
+          };
+        };
+
+        // isVerticalObject helper for buffer
+        const isVerticalObjectForBuffer = (tileX: number, tileY: number) => {
+          return isVerticalObject(ctx, tileX, tileY);
+        };
+
+        // Clear and composite using viewport buffer
+        mainCtx.clearRect(0, 0, widthPx, heightPx);
+
+        // Invalidate buffer on animation change
+        if (animationFrameChanged) {
+          vbuffer.invalidateAll();
+          // Also clear tileset cache on animation change
+          if (tilesetCacheRef.current) {
+            tilesetCacheRef.current.clear();
+          }
+        }
+
+        // Composite all three passes using the viewport buffer
+        vbuffer.composite(
+          mainCtx,
+          'background',
+          view.worldStartTileX,
+          view.worldStartTileY,
+          view.subTileOffsetX,
+          view.subTileOffsetY,
+          bufferResolveTile,
+          isVerticalObjectForBuffer,
+          animationFrameChanged || elevationChanged
+        );
+
+        vbuffer.composite(
+          mainCtx,
+          'topBelow',
+          view.worldStartTileX,
+          view.worldStartTileY,
+          view.subTileOffsetX,
+          view.subTileOffsetY,
+          bufferResolveTile,
+          isVerticalObjectForBuffer,
+          animationFrameChanged || elevationChanged
+        );
+
+        // Player rendering happens between topBelow and topAbove
+        // ... handled below in the common code path
+
+        // Store reference for topAbove pass (rendered after player)
+        // We'll do the topAbove composite after player render
+      } else if (USE_HARDWARE_RENDERING) {
         // Hardware-accelerated Canvas mode
         const needsRender =
           !backgroundCanvasDataRef.current || 
@@ -1626,8 +1727,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           elevationChanged;
 
         if (needsRender) {
-          backgroundCanvasDataRef.current = renderPassCanvas(ctx, 'background', false, view);
-          
+          // OPTIMIZATION: Pass existing canvas for reuse (avoids allocations)
+          backgroundCanvasDataRef.current = renderPassCanvas(
+            ctx, 'background', false, view, undefined, backgroundCanvasDataRef.current
+          );
+
           topBelowCanvasDataRef.current = renderPassCanvas(
             ctx,
             'top',
@@ -1640,7 +1744,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (playerElevation < 4) return false;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
               return true;
-            }
+            },
+            topBelowCanvasDataRef.current
           );
 
           topAboveCanvasDataRef.current = renderPassCanvas(
@@ -1655,7 +1760,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (playerElevation < 4) return true;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
               return false;
-            }
+            },
+            topAboveCanvasDataRef.current
           );
         }
       } else {
@@ -1705,35 +1811,39 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
 
       const offsetX = -Math.round(view.subTileOffsetX);
       const offsetY = -Math.round(view.subTileOffsetY);
-      
-      mainCtx.clearRect(0, 0, widthPx, heightPx);
-      
-      if (USE_HARDWARE_RENDERING) {
-        // Hardware-accelerated Canvas mode - direct drawImage
-        if (backgroundCanvasDataRef.current) {
-          mainCtx.drawImage(backgroundCanvasDataRef.current, offsetX, offsetY);
-        }
 
-        if (topBelowCanvasDataRef.current) {
-          mainCtx.drawImage(topBelowCanvasDataRef.current, offsetX, offsetY);
-        }
-      } else {
-        // Original ImageData mode
-        bgCtx.clearRect(0, 0, widthPx, heightPx);
-        topCtx.clearRect(0, 0, widthPx, heightPx);
-        
-        if (backgroundImageDataRef.current) {
-          bgCtx.putImageData(backgroundImageDataRef.current, offsetX, offsetY);
-        }
-        
-        if (backgroundCanvasRef.current) {
-          mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
-        }
+      // Skip initial clear and background/topBelow compositing for viewport buffer mode
+      // (already done in the viewport buffer section above)
+      if (!USE_VIEWPORT_BUFFER || !viewportBufferRef.current) {
+        mainCtx.clearRect(0, 0, widthPx, heightPx);
 
-        if (topBelowImageDataRef.current && topCanvasRef.current) {
+        if (USE_HARDWARE_RENDERING) {
+          // Hardware-accelerated Canvas mode - direct drawImage
+          if (backgroundCanvasDataRef.current) {
+            mainCtx.drawImage(backgroundCanvasDataRef.current, offsetX, offsetY);
+          }
+
+          if (topBelowCanvasDataRef.current) {
+            mainCtx.drawImage(topBelowCanvasDataRef.current, offsetX, offsetY);
+          }
+        } else {
+          // Original ImageData mode
+          bgCtx.clearRect(0, 0, widthPx, heightPx);
           topCtx.clearRect(0, 0, widthPx, heightPx);
-          topCtx.putImageData(topBelowImageDataRef.current, offsetX, offsetY);
-          mainCtx.drawImage(topCanvasRef.current, 0, 0);
+
+          if (backgroundImageDataRef.current) {
+            bgCtx.putImageData(backgroundImageDataRef.current, offsetX, offsetY);
+          }
+
+          if (backgroundCanvasRef.current) {
+            mainCtx.drawImage(backgroundCanvasRef.current, 0, 0);
+          }
+
+          if (topBelowImageDataRef.current && topCanvasRef.current) {
+            topCtx.clearRect(0, 0, widthPx, heightPx);
+            topCtx.putImageData(topBelowImageDataRef.current, offsetX, offsetY);
+            mainCtx.drawImage(topCanvasRef.current, 0, 0);
+          }
         }
       }
 
@@ -1776,7 +1886,45 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       // 3. Draw Top Layer (Above Player)
-      if (USE_HARDWARE_RENDERING) {
+      if (USE_VIEWPORT_BUFFER && viewportBufferRef.current) {
+        // Viewport buffer mode - composite topAbove pass
+        const vbuffer = viewportBufferRef.current;
+        const bufferResolveTile: BufferTileResolver = (tileX, tileY) => {
+          const resolved = resolveTileAt(ctx, tileX, tileY);
+          if (!resolved || !resolved.metatile) return null;
+          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
+          if (!runtime) return null;
+          const patchedTiles = runtime.patchedTiles ?? {
+            primary: runtime.resources.primaryTilesImage,
+            secondary: runtime.resources.secondaryTilesImage,
+          };
+          return {
+            metatile: resolved.metatile,
+            attributes: resolved.attributes ?? null,
+            mapTile: resolved.mapTile,
+            tileset: {
+              key: resolved.tileset.key,
+              primaryPalettes: resolved.tileset.primaryPalettes,
+              secondaryPalettes: resolved.tileset.secondaryPalettes,
+            },
+            patchedTiles,
+            animatedTileIds: runtime.animatedTileIds,
+          };
+        };
+        const isVerticalObjectForBuffer = (tileX: number, tileY: number) => isVerticalObject(ctx, tileX, tileY);
+
+        vbuffer.composite(
+          mainCtx,
+          'topAbove',
+          view.worldStartTileX,
+          view.worldStartTileY,
+          view.subTileOffsetX,
+          view.subTileOffsetY,
+          bufferResolveTile,
+          isVerticalObjectForBuffer,
+          animationFrameChanged || elevationChanged
+        );
+      } else if (USE_HARDWARE_RENDERING) {
         if (topAboveCanvasDataRef.current) {
           mainCtx.drawImage(topAboveCanvasDataRef.current, offsetX, offsetY);
         }
@@ -1977,6 +2125,17 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         if (USE_HARDWARE_RENDERING) {
           canvasRendererRef.current = new CanvasRenderer();
           console.log('[PERF] Hardware-accelerated rendering enabled');
+        }
+
+        // Initialize viewport buffer for smooth scrolling
+        if (USE_VIEWPORT_BUFFER) {
+          tilesetCacheRef.current = new TilesetCanvasCache();
+          viewportBufferRef.current = new ViewportBuffer(
+            tilesetCacheRef.current,
+            VIEWPORT_CONFIG.tilesWide,
+            VIEWPORT_CONFIG.tilesHigh
+          );
+          console.log('[PERF] Viewport buffer enabled for smooth scrolling');
         }
         
         // Initialize player position
