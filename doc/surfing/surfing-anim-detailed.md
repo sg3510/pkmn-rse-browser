@@ -417,3 +417,37 @@ function updateBannerShrink(state: WindowState): boolean {
 - [ ] Dismount jump has same physics as mount jump
 - [ ] Blob disappears after landing on shore
 - [ ] Player switches back to walking sprite after landing
+
+## Detailed Mount/Dismount Sequence & Blob Behavior
+
+### Mounting Sequence (Jump On)
+1.  **Trigger:** Player uses Surf from menu or interacts with water.
+2.  **Blob Creation:**
+    *   The surf blob is created **immediately** at the *destination* tile (the water tile being jumped onto).
+    *   Code: `SurfFieldEffect_JumpOnSurfBlob` calls `FieldEffectStart(FLDEFF_SURF_BLOB)` at `task->tDestX`, `task->tDestY`.
+3.  **Jump:**
+    *   Player performs a jump movement (`GetJumpSpecialMovementAction`) from shore to the water tile.
+    *   The blob is already waiting at the landing spot.
+4.  **Landing:**
+    *   Player lands on the blob.
+    *   State changes to SURFING.
+    *   Bobbing starts (synchronized).
+
+### Dismounting Sequence (Jump Off)
+1.  **Trigger:** Player moves from water to a land tile.
+2.  **Decoupling:**
+    *   `Task_StopSurfingInit` sets the blob's bob state to `BOB_JUST_MON`.
+    *   **Effect:** The blob continues to bob, but the player *stops* bobbing with it. This allows the player to perform the jump animation cleanly without being offset by the blob's movement.
+3.  **Jump:**
+    *   Player performs a jump movement (`GetJumpSpecialMovementAction`) from the water tile to the shore.
+    *   **Crucial Detail:** The surf blob **remains on the water tile** during the entire jump animation.
+4.  **Cleanup:**
+    *   `Task_WaitStopSurfing` waits for the player's jump movement to complete.
+    *   **Only after landing:** The surf blob sprite is destroyed (`DestroySprite`).
+    *   Player graphics reset to NORMAL.
+
+### Summary for React Implementation
+- **Mounting:** Render the blob on the target water tile *before* the player starts the jump animation.
+- **Dismounting:** Keep the blob rendering on the water tile while the player jumps off. Do not destroy it until the player has fully landed on the shore.
+- **Bobbing:** During the dismount jump, ensure the player is NOT affected by the blob's bobbing offset (decouple them), while the blob continues to bob on its own.
+

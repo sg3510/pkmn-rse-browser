@@ -374,12 +374,12 @@ class SurfingState implements PlayerState {
     const frame = controller.calculateSurfingFrameInfo();
     if (frame) {
       // Apply bob offset so player bobs with the surf blob.
-      // Floor the final position AFTER adding bob offset to ensure
-      // player and blob render at the same integer Y position.
-      // This prevents the jitter/flickering caused by rounding mismatches.
+      // DON'T floor here - let PlayerController.render() floor AFTER camera subtraction.
+      // This prevents "shivering" when player and camera cross integer boundaries
+      // at different moments during movement.
       const bobOffset = controller.surfBlobRenderer.getBobOffset();
-      frame.renderY = Math.floor(frame.renderY + bobOffset);
-      frame.renderX = Math.floor(frame.renderX);
+      frame.renderY += bobOffset;
+      // renderX stays as-is (already this.x - 8 from calculateSurfingFrameInfo)
     }
     return frame;
   }
@@ -1186,18 +1186,21 @@ export class PlayerController {
     
     ctx.save();
     
+    // Use Math.round() for screen positions to avoid floating-point precision errors.
+    // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
+    // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
+    // This matches the blob rendering calculation in MapRenderer.
+    const destX = Math.round(frame.renderX - cameraX);
+    const destY = Math.round(frame.renderY - cameraY);
+
     // Apply clipping for long grass (hide bottom 50% of sprite)
     if (this.isOnLongGrass()) {
-      const destX = frame.renderX - cameraX;
-      const destY = frame.renderY - cameraY;
       // Create a clipping rectangle that shows only the top half
       ctx.beginPath();
       ctx.rect(destX, destY, frame.sw, frame.sh / 2);
       ctx.clip();
     }
-    
-    const destX = frame.renderX - cameraX;
-    const destY = frame.renderY - cameraY;
+
     if (frame.flip) {
       // Use whole pixel translation for flipped sprites
       ctx.translate(destX + frame.sw, destY);

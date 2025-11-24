@@ -115,10 +115,15 @@ export class SurfBlobRenderer {
   }
   
   /**
-   * Render the surf blob at specified position
+   * Render the surf blob at specified screen position.
+   *
+   * IMPORTANT: The x,y position should already include the bob offset.
+   * MapRenderer calculates the position using the same formula as the player
+   * to ensure pixel-perfect synchronization.
+   *
    * @param ctx Canvas rendering context
-   * @param x Screen X position (pixels)
-   * @param y Screen Y position (pixels)
+   * @param x Screen X position (pixels, already includes bobOffset)
+   * @param y Screen Y position (pixels, already includes bobOffset)
    * @param direction Direction player is facing
    */
   public render(
@@ -131,15 +136,14 @@ export class SurfBlobRenderer {
       return; // Sprite not loaded yet
     }
 
-    const bobOffset = this.getBobOffset();
     const frameIndex = this.getFrameIndex(direction);
     const sourceX = frameIndex * this.FRAME_WIDTH;
     const flip = direction === 'right';
 
-    // Floor final positions to ensure pixel-perfect sync with player sprite
-    // This prevents sub-pixel rendering differences that cause visual desync
+    // Position is already floored and includes bobOffset from MapRenderer
+    // Just use integer positions directly
     const finalX = Math.floor(x);
-    const finalY = Math.floor(y + bobOffset);
+    const finalY = Math.floor(y);
 
     ctx.save();
 

@@ -163,10 +163,18 @@ export class ObjectRenderer {
     if (!frame || !frame.sprite) return;
 
     const { height } = player.getSpriteSize();
-    const reflectionX = frame.renderX;
-    const reflectionY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
-    const screenX = Math.round(reflectionX - view.cameraWorldX);
-    const screenY = Math.round(reflectionY - view.cameraWorldY);
+
+    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries.
+    // The tile lookup uses floor(pos / METATILE_SIZE), so float positions can cause
+    // the reflection to flicker between tiles when crossing boundaries.
+    const tileRefX = Math.floor(frame.renderX);
+    const tileRefY = Math.floor(frame.renderY) + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+
+    // For SCREEN RENDERING: Use Math.round() to avoid floating-point precision errors.
+    // This matches PlayerController.render() which also uses Math.round().
+    const reflectionWorldY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+    const screenX = Math.round(frame.renderX - view.cameraWorldX);
+    const screenY = Math.round(reflectionWorldY - view.cameraWorldY);
 
     // Create mask canvas
     const maskCanvas = document.createElement('canvas');
@@ -178,18 +186,19 @@ export class ObjectRenderer {
     const maskData = maskImage.data;
 
     // Build reflection mask from reflective tiles
-    const startTileX = Math.floor(reflectionX / METATILE_SIZE);
-    const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
-    const startTileY = Math.floor(reflectionY / METATILE_SIZE);
-    const endTileY = Math.floor((reflectionY + frame.sh - 1) / METATILE_SIZE);
-    
+    // Use tileRefX/Y (floored positions) for stable tile lookups
+    const startTileX = Math.floor(tileRefX / METATILE_SIZE);
+    const endTileX = Math.floor((tileRefX + frame.sw - 1) / METATILE_SIZE);
+    const startTileY = Math.floor(tileRefY / METATILE_SIZE);
+    const endTileY = Math.floor((tileRefY + frame.sh - 1) / METATILE_SIZE);
+
     for (let ty = startTileY; ty <= endTileY; ty++) {
       for (let tx = startTileX; tx <= endTileX; tx++) {
         const info = getMetatileBehavior(renderContext, tx, ty);
         if (!info?.meta?.isReflective) continue;
         const mask = info.meta.pixelMask;
-        const tileLeft = tx * METATILE_SIZE - reflectionX;
-        const tileTop = ty * METATILE_SIZE - reflectionY;
+        const tileLeft = tx * METATILE_SIZE - tileRefX;
+        const tileTop = ty * METATILE_SIZE - tileRefY;
         for (let y = 0; y < METATILE_SIZE; y++) {
           const globalY = tileTop + y;
           if (globalY < 0 || globalY >= frame.sh) continue;

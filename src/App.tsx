@@ -1,14 +1,35 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { MapRenderer } from './components/MapRenderer';
+import { GraphicDebug } from './components/GraphicDebug';
 import type { MapIndexEntry } from './types/maps';
 import mapIndex from './data/mapIndex.json';
 
 const mapIndexData = mapIndex as MapIndexEntry[];
 
+// Simple hash-based routing
+function useHashRoute() {
+  const [hash, setHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const handleHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  return hash;
+}
+
 const simplifyTilesetName = (id: string) => id.replace('gTileset_', '');
 
 function App() {
+  const hash = useHashRoute();
+
+  // Route to debug pages
+  if (hash === '#/graphic-debug') {
+    return <GraphicDebug />;
+  }
+
   const renderableMaps = useMemo(
     () =>
       mapIndexData.filter(

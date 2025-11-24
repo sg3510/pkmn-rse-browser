@@ -1926,19 +1926,127 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       if (player && !playerHiddenRef.current && player.isSurfing()) {
         const blobRenderer = player.surfBlobRenderer;
         if (blobRenderer.isReady()) {
-          // GBA positioning: blob center = player center + 8 pixels down
-          // In React: player.y is top of 32px sprite, player center Y = player.y + 16
-          // Blob center Y = player.y + 16 + 8 = player.y + 24
-          // Blob top Y = blob center Y - 16 (half of 32px blob) = player.y + 8
+          // CRITICAL: Use EXACT same position calculation as player to prevent desync.
+          // Floor AFTER subtracting camera to prevent "shivering" when player and camera
+          // cross integer boundaries at different moments.
           //
-          // Horizontally: center 32px blob under 16px player position
-          // Offset by (32-16)/2 = 8 to the left
-          const blobWorldX = player.x - 8;
-          const blobWorldY = player.y + 8;
-          const screenX = Math.round(blobWorldX - view.cameraWorldX);
-          const screenY = Math.round(blobWorldY - view.cameraWorldY);
+          // GBA positioning: blob is 8 pixels below player base (sprite->y = playerSprite->y + 8)
+          // Both sprites are 32x32, centered the same way horizontally.
+          const bobOffset = blobRenderer.getBobOffset();
+          // Use Math.round() for screen position to avoid floating-point precision errors.
+          // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
+          // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
+          const blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+          const blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
 
-          blobRenderer.render(mainCtx, screenX, screenY, player.dir);
+          // DEBUG: Detect shivering - when screen position moves opposite to input direction
+          if (player.isMoving) {
+            const playerFrame = player.getFrameInfo();
+            if (playerFrame) {
+              const playerFinalX = Math.round(playerFrame.renderX - view.cameraWorldX);
+              const playerFinalY = Math.round(playerFrame.renderY - view.cameraWorldY);
+
+              // Track previous position to detect direction reversals
+              const prevX = (window as any).__lastSurfX ?? playerFinalX;
+              const prevY = (window as any).__lastSurfY ?? playerFinalY;
+              (window as any).__lastSurfX = playerFinalX;
+              (window as any).__lastSurfY = playerFinalY;
+
+              const deltaX = playerFinalX - prevX;
+              const deltaY = playerFinalY - prevY;
+
+              // Check if movement is in wrong direction
+              const dir = player.dir;
+              const wrongDir =
+                (dir === 'right' && deltaX < 0) ||
+                (dir === 'left' && deltaX > 0) ||
+                (dir === 'down' && deltaY < 0) ||
+                (dir === 'up' && deltaY > 0);
+
+              if (wrongDir || deltaX !== 0 || deltaY !== 0) {
+                console.log('[SURF DEBUG]', {
+                  dir,
+                  delta: { x: deltaX, y: deltaY },
+                  wrongDir: wrongDir ? '⚠️ SHIVER!' : 'ok',
+                  blobFinal: { x: blobScreenX, y: blobScreenY },
+                  playerFinal: { x: playerFinalX, y: playerFinalY },
+                  raw: {
+                    playerX: player.x.toFixed(4),
+                    playerY: player.y.toFixed(4),
+                    cameraX: view.cameraWorldX.toFixed(4),
+                    cameraY: view.cameraWorldY.toFixed(4),
+                  },
+                  bobOffset,
+                });
+              }
+            }
+          }
+
+          blobRenderer.render(mainCtx, blobScreenX, blobScreenY, player.dir);
+        }
+      }
+
+      // Render surf blob (if surfing) - must be rendered BEFORE player
+      if (player && !playerHiddenRef.current && player.isSurfing()) {
+        const blobRenderer = player.surfBlobRenderer;
+        if (blobRenderer.isReady()) {
+          // CRITICAL: Use EXACT same position calculation as player to prevent desync.
+          // Floor AFTER subtracting camera to prevent "shivering" when player and camera
+          // cross integer boundaries at different moments.
+          //
+          // GBA positioning: blob is 8 pixels below player base (sprite->y = playerSprite->y + 8)
+          // Both sprites are 32x32, centered the same way horizontally.
+          const bobOffset = blobRenderer.getBobOffset();
+          // Use Math.round() for screen position to avoid floating-point precision errors.
+          // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
+          // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
+          const blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+          const blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+
+          // DEBUG: Detect shivering - when screen position moves opposite to input direction
+          if (player.isMoving && isDebugMode()) {
+            const playerFrame = player.getFrameInfo();
+            if (playerFrame) {
+              const playerFinalX = Math.round(playerFrame.renderX - view.cameraWorldX);
+              const playerFinalY = Math.round(playerFrame.renderY - view.cameraWorldY);
+
+              // Track previous position to detect direction reversals
+              const prevX = (window as any).__lastSurfX ?? playerFinalX;
+              const prevY = (window as any).__lastSurfY ?? playerFinalY;
+              (window as any).__lastSurfX = playerFinalX;
+              (window as any).__lastSurfY = playerFinalY;
+
+              const deltaX = playerFinalX - prevX;
+              const deltaY = playerFinalY - prevY;
+
+              // Check if movement is in wrong direction
+              const dir = player.dir;
+              const wrongDir =
+                (dir === 'right' && deltaX < 0) ||
+                (dir === 'left' && deltaX > 0) ||
+                (dir === 'down' && deltaY < 0) ||
+                (dir === 'up' && deltaY > 0);
+
+              if (wrongDir || deltaX !== 0 || deltaY !== 0) {
+                console.log('[SURF DEBUG]', {
+                  dir,
+                  delta: { x: deltaX, y: deltaY },
+                  wrongDir: wrongDir ? '⚠️ SHIVER!' : 'ok',
+                  blobFinal: { x: blobScreenX, y: blobScreenY },
+                  playerFinal: { x: playerFinalX, y: playerFinalY },
+                  raw: {
+                    playerX: player.x.toFixed(4),
+                    playerY: player.y.toFixed(4),
+                    cameraX: view.cameraWorldX.toFixed(4),
+                    cameraY: view.cameraWorldY.toFixed(4),
+                  },
+                  bobOffset,
+                });
+              }
+            }
+          }
+
+          blobRenderer.render(mainCtx, blobScreenX, blobScreenY, player.dir);
         }
       }
 
