@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
-import { ChunkManager, type RenderRegion, setChunkDebugOptions } from '../rendering/ChunkManager';
+import { ChunkManager, type RenderRegion, type ChunkStats, setChunkDebugOptions, getChunkDebugOptions } from '../rendering/ChunkManager';
 import { DebugPanel, type DebugOptions, DEFAULT_DEBUG_OPTIONS } from './DebugPanel';
 import {
   loadBinary,
@@ -197,7 +197,7 @@ const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
 const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
 const VIEWPORT_CONFIG = DEFAULT_VIEWPORT_CONFIG;
 const VIEWPORT_PIXEL_SIZE = getViewportPixelSize(VIEWPORT_CONFIG);
-const CONNECTION_DEPTH = 2; // anchor + direct neighbors + their neighbors
+const CONNECTION_DEPTH = 3; // anchor + 3 levels of neighbors (needed for proper coverage when walking between maps)
 const DOOR_FRAME_HEIGHT = 32;
 const DOOR_FRAME_DURATION_MS = 90;
 /**
@@ -918,10 +918,20 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
   const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
   const [inspectTarget, setInspectTarget] = useState<{ tileX: number; tileY: number } | null>(null);
   const [centerTileDebugInfo, setCenterTileDebugInfo] = useState<DebugTileInfo | null>(null);
+  const [chunkStats, setChunkStats] = useState<ChunkStats | null>(null);
+  const chunkStatsUpdateRef = useRef<number>(0); // Throttle stats updates
 
   // Derived state for backwards compatibility
   const showTileDebug = debugOptions.enabled;
   const debugFocusMode = debugOptions.focusMode;
+
+  // Refs to avoid refreshDebugOverlay identity changes (which would trigger full map reload)
+  const debugFocusModeRef = useRef(debugFocusMode);
+  const inspectTargetRef = useRef(inspectTarget);
+  const logChunkOperationsRef = useRef(debugOptions.logChunkOperations);
+  debugFocusModeRef.current = debugFocusMode;
+  inspectTargetRef.current = inspectTarget;
+  logChunkOperationsRef.current = debugOptions.logChunkOperations;
 
   // Canvas refs for layer decomposition
   const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -952,10 +962,14 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       const dbgCanvas = debugCanvasRef.current;
       if (!dbgCanvas || !mainCanvas) return;
 
+      // Use refs to avoid callback identity changes triggering map reload
+      const focusMode = debugFocusModeRef.current;
+      const target = inspectTargetRef.current;
+
       const centerTile =
         centerOverride ??
-        (debugFocusMode === 'inspect' && inspectTarget
-          ? inspectTarget
+        (focusMode === 'inspect' && target
+          ? target
           : player
             ? { tileX: player.tileX, tileY: player.tileY }
             : null);
@@ -973,7 +987,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         debugTilesRef
       );
     },
-    [debugFocusMode, inspectTarget, setCenterTileDebugInfo]
+    [setCenterTileDebugInfo]
   );
 
   // Click-to-inspect handler for debug overlay
@@ -1368,6 +1382,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
   const topBelowImageDataRef = useRef<ImageData | null>(null);
   const topAboveImageDataRef = useRef<ImageData | null>(null);
   const lastPlayerElevationRef = useRef<number>(0);
+  const lastPlayerMapIdRef = useRef<string>(''); // Track map changes to clear chunk cache
 
   // Canvas-based rendering refs (for hardware-accelerated mode)
   const backgroundCanvasDataRef = useRef<HTMLCanvasElement | null>(null);
@@ -1726,6 +1741,11 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
       
       const usingChunkCache = USE_HARDWARE_RENDERING && USE_CHUNK_CACHE && !!chunkManagerRef.current;
 
+      // Reset chunk frame stats at start of each frame (only when Log Chunk Operations is enabled)
+      if (usingChunkCache && logChunkOperationsRef.current) {
+        chunkManagerRef.current!.resetFrameStats();
+      }
+
       if (USE_HARDWARE_RENDERING) {
         const needsBackgroundCanvas =
           !usingChunkCache &&
@@ -1922,89 +1942,58 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom');
       }
 
-      // Render surf blob (if surfing) - must be rendered BEFORE player
-      if (player && !playerHiddenRef.current && player.isSurfing()) {
+      // Render surf blob (if surfing or mounting/dismounting)
+      // The blob is rendered BEFORE player so player appears on top
+      if (player && !playerHiddenRef.current) {
+        const surfCtrl = player.surfingController;
         const blobRenderer = player.surfBlobRenderer;
-        if (blobRenderer.isReady()) {
-          // CRITICAL: Use EXACT same position calculation as player to prevent desync.
-          // Floor AFTER subtracting camera to prevent "shivering" when player and camera
-          // cross integer boundaries at different moments.
-          //
-          // GBA positioning: blob is 8 pixels below player base (sprite->y = playerSprite->y + 8)
-          // Both sprites are 32x32, centered the same way horizontally.
+        const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
+
+        if (shouldRenderBlob && blobRenderer.isReady()) {
           const bobOffset = blobRenderer.getBobOffset();
-          // Use Math.round() for screen position to avoid floating-point precision errors.
-          // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
-          // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
-          const blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
-          const blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+          let blobScreenX: number;
+          let blobScreenY: number;
 
-          // DEBUG: Detect shivering - when screen position moves opposite to input direction
-          if (player.isMoving) {
-            const playerFrame = player.getFrameInfo();
-            if (playerFrame) {
-              const playerFinalX = Math.round(playerFrame.renderX - view.cameraWorldX);
-              const playerFinalY = Math.round(playerFrame.renderY - view.cameraWorldY);
-
-              // Track previous position to detect direction reversals
-              const prevX = (window as any).__lastSurfX ?? playerFinalX;
-              const prevY = (window as any).__lastSurfY ?? playerFinalY;
-              (window as any).__lastSurfX = playerFinalX;
-              (window as any).__lastSurfY = playerFinalY;
-
-              const deltaX = playerFinalX - prevX;
-              const deltaY = playerFinalY - prevY;
-
-              // Check if movement is in wrong direction
-              const dir = player.dir;
-              const wrongDir =
-                (dir === 'right' && deltaX < 0) ||
-                (dir === 'left' && deltaX > 0) ||
-                (dir === 'down' && deltaY < 0) ||
-                (dir === 'up' && deltaY > 0);
-
-              if (wrongDir || deltaX !== 0 || deltaY !== 0) {
-                console.log('[SURF DEBUG]', {
-                  dir,
-                  delta: { x: deltaX, y: deltaY },
-                  wrongDir: wrongDir ? '⚠️ SHIVER!' : 'ok',
-                  blobFinal: { x: blobScreenX, y: blobScreenY },
-                  playerFinal: { x: playerFinalX, y: playerFinalY },
-                  raw: {
-                    playerX: player.x.toFixed(4),
-                    playerY: player.y.toFixed(4),
-                    cameraX: view.cameraWorldX.toFixed(4),
-                    cameraY: view.cameraWorldY.toFixed(4),
-                  },
-                  bobOffset,
-                });
-              }
+          // Determine blob position based on current animation phase
+          if (surfCtrl.isJumpingOn()) {
+            // MOUNTING: Blob is at target water tile (destination)
+            // Player jumps FROM land TO blob
+            const targetPos = surfCtrl.getTargetPosition();
+            if (targetPos) {
+              // Convert tile coords to pixel coords
+              // Blob is centered on tile: tileX * 16 - 8 for 32px sprite on 16px tile
+              const blobWorldX = targetPos.tileX * 16 - 8;
+              const blobWorldY = targetPos.tileY * 16 - 16; // Sprite is 32px tall, anchor at bottom
+              blobScreenX = Math.round(blobWorldX + bobOffset * 0 - view.cameraWorldX); // No X bob
+              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
+            } else {
+              // Fallback to player position
+              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
             }
+          } else if (surfCtrl.isJumpingOff()) {
+            // DISMOUNTING: Blob stays at fixed water tile position
+            // Player jumps off TO land, blob remains on water
+            const fixedPos = surfCtrl.getBlobFixedPosition();
+            if (fixedPos) {
+              // Convert tile coords to pixel coords
+              const blobWorldX = fixedPos.tileX * 16 - 8;
+              const blobWorldY = fixedPos.tileY * 16 - 16;
+              blobScreenX = Math.round(blobWorldX - view.cameraWorldX);
+              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
+            } else {
+              // Fallback
+              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+            }
+          } else {
+            // Normal surfing: Blob follows player
+            blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+            blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
           }
 
-          blobRenderer.render(mainCtx, blobScreenX, blobScreenY, player.dir);
-        }
-      }
-
-      // Render surf blob (if surfing) - must be rendered BEFORE player
-      if (player && !playerHiddenRef.current && player.isSurfing()) {
-        const blobRenderer = player.surfBlobRenderer;
-        if (blobRenderer.isReady()) {
-          // CRITICAL: Use EXACT same position calculation as player to prevent desync.
-          // Floor AFTER subtracting camera to prevent "shivering" when player and camera
-          // cross integer boundaries at different moments.
-          //
-          // GBA positioning: blob is 8 pixels below player base (sprite->y = playerSprite->y + 8)
-          // Both sprites are 32x32, centered the same way horizontally.
-          const bobOffset = blobRenderer.getBobOffset();
-          // Use Math.round() for screen position to avoid floating-point precision errors.
-          // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
-          // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
-          const blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
-          const blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
-
-          // DEBUG: Detect shivering - when screen position moves opposite to input direction
-          if (player.isMoving && isDebugMode()) {
+          // DEBUG: Detect shivering during normal surfing movement
+          if (player.isMoving && !surfCtrl.isJumping() && isDebugMode()) {
             const playerFrame = player.getFrameInfo();
             if (playerFrame) {
               const playerFinalX = Math.round(playerFrame.renderX - view.cameraWorldX);
@@ -2283,28 +2272,14 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
         // Show "Pokemon used SURF!" message
         await dialog.showMessage("LAPRAS used SURF!");
         console.log('[SURF] Starting surf sequence');
-        
-        // Start mount sequence
-        player.surfingController.startSurfSequence(facingTileX, facingTileY);
-        
-        // Lock input during animation
-        player.lockInput();
-        
-        // Simple mount: just move onto water and start surfing
-        // (Full animation can be added later)
-        setTimeout(() => {
-          // Move player onto water
-          player.forceMove(player.dir, true);
-          
-          // Wait for movement to complete, then unlock and start surfing
-          setTimeout(() => {
-            player.startSurfing();
-            player.unlockInput();
-            if (isDebugMode()) {
-              console.log('[SURF] Now surfing!');
-            }
-          }, 300); // Wait for 16px movement at 0.06 px/ms = ~267ms
-        }, 100);
+
+        // Start surfing with jump animation
+        // This will lock input, start the jump, and transition to SurfingState
+        player.startSurfing(facingTileX, facingTileY);
+
+        if (isDebugMode()) {
+          console.log('[SURF] Jump animation started to water tile');
+        }
       }
     };
     
@@ -3110,6 +3085,20 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           // To avoid hitching on every connected-map boundary, only re-anchor when near world edges.
           if (!reanchorInFlight && player) {
             const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
+
+            // Clear chunk cache when player enters a different map
+            // This ensures border tiles are correct for the new map
+            if (resolved) {
+              const currentMapId = resolved.map.entry.id;
+              if (currentMapId !== lastPlayerMapIdRef.current) {
+                lastPlayerMapIdRef.current = currentMapId;
+                chunkManagerRef.current?.clear();
+                if (getChunkDebugOptions().logOperations) {
+                  console.log(`[CHUNK] Cleared cache - player entered map: ${currentMapId}`);
+                }
+              }
+            }
+
             if (resolved && resolved.map.entry.id !== ctx.anchor.entry.id) {
               const bounds = ctx.world.bounds;
               const marginTiles = Math.max(VIEWPORT_CONFIG.tilesWide, VIEWPORT_CONFIG.tilesHigh);
@@ -3187,6 +3176,26 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
               refreshDebugOverlay(ctx, playerControllerRef.current, view);
             }
             hasRenderedRef.current = true;
+
+            // Update chunk stats for debug panel (throttled to ~10 Hz, only when Log Chunk Operations is enabled)
+            if (logChunkOperationsRef.current && chunkManagerRef.current) {
+              const now = timestamp;
+              if (now - chunkStatsUpdateRef.current > 100) {
+                chunkStatsUpdateRef.current = now;
+                const stats = chunkManagerRef.current.getStats();
+                // Add world bounds info
+                stats.worldBounds = ctx.world.bounds;
+                stats.loadedMapCount = ctx.world.maps.length;
+                stats.loadedMaps = ctx.world.maps.map(m => ({
+                  id: m.entry.id,
+                  offsetX: m.offsetX,
+                  offsetY: m.offsetY,
+                  width: m.mapData.width,
+                  height: m.mapData.height,
+                }));
+                setChunkStats(stats);
+              }
+            }
           }
 
           animRef.current = requestAnimationFrame(loop);
@@ -3250,6 +3259,7 @@ const MapRendererContent: React.FC<MapRendererProps> = ({
           setDebugOptions(newOptions);
         }}
         tileInfo={centerTileDebugInfo}
+        chunkStats={chunkStats}
         debugCanvasRef={debugCanvasRef}
         bottomLayerCanvasRef={bottomLayerCanvasRef}
         topLayerCanvasRef={topLayerCanvasRef}

@@ -25,12 +25,17 @@ import {
   requiresDoorExitSequence,
   type BridgeType,
 } from '../../utils/metatileBehaviors';
+import { getChunkDebugOptions } from '../../rendering/ChunkManager';
 
 const DEBUG_MODE_FLAG = 'PKMN_DEBUG_MODE';
 
 function isDebugMode(): boolean {
   return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
 }
+
+// Track logged border tiles to avoid spam (reset periodically)
+let loggedBorderTiles = new Set<string>();
+let lastBorderLogReset = 0;
 
 export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: number): ResolvedTile | null {
   const map = ctx.world.maps.find(
@@ -65,21 +70,73 @@ export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY
     };
   }
 
-  const anchor = ctx.anchor;
-  const borderTiles = anchor.borderMetatiles;
+  // Find the nearest map to use for border tiles (not necessarily the anchor)
+  // This fixes the issue where walking from Mauville to Route117 shows Mauville's
+  // border tiles (water) instead of Route117's border tiles (trees)
+  let nearestMap = ctx.anchor;
+  let nearestDist = Infinity;
+
+  for (const m of ctx.world.maps) {
+    // Calculate distance from tile to map's bounding box
+    const clampedX = Math.max(m.offsetX, Math.min(worldTileX, m.offsetX + m.mapData.width - 1));
+    const clampedY = Math.max(m.offsetY, Math.min(worldTileY, m.offsetY + m.mapData.height - 1));
+    const dx = worldTileX - clampedX;
+    const dy = worldTileY - clampedY;
+    const dist = dx * dx + dy * dy;
+
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearestMap = m;
+    }
+  }
+
+  const borderTiles = nearestMap.borderMetatiles;
+
+  // Log border tile fallback when chunk debugging is enabled
+  const chunkDebug = getChunkDebugOptions();
+  if (chunkDebug.logOperations) {
+    const now = Date.now();
+    // Reset logged tiles every 5 seconds to allow periodic re-logging
+    if (now - lastBorderLogReset > 5000) {
+      loggedBorderTiles.clear();
+      lastBorderLogReset = now;
+    }
+
+    const tileKey = `${worldTileX},${worldTileY}`;
+    if (!loggedBorderTiles.has(tileKey)) {
+      loggedBorderTiles.add(tileKey);
+      console.log(`[BORDER_TILE] Tile (${worldTileX}, ${worldTileY}) not found in any map, using border from nearest map`, {
+        worldBounds: ctx.world.bounds,
+        anchorMap: ctx.anchor.entry.id,
+        nearestMap: nearestMap.entry.id,
+        nearestDist: Math.sqrt(nearestDist),
+        loadedMaps: ctx.world.maps.map(m => ({
+          id: m.entry.id,
+          offsetX: m.offsetX,
+          offsetY: m.offsetY,
+          width: m.mapData.width,
+          height: m.mapData.height,
+          rangeX: `${m.offsetX} to ${m.offsetX + m.mapData.width - 1}`,
+          rangeY: `${m.offsetY} to ${m.offsetY + m.mapData.height - 1}`,
+        })),
+        borderMetatiles: borderTiles,
+      });
+    }
+  }
+
   if (!borderTiles || borderTiles.length === 0) return null;
-  const anchorLocalX = worldTileX - anchor.offsetX;
-  const anchorLocalY = worldTileY - anchor.offsetY;
+  const localX = worldTileX - nearestMap.offsetX;
+  const localY = worldTileY - nearestMap.offsetY;
   // Shift pattern one tile up/left so the repeating border visually aligns with GBA behavior.
-  const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
+  const borderIndex = (localX & 1) + ((localY & 1) * 2);
   const borderMetatileId = borderTiles[borderIndex % borderTiles.length];
   const isSecondary = borderMetatileId >= NUM_PRIMARY_METATILES;
   const metatile = isSecondary
-    ? anchor.tilesets.secondaryMetatiles[borderMetatileId - NUM_PRIMARY_METATILES] ?? null
-    : anchor.tilesets.primaryMetatiles[borderMetatileId] ?? null;
+    ? nearestMap.tilesets.secondaryMetatiles[borderMetatileId - NUM_PRIMARY_METATILES] ?? null
+    : nearestMap.tilesets.primaryMetatiles[borderMetatileId] ?? null;
   const attributes = isSecondary
-    ? anchor.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
-    : anchor.tilesets.primaryAttributes[borderMetatileId];
+    ? nearestMap.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
+    : nearestMap.tilesets.primaryAttributes[borderMetatileId];
   // Border tiles: create MapTileData with impassable collision, elevation 0
   const mapTile: MapTileData = {
     metatileId: borderMetatileId,
@@ -87,8 +144,8 @@ export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY
     elevation: 0, // Border tiles are always ground level
   };
   return {
-    map: anchor,
-    tileset: anchor.tilesets,
+    map: nearestMap,
+    tileset: nearestMap.tilesets,
     metatile,
     attributes,
     mapTile,

@@ -20,6 +20,24 @@ export const setChunkDebugOptions = (options: Partial<ChunkDebugOptions>) => {
 
 export const getChunkDebugOptions = () => chunkDebugOptions;
 
+// Chunk statistics for debugging
+export interface ChunkStats {
+  visibleChunks: number;
+  cachedChunks: number;
+  cacheHits: number;
+  cacheMisses: number;
+  lastExtraHash: string;
+  visibleChunkKeys: string[];
+  recentMisses: string[];  // Last N cache misses
+  // World bounds info (set externally)
+  worldBounds?: { minX: number; minY: number; maxX: number; maxY: number };
+  loadedMapCount?: number;
+  // Detailed map info (set externally)
+  loadedMaps?: Array<{ id: string; offsetX: number; offsetY: number; width: number; height: number }>;
+}
+
+const MAX_RECENT_MISSES = 10;
+
 // Minimal view shape consumed by the chunk manager. Structural typing allows
 // passing the fuller WorldCameraView used elsewhere.
 export interface ChunkCameraView {
@@ -50,8 +68,38 @@ export class ChunkManager {
   private cache = new Map<string, HTMLCanvasElement>();
   private accessHistory: string[] = [];
 
+  // Statistics tracking
+  private stats: ChunkStats = {
+    visibleChunks: 0,
+    cachedChunks: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    lastExtraHash: '',
+    visibleChunkKeys: [],
+    recentMisses: [],
+  };
+
   private getCacheKey(chunkX: number, chunkY: number, layer: string, extraHash: string): string {
     return `${chunkX}:${chunkY}:${layer}:${extraHash}`;
+  }
+
+  /**
+   * Get current chunk statistics for debugging
+   */
+  getStats(): ChunkStats {
+    return {
+      ...this.stats,
+      cachedChunks: this.cache.size,
+    };
+  }
+
+  /**
+   * Reset hit/miss counters (call at start of frame)
+   */
+  resetFrameStats() {
+    this.stats.cacheHits = 0;
+    this.stats.cacheMisses = 0;
+    this.stats.visibleChunkKeys = [];
   }
 
   /**
@@ -71,21 +119,30 @@ export class ChunkManager {
     renderCallback: ChunkRenderCallback,
     prewarmPadding: number = 1
   ) {
+    // Track extraHash for debugging
+    this.stats.lastExtraHash = extraHash;
+
     // Calculate visible chunks
     // cameraWorldX is the left-most pixel visible
     const startChunkX = Math.floor(view.cameraWorldX / CHUNK_SIZE_PX);
     const startChunkY = Math.floor(view.cameraWorldY / CHUNK_SIZE_PX);
-    
+
     // Determine how many chunks cover the viewport
     // We add 1 extra to handle partial coverage at the edges
     const endChunkX = Math.floor((view.cameraWorldX + view.pixelWidth) / CHUNK_SIZE_PX) + 1;
     const endChunkY = Math.floor((view.cameraWorldY + view.pixelHeight) / CHUNK_SIZE_PX) + 1;
 
+    // Count visible chunks
+    let visibleCount = 0;
+
     for (let cy = startChunkY; cy <= endChunkY; cy++) {
       for (let cx = startChunkX; cx <= endChunkX; cx++) {
         this.drawChunk(ctx, cx, cy, view, layer, extraHash, renderCallback);
+        visibleCount++;
       }
     }
+
+    this.stats.visibleChunks = visibleCount;
 
     // Prewarm a small ring of chunks around the viewport to avoid hitching when stepping across boundaries.
     if (prewarmPadding > 0) {
@@ -106,11 +163,21 @@ export class ChunkManager {
     cy: number,
     layer: string,
     extraHash: string,
-    renderCallback: ChunkRenderCallback
+    renderCallback: ChunkRenderCallback,
+    isVisible: boolean = false
   ): HTMLCanvasElement {
     const key = this.getCacheKey(cx, cy, layer, extraHash);
     let canvas = this.cache.get(key);
     if (!canvas) {
+      // Cache miss - need to render
+      this.stats.cacheMisses++;
+
+      // Track recent misses for debugging
+      this.stats.recentMisses.push(`${key} @ ${Date.now() % 100000}`);
+      if (this.stats.recentMisses.length > MAX_RECENT_MISSES) {
+        this.stats.recentMisses.shift();
+      }
+
       canvas = document.createElement('canvas');
       canvas.width = CHUNK_SIZE_PX;
       canvas.height = CHUNK_SIZE_PX;
@@ -125,9 +192,18 @@ export class ChunkManager {
       }
       this.cache.set(key, canvas);
       if (chunkDebugOptions.logOperations) {
-        console.log(`[CHUNK MISS] Creating ${key}`);
+        console.log(`[CHUNK MISS] Creating ${key} (visible: ${isVisible})`);
       }
+    } else {
+      // Cache hit
+      this.stats.cacheHits++;
     }
+
+    // Track visible chunk keys
+    if (isVisible) {
+      this.stats.visibleChunkKeys.push(key);
+    }
+
     this.updateAccess(key);
     return canvas;
   }
@@ -141,7 +217,7 @@ export class ChunkManager {
     extraHash: string,
     renderCallback: ChunkRenderCallback
   ) {
-    const canvas = this.ensureChunkCached(cx, cy, layer, extraHash, renderCallback);
+    const canvas = this.ensureChunkCached(cx, cy, layer, extraHash, renderCallback, true);
 
     // Calculate screen position
     // Precise math: Chunk Origin (World Px) - Camera Origin (World Px)

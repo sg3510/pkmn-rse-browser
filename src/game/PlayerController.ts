@@ -265,17 +265,25 @@ class SurfingState implements PlayerState {
   private surfingController: SurfingController;
   private blobRenderer: SurfBlobRenderer;
 
+  // Jump animation state
+  private jumpYOffset: number = 0;
+  private jumpXProgress: number = 0;
+  private isJumping: boolean = false;
+
   constructor(controller: PlayerController) {
     this.surfingController = controller.surfingController;
     this.blobRenderer = controller.surfBlobRenderer;
   }
 
-  enter(_controller: PlayerController): void {
+  enter(controller: PlayerController): void {
     if (isDebugMode()) {
       console.log('[SURFING] Entered surfing state');
     }
-    // Sprite should already be changed to surfing variant by the mount sequence
-    _controller.lockInput(); // Will be unlocked when animation completes
+    // CRITICAL: Set isMoving = true so PlayerController.update() doesn't bail out early
+    // when inputLocked is true. The jump animation needs update() to be called.
+    if (this.surfingController.isJumping()) {
+      controller.isMoving = true;
+    }
   }
 
   exit(_controller: PlayerController): void {
@@ -285,34 +293,89 @@ class SurfingState implements PlayerState {
   }
 
   update(controller: PlayerController, delta: number): boolean {
-    // Update surfing controller animation state
-    this.surfingController.update();
+    // Update surfing controller animation state and get jump offsets
+    const updateResult = this.surfingController.update();
+    this.jumpYOffset = updateResult.jumpYOffset;
+    this.jumpXProgress = updateResult.jumpXProgress;
+
+    // Sync blob bob state with controller
+    this.blobRenderer.setBobState(this.surfingController.getBlobBobState());
+
     // Update blob bobbing animation
     this.blobRenderer.update();
 
     // Update blob direction to match player
     this.surfingController.updateBlobDirection(controller.dir);
 
-    // Check if movement just completed while dismounting
-    const wasMoving = controller.isMoving;
-    const result = controller.processMovement(delta, this.SPEED);
+    // IMPORTANT: Check jumpComplete FIRST, before isJumping()
+    // Because when jump completes, the phase changes immediately in surfingController.update(),
+    // so isJumping() would return false even though we need to handle completion.
+    if (updateResult.jumpComplete) {
+      this.isJumping = false;
+      controller.spriteYOffset = 0;
+      controller.isMoving = false;  // Reset movement state after jump
+      controller.pixelsMoved = 0;
 
-    // If we were moving, finished, and were dismounting -> switch to normal state
-    if (wasMoving && !controller.isMoving && this.isDismounting) {
-      if (isDebugMode()) {
-        console.log('[SURFING] Dismount complete, switching to NormalState');
+      // If dismount completed, surfingController.reset() was called -> isSurfing is false
+      if (!this.surfingController.isSurfing()) {
+        if (isDebugMode()) {
+          console.log('[SURFING] Dismount jump complete, switching to NormalState');
+        }
+        // Snap player to exact land tile position
+        controller.x = controller.tileX * 16;
+        controller.y = controller.tileY * 16 - 16; // Sprite is 32px tall
+        // Update elevation for the new tile
+        controller.updateElevation();
+        controller.unlockInput();
+        controller.changeState(new NormalState());
+        return true;
+      } else {
+        // Mount complete - now actively surfing
+        if (isDebugMode()) {
+          console.log('[SURFING] Mount jump complete, now surfing');
+        }
+        // Snap player position to target tile
+        controller.x = controller.tileX * 16;
+        controller.y = controller.tileY * 16 - 16; // Sprite is 32px tall
+        controller.unlockInput();
+        // Continue to normal surfing below
       }
-      this.isDismounting = false;
-      this.surfingController.reset(); // Reset surfing controller state
-      controller.changeState(new NormalState());
     }
 
-    return result;
+    // Handle jump animations in progress (mount/dismount)
+    if (this.surfingController.isJumping()) {
+      this.isJumping = true;
+      controller.spriteYOffset = this.jumpYOffset;
+
+      // Update player position during jump
+      const startPos = this.surfingController.getJumpStartPosition();
+      const dir = this.surfingController.getJumpDirection();
+      if (startPos && dir) {
+        // Calculate current position based on jump progress
+        const progress = this.jumpXProgress;
+        if (dir === 'up') controller.y = startPos.y - progress;
+        else if (dir === 'down') controller.y = startPos.y + progress;
+        else if (dir === 'left') controller.x = startPos.x - progress;
+        else if (dir === 'right') controller.x = startPos.x + progress;
+      }
+
+      return true; // Animation in progress
+    }
+
+    // Normal surfing movement
+    controller.processMovement(delta, this.SPEED);
+
+    // Always return true while surfing - the bob animation needs continuous updates
+    // Reference: GBA calls UpdateBobbingEffect every frame via sprite callback
+    return true;
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
-    // Check for transition back to walking (dismount)
-    // This happens when player moves toward land
+    // Don't process input during jump animations
+    if (this.surfingController.isJumping()) {
+      return;
+    }
+
     let dx = 0;
     let dy = 0;
     let newDir = controller.dir;
@@ -346,20 +409,40 @@ class SurfingState implements PlayerState {
       const behavior = resolved?.attributes?.behavior ?? -1;
 
       if (isSurfableBehavior(behavior)) {
-        // Can move on water - continue surfing
+        // Can move on water - continue surfing (regular tile movement)
         controller.isMoving = true;
         controller.pixelsMoved = 0;
       } else if (this.surfingController.canDismount(targetTileX, targetTileY, controller.tileResolver ?? undefined)) {
-        // Target is walkable land - dismount
+        // Target is walkable land - start dismount JUMP sequence
         if (isDebugMode()) {
-          console.log(`[SURFING] Dismounting to (${targetTileX}, ${targetTileY})`);
+          console.log(`[SURFING] Starting dismount jump from (${controller.tileX}, ${controller.tileY}) to (${targetTileX}, ${targetTileY})`);
         }
-        // Mark that we're dismounting so update() knows to change state after movement
-        this.isDismounting = true;
+
+        // Store current water tile position BEFORE updating tile coords
+        const waterTileX = controller.tileX;
+        const waterTileY = controller.tileY;
+
+        // Lock input during jump
+        controller.lockInput();
+
+        // Start the dismount jump - blob stays on current water tile
+        this.surfingController.startDismountSequence(
+          waterTileX,
+          waterTileY,
+          controller.x,
+          controller.y,
+          newDir
+        );
+
+        // Update tile position immediately (like ledge jumping)
+        controller.tileX = targetTileX;
+        controller.tileY = targetTileY;
+
+        // CRITICAL: Set isMoving = true so PlayerController.update() doesn't bail out
+        // (lockInput sets isMoving = false, but we need updates to continue for jump animation)
         controller.isMoving = true;
-        controller.pixelsMoved = 0;
       } else {
-        // Blocked (not surfable water and not land we can dismount to)
+        // Blocked
         if (isDebugMode()) {
           console.warn(`[SURFING] Blocked - tile (${targetTileX}, ${targetTileY}) not passable`);
         }
@@ -367,19 +450,19 @@ class SurfingState implements PlayerState {
     }
   }
 
-  private isDismounting: boolean = false;
-
   getFrameInfo(controller: PlayerController): FrameInfo | null {
     // Use surfing sprite (32x32 frames)
     const frame = controller.calculateSurfingFrameInfo();
     if (frame) {
-      // Apply bob offset so player bobs with the surf blob.
-      // DON'T floor here - let PlayerController.render() floor AFTER camera subtraction.
-      // This prevents "shivering" when player and camera cross integer boundaries
-      // at different moments during movement.
-      const bobOffset = controller.surfBlobRenderer.getBobOffset();
-      frame.renderY += bobOffset;
-      // renderX stays as-is (already this.x - 8 from calculateSurfingFrameInfo)
+      // During jump: apply jump Y offset (no bob)
+      // During normal surf: apply player bob offset
+      if (this.isJumping) {
+        frame.renderY += this.jumpYOffset;
+      } else {
+        // Use getPlayerBobOffset() which respects BOB_JUST_MON mode
+        const bobOffset = this.blobRenderer.getPlayerBobOffset();
+        frame.renderY += bobOffset;
+      }
     }
     return frame;
   }
@@ -1399,19 +1482,53 @@ export class PlayerController {
   }
 
   /**
-   * Start surfing - transition to SurfingState
+   * Start surfing with jump animation - transition to SurfingState
+   *
+   * @param targetTileX Target water tile X
+   * @param targetTileY Target water tile Y
    */
-  public startSurfing() {
-    if (!this.isSurfing()) {
-      this.changeState(new SurfingState(this));
+  public startSurfing(targetTileX?: number, targetTileY?: number) {
+    if (this.isSurfing()) {
+      return;
     }
+
+    // Calculate target tile if not provided (tile player is facing)
+    const dx = this.dir === 'left' ? -1 : this.dir === 'right' ? 1 : 0;
+    const dy = this.dir === 'up' ? -1 : this.dir === 'down' ? 1 : 0;
+    const finalTargetX = targetTileX ?? this.tileX + dx;
+    const finalTargetY = targetTileY ?? this.tileY + dy;
+
+    if (isDebugMode()) {
+      console.log(`[SURFING] Starting mount jump from (${this.tileX}, ${this.tileY}) to (${finalTargetX}, ${finalTargetY})`);
+    }
+
+    // Lock input during mount animation
+    this.lockInput();
+
+    // Start the mount jump sequence
+    this.surfingController.startSurfSequence(
+      finalTargetX,
+      finalTargetY,
+      this.x,
+      this.y,
+      this.dir
+    );
+
+    // Update tile position immediately (player will land on water tile)
+    this.tileX = finalTargetX;
+    this.tileY = finalTargetY;
+
+    // Change to surfing state
+    this.changeState(new SurfingState(this));
   }
 
   /**
    * Stop surfing - transition back to NormalState
+   * Note: This is typically called internally after dismount jump completes
    */
   public stopSurfing() {
     if (this.isSurfing()) {
+      this.surfingController.reset();
       this.changeState(new NormalState());
     }
   }

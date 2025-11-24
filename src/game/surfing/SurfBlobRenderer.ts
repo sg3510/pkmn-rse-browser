@@ -3,7 +3,7 @@
  * Based on pokeemerald/graphics/field_effects/pics/surf_blob.png
  */
 
-import type { SurfBlobDirection } from './types';
+import type { SurfBlobDirection, BlobBobState } from './types';
 
 export class SurfBlobRenderer {
   private sprite: HTMLCanvasElement | null = null;
@@ -17,6 +17,10 @@ export class SurfBlobRenderer {
   private bobTimer: number = 0;
   private bobVelocity: number = 1;  // +1 or -1
   private bobOffset: number = 0;   // Current Y offset (integer, -4 to +4)
+
+  // Blob bob state - controls whether player bobs with blob
+  // Reference: field_effect_helpers.c:1020-1023 (SetSurfBlob_BobState)
+  private bobState: BlobBobState = 'BOB_PLAYER_AND_MON';
 
   // Surf blob sprite dimensions (sprite is 96x32: 3 frames of 32x32)
   private readonly FRAME_WIDTH = 32;
@@ -90,11 +94,45 @@ export class SurfBlobRenderer {
   }
 
   /**
-   * Get current bob offset (vertical displacement).
+   * Get current bob offset (vertical displacement) for the BLOB.
    * Returns integer value (-4 to +4) for GBA-accurate discrete stepping.
    */
   public getBobOffset(): number {
     return this.bobOffset;
+  }
+
+  /**
+   * Get bob offset for the PLAYER sprite.
+   * - BOB_PLAYER_AND_MON: Returns same offset as blob (player bobs with blob)
+   * - BOB_JUST_MON: Returns 0 (player doesn't bob, used during dismount jump)
+   * - BOB_NONE: Returns 0
+   *
+   * Reference: field_effect_helpers.c:1124-1130
+   */
+  public getPlayerBobOffset(): number {
+    if (this.bobState === 'BOB_PLAYER_AND_MON') {
+      return this.bobOffset;
+    }
+    return 0;
+  }
+
+  /**
+   * Set the blob bob state.
+   * - BOB_PLAYER_AND_MON: Both player and blob bob together (normal surfing)
+   * - BOB_JUST_MON: Only blob bobs, player doesn't (during dismount jump)
+   * - BOB_NONE: Neither bobs
+   *
+   * Reference: field_effect_helpers.c:1020-1023 (SetSurfBlob_BobState)
+   */
+  public setBobState(state: BlobBobState): void {
+    this.bobState = state;
+  }
+
+  /**
+   * Get current bob state.
+   */
+  public getBobState(): BlobBobState {
+    return this.bobState;
   }
   
   /**

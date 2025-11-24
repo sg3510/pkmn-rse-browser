@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { DebugTileInfo } from './map/types';
+import type { ChunkStats } from '../rendering/ChunkManager';
 
 // Debug options state type
 export interface DebugOptions {
@@ -28,6 +29,7 @@ interface DebugPanelProps {
   options: DebugOptions;
   onChange: (options: DebugOptions) => void;
   tileInfo: DebugTileInfo | null;
+  chunkStats?: ChunkStats | null;
   debugCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   bottomLayerCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   topLayerCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -41,6 +43,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   options,
   onChange,
   tileInfo,
+  chunkStats,
   debugCanvasRef,
   bottomLayerCanvasRef,
   topLayerCanvasRef,
@@ -204,6 +207,13 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               onChange={(v) => updateOption('logChunkOperations', v)}
             />
           </Section>
+
+          {/* Chunk Status Section - shows when Log Chunk Operations is enabled */}
+          {options.logChunkOperations && chunkStats && (
+            <Section title="Chunk Status">
+              <ChunkStatusDisplay stats={chunkStats} />
+            </Section>
+          )}
 
           {/* Collision/Elevation Section */}
           <Section title="Overlays">
@@ -397,5 +407,210 @@ const LayerCanvas: React.FC<{
     />
   </div>
 );
+
+// Chunk status display component
+const ChunkStatusDisplay: React.FC<{ stats: ChunkStats }> = ({ stats }) => {
+  const hitRate = stats.cacheHits + stats.cacheMisses > 0
+    ? ((stats.cacheHits / (stats.cacheHits + stats.cacheMisses)) * 100).toFixed(1)
+    : '100.0';
+
+  return (
+    <div style={{ fontSize: '10px' }}>
+      {/* Cache Summary */}
+      <div style={{ marginBottom: 8 }}>
+        <InfoRow label="Visible Chunks" value={stats.visibleChunks} />
+        <InfoRow label="Cached Chunks" value={stats.cachedChunks} />
+        <InfoRow
+          label="Hit Rate"
+          value={
+            <span style={{ color: parseFloat(hitRate) < 90 ? '#f44' : '#4f4' }}>
+              {hitRate}% ({stats.cacheHits} hits, {stats.cacheMisses} misses)
+            </span>
+          }
+        />
+      </div>
+
+      {/* World Bounds Info */}
+      {stats.worldBounds && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+          <div style={{ marginBottom: 4, color: '#888' }}>World Bounds (tiles):</div>
+          <div style={{ fontSize: '9px' }}>
+            <InfoRow label="X Range" value={`${stats.worldBounds.minX} to ${stats.worldBounds.maxX - 1}`} />
+            <InfoRow label="Y Range" value={`${stats.worldBounds.minY} to ${stats.worldBounds.maxY - 1}`} />
+            <InfoRow label="Loaded Maps" value={stats.loadedMapCount ?? 'N/A'} />
+          </div>
+        </div>
+      )}
+
+      {/* Extra Hash (invalidation key) */}
+      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+        <div style={{ marginBottom: 4, color: '#888' }}>Cache Key Hash:</div>
+        <div style={{
+          fontSize: '9px',
+          fontFamily: 'monospace',
+          backgroundColor: '#2a2a2a',
+          padding: 4,
+          borderRadius: 2,
+          wordBreak: 'break-all',
+          maxHeight: 40,
+          overflow: 'auto',
+        }}>
+          {stats.lastExtraHash || '(none)'}
+        </div>
+      </div>
+
+      {/* Visible Chunk Keys */}
+      {stats.visibleChunkKeys.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+          <div style={{ marginBottom: 4, color: '#888' }}>
+            Visible Chunk Keys ({stats.visibleChunkKeys.length}):
+          </div>
+          <div style={{
+            fontSize: '8px',
+            fontFamily: 'monospace',
+            backgroundColor: '#2a2a2a',
+            padding: 4,
+            borderRadius: 2,
+            maxHeight: 80,
+            overflow: 'auto',
+          }}>
+            {stats.visibleChunkKeys.slice(0, 20).map((key, i) => (
+              <div key={i} style={{ color: '#aaa' }}>{key}</div>
+            ))}
+            {stats.visibleChunkKeys.length > 20 && (
+              <div style={{ color: '#666' }}>...and {stats.visibleChunkKeys.length - 20} more</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Cache Misses */}
+      {stats.recentMisses.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+          <div style={{ marginBottom: 4, color: '#f88' }}>
+            Recent Cache Misses ({stats.recentMisses.length}):
+          </div>
+          <div style={{
+            fontSize: '8px',
+            fontFamily: 'monospace',
+            backgroundColor: '#2a2020',
+            padding: 4,
+            borderRadius: 2,
+            maxHeight: 100,
+            overflow: 'auto',
+          }}>
+            {stats.recentMisses.map((miss, i) => (
+              <div key={i} style={{ color: '#f99' }}>{miss}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Chunk Coverage Analysis */}
+      {stats.loadedMaps && stats.visibleChunkKeys.length > 0 && (
+        <ChunkCoverageAnalysis stats={stats} />
+      )}
+
+      {/* Loaded Maps Detail */}
+      {stats.loadedMaps && stats.loadedMaps.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+          <div style={{ marginBottom: 4, color: '#888' }}>
+            Loaded Maps ({stats.loadedMaps.length}):
+          </div>
+          <div style={{
+            fontSize: '8px',
+            fontFamily: 'monospace',
+            backgroundColor: '#2a2a2a',
+            padding: 4,
+            borderRadius: 2,
+            maxHeight: 120,
+            overflow: 'auto',
+          }}>
+            {stats.loadedMaps.map((m, i) => (
+              <div key={i} style={{ color: '#aaa', marginBottom: 2 }}>
+                <span style={{ color: '#8af' }}>{m.id.replace('MAP_', '')}</span>
+                {' '}X:{m.offsetX}→{m.offsetX + m.width - 1} Y:{m.offsetY}→{m.offsetY + m.height - 1}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Analyze which visible chunks have coverage gaps
+const CHUNK_SIZE_TILES = 16;
+
+const ChunkCoverageAnalysis: React.FC<{ stats: ChunkStats }> = ({ stats }) => {
+  const issues: string[] = [];
+
+  for (const key of stats.visibleChunkKeys) {
+    // Parse chunk key: "cx:cy:layer:hash"
+    const parts = key.split(':');
+    if (parts.length < 2) continue;
+    const cx = parseInt(parts[0], 10);
+    const cy = parseInt(parts[1], 10);
+
+    // Calculate tile range for this chunk
+    const tileMinX = cx * CHUNK_SIZE_TILES;
+    const tileMaxX = tileMinX + CHUNK_SIZE_TILES - 1;
+    const tileMinY = cy * CHUNK_SIZE_TILES;
+    const tileMaxY = tileMinY + CHUNK_SIZE_TILES - 1;
+
+    // Check if any loaded map covers this chunk
+    const coveringMaps = stats.loadedMaps?.filter(m => {
+      const mapMaxX = m.offsetX + m.width - 1;
+      const mapMaxY = m.offsetY + m.height - 1;
+      // Check for overlap
+      return !(tileMaxX < m.offsetX || tileMinX > mapMaxX ||
+               tileMaxY < m.offsetY || tileMinY > mapMaxY);
+    }) ?? [];
+
+    // Check if chunk is fully covered or has gaps
+    if (coveringMaps.length === 0) {
+      issues.push(`${cx}:${cy} → NO COVERAGE (tiles ${tileMinX},${tileMinY} to ${tileMaxX},${tileMaxY})`);
+    } else {
+      // Check if partially covered (any tile in chunk outside all maps)
+      let hasGap = false;
+      for (let ty = tileMinY; ty <= tileMaxY && !hasGap; ty++) {
+        for (let tx = tileMinX; tx <= tileMaxX && !hasGap; tx++) {
+          const inAnyMap = stats.loadedMaps?.some(m => {
+            return tx >= m.offsetX && tx < m.offsetX + m.width &&
+                   ty >= m.offsetY && ty < m.offsetY + m.height;
+          });
+          if (!inAnyMap) hasGap = true;
+        }
+      }
+      if (hasGap) {
+        const mapNames = coveringMaps.map(m => m.id.replace('MAP_', '')).join(', ');
+        issues.push(`${cx}:${cy} → PARTIAL (maps: ${mapNames})`);
+      }
+    }
+  }
+
+  if (issues.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+      <div style={{ marginBottom: 4, color: '#fa0' }}>
+        Chunk Coverage Issues ({issues.length}):
+      </div>
+      <div style={{
+        fontSize: '8px',
+        fontFamily: 'monospace',
+        backgroundColor: '#2a2a10',
+        padding: 4,
+        borderRadius: 2,
+        maxHeight: 100,
+        overflow: 'auto',
+      }}>
+        {issues.map((issue, i) => (
+          <div key={i} style={{ color: '#fc0' }}>{issue}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default DebugPanel;
