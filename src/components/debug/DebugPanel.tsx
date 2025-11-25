@@ -241,6 +241,80 @@ const TabButton: React.FC<{
   </button>
 );
 
+// Collision legend component
+const CollisionLegend: React.FC = () => (
+  <div style={{ marginTop: 8, marginBottom: 8, padding: 8, backgroundColor: '#2a2a2a', borderRadius: 4 }}>
+    <div style={{ fontSize: '9px', color: '#888', marginBottom: 6 }}>Collision Legend:</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 16, height: 16, border: '2px solid #00ff00', boxSizing: 'border-box' }} />
+        <span style={{ fontSize: '10px' }}>0 - Passable</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 16,
+          height: 16,
+          backgroundColor: 'rgba(255, 0, 0, 0.6)',
+          position: 'relative',
+        }}>
+          <span style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: '#000',
+            fontWeight: 'bold',
+            fontSize: '12px',
+          }}>×</span>
+        </div>
+        <span style={{ fontSize: '10px' }}>1 - Blocked</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 16, height: 16, backgroundColor: 'rgba(255, 255, 0, 0.6)' }} />
+        <span style={{ fontSize: '10px' }}>2+ - Special</span>
+      </div>
+    </div>
+  </div>
+);
+
+// Elevation legend component
+const ElevationLegend: React.FC = () => {
+  const elevationColors = [
+    '#0000ff', '#0044ff', '#0088ff', '#00ccff',
+    '#00ffcc', '#00ff88', '#00ff44', '#00ff00',
+    '#44ff00', '#88ff00', '#ccff00', '#ffff00',
+    '#ffcc00', '#ff8800', '#ff4400', '#ff0000',
+  ];
+
+  return (
+    <div style={{ marginTop: 8, marginBottom: 8, padding: 8, backgroundColor: '#2a2a2a', borderRadius: 4 }}>
+      <div style={{ fontSize: '9px', color: '#888', marginBottom: 6 }}>Elevation Legend:</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        {elevationColors.map((color, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              width: 18,
+            }}
+          >
+            <div style={{
+              width: 14,
+              height: 14,
+              backgroundColor: color,
+              opacity: 0.7,
+              border: '1px solid #444',
+            }} />
+            <span style={{ fontSize: '8px', color: '#888' }}>{i}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // General tab with overlay toggles
 const GeneralTab: React.FC<{
   options: DebugOptions;
@@ -259,11 +333,13 @@ const GeneralTab: React.FC<{
         checked={options.showCollisionOverlay}
         onChange={(v) => updateOption('showCollisionOverlay', v)}
       />
+      {options.showCollisionOverlay && <CollisionLegend />}
       <Checkbox
         label="Show Elevation Overlay"
         checked={options.showElevationOverlay}
         onChange={(v) => updateOption('showElevationOverlay', v)}
       />
+      {options.showElevationOverlay && <ElevationLegend />}
       <Checkbox
         label="Show Object Markers"
         checked={options.showObjectOverlay}

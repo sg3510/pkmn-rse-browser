@@ -15,7 +15,7 @@ import { useDialogContext } from './DialogContext';
 import { DialogFrame } from './DialogFrame';
 import { DialogText, DialogArrow } from './DialogText';
 import { YesNoMenu, OptionMenu } from './OptionMenu';
-import { TILE_SIZE, DIALOG_DIMENSIONS, tilesToPx } from './types';
+import { DIALOG_DIMENSIONS, tilesToPx } from './types';
 
 interface DialogBoxProps {
   /** Viewport width in pixels */
@@ -37,8 +37,6 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   }
 
   // Calculate dimensions
-  const scaledTile = TILE_SIZE * zoom;
-
   // Dialog box dimensions
   const dialogWidth = tilesToPx(DIALOG_DIMENSIONS.widthTiles, zoom);
   const dialogHeight = tilesToPx(DIALOG_DIMENSIONS.heightTiles, zoom);

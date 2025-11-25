@@ -12,7 +12,6 @@ import type { SurfBlobDirection, BlobBobState } from './types';
 
 export class SurfBlobRenderer {
   private sprite: HTMLCanvasElement | null = null;
-  private isLoading: boolean = false;
   private loadPromise: Promise<void> | null = null;
 
   // GBA-accurate discrete stepped bobbing (not smooth sine wave)
@@ -41,7 +40,6 @@ export class SurfBlobRenderer {
       return this.loadPromise;
     }
 
-    this.isLoading = true;
     this.loadPromise = new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
@@ -51,7 +49,6 @@ export class SurfBlobRenderer {
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          this.isLoading = false;
           reject(new Error('Failed to get canvas context'));
           return;
         }
@@ -73,12 +70,10 @@ export class SurfBlobRenderer {
 
         ctx.putImageData(imageData, 0, 0);
         this.sprite = canvas;
-        this.isLoading = false;
         resolve();
       };
       img.onerror = (err) => {
         console.error('Failed to load surf blob sprite:', err);
-        this.isLoading = false;
         reject(err);
       };
       img.src = '/pokeemerald/graphics/field_effects/pics/surf_blob.png';

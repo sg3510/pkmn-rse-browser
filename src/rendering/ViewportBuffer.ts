@@ -1,4 +1,5 @@
 import { METATILE_SIZE, TILE_SIZE, TILES_PER_ROW_IN_IMAGE, SECONDARY_TILE_OFFSET } from '../utils/mapLoader';
+import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import type { Palette, MapTileData } from '../utils/mapLoader';
 import { TilesetCanvasCache } from './TilesetCanvasCache';
 
@@ -8,12 +9,6 @@ import { TilesetCanvasCache } from './TilesetCanvasCache';
  * Higher = smoother scrolling but more memory/initial render time
  */
 const OVERSCAN_TILES = 4;
-
-/**
- * Minimum scroll distance before triggering edge re-render (in pixels)
- * Smaller = more frequent updates but smoother appearance
- */
-const SCROLL_THRESHOLD_PX = METATILE_SIZE;
 
 export interface BufferTileResolver {
   (tileX: number, tileY: number): ResolvedTileForBuffer | null;
@@ -249,15 +244,8 @@ export class ViewportBuffer {
   /**
    * Check if a tile passes the elevation filter for top passes.
    *
-   * Based on GBA pokeemerald sElevationToPriority table:
-   *   { 2, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 0, 0, 2 }
-   *
-   * Priority 1 = sprite renders ABOVE BG1 (top layer renders BEFORE/behind player)
-   * Priority 2 = sprite renders BELOW BG1 (top layer renders AFTER/on top of player)
-   *
-   * Pattern:
-   * - Elevation 4, 6, 8, 10, 12 (even >= 4): priority 1 → top layer BEFORE player
-   * - Elevation 0-3, 5, 7, 9, 11 (< 4 or odd >= 4): priority 2 → top layer AFTER player
+   * Uses pokeemerald's sElevationToPriority table (event_object_movement.c).
+   * Lower priority value means the sprite draws above BG1.
    */
   private passElevationFilter(
     pass: RenderPass,
@@ -266,23 +254,23 @@ export class ViewportBuffer {
   ): boolean {
     if (pass === 'background') return true;
 
-    // Check if player has priority 1 (sprite above top layer)
-    // This happens when elevation >= 4 AND elevation is even
-    const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+    // Map elevation to sprite priority (pokeemerald sElevationToPriority)
+    const playerPriority = getSpritePriorityForElevation(playerElevation);
+    const playerAboveTopLayer = playerPriority <= 1; // priority 0/1 draws above BG1
 
     if (pass === 'topBelow') {
       // topBelow = top layer renders BEFORE player (player on top)
-      // Only render here if player has priority 1 (player above top layer)
-      if (!playerHasPriority1) return false;
+      // Only render here if player is above the top layer
+      if (!playerAboveTopLayer) return false;
       // Exception: if tile is at same elevation and blocked, skip (render in topAbove)
       if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
       return true;
     }
 
     // topAbove = top layer renders AFTER player (top layer on top of player)
-    // Render here if player has priority 2, OR if blocked tile at same elevation
-    if (playerHasPriority1) {
-      // Player has priority 1, so top layer should NOT be on top...
+    // Render here if player is below the top layer, OR if blocked tile at same elevation
+    if (playerAboveTopLayer) {
+      // Player is above top layer, so only draw blocked tiles on top
       // ...UNLESS it's a blocked tile at same elevation
       if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
       return false;
@@ -479,7 +467,6 @@ export class ViewportBuffer {
     forceFullRender: boolean = false
   ): boolean {
     const buffer = this.ensureBuffer(pass);
-    const dims = this.getBufferDimensions();
 
     // Calculate the ideal buffer start position (viewport minus overscan)
     const idealBufferStartX = viewportWorldStartX - OVERSCAN_TILES;

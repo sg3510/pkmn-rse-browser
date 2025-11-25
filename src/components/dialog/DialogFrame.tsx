@@ -117,10 +117,6 @@ export const DialogFrame: React.FC<DialogFrameProps> = ({
         // Destination tile size (scaled by zoom)
         const dstTile = scaledTileSize;
 
-        // Calculate interior dimensions (in destination pixels)
-        const interiorWidth = roundedWidth - 2 * dstTile;
-        const interiorHeight = roundedHeight - 2 * dstTile;
-
         // Draw 9-slice frame
         // The source image is 24x24 (3x3 tiles)
         // Layout: [TL][T][TR]

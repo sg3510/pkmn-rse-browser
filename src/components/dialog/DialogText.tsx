@@ -69,6 +69,7 @@ export const DialogText: React.FC<DialogTextProps> = ({
         WebkitFontSmoothing: 'none',
         textRendering: 'optimizeSpeed',
         imageRendering: 'pixelated',
+        maxWidth: maxWidth ? `${maxWidth}px` : undefined,
       }}
     >
       {lines.map((line, index) => (

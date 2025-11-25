@@ -225,10 +225,48 @@ export class ObjectEventManager {
 
   /**
    * Check if there's a blocking NPC at a position
-   * (Used for collision detection)
+   * (Used for collision detection - does NOT check elevation)
    */
   hasNPCAt(tileX: number, tileY: number): boolean {
     return this.getNPCAt(tileX, tileY) !== null;
+  }
+
+  /**
+   * Check if there's a blocking NPC at a position with elevation check
+   *
+   * Reference: CheckForObjectEventCollision in event_object_movement.c
+   * NPCs only block if they're at the same elevation OR either is at elevation 0/15
+   *
+   * @param playerElevation The player's current elevation
+   */
+  hasNPCAtWithElevation(tileX: number, tileY: number, playerElevation: number): boolean {
+    const npc = this.getNPCAt(tileX, tileY);
+    if (!npc) return false;
+
+    // Ground level (0) or universal (15) can interact with any elevation
+    if (playerElevation === 0 || playerElevation === 15) return true;
+    if (npc.elevation === 0 || npc.elevation === 15) return true;
+
+    // Same elevation = collision
+    return npc.elevation === playerElevation;
+  }
+
+  /**
+   * Get item ball at a specific tile with elevation check
+   *
+   * @param playerElevation The player's current elevation
+   */
+  getItemBallAtWithElevation(tileX: number, tileY: number, playerElevation: number): ItemBallObject | null {
+    for (const ball of this.itemBalls.values()) {
+      if (ball.tileX === tileX && ball.tileY === tileY && !ball.collected) {
+        // Ground level (0) or universal (15) can interact with any elevation
+        if (playerElevation === 0 || playerElevation === 15) return ball;
+        if (ball.elevation === 0 || ball.elevation === 15) return ball;
+        // Same elevation = can interact
+        if (ball.elevation === playerElevation) return ball;
+      }
+    }
+    return null;
   }
 
   /**

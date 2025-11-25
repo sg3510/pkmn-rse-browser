@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
@@ -22,6 +22,7 @@ import {
   getMetatileIdFromMapTile,
   SECONDARY_TILE_OFFSET,
 } from '../utils/mapLoader';
+import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import {
   TILESET_ANIMATION_CONFIGS,
   type TilesetKind,
@@ -70,7 +71,7 @@ import {
 import { DebugRenderer } from './map/renderers/DebugRenderer';
 import { ObjectRenderer } from './map/renderers/ObjectRenderer';
 import { DialogBox, useDialog } from './dialog';
-import { npcSpriteCache, renderNPCs, renderNPCReflections } from '../game/npc';
+import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
 import { DebugPanel, DEFAULT_DEBUG_OPTIONS, type DebugOptions, type DebugState } from './debug';
 
 interface MapRendererProps {
@@ -661,6 +662,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const topCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const debugCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const debugEnabledRef = useRef<boolean>(false);
+  const debugOptionsRef = useRef<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
   const reflectionStateRef = useRef<ReflectionState>({
     hasReflection: false,
     reflectionType: null,
@@ -1070,6 +1072,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
   useEffect(() => {
     debugEnabledRef.current = debugOptions.enabled;
+    debugOptionsRef.current = debugOptions;
     if (
       debugOptions.enabled &&
       renderContextRef.current &&
@@ -1078,7 +1081,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     ) {
       refreshDebugOverlay(renderContextRef.current, playerControllerRef.current, cameraViewRef.current);
     }
-  }, [debugOptions.enabled, refreshDebugOverlay]);
+  }, [debugOptions, refreshDebugOverlay]);
 
   // Update layer decomposition when center tile changes
   useEffect(() => {
@@ -1843,8 +1846,9 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             ctx, 'background', false, view, undefined, backgroundCanvasDataRef.current
           );
 
-          // GBA pokeemerald elevation-to-priority: even elevations >= 4 have priority 1 (sprite above top layer)
-          const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+          // GBA pokeemerald elevation-to-priority (sElevationToPriority)
+          const playerPriority = getSpritePriorityForElevation(playerElevation);
+          const playerAboveTopLayer = playerPriority <= 1; // priority 0/1 draws above BG1
 
           topBelowCanvasDataRef.current = renderPassCanvas(
             ctx,
@@ -1855,7 +1859,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (!playerHasPriority1) return false;
+              if (!playerAboveTopLayer) return false;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
               return true;
             },
@@ -1871,7 +1875,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerHasPriority1) {
+              if (playerAboveTopLayer) {
                 if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
                 return false;
               }
@@ -1893,8 +1897,9 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         if (needsImageData) {
           backgroundImageDataRef.current = renderPass(ctx, 'background', false, view);
 
-          // GBA pokeemerald elevation-to-priority: even elevations >= 4 have priority 1 (sprite above top layer)
-          const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+          // GBA pokeemerald elevation-to-priority (sElevationToPriority)
+          const playerPriority = getSpritePriorityForElevation(playerElevation);
+          const playerAboveTopLayer = playerPriority <= 1; // priority 0/1 draws above BG1
 
           topBelowImageDataRef.current = renderPass(
             ctx,
@@ -1905,7 +1910,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (!playerHasPriority1) return false;
+              if (!playerAboveTopLayer) return false;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
               return true;
             }
@@ -1920,7 +1925,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerHasPriority1) {
+              if (playerAboveTopLayer) {
                 if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
                 return false;
               }
@@ -2005,6 +2010,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         // Render NPCs behind player
         const npcs = objectEventManagerRef.current.getVisibleNPCs();
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom');
+
+        // Render grass effects over NPCs (so grass covers their lower body)
+        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
+          tallGrass: grassSpriteRef.current,
+          longGrass: longGrassSpriteRef.current,
+        });
       }
 
       // Render surf blob (if surfing or mounting/dismounting)
@@ -2080,6 +2091,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         // Render NPCs in front of player
         const npcs = objectEventManagerRef.current.getVisibleNPCs();
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top');
+
+        // Render grass effects over NPCs (so grass covers their lower body)
+        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
+          tallGrass: grassSpriteRef.current,
+          longGrass: longGrassSpriteRef.current,
+        });
       }
 
       // 3. Draw Top Layer (Above Player)
@@ -2131,6 +2148,94 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
           topCtx.putImageData(topAboveImageDataRef.current, offsetX, offsetY);
           mainCtx.drawImage(topCanvasRef.current, 0, 0);
         }
+      }
+
+      // Render debug overlays if enabled
+      const showCollision = debugOptionsRef.current.showCollisionOverlay;
+      const showElevation = debugOptionsRef.current.showElevationOverlay;
+
+      if (showCollision || showElevation) {
+        const METATILE_PX = 16;
+
+        // Calculate visible tile range
+        const startTileX = view.worldStartTileX;
+        const startTileY = view.worldStartTileY;
+        const tilesWide = Math.ceil(widthPx / METATILE_PX) + 1;
+        const tilesHigh = Math.ceil(heightPx / METATILE_PX) + 1;
+
+        // Elevation colors - gradient from blue (low) to red (high)
+        const elevationColors = [
+          '#0000ff', // 0 - blue
+          '#0044ff', // 1
+          '#0088ff', // 2
+          '#00ccff', // 3
+          '#00ffcc', // 4
+          '#00ff88', // 5
+          '#00ff44', // 6
+          '#00ff00', // 7 - green
+          '#44ff00', // 8
+          '#88ff00', // 9
+          '#ccff00', // 10
+          '#ffff00', // 11 - yellow
+          '#ffcc00', // 12
+          '#ff8800', // 13
+          '#ff4400', // 14
+          '#ff0000', // 15 - red
+        ];
+
+        for (let ty = 0; ty < tilesHigh; ty++) {
+          for (let tx = 0; tx < tilesWide; tx++) {
+            const worldTileX = startTileX + tx;
+            const worldTileY = startTileY + ty;
+            const resolved = resolveTileAt(ctx, worldTileX, worldTileY);
+
+            if (resolved) {
+              const screenX = tx * METATILE_PX - Math.round(view.subTileOffsetX);
+              const screenY = ty * METATILE_PX - Math.round(view.subTileOffsetY);
+
+              // Render elevation overlay (bottom layer)
+              if (showElevation) {
+                const elevation = resolved.mapTile.elevation;
+                mainCtx.globalAlpha = 0.35;
+                mainCtx.fillStyle = elevationColors[elevation] || '#888888';
+                mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+              }
+
+              // Render collision overlay (top layer, with hatching for blocked)
+              if (showCollision) {
+                const collision = resolved.mapTile.collision;
+                mainCtx.globalAlpha = 0.4;
+
+                if (collision === 0) {
+                  // Passable - green border only (so elevation shows through)
+                  mainCtx.strokeStyle = '#00ff00';
+                  mainCtx.lineWidth = 1;
+                  mainCtx.strokeRect(screenX + 0.5, screenY + 0.5, METATILE_PX - 1, METATILE_PX - 1);
+                } else if (collision === 1) {
+                  // Blocked - red with X pattern
+                  mainCtx.fillStyle = '#ff0000';
+                  mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+                  // Draw X for blocked tiles
+                  mainCtx.globalAlpha = 0.6;
+                  mainCtx.strokeStyle = '#000000';
+                  mainCtx.lineWidth = 2;
+                  mainCtx.beginPath();
+                  mainCtx.moveTo(screenX + 2, screenY + 2);
+                  mainCtx.lineTo(screenX + METATILE_PX - 2, screenY + METATILE_PX - 2);
+                  mainCtx.moveTo(screenX + METATILE_PX - 2, screenY + 2);
+                  mainCtx.lineTo(screenX + 2, screenY + METATILE_PX - 2);
+                  mainCtx.stroke();
+                } else {
+                  // Other collision types - yellow
+                  mainCtx.fillStyle = '#ffff00';
+                  mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+                }
+              }
+            }
+          }
+        }
+
+        mainCtx.globalAlpha = 1.0;
       }
 
       if (fadeRef.current.mode) {
@@ -2493,14 +2598,17 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         // player.setDoorWarpHandler(handleDoorWarp); // This will be defined later
 
         // Set up object collision checker for item balls, NPCs, etc.
+        // Uses elevation-aware checking: objects at different elevations don't block
         player.setObjectCollisionChecker((tileX, tileY) => {
           const objectManager = objectEventManagerRef.current;
-          // Block if there's an uncollected item ball
-          if (objectManager.getItemBallAt(tileX, tileY) !== null) {
+          const playerElev = player.getCurrentElevation();
+
+          // Block if there's an uncollected item ball at same elevation
+          if (objectManager.getItemBallAtWithElevation(tileX, tileY, playerElev) !== null) {
             return true;
           }
-          // Block if there's a visible NPC
-          if (objectManager.hasNPCAt(tileX, tileY)) {
+          // Block if there's a visible NPC at same elevation
+          if (objectManager.hasNPCAtWithElevation(tileX, tileY, playerElev)) {
             return true;
           }
           return false;
@@ -3293,7 +3401,9 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             viewChanged ||
             doorAnimsRef.current.length > 0 ||
             fadeRef.current.mode !== null ||
-            !!arrowOverlayRef.current?.visible; // Keep rendering while arrow animates
+            !!arrowOverlayRef.current?.visible || // Keep rendering while arrow animates
+            debugOptionsRef.current.showCollisionOverlay || // Keep rendering while collision overlay is enabled
+            debugOptionsRef.current.showElevationOverlay; // Keep rendering while elevation overlay is enabled
           const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
           reflectionStateRef.current = reflectionState;
 
@@ -3363,7 +3473,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                   pixelX: player.x,
                   pixelY: player.y,
                   direction: player.dir,
-                  elevation: player.elevation,
+                  elevation: player.getElevation(),
                   isMoving: player.isMoving,
                   isSurfing: player.isSurfing(),
                   mapId: renderContextRef.current?.anchor.entry.id ?? 'unknown',

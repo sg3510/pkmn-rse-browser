@@ -23,10 +23,9 @@ import {
   isArrowWarpBehavior,
   isTeleportWarpBehavior,
   requiresDoorExitSequence,
-  isReflectiveBehavior,
-  isIceBehavior,
   type BridgeType,
 } from '../../utils/metatileBehaviors';
+import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 
 const DEBUG_MODE_FLAG = 'PKMN_DEBUG_MODE';
 
@@ -199,6 +198,11 @@ export function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: numb
 export function isVerticalObject(ctx: RenderContext, tileX: number, tileY: number): boolean {
   const resolved = resolveTileAt(ctx, tileX, tileY);
   if (!resolved || !resolved.metatile || !resolved.attributes) return false;
+  const mapTile = resolved.mapTile;
+  
+  // Passable tiles should never be treated as vertical objects.
+  // This prevents high-elevation bridges (collision 0) from being forced above the player.
+  if (mapTile.collision !== 1) return false;
   
   const layerType = resolved.attributes.layerType;
   
@@ -405,33 +409,31 @@ export function describeTile(
         renderedInTopAbovePass = true;
         topAbovePassReason = `🌳 VERTICAL OBJECT (tree/pole): Always covers player`;
       } else {
-        // Based on GBA pokeemerald sElevationToPriority table:
-        // Priority 1 (sprite ABOVE top layer): even elevations >= 4 (4, 6, 8, 10, 12)
-        // Priority 2 (sprite BELOW top layer): < 4 or odd elevations >= 4 (5, 7, 9, 11)
-        const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+        const playerPriority = getSpritePriorityForElevation(playerElevation);
+        const playerAboveTopLayer = playerPriority <= 1; // priority 0/1 draws above BG1
 
         // Top Below Pass filter (rendered BEFORE player = player on top)
-        if (!playerHasPriority1) {
+        if (!playerAboveTopLayer) {
           renderedInTopBelowPass = false;
-          topBelowPassReason = `Player elev ${playerElevation} has priority 2: top layer renders AFTER player`;
+          topBelowPassReason = `Player elev ${playerElevation} (priority ${playerPriority}) draws BELOW top layer`;
         } else if (elevation === playerElevation && collision === 1) {
           renderedInTopBelowPass = false;
           topBelowPassReason = `Same elev (${elevation}) + blocked: obstacle covers player (topAbove)`;
         } else {
           renderedInTopBelowPass = true;
-          topBelowPassReason = `Player elev ${playerElevation} (even, ≥4) has priority 1: top layer renders BEFORE player`;
+          topBelowPassReason = `Player elev ${playerElevation} (priority ${playerPriority}) draws ABOVE top layer`;
         }
 
         // Top Above Pass filter (rendered AFTER player = top layer on top)
-        if (!playerHasPriority1) {
+        if (!playerAboveTopLayer) {
           renderedInTopAbovePass = true;
-          topAbovePassReason = `Player elev ${playerElevation} has priority 2: top layer covers player`;
+          topAbovePassReason = `Player elev ${playerElevation} (priority ${playerPriority}) draws BELOW top layer (topAbove)`;
         } else if (elevation === playerElevation && collision === 1) {
           renderedInTopAbovePass = true;
           topAbovePassReason = `Same elev (${elevation}) + blocked: obstacle covers player`;
         } else {
           renderedInTopAbovePass = false;
-          topAbovePassReason = `Player elev ${playerElevation} (even, ≥4) has priority 1: player covers top layer`;
+          topAbovePassReason = `Player elev ${playerElevation} (priority ${playerPriority}) keeps top layer BEFORE player`;
         }
       }
     } else {

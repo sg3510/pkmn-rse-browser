@@ -1,5 +1,5 @@
 import { METATILE_SIZE } from '../../../utils/mapLoader';
-import { type WorldCameraView } from '../MapRenderer';
+import { type WorldCameraView } from '../../MapRenderer';
 
 export interface DoorAnimationInstance {
   id: number;

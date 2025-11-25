@@ -222,12 +222,38 @@ export function parseMovementType(movementType: string): NPCMovementType {
 
 /**
  * Get initial facing direction from movement type
+ *
+ * Reference: gInitialMovementTypeFacingDirections in
+ * public/pokeemerald/src/event_object_movement.c:350-430
+ *
+ * The initial direction is the FIRST direction in the movement type name.
+ * E.g., WALK_DOWN_AND_UP starts facing DOWN, WALK_UP_AND_DOWN starts facing UP.
  */
 export function getInitialDirection(movementType: string): NPCDirection {
-  if (movementType.includes('FACE_UP') || movementType.includes('_UP')) return 'up';
-  if (movementType.includes('FACE_LEFT') || movementType.includes('_LEFT')) return 'left';
-  if (movementType.includes('FACE_RIGHT') || movementType.includes('_RIGHT')) return 'right';
-  // Default to down (south)
+  // Explicit FACE_* types have highest priority
+  if (movementType.includes('FACE_UP') && !movementType.includes('FACE_DOWN')) return 'up';
+  if (movementType.includes('FACE_DOWN')) return 'down';
+  if (movementType.includes('FACE_LEFT') && !movementType.includes('FACE_RIGHT')) return 'left';
+  if (movementType.includes('FACE_RIGHT')) return 'right';
+
+  // For WALK/WANDER types, extract the FIRST direction after the action word
+  // WALK_DOWN_AND_UP -> down, WALK_UP_AND_DOWN -> up, etc.
+  const walkMatch = movementType.match(/(?:WALK|WANDER|SEQUENCE)_(\w+?)(?:_AND|_|$)/);
+  if (walkMatch) {
+    const firstDir = walkMatch[1].toUpperCase();
+    if (firstDir === 'UP' || firstDir === 'NORTH') return 'up';
+    if (firstDir === 'DOWN' || firstDir === 'SOUTH') return 'down';
+    if (firstDir === 'LEFT' || firstDir === 'WEST') return 'left';
+    if (firstDir === 'RIGHT' || firstDir === 'EAST') return 'right';
+  }
+
+  // For IN_PLACE types, check which direction
+  if (movementType.includes('IN_PLACE_UP')) return 'up';
+  if (movementType.includes('IN_PLACE_DOWN')) return 'down';
+  if (movementType.includes('IN_PLACE_LEFT')) return 'left';
+  if (movementType.includes('IN_PLACE_RIGHT')) return 'right';
+
+  // Default to down (south) - matches GBA default
   return 'down';
 }
 

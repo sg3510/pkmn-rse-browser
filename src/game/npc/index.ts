@@ -17,4 +17,4 @@ export {
 } from './NPCSpriteLoader';
 
 // Rendering
-export { renderNPCs, renderSingleNPC, renderNPCReflections, type NPCRenderView } from './NPCRenderer';
+export { renderNPCs, renderSingleNPC, renderNPCReflections, renderNPCGrassEffects, type NPCRenderView } from './NPCRenderer';

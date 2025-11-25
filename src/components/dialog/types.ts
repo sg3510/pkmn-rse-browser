@@ -198,8 +198,8 @@ export type DialogAction =
 export interface UseDialogReturn {
   /** Show a single message */
   showMessage: (text: string, options?: Partial<DialogMessage>) => Promise<void>;
-  /** Show multiple messages in sequence */
-  showMessages: (messages: DialogMessage[]) => Promise<void>;
+  /** Show multiple messages in sequence (optionally with choices) */
+  showMessages: (messages: DialogMessage[], options?: DialogOptions) => Promise<unknown>;
   /** Show Yes/No prompt, returns true for Yes, false for No/Cancel */
   showYesNo: (text: string, options?: { defaultYes?: boolean }) => Promise<boolean>;
   /** Show choice menu, returns selected value or null on cancel */

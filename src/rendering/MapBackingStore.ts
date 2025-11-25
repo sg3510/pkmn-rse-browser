@@ -1,6 +1,7 @@
 import type { Palette, MapTileData } from '../utils/mapLoader';
 import { METATILE_SIZE, TILE_SIZE, TILES_PER_ROW_IN_IMAGE, SECONDARY_TILE_OFFSET } from '../utils/mapLoader';
 import { TilesetCanvasCache } from './TilesetCanvasCache';
+import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 
 /**
  * Chunk size in metatiles (16x16 = 256 tiles per chunk)
@@ -218,22 +219,21 @@ export class MapBackingStore {
 
     const isVertical = isVerticalObject(tileX, tileY);
 
-    // Based on GBA pokeemerald sElevationToPriority table:
-    // Priority 1 = sprite ABOVE top layer (even elevations >= 4)
-    // Priority 2 = sprite BELOW top layer (< 4 or odd elevations >= 4)
-    const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+    // Map elevation to sprite priority (pokeemerald sElevationToPriority)
+    const playerPriority = getSpritePriorityForElevation(playerElevation);
+    const playerAboveTopLayer = playerPriority <= 1; // priority 0/1 draws above BG1
 
     if (pass === 'topBelow') {
       // topBelow = top layer renders BEFORE player
       if (isVertical) return false;
-      if (!playerHasPriority1) return false;
+      if (!playerAboveTopLayer) return false;
       if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
       return true;
     }
 
     // topAbove = top layer renders AFTER player
     if (isVertical) return true;
-    if (playerHasPriority1) {
+    if (playerAboveTopLayer) {
       if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
       return false;
     }

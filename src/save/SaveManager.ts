@@ -29,7 +29,6 @@ import {
   type SaveSlotInfo,
   type SaveResult,
   type LocationState,
-  type GameFlags,
   type PlayTime,
   type PlayerProfile,
   SAVE_VERSION,

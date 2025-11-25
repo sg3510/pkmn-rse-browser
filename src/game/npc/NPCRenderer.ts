@@ -13,8 +13,9 @@ import type { NPCObject, NPCDirection } from '../../types/objectEvents';
 import { METATILE_SIZE } from '../../utils/mapLoader';
 import { npcSpriteCache, getNPCFrameInfo, getNPCFrameRect } from './NPCSpriteLoader';
 import { ObjectRenderer, type SpriteFrameInfo } from '../../components/map/renderers/ObjectRenderer';
-import { computeObjectReflectionState } from '../../components/map/utils';
+import { computeObjectReflectionState, getMetatileBehavior } from '../../components/map/utils';
 import type { RenderContext } from '../../components/map/types';
+import { isTallGrassBehavior, isLongGrassBehavior } from '../../utils/metatileBehaviors';
 
 export interface NPCRenderView {
   cameraWorldX: number;
@@ -207,5 +208,91 @@ export function renderNPCReflections(
 
     // Render the reflection
     ObjectRenderer.renderObjectReflection(ctx, frameInfo, reflectionState, view, renderContext);
+  }
+}
+
+/**
+ * Grass sprite cache for NPC grass effects
+ */
+interface GrassSpriteCache {
+  tallGrass: HTMLCanvasElement | null;
+  longGrass: HTMLCanvasElement | null;
+}
+
+/**
+ * Render grass effects over NPCs standing on grass tiles
+ *
+ * In the GBA game, NPCs standing on tall/long grass have the grass sprite
+ * rendered OVER them, showing only their upper body (head and shoulders).
+ * The grass effect uses frame 0 (the "resting" state) which shows the grass
+ * at full coverage.
+ *
+ * This should be called AFTER rendering NPC sprites so grass covers them.
+ *
+ * @param ctx Canvas 2D context
+ * @param npcs Array of visible NPCs
+ * @param view Current camera/viewport info
+ * @param renderContext Render context for tile behavior lookup
+ * @param grassSprites Cached grass sprite canvases
+ */
+export function renderNPCGrassEffects(
+  ctx: CanvasRenderingContext2D,
+  npcs: NPCObject[],
+  view: NPCRenderView,
+  renderContext: RenderContext,
+  grassSprites: GrassSpriteCache
+): void {
+  if (npcs.length === 0) return;
+
+  const GRASS_FRAME_SIZE = 16;
+  const GRASS_RESTING_FRAME = 0; // Frame 0 = grass covering character's lower body
+
+  ctx.imageSmoothingEnabled = false;
+
+  for (const npc of npcs) {
+    // Skip invisible NPCs
+    if (!npc.visible) continue;
+
+    // Check if NPC is on a grass tile
+    const tileInfo = getMetatileBehavior(renderContext, npc.tileX, npc.tileY);
+    if (!tileInfo) continue;
+
+    const behavior = tileInfo.behavior;
+    let grassSprite: HTMLCanvasElement | null = null;
+
+    if (isTallGrassBehavior(behavior)) {
+      grassSprite = grassSprites.tallGrass;
+    } else if (isLongGrassBehavior(behavior)) {
+      grassSprite = grassSprites.longGrass;
+    }
+
+    if (!grassSprite) continue;
+
+    // Calculate grass position (centered on tile, like field effects)
+    // Grass effect is positioned at tile center
+    const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2;
+    const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2;
+
+    // Convert to screen coordinates (top-left corner of grass sprite)
+    const screenX = Math.round(worldX - view.cameraWorldX - GRASS_FRAME_SIZE / 2);
+    const screenY = Math.round(worldY - view.cameraWorldY - GRASS_FRAME_SIZE / 2);
+
+    // Viewport culling
+    if (
+      screenX + GRASS_FRAME_SIZE < 0 ||
+      screenX > view.pixelWidth ||
+      screenY + GRASS_FRAME_SIZE < 0 ||
+      screenY > view.pixelHeight
+    ) {
+      continue;
+    }
+
+    // Draw grass sprite frame 0 (resting state = full coverage)
+    const sx = GRASS_RESTING_FRAME * GRASS_FRAME_SIZE;
+    ctx.drawImage(
+      grassSprite,
+      sx, 0, GRASS_FRAME_SIZE, GRASS_FRAME_SIZE,
+      screenX, screenY, GRASS_FRAME_SIZE, GRASS_FRAME_SIZE
+    );
   }
 }

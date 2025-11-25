@@ -440,12 +440,22 @@ export class PlayerController {
   private currentElevation: number = 0;
   
   /**
-   * Player's previous elevation (used for collision checks)
+   * Player's previous elevation (used for RENDERING priority, not collision!)
    * Reference: ObjectEvent.previousElevation and PlayerGetElevation()
    * in public/pokeemerald/src/field_player_avatar.c:1188
+   *
+   * Only updated when stepping onto tiles with elevation 1-14.
+   * Preserved when stepping onto elevation 0 or 15 tiles.
    */
   private previousElevation: number = 0;
-  
+
+  /**
+   * Map elevation of the tile the player was standing on before the current move.
+   * Used for the GBA elevation 15 rule: if EITHER current or previous tile
+   * has elevation 15, don't update any elevation fields.
+   */
+  private previousTileElevation: number = 0;
+
   private readonly TILE_PIXELS = 16;
   private readonly SPRITE_WIDTH = 16;
   private readonly SPRITE_HEIGHT = 32;
@@ -542,15 +552,17 @@ export class PlayerController {
     const resolved = this.tileResolver?.(this.tileX, this.tileY);
     if (resolved) {
       this.currentElevation = resolved.mapTile.elevation;
-      this.previousElevation = resolved.mapTile.elevation;
+      // Match base game: start with the actual tile elevation (even 0/15)
+      this.previousElevation = this.currentElevation;
+      
       if (isDebugMode()) {
-        console.log(`[SPAWN] Player spawned at (${tileX}, ${tileY}) with elevation ${this.previousElevation}, metatile ${resolved.mapTile.metatileId}`);
+        console.log(`[SPAWN] Player spawned at (${tileX}, ${tileY}) with elevation ${this.currentElevation}, set previousElevation to ${this.previousElevation}`);
       }
     } else {
       this.currentElevation = 0;
-      this.previousElevation = 0;
+      this.previousElevation = 3; // Default to ground (3) instead of 0
       if (isDebugMode()) {
-        console.warn(`[SPAWN] Player spawned at (${tileX}, ${tileY}) but tile not found, defaulting to elevation 0`);
+        console.warn(`[SPAWN] Player spawned at (${tileX}, ${tileY}) but tile not found, defaulting to elevation 0 (prev 3)`);
       }
     }
     
@@ -566,54 +578,83 @@ export class PlayerController {
   }
 
   /**
-   * Get the player's elevation for collision detection
-   * 
+   * Get the player's elevation for RENDERING priority
+   *
    * Reference: public/pokeemerald/src/field_player_avatar.c:1188
-   * Returns previousElevation, which is the elevation of the tile
-   * the player is currently standing on.
+   * Returns previousElevation, preserved when walking on ground level (0) tiles.
    */
   public getElevation(): number {
     return this.previousElevation;
   }
 
   /**
+   * Get the player's current elevation for COLLISION checks
+   *
+   * This is the actual tile elevation the player is on.
+   * When on ground level (0), player can move anywhere.
+   */
+  public getCurrentElevation(): number {
+    return this.currentElevation;
+  }
+
+  /**
    * Update player elevation based on current tile
-   * 
-   * Reference: UpdateObjectEventCurrentMovement() and related functions
-   * in public/pokeemerald/src/event_object_movement.c
-   * 
-   * IMPORTANT: In GBA, "previousElevation" represents the elevation of the tile
-   * the player is CURRENTLY standing on (used for collision checks).
-   * After completing movement, both previousElevation and currentElevation
-   * should be set to the new tile's elevation.
+   *
+   * Reference: ObjectEventUpdateElevation() in
+   * public/pokeemerald/src/event_object_movement.c:7759-7771
+   *
+   * GBA Elevation Update Rules:
+   * 1. If EITHER current OR previous tile has elevation 15, don't update ANYTHING
+   * 2. currentElevation = tile's elevation (used for collision checks)
+   * 3. previousElevation ONLY updates for tiles with elevation 1-14
+   *    (preserved for elevation 0 and 15, used for rendering priority)
    */
   public updateElevation(): void {
     const resolved = this.tileResolver?.(this.tileX, this.tileY);
-    
+
     if (resolved) {
-      // Both should reflect the tile we're NOW standing on
-      // This is the stable elevation used for collision detection
-      const oldElevation = this.previousElevation;
-      const mapElevation = resolved.mapTile.elevation;
-      
-      // IMPORTANT: Elevation 15 is UNIVERSAL.
-      // If we step onto a Universal tile, we PRESERVE our previous elevation.
-      // This ensures that if we walk from Elev 4 -> Elev 15, we are still effectively at Elev 4.
-      // This prevents us from walking off the bridge onto Elev 3 tiles.
-      // Reference: public/pokeemerald/src/event_object_movement.c (implied logic)
-      let newElevation = mapElevation;
-      if (mapElevation === 15) {
-        newElevation = oldElevation;
+      const curTileElevation = resolved.mapTile.elevation;
+      const prevTileElevation = this.previousTileElevation;
+      const oldCurrentElevation = this.currentElevation;
+      const oldPreviousElevation = this.previousElevation;
+
+      // GBA Rule 1: If EITHER current or previous tile is elevation 15, don't update anything
+      // Reference: event_object_movement.c:7762-7763
+      if (curTileElevation === 15 || prevTileElevation === 15) {
+        if (isDebugMode()) {
+          console.log(
+            `[ELEVATION] Universal tile (15) involved: cur=${curTileElevation}, prev=${prevTileElevation}. ` +
+            `Preserving currentElev=${this.currentElevation}, previousElev=${this.previousElevation}`
+          );
+        }
+        // Still update previousTileElevation for next move
+        this.previousTileElevation = curTileElevation;
+        return;
       }
-      
-      this.currentElevation = newElevation;
-      this.previousElevation = newElevation;
-      
+
+      // GBA Rule 2: Always update currentElevation to tile's elevation
+      // Reference: event_object_movement.c:7766
+      this.currentElevation = curTileElevation;
+
+      // GBA Rule 3: Only update previousElevation for tiles 1-14, preserve for 0 and 15
+      // Reference: event_object_movement.c:7768-7769
+      if (curTileElevation !== 0 && curTileElevation !== 15) {
+        this.previousElevation = curTileElevation;
+      }
+
+      // Update previousTileElevation for next move
+      this.previousTileElevation = curTileElevation;
+
       if (isDebugMode()) {
-        if (oldElevation !== newElevation) {
-          console.log(`[ELEVATION] Player elevation changed: ${oldElevation} → ${newElevation} at tile (${this.tileX}, ${this.tileY}) (Map Elev: ${mapElevation})`);
-        } else {
-          console.log(`[ELEVATION] Player elevation unchanged: ${newElevation} at tile (${this.tileX}, ${this.tileY}) (Map Elev: ${mapElevation})`);
+        const changes: string[] = [];
+        if (oldCurrentElevation !== this.currentElevation) {
+          changes.push(`currentElev: ${oldCurrentElevation}→${this.currentElevation}`);
+        }
+        if (oldPreviousElevation !== this.previousElevation) {
+          changes.push(`previousElev: ${oldPreviousElevation}→${this.previousElevation}`);
+        }
+        if (changes.length > 0) {
+          console.log(`[ELEVATION] At (${this.tileX}, ${this.tileY}) tileElev=${curTileElevation}: ${changes.join(', ')}`);
         }
       }
     } else {
@@ -621,7 +662,6 @@ export class PlayerController {
       if (isDebugMode()) {
         console.warn(`[ELEVATION] Out of bounds at (${this.tileX}, ${this.tileY}), keeping elevation ${this.currentElevation}`);
       }
-      this.previousElevation = this.currentElevation;
     }
   }
 
@@ -941,20 +981,26 @@ export class PlayerController {
 
   /**
    * Check if there is an elevation mismatch between player and target tile
-   * 
+   *
    * Reference: IsElevationMismatchAt() in public/pokeemerald/src/event_object_movement.c:7707
-   * 
+   *
+   * CRITICAL: GBA uses currentElevation for collision checks, NOT previousElevation!
+   * - currentElevation = actual tile elevation player is on (0 = ground level = can go anywhere)
+   * - previousElevation = preserved elevation for rendering priority only
+   *
    * Logic:
    * - Ground level (elevation 0) can move anywhere (unless blocked by other collision)
    * - Tiles with elevation 0 or 15 are accessible from any player elevation
    * - Different non-zero elevations cannot interact (collision)
-   * 
+   *
    * @param tileX Target tile X coordinate
    * @param tileY Target tile Y coordinate
    * @returns true if elevation mismatch prevents movement
    */
   private isElevationMismatchAt(tileX: number, tileY: number): boolean {
-    const playerElevation = this.previousElevation;
+    // CRITICAL FIX: Use currentElevation for collision, not previousElevation!
+    // Reference: event_object_movement.c:4667 uses objectEvent->currentElevation
+    const playerElevation = this.currentElevation;
     
     // Ground level (0) can go anywhere
     // Reference: public/pokeemerald/src/event_object_movement.c:7711-7712
@@ -1039,6 +1085,15 @@ export class PlayerController {
     if (currentlySurfing) {
       // While surfing: check if target is surfable water
       if (isSurfableBehavior(behavior)) {
+        // CRITICAL: Still need to check for NPC/object collision even on water!
+        // Reference: CheckForObjectEventCollision in event_object_movement.c
+        if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
+          if (isDebugMode()) {
+            console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water but blocked by NPC/object - BLOCKED`);
+          }
+          return true;
+        }
+
         if (isDebugMode()) {
           console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is surfable water while surfing - PASSABLE`);
         }
@@ -1739,11 +1794,17 @@ export class PlayerController {
       );
 
       if (isSurfable) {
-        // Continue surfing - normal water movement
-        this.isMoving = true;
-        this.pixelsMoved = 0;
-        if (isDebugMode()) {
-          console.log(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
+        // Match CheckForObjectEventCollision: even on water, block if an object/NPC is present
+        const blocked = this.isCollisionAt(targetTileX, targetTileY);
+        if (!blocked) {
+          // Continue surfing - normal water movement
+          this.isMoving = true;
+          this.pixelsMoved = 0;
+          if (isDebugMode()) {
+            console.log(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
+          }
+        } else if (isDebugMode()) {
+          console.log(`[SURF] Water tile (${targetTileX}, ${targetTileY}) blocked (object/event)`);
         }
       } else {
         // Check if we can dismount to this tile
