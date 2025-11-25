@@ -602,3 +602,4 @@ if (USE_HARDWARE_RENDERING && canvasRendererRef.current) {
 5. Run visual regression tests
 
 
+

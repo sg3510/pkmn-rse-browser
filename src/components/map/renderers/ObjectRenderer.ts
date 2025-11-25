@@ -35,6 +35,23 @@ export interface ArrowOverlay {
   startedAt: number;
 }
 
+/**
+ * Generic sprite frame info for reflection rendering
+ * Used by both player and NPCs
+ */
+export interface SpriteFrameInfo {
+  sprite: HTMLCanvasElement | HTMLImageElement;
+  sx: number;  // Source X in sprite sheet
+  sy: number;  // Source Y in sprite sheet
+  sw: number;  // Source width
+  sh: number;  // Source height
+  flip: boolean;  // Horizontal flip (for east-facing)
+  worldX: number;  // World pixel X (top-left of sprite)
+  worldY: number;  // World pixel Y (top-left of sprite)
+  tileX: number;   // Tile X position (for reflection detection)
+  tileY: number;   // Tile Y position (for reflection detection)
+}
+
 // Bridge offsets for reflections
 const BRIDGE_OFFSETS: Record<'none' | 'pondLow' | 'pondMed' | 'pondHigh', number> = {
   none: 0,
@@ -444,6 +461,132 @@ export class ObjectRenderer {
   }
 
   /**
+   * Generic reflection rendering for any sprite (player, NPC, etc.)
+   *
+   * This implements the same reflection logic as the GBA:
+   * - Vertically flipped sprite
+   * - Positioned at sprite.y + height - 2 + bridgeOffset
+   * - Blue/ice tint based on reflection type
+   * - Masked to only show on reflective tile pixels (BG1 transparency)
+   *
+   * @param ctx - Canvas context to draw to
+   * @param frameInfo - Sprite frame information
+   * @param reflectionState - Reflection state (hasReflection, type, bridge)
+   * @param view - Camera/viewport info
+   * @param renderContext - Render context for tile masks
+   */
+  static renderObjectReflection(
+    ctx: CanvasRenderingContext2D,
+    frameInfo: SpriteFrameInfo,
+    reflectionState: ReflectionState,
+    view: WorldCameraView,
+    renderContext: RenderContext
+  ): void {
+    if (!reflectionState.hasReflection) return;
+
+    const { sprite, sx, sy, sw, sh, flip, worldX, worldY } = frameInfo;
+
+    // Calculate reflection Y position: sprite bottom - 2 + bridge offset
+    // This matches GBA: GetReflectionVerticalOffset() returns height - 2
+    const reflectionWorldY = worldY + sh - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+
+    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
+    const tileRefX = Math.floor(worldX);
+    const tileRefY = Math.floor(reflectionWorldY);
+
+    // For SCREEN RENDERING: Use Math.round() to avoid floating-point precision errors
+    const screenX = Math.round(worldX - view.cameraWorldX);
+    const screenY = Math.round(reflectionWorldY - view.cameraWorldY);
+
+    // Create mask canvas
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = sw;
+    maskCanvas.height = sh;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+    const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+    const maskData = maskImage.data;
+
+    // Build reflection mask from reflective tiles
+    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
+    const pixelEndTileX = Math.floor((tileRefX + sw - 1) / METATILE_SIZE);
+    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
+    const pixelEndTileY = Math.floor((tileRefY + sh - 1) / METATILE_SIZE);
+
+    // Expand range by 1 tile to catch tiles at boundaries during movement
+    const startTileX = pixelStartTileX - 1;
+    const endTileX = pixelEndTileX + 1;
+    const startTileY = pixelStartTileY;
+    const endTileY = pixelEndTileY + 1;
+
+    let maskPixelsSet = 0;
+
+    for (let ty = startTileY; ty <= endTileY; ty++) {
+      for (let tx = startTileX; tx <= endTileX; tx++) {
+        const info = getMetatileBehavior(renderContext, tx, ty);
+        if (!info?.meta?.isReflective) continue;
+        const mask = info.meta.pixelMask;
+        const tileLeft = tx * METATILE_SIZE - tileRefX;
+        const tileTop = ty * METATILE_SIZE - tileRefY;
+        for (let y = 0; y < METATILE_SIZE; y++) {
+          const globalY = tileTop + y;
+          if (globalY < 0 || globalY >= sh) continue;
+          for (let x = 0; x < METATILE_SIZE; x++) {
+            const globalX = tileLeft + x;
+            if (globalX < 0 || globalX >= sw) continue;
+            if (mask[y * METATILE_SIZE + x]) {
+              const index = (globalY * sw + globalX) * 4 + 3;
+              maskData[index] = 255;
+              maskPixelsSet++;
+            }
+          }
+        }
+      }
+    }
+
+    // Skip rendering if no mask pixels (nothing to show)
+    if (maskPixelsSet === 0) return;
+
+    maskCtx.putImageData(maskImage, 0, 0);
+
+    // Create reflection canvas (flipped sprite)
+    const reflectionCanvas = document.createElement('canvas');
+    reflectionCanvas.width = sw;
+    reflectionCanvas.height = sh;
+    const reflectionCtx = reflectionCanvas.getContext('2d');
+    if (!reflectionCtx) return;
+    reflectionCtx.clearRect(0, 0, sw, sh);
+    reflectionCtx.save();
+    reflectionCtx.translate(flip ? sw : 0, sh);
+    reflectionCtx.scale(flip ? -1 : 1, -1);
+    reflectionCtx.drawImage(sprite, sx, sy, sw, sh, 0, 0, sw, sh);
+    reflectionCtx.restore();
+
+    // Apply tint
+    reflectionCtx.globalCompositeOperation = 'source-atop';
+    const baseTint =
+      reflectionState.reflectionType === 'ice'
+        ? 'rgba(180, 220, 255, 0.35)'
+        : 'rgba(70, 120, 200, 0.35)';
+    const bridgeTint = 'rgba(20, 40, 70, 0.55)';
+    reflectionCtx.fillStyle = reflectionState.bridgeType === 'none' ? baseTint : bridgeTint;
+    reflectionCtx.fillRect(0, 0, sw, sh);
+    reflectionCtx.globalCompositeOperation = 'source-over';
+
+    // Apply mask
+    reflectionCtx.globalCompositeOperation = 'destination-in';
+    reflectionCtx.drawImage(maskCanvas, 0, 0);
+    reflectionCtx.globalCompositeOperation = 'source-over';
+
+    // Draw to main canvas
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
+    ctx.drawImage(reflectionCanvas, screenX, screenY);
+    ctx.restore();
+  }
+
+  /**
    * Render animated arrow overlay for arrow warps
    */
   static renderArrow(
@@ -521,3 +664,4 @@ export class ObjectRenderer {
     }
   }
 }
+

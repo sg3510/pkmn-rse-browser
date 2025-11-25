@@ -137,3 +137,4 @@ The implementation is complete and ready for user testing. See `doc/testing-guid
 **Expected outcome**: 5-10× faster rendering with zero visual changes.
 
 
+

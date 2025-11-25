@@ -1,0 +1,211 @@
+/**
+ * NPCRenderer - Renders NPCs to canvas with proper direction frames and Y-sorting
+ *
+ * Handles:
+ * - Direction-based sprite frame selection
+ * - Horizontal flipping for east-facing sprites
+ * - Y-sorting relative to player
+ * - Viewport culling
+ * - Water/ice reflections (same as player)
+ */
+
+import type { NPCObject, NPCDirection } from '../../types/objectEvents';
+import { METATILE_SIZE } from '../../utils/mapLoader';
+import { npcSpriteCache, getNPCFrameInfo, getNPCFrameRect } from './NPCSpriteLoader';
+import { ObjectRenderer, type SpriteFrameInfo } from '../../components/map/renderers/ObjectRenderer';
+import { computeObjectReflectionState } from '../../components/map/utils';
+import type { RenderContext } from '../../components/map/types';
+
+export interface NPCRenderView {
+  cameraWorldX: number;
+  cameraWorldY: number;
+  pixelWidth: number;
+  pixelHeight: number;
+}
+
+/**
+ * Render NPCs to the canvas with Y-sorting
+ *
+ * @param ctx Canvas 2D context
+ * @param npcs Array of visible NPCs to render
+ * @param view Current camera/viewport info
+ * @param playerTileY Player's tile Y for Y-sorting
+ * @param layer 'bottom' for NPCs behind player, 'top' for NPCs in front
+ */
+export function renderNPCs(
+  ctx: CanvasRenderingContext2D,
+  npcs: NPCObject[],
+  view: NPCRenderView,
+  playerTileY: number,
+  layer: 'bottom' | 'top'
+): void {
+  if (npcs.length === 0) return;
+
+  ctx.imageSmoothingEnabled = false;
+
+  for (const npc of npcs) {
+    // Skip invisible NPCs
+    if (!npc.visible) continue;
+
+    // Y-sorting: NPCs at Y < playerY are behind (bottom layer)
+    // NPCs at Y >= playerY are in front (top layer)
+    const isInFront = npc.tileY >= playerTileY;
+
+    // Filter by layer
+    if (layer === 'bottom' && isInFront) continue;
+    if (layer === 'top' && !isInFront) continue;
+
+    // Get sprite
+    const sprite = npcSpriteCache.get(npc.graphicsId);
+    if (!sprite) continue;
+
+    // Get frame info based on direction
+    const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
+    const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
+
+    // Calculate world position
+    // NPCs are positioned at tile center, but sprite is drawn from top-left
+    // Standard 16x32 sprite: center horizontally on tile, feet at bottom of tile
+    const worldX = npc.tileX * METATILE_SIZE;
+    const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+
+    // Calculate screen position
+    const screenX = Math.round(worldX - view.cameraWorldX);
+    const screenY = Math.round(worldY - view.cameraWorldY);
+
+    // Viewport culling
+    if (
+      screenX + sw < 0 ||
+      screenX > view.pixelWidth ||
+      screenY + sh < 0 ||
+      screenY > view.pixelHeight
+    ) {
+      continue;
+    }
+
+    // Draw sprite (with optional horizontal flip for east-facing)
+    if (flipHorizontal) {
+      ctx.save();
+      ctx.translate(screenX + sw, screenY);
+      ctx.scale(-1, 1);
+      ctx.drawImage(sprite, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sprite, sx, sy, sw, sh, screenX, screenY, sw, sh);
+    }
+  }
+}
+
+/**
+ * Render a single NPC for debugging or special cases
+ */
+export function renderSingleNPC(
+  ctx: CanvasRenderingContext2D,
+  npc: NPCObject,
+  screenX: number,
+  screenY: number,
+  direction?: NPCDirection
+): void {
+  const sprite = npcSpriteCache.get(npc.graphicsId);
+  if (!sprite) return;
+
+  const dir = direction ?? npc.direction;
+  const { frameIndex, flipHorizontal } = getNPCFrameInfo(dir, false, 0);
+  const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
+
+  ctx.imageSmoothingEnabled = false;
+
+  if (flipHorizontal) {
+    ctx.save();
+    ctx.translate(screenX + sw, screenY);
+    ctx.scale(-1, 1);
+    ctx.drawImage(sprite, sx, sy, sw, sh, 0, 0, sw, sh);
+    ctx.restore();
+  } else {
+    ctx.drawImage(sprite, sx, sy, sw, sh, screenX, screenY, sw, sh);
+  }
+}
+
+/**
+ * Render water/ice reflections for all visible NPCs
+ *
+ * This implements the same reflection behavior as the GBA game:
+ * - Reflections appear on water/ice tiles below NPCs
+ * - Vertically flipped sprite with blue/ice tint
+ * - Masked to only show on reflective tile pixels
+ *
+ * Reflections are rendered BEFORE NPCs so they appear underneath.
+ *
+ * @param ctx Canvas 2D context
+ * @param npcs Array of visible NPCs
+ * @param view Current camera/viewport info
+ * @param renderContext Render context for tile masks and reflection detection
+ */
+export function renderNPCReflections(
+  ctx: CanvasRenderingContext2D,
+  npcs: NPCObject[],
+  view: NPCRenderView,
+  renderContext: RenderContext
+): void {
+  if (npcs.length === 0) return;
+
+  for (const npc of npcs) {
+    // Skip invisible NPCs
+    if (!npc.visible) continue;
+
+    // Get sprite
+    const sprite = npcSpriteCache.get(npc.graphicsId);
+    if (!sprite) continue;
+
+    // Get frame info based on direction
+    const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
+    const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
+
+    // Compute reflection state for this NPC
+    const reflectionState = computeObjectReflectionState(
+      renderContext,
+      npc.tileX,
+      npc.tileY,
+      sw,
+      sh
+    );
+
+    // Skip if no reflection
+    if (!reflectionState.hasReflection) continue;
+
+    // Calculate world position (same as renderNPCs)
+    const worldX = npc.tileX * METATILE_SIZE;
+    const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+
+    // Viewport culling for reflection
+    // Reflection appears below sprite, so check slightly larger area
+    const reflectionY = worldY + sh - 2;
+    const screenX = Math.round(worldX - view.cameraWorldX);
+    const screenY = Math.round(reflectionY - view.cameraWorldY);
+    if (
+      screenX + sw < 0 ||
+      screenX > view.pixelWidth ||
+      screenY + sh < 0 ||
+      screenY > view.pixelHeight
+    ) {
+      continue;
+    }
+
+    // Create sprite frame info for the generic reflection renderer
+    const frameInfo: SpriteFrameInfo = {
+      sprite,
+      sx,
+      sy,
+      sw,
+      sh,
+      flip: flipHorizontal,
+      worldX,
+      worldY,
+      tileX: npc.tileX,
+      tileY: npc.tileY,
+    };
+
+    // Render the reflection
+    ObjectRenderer.renderObjectReflection(ctx, frameInfo, reflectionState, view, renderContext);
+  }
+}

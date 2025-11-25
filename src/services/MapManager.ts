@@ -162,6 +162,7 @@ export class MapManager {
       const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
       return objectEventsRaw
         .map((obj) => {
+          const local_id = (obj as { local_id?: unknown }).local_id;
           const graphics_id = String((obj as { graphics_id?: unknown }).graphics_id ?? '');
           const x = Number((obj as { x?: unknown }).x ?? 0);
           const y = Number((obj as { y?: unknown }).y ?? 0);
@@ -178,7 +179,7 @@ export class MapManager {
             return null;
           }
 
-          return {
+          const result: ObjectEventData = {
             graphics_id,
             x,
             y,
@@ -190,9 +191,13 @@ export class MapManager {
             trainer_sight_or_berry_tree_id,
             script,
             flag,
-          } satisfies ObjectEventData;
+          };
+          if (typeof local_id === 'string') {
+            result.local_id = local_id;
+          }
+          return result;
         })
-        .filter((obj): obj is ObjectEventData => !!obj);
+        .filter((obj): obj is ObjectEventData => obj !== null);
     } catch (err) {
       if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
         console.warn(`Failed to load object events for ${entry.id}:`, err);

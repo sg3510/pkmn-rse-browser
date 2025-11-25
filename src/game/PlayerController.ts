@@ -1133,9 +1133,10 @@ export class PlayerController {
     const sprite = this.sprites[spriteKey];
     if (!sprite) return null;
 
-    // Round to whole pixels to prevent sub-pixel blur and ghosting
-    const renderX = Math.floor(this.x);
-    const renderY = Math.floor(this.y + this.spriteYOffset);
+    // Preserve subpixel position; final rounding happens in render() alongside camera coordinates
+    // (Flooring here causes 1px shiver when combined with round() in render())
+    const renderX = this.x;
+    const renderY = this.y + this.spriteYOffset;
 
     let srcIndex = 0;
     let flip = false;

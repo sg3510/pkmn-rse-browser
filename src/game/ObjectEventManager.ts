@@ -1,31 +1,37 @@
 /**
  * ObjectEventManager - Manages object events (items, NPCs, etc.) on maps
  *
- * Currently supports:
+ * Supports:
  * - Item balls (OBJ_EVENT_GFX_ITEM_BALL)
+ * - NPCs (characters, people)
  *
  * Future support planned for:
- * - NPCs
- * - Trainers
+ * - Trainers (battle triggers)
  * - Berry trees
  */
 
-import type { ObjectEventData, ItemBallObject } from '../types/objectEvents';
-import { OBJ_EVENT_GFX_ITEM_BALL } from '../types/objectEvents';
+import type { ObjectEventData, ItemBallObject, NPCObject } from '../types/objectEvents';
+import {
+  OBJ_EVENT_GFX_ITEM_BALL,
+  isNPCGraphicsId,
+  parseMovementType,
+  parseTrainerType,
+  getInitialDirection,
+} from '../types/objectEvents';
 import { getItemIdFromScript } from '../data/itemScripts';
 import { getItemName } from '../data/items';
 import { gameFlags } from './GameFlags';
 
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
-  private currentMapId: string | null = null;
+  private npcs: Map<string, NPCObject> = new Map();
 
   /**
    * Clear all object events (called when changing maps)
    */
   clear(): void {
     this.itemBalls.clear();
-    this.currentMapId = null;
+    this.npcs.clear();
   }
 
   /**
@@ -44,6 +50,10 @@ export class ObjectEventManager {
     mapOffsetY: number
   ): void {
     for (const obj of objectEvents) {
+      // Convert local coordinates to world coordinates
+      const worldX = mapOffsetX + obj.x;
+      const worldY = mapOffsetY + obj.y;
+
       // Handle item balls
       if (obj.graphics_id === OBJ_EVENT_GFX_ITEM_BALL) {
         const itemId = getItemIdFromScript(obj.script);
@@ -51,10 +61,6 @@ export class ObjectEventManager {
           console.warn(`[ObjectEventManager] Unknown item script: ${obj.script}`);
           continue;
         }
-
-        // Convert local coordinates to world coordinates
-        const worldX = mapOffsetX + obj.x;
-        const worldY = mapOffsetY + obj.y;
 
         // Create unique ID
         const id = `${mapId}_item_${worldX}_${worldY}`;
@@ -74,7 +80,40 @@ export class ObjectEventManager {
           collected,
         });
       }
-      // Future: handle other object types (NPCs, trainers, etc.)
+      // Handle NPCs
+      else if (isNPCGraphicsId(obj.graphics_id)) {
+        // Create unique ID
+        const localId = obj.local_id ?? null;
+        const id = localId
+          ? `${mapId}_npc_${localId}`
+          : `${mapId}_npc_${worldX}_${worldY}`;
+
+        // Check visibility from flag
+        // NPCs with FLAG_HIDE_* are hidden when the flag IS set
+        const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
+
+        // Parse trainer sight range (could be "0" or a number)
+        const trainerSightRange = parseInt(obj.trainer_sight_or_berry_tree_id, 10) || 0;
+
+        this.npcs.set(id, {
+          id,
+          localId,
+          tileX: worldX,
+          tileY: worldY,
+          elevation: obj.elevation,
+          graphicsId: obj.graphics_id,
+          direction: getInitialDirection(obj.movement_type),
+          movementType: parseMovementType(obj.movement_type),
+          movementRangeX: obj.movement_range_x,
+          movementRangeY: obj.movement_range_y,
+          trainerType: parseTrainerType(obj.trainer_type),
+          trainerSightRange,
+          script: obj.script,
+          flag: obj.flag,
+          visible: !isHidden,
+        });
+      }
+      // Future: handle other object types (berry trees, etc.)
     }
   }
 
@@ -132,12 +171,15 @@ export class ObjectEventManager {
   getInteractableAt(
     tileX: number,
     tileY: number
-  ): { type: 'item'; data: ItemBallObject } | null {
+  ): { type: 'item'; data: ItemBallObject } | { type: 'npc'; data: NPCObject } | null {
     const itemBall = this.getItemBallAt(tileX, tileY);
     if (itemBall) {
       return { type: 'item', data: itemBall };
     }
-    // Future: check for NPCs, signs, etc.
+    const npc = this.getNPCAt(tileX, tileY);
+    if (npc) {
+      return { type: 'npc', data: npc };
+    }
     return null;
   }
 
@@ -148,5 +190,68 @@ export class ObjectEventManager {
     for (const ball of this.itemBalls.values()) {
       ball.collected = ball.flag && ball.flag !== '0' ? gameFlags.isSet(ball.flag) : false;
     }
+    // Also refresh NPC visibility
+    this.refreshNPCVisibility();
+  }
+
+  // === NPC Methods ===
+
+  /**
+   * Get all visible NPCs
+   */
+  getVisibleNPCs(): NPCObject[] {
+    return [...this.npcs.values()].filter((npc) => npc.visible);
+  }
+
+  /**
+   * Get all NPCs (including hidden ones, for debugging)
+   */
+  getAllNPCs(): NPCObject[] {
+    return [...this.npcs.values()];
+  }
+
+  /**
+   * Get NPC at a specific tile position
+   * @returns The NPC if found and visible, null otherwise
+   */
+  getNPCAt(tileX: number, tileY: number): NPCObject | null {
+    for (const npc of this.npcs.values()) {
+      if (npc.tileX === tileX && npc.tileY === tileY && npc.visible) {
+        return npc;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Check if there's a blocking NPC at a position
+   * (Used for collision detection)
+   */
+  hasNPCAt(tileX: number, tileY: number): boolean {
+    return this.getNPCAt(tileX, tileY) !== null;
+  }
+
+  /**
+   * Refresh NPC visibility from flags
+   */
+  refreshNPCVisibility(): void {
+    for (const npc of this.npcs.values()) {
+      // NPCs with FLAG_HIDE_* are hidden when the flag IS set
+      npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+    }
+  }
+
+  /**
+   * Get unique graphics IDs used by visible NPCs
+   * (Used for sprite loading)
+   */
+  getUniqueNPCGraphicsIds(): string[] {
+    const ids = new Set<string>();
+    for (const npc of this.npcs.values()) {
+      if (npc.visible) {
+        ids.add(npc.graphicsId);
+      }
+    }
+    return [...ids];
   }
 }

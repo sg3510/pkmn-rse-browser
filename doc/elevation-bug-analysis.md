@@ -141,3 +141,4 @@ Expected: ALLOWED ✓ (elevation 0 is universal for player)
 4. **LOW - Full sprite priority system matching GBA**
 
 
+

@@ -1,0 +1,590 @@
+/**
+ * NPCSpriteLoader - Loads and caches NPC sprites from pokeemerald graphics
+ *
+ * Maps graphics IDs (OBJ_EVENT_GFX_*) to sprite sheet paths and handles
+ * loading/caching of sprite images.
+ *
+ * Sprite layouts vary by character:
+ * - Standard NPCs: 144x32 (9 frames of 16x32) or 48x32 (3 frames of 16x32)
+ * - Small characters: 144x16 (9 frames of 16x16) or 48x16 (3 frames of 16x16)
+ * - Pokemon: Usually 48x16 (3 frames of 16x16)
+ *
+ * Frame order (when 9 frames):
+ *   Frame 0: Face down (south)
+ *   Frame 1: Face up (north)
+ *   Frame 2: Face left (west) - horizontally flipped for right
+ *   Frame 3: Walk down frame 1
+ *   Frame 4: Walk up frame 1
+ *   Frame 5: Walk left frame 1
+ *   Frame 6: Walk left frame 2
+ *   Frames 7-8: Extra frames
+ *
+ * Frame order (when 3 frames):
+ *   Frame 0: Face down
+ *   Frame 1: Face up
+ *   Frame 2: Face left/right
+ */
+
+/** Base path for object event graphics */
+const SPRITE_BASE_PATH = '/pokeemerald/graphics/object_events/pics';
+
+/**
+ * Frame dimensions (width x height in pixels) for each graphics ID
+ * Parsed from pokeemerald/src/data/object_events/object_event_graphics_info.h
+ *
+ * Most NPCs are 16x32, small characters and Pokemon are 16x16,
+ * some special sprites (bikes, legendaries) are 32x32 or 64x64
+ */
+const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  // Standard 16x32 NPCs (most common)
+  OBJ_EVENT_GFX_BOY_1: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BOY_2: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BOY_3: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GIRL_1: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GIRL_2: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GIRL_3: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_TWIN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_FAT_MAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WOMAN_1: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WOMAN_2: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WOMAN_3: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_OLD_MAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_OLD_WOMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAN_1: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAN_2: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAN_3: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAN_4: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAN_5: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RICH_BOY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LADY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_POKEFAN_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_POKEFAN_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_EXPERT_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_EXPERT_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_COOK: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LINK_RECEPTIONIST: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_CAMPER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_PICNICKER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_YOUNGSTER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BUG_CATCHER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_PSYCHIC_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_PSYCHIC_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SCHOOL_KID_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SCHOOL_KID_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_HEX_MANIAC: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SWIMMER_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SWIMMER_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BLACK_BELT: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BEAUTY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SCIENTIST_1: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SCIENTIST_2: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LASS: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GENTLEMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SAILOR: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_FISHERMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RUNNING_TRIATHLETE_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RUNNING_TRIATHLETE_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_HIKER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_NURSE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_PROF_BIRCH: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MOM: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MART_EMPLOYEE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_CLERK: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MR_BRINEY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SCOTT: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WALLY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_ARCHIE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAXIE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_STEVEN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LANETTE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RYDEL: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GUITARIST: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_ARTIST: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_REPORTER_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_REPORTER_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_CAMERAMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GAMEBOY_KID: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_CONTEST_JUDGE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_DEVON_EMPLOYEE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_AQUA_MEMBER_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_AQUA_MEMBER_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAGMA_MEMBER_M: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAGMA_MEMBER_F: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BRENDAN_NORMAL: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_MAY_NORMAL: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_RIVAL_MAY_NORMAL: { width: 16, height: 32 },
+
+  // Small 16x16 characters
+  OBJ_EVENT_GFX_LITTLE_BOY: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_LITTLE_GIRL: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_NINJA_BOY: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_TUBER_M: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_TUBER_F: { width: 16, height: 16 },
+
+  // 32x32 sprites (bikes, special)
+  OBJ_EVENT_GFX_CYCLING_TRIATHLETE_M: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_CYCLING_TRIATHLETE_F: { width: 32, height: 32 },
+
+  // Pokemon (16x16)
+  OBJ_EVENT_GFX_PIKACHU: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_KECLEON: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_ZIGZAGOON_1: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_POOCHYENA: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_WINGULL: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_AZURILL: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_SKITTY: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_MEW: { width: 16, height: 16 },
+
+  // Larger Pokemon (32x32)
+  OBJ_EVENT_GFX_LATIAS: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_LATIOS: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_HO_OH: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_LUGIA: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_DEOXYS: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_SUDOWOODO: { width: 16, height: 32 },
+
+  // Legendary Pokemon (64x64)
+  OBJ_EVENT_GFX_KYOGRE: { width: 64, height: 64 },
+  OBJ_EVENT_GFX_GROUDON: { width: 64, height: 64 },
+  OBJ_EVENT_GFX_RAYQUAZA: { width: 64, height: 64 },
+};
+
+/**
+ * Get the expected frame dimensions for a graphics ID
+ * Falls back to 16x32 (most common) if not found
+ */
+function getExpectedFrameDimensions(graphicsId: string): { width: number; height: number } {
+  return GRAPHICS_FRAME_DIMENSIONS[graphicsId] ?? { width: 16, height: 32 };
+}
+
+/**
+ * Maps graphics IDs to sprite file paths (relative to SPRITE_BASE_PATH)
+ * This is a subset of the most common NPCs; expand as needed.
+ */
+const GRAPHICS_ID_TO_PATH: Record<string, string> = {
+  // Generic people
+  OBJ_EVENT_GFX_BOY_1: '/people/boy_1.png',
+  OBJ_EVENT_GFX_BOY_2: '/people/boy_2.png',
+  OBJ_EVENT_GFX_BOY_3: '/people/boy_3.png',
+  OBJ_EVENT_GFX_GIRL_1: '/people/girl_1.png',
+  OBJ_EVENT_GFX_GIRL_2: '/people/girl_2.png',
+  OBJ_EVENT_GFX_GIRL_3: '/people/girl_3.png',
+  OBJ_EVENT_GFX_LITTLE_BOY: '/people/little_boy.png',
+  OBJ_EVENT_GFX_LITTLE_GIRL: '/people/little_girl.png',
+  OBJ_EVENT_GFX_FAT_MAN: '/people/fat_man.png',
+  OBJ_EVENT_GFX_WOMAN_1: '/people/woman_1.png',
+  OBJ_EVENT_GFX_WOMAN_2: '/people/woman_2.png',
+  OBJ_EVENT_GFX_WOMAN_3: '/people/woman_3.png',
+  OBJ_EVENT_GFX_OLD_MAN: '/people/old_man.png',
+  OBJ_EVENT_GFX_OLD_WOMAN: '/people/old_woman.png',
+  OBJ_EVENT_GFX_MAN_1: '/people/man_1.png',
+  OBJ_EVENT_GFX_MAN_2: '/people/man_2.png',
+  OBJ_EVENT_GFX_MAN_3: '/people/man_3.png',
+  OBJ_EVENT_GFX_MAN_4: '/people/man_4.png',
+  OBJ_EVENT_GFX_MAN_5: '/people/man_5.png',
+  OBJ_EVENT_GFX_TWIN: '/people/twin.png',
+
+  // Trainers / character classes
+  OBJ_EVENT_GFX_NINJA_BOY: '/people/ninja_boy.png',
+  OBJ_EVENT_GFX_BUG_CATCHER: '/people/bug_catcher.png',
+  OBJ_EVENT_GFX_HIKER: '/people/hiker.png',
+  OBJ_EVENT_GFX_SCIENTIST_1: '/people/scientist_1.png',
+  OBJ_EVENT_GFX_SCIENTIST_2: '/people/scientist_2.png',
+  OBJ_EVENT_GFX_BLACK_BELT: '/people/black_belt.png',
+  OBJ_EVENT_GFX_GENTLEMAN: '/people/gentleman.png',
+  OBJ_EVENT_GFX_BEAUTY: '/people/beauty.png',
+  OBJ_EVENT_GFX_FISHERMAN: '/people/fisherman.png',
+  OBJ_EVENT_GFX_SAILOR: '/people/sailor.png',
+  OBJ_EVENT_GFX_CAMPER: '/people/camper.png',
+  OBJ_EVENT_GFX_PICNICKER: '/people/picnicker.png',
+  OBJ_EVENT_GFX_LASS: '/people/lass.png',
+  OBJ_EVENT_GFX_SCHOOL_KID_M: '/people/school_kid_m.png',
+  OBJ_EVENT_GFX_SCHOOL_KID_F: '/people/school_kid_f.png',
+  OBJ_EVENT_GFX_EXPERT_M: '/people/expert_m.png',
+  OBJ_EVENT_GFX_EXPERT_F: '/people/expert_f.png',
+  OBJ_EVENT_GFX_YOUNGSTER: '/people/youngster.png',
+  OBJ_EVENT_GFX_POKEFAN_M: '/people/pokefan_m.png',
+  OBJ_EVENT_GFX_POKEFAN_F: '/people/pokefan_f.png',
+  OBJ_EVENT_GFX_SWIMMER_M: '/people/swimmer_m.png',
+  OBJ_EVENT_GFX_SWIMMER_F: '/people/swimmer_f.png',
+  OBJ_EVENT_GFX_TUBER_M: '/people/tuber_m.png',
+  OBJ_EVENT_GFX_TUBER_F: '/people/tuber_f.png',
+  OBJ_EVENT_GFX_RUNNING_TRIATHLETE_M: '/people/running_triathlete_m.png',
+  OBJ_EVENT_GFX_RUNNING_TRIATHLETE_F: '/people/running_triathlete_f.png',
+  OBJ_EVENT_GFX_CYCLING_TRIATHLETE_M: '/people/cycling_triathlete_m.png',
+  OBJ_EVENT_GFX_CYCLING_TRIATHLETE_F: '/people/cycling_triathlete_f.png',
+  OBJ_EVENT_GFX_PSYCHIC_M: '/people/psychic_m.png',
+  OBJ_EVENT_GFX_PSYCHIC_F: '/people/psychic_f.png',
+  OBJ_EVENT_GFX_HEX_MANIAC: '/people/hex_maniac.png',
+  OBJ_EVENT_GFX_GUITARIST: '/people/guitarist.png',
+  OBJ_EVENT_GFX_COOK: '/people/cook.png',
+  OBJ_EVENT_GFX_ARTIST: '/people/artist.png',
+  OBJ_EVENT_GFX_REPORTER_M: '/people/reporter_m.png',
+  OBJ_EVENT_GFX_REPORTER_F: '/people/reporter_f.png',
+  OBJ_EVENT_GFX_CAMERAMAN: '/people/cameraman.png',
+  OBJ_EVENT_GFX_RICH_BOY: '/people/rich_boy.png',
+  OBJ_EVENT_GFX_LADY: '/people/lady.png',
+  OBJ_EVENT_GFX_GAMEBOY_KID: '/people/gameboy_kid.png',
+  OBJ_EVENT_GFX_CONTEST_JUDGE: '/people/contest_judge.png',
+  OBJ_EVENT_GFX_DEVON_EMPLOYEE: '/people/devon_employee.png',
+  OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN: '/people/hot_springs_old_woman.png',
+
+  // Teams
+  OBJ_EVENT_GFX_AQUA_MEMBER_M: '/people/aqua_member_m.png',
+  OBJ_EVENT_GFX_AQUA_MEMBER_F: '/people/aqua_member_f.png',
+  OBJ_EVENT_GFX_MAGMA_MEMBER_M: '/people/magma_member_m.png',
+  OBJ_EVENT_GFX_MAGMA_MEMBER_F: '/people/magma_member_f.png',
+
+  // Story characters
+  OBJ_EVENT_GFX_MOM: '/people/mom.png',
+  OBJ_EVENT_GFX_NURSE: '/people/nurse.png',
+  OBJ_EVENT_GFX_MART_EMPLOYEE: '/people/mart_employee.png',
+  OBJ_EVENT_GFX_LINK_RECEPTIONIST: '/people/link_receptionist.png',
+  OBJ_EVENT_GFX_CLERK: '/people/clerk.png',
+  OBJ_EVENT_GFX_PROF_BIRCH: '/people/prof_birch.png',
+  OBJ_EVENT_GFX_MR_BRINEY: '/people/mr_briney.png',
+  OBJ_EVENT_GFX_SCOTT: '/people/scott.png',
+  OBJ_EVENT_GFX_WALLY: '/people/wally.png',
+  OBJ_EVENT_GFX_ARCHIE: '/people/archie.png',
+  OBJ_EVENT_GFX_MAXIE: '/people/maxie.png',
+  OBJ_EVENT_GFX_STEVEN: '/people/steven.png',
+  OBJ_EVENT_GFX_LANETTE: '/people/lanette.png',
+  OBJ_EVENT_GFX_RYDEL: '/people/rydel.png',
+
+  // Player characters (Brendan/May)
+  OBJ_EVENT_GFX_BRENDAN_NORMAL: '/people/brendan/walking.png',
+  OBJ_EVENT_GFX_MAY_NORMAL: '/people/may/walking.png',
+  OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL: '/people/brendan/walking.png',
+  OBJ_EVENT_GFX_RIVAL_MAY_NORMAL: '/people/may/walking.png',
+
+  // Pokemon (overworld)
+  OBJ_EVENT_GFX_ZIGZAGOON_1: '/pokemon/zigzagoon.png',
+  OBJ_EVENT_GFX_PIKACHU: '/pokemon/pikachu.png',
+  OBJ_EVENT_GFX_POOCHYENA: '/pokemon/poochyena.png',
+  OBJ_EVENT_GFX_WINGULL: '/pokemon/wingull.png',
+  OBJ_EVENT_GFX_AZURILL: '/pokemon/azurill.png',
+  OBJ_EVENT_GFX_SKITTY: '/pokemon/skitty.png',
+  OBJ_EVENT_GFX_KECLEON: '/pokemon/kecleon.png',
+  OBJ_EVENT_GFX_KYOGRE: '/pokemon/kyogre/normal.png',
+  OBJ_EVENT_GFX_GROUDON: '/pokemon/groudon/normal.png',
+  OBJ_EVENT_GFX_RAYQUAZA: '/pokemon/rayquaza/normal.png',
+  OBJ_EVENT_GFX_LATIAS: '/pokemon/latias.png',
+  OBJ_EVENT_GFX_LATIOS: '/pokemon/latios.png',
+  OBJ_EVENT_GFX_DEOXYS: '/pokemon/deoxys.png',
+  OBJ_EVENT_GFX_MEW: '/pokemon/mew.png',
+  OBJ_EVENT_GFX_HO_OH: '/pokemon/ho_oh.png',
+  OBJ_EVENT_GFX_LUGIA: '/pokemon/lugia.png',
+  OBJ_EVENT_GFX_SUDOWOODO: '/pokemon/sudowoodo.png',
+};
+
+/**
+ * Try to guess the sprite path from a graphics ID
+ * Handles common naming conventions for sprites not in the lookup table
+ */
+function guessSpritePath(graphicsId: string): string | null {
+  // Remove prefix
+  const name = graphicsId.replace('OBJ_EVENT_GFX_', '');
+
+  // Convert to lowercase with underscores to path format
+  const snakeCase = name.toLowerCase();
+
+  // Try common paths
+  const possiblePaths = [
+    `/people/${snakeCase}.png`,
+    `/pokemon/${snakeCase}.png`,
+    `/misc/${snakeCase}.png`,
+  ];
+
+  // Return the first one (caller will try to load it)
+  return possiblePaths[0];
+}
+
+/**
+ * Get the sprite path for a graphics ID
+ */
+export function getNPCSpritePath(graphicsId: string): string | null {
+  const path = GRAPHICS_ID_TO_PATH[graphicsId];
+  if (path) {
+    return SPRITE_BASE_PATH + path;
+  }
+
+  // Try to guess
+  const guessed = guessSpritePath(graphicsId);
+  if (guessed) {
+    return SPRITE_BASE_PATH + guessed;
+  }
+
+  return null;
+}
+
+/**
+ * Apply transparency to a sprite by making the background color transparent.
+ * GBA sprites use the top-left pixel color as the transparency key (usually cyan).
+ */
+function applyTransparency(img: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return canvas;
+  }
+
+  ctx.drawImage(img, 0, 0);
+
+  // Get the background color from the top-left pixel
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const bgR = data[0];
+  const bgG = data[1];
+  const bgB = data[2];
+
+  // Make all pixels matching the background color transparent
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+      data[i + 3] = 0; // Set alpha to 0
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+/**
+ * Sprite dimensions info
+ */
+export interface SpriteDimensions {
+  frameWidth: number;
+  frameHeight: number;
+  totalWidth: number;
+  totalHeight: number;
+}
+
+/**
+ * NPC sprite cache
+ * Stores sprites as canvas elements with transparency applied
+ */
+class NPCSpriteCache {
+  private cache: Map<string, HTMLCanvasElement> = new Map();
+  private dimensions: Map<string, SpriteDimensions> = new Map();
+  private loading: Map<string, Promise<HTMLCanvasElement | null>> = new Map();
+  private failed: Set<string> = new Set();
+
+  /**
+   * Get a cached sprite or null if not loaded
+   */
+  get(graphicsId: string): HTMLCanvasElement | null {
+    return this.cache.get(graphicsId) ?? null;
+  }
+
+  /**
+   * Get sprite dimensions for a graphics ID
+   * Returns expected dimensions from C source if not loaded yet
+   */
+  getDimensions(graphicsId: string): SpriteDimensions {
+    const dims = this.dimensions.get(graphicsId);
+    if (dims) return dims;
+    // Fall back to expected dimensions from C source
+    const expected = getExpectedFrameDimensions(graphicsId);
+    return {
+      frameWidth: expected.width,
+      frameHeight: expected.height,
+      totalWidth: expected.width * 9, // Assume 9 frames as default
+      totalHeight: expected.height,
+    };
+  }
+
+  /**
+   * Check if a sprite is cached
+   */
+  has(graphicsId: string): boolean {
+    return this.cache.has(graphicsId);
+  }
+
+  /**
+   * Check if a sprite failed to load
+   */
+  hasFailed(graphicsId: string): boolean {
+    return this.failed.has(graphicsId);
+  }
+
+  /**
+   * Load a sprite (async)
+   * Applies transparency by making the background color (top-left pixel) transparent
+   */
+  async load(graphicsId: string): Promise<HTMLCanvasElement | null> {
+    // Already cached
+    if (this.cache.has(graphicsId)) {
+      return this.cache.get(graphicsId)!;
+    }
+
+    // Already failed
+    if (this.failed.has(graphicsId)) {
+      return null;
+    }
+
+    // Already loading
+    if (this.loading.has(graphicsId)) {
+      return this.loading.get(graphicsId)!;
+    }
+
+    // Get path
+    const path = getNPCSpritePath(graphicsId);
+    if (!path) {
+      console.warn(`[NPCSpriteCache] No sprite path for ${graphicsId}`);
+      this.failed.add(graphicsId);
+      return null;
+    }
+
+    // Start loading
+    const loadPromise = new Promise<HTMLCanvasElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        // Apply transparency and store as canvas
+        const canvas = applyTransparency(img);
+        this.cache.set(graphicsId, canvas);
+
+        // Get expected frame dimensions from C source
+        const expected = getExpectedFrameDimensions(graphicsId);
+
+        // Frame dimensions come from the C source (getExpectedFrameDimensions)
+        const frameWidth = expected.width;
+        const frameHeight = expected.height;
+
+        this.dimensions.set(graphicsId, {
+          frameWidth,
+          frameHeight,
+          totalWidth: img.width,
+          totalHeight: img.height,
+        });
+
+        this.loading.delete(graphicsId);
+        resolve(canvas);
+      };
+      img.onerror = () => {
+        console.warn(`[NPCSpriteCache] Failed to load sprite: ${path}`);
+        this.failed.add(graphicsId);
+        this.loading.delete(graphicsId);
+        resolve(null);
+      };
+      img.src = path;
+    });
+
+    this.loading.set(graphicsId, loadPromise);
+    return loadPromise;
+  }
+
+  /**
+   * Load multiple sprites in parallel
+   */
+  async loadMany(graphicsIds: string[]): Promise<void> {
+    await Promise.all(graphicsIds.map((id) => this.load(id)));
+  }
+
+  /**
+   * Clear the cache
+   */
+  clear(): void {
+    this.cache.clear();
+    this.dimensions.clear();
+    this.loading.clear();
+    this.failed.clear();
+  }
+
+  /**
+   * Get cache stats for debugging
+   */
+  getStats(): { cached: number; loading: number; failed: number } {
+    return {
+      cached: this.cache.size,
+      loading: this.loading.size,
+      failed: this.failed.size,
+    };
+  }
+}
+
+/** Singleton sprite cache */
+export const npcSpriteCache = new NPCSpriteCache();
+
+/**
+ * Get frame info for rendering an NPC
+ */
+export function getNPCFrameInfo(
+  direction: 'down' | 'up' | 'left' | 'right',
+  isWalking: boolean = false,
+  walkFrame: number = 0
+): { frameIndex: number; flipHorizontal: boolean } {
+  let frameIndex: number;
+  let flipHorizontal = false;
+
+  if (isWalking) {
+    // Walking animation (simplified - just 2 frames)
+    const walkFrameIdx = walkFrame % 2;
+    switch (direction) {
+      case 'down':
+        frameIndex = walkFrameIdx === 0 ? 3 : 0; // Alternate walk1/stand
+        break;
+      case 'up':
+        frameIndex = walkFrameIdx === 0 ? 4 : 1;
+        break;
+      case 'left':
+        frameIndex = walkFrameIdx === 0 ? 5 : 2;
+        break;
+      case 'right':
+        frameIndex = walkFrameIdx === 0 ? 5 : 2;
+        flipHorizontal = true;
+        break;
+    }
+  } else {
+    // Standing still
+    switch (direction) {
+      case 'down':
+        frameIndex = 0;
+        break;
+      case 'up':
+        frameIndex = 1;
+        break;
+      case 'left':
+        frameIndex = 2;
+        break;
+      case 'right':
+        frameIndex = 2;
+        flipHorizontal = true;
+        break;
+    }
+  }
+
+  return { frameIndex, flipHorizontal };
+}
+
+/**
+ * Calculate source rectangle for a frame in the sprite sheet
+ * @param frameIndex The frame index (0-8)
+ * @param graphicsId Optional graphics ID to get actual sprite dimensions
+ */
+export function getNPCFrameRect(
+  frameIndex: number,
+  graphicsId?: string
+): {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+} {
+  // Get actual dimensions if graphicsId provided, otherwise use default 16x32
+  const dims = graphicsId
+    ? npcSpriteCache.getDimensions(graphicsId)
+    : {
+        frameWidth: 16,
+        frameHeight: 32,
+      };
+
+  return {
+    sx: frameIndex * dims.frameWidth,
+    sy: 0,
+    sw: dims.frameWidth,
+    sh: dims.frameHeight,
+  };
+}

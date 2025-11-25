@@ -488,6 +488,65 @@ export function describeTile(
   };
 }
 
+/**
+ * Generic reflection state computation for any object at a tile position
+ * Used by both player and NPCs
+ *
+ * @param ctx - Render context
+ * @param tileX - Object's tile X position
+ * @param tileY - Object's tile Y position
+ * @param spriteWidth - Sprite width in pixels (default 16)
+ * @param spriteHeight - Sprite height in pixels (default 32)
+ */
+export function computeObjectReflectionState(
+  ctx: RenderContext,
+  tileX: number,
+  tileY: number,
+  spriteWidth: number = 16,
+  spriteHeight: number = 32
+): ReflectionState {
+  // Calculate how many tiles the sprite covers
+  const widthTiles = Math.max(1, (spriteWidth + 8) >> 4);
+  const heightTiles = Math.max(1, (spriteHeight + 8) >> 4);
+
+  let found: ReflectionType | null = null;
+
+  // Search tiles below the object for reflective surfaces
+  // Start from the object's tile and go down (where reflection would appear)
+  for (let i = 0; i < heightTiles && !found; i++) {
+    const y = tileY + i;
+
+    // Check center tile
+    const center = getMetatileBehavior(ctx, tileX, y);
+    if (center?.meta?.isReflective) {
+      found = center.meta.reflectionType;
+      break;
+    }
+
+    // Check tiles to left and right based on sprite width
+    for (let j = 1; j < widthTiles && !found; j++) {
+      const infos = [
+        getMetatileBehavior(ctx, tileX + j, y),
+        getMetatileBehavior(ctx, tileX - j, y),
+      ];
+      for (const info of infos) {
+        if (info?.meta?.isReflective) {
+          found = info.meta.reflectionType;
+          break;
+        }
+      }
+    }
+  }
+
+  const bridgeType = resolveBridgeType(ctx, tileX, tileY);
+
+  return {
+    hasReflection: !!found,
+    reflectionType: found,
+    bridgeType,
+  };
+}
+
 export function computeReflectionState(
   ctx: RenderContext,
   player: PlayerController | null
@@ -497,46 +556,5 @@ export function computeReflectionState(
   }
 
   const { width, height } = player.getSpriteSize();
-  const widthTiles = (width + 8) >> 4;
-  const heightTiles = (height + 8) >> 4;
-
-  const bases = [
-    { x: player.tileX, y: player.tileY },
-  ];
-
-  let found: ReflectionType | null = null;
-
-  for (let i = 0; i < heightTiles && !found; i++) {
-    const offsetY = i;
-    for (const base of bases) {
-      const y = base.y + offsetY;
-      const center = getMetatileBehavior(ctx, base.x, y);
-      if (center?.meta?.isReflective) {
-        found = center.meta.reflectionType;
-        break;
-      }
-      for (let j = 1; j < widthTiles && !found; j++) {
-        const px = base.x + j;
-        const nx = base.x - j;
-        const infos = [
-          getMetatileBehavior(ctx, px, y),
-          getMetatileBehavior(ctx, nx, y),
-        ];
-        for (const info of infos) {
-          if (info?.meta?.isReflective) {
-            found = info.meta.reflectionType;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  const bridgeType = resolveBridgeType(ctx, player.tileX, player.tileY);
-
-  return {
-    hasReflection: !!found,
-    reflectionType: found,
-    bridgeType,
-  };
+  return computeObjectReflectionState(ctx, player.tileX, player.tileY, width, height);
 }
