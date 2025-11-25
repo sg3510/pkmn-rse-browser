@@ -4,7 +4,7 @@ import { MB_TALL_GRASS, MB_LONG_GRASS } from './metatileBehaviors.generated';
 export { MB_TALL_GRASS, MB_LONG_GRASS };
 
 export const MB_DEEP_SAND = 6;
-export const MB_SAND = 33;
+export const MB_SAND = 33;  // 0x21 - Regular sand (footprints behavior)
 
 export const MB_POND_WATER = 16;
 export const MB_INTERIOR_DEEP_WATER = 17;
@@ -17,9 +17,9 @@ export const MB_SOOTOPOLIS_DEEP_WATER = 20;
 export const MB_REFLECTION_UNDER_BRIDGE = 43;
 export const MB_SHALLOW_WATER = 23;
 export const MB_OCEAN_WATER = 21;
-export const MB_NO_SURFACING = 24;
-export const MB_SEAWEED = 33;
-export const MB_SEAWEED_NO_SURFACING = 41;
+export const MB_NO_SURFACING = 25;  // 0x19 - Underwater areas where you can't surface
+export const MB_SEAWEED = 34;  // 0x22 - Underwater seaweed (surfable)
+export const MB_SEAWEED_NO_SURFACING = 42;  // 0x2A - Seaweed where you can't surface
 export const MB_JUMP_EAST = 56;
 
 export const MB_JUMP_WEST = 57;
@@ -182,4 +182,52 @@ export function isTallGrassBehavior(behavior: number): boolean {
 
 export function isLongGrassBehavior(behavior: number): boolean {
   return behavior === MB_LONG_GRASS;
+}
+
+/**
+ * Surfable water behaviors that allow using Surf
+ * Based on pokeemerald MetatileBehavior_IsSurfableWaterOrUnderwater
+ */
+const SURFABLE_BEHAVIORS = new Set([
+  MB_POND_WATER,
+  MB_INTERIOR_DEEP_WATER,
+  MB_DEEP_WATER,
+  MB_WATERFALL,
+  MB_OCEAN_WATER,
+  MB_SOOTOPOLIS_DEEP_WATER,
+  MB_NO_SURFACING,
+  MB_SEAWEED,
+  MB_SEAWEED_NO_SURFACING,
+  MB_WATER_DOOR,
+  MB_WATER_SOUTH_ARROW_WARP,
+]);
+
+export function isSurfableBehavior(behavior: number): boolean {
+  return SURFABLE_BEHAVIORS.has(behavior);
+}
+
+/**
+ * Water behaviors that block walking but don't allow surfing (shallow water)
+ */
+export function isShallowWaterBehavior(behavior: number): boolean {
+  return behavior === MB_SHALLOW_WATER;
+}
+
+/**
+ * Puddle behavior - causes splash effect when walking through
+ * Based on pokeemerald MetatileBehavior_IsPuddle (metatile_behavior.c)
+ */
+export function isPuddleBehavior(behavior: number): boolean {
+  return behavior === MB_PUDDLE;
+}
+
+/**
+ * Has ripples behavior - causes water ripple effect when moving on water
+ * Based on pokeemerald MetatileBehavior_HasRipples (metatile_behavior.c)
+ * Triggers for: MB_POND_WATER, MB_PUDDLE, MB_SOOTOPOLIS_DEEP_WATER
+ */
+export function hasRipplesBehavior(behavior: number): boolean {
+  return behavior === MB_POND_WATER ||
+         behavior === MB_PUDDLE ||
+         behavior === MB_SOOTOPOLIS_DEEP_WATER;
 }

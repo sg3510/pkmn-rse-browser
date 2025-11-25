@@ -14,14 +14,17 @@ function isDebugMode(): boolean {
   return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
 }
 
+// GBA frame timing - 1 tick = 1 frame at 60fps = ~16.67ms
+const MS_PER_TICK = 1000 / 60;
+
 export interface FieldEffect {
   id: string;
   tileX: number;
   tileY: number;
-  animationFrame: number;  // Current frame index (0-4 for tall, 0-3 for long, 0-1 for sand)
+  animationFrame: number;  // Current frame index (0-4 for tall/ripple, 0-3 for long, 0-1 for sand/splash)
   sequenceIndex: number;   // Index in the animation sequence array
-  animationTick: number;   // Tick counter within current frame
-  type: 'tall' | 'long' | 'sand' | 'deep_sand';   // Grass/Field type
+  animationTick: number;   // Tick counter within current frame (fractional for accurate timing)
+  type: 'tall' | 'long' | 'sand' | 'deep_sand' | 'puddle_splash' | 'water_ripple';
   skipAnimation: boolean;  // If true, start at frame 0 (spawn case)
   ownerObjectId: string;   // Player/NPC ID that triggered this
   completed: boolean;      // Animation finished
@@ -33,8 +36,8 @@ export interface FieldEffectForRendering {
   id: string;
   worldX: number;          // World pixel X (tileX * 16 + 8)
   worldY: number;          // World pixel Y (tileY * 16 + 8)
-  frame: number;           // Current animation frame (0-4 for tall, 0-3 for long, 0-1 for sand)
-  type: 'tall' | 'long' | 'sand' | 'deep_sand';   // Grass/Field type
+  frame: number;           // Current animation frame (0-4 for tall/ripple, 0-3 for long, 0-1 for sand/splash)
+  type: 'tall' | 'long' | 'sand' | 'deep_sand' | 'puddle_splash' | 'water_ripple';
   subpriorityOffset: number; // 0 or 4 based on frame
   visible: boolean;
   direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
@@ -67,6 +70,46 @@ const TALL_GRASS_TICKS_PER_FRAME = 10;
 const LONG_GRASS_ANIMATION_SEQUENCE = [1, 2, 0, 3, 0, 3, 0];
 const LONG_GRASS_FRAME_DURATIONS = [3, 3, 4, 4, 4, 4, 4];
 
+/**
+ * Puddle splash animation sequence (from pokeemerald C code):
+ * sAnim_Splash_0 in field_effect_objects.h (lines 543-548)
+ *
+ * Frame 0: 4 ticks (66.67ms)
+ * Frame 1: 4 ticks (66.67ms)
+ * END (8 total ticks = ~133ms)
+ *
+ * The splash follows the player sprite (UpdateSplashFieldEffect) and
+ * disappears when animation completes.
+ */
+const PUDDLE_SPLASH_ANIMATION_SEQUENCE = [0, 1];
+const PUDDLE_SPLASH_TICKS_PER_FRAME = 4;
+
+/**
+ * Water ripple animation sequence (from pokeemerald C code):
+ * sAnim_Ripple in field_effect_objects.h (lines 112-123)
+ *
+ * Triggered by MetatileBehavior_HasRipples which checks:
+ * - MB_POND_WATER (16)
+ * - MB_PUDDLE (22)
+ * - MB_SOOTOPOLIS_DEEP_WATER (20)
+ *
+ * Animation:
+ * Frame 0: 12 ticks
+ * Frame 1: 9 ticks
+ * Frame 2: 9 ticks
+ * Frame 3: 9 ticks
+ * Frame 0: 9 ticks
+ * Frame 1: 9 ticks
+ * Frame 2: 11 ticks
+ * Frame 4: 11 ticks
+ * END (79 total ticks = ~1.32 seconds)
+ *
+ * The ripple stays in place (WaitFieldEffectSpriteAnim callback).
+ * Sprite is 16x16 pixels with 5 frames.
+ */
+const WATER_RIPPLE_ANIMATION_SEQUENCE = [0, 1, 2, 3, 0, 1, 2, 4];
+const WATER_RIPPLE_FRAME_DURATIONS = [12, 9, 9, 9, 9, 9, 11, 11];
+
 export class FieldEffectManager {
   private effects: Map<string, FieldEffect> = new Map();
   private nextId = 0;
@@ -85,13 +128,13 @@ export class FieldEffectManager {
   create(
     tileX: number,
     tileY: number,
-    type: 'tall' | 'long' | 'sand' | 'deep_sand',
+    type: 'tall' | 'long' | 'sand' | 'deep_sand' | 'puddle_splash' | 'water_ripple',
     skipAnimation: boolean,
     ownerObjectId: string,
     direction?: 'up' | 'down' | 'left' | 'right'
   ): string {
-    const id = `grass_${this.nextId++}`;
-    
+    const id = `effect_${this.nextId++}`;
+
     // Select initial frame based on type and direction
     let initialFrame = 0;
     if (!skipAnimation) {
@@ -100,6 +143,9 @@ export class FieldEffectManager {
       } else if (type === 'sand' || type === 'deep_sand') {
         // Sand: frame 0 for up/down, frame 1 for left/right
         initialFrame = (direction === 'left' || direction === 'right') ? 1 : 0;
+      } else if (type === 'puddle_splash' || type === 'water_ripple') {
+        // Water effects start at frame 0
+        initialFrame = 0;
       }
     }
 
@@ -129,22 +175,28 @@ export class FieldEffectManager {
   }
 
   /**
-   * Update all grass effects by one tick (called at 60 FPS).
-   * Advances animation frames according to pokeemerald timing.
+   * Update all grass effects based on elapsed time.
+   * Converts delta time (ms) to GBA ticks for accurate animation timing.
+   *
+   * @param deltaMs - Time elapsed since last update in milliseconds
    */
-  update(): void {
+  update(deltaMs: number): void {
+    // Convert milliseconds to GBA ticks (fractional)
+    const ticksElapsed = deltaMs / MS_PER_TICK;
+
     for (const effect of this.effects.values()) {
       if (effect.completed || effect.skipAnimation) {
         continue;
       }
 
-      effect.animationTick++;
+      // Accumulate fractional ticks
+      effect.animationTick += ticksElapsed;
 
       if (effect.type === 'tall') {
         // Tall grass: uniform 10 ticks per frame
-        if (effect.animationTick >= TALL_GRASS_TICKS_PER_FRAME) {
-          effect.animationTick = 0;
-          
+        while (effect.animationTick >= TALL_GRASS_TICKS_PER_FRAME && !effect.completed) {
+          effect.animationTick -= TALL_GRASS_TICKS_PER_FRAME;
+
           if (effect.sequenceIndex < TALL_GRASS_ANIMATION_SEQUENCE.length - 1) {
             effect.sequenceIndex++;
             effect.animationFrame = TALL_GRASS_ANIMATION_SEQUENCE[effect.sequenceIndex];
@@ -158,11 +210,12 @@ export class FieldEffectManager {
       } else if (effect.type === 'long') {
         // Long grass: variable frame durations
         // Use sequenceIndex to determine duration, not frame
-        const frameDuration = LONG_GRASS_FRAME_DURATIONS[effect.sequenceIndex] || 4;
-        
-        if (effect.animationTick >= frameDuration) {
-          effect.animationTick = 0;
-          
+        while (!effect.completed) {
+          const frameDuration = LONG_GRASS_FRAME_DURATIONS[effect.sequenceIndex] || 4;
+          if (effect.animationTick < frameDuration) break;
+
+          effect.animationTick -= frameDuration;
+
           if (effect.sequenceIndex < LONG_GRASS_ANIMATION_SEQUENCE.length - 1) {
             effect.sequenceIndex++;
             effect.animationFrame = LONG_GRASS_ANIMATION_SEQUENCE[effect.sequenceIndex];
@@ -172,18 +225,47 @@ export class FieldEffectManager {
         }
       } else if (effect.type === 'sand' || effect.type === 'deep_sand') {
         // Sand footprints:
-        // 0-40 frames: Static (Step 0)
-        // 40-56 frames: Flicker (Step 1)
-        // 56+ frames: End
-        
-        // Note: animationTick here acts as the global timer for this effect
-        
+        // 0-40 ticks: Static (Step 0)
+        // 40-56 ticks: Flicker (Step 1)
+        // 56+ ticks: End
+
+        // animationTick is a cumulative timer for this effect
         if (effect.animationTick > 56) {
           effect.completed = true;
         } else if (effect.animationTick > 40) {
-          // Flicker phase: toggle visibility every frame
-          // In C code: sprite->invisible ^= 1
-          effect.visible = !effect.visible;
+          // Flicker phase: toggle visibility based on tick count
+          // In C code: sprite->invisible ^= 1 per frame
+          // We toggle based on which "tick" we're on
+          effect.visible = Math.floor(effect.animationTick) % 2 === 0;
+        }
+      } else if (effect.type === 'puddle_splash') {
+        // Puddle splash: uniform 4 ticks per frame, 2 frames total
+        // From sAnim_Splash_0 in field_effect_objects.h
+        while (effect.animationTick >= PUDDLE_SPLASH_TICKS_PER_FRAME && !effect.completed) {
+          effect.animationTick -= PUDDLE_SPLASH_TICKS_PER_FRAME;
+
+          if (effect.sequenceIndex < PUDDLE_SPLASH_ANIMATION_SEQUENCE.length - 1) {
+            effect.sequenceIndex++;
+            effect.animationFrame = PUDDLE_SPLASH_ANIMATION_SEQUENCE[effect.sequenceIndex];
+          } else {
+            effect.completed = true;
+          }
+        }
+      } else if (effect.type === 'water_ripple') {
+        // Water ripple: variable frame durations, 8 steps total (79 ticks = ~1.32s)
+        // From sAnim_Ripple in field_effect_objects.h
+        while (!effect.completed) {
+          const frameDuration = WATER_RIPPLE_FRAME_DURATIONS[effect.sequenceIndex] || 9;
+          if (effect.animationTick < frameDuration) break;
+
+          effect.animationTick -= frameDuration;
+
+          if (effect.sequenceIndex < WATER_RIPPLE_ANIMATION_SEQUENCE.length - 1) {
+            effect.sequenceIndex++;
+            effect.animationFrame = WATER_RIPPLE_ANIMATION_SEQUENCE[effect.sequenceIndex];
+          } else {
+            effect.completed = true;
+          }
         }
       }
     }

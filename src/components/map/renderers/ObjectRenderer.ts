@@ -4,6 +4,11 @@ import { METATILE_SIZE } from '../../../utils/mapLoader';
 import { getMetatileBehavior } from '../utils';
 import type { RenderContext, ReflectionState } from '../types';
 
+const DEBUG_REFLECTION_FLAG = 'PKMN_DEBUG_REFLECTION';
+function isReflectionDebugMode(): boolean {
+  return !!(window as unknown as Record<string, boolean>)[DEBUG_REFLECTION_FLAG];
+}
+
 export interface WorldCameraView {
   cameraWorldX: number;
   cameraWorldY: number;
@@ -15,6 +20,8 @@ interface SpriteCache {
   grass: HTMLCanvasElement | null;
   longGrass: HTMLCanvasElement | null;
   sand: HTMLCanvasElement | null;
+  splash: HTMLCanvasElement | null;
+  ripple: HTMLCanvasElement | null;
   arrow: HTMLImageElement | HTMLCanvasElement | null;
 }
 
@@ -55,9 +62,14 @@ const ARROW_FRAME_SEQUENCES: Record<'up' | 'down' | 'left' | 'right', number[]> 
  */
 export class ObjectRenderer {
   /**
-   * Render field effects (grass, sand footprints) with Y-sorting relative to player
-   * 
+   * Render field effects (grass, sand footprints, water ripples) with Y-sorting relative to player
+   *
+   * Water ripples are clipped to only show on water pixels using the same pixel mask
+   * system as reflections. This matches GBA behavior where ripples only appear on the
+   * blue/water portion of tiles, not on land edges.
+   *
    * @param layer - 'bottom' renders effects behind player, 'top' renders effects in front of player
+   * @param renderContext - Optional render context for water pixel masking (required for ripples)
    */
   static renderFieldEffects(
     ctx: CanvasRenderingContext2D,
@@ -65,7 +77,8 @@ export class ObjectRenderer {
     sprites: SpriteCache,
     view: WorldCameraView,
     playerY: number,
-    layer: 'bottom' | 'top'
+    layer: 'bottom' | 'top',
+    renderContext?: RenderContext
   ): void {
     for (const effect of effects) {
       // Skip if not visible (for flickering effects like sand)
@@ -76,16 +89,20 @@ export class ObjectRenderer {
       if (effect.type === 'tall') sprite = sprites.grass;
       else if (effect.type === 'long') sprite = sprites.longGrass;
       else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
-      
+      else if (effect.type === 'puddle_splash') sprite = sprites.splash;
+      else if (effect.type === 'water_ripple') sprite = sprites.ripple;
+
       if (!sprite) continue;
 
       // Y-sorting:
-      // Sand always renders behind player (bottom layer)
+      // Sand, puddle splashes, and water ripples always render behind player (bottom layer)
       // Grass effects use dynamic Y-sorting
       let isInFront = effect.worldY >= playerY;
 
-      if (effect.type === 'sand' || effect.type === 'deep_sand') {
-        // Sand footprints always render behind player
+      if (effect.type === 'sand' || effect.type === 'deep_sand' ||
+          effect.type === 'puddle_splash' || effect.type === 'water_ripple') {
+        // Sand footprints, puddle splashes, and ripples always render behind player
+        // They appear at the player's feet level
         isInFront = false;
       } else {
         // Dynamic layering from subpriority (for tall grass)
@@ -99,36 +116,160 @@ export class ObjectRenderer {
       if (layer === 'bottom' && isInFront) continue;
       if (layer === 'top' && !isInFront) continue;
 
-      // Each frame is 16x16 pixels
-      const FRAME_SIZE = 16;
-      const sx = effect.frame * FRAME_SIZE; // Frames are horizontal
+      // Frame dimensions depend on effect type
+      // Most effects are 16x16, but splash is 16x8
+      let frameWidth = 16;
+      let frameHeight = 16;
+      if (effect.type === 'puddle_splash') {
+        frameWidth = 16;
+        frameHeight = 8;
+      }
+      // water_ripple is 16x16 (default, no change needed)
+
+      const sx = effect.frame * frameWidth; // Frames are horizontal
       const sy = 0;
 
       // Calculate screen position
       // GBA sprites use center-based coordinates, but Canvas uses top-left corner
       // The FieldEffectManager returns center coordinates (tile*16 + 8)
-      // We need to subtract 8 to convert to top-left corner for Canvas drawImage
-      const screenX = Math.round(effect.worldX - view.cameraWorldX - 8);
-      const screenY = Math.round(effect.worldY - view.cameraWorldY - 8);
+      // We need to subtract half the frame size to convert to top-left corner
+      const screenX = Math.round(effect.worldX - view.cameraWorldX - frameWidth / 2);
+
+      // Y positioning based on C code analysis:
+      // - Ripple: sprite->y + (height/2) - 2 = positioned 6px down from sprite center (at feet)
+      // - Splash: y2 = (height/2) - 4 = positioned 4px down from sprite center (at feet)
+      //
+      // For 16px player sprite centered at tile:
+      // - worldY is tile center (tile*16 + 8)
+      // - Player feet are at worldY + 8 (bottom of tile)
+      // - Ripple should appear 2px above feet: worldY + 8 - 2 = worldY + 6
+      // - Splash should appear 4px above feet: worldY + 8 - 4 = worldY + 4
+      //
+      // Since we're drawing from top-left corner and sprite is centered:
+      // screenY = worldY + offset - (frameHeight / 2) for center-based
+      let screenY: number;
+      if (effect.type === 'water_ripple') {
+        // Ripple: 6px down from sprite center, then offset by half frame height
+        // From C: gFieldEffectArguments[1] = sprite->y + (graphicsInfo->height >> 1) - 2
+        // For 16px sprite: height/2 - 2 = 6, so effect is at sprite.y + 6
+        // worldY is tile center, so effect world position = worldY + 6
+        // Then convert to screen top-left: screenY = (worldY + 6) - cameraY - frameHeight/2
+        screenY = Math.round(effect.worldY - view.cameraWorldY + 6 - frameHeight / 2);
+      } else if (effect.type === 'puddle_splash') {
+        // Splash: 4px down from sprite center, then offset by half frame height
+        // From C: sprite->y2 = (graphicsInfo->height >> 1) - 4
+        // For 16px sprite: height/2 - 4 = 4, so effect is at sprite.y + 4
+        // worldY is tile center, so effect world position = worldY + 4
+        // Then convert to screen top-left: screenY = (worldY + 4) - cameraY - frameHeight/2
+        screenY = Math.round(effect.worldY - view.cameraWorldY + 4 - frameHeight / 2);
+      } else {
+        screenY = Math.round(effect.worldY - view.cameraWorldY - frameHeight / 2);
+      }
 
       // Render sprite (with optional horizontal flip for East-facing sand)
       ctx.imageSmoothingEnabled = false;
-      
-      if (effect.flipHorizontal) {
+
+      // Water ripples need to be clipped to water pixels only
+      // This matches GBA behavior where ripples only show on the blue/water portion of tiles
+      // If the ripple extends into adjacent tiles that are also water, allow the spillover
+      if (effect.type === 'water_ripple' && renderContext) {
+        // Create a temporary canvas for the masked ripple
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = frameWidth;
+        tempCanvas.height = frameHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx) {
+          // Draw the ripple frame to temp canvas
+          tempCtx.imageSmoothingEnabled = false;
+          tempCtx.drawImage(
+            sprite,
+            sx,
+            sy,
+            frameWidth,
+            frameHeight,
+            0,
+            0,
+            frameWidth,
+            frameHeight
+          );
+
+          // Get the image data to apply mask
+          const imageData = tempCtx.getImageData(0, 0, frameWidth, frameHeight);
+          const data = imageData.data;
+
+          // Ripple world position (top-left of sprite)
+          const rippleWorldX = effect.worldX - frameWidth / 2;
+          // Y offset: ripple is 6px below sprite center
+          const rippleWorldY = effect.worldY + 6 - frameHeight / 2;
+
+          // Cache tile info lookups to avoid repeated calls for same tile
+          const tileCache = new Map<string, { mask: Uint8Array | null }>();
+          const getTileMask = (tx: number, ty: number): Uint8Array | null => {
+            const key = `${tx},${ty}`;
+            if (tileCache.has(key)) {
+              return tileCache.get(key)!.mask;
+            }
+            const info = getMetatileBehavior(renderContext, tx, ty);
+            const mask = info?.meta?.pixelMask ?? null;
+            tileCache.set(key, { mask });
+            return mask;
+          };
+
+          // For each pixel in the sprite, check if it overlaps with a water pixel
+          // Check the actual tile that pixel falls on (may be different from center tile)
+          for (let py = 0; py < frameHeight; py++) {
+            for (let px = 0; px < frameWidth; px++) {
+              // World position of this sprite pixel
+              const worldPx = rippleWorldX + px;
+              const worldPy = rippleWorldY + py;
+
+              // Which tile does this pixel fall on?
+              const pixelTileX = Math.floor(worldPx / METATILE_SIZE);
+              const pixelTileY = Math.floor(worldPy / METATILE_SIZE);
+
+              // Get the mask for this tile
+              const mask = getTileMask(pixelTileX, pixelTileY);
+
+              // Position within that tile (0-15)
+              const tileLocalX = Math.floor(worldPx - pixelTileX * METATILE_SIZE);
+              const tileLocalY = Math.floor(worldPy - pixelTileY * METATILE_SIZE);
+
+              // Check if this pixel is a water pixel in its tile
+              let isWater = false;
+              if (mask &&
+                  tileLocalX >= 0 && tileLocalX < METATILE_SIZE &&
+                  tileLocalY >= 0 && tileLocalY < METATILE_SIZE) {
+                isWater = mask[tileLocalY * METATILE_SIZE + tileLocalX] === 1;
+              }
+
+              // If not water, make pixel transparent
+              if (!isWater) {
+                const idx = (py * frameWidth + px) * 4;
+                data[idx + 3] = 0; // Set alpha to 0
+              }
+            }
+          }
+
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Draw the masked ripple to main canvas
+          ctx.drawImage(tempCanvas, screenX, screenY);
+        }
+      } else if (effect.flipHorizontal) {
         // Flip horizontally for East-facing sand footprints
         ctx.save();
-        ctx.translate(screenX + FRAME_SIZE, screenY);
+        ctx.translate(screenX + frameWidth, screenY);
         ctx.scale(-1, 1);
         ctx.drawImage(
           sprite,
           sx,
           sy,
-          FRAME_SIZE,
-          FRAME_SIZE,
+          frameWidth,
+          frameHeight,
           0,
           0,
-          FRAME_SIZE,
-          FRAME_SIZE
+          frameWidth,
+          frameHeight
         );
         ctx.restore();
       } else {
@@ -136,12 +277,12 @@ export class ObjectRenderer {
           sprite,
           sx,
           sy,
-          FRAME_SIZE,
-          FRAME_SIZE,
+          frameWidth,
+          frameHeight,
           screenX,
           screenY,
-          FRAME_SIZE,
-          FRAME_SIZE
+          frameWidth,
+          frameHeight
         );
       }
     }
@@ -149,6 +290,13 @@ export class ObjectRenderer {
 
   /**
    * Render water/ice reflection for the player
+   *
+   * BUG FIX: During movement, floating-point pixel positions can cause the reflection
+   * to flicker when crossing tile boundaries. The tile lookup uses floor(pos / METATILE_SIZE),
+   * so sub-pixel positions can cause inconsistent tile selection frame-to-frame.
+   *
+   * Solution: Floor the pixel positions for tile lookups to ensure stable tile selection.
+   * Screen rendering still uses rounded positions for smooth visual placement.
    */
   static renderReflection(
     ctx: CanvasRenderingContext2D,
@@ -163,10 +311,18 @@ export class ObjectRenderer {
     if (!frame || !frame.sprite) return;
 
     const { height } = player.getSpriteSize();
-    const reflectionX = frame.renderX;
-    const reflectionY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
-    const screenX = Math.round(reflectionX - view.cameraWorldX);
-    const screenY = Math.round(reflectionY - view.cameraWorldY);
+
+    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries.
+    // The tile lookup uses floor(pos / METATILE_SIZE), so float positions can cause
+    // the reflection to flicker between tiles when crossing boundaries.
+    const tileRefX = Math.floor(frame.renderX);
+    const tileRefY = Math.floor(frame.renderY) + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+
+    // For SCREEN RENDERING: Use Math.round() to avoid floating-point precision errors.
+    // This matches PlayerController.render() which also uses Math.round().
+    const reflectionWorldY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+    const screenX = Math.round(frame.renderX - view.cameraWorldX);
+    const screenY = Math.round(reflectionWorldY - view.cameraWorldY);
 
     // Create mask canvas
     const maskCanvas = document.createElement('canvas');
@@ -178,18 +334,44 @@ export class ObjectRenderer {
     const maskData = maskImage.data;
 
     // Build reflection mask from reflective tiles
-    const startTileX = Math.floor(reflectionX / METATILE_SIZE);
-    const endTileX = Math.floor((reflectionX + frame.sw - 1) / METATILE_SIZE);
-    const startTileY = Math.floor(reflectionY / METATILE_SIZE);
-    const endTileY = Math.floor((reflectionY + frame.sh - 1) / METATILE_SIZE);
-    
+    // CRITICAL: The player sprite may be offset from tile alignment (e.g., 32px surfing sprite
+    // centered on 16px tile = 8px offset). During movement, this offset causes the pixel-based
+    // tile range to differ from what computeReflectionState checked (which uses discrete tileX/Y).
+    //
+    // To ensure coverage, we expand the tile range to include:
+    // 1. All tiles the sprite visually covers at its current pixel position
+    // 2. Adjacent tiles that computeReflectionState would have checked
+    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
+    const pixelEndTileX = Math.floor((tileRefX + frame.sw - 1) / METATILE_SIZE);
+    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
+    const pixelEndTileY = Math.floor((tileRefY + frame.sh - 1) / METATILE_SIZE);
+
+    // Expand range by 1 tile in each direction to catch tiles at boundaries during movement
+    // This matches how computeReflectionState searches tiles around player.tileX/tileY
+    const startTileX = pixelStartTileX - 1;
+    const endTileX = pixelEndTileX + 1;
+    const startTileY = pixelStartTileY;
+    const endTileY = pixelEndTileY + 1;
+
+    let maskPixelsSet = 0;
+    let tilesChecked = 0;
+    let reflectiveTiles = 0;
+
     for (let ty = startTileY; ty <= endTileY; ty++) {
       for (let tx = startTileX; tx <= endTileX; tx++) {
+        tilesChecked++;
         const info = getMetatileBehavior(renderContext, tx, ty);
-        if (!info?.meta?.isReflective) continue;
+        if (!info?.meta?.isReflective) {
+          if (isReflectionDebugMode()) {
+            console.log(`[REFLECTION] Tile (${tx}, ${ty}): NOT reflective - info:`, info ? { behavior: info.behavior, hasMetaA: !!info.meta } : 'null');
+          }
+          continue;
+        }
+        reflectiveTiles++;
         const mask = info.meta.pixelMask;
-        const tileLeft = tx * METATILE_SIZE - reflectionX;
-        const tileTop = ty * METATILE_SIZE - reflectionY;
+        // Use floored tileRefX/Y for consistent mask coordinate calculation
+        const tileLeft = tx * METATILE_SIZE - tileRefX;
+        const tileTop = ty * METATILE_SIZE - tileRefY;
         for (let y = 0; y < METATILE_SIZE; y++) {
           const globalY = tileTop + y;
           if (globalY < 0 || globalY >= frame.sh) continue;
@@ -199,11 +381,17 @@ export class ObjectRenderer {
             if (mask[y * METATILE_SIZE + x]) {
               const index = (globalY * frame.sw + globalX) * 4 + 3;
               maskData[index] = 255;
+              maskPixelsSet++;
             }
           }
         }
       }
     }
+
+    if (isReflectionDebugMode()) {
+      console.log(`[REFLECTION] player.tile=(${player.tileX}, ${player.tileY}), frame.render=(${frame.renderX.toFixed(1)}, ${frame.renderY.toFixed(1)}), tileRef=(${tileRefX}, ${tileRefY}), tileRange=X[${startTileX}-${endTileX}] Y[${startTileY}-${endTileY}], checked=${tilesChecked}, reflective=${reflectiveTiles}, maskPixels=${maskPixelsSet}`);
+    }
+
     maskCtx.putImageData(maskImage, 0, 0);
 
     // Create reflection canvas (flipped sprite)

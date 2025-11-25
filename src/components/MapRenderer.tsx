@@ -67,6 +67,7 @@ import {
 } from './map/utils';
 import { DebugRenderer } from './map/renderers/DebugRenderer';
 import { ObjectRenderer } from './map/renderers/ObjectRenderer';
+import { DialogBox, useDialog } from './dialog';
 
 interface MapRendererProps {
   mapId: string;
@@ -656,6 +657,10 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const doorAnimsRef = useRef<DoorAnimDrawable[]>([]);
   const doorAnimIdRef = useRef<number>(1);
   const playerHiddenRef = useRef<boolean>(false);
+
+  // Dialog system for surf prompts, etc.
+  const { showYesNo, showMessage, isOpen: dialogIsOpen } = useDialog();
+  const surfPromptInProgressRef = useRef<boolean>(false);
   const currentTimestampRef = useRef<number>(0);
   const arrowOverlayRef = useRef<ArrowOverlayState | null>(null);
   const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
@@ -663,6 +668,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const splashSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const rippleSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRendererRef = useRef<CanvasRenderer | null>(null); // Hardware-accelerated renderer
   const viewportBufferRef = useRef<ViewportBuffer | null>(null); // Viewport buffer for smooth scrolling
   const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null); // Shared tileset cache
@@ -1732,6 +1739,9 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
             ctx, 'background', false, view, undefined, backgroundCanvasDataRef.current
           );
 
+          // GBA pokeemerald elevation-to-priority: even elevations >= 4 have priority 1 (sprite above top layer)
+          const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+
           topBelowCanvasDataRef.current = renderPassCanvas(
             ctx,
             'top',
@@ -1741,7 +1751,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (playerElevation < 4) return false;
+              if (!playerHasPriority1) return false;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
               return true;
             },
@@ -1757,9 +1767,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerElevation < 4) return true;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
-              return false;
+              if (playerHasPriority1) {
+                if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
+                return false;
+              }
+              return true;
             },
             topAboveCanvasDataRef.current
           );
@@ -1767,16 +1779,19 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       } else {
         // Original ImageData mode
         const needsImageData =
-          !backgroundImageDataRef.current || 
-          !topBelowImageDataRef.current || 
-          !topAboveImageDataRef.current || 
-          animationFrameChanged || 
+          !backgroundImageDataRef.current ||
+          !topBelowImageDataRef.current ||
+          !topAboveImageDataRef.current ||
+          animationFrameChanged ||
           viewChanged ||
           elevationChanged;
 
         if (needsImageData) {
           backgroundImageDataRef.current = renderPass(ctx, 'background', false, view);
-          
+
+          // GBA pokeemerald elevation-to-priority: even elevations >= 4 have priority 1 (sprite above top layer)
+          const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+
           topBelowImageDataRef.current = renderPass(
             ctx,
             'top',
@@ -1786,7 +1801,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return false;
               }
-              if (playerElevation < 4) return false;
+              if (!playerHasPriority1) return false;
               if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
               return true;
             }
@@ -1801,9 +1816,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               if (isVerticalObject(ctx, tileX, tileY)) {
                 return true;
               }
-              if (playerElevation < 4) return true;
-              if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
-              return false;
+              if (playerHasPriority1) {
+                if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
+                return false;
+              }
+              return true;
             }
           );
         }
@@ -1848,8 +1865,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       }
 
       renderDoorAnimations(mainCtx, view, nowMs);
-      if (arrowOverlayRef.current) {
-        ObjectRenderer.renderArrow(mainCtx, arrowOverlayRef.current, arrowSpriteRef.current!, view, nowMs);
+      if (arrowOverlayRef.current && arrowSpriteRef.current) {
+        ObjectRenderer.renderArrow(mainCtx, arrowOverlayRef.current, arrowSpriteRef.current, view, nowMs);
       }
       if (player) {
         ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
@@ -1864,9 +1881,59 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           grass: grassSpriteRef.current,
           longGrass: longGrassSpriteRef.current,
           sand: sandSpriteRef.current,
+          splash: splashSpriteRef.current,
+          ripple: rippleSpriteRef.current,
           arrow: arrowSpriteRef.current,
         };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom');
+        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
+      }
+
+      // Render surf blob (if surfing or mounting/dismounting)
+      // The blob is rendered BEFORE player so player appears on top
+      if (player && !playerHiddenRef.current) {
+        const surfCtrl = player.getSurfingController();
+        const blobRenderer = surfCtrl.getBlobRenderer();
+        const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
+
+        if (shouldRenderBlob && blobRenderer.isReady()) {
+          const bobOffset = blobRenderer.getBobOffset();
+          let blobScreenX: number;
+          let blobScreenY: number;
+
+          // Determine blob position based on current animation phase
+          if (surfCtrl.isJumpingOn()) {
+            // MOUNTING: Blob is at target water tile (destination)
+            const targetPos = surfCtrl.getTargetPosition();
+            if (targetPos) {
+              const blobWorldX = targetPos.tileX * 16 - 8;
+              const blobWorldY = targetPos.tileY * 16 - 16;
+              blobScreenX = Math.round(blobWorldX - view.cameraWorldX);
+              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
+            } else {
+              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+            }
+          } else if (surfCtrl.isJumpingOff()) {
+            // DISMOUNTING: Blob stays at fixed water tile position
+            const fixedPos = surfCtrl.getBlobFixedPosition();
+            if (fixedPos) {
+              const blobWorldX = fixedPos.tileX * 16 - 8;
+              const blobWorldY = fixedPos.tileY * 16 - 16;
+              blobScreenX = Math.round(blobWorldX - view.cameraWorldX);
+              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
+            } else {
+              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+            }
+          } else {
+            // Normal surfing: Blob follows player
+            blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
+            blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
+          }
+
+          // applyBob = false because we already added bobOffset to blobScreenY
+          blobRenderer.render(mainCtx, blobScreenX, blobScreenY, player.dir, false);
+        }
       }
 
       if (player && !playerHiddenRef.current) {
@@ -1880,9 +1947,11 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           grass: grassSpriteRef.current,
           longGrass: longGrassSpriteRef.current,
           sand: sandSpriteRef.current,
+          splash: splashSpriteRef.current,
+          ripple: rippleSpriteRef.current,
           arrow: arrowSpriteRef.current,
         };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top');
+        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
       }
 
       // 3. Draw Top Layer (Above Player)
@@ -2085,7 +2154,94 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     });
   }, []);
 
+  /**
+   * Load splash sprite sheet and convert to transparent canvas
+   * Puddle splash uses cyan (top-left pixel) as transparency color
+   */
+  const ensureSplashSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (splashSpriteRef.current) {
+      return splashSpriteRef.current;
+    }
 
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/field_effects/pics/splash.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get splash sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        splashSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
+
+  /**
+   * Load ripple sprite sheet and convert to transparent canvas
+   * Water ripple uses cyan (top-left pixel) as transparency color
+   * Ripple sprite is 80x16 = 5 frames of 16x16 pixels
+   */
+  const ensureRippleSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (rippleSpriteRef.current) {
+      return rippleSpriteRef.current;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/field_effects/pics/ripple.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get ripple sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        rippleSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
@@ -2114,13 +2270,16 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         const player = new PlayerController();
         await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
+        await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
         
         // Load grass sprite
         await ensureGrassSprite();
         await ensureLongGrassSprite();
         await ensureSandSprite();
-        
+        await ensureSplashSprite();
+        await ensureRippleSprite();
+
         // Initialize hardware-accelerated renderer
         if (USE_HARDWARE_RENDERING) {
           canvasRendererRef.current = new CanvasRenderer();
@@ -2989,22 +3148,79 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     rebuildContextForWorld,
   ]);
 
+  // Surf initiation handler (A button = KeyX)
+  useEffect(() => {
+    const handleSurfInput = async (e: KeyboardEvent) => {
+      // X key = A button in Pokemon (confirm/interact)
+      if (e.code !== 'KeyX') return;
+
+      const player = playerControllerRef.current;
+      if (!player) return;
+
+      // Don't process if dialog is open or surf prompt is already showing
+      if (dialogIsOpen || surfPromptInProgressRef.current) return;
+
+      // Don't process if player is moving or already surfing
+      if (player.isMoving || player.isSurfing()) return;
+
+      // Check if we can initiate surf
+      const surfCheck = player.canInitiateSurf();
+      if (!surfCheck.canSurf) return;
+
+      // Lock input and show surf prompt
+      surfPromptInProgressRef.current = true;
+      player.lockInput();
+
+      try {
+        // Show the authentic surf prompt
+        const wantsToSurf = await showYesNo(
+          "The water is dyed a deep blue…\nWould you like to SURF?"
+        );
+
+        if (wantsToSurf) {
+          // Show "used SURF" message
+          await showMessage("You used SURF!");
+          // Start surfing
+          player.startSurfing();
+        }
+      } finally {
+        surfPromptInProgressRef.current = false;
+        player.unlockInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleSurfInput);
+    return () => window.removeEventListener('keydown', handleSurfInput);
+  }, [dialogIsOpen, showYesNo, showMessage]);
+
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
     <div>
       {loading && <div>Loading {mapName}...</div>}
-      <canvas
-        ref={canvasRef}
-        width={VIEWPORT_PIXEL_SIZE.width}
-        height={VIEWPORT_PIXEL_SIZE.height}
-        style={{ 
-          border: '1px solid #ccc', 
-          imageRendering: 'pixelated',
-          width: VIEWPORT_PIXEL_SIZE.width * zoom,
-          height: VIEWPORT_PIXEL_SIZE.height * zoom
-        }}
-      />
+      {/* Game viewport container */}
+      <div style={{
+        position: 'relative',
+        width: VIEWPORT_PIXEL_SIZE.width * zoom,
+        height: VIEWPORT_PIXEL_SIZE.height * zoom
+      }}>
+        <canvas
+          ref={canvasRef}
+          width={VIEWPORT_PIXEL_SIZE.width}
+          height={VIEWPORT_PIXEL_SIZE.height}
+          style={{
+            border: '1px solid #ccc',
+            imageRendering: 'pixelated',
+            width: VIEWPORT_PIXEL_SIZE.width * zoom,
+            height: VIEWPORT_PIXEL_SIZE.height * zoom
+          }}
+        />
+        {/* Dialog overlay */}
+        <DialogBox
+          viewportWidth={VIEWPORT_PIXEL_SIZE.width * zoom}
+          viewportHeight={VIEWPORT_PIXEL_SIZE.height * zoom}
+        />
+      </div>
       <div style={{ marginTop: 8 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input

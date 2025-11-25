@@ -247,7 +247,17 @@ export class ViewportBuffer {
   }
 
   /**
-   * Check if a tile passes the elevation filter for top passes
+   * Check if a tile passes the elevation filter for top passes.
+   *
+   * Based on GBA pokeemerald sElevationToPriority table:
+   *   { 2, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 0, 0, 2 }
+   *
+   * Priority 1 = sprite renders ABOVE BG1 (top layer renders BEFORE/behind player)
+   * Priority 2 = sprite renders BELOW BG1 (top layer renders AFTER/on top of player)
+   *
+   * Pattern:
+   * - Elevation 4, 6, 8, 10, 12 (even >= 4): priority 1 → top layer BEFORE player
+   * - Elevation 0-3, 5, 7, 9, 11 (< 4 or odd >= 4): priority 2 → top layer AFTER player
    */
   private passElevationFilter(
     pass: RenderPass,
@@ -256,16 +266,29 @@ export class ViewportBuffer {
   ): boolean {
     if (pass === 'background') return true;
 
+    // Check if player has priority 1 (sprite above top layer)
+    // This happens when elevation >= 4 AND elevation is even
+    const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+
     if (pass === 'topBelow') {
-      if (playerElevation < 4) return false;
+      // topBelow = top layer renders BEFORE player (player on top)
+      // Only render here if player has priority 1 (player above top layer)
+      if (!playerHasPriority1) return false;
+      // Exception: if tile is at same elevation and blocked, skip (render in topAbove)
       if (mapTile.elevation === playerElevation && mapTile.collision === 1) return false;
       return true;
     }
 
-    // topAbove
-    if (playerElevation < 4) return true;
-    if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
-    return false;
+    // topAbove = top layer renders AFTER player (top layer on top of player)
+    // Render here if player has priority 2, OR if blocked tile at same elevation
+    if (playerHasPriority1) {
+      // Player has priority 1, so top layer should NOT be on top...
+      // ...UNLESS it's a blocked tile at same elevation
+      if (mapTile.elevation === playerElevation && mapTile.collision === 1) return true;
+      return false;
+    }
+    // Player has priority 2, so top layer renders on top
+    return true;
   }
 
   /**

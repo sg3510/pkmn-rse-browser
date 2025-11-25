@@ -1,16 +1,6 @@
 import type { MetatileAttributes, MapTileData } from '../utils/mapLoader';
 import { isCollisionPassable } from '../utils/mapLoader';
 import {
-  MB_POND_WATER,
-  MB_INTERIOR_DEEP_WATER,
-  MB_DEEP_WATER,
-  MB_SOOTOPOLIS_DEEP_WATER,
-  MB_OCEAN_WATER,
-  MB_NO_SURFACING,
-  MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2,
-  MB_WATERFALL,
-  MB_SEAWEED,
-  MB_SEAWEED_NO_SURFACING,
   MB_EAST_ARROW_WARP,
   MB_WEST_ARROW_WARP,
   MB_NORTH_ARROW_WARP,
@@ -27,8 +17,12 @@ import {
   isArrowWarpBehavior,
   isTallGrassBehavior,
   isLongGrassBehavior,
+  isSurfableBehavior,
+  isPuddleBehavior,
+  hasRipplesBehavior,
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
+import { SurfingController } from './surfing';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -272,6 +266,134 @@ class JumpingState implements PlayerState {
   }
 }
 
+class SurfingState implements PlayerState {
+  // Surfing uses MOVE_SPEED_FAST_1 = 2 pixels per frame (same as running)
+  // Walking is 1 pixel per frame (SPEED = 0.06 px/ms at 60fps ≈ 1 px/frame)
+  // Surfing is 2x faster: 0.12 px/ms ≈ 2 px/frame
+  private readonly SPEED = 0.12;
+
+  enter(_controller: PlayerController): void {
+    // Switch to surfing sprite will be handled by getFrameInfo
+  }
+
+  exit(_controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    // Update surfing controller (handles bob animation)
+    controller.updateSurfing();
+    return controller.processMovement(delta, this.SPEED);
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // Handle surfing movement - can only move on water tiles
+    controller.handleSurfingInput(keys);
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    // Use surfing sprite (32x32 frames)
+    const frame = controller.calculateSurfingFrameInfo();
+    if (frame) {
+      // Apply player bob offset (uses getPlayerBobOffset which respects BOB_JUST_MON mode)
+      const bobOffset = controller.getSurfingController().getBlobRenderer().getPlayerBobOffset();
+      frame.renderY += bobOffset;
+    }
+    return frame;
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+class SurfJumpingState implements PlayerState {
+  private readonly SPEED = 0.06;
+  private isMount: boolean;
+
+  constructor(isMount: boolean) {
+    this.isMount = isMount;
+  }
+
+  enter(controller: PlayerController): void {
+    controller.lockInput();
+    controller.isMoving = true;
+    controller.showShadow = true;
+  }
+
+  exit(controller: PlayerController): void {
+    controller.unlockInput();
+    controller.isMoving = false;
+    controller.showShadow = false;
+    controller.spriteYOffset = 0;
+  }
+
+  update(controller: PlayerController, _delta: number): boolean {
+    const surfController = controller.getSurfingController();
+    const result = surfController.update();
+
+    // Apply jump Y offset
+    controller.spriteYOffset = result.jumpYOffset;
+
+    // Calculate new position based on jump progress
+    const jumpStart = surfController.getJumpStartPosition();
+    const jumpDir = surfController.getJumpDirection();
+    if (jumpStart && jumpDir) {
+      let dx = 0, dy = 0;
+      if (jumpDir === 'left') dx = -1;
+      else if (jumpDir === 'right') dx = 1;
+      else if (jumpDir === 'up') dy = -1;
+      else if (jumpDir === 'down') dy = 1;
+
+      controller.x = jumpStart.x + dx * result.jumpXProgress;
+      controller.y = jumpStart.y + dy * result.jumpXProgress;
+    }
+
+    if (result.jumpComplete) {
+      if (this.isMount) {
+        // Mount complete - switch to surfing state
+        if (result.newTileX !== undefined && result.newTileY !== undefined) {
+          controller.tileX = result.newTileX;
+          controller.tileY = result.newTileY;
+          controller.x = result.newTileX * 16;
+          controller.y = result.newTileY * 16 - 16;
+        }
+        controller.updateElevation();
+        controller.changeState(new SurfingState());
+      } else {
+        // Dismount complete - switch to normal state
+        if (result.newTileX !== undefined && result.newTileY !== undefined) {
+          controller.tileX = result.newTileX;
+          controller.tileY = result.newTileY;
+          controller.x = result.newTileX * 16;
+          controller.y = result.newTileY * 16 - 16;
+        }
+        controller.updateElevation();
+        controller.changeState(new NormalState());
+      }
+      return true;
+    }
+
+    return true;
+  }
+
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
+    // Input locked during surf jump
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    // Use surfing sprite (32x32 frames) during mount/dismount
+    const frame = controller.calculateSurfingFrameInfo();
+    if (frame) {
+      // During jump: apply jump Y offset (from spriteYOffset which is set in update())
+      frame.renderY += controller.spriteYOffset;
+    }
+    return frame;
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
 // --- Player Controller ---
 
 export class PlayerController {
@@ -297,6 +419,7 @@ export class PlayerController {
   private currentState: PlayerState;
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
   private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
+  private surfingController: SurfingController = new SurfingController();
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
   private prevTileX: number;
@@ -503,8 +626,8 @@ export class PlayerController {
       this.currentState.handleInput(this, this.keysPressed);
     }
 
-    // Update grass effects
-    this.grassEffectManager.update();
+    // Update grass effects (pass delta for accurate timing)
+    this.grassEffectManager.update(delta);
 
     // Calculate destination tile for grass cleanup logic
     let destTileX = this.tileX;
@@ -593,6 +716,13 @@ export class PlayerController {
 
         // Trigger LONG grass effect on movement completion (tall grass was already triggered on begin step)
         this.checkAndTriggerLongGrassEffectOnFinishStep(this.tileX, this.tileY);
+
+        // Check for puddle splash effect (walking)
+        // Puddles only trigger when BOTH current AND previous tiles are puddles
+        this.checkAndTriggerPuddleSplash(this.tileX, this.tileY, oldTileX, oldTileY);
+
+        // Check for water ripple effect (surfing or walking on ripple-causing tiles)
+        this.checkAndTriggerWaterRipple(this.tileX, this.tileY);
 
         didRenderMove = true;
         
@@ -859,21 +989,49 @@ export class PlayerController {
       }
       return true; // Out of bounds = collision
     }
-    
+
     const mapTile = resolved.mapTile;
     const attributes = resolved.attributes;
-    
+
     if (!attributes) {
       if (isDebugMode()) {
         console.log(`[COLLISION] Tile (${tileX}, ${tileY}) has no attributes - PASSABLE`);
       }
       return false; // No attributes = passable
     }
-    
+
     const behavior = attributes.behavior;
     const metatileId = mapTile.metatileId;
     const collision = mapTile.collision;
     const elevation = mapTile.elevation;
+
+    // === SURFING COLLISION LOGIC ===
+    // Reference: pokeemerald/src/field_player_avatar.c - CheckForObjectEventCollision
+    // When surfing, water is passable but land (elevation 3) triggers dismount check
+    const currentlySurfing = this.surfingController.isSurfing();
+
+    if (currentlySurfing) {
+      // While surfing: check if target is surfable water
+      if (isSurfableBehavior(behavior)) {
+        if (isDebugMode()) {
+          console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is surfable water while surfing - PASSABLE`);
+        }
+        return false; // Water is passable when surfing
+      }
+
+      // Trying to move onto land while surfing
+      // Reference: CanStopSurfing checks MapGridGetElevationAt(x, y) == 3
+      // This returns COLLISION_STOP_SURFING which the movement system handles
+      // For now, we'll block here and let handleSurfingInput handle dismount
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is not water while surfing - checking dismount`);
+      }
+      // Don't block here - SurfingState handles dismount logic via handleSurfingInput
+      // Return true to signal collision, but the state machine checks canDismount
+      return true;
+    }
+
+    // === NORMAL WALKING COLLISION LOGIC ===
 
     // Special case: MB_SAND and MB_DEEP_SAND should be walkable
     const isSand = behavior === MB_SAND || behavior === MB_DEEP_SAND;
@@ -910,20 +1068,8 @@ export class PlayerController {
       return true;
     }
 
-    // Surfable/deep water and waterfalls require surf
-    const surfBlockers = new Set<number>([
-      MB_POND_WATER,
-      MB_INTERIOR_DEEP_WATER,
-      MB_DEEP_WATER,
-      MB_SOOTOPOLIS_DEEP_WATER,
-      MB_OCEAN_WATER,
-      MB_NO_SURFACING,
-      MB_UNUSED_SOOTOPOLIS_DEEP_WATER_2,
-      MB_WATERFALL,
-      MB_SEAWEED,
-      MB_SEAWEED_NO_SURFACING,
-    ]);
-    if (surfBlockers.has(behavior)) {
+    // Surfable/deep water and waterfalls require surf (when NOT surfing)
+    if (isSurfableBehavior(behavior)) {
       if (isDebugMode()) {
         console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water (behavior=${behavior}) without surf - BLOCKED`);
       }
@@ -937,7 +1083,7 @@ export class PlayerController {
       }
       return true;
     }
-    
+
     if (isDebugMode()) {
       console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE`);
     }
@@ -1001,12 +1147,90 @@ export class PlayerController {
     };
   }
 
+  /**
+   * Calculate frame info for surfing sprite (32x32 frames)
+   * Surfing sprite layout: 6 frames of 32x32
+   * - Frame 0-1: Down (idle, walk)
+   * - Frame 2-3: Up (idle, walk)
+   * - Frame 4-5: Left/Right (idle, walk) - flip for right
+   */
+  public calculateSurfingFrameInfo(): FrameInfo | null {
+    const sprite = this.sprites['surfing'];
+    if (!sprite) {
+      // Fall back to walking sprite if surfing not loaded
+      return this.calculateFrameInfo('walking');
+    }
+
+    const SURF_FRAME_WIDTH = 32;
+    const SURF_FRAME_HEIGHT = 32;
+
+    // DO NOT floor here - allow smooth sub-pixel positioning during movement.
+    // Rounding will be applied in the render function AFTER adding bob offset
+    // to ensure player and blob use the same final integer positions.
+    // Center 32px sprite horizontally on 16px player position: offset by (32-16)/2 = 8
+    const renderX = this.x - 8;
+    // player.y is already set so feet are at tile bottom for 32px tall sprite
+    // Surfing sprite is also 32px tall, so just use player.y directly
+    const renderY = this.y;
+
+    let srcIndex = 0;
+    let flip = false;
+
+    // Surfing sprite layout (6 frames):
+    // 0: down idle, 1: down walk (mount/dismount only)
+    // 2: up idle, 3: up walk (mount/dismount only)
+    // 4: left/right idle, 5: left/right walk (mount/dismount only)
+    //
+    // GBA behavior during CONTINUOUS SURFING:
+    // - Player sprite stays on STATIC IDLE frame (no animation)
+    // - Only the Y-position bobs up/down with the surf blob
+    // - Walk frames (1, 3, 5) are ONLY used during mount/dismount jump sequences
+
+    // Always use idle frame - movement is shown via bob offset, not frame animation
+    if (this.dir === 'down') srcIndex = 0;
+    else if (this.dir === 'up') srcIndex = 2;
+    else if (this.dir === 'left') srcIndex = 4;
+    else if (this.dir === 'right') { srcIndex = 4; flip = true; }
+
+    const srcX = srcIndex * SURF_FRAME_WIDTH;
+    const srcY = 0;
+
+    return {
+      sprite: sprite,
+      sx: srcX,
+      sy: srcY,
+      sw: SURF_FRAME_WIDTH,
+      sh: SURF_FRAME_HEIGHT,
+      renderX,
+      renderY,
+      flip,
+    };
+  }
+
   public render(ctx: CanvasRenderingContext2D, cameraX: number = 0, cameraY: number = 0) {
-    // Render shadow if enabled
+    // Render shadow if enabled (during jumps)
+    // Shadow stays on ground while player sprite moves up/down via spriteYOffset
     if (this.showShadow && this.sprites['shadow']) {
       const shadow = this.sprites['shadow'];
-      const shadowX = Math.floor(this.x) - cameraX;
-      const shadowY = Math.floor(this.y) - cameraY + 28; // Offset to fees (approx)
+      // Shadow sprite is 16x8 pixels
+      // For 32px tall sprite: feet are at this.y + 32
+      // Shadow should be at feet position minus half shadow height (4px)
+      // So shadow top = this.y + 32 - 4 = this.y + 28
+      // But shadow also needs to NOT follow the jump arc (stays on ground)
+      // this.y already represents ground position (no spriteYOffset in it)
+      //
+      // GBA calculation: sYOffset = (height/2) - shadowVerticalOffset = 16 - 4 = 12
+      // shadow.y = player.y + 12
+      // But our coordinate system is different - our this.y is 16 above GBA's sprite.y
+      // So we need: shadow.y = this.y + 16 + 12 = this.y + 28
+      // This is what we already have, so the math checks out.
+      //
+      // For 32px surfing sprites: renderX = this.x - 8
+      // Shadow (16px) should center at same point as 32px sprite center
+      // 32px sprite center = renderX + 16 = this.x - 8 + 16 = this.x + 8
+      // Shadow center = shadowX + 8, so shadowX = this.x (no additional offset needed)
+      const shadowX = Math.round(this.x - cameraX);
+      const shadowY = Math.round(this.y - cameraY) + 28;
       ctx.drawImage(shadow, shadowX, shadowY);
     }
 
@@ -1015,21 +1239,24 @@ export class PlayerController {
 
     // Disable image smoothing to prevent ghosting on pixel art
     ctx.imageSmoothingEnabled = false;
-    
+
     ctx.save();
-    
+
+    // Use Math.round() for screen positions to avoid floating-point precision errors.
+    // Example: 456.0040 - 8 - 304.0040 = 143.99999999999997 (not 144.0!)
+    // floor(143.999...) = 143, but round(143.999...) = 144 (correct)
+    // This matches the blob rendering calculation in MapRenderer.
+    const destX = Math.round(frame.renderX - cameraX);
+    const destY = Math.round(frame.renderY - cameraY);
+
     // Apply clipping for long grass (hide bottom 50% of sprite)
     if (this.isOnLongGrass()) {
-      const destX = frame.renderX - cameraX;
-      const destY = frame.renderY - cameraY;
       // Create a clipping rectangle that shows only the top half
       ctx.beginPath();
       ctx.rect(destX, destY, frame.sw, frame.sh / 2);
       ctx.clip();
     }
-    
-    const destX = frame.renderX - cameraX;
-    const destY = frame.renderY - cameraY;
+
     if (frame.flip) {
       // Use whole pixel translation for flipped sprites
       ctx.translate(destX + frame.sw, destY);
@@ -1301,6 +1528,98 @@ export class PlayerController {
   }
 
   /**
+   * Check for puddle splash effect when completing a step.
+   *
+   * Based on pokeemerald GetGroundEffectFlags_Puddle (event_object_movement.c ~line 7520):
+   * Puddles ONLY trigger when BOTH current AND previous tiles have MB_PUDDLE behavior.
+   *
+   * This means:
+   * - Entering a puddle from dry ground: NO splash
+   * - Walking within a puddle area: Splash on every step
+   * - Exiting a puddle onto dry ground: NO splash
+   *
+   * @param currentTileX - Current tile X after movement
+   * @param currentTileY - Current tile Y after movement
+   * @param previousTileX - Previous tile X before movement
+   * @param previousTileY - Previous tile Y before movement
+   */
+  private checkAndTriggerPuddleSplash(
+    currentTileX: number,
+    currentTileY: number,
+    previousTileX: number,
+    previousTileY: number
+  ): void {
+    // Resolve behaviors for both current and previous tiles
+    const currentResolved = this.tileResolver ? this.tileResolver(currentTileX, currentTileY) : null;
+    const previousResolved = this.tileResolver ? this.tileResolver(previousTileX, previousTileY) : null;
+
+    const currentBehavior = currentResolved?.attributes?.behavior;
+    const previousBehavior = previousResolved?.attributes?.behavior;
+
+    // CRUCIAL: Both tiles must be puddles for splash to occur
+    // This matches the C code: MetatileBehavior_IsPuddle(current) && MetatileBehavior_IsPuddle(previous)
+    if (
+      currentBehavior !== undefined &&
+      previousBehavior !== undefined &&
+      isPuddleBehavior(currentBehavior) &&
+      isPuddleBehavior(previousBehavior)
+    ) {
+      // Create puddle splash effect at current position
+      this.grassEffectManager.create(currentTileX, currentTileY, 'puddle_splash', false, 'player');
+
+      if (isDebugMode()) {
+        console.log(
+          `[PUDDLE] Splash triggered at (${currentTileX}, ${currentTileY}) - ` +
+            `both current and previous tiles are puddles`
+        );
+      }
+    }
+  }
+
+  /**
+   * Check for water ripple effect when completing a step.
+   *
+   * Based on pokeemerald MetatileBehavior_HasRipples (metatile_behavior.c):
+   * - MB_POND_WATER (16)
+   * - MB_PUDDLE (22)
+   * - MB_SOOTOPOLIS_DEEP_WATER (20)
+   *
+   * Ripples trigger when moving on water while surfing OR walking on puddles.
+   * The ripple stays in place (unlike splash which follows player in C code).
+   *
+   * @param currentTileX - Current tile X after movement
+   * @param currentTileY - Current tile Y after movement
+   */
+  private checkAndTriggerWaterRipple(
+    currentTileX: number,
+    currentTileY: number
+  ): void {
+    const currentResolved = this.tileResolver ? this.tileResolver(currentTileX, currentTileY) : null;
+    const currentBehavior = currentResolved?.attributes?.behavior;
+
+    if (currentBehavior !== undefined && hasRipplesBehavior(currentBehavior)) {
+      // Only trigger ripples if surfing (on water tiles) or on puddles
+      // Check if we're surfing or the tile has ripple behavior
+      const isSurfing = this.surfingController?.isSurfing() ?? false;
+
+      // Ripples occur when:
+      // 1. Surfing on any water with ripple behavior
+      // 2. Walking on puddles (but puddles also trigger splash - ripple is in addition)
+      if (isSurfing || isPuddleBehavior(currentBehavior)) {
+        // Create ripple at current position
+        this.grassEffectManager.create(currentTileX, currentTileY, 'water_ripple', false, 'player');
+
+        if (isDebugMode()) {
+          console.log(
+            `[RIPPLE] Water ripple triggered at (${currentTileX}, ${currentTileY}) - ` +
+              `behavior: ${currentBehavior}, surfing: ${isSurfing}`
+          );
+        }
+      }
+    }
+  }
+
+  /**
    * Get the grass effect manager for rendering.
    */
   public getGrassEffectManager(): FieldEffectManager {
@@ -1312,5 +1631,164 @@ export class PlayerController {
    */
   public isOnLongGrass(): boolean {
     return this.currentGrassType === 'long';
+  }
+
+  // --- Surfing Methods ---
+
+  /**
+   * Get the surfing controller instance.
+   */
+  public getSurfingController(): SurfingController {
+    return this.surfingController;
+  }
+
+  /**
+   * Update surfing state (bob animation, etc.)
+   * Called by SurfingState.update()
+   */
+  public updateSurfing(): void {
+    // Update surfing controller for bob animation
+    this.surfingController.update();
+
+    // Update blob direction based on player facing
+    this.surfingController.updateBlobDirection(this.dir);
+  }
+
+  /**
+   * Handle input while surfing.
+   * Surfing movement is similar to walking but restricted to water tiles.
+   * Attempting to move onto land triggers dismount.
+   *
+   * @param keys Currently pressed keys
+   */
+  public handleSurfingInput(keys: { [key: string]: boolean }): void {
+    let dx = 0;
+    let dy = 0;
+    let newDir = this.dir;
+    let attemptMove = false;
+
+    if (keys['ArrowUp']) {
+      dy = -1;
+      newDir = 'up';
+      attemptMove = true;
+    } else if (keys['ArrowDown']) {
+      dy = 1;
+      newDir = 'down';
+      attemptMove = true;
+    } else if (keys['ArrowLeft']) {
+      dx = -1;
+      newDir = 'left';
+      attemptMove = true;
+    } else if (keys['ArrowRight']) {
+      dx = 1;
+      newDir = 'right';
+      attemptMove = true;
+    }
+
+    if (attemptMove) {
+      this.dir = newDir;
+      this.surfingController.updateBlobDirection(newDir);
+
+      const targetTileX = this.tileX + dx;
+      const targetTileY = this.tileY + dy;
+
+      // Check if target is surfable water
+      const isSurfable = this.surfingController.isTileSurfable(
+        targetTileX,
+        targetTileY,
+        this.tileResolver ?? undefined
+      );
+
+      if (isSurfable) {
+        // Continue surfing - normal water movement
+        this.isMoving = true;
+        this.pixelsMoved = 0;
+        if (isDebugMode()) {
+          console.log(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
+        }
+      } else {
+        // Check if we can dismount to this tile
+        const canDismount = this.surfingController.canDismount(
+          targetTileX,
+          targetTileY,
+          this.tileResolver ?? undefined
+        );
+
+        if (canDismount) {
+          // Start dismount sequence
+          if (isDebugMode()) {
+            console.log(`[SURF] Starting dismount to (${targetTileX}, ${targetTileY})`);
+          }
+          this.surfingController.startDismountSequence(
+            this.tileX,
+            this.tileY,
+            this.x,
+            this.y,
+            newDir
+          );
+          this.changeState(new SurfJumpingState(false));
+        } else {
+          if (isDebugMode()) {
+            console.log(`[SURF] Cannot move to (${targetTileX}, ${targetTileY}) - blocked`);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if player can initiate surf from current position.
+   * Called when player presses A while facing water.
+   */
+  public canInitiateSurf(): { canSurf: boolean; reason?: string; targetX?: number; targetY?: number } {
+    return this.surfingController.canInitiateSurf(
+      this.tileX,
+      this.tileY,
+      this.dir,
+      this.previousElevation,
+      this.tileResolver ?? undefined
+    );
+  }
+
+  /**
+   * Start the surf mount sequence.
+   * Called when player initiates surf (e.g., uses Surf HM).
+   */
+  public startSurfing(): void {
+    const check = this.canInitiateSurf();
+    if (!check.canSurf || check.targetX === undefined || check.targetY === undefined) {
+      if (isDebugMode()) {
+        console.log(`[SURF] Cannot initiate surf: ${check.reason}`);
+      }
+      return;
+    }
+
+    if (isDebugMode()) {
+      console.log(`[SURF] Starting surf sequence to (${check.targetX}, ${check.targetY})`);
+    }
+
+    this.surfingController.startSurfSequence(
+      check.targetX,
+      check.targetY,
+      this.x,
+      this.y,
+      this.dir
+    );
+
+    this.changeState(new SurfJumpingState(true));
+  }
+
+  /**
+   * Check if currently surfing.
+   */
+  public isSurfing(): boolean {
+    return this.surfingController.isSurfing();
+  }
+
+  /**
+   * Get the tile resolver for surfing controller use.
+   */
+  public getTileResolver(): TileResolver | null {
+    return this.tileResolver;
   }
 }

@@ -405,28 +405,33 @@ export function describeTile(
         renderedInTopAbovePass = true;
         topAbovePassReason = `🌳 VERTICAL OBJECT (tree/pole): Always covers player`;
       } else {
-        // Top Below Pass filter (rendered BEFORE player)
-        if (playerElevation < 4) {
+        // Based on GBA pokeemerald sElevationToPriority table:
+        // Priority 1 (sprite ABOVE top layer): even elevations >= 4 (4, 6, 8, 10, 12)
+        // Priority 2 (sprite BELOW top layer): < 4 or odd elevations >= 4 (5, 7, 9, 11)
+        const playerHasPriority1 = playerElevation >= 4 && playerElevation % 2 === 0;
+
+        // Top Below Pass filter (rendered BEFORE player = player on top)
+        if (!playerHasPriority1) {
           renderedInTopBelowPass = false;
-          topBelowPassReason = `Player elev ${playerElevation} < 4: top layer renders AFTER player (topAbove)`;
+          topBelowPassReason = `Player elev ${playerElevation} has priority 2: top layer renders AFTER player`;
         } else if (elevation === playerElevation && collision === 1) {
           renderedInTopBelowPass = false;
           topBelowPassReason = `Same elev (${elevation}) + blocked: obstacle covers player (topAbove)`;
         } else {
           renderedInTopBelowPass = true;
-          topBelowPassReason = `Player elev ${playerElevation} >= 4: top layer renders BEFORE player`;
+          topBelowPassReason = `Player elev ${playerElevation} (even, ≥4) has priority 1: top layer renders BEFORE player`;
         }
-        
-        // Top Above Pass filter (rendered AFTER player)
-        if (playerElevation < 4) {
+
+        // Top Above Pass filter (rendered AFTER player = top layer on top)
+        if (!playerHasPriority1) {
           renderedInTopAbovePass = true;
-          topAbovePassReason = `Player elev ${playerElevation} < 4: top layer covers player`;
+          topAbovePassReason = `Player elev ${playerElevation} has priority 2: top layer covers player`;
         } else if (elevation === playerElevation && collision === 1) {
           renderedInTopAbovePass = true;
           topAbovePassReason = `Same elev (${elevation}) + blocked: obstacle covers player`;
         } else {
           renderedInTopAbovePass = false;
-          topAbovePassReason = `Player elev ${playerElevation} >= 4: player covers top layer`;
+          topAbovePassReason = `Player elev ${playerElevation} (even, ≥4) has priority 1: player covers top layer`;
         }
       }
     } else {

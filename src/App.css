@@ -1,3 +1,12 @@
+/* Pokemon Emerald font for UI */
+@font-face {
+  font-family: 'Pokemon Emerald Pro';
+  src: url('/fonts/pokemon-emerald-pro.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 #root {
   max-width: 1200px;
   margin: 0 auto;
@@ -34,12 +43,20 @@
   border-radius: 8px;
   border: 1px solid #c4ced7;
   background: #fff;
+  color: #2b3746;
+  font-family: 'Pokemon Emerald Pro', system-ui, sans-serif;
   font-size: 0.95rem;
+}
+
+.selector select option {
+  color: #2b3746;
+  background: #fff;
 }
 
 .selector__meta {
   font-size: 0.95rem;
   color: #2b3746;
+  font-family: 'Pokemon Emerald Pro', system-ui, sans-serif;
 }
 
 .card {
@@ -53,6 +70,8 @@
 
 h1 {
   margin: 0;
-  font-size: 1.9rem;
-  letter-spacing: -0.02em;
+  font-size: 2.2rem;
+  font-family: 'Pokemon Emerald Pro', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  color: #2563eb;
 }
