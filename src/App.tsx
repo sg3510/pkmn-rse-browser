@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useCallback, type ChangeEvent } from 'react';
 import './App.css';
-import { MapRenderer } from './components/MapRenderer';
+import { MapRenderer, type MapRendererHandle } from './components/MapRenderer';
 import { DialogProvider } from './components/dialog';
 import type { MapIndexEntry } from './types/maps';
 import mapIndex from './data/mapIndex.json';
+import { saveManager } from './save';
 
 const mapIndexData = mapIndex as MapIndexEntry[];
 
@@ -23,9 +24,82 @@ function App() {
 
   const [selectedMapId, setSelectedMapId] = useState<string>(defaultMap?.id ?? '');
   const [zoom, setZoom] = useState<number>(1);
+  const mapRendererRef = useRef<MapRendererHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedMap =
     renderableMaps.find((map) => map.id === selectedMapId) || defaultMap || renderableMaps[0];
+
+  const handleSave = useCallback(() => {
+    if (mapRendererRef.current) {
+      const result = mapRendererRef.current.saveGame();
+      if (result.success) {
+        console.log('[App] Game saved successfully');
+      } else {
+        console.error('[App] Save failed:', result.error);
+      }
+    }
+  }, []);
+
+  const handleLoad = useCallback(() => {
+    if (mapRendererRef.current) {
+      const result = mapRendererRef.current.loadGame();
+      if (result) {
+        // Update selected map if it changed
+        const loadedMapId = result.location.location.mapId;
+        if (loadedMapId !== selectedMapId) {
+          setSelectedMapId(loadedMapId);
+        }
+        console.log('[App] Game loaded successfully');
+      } else {
+        console.log('[App] No save data found');
+      }
+    }
+  }, [selectedMapId]);
+
+  const handleReset = useCallback(() => {
+    if (confirm('Reset all progress? This will clear all collected items and flags.')) {
+      saveManager.newGame();
+      // Reload the page to reset all state
+      window.location.reload();
+    }
+  }, []);
+
+  const handleSaveToFile = useCallback(() => {
+    // First save current state, then export to file
+    if (mapRendererRef.current) {
+      mapRendererRef.current.saveGame();
+    }
+    const result = saveManager.exportToFile(0);
+    if (result.success) {
+      console.log('[App] Save exported to file');
+    } else {
+      console.error('[App] Export failed:', result.error);
+      alert('Export failed: ' + result.error);
+    }
+  }, []);
+
+  const handleLoadFromFileClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const result = await saveManager.importFromFile(file, 0);
+    if (result.success) {
+      console.log('[App] Save loaded from file');
+      // Reload to apply imported state
+      window.location.reload();
+    } else {
+      console.error('[App] Import failed:', result.error);
+      alert('Load failed: ' + result.error);
+    }
+
+    // Reset file input so same file can be selected again
+    e.target.value = '';
+  }, []);
 
   if (!selectedMap) {
     return (
@@ -79,10 +153,27 @@ function App() {
               </select>
             </div>
           </div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <button onClick={handleSave} style={{ flex: 1 }}>Save</button>
+            <button onClick={handleLoad} style={{ flex: 1 }}>Load</button>
+            <button onClick={handleReset} style={{ flex: 1, backgroundColor: '#dc3545', color: 'white' }}>Reset</button>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <button onClick={handleSaveToFile} style={{ flex: 1 }}>Save to File</button>
+            <button onClick={handleLoadFromFileClick} style={{ flex: 1 }}>Load from File</button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+          </div>
         </div>
 
         <div className="card">
           <MapRenderer
+            ref={mapRendererRef}
             mapId={selectedMap.id}
             mapName={selectedMap.name}
             width={selectedMap.width}

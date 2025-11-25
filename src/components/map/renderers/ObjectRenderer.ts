@@ -1,5 +1,6 @@
 import type { PlayerController } from '../../../game/PlayerController';
 import type { FieldEffectForRendering } from '../../../game/FieldEffectManager';
+import type { ItemBallObject } from '../../../types/objectEvents';
 import { METATILE_SIZE } from '../../../utils/mapLoader';
 import { getMetatileBehavior } from '../utils';
 import type { RenderContext, ReflectionState } from '../types';
@@ -23,6 +24,7 @@ interface SpriteCache {
   splash: HTMLCanvasElement | null;
   ripple: HTMLCanvasElement | null;
   arrow: HTMLImageElement | HTMLCanvasElement | null;
+  itemBall: HTMLImageElement | HTMLCanvasElement | null;
 }
 
 export interface ArrowOverlay {
@@ -463,5 +465,59 @@ export class ObjectRenderer {
     const dx = Math.round(overlay.worldX * METATILE_SIZE - view.cameraWorldX);
     const dy = Math.round(overlay.worldY * METATILE_SIZE - view.cameraWorldY);
     ctx.drawImage(sprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);
+  }
+
+  /**
+   * Render item balls on the map with Y-sorting relative to player
+   *
+   * Item balls are rendered as 16x16 sprites at their tile positions.
+   * They use Y-sorting: items above the player render behind, items at or below render in front.
+   *
+   * @param layer - 'bottom' renders items behind player, 'top' renders items in front of player
+   */
+  static renderItemBalls(
+    ctx: CanvasRenderingContext2D,
+    itemBalls: ItemBallObject[],
+    sprite: HTMLImageElement | HTMLCanvasElement | null,
+    view: WorldCameraView,
+    playerTileY: number,
+    layer: 'bottom' | 'top'
+  ): void {
+    if (!sprite || itemBalls.length === 0) return;
+
+    const frameSize = 16;
+
+    for (const item of itemBalls) {
+      // Y-sorting: items at Y < playerY are behind (bottom layer)
+      // Items at Y >= playerY are in front (top layer)
+      const isInFront = item.tileY >= playerTileY;
+
+      // Filter by layer
+      if (layer === 'bottom' && isInFront) continue;
+      if (layer === 'top' && !isInFront) continue;
+
+      // Convert tile coordinates to world pixel coordinates
+      // Item balls are centered on their tile
+      const worldX = item.tileX * METATILE_SIZE;
+      const worldY = item.tileY * METATILE_SIZE;
+
+      // Calculate screen position
+      const screenX = Math.round(worldX - view.cameraWorldX);
+      const screenY = Math.round(worldY - view.cameraWorldY);
+
+      // Skip if off-screen
+      if (
+        screenX + frameSize < 0 ||
+        screenX > view.pixelWidth ||
+        screenY + frameSize < 0 ||
+        screenY > view.pixelHeight
+      ) {
+        continue;
+      }
+
+      // Draw the item ball sprite (single frame, no animation)
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sprite, 0, 0, frameSize, frameSize, screenX, screenY, frameSize, frameSize);
+    }
   }
 }

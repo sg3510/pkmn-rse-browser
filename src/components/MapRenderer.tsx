@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import UPNG from 'upng-js';
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldMapInstance, type WorldState } from '../services/MapManager';
+import { ObjectEventManager } from '../game/ObjectEventManager';
+import { saveManager, type SaveData, type SaveResult, type LocationState } from '../save';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { ViewportBuffer, type BufferTileResolver } from '../rendering/ViewportBuffer';
 import { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
@@ -80,6 +82,18 @@ interface MapRendererProps {
   primaryTilesetId: string;
   secondaryTilesetId: string;
   zoom?: number;
+}
+
+/**
+ * Handle for imperative methods exposed via ref
+ */
+export interface MapRendererHandle {
+  /** Save current game state */
+  saveGame: () => SaveResult;
+  /** Load game from save slot 0 */
+  loadGame: () => SaveData | null;
+  /** Get current player position */
+  getPlayerPosition: () => { tileX: number; tileY: number; direction: string; mapId: string } | null;
 }
 
 type AnimationState = Record<string, number>;
@@ -617,7 +631,7 @@ function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime {
 
 
 
-export const MapRenderer: React.FC<MapRendererProps> = ({
+export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   mapId,
   mapName,
   width: _width,
@@ -628,7 +642,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   primaryTilesetId: _primaryTilesetId,
   secondaryTilesetId: _secondaryTilesetId,
   zoom = 1,
-}) => {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
   const playerControllerRef = useRef<PlayerController | null>(null);
@@ -670,6 +684,8 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const splashSpriteRef = useRef<HTMLCanvasElement | null>(null);
   const rippleSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const itemBallSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
   const canvasRendererRef = useRef<CanvasRenderer | null>(null); // Hardware-accelerated renderer
   const viewportBufferRef = useRef<ViewportBuffer | null>(null); // Viewport buffer for smooth scrolling
   const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null); // Shared tileset cache
@@ -684,6 +700,61 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     startedAt: 0,
     duration: DOOR_FADE_DURATION,
   });
+
+  // Expose save/load methods via ref
+  useImperativeHandle(ref, () => ({
+    saveGame: (): SaveResult => {
+      const player = playerControllerRef.current;
+      const ctx = renderContextRef.current;
+      if (!player || !ctx) {
+        return { success: false, error: 'Game not initialized' };
+      }
+
+      const currentMapId = ctx.anchor.entry.id;
+      const locationState: LocationState = {
+        pos: { x: player.tileX, y: player.tileY },
+        location: { mapId: currentMapId, warpId: 0, x: player.tileX, y: player.tileY },
+        continueGameWarp: { mapId: currentMapId, warpId: 0, x: player.tileX, y: player.tileY },
+        lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+        escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+        direction: player.dir,
+        elevation: 3,
+        isSurfing: player.isSurfing(),
+      };
+
+      return saveManager.save(0, locationState);
+    },
+
+    loadGame: (): SaveData | null => {
+      const saveData = saveManager.load(0);
+      if (!saveData) return null;
+
+      const player = playerControllerRef.current;
+      if (player) {
+        player.setPositionAndDirection(
+          saveData.location.pos.x,
+          saveData.location.pos.y,
+          saveData.location.direction
+        );
+        // Refresh object events to reflect loaded flag state
+        objectEventManagerRef.current.refreshCollectedState();
+      }
+
+      return saveData;
+    },
+
+    getPlayerPosition: () => {
+      const player = playerControllerRef.current;
+      const ctx = renderContextRef.current;
+      if (!player || !ctx) return null;
+      return {
+        tileX: player.tileX,
+        tileY: player.tileY,
+        direction: player.dir,
+        mapId: ctx.anchor.entry.id,
+      };
+    },
+  }), []);
 
   const ensureDoorSprite = useCallback(
     async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
@@ -1260,6 +1331,18 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       backgroundImageDataRef.current = null;
       topImageDataRef.current = null;
       hasRenderedRef.current = false;
+
+      // Re-parse object events for the new world
+      const objectEventManager = objectEventManagerRef.current;
+      objectEventManager.clear();
+      for (const map of world.maps) {
+        objectEventManager.parseMapObjects(
+          map.entry.id,
+          map.objectEvents,
+          map.offsetX,
+          map.offsetY
+        );
+      }
     },
     [ensureTilesetRuntime]
   );
@@ -1884,8 +1967,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           splash: splashSpriteRef.current,
           ripple: rippleSpriteRef.current,
           arrow: arrowSpriteRef.current,
+          itemBall: itemBallSpriteRef.current,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
+
+        // Render item balls behind player
+        const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, itemBallSpriteRef.current, view, player.tileY, 'bottom');
       }
 
       // Render surf blob (if surfing or mounting/dismounting)
@@ -1950,8 +2038,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
           splash: splashSpriteRef.current,
           ripple: rippleSpriteRef.current,
           arrow: arrowSpriteRef.current,
+          itemBall: itemBallSpriteRef.current,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
+
+        // Render item balls in front of player
+        const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, itemBallSpriteRef.current, view, player.tileY, 'top');
       }
 
       // 3. Draw Top Layer (Above Player)
@@ -2243,6 +2336,51 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     });
   }, []);
 
+  /**
+   * Load item ball sprite and convert to transparent canvas
+   * Item ball uses cyan (top-left pixel) as transparency color
+   * Sprite is 16x16 pixels
+   */
+  const ensureItemBallSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
+    if (itemBallSpriteRef.current) {
+      return itemBallSpriteRef.current;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = '/pokeemerald/graphics/object_events/pics/misc/item_ball.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get item ball sprite context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
+            data[i + 3] = 0; // Alpha 0
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        itemBallSpriteRef.current = canvas;
+        resolve(canvas);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  }, []);
+
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
 
@@ -2273,12 +2411,15 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
         
-        // Load grass sprite
+        // Load grass sprite and other field effect sprites
         await ensureGrassSprite();
         await ensureLongGrassSprite();
         await ensureSandSprite();
         await ensureSplashSprite();
         await ensureRippleSprite();
+        await ensureItemBallSprite();
+
+        // Note: Object events are parsed in rebuildContextForWorld() which was called above
 
         // Initialize hardware-accelerated renderer
         if (USE_HARDWARE_RENDERING) {
@@ -2315,6 +2456,13 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
         };
         player.setTileResolver(resolveTileForPlayer);
         // player.setDoorWarpHandler(handleDoorWarp); // This will be defined later
+
+        // Set up object collision checker for item balls, NPCs, etc.
+        player.setObjectCollisionChecker((tileX, tileY) => {
+          const itemBall = objectEventManagerRef.current.getItemBallAt(tileX, tileY);
+          return itemBall !== null; // Block if there's an uncollected item ball
+        });
+
         playerControllerRef.current = player;
 
         // The original code had a try/catch block for loading a single sprite here.
@@ -3193,6 +3341,61 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
     return () => window.removeEventListener('keydown', handleSurfInput);
   }, [dialogIsOpen, showYesNo, showMessage]);
 
+  // Item pickup handler (A button = KeyX)
+  const itemPickupInProgressRef = useRef(false);
+  useEffect(() => {
+    const handleItemPickup = async (e: KeyboardEvent) => {
+      // X key = A button in Pokemon (confirm/interact)
+      if (e.code !== 'KeyX') return;
+
+      const player = playerControllerRef.current;
+      if (!player) return;
+
+      // Don't process if dialog is open or pickup is already in progress
+      if (dialogIsOpen || itemPickupInProgressRef.current) return;
+
+      // Don't process if player is moving or surfing
+      if (player.isMoving || player.isSurfing()) return;
+
+      // Calculate the tile the player is facing
+      let facingTileX = player.tileX;
+      let facingTileY = player.tileY;
+      if (player.dir === 'up') facingTileY -= 1;
+      else if (player.dir === 'down') facingTileY += 1;
+      else if (player.dir === 'left') facingTileX -= 1;
+      else if (player.dir === 'right') facingTileX += 1;
+
+      // Check if there's an interactable item at the facing tile
+      const objectEventManager = objectEventManagerRef.current;
+      const interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
+
+      if (!interactable || interactable.type !== 'item') return;
+
+      const itemBall = interactable.data;
+
+      // Lock input and show pickup message
+      itemPickupInProgressRef.current = true;
+      player.lockInput();
+
+      try {
+        // Collect the item (sets the flag)
+        objectEventManager.collectItem(itemBall.id);
+
+        // Show the pickup message using Pokemon's format
+        // In the original: "{PLAYER} found one {ITEM}!"
+        // We'll use "BRENDAN" as placeholder player name
+        const itemName = itemBall.itemName;
+        await showMessage(`BRENDAN found one ${itemName}!`);
+      } finally {
+        itemPickupInProgressRef.current = false;
+        player.unlockInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleItemPickup);
+    return () => window.removeEventListener('keydown', handleItemPickup);
+  }, [dialogIsOpen, showMessage]);
+
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
@@ -3415,4 +3618,6 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MapRenderer.displayName = 'MapRenderer';

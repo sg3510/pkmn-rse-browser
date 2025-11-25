@@ -37,6 +37,12 @@ export interface ResolvedTileInfo {
 
 export type TileResolver = (tileX: number, tileY: number) => ResolvedTileInfo | null;
 
+/**
+ * Callback to check if there's an object (NPC, item ball, etc.) blocking a tile
+ * Returns true if the tile is blocked by an object
+ */
+export type ObjectCollisionChecker = (tileX: number, tileY: number) => boolean;
+
 export interface DoorWarpRequest {
   targetX: number;
   targetY: number;
@@ -415,6 +421,7 @@ export class PlayerController {
   private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
+  private objectCollisionChecker: ObjectCollisionChecker | null = null;
   
   private currentState: PlayerState;
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
@@ -443,12 +450,31 @@ export class PlayerController {
   private readonly SPRITE_WIDTH = 16;
   private readonly SPRITE_HEIGHT = 32;
 
+  // Keys that should have their default browser behavior prevented
+  // This stops arrow keys from scrolling, space from activating buttons, etc.
+  private static readonly GAME_CONTROL_KEYS = new Set([
+    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',  // Movement
+    'w', 'W', 'a', 'A', 's', 'S', 'd', 'D',              // WASD movement
+    'z', 'Z',                                            // B button (cancel/run)
+    'x', 'X',                                            // A button (confirm)
+    ' ',                                                 // Space (often used as confirm)
+    'Enter',                                             // Enter (often used as confirm)
+  ]);
+
   constructor() {
     this.currentState = new NormalState();
     this.handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent default browser behavior for game control keys
+      // This stops arrow keys from scrolling the page, space from clicking buttons, etc.
+      if (PlayerController.GAME_CONTROL_KEYS.has(e.key)) {
+        e.preventDefault();
+      }
       this.keysPressed[e.key] = true;
     };
     this.handleKeyUp = (e: KeyboardEvent) => {
+      if (PlayerController.GAME_CONTROL_KEYS.has(e.key)) {
+        e.preventDefault();
+      }
       this.keysPressed[e.key] = false;
     };
 
@@ -1084,6 +1110,14 @@ export class PlayerController {
       return true;
     }
 
+    // Check for object events (item balls, NPCs, etc.) blocking this tile
+    if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
+      }
+      return true;
+    }
+
     if (isDebugMode()) {
       console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE`);
     }
@@ -1299,6 +1333,10 @@ export class PlayerController {
 
   public setDoorWarpHandler(handler: ((request: DoorWarpRequest) => void) | null) {
     this.doorWarpHandler = handler;
+  }
+
+  public setObjectCollisionChecker(checker: ObjectCollisionChecker | null) {
+    this.objectCollisionChecker = checker;
   }
 
   public tryInteract(direction: 'up' | 'down' | 'left' | 'right'): boolean {
