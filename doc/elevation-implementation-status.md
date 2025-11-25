@@ -196,3 +196,4 @@ Full GBA priority system (Option 2) can be added later as a refinement.
 
 **Next Priority:** Implement simple elevation-based rendering to make player appear ON platforms instead of under them.
 
+

@@ -101,3 +101,4 @@ The engine re-renders the entire viewport's `ImageData` whenever the view coordi
     *   Render the static background to this canvas once.
     *   In `render`, copy from this canvas.
 
+

@@ -132,3 +132,4 @@ Both bugs are now **FIXED** and ready for testing.
 
 The hardware-accelerated rendering optimization (Phase 1) is complete with these bug fixes applied.
 
+

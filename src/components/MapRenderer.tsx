@@ -2888,17 +2888,26 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
               const targetId = resolved.map.entry.id;
               const targetOffsetX = resolved.map.offsetX;
               const targetOffsetY = resolved.map.offsetY;
-              const playerWorldX = player.tileX;
-              const playerWorldY = player.tileY;
               (async () => {
                 const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
                 // Shift new world so the target map stays at the same world offset as before reanchor.
                 const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
                 await rebuildContextForWorld(newWorld, targetId);
-                // Keep absolute world position when entering new anchor.
-                playerControllerRef.current?.setPosition(playerWorldX, playerWorldY);
+                // FIX: Don't reset player position - shiftWorld maintains coordinate continuity.
+                // The old setPosition() call was causing a jump/teleport back effect because:
+                // 1. Player continued moving during async world rebuild
+                // 2. setPosition() would snap player back to stale captured coordinates
+                // 3. setPosition() resets isMoving=false and pixelsMoved=0, canceling sub-tile movement
                 applyTileResolver();
-                warpState.lastCheckedTile = { mapId: targetId, x: playerWorldX, y: playerWorldY };
+                // Update warpState with current player position
+                const currentPlayer = playerControllerRef.current;
+                if (currentPlayer) {
+                  warpState.lastCheckedTile = {
+                    mapId: targetId,
+                    x: currentPlayer.tileX,
+                    y: currentPlayer.tileY
+                  };
+                }
                 warpState.cooldownMs = Math.max(warpState.cooldownMs, 50);
               })().finally(() => {
                 reanchorInFlight = false;

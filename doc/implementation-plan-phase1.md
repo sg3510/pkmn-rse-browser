@@ -601,3 +601,4 @@ if (USE_HARDWARE_RENDERING && canvasRendererRef.current) {
 4. Add feature flag to MapRenderer
 5. Run visual regression tests
 
+

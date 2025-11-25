@@ -1279,3 +1279,4 @@ The key insight is that **elevation is per-map-coordinate**, stored in the map.b
 
 Each phase builds on the previous one, with clear testing criteria to verify correctness at each step.
 
+

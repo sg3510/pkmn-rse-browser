@@ -140,3 +140,4 @@ Expected: ALLOWED ✓ (elevation 0 is universal for player)
 3. **MEDIUM - Implement basic elevation priority rendering**
 4. **LOW - Full sprite priority system matching GBA**
 
+

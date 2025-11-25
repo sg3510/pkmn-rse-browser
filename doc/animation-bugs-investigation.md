@@ -183,3 +183,4 @@ if (animationFrameChanged && USE_HARDWARE_RENDERING) {
 | Flower missing frame | ⚠️ INVESTIGATING | Likely canvas cache invalidation issue |
 
 
+

@@ -126,7 +126,7 @@ class NormalState implements PlayerState {
 
 class RunningState implements PlayerState {
   // Running speed is double walking speed
-  private readonly SPEED = 0.12;
+  private readonly SPEED = 1.2;//0.12;
 
   enter(_controller: PlayerController): void {
     // controller.setSprite('running');
@@ -145,8 +145,8 @@ class RunningState implements PlayerState {
       return;
     }
 
-    // Check for ledge jumping
-    if (controller.checkForLedgeJump(keys)) {
+    // Check for ledge jumping (pass true for wasRunning)
+    if (controller.checkForLedgeJump(keys, true)) {
       return;
     }
 
@@ -170,6 +170,11 @@ class JumpingState implements PlayerState {
   private startY: number = 0;
   private targetX: number = 0;
   private targetY: number = 0;
+  private wasRunning: boolean = false;
+
+  constructor(wasRunning: boolean = false) {
+    this.wasRunning = wasRunning;
+  }
 
   enter(controller: PlayerController): void {
     controller.lockInput();
@@ -201,7 +206,7 @@ class JumpingState implements PlayerState {
     controller.isMoving = false;
     controller.showShadow = false;
     controller.spriteYOffset = 0;
-    
+
     // Snap to exact target position
     controller.x = this.targetX;
     controller.y = this.targetY;
@@ -209,16 +214,26 @@ class JumpingState implements PlayerState {
     // CRITICAL: Update elevation upon landing!
     // Otherwise collision system thinks we are still at old elevation
     controller.updateElevation();
+
+    // Update previous tile state so subsequent movements track correctly
+    controller.updatePreviousTileStatePublic();
+
+    // Trigger grass effect on landing tile (like GroundEffect_JumpLanding in pokeemerald)
+    controller.triggerGrassEffectOnLanding();
   }
 
   update(controller: PlayerController, delta: number): boolean {
     // Move player
     const moveAmount = this.SPEED * delta;
     this.progress += moveAmount;
-    
+
     if (this.progress >= JUMP_DISTANCE) {
-      // Jump finished
-      controller.changeState(new NormalState());
+      // Jump finished - return to previous state (running if we were running, normal otherwise)
+      if (this.wasRunning) {
+        controller.changeState(new RunningState());
+      } else {
+        controller.changeState(new NormalState());
+      }
       return true;
     }
     
@@ -463,7 +478,8 @@ export class PlayerController {
 
   public lockInput() {
     this.inputLocked = true;
-    this.keysPressed = {};
+    // Don't clear keysPressed - we need to remember held keys (like Z for running)
+    // so state can be properly restored after input is unlocked
     this.isMoving = false;
     this.pixelsMoved = 0;
   }
@@ -489,10 +505,41 @@ export class PlayerController {
 
     // Update grass effects
     this.grassEffectManager.update();
-    
-    // Cleanup completed grass effects
-    const ownerPositions = new Map();
-    ownerPositions.set('player', { tileX: this.tileX, tileY: this.tileY });
+
+    // Calculate destination tile for grass cleanup logic
+    let destTileX = this.tileX;
+    let destTileY = this.tileY;
+    if (this.isMoving) {
+      if (this.dir === 'up') destTileY = this.tileY - 1;
+      else if (this.dir === 'down') destTileY = this.tileY + 1;
+      else if (this.dir === 'left') destTileX = this.tileX - 1;
+      else if (this.dir === 'right') destTileX = this.tileX + 1;
+    }
+
+    // Cleanup completed grass effects with full position info
+    const isJumping = this.currentState instanceof JumpingState;
+    const ownerPositions = new Map<string, {
+      tileX: number;
+      tileY: number;
+      destTileX: number;
+      destTileY: number;
+      prevTileX: number;
+      prevTileY: number;
+      direction: 'up' | 'down' | 'left' | 'right';
+      isMoving: boolean;
+      isJumping: boolean;
+    }>();
+    ownerPositions.set('player', {
+      tileX: this.tileX,
+      tileY: this.tileY,
+      destTileX,
+      destTileY,
+      prevTileX: this.prevTileX,
+      prevTileY: this.prevTileY,
+      direction: this.dir,
+      isMoving: this.isMoving,
+      isJumping,
+    });
     this.grassEffectManager.cleanup(ownerPositions);
 
     return this.currentState.update(this, delta);
@@ -544,8 +591,8 @@ export class PlayerController {
         // Update previous tile state for next movement
         this.updatePreviousTileState();
 
-        // Trigger grass effect on the new tile
-        this.checkAndTriggerGrassEffect(this.tileX, this.tileY, false);
+        // Trigger LONG grass effect on movement completion (tall grass was already triggered on begin step)
+        this.checkAndTriggerLongGrassEffectOnFinishStep(this.tileX, this.tileY);
 
         didRenderMove = true;
         
@@ -632,12 +679,22 @@ export class PlayerController {
         if (isDebugMode()) {
           console.log(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
         }
+
+        // When moving DOWN, immediately remove any grass at current tile
+        // (player sprite visually covers the grass when moving down)
+        if (newDir === 'down') {
+          this.removeGrassWhenMovingDown();
+        }
+
         // Create sand footprint as we START to move off current tile
         this.checkAndTriggerSandFootprints();
-        
+
+        // Trigger TALL grass effect when we START stepping onto the tile (pokeemerald: OnBeginStep)
+        // Long grass effect is triggered at end of movement (pokeemerald: OnFinishStep style)
+        this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
+
         this.isMoving = true;
         this.pixelsMoved = 0;
-        // Grass effect will be triggered at the end of movement in processMovement
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
         if (isDebugMode()) {
           console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
@@ -663,35 +720,56 @@ export class PlayerController {
 
   public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
     this.dir = direction;
-    
+
+    // When moving DOWN, immediately remove any grass at current tile
+    if (direction === 'down') {
+      this.removeGrassWhenMovingDown();
+    }
+
     // Create sand footprint as we START to move
     this.checkAndTriggerSandFootprints();
-    
+
+    // Calculate target tile and trigger tall grass on begin step
+    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    this.checkAndTriggerGrassEffectOnBeginStep(this.tileX + dx, this.tileY + dy);
+
     this.isMoving = true;
     this.pixelsMoved = 0;
-    
-    // Grass effect will be triggered at the end of movement in processMovement
   }
 
   public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
     this.dir = direction;
-    if (ignoreCollision) {
-      // Create sand footprint as we START to move
-      this.checkAndTriggerSandFootprints();
-      this.isMoving = true;
-      this.pixelsMoved = 0;
-      return true;
-    }
     const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
     const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
-    if (!this.isCollisionAt(targetTileX, targetTileY)) {
+
+    if (ignoreCollision) {
+      // When moving DOWN, immediately remove any grass at current tile
+      if (direction === 'down') {
+        this.removeGrassWhenMovingDown();
+      }
       // Create sand footprint as we START to move
       this.checkAndTriggerSandFootprints();
+      // Trigger tall grass on begin step
+      this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
       this.isMoving = true;
       this.pixelsMoved = 0;
-      // Grass effect will be triggered at the end of movement in processMovement
+      return true;
+    }
+
+    if (!this.isCollisionAt(targetTileX, targetTileY)) {
+      // When moving DOWN, immediately remove any grass at current tile
+      if (direction === 'down') {
+        this.removeGrassWhenMovingDown();
+      }
+      // Create sand footprint as we START to move
+      this.checkAndTriggerSandFootprints();
+      // Trigger tall grass on begin step
+      this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
+      this.isMoving = true;
+      this.pixelsMoved = 0;
       return true;
     }
     return false;
@@ -1012,7 +1090,7 @@ export class PlayerController {
     return false;
   }
 
-  public checkForLedgeJump(keys: { [key: string]: boolean }): boolean {
+  public checkForLedgeJump(keys: { [key: string]: boolean }, wasRunning: boolean = false): boolean {
     let dx = 0;
     let dy = 0;
     let dir: 'up' | 'down' | 'left' | 'right' | null = null;
@@ -1045,7 +1123,11 @@ export class PlayerController {
       // Check collision but IGNORE elevation mismatch because ledges are designed to change elevation
       if (!this.isCollisionAt(landTileX, landTileY, { ignoreElevation: true })) {
         this.dir = dir; // Face the ledge
-        this.changeState(new JumpingState());
+        // When jumping from grass while moving down, remove the grass immediately
+        if (dir === 'down') {
+          this.removeGrassWhenMovingDown();
+        }
+        this.changeState(new JumpingState(wasRunning));
         return true;
       }
     }
@@ -1060,9 +1142,16 @@ export class PlayerController {
   private updatePreviousTileState(): void {
     this.prevTileX = this.tileX;
     this.prevTileY = this.tileY;
-    
+
     const resolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
     this.prevTileBehavior = resolved?.attributes?.behavior;
+  }
+
+  /**
+   * Public wrapper for updatePreviousTileState, used by JumpingState.
+   */
+  public updatePreviousTileStatePublic(): void {
+    this.updatePreviousTileState();
   }
 
   /**
@@ -1093,17 +1182,18 @@ export class PlayerController {
 
   /**
    * Check if current tile is tall or long grass and trigger grass effect if so.
+   * Used for spawn cases where animation should be skipped.
+   *
    * Based on pokeemerald logic:
    * - GroundEffect_SpawnOnTallGrass / SpawnOnLongGrass (skip animation)
-   * - GroundEffect_StepOnTallGrass / StepOnLongGrass (play animation)
-   * 
+   *
    * NOTE: Sand footprints are handled separately in checkAndTriggerSandFootprints()
    * which uses previousTile, not currentTile
    */
   private checkAndTriggerGrassEffect(tileX: number, tileY: number, skipAnimation: boolean) {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     const behavior = resolved?.attributes?.behavior;
-    
+
     if (behavior !== undefined) {
       if (isTallGrassBehavior(behavior)) {
         this.grassEffectManager.create(tileX, tileY, 'tall', skipAnimation, 'player');
@@ -1117,6 +1207,97 @@ export class PlayerController {
     } else {
       this.currentGrassType = null;
     }
+  }
+
+  /**
+   * Trigger grass effect when movement STARTS (OnBeginStep).
+   *
+   * Based on pokeemerald logic in event_object_movement.c:
+   * - GetGroundEffectFlags_TallGrassOnBeginStep AND GetGroundEffectFlags_LongGrassOnBeginStep
+   *   BOTH check currentMetatileBehavior and are called in GetAllGroundEffectFlags_OnBeginStep
+   * - The effect is triggered in DoGroundEffects_OnBeginStep
+   * - In pokeemerald, currentCoords is shifted to destination BEFORE triggerGroundEffectsOnMove is set
+   *
+   * This makes the grass animation start the moment the player begins stepping onto the tile.
+   *
+   * @param targetTileX - The X coordinate of the tile being stepped onto
+   * @param targetTileY - The Y coordinate of the tile being stepped onto
+   */
+  private checkAndTriggerGrassEffectOnBeginStep(targetTileX: number, targetTileY: number) {
+    const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+
+    if (behavior !== undefined) {
+      if (isTallGrassBehavior(behavior)) {
+        // Trigger tall grass animation immediately when starting to step onto the tile
+        this.grassEffectManager.create(targetTileX, targetTileY, 'tall', false, 'player');
+        // Note: currentGrassType will be updated on finish step
+      } else if (isLongGrassBehavior(behavior)) {
+        // Trigger long grass animation immediately when starting to step onto the tile
+        this.grassEffectManager.create(targetTileX, targetTileY, 'long', false, 'player');
+        // Note: currentGrassType will be updated on finish step
+      }
+    }
+  }
+
+  /**
+   * Update grass state when movement FINISHES (OnFinishStep style).
+   * Updates the currentGrassType for sprite clipping.
+   *
+   * Note: The grass ANIMATION is triggered on begin step (above), but the
+   * sprite clipping state needs to update when we actually arrive on the tile.
+   *
+   * @param tileX - The X coordinate of the tile just landed on
+   * @param tileY - The Y coordinate of the tile just landed on
+   */
+  private checkAndTriggerLongGrassEffectOnFinishStep(tileX: number, tileY: number) {
+    const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+
+    if (behavior !== undefined) {
+      if (isLongGrassBehavior(behavior)) {
+        // Long grass clips the bottom half of the player sprite
+        this.currentGrassType = 'long';
+      } else {
+        this.currentGrassType = null;
+      }
+    } else {
+      this.currentGrassType = null;
+    }
+  }
+
+  /**
+   * Trigger grass effect when landing from a jump.
+   * Based on pokeemerald's GetGroundEffectFlags_JumpLanding.
+   */
+  public triggerGrassEffectOnLanding(): void {
+    const resolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
+    const behavior = resolved?.attributes?.behavior;
+
+    if (behavior !== undefined) {
+      if (isTallGrassBehavior(behavior)) {
+        // Jump landing in tall grass - trigger animation
+        this.grassEffectManager.create(this.tileX, this.tileY, 'tall', false, 'player');
+        this.currentGrassType = null;
+      } else if (isLongGrassBehavior(behavior)) {
+        // Jump landing in long grass - trigger animation
+        this.grassEffectManager.create(this.tileX, this.tileY, 'long', false, 'player');
+        this.currentGrassType = 'long';
+      } else {
+        this.currentGrassType = null;
+      }
+    } else {
+      this.currentGrassType = null;
+    }
+  }
+
+  /**
+   * Remove grass effects at the current tile when moving DOWN.
+   * This should be called immediately when starting to move down from a grass tile,
+   * so the grass disappears right away (player sprite visually covers it).
+   */
+  private removeGrassWhenMovingDown(): void {
+    this.grassEffectManager.removeGrassAtTile(this.tileX, this.tileY, 'player');
   }
 
   /**

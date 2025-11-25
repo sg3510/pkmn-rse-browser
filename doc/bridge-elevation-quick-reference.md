@@ -147,3 +147,4 @@ Player at (1, 1) elevation 3:
 
 That's it! Elevation is simple once you understand it's per-coordinate in the map data.
 
+
