@@ -20,7 +20,105 @@ const DEBUG_CELL_SCALE = 3;
 const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;
 const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
 
+// Elevation colors - gradient from blue (low) to red (high)
+const ELEVATION_COLORS = [
+  '#0000ff', // 0 - blue
+  '#0044ff', // 1
+  '#0088ff', // 2
+  '#00ccff', // 3
+  '#00ffcc', // 4
+  '#00ff88', // 5
+  '#00ff44', // 6
+  '#00ff00', // 7 - green
+  '#44ff00', // 8
+  '#88ff00', // 9
+  '#ccff00', // 10
+  '#ffff00', // 11 - yellow
+  '#ffcc00', // 12
+  '#ff8800', // 13
+  '#ff4400', // 14
+  '#ff0000', // 15 - red
+];
+
 export class DebugRenderer {
+  /**
+   * Render collision and/or elevation overlay on the main canvas.
+   * Shows passable tiles (green border), blocked tiles (red with X), and elevation colors.
+   */
+  static renderCollisionElevationOverlay(
+    mainCtx: CanvasRenderingContext2D,
+    ctx: RenderContext,
+    view: WorldCameraView,
+    options: { showCollision: boolean; showElevation: boolean }
+  ): void {
+    const { showCollision, showElevation } = options;
+    if (!showCollision && !showElevation) return;
+
+    const widthPx = view.pixelWidth;
+    const heightPx = view.pixelHeight;
+    const METATILE_PX = 16;
+
+    // Calculate visible tile range
+    const startTileX = view.worldStartTileX;
+    const startTileY = view.worldStartTileY;
+    const tilesWide = Math.ceil(widthPx / METATILE_PX) + 1;
+    const tilesHigh = Math.ceil(heightPx / METATILE_PX) + 1;
+
+    for (let ty = 0; ty < tilesHigh; ty++) {
+      for (let tx = 0; tx < tilesWide; tx++) {
+        const worldTileX = startTileX + tx;
+        const worldTileY = startTileY + ty;
+        const resolved = resolveTileAt(ctx, worldTileX, worldTileY);
+
+        if (resolved) {
+          const screenX = tx * METATILE_PX - Math.round(view.subTileOffsetX);
+          const screenY = ty * METATILE_PX - Math.round(view.subTileOffsetY);
+
+          // Render elevation overlay (bottom layer)
+          if (showElevation) {
+            const elevation = resolved.mapTile.elevation;
+            mainCtx.globalAlpha = 0.35;
+            mainCtx.fillStyle = ELEVATION_COLORS[elevation] || '#888888';
+            mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+          }
+
+          // Render collision overlay (top layer, with hatching for blocked)
+          if (showCollision) {
+            const collision = resolved.mapTile.collision;
+            mainCtx.globalAlpha = 0.4;
+
+            if (collision === 0) {
+              // Passable - green border only (so elevation shows through)
+              mainCtx.strokeStyle = '#00ff00';
+              mainCtx.lineWidth = 1;
+              mainCtx.strokeRect(screenX + 0.5, screenY + 0.5, METATILE_PX - 1, METATILE_PX - 1);
+            } else if (collision === 1) {
+              // Blocked - red with X pattern
+              mainCtx.fillStyle = '#ff0000';
+              mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+              // Draw X for blocked tiles
+              mainCtx.globalAlpha = 0.6;
+              mainCtx.strokeStyle = '#000000';
+              mainCtx.lineWidth = 2;
+              mainCtx.beginPath();
+              mainCtx.moveTo(screenX + 2, screenY + 2);
+              mainCtx.lineTo(screenX + METATILE_PX - 2, screenY + METATILE_PX - 2);
+              mainCtx.moveTo(screenX + METATILE_PX - 2, screenY + 2);
+              mainCtx.lineTo(screenX + 2, screenY + METATILE_PX - 2);
+              mainCtx.stroke();
+            } else {
+              // Other collision types - yellow
+              mainCtx.fillStyle = '#ffff00';
+              mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
+            }
+          }
+        }
+      }
+    }
+
+    mainCtx.globalAlpha = 1.0;
+  }
+
   static renderDebugOverlay(
     ctx: RenderContext,
     player: PlayerController,

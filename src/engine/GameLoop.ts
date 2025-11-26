@@ -48,7 +48,16 @@ export class GameLoop {
       this.lastTime = currentTime;
       this.accumulator += deltaMs;
 
-      let lastResult: UpdateResult = { needsRender: false };
+      // CRITICAL: Accumulate results across all catch-up iterations
+      // If ANY iteration needs rendering, we must render. Otherwise jitter occurs
+      // when the last iteration has needsRender=false but earlier iterations moved.
+      let combinedResult: UpdateResult = {
+        needsRender: false,
+        viewChanged: false,
+        elevationChanged: false,
+        animationFrameChanged: false,
+        playerDirty: false,
+      };
 
       while (this.accumulator >= this.FRAME_MS) {
         this.animationTimer.update(this.FRAME_MS);
@@ -57,11 +66,21 @@ export class GameLoop {
           animationTime: this.state.get().animationTime + this.FRAME_MS,
         });
 
-        lastResult = this.updateCoordinator.update(this.FRAME_MS, currentTime);
+        const result = this.updateCoordinator.update(this.FRAME_MS, currentTime);
+
+        // OR all boolean flags - if ANY iteration needs render, we render
+        combinedResult = {
+          needsRender: combinedResult.needsRender || result.needsRender,
+          viewChanged: combinedResult.viewChanged || result.viewChanged,
+          elevationChanged: combinedResult.elevationChanged || result.elevationChanged,
+          animationFrameChanged: combinedResult.animationFrameChanged || result.animationFrameChanged,
+          playerDirty: combinedResult.playerDirty || result.playerDirty,
+        };
+
         this.accumulator -= this.FRAME_MS;
       }
 
-      onFrame(this.state.get(), lastResult, deltaMs, currentTime);
+      onFrame(this.state.get(), combinedResult, deltaMs, currentTime);
       this.rafId = requestAnimationFrame(tick);
     };
 

@@ -541,6 +541,15 @@ export class PlayerController {
   }
 
   public setPosition(tileX: number, tileY: number) {
+    // DEBUG: Log all setPosition calls with stack trace to track teleporting
+    const oldX = this.tileX;
+    const oldY = this.tileY;
+    const oldPixelX = this.x;
+    const oldPixelY = this.y;
+    console.log(`[TELEPORT_DEBUG] setPosition called: (${oldX},${oldY}) -> (${tileX},${tileY})`,
+      `pixel: (${oldPixelX?.toFixed(1)},${oldPixelY?.toFixed(1)}) -> (${tileX * this.TILE_PIXELS},${tileY * this.TILE_PIXELS - 16})`,
+      new Error().stack?.split('\n').slice(1, 5).join(' <- '));
+
     this.tileX = tileX;
     this.tileY = tileY;
     this.x = tileX * this.TILE_PIXELS;

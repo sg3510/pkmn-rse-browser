@@ -5,7 +5,7 @@ import { MapManager, type TilesetResources, type WorldState } from '../services/
 import { ObjectEventManager } from '../game/ObjectEventManager';
 import { saveManager, type SaveData, type SaveResult, type LocationState } from '../save';
 // CanvasRenderer removed - now using RenderPipeline exclusively
-import { ViewportBuffer, type BufferTileResolver } from '../rendering/ViewportBuffer';
+// ViewportBuffer removed - using RenderPipeline exclusively
 import { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
 import { RenderPipeline } from '../rendering/RenderPipeline';
 import { AnimationTimer } from '../engine/AnimationTimer';
@@ -80,8 +80,7 @@ import { buildTilesetRuntime } from '../utils/tilesetUtils';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
 import { getDoorAssetForMetatile, ARROW_SPRITE_PATH } from '../data/doorAssets';
-// useFieldSprites hook available for future thin component refactor
-// import { useFieldSprites } from '../hooks/useFieldSprites';
+import { useFieldSprites } from '../hooks/useFieldSprites';
 import { DebugPanel, DEFAULT_DEBUG_OPTIONS, type DebugOptions, type DebugState } from './debug';
 
 interface MapRendererProps {
@@ -196,7 +195,7 @@ const DEBUG_MODE_FLAG = 'DEBUG_MODE'; // Global debug flag for console logging
 
 // Feature flag for viewport buffer (overscan scrolling optimization)
 // DISABLED: The incremental edge rendering approach has bugs with sub-tile offsets
-const USE_VIEWPORT_BUFFER = false;
+// USE_VIEWPORT_BUFFER removed - using RenderPipeline exclusively
 
 // Feature flag for using the new modular RenderPipeline
 const USE_RENDER_PIPELINE = true;
@@ -273,15 +272,11 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const warpHandlerRef = useRef<WarpHandler>(new WarpHandler());
   const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
   const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
-  const grassSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const longGrassSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const sandSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const splashSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const rippleSpriteRef = useRef<HTMLCanvasElement | null>(null);
-  const itemBallSpriteRef = useRef<HTMLCanvasElement | null>(null);
+  // Field sprites (grass, sand, splash, etc.) managed by useFieldSprites hook
+  const fieldSprites = useFieldSprites();
   const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
   // canvasRendererRef removed - now using RenderPipeline exclusively
-  const viewportBufferRef = useRef<ViewportBuffer | null>(null); // Viewport buffer for smooth scrolling
+  // viewportBufferRef removed - now using RenderPipeline exclusively
   const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null); // Shared tileset cache
   const renderPipelineRef = useRef<RenderPipeline | null>(null); // Modular render pipeline
   const doorExitRef = useRef<DoorExitSequence>({
@@ -1020,103 +1015,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
         // Note: NPCs at player's priority are Y-sorted with player in the player layer
         // Priority 0 sprites are rendered after topAbove
-      } else if (USE_VIEWPORT_BUFFER && viewportBufferRef.current) {
-        // VIEWPORT BUFFER MODE: Buttery smooth scrolling with overscan buffer
-        const vbuffer = viewportBufferRef.current;
-
-        // Update buffer state
-        vbuffer.setPlayerElevation(playerElevation);
-        vbuffer.setAnimationFrame(animationFrameChanged ? Date.now() : 0);
-
-        // Create tile resolver for the buffer
-        const bufferResolveTile: BufferTileResolver = (tileX, tileY) => {
-          const resolved = resolveTileAt(ctx, tileX, tileY);
-          if (!resolved || !resolved.metatile) return null;
-
-          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-          if (!runtime) return null;
-
-          const patchedTiles = runtime.patchedTiles ?? {
-            primary: runtime.resources.primaryTilesImage,
-            secondary: runtime.resources.secondaryTilesImage,
-          };
-
-          return {
-            metatile: resolved.metatile,
-            attributes: resolved.attributes ?? null,
-            mapTile: resolved.mapTile,
-            tileset: {
-              key: resolved.tileset.key,
-              primaryPalettes: resolved.tileset.primaryPalettes,
-              secondaryPalettes: resolved.tileset.secondaryPalettes,
-            },
-            patchedTiles,
-            animatedTileIds: runtime.animatedTileIds,
-          };
-        };
-
-        // isVerticalObject helper for buffer
-        const isVerticalObjectForBuffer = (tileX: number, tileY: number) => {
-          return isVerticalObject(ctx, tileX, tileY);
-        };
-
-        // Clear and composite using viewport buffer
-        mainCtx.clearRect(0, 0, widthPx, heightPx);
-
-        // Invalidate buffer on animation change
-        if (animationFrameChanged) {
-          vbuffer.invalidateAll();
-          // Also clear tileset cache on animation change
-          if (tilesetCacheRef.current) {
-            tilesetCacheRef.current.clear();
-          }
-        }
-
-        // Composite background pass first
-        vbuffer.composite(
-          mainCtx,
-          'background',
-          view.worldStartTileX,
-          view.worldStartTileY,
-          view.subTileOffsetX,
-          view.subTileOffsetY,
-          bufferResolveTile,
-          isVerticalObjectForBuffer,
-          animationFrameChanged || elevationChanged
-        );
-
-        // Render priority 2 NPCs that are NOT at player's priority
-        // NPCs at player's priority will be Y-sorted with player in the player layer
-        if (player) {
-          const npcs = objectEventManagerRef.current.getVisibleNPCs();
-          renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', 2, playerPriority);
-          renderNPCs(mainCtx, npcs, view, player.tileY, 'top', 2, playerPriority);
-        }
-
-        // Now composite topBelow pass (bridges, tree tops rendered behind player)
-        vbuffer.composite(
-          mainCtx,
-          'topBelow',
-          view.worldStartTileX,
-          view.worldStartTileY,
-          view.subTileOffsetX,
-          view.subTileOffsetY,
-          bufferResolveTile,
-          isVerticalObjectForBuffer,
-          animationFrameChanged || elevationChanged
-        );
-
-        // Player rendering happens between topBelow and topAbove
-        // Priority 1 and 0 NPCs are rendered in the common code path below
-
-        // Store reference for topAbove pass (rendered after player)
-        // We'll do the topAbove composite after player render
       }
-      // Old USE_HARDWARE_RENDERING and ImageData rendering modes removed
-      // Now using RenderPipeline exclusively
-
-      // Old compositing code for USE_HARDWARE_RENDERING and ImageData modes removed
-      // RenderPipeline and ViewportBuffer handle their own compositing above
+      // ViewportBuffer and old rendering modes removed - now using RenderPipeline exclusively
 
       renderDoorAnimations(mainCtx, view, nowMs);
       // Render arrow overlay using ArrowOverlay class
@@ -1140,19 +1040,19 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       if (player) {
         const effects = player.getGrassEffectManager().getEffectsForRendering();
         const sprites = {
-          grass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
-          sand: sandSpriteRef.current,
-          splash: splashSpriteRef.current,
-          ripple: rippleSpriteRef.current,
+          grass: fieldSprites.sprites.grass,
+          longGrass: fieldSprites.sprites.longGrass,
+          sand: fieldSprites.sprites.sand,
+          splash: fieldSprites.sprites.splash,
+          ripple: fieldSprites.sprites.ripple,
           arrow: arrowSpriteRef.current,
-          itemBall: itemBallSpriteRef.current,
+          itemBall: fieldSprites.sprites.itemBall,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
 
         // Render item balls behind player
         const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, itemBallSpriteRef.current, view, player.tileY, 'bottom');
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'bottom');
 
         // Render NPCs at player's priority behind player (Y-sorted with player)
         // Other priority NPCs are rendered in their respective passes (before topBelow or after topAbove)
@@ -1161,8 +1061,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
         // Render grass effects over NPCs (so grass covers their lower body)
         renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
+          tallGrass: fieldSprites.sprites.grass,
+          longGrass: fieldSprites.sprites.longGrass,
         });
       }
 
@@ -1222,19 +1122,19 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       if (player) {
         const effects = player.getGrassEffectManager().getEffectsForRendering();
         const sprites = {
-          grass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
-          sand: sandSpriteRef.current,
-          splash: splashSpriteRef.current,
-          ripple: rippleSpriteRef.current,
+          grass: fieldSprites.sprites.grass,
+          longGrass: fieldSprites.sprites.longGrass,
+          sand: fieldSprites.sprites.sand,
+          splash: fieldSprites.sprites.splash,
+          ripple: fieldSprites.sprites.ripple,
           arrow: arrowSpriteRef.current,
-          itemBall: itemBallSpriteRef.current,
+          itemBall: fieldSprites.sprites.itemBall,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
 
         // Render item balls in front of player
         const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, itemBallSpriteRef.current, view, player.tileY, 'top');
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'top');
 
         // Render NPCs at player's priority in front of player (Y-sorted with player)
         // Other priority NPCs are rendered in their respective passes (before topBelow or after topAbove)
@@ -1243,8 +1143,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
         // Render grass effects over NPCs (so grass covers their lower body)
         renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: grassSpriteRef.current,
-          longGrass: longGrassSpriteRef.current,
+          tallGrass: fieldSprites.sprites.grass,
+          longGrass: fieldSprites.sprites.longGrass,
         });
       }
 
@@ -1252,46 +1152,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       if (USE_RENDER_PIPELINE && renderPipelineRef.current) {
         // RenderPipeline mode - composite topAbove layer
         renderPipelineRef.current.compositeTopAbove(mainCtx, view);
-      } else if (USE_VIEWPORT_BUFFER && viewportBufferRef.current) {
-        // Viewport buffer mode - composite topAbove pass
-        const vbuffer = viewportBufferRef.current;
-        const bufferResolveTile: BufferTileResolver = (tileX, tileY) => {
-          const resolved = resolveTileAt(ctx, tileX, tileY);
-          if (!resolved || !resolved.metatile) return null;
-          const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
-          if (!runtime) return null;
-          const patchedTiles = runtime.patchedTiles ?? {
-            primary: runtime.resources.primaryTilesImage,
-            secondary: runtime.resources.secondaryTilesImage,
-          };
-          return {
-            metatile: resolved.metatile,
-            attributes: resolved.attributes ?? null,
-            mapTile: resolved.mapTile,
-            tileset: {
-              key: resolved.tileset.key,
-              primaryPalettes: resolved.tileset.primaryPalettes,
-              secondaryPalettes: resolved.tileset.secondaryPalettes,
-            },
-            patchedTiles,
-            animatedTileIds: runtime.animatedTileIds,
-          };
-        };
-        const isVerticalObjectForBuffer = (tileX: number, tileY: number) => isVerticalObject(ctx, tileX, tileY);
-
-        vbuffer.composite(
-          mainCtx,
-          'topAbove',
-          view.worldStartTileX,
-          view.worldStartTileY,
-          view.subTileOffsetX,
-          view.subTileOffsetY,
-          bufferResolveTile,
-          isVerticalObjectForBuffer,
-          animationFrameChanged || elevationChanged
-        );
       }
-      // Old USE_HARDWARE_RENDERING and ImageData rendering paths removed
 
       // Render priority 0 NPCs (elevation 13, 14) that are NOT at player's priority
       // They appear ABOVE everything including topAbove (GBA priority 0 sprites)
@@ -1303,92 +1164,10 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       }
 
       // Render debug overlays if enabled
-      const showCollision = debugOptionsRef.current.showCollisionOverlay;
-      const showElevation = debugOptionsRef.current.showElevationOverlay;
-
-      if (showCollision || showElevation) {
-        const METATILE_PX = 16;
-
-        // Calculate visible tile range
-        const startTileX = view.worldStartTileX;
-        const startTileY = view.worldStartTileY;
-        const tilesWide = Math.ceil(widthPx / METATILE_PX) + 1;
-        const tilesHigh = Math.ceil(heightPx / METATILE_PX) + 1;
-
-        // Elevation colors - gradient from blue (low) to red (high)
-        const elevationColors = [
-          '#0000ff', // 0 - blue
-          '#0044ff', // 1
-          '#0088ff', // 2
-          '#00ccff', // 3
-          '#00ffcc', // 4
-          '#00ff88', // 5
-          '#00ff44', // 6
-          '#00ff00', // 7 - green
-          '#44ff00', // 8
-          '#88ff00', // 9
-          '#ccff00', // 10
-          '#ffff00', // 11 - yellow
-          '#ffcc00', // 12
-          '#ff8800', // 13
-          '#ff4400', // 14
-          '#ff0000', // 15 - red
-        ];
-
-        for (let ty = 0; ty < tilesHigh; ty++) {
-          for (let tx = 0; tx < tilesWide; tx++) {
-            const worldTileX = startTileX + tx;
-            const worldTileY = startTileY + ty;
-            const resolved = resolveTileAt(ctx, worldTileX, worldTileY);
-
-            if (resolved) {
-              const screenX = tx * METATILE_PX - Math.round(view.subTileOffsetX);
-              const screenY = ty * METATILE_PX - Math.round(view.subTileOffsetY);
-
-              // Render elevation overlay (bottom layer)
-              if (showElevation) {
-                const elevation = resolved.mapTile.elevation;
-                mainCtx.globalAlpha = 0.35;
-                mainCtx.fillStyle = elevationColors[elevation] || '#888888';
-                mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
-              }
-
-              // Render collision overlay (top layer, with hatching for blocked)
-              if (showCollision) {
-                const collision = resolved.mapTile.collision;
-                mainCtx.globalAlpha = 0.4;
-
-                if (collision === 0) {
-                  // Passable - green border only (so elevation shows through)
-                  mainCtx.strokeStyle = '#00ff00';
-                  mainCtx.lineWidth = 1;
-                  mainCtx.strokeRect(screenX + 0.5, screenY + 0.5, METATILE_PX - 1, METATILE_PX - 1);
-                } else if (collision === 1) {
-                  // Blocked - red with X pattern
-                  mainCtx.fillStyle = '#ff0000';
-                  mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
-                  // Draw X for blocked tiles
-                  mainCtx.globalAlpha = 0.6;
-                  mainCtx.strokeStyle = '#000000';
-                  mainCtx.lineWidth = 2;
-                  mainCtx.beginPath();
-                  mainCtx.moveTo(screenX + 2, screenY + 2);
-                  mainCtx.lineTo(screenX + METATILE_PX - 2, screenY + METATILE_PX - 2);
-                  mainCtx.moveTo(screenX + METATILE_PX - 2, screenY + 2);
-                  mainCtx.lineTo(screenX + 2, screenY + METATILE_PX - 2);
-                  mainCtx.stroke();
-                } else {
-                  // Other collision types - yellow
-                  mainCtx.fillStyle = '#ffff00';
-                  mainCtx.fillRect(screenX, screenY, METATILE_PX, METATILE_PX);
-                }
-              }
-            }
-          }
-        }
-
-        mainCtx.globalAlpha = 1.0;
-      }
+      DebugRenderer.renderCollisionElevationOverlay(mainCtx, ctx, view, {
+        showCollision: debugOptionsRef.current.showCollisionOverlay,
+        showElevation: debugOptionsRef.current.showElevationOverlay,
+      });
 
       // Render fade overlay using FadeController
       if (fadeRef.current.isActive()) {
@@ -1409,268 +1188,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     [renderDoorAnimations]
   );
 
-  /**
-   * Load grass sprite sheet and convert to transparent canvas
-   */
-  const ensureGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (grassSpriteRef.current) {
-      return grassSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/tall_grass.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get grass sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        grassSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load long grass sprite sheet and convert to transparent canvas
-   */
-  const ensureLongGrassSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (longGrassSpriteRef.current) {
-      return longGrassSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/long_grass.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get long grass sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        longGrassSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load sand footprints sprite sheet and convert to transparent canvas
-   */
-  const ensureSandSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (sandSpriteRef.current) {
-      return sandSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/sand_footprints.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get sand sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        sandSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load splash sprite sheet and convert to transparent canvas
-   * Puddle splash uses cyan (top-left pixel) as transparency color
-   */
-  const ensureSplashSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (splashSpriteRef.current) {
-      return splashSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/splash.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get splash sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        splashSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load ripple sprite sheet and convert to transparent canvas
-   * Water ripple uses cyan (top-left pixel) as transparency color
-   * Ripple sprite is 80x16 = 5 frames of 16x16 pixels
-   */
-  const ensureRippleSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (rippleSpriteRef.current) {
-      return rippleSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/field_effects/pics/ripple.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get ripple sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        rippleSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
-
-  /**
-   * Load item ball sprite and convert to transparent canvas
-   * Item ball uses cyan (top-left pixel) as transparency color
-   * Sprite is 16x16 pixels
-   */
-  const ensureItemBallSprite = useCallback(async (): Promise<HTMLCanvasElement> => {
-    if (itemBallSpriteRef.current) {
-      return itemBallSpriteRef.current;
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = '/pokeemerald/graphics/object_events/pics/misc/item_ball.png';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get item ball sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        itemBallSpriteRef.current = canvas;
-        resolve(canvas);
-      };
-      img.onerror = (err) => reject(err);
-    });
-  }, []);
+  // Field sprite loading functions removed - now using useFieldSprites hook
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
@@ -1706,13 +1224,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
         
-        // Load grass sprite and other field effect sprites
-        await ensureGrassSprite();
-        await ensureLongGrassSprite();
-        await ensureSandSprite();
-        await ensureSplashSprite();
-        await ensureRippleSprite();
-        await ensureItemBallSprite();
+        // Load field effect sprites (grass, sand, splash, etc.)
+        await fieldSprites.loadAll();
 
         // Note: Object events are parsed in rebuildContextForWorld() which was called above
 
@@ -1723,17 +1236,6 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         renderPipelineRef.current = new RenderPipeline(tilesetCacheRef.current);
         console.log('[PERF] RenderPipeline initialized');
 
-        // Initialize viewport buffer for smooth scrolling
-        if (USE_VIEWPORT_BUFFER) {
-          tilesetCacheRef.current = new TilesetCanvasCache();
-          viewportBufferRef.current = new ViewportBuffer(
-            tilesetCacheRef.current,
-            VIEWPORT_CONFIG.tilesWide,
-            VIEWPORT_CONFIG.tilesHigh
-          );
-          console.log('[PERF] Viewport buffer enabled for smooth scrolling');
-        }
-        
         // Initialize player position
         const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
         if (!anchor) {
@@ -2363,6 +1865,19 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
           const safeDelta = Math.min(deltaMs, 50);
           currentTimestampRef.current = timestamp;
+
+          // DEBUG: Track player position at start of each update
+          {
+            const p = playerControllerRef.current;
+            if (p) {
+              const posKey = `${p.tileX},${p.tileY},${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+              if ((window as unknown as Record<string, unknown>).__lastPosKey !== posKey) {
+                console.log(`[FRAME_POS] tile:(${p.tileX},${p.tileY}) pixel:(${p.x.toFixed(1)},${p.y.toFixed(1)}) moving:${p.isMoving} dir:${p.dir}`);
+                (window as unknown as Record<string, unknown>).__lastPosKey = posKey;
+              }
+            }
+          }
+
           pruneDoorAnimations(timestamp);
           advanceDoorEntry(timestamp);
           const doorExit = doorExitRef.current;
@@ -2519,6 +2034,25 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             }
           }
           cameraViewRef.current = view;
+
+          // DEBUG: Track camera position changes
+          if (view) {
+            const camKey = `${view.cameraWorldX.toFixed(1)},${view.cameraWorldY.toFixed(1)}`;
+            if ((window as unknown as Record<string, unknown>).__lastCamKey !== camKey) {
+              const prevCam = (window as unknown as Record<string, unknown>).__lastCamKey as string | undefined;
+              if (prevCam) {
+                const [prevX, prevY] = prevCam.split(',').map(Number);
+                const deltaX = view.cameraWorldX - prevX;
+                const deltaY = view.cameraWorldY - prevY;
+                // Only log if camera jumped more than 2 pixels (could indicate teleport)
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                  console.log(`[CAMERA_JUMP] cam:(${prevX.toFixed(1)},${prevY.toFixed(1)}) -> (${view.cameraWorldX.toFixed(1)},${view.cameraWorldY.toFixed(1)}) delta:(${deltaX.toFixed(1)},${deltaY.toFixed(1)})`);
+                }
+              }
+              (window as unknown as Record<string, unknown>).__lastCamKey = camKey;
+            }
+          }
+
           const viewKey = view
             ? `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`
             : '';
@@ -2535,6 +2069,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               const targetId = resolved.map.entry.id;
               const targetOffsetX = resolved.map.offsetX;
               const targetOffsetY = resolved.map.offsetY;
+              // DEBUG: Log re-anchor start
+              console.log(`[REANCHOR] Starting: player at tile(${player.tileX},${player.tileY}) pixel(${player.x.toFixed(1)},${player.y.toFixed(1)}) moving:${player.isMoving}`);
               (async () => {
                 const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
                 // Shift new world so the target map stays at the same world offset as before reanchor.
@@ -2552,6 +2088,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                 // Update warpHandler with current player position
                 const currentPlayer = playerControllerRef.current;
                 if (currentPlayer) {
+                  // DEBUG: Log re-anchor complete
+                  console.log(`[REANCHOR] Complete: player at tile(${currentPlayer.tileX},${currentPlayer.tileY}) pixel(${currentPlayer.x.toFixed(1)},${currentPlayer.y.toFixed(1)}) moving:${currentPlayer.isMoving}`);
                   warpHandler.updateLastCheckedTile(currentPlayer.tileX, currentPlayer.tileY, targetId);
                 }
                 warpHandler.setCooldown(Math.max(warpHandler.getCooldownRemaining(), 50));
@@ -2561,8 +2099,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             }
           }
 
-          const frameTick =
-            animationTimerRef.current?.getTickCount() ?? Math.floor(timestamp / (1000 / 60));
+          // Use AnimationTimer's tick count for animation timing
+          // CRITICAL: Must use animationTimer (not raw timestamp) because GameLoop's
+          // accumulator pattern can run multiple update cycles per RAF to catch up.
+          // Raw timestamp stays the same for all iterations, but animationTimer.tickCount
+          // advances with each iteration, ensuring animations progress correctly.
+          const frameTick = animationTimerRef.current?.getTickCount() ?? 0;
           let animationFrameChanged = false;
           for (const runtime of ctx.tilesetRuntimes.values()) {
             const animationState: AnimationState = {};
@@ -2577,7 +2119,11 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             }
           }
 
-          // Note: TilesetCanvasCache in RenderPipeline handles animation invalidation internally
+          // CRITICAL FIX: Clear tileset cache when animation frames change
+          // This ensures animated tiles show the correct frame (matching original code behavior)
+          if (animationFrameChanged && tilesetCacheRef.current) {
+            tilesetCacheRef.current.clear();
+          }
 
           const shouldRender =
             animationFrameChanged ||
@@ -2589,6 +2135,11 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             arrowOverlayRef.current.isVisible() || // Keep rendering while arrow animates
             debugOptionsRef.current.showCollisionOverlay || // Keep rendering while collision overlay is enabled
             debugOptionsRef.current.showElevationOverlay; // Keep rendering while elevation overlay is enabled
+
+          // DEBUG: Log render decision
+          if (!shouldRender && player?.isMoving) {
+            console.warn(`[RENDER_SKIP] Player moving but shouldRender=false! animChanged=${animationFrameChanged} playerDirty=${playerDirty} viewChanged=${viewChanged}`);
+          }
           const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
           reflectionStateRef.current = reflectionState;
 
@@ -2703,10 +2254,20 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         });
         updateCoordinatorRef.current = coordinator;
 
-        const handleFrame: FrameHandler = () => {
+        const handleFrame: FrameHandler = (_state, combinedResult) => {
           const frame = lastFrameResultRef.current;
           if (!frame) return;
-          renderFrame(frame);
+
+          // CRITICAL: Use combinedResult.needsRender from GameLoop, not frame.shouldRender
+          // GameLoop accumulates needsRender across all catch-up iterations, so if ANY
+          // iteration moved the player, we render. The frame ref only has the LAST iteration.
+          const frameWithCombinedFlags: EngineFrameResult = {
+            ...frame,
+            shouldRender: combinedResult.needsRender ?? false,
+            viewChanged: combinedResult.viewChanged ?? false,
+            animationFrameChanged: combinedResult.animationFrameChanged ?? false,
+          };
+          renderFrame(frameWithCombinedFlags);
         };
 
         const loop = new GameLoop(gameState, coordinator, animationTimer);
