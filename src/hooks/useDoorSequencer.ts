@@ -55,6 +55,8 @@ export interface UseDoorSequencerOptions {
 export interface UseDoorSequencerReturn {
   /** Start a door entry sequence */
   startEntry: (config: DoorEntryConfig, currentTime: number) => DoorEntryUpdateResult;
+  /** Start an auto-warp entry sequence (skips to fade phase) */
+  startAutoWarp: (config: DoorEntryConfig, currentTime: number, skipWait?: boolean) => DoorEntryUpdateResult;
   /** Update the door entry sequence */
   updateEntry: (
     currentTime: number,
@@ -68,7 +70,8 @@ export interface UseDoorSequencerReturn {
   updateExit: (
     currentTime: number,
     playerIsMoving: boolean,
-    isAnimationDone: (animId: number | undefined) => boolean
+    isAnimationDone: (animId: number | undefined) => boolean,
+    isFadeInDone?: boolean
   ) => DoorExitUpdateResult;
   /** Set the open animation ID after spawning */
   setEntryOpenAnimId: (animId: number) => void;
@@ -116,6 +119,16 @@ export function useDoorSequencer(options: UseDoorSequencerOptions = {}): UseDoor
     [warpHandler, onEntryStart]
   );
 
+  const startAutoWarp = useCallback(
+    (config: DoorEntryConfig, currentTime: number, skipWait: boolean = true): DoorEntryUpdateResult => {
+      const result = sequencerRef.current.startAutoWarp(config, currentTime, skipWait);
+      warpHandler?.setInProgress(true);
+      onEntryStart?.();
+      return result;
+    },
+    [warpHandler, onEntryStart]
+  );
+
   const updateEntry = useCallback(
     (
       currentTime: number,
@@ -150,9 +163,10 @@ export function useDoorSequencer(options: UseDoorSequencerOptions = {}): UseDoor
     (
       currentTime: number,
       playerIsMoving: boolean,
-      isAnimationDone: (animId: number | undefined) => boolean
+      isAnimationDone: (animId: number | undefined) => boolean,
+      isFadeInDone: boolean = true
     ): DoorExitUpdateResult => {
-      const result = sequencerRef.current.updateExit(currentTime, playerIsMoving, isAnimationDone);
+      const result = sequencerRef.current.updateExit(currentTime, playerIsMoving, isAnimationDone, isFadeInDone);
       if (result.done) {
         warpHandler?.setInProgress(false);
         onExitComplete?.();
@@ -208,6 +222,7 @@ export function useDoorSequencer(options: UseDoorSequencerOptions = {}): UseDoor
 
   return {
     startEntry,
+    startAutoWarp,
     updateEntry,
     startExit,
     updateExit,

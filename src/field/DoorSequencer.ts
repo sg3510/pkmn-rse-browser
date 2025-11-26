@@ -233,6 +233,40 @@ export class DoorSequencer {
   }
 
   /**
+   * Start an auto-warp entry sequence (skips opening/stepping/closing phases)
+   *
+   * Used for non-animated door warps like arrow warps and stairs.
+   * Jumps directly to the waitingBeforeFade stage.
+   *
+   * @param config - Entry configuration
+   * @param currentTime - Current timestamp
+   * @param skipWait - If true, sets waitStartedAt in the past to trigger immediate fade
+   * @returns Initial result (no action needed, will transition to fade on next update)
+   */
+  startAutoWarp(
+    config: DoorEntryConfig,
+    currentTime: number,
+    skipWait: boolean = true
+  ): DoorEntryUpdateResult {
+    // Set waitStartedAt 250ms in the past if skipWait is true, so the wait is immediately "complete"
+    const waitStartedAt = skipWait ? currentTime - 250 : currentTime;
+
+    this.entryState = {
+      stage: 'waitingBeforeFade',
+      trigger: config.warpTrigger,
+      targetX: config.targetX,
+      targetY: config.targetY,
+      metatileId: config.metatileId,
+      isAnimatedDoor: false, // Auto-warp is always non-animated
+      entryDirection: config.entryDirection,
+      playerHidden: false,
+      waitStartedAt,
+    };
+
+    return { done: false };
+  }
+
+  /**
    * Update door entry sequence
    *
    * Call this in the game loop to progress the entry sequence.
@@ -369,15 +403,23 @@ export class DoorSequencer {
   /**
    * Update door exit sequence
    *
+   * Per pokeemerald Task_ExitDoor:
+   * 1. Case 0: FieldSetDoorOpened (set door to open state, hide player)
+   * 2. Case 1: WaitForWeatherFadeIn, THEN show player and start walking
+   * 3. Case 2: When player stops, FieldAnimateDoorClose
+   * 4. Case 3: Wait for close animation
+   *
    * @param currentTime - Current timestamp
    * @param playerIsMoving - Whether player is currently moving
    * @param isAnimationDone - Function to check if an animation is complete
+   * @param isFadeInDone - Whether fade-in is complete (new parameter for pokeemerald accuracy)
    * @returns Action to take or done status
    */
   updateExit(
     _currentTime: number,
     playerIsMoving: boolean,
-    isAnimationDone: (animId: number | undefined) => boolean
+    isAnimationDone: (animId: number | undefined) => boolean,
+    isFadeInDone: boolean = true
   ): DoorExitUpdateResult {
     const state = this.exitState;
     if (state.stage === 'idle' || state.stage === 'done') {
@@ -386,15 +428,27 @@ export class DoorSequencer {
 
     switch (state.stage) {
       case 'opening': {
+        // Per pokeemerald Task_ExitDoor:
+        // - Case 0: FieldSetDoorOpened (set door to fully open state immediately)
+        // - Case 1: WaitForWeatherFadeIn, then show player and start walk
         if (state.isAnimatedDoor) {
+          // First, spawn the "open" animation if not yet spawned
+          // This should display the door at fully-open state (last frame)
+          if (state.openAnimId === undefined) {
+            return { action: 'spawnOpenAnimation' };
+          }
+          // Wait for animation to be loaded (not -1 sentinel) AND fade to complete
           const openDone = isAnimationDone(state.openAnimId);
-          if (openDone) {
+          if (openDone && isFadeInDone) {
             state.stage = 'stepping';
             return { action: 'startPlayerStep', direction: state.exitDirection };
           }
         } else {
-          state.stage = 'stepping';
-          return { action: 'startPlayerStep', direction: state.exitDirection };
+          // Non-animated door: still wait for fade before stepping
+          if (isFadeInDone) {
+            state.stage = 'stepping';
+            return { action: 'startPlayerStep', direction: state.exitDirection };
+          }
         }
         break;
       }

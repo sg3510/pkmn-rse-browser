@@ -68,14 +68,13 @@ import { DialogBox, useDialog } from './dialog';
 import {
   type DoorSize,
   type DoorAnimDrawable,
-  type DoorEntryStage,
-  type DoorExitStage,
   DOOR_TIMING,
 } from '../field/types';
 import { FadeController } from '../field/FadeController';
 import { ArrowOverlay } from '../field/ArrowOverlay';
 import { WarpHandler } from '../field/WarpHandler';
 import { isDoorAnimationDone } from '../field/DoorSequencer';
+import { useDoorSequencer } from '../hooks/useDoorSequencer';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
@@ -133,31 +132,8 @@ interface EngineFrameResult {
 // WarpHandler manages warp state (imported from '../field/WarpHandler')
 
 // DoorSize and DoorAnimDrawable types imported from '../field/types'
-
-interface DoorEntrySequence {
-  stage: DoorEntryStage;
-  trigger: WarpTrigger | null;
-  targetX: number;
-  targetY: number;
-  metatileId: number;
-  isAnimatedDoor?: boolean; // If false, skip door animation but still do entry sequence
-  entryDirection?: CardinalDirection;
-  openAnimId?: number;
-  closeAnimId?: number;
-  playerHidden?: boolean;
-  waitStartedAt?: number;
-}
-
-interface DoorExitSequence {
-  stage: DoorExitStage;
-  doorWorldX: number;
-  doorWorldY: number;
-  metatileId: number;
-  isAnimatedDoor?: boolean; // If false, skip door animation but still do scripted movement
-  exitDirection?: 'up' | 'down' | 'left' | 'right'; // Direction to walk when exiting
-  openAnimId?: number;
-  closeAnimId?: number;
-}
+// DoorEntrySequence removed - now using DoorSequencer via useDoorSequencer hook
+// DoorExitSequence removed - now using DoorSequencer via useDoorSequencer hook
 
 // ArrowOverlayState type imported from '../field/types'
 
@@ -274,17 +250,16 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
   // Field sprites (grass, sand, splash, etc.) managed by useFieldSprites hook
   const fieldSprites = useFieldSprites();
+  // Door sequencer manages door entry/exit animations via state machine
+  const doorSequencer = useDoorSequencer({
+    warpHandler: warpHandlerRef.current,
+  });
   const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
   // canvasRendererRef removed - now using RenderPipeline exclusively
   // viewportBufferRef removed - now using RenderPipeline exclusively
   const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null); // Shared tileset cache
   const renderPipelineRef = useRef<RenderPipeline | null>(null); // Modular render pipeline
-  const doorExitRef = useRef<DoorExitSequence>({
-    stage: 'idle',
-    doorWorldX: 0,
-    doorWorldY: 0,
-    metatileId: 0,
-  });
+  // doorExitRef removed - now using DoorSequencer via useDoorSequencer hook
   // FadeController manages screen fade in/out transitions
   const fadeRef = useRef<FadeController>(new FadeController());
 
@@ -1331,28 +1306,16 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         if (anchor) {
           warpHandler.updateLastCheckedTile(startTileX, startTileY, anchor.entry.id);
         }
-        let doorEntry: DoorEntrySequence = {
-          stage: 'idle',
-          trigger: null,
-          targetX: 0,
-          targetY: 0,
-          metatileId: 0,
-          entryDirection: 'up',
-        };
-        doorExitRef.current = {
-          stage: 'idle',
-          doorWorldX: 0,
-          doorWorldY: 0,
-          metatileId: 0,
-        };
+        // Reset door sequencer for new map load (handles both entry and exit)
+        doorSequencer.reset();
         const startAutoDoorWarp = (
           trigger: WarpTrigger,
           resolved: ResolvedTile,
           player: PlayerController,
           entryDirection: CardinalDirection = 'up',
-          options?: { isAnimatedDoor?: boolean }
+          _options?: { isAnimatedDoor?: boolean }
         ) => {
-          if (doorEntry.stage !== 'idle') return false;
+          if (doorSequencer.isEntryActive()) return false;
           const now = performance.now();
           const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
           logDoor('entry: auto door warp (non-animated)', {
@@ -1362,18 +1325,15 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             behavior: trigger.behavior,
           });
           arrowOverlayRef.current.hide();
-          doorEntry = {
-            stage: 'waitingBeforeFade',
-            trigger,
+          // Use the sequencer's startAutoWarp to skip to fade phase
+          doorSequencer.startAutoWarp({
             targetX: player.tileX,
             targetY: player.tileY,
             metatileId,
-            isAnimatedDoor: options?.isAnimatedDoor ?? false,
+            isAnimatedDoor: false,
             entryDirection,
-            playerHidden: false,
-            waitStartedAt: now - 250,
-          };
-          warpHandler.setInProgress(true);
+            warpTrigger: trigger,
+          }, now, true);
           player.lockInput();
           return true;
         };
@@ -1507,14 +1467,14 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                   triggerKind: trigger.kind,
                 });
                 playerHiddenRef.current = true;
-                doorExitRef.current = {
-                  stage: 'opening',
+                // Start exit sequence using door sequencer
+                doorSequencer.startExit({
                   doorWorldX: destWorldX,
                   doorWorldY: destWorldY,
                   metatileId: destMetatileId,
-                  isAnimatedDoor, // Store whether to play door animation
-                  exitDirection, // Store which direction to walk when exiting
-                };
+                  isAnimatedDoor,
+                  exitDirection: exitDirection as CardinalDirection,
+                }, currentTimestampRef.current);
                 fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
               } else {
                 if (isDebugMode()) {
@@ -1536,13 +1496,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                 });
                 playerHiddenRef.current = false;
                 fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
-                // No door exit sequence needed
-                doorExitRef.current = {
-                  stage: 'idle',
-                  doorWorldX: 0,
-                  doorWorldY: 0,
-                  metatileId: 0,
-                };
+                // No door exit sequence needed - reset sequencer
+                doorSequencer.sequencer.resetExit();
                 // CRITICAL: Unlock input here since there's no door exit sequence to handle it
                 playerControllerRef.current?.unlockInput();
                 warpHandler.setInProgress(false);
@@ -1550,12 +1505,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             } else if (options?.fromDoor) {
               fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
               playerHiddenRef.current = false;
-              doorExitRef.current = {
-                stage: 'idle',
-                doorWorldX: 0,
-                doorWorldY: 0,
-                metatileId: 0,
-              };
+              doorSequencer.sequencer.resetExit();
               playerControllerRef.current?.unlockInput();
               warpHandler.setInProgress(false);
             }
@@ -1603,97 +1553,167 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         playerControllerRef.current?.setDoorWarpHandler(handleDoorWarp);
 
         const advanceDoorEntry = (now: number) => {
-          if (doorEntry.stage === 'idle') return;
+          if (!doorSequencer.isEntryActive()) return;
           const player = playerControllerRef.current;
-          if (!player || !doorEntry.trigger) return;
-          if (doorEntry.stage === 'opening') {
-            // Only check for animation completion if this is an animated door
-            if (doorEntry.isAnimatedDoor !== false) {
-              const anim = doorEntry.openAnimId
-                ? doorAnimsRef.current.find((a) => a.id === doorEntry.openAnimId)
-                : null;
-              const openDone = !anim || isDoorAnimDone(anim, now);
-              if (openDone) {
-                logDoor('entry: door fully open (animated), force step into tile', doorEntry.targetX, doorEntry.targetY);
-                player.forceMove(doorEntry.entryDirection ?? 'up', true);
-                doorEntry.stage = 'stepping';
-              }
-            } else {
-              // Non-animated door: skip straight to stepping
-              logDoor('entry: non-animated door, force step into tile', doorEntry.targetX, doorEntry.targetY);
-              player.forceMove(doorEntry.entryDirection ?? 'up', true);
-              doorEntry.stage = 'stepping';
-            }
-          } else if (doorEntry.stage === 'stepping') {
-            if (!player.isMoving) {
-              // Only spawn close animation if this is an animated door
-              if (doorEntry.isAnimatedDoor !== false) {
-                const startedAt = now;
-                logDoor('entry: start door close (animated), hide player');
-                spawnDoorAnimation(
-                  'close',
-                  doorEntry.targetX,
-                  doorEntry.targetY,
-                  doorEntry.metatileId,
-                  startedAt
-                ).then((closeAnimId) => {
-                  doorEntry.closeAnimId = closeAnimId ?? undefined;
-                });
+          if (!player) return;
+
+          const entryState = doorSequencer.sequencer.getEntryState();
+          const isAnimationDone = (animId: number | undefined) => {
+            if (animId === undefined) return true;
+            // -1 is sentinel for "loading in progress" - not done
+            if (animId === -1) return false;
+            const anim = doorAnimsRef.current.find((a) => a.id === animId);
+            return !anim || isDoorAnimDone(anim, now);
+          };
+          const isFadeDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
+
+          const result = doorSequencer.updateEntry(
+            now,
+            player.isMoving,
+            isAnimationDone,
+            isFadeDone
+          );
+
+          // Handle actions returned by the sequencer
+          if (result.action === 'startPlayerStep' && result.direction) {
+            const pos = doorSequencer.getEntryDoorPosition();
+            logDoor('entry: door fully open, force step into tile', pos?.x, pos?.y);
+            player.forceMove(result.direction, true);
+          } else if (result.action === 'hidePlayer') {
+            logDoor('entry: hide player');
+            playerHiddenRef.current = true;
+            // Also spawn close animation if animated door
+            if (entryState.isAnimatedDoor) {
+              const pos = doorSequencer.getEntryDoorPosition();
+              logDoor('entry: start door close (animated)');
+              // Set to -1 as sentinel for "loading in progress" to prevent race condition
+              doorSequencer.setEntryCloseAnimId(-1);
+              spawnDoorAnimation(
+                'close',
+                pos?.x ?? 0,
+                pos?.y ?? 0,
+                entryState.metatileId,
+                now
+              ).then((closeAnimId) => {
+                if (closeAnimId !== null) {
+                  doorSequencer.setEntryCloseAnimId(closeAnimId);
+                }
+              });
+              // Remove open animation
+              if (entryState.openAnimId !== undefined) {
                 doorAnimsRef.current = doorAnimsRef.current.filter(
-                  (anim) => anim.id !== doorEntry.openAnimId
+                  (anim) => anim.id !== entryState.openAnimId
                 );
-                doorEntry.stage = 'closing';
-                playerHiddenRef.current = true;
-                doorEntry.playerHidden = true;
-              } else {
-                // Non-animated door: skip straight to fading
-                logDoor('entry: non-animated door, skip to fade');
-                playerHiddenRef.current = true;
-                doorEntry.playerHidden = true;
-                doorEntry.stage = 'waitingBeforeFade';
-                doorEntry.waitStartedAt = now;
               }
             }
-          } else if (doorEntry.stage === 'closing') {
-            const anim = doorEntry.closeAnimId
-              ? doorAnimsRef.current.find((a) => a.id === doorEntry.closeAnimId)
-              : null;
-            const closeDone = !anim || isDoorAnimDone(anim, now);
-            if (closeDone) {
-              logDoor('entry: door close complete, showing base tile');
-              // Remove the close animation so the base tile shows
+          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
+            logDoor('entry: door close complete, showing base tile');
+            doorAnimsRef.current = doorAnimsRef.current.filter(
+              (a) => a.id !== result.animId
+            );
+          } else if (result.action === 'startFadeOut' && result.duration) {
+            logDoor('entry: start fade out');
+            fadeRef.current.startFadeOut(result.duration, now);
+          } else if (result.action === 'executeWarp' && result.trigger) {
+            logDoor('entry: warp now');
+            void performWarp(result.trigger as WarpTrigger, { force: true, fromDoor: true });
+          }
+        };
+
+        /**
+         * Advance Door Exit Sequence
+         *
+         * Handles the door exit state machine using the door sequencer.
+         * Called every frame in runUpdate to progress the exit animation.
+         */
+        const advanceDoorExit = (now: number) => {
+          if (!doorSequencer.isExitActive()) return;
+          const player = playerControllerRef.current;
+          if (!player) return;
+
+          const exitState = doorSequencer.sequencer.getExitState();
+          const isAnimationDone = (animId: number | undefined) => {
+            if (animId === undefined) return true;
+            // -1 is sentinel for "loading in progress" - not done
+            if (animId === -1) return false;
+            const anim = doorAnimsRef.current.find((a) => a.id === animId);
+            return !anim || isDoorAnimDone(anim, now);
+          };
+          // Per pokeemerald: wait for fade-in to complete before showing player
+          // Fade is complete when it's not active OR when it's marked as complete
+          const isFadeInDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
+
+          const result = doorSequencer.updateExit(
+            now,
+            player.isMoving,
+            isAnimationDone,
+            isFadeInDone
+          );
+
+          // Handle actions returned by the sequencer
+          if (result.action === 'spawnOpenAnimation') {
+            const pos = doorSequencer.getExitDoorPosition();
+            logDoor('exit: set door to open state (not animating)', {
+              worldX: pos?.x,
+              worldY: pos?.y,
+              metatileId: exitState.metatileId,
+            });
+            // Set to -1 as sentinel for "loading in progress"
+            doorSequencer.setExitOpenAnimId(-1);
+            // Per pokeemerald: FieldSetDoorOpened() sets door to fully-open state BEFORE fade completes
+            // We achieve this by setting startedAt far in the past so animation is already on last frame
+            // Door animation: 4 frames * 90ms = 360ms, so 500ms in past ensures we're on last frame
+            const alreadyOpenStartedAt = now - 500;
+            spawnDoorAnimation(
+              'open',
+              pos?.x ?? 0,
+              pos?.y ?? 0,
+              exitState.metatileId,
+              alreadyOpenStartedAt,
+              true // holdOnComplete - stay on last frame
+            ).then((openAnimId) => {
+              if (openAnimId !== null) {
+                doorSequencer.setExitOpenAnimId(openAnimId);
+              }
+            });
+          } else if (result.action === 'startPlayerStep' && result.direction) {
+            logDoor('exit: step out of door', { exitDirection: result.direction });
+            player.forceMove(result.direction, true);
+            playerHiddenRef.current = false;
+          } else if (result.action === 'spawnCloseAnimation') {
+            const pos = doorSequencer.getExitDoorPosition();
+            logDoor('exit: start door close');
+            // Remove open animation
+            if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
               doorAnimsRef.current = doorAnimsRef.current.filter(
-                (a) => a.id !== doorEntry.closeAnimId
+                (anim) => anim.id !== exitState.openAnimId
               );
-              doorEntry.stage = 'waitingBeforeFade';
-              doorEntry.waitStartedAt = now;
             }
-          } else if (doorEntry.stage === 'waitingBeforeFade') {
-            const WAIT_DURATION = 250; // ms to show the closed door base tile before fading
-            const waitDone = now - (doorEntry.waitStartedAt ?? now) >= WAIT_DURATION;
-            if (waitDone) {
-              logDoor('entry: start fade out');
-              fadeRef.current.startFadeOut(DOOR_TIMING.FADE_DURATION_MS, now);
-              doorEntry.stage = 'fadingOut';
-            }
-          } else if (doorEntry.stage === 'fadingOut') {
-            // Check if fade out is complete using FadeController
-            const fadeDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
-            if (fadeDone) {
-              doorEntry.stage = 'warping';
-              void (async () => {
-                logDoor('entry: warp now');
-                await performWarp(doorEntry.trigger as WarpTrigger, { force: true, fromDoor: true });
-                doorEntry = {
-                  stage: 'idle',
-                  trigger: null,
-                  targetX: 0,
-                  targetY: 0,
-                  metatileId: 0,
-                  playerHidden: false,
-                };
-              })();
-            }
+            // Set to -1 as sentinel for "loading in progress"
+            doorSequencer.setExitCloseAnimId(-1);
+            spawnDoorAnimation(
+              'close',
+              pos?.x ?? 0,
+              pos?.y ?? 0,
+              exitState.metatileId,
+              now
+            ).then((closeAnimId) => {
+              if (closeAnimId !== null) {
+                doorSequencer.setExitCloseAnimId(closeAnimId);
+              }
+            });
+          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
+            logDoor('exit: door close complete');
+            doorAnimsRef.current = doorAnimsRef.current.filter(
+              (a) => a.id !== result.animId
+            );
+          }
+
+          // Handle completion
+          if (result.done) {
+            logDoor('exit: sequence complete');
+            playerControllerRef.current?.unlockInput();
+            playerHiddenRef.current = false;
           }
         };
 
@@ -1712,7 +1732,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
            * - We play door animation using 0x248, not 514
            */
           const handleDoorWarpAttempt = async (request: DoorWarpRequest) => {
-            if (doorEntry.stage !== 'idle' || warpHandler.isInProgress()) return;
+            if (doorSequencer.isEntryActive() || warpHandler.isInProgress()) return;
             const ctx = renderContextRef.current;
             const player = playerControllerRef.current;
             if (!ctx || !player) return;
@@ -1822,17 +1842,27 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               });
             }
           
-          doorEntry = {
-            stage: 'opening',
-            trigger,
+          // Start the entry sequence using the door sequencer
+          const entryResult = doorSequencer.startEntry({
             targetX: request.targetX,
             targetY: request.targetY,
             metatileId,
-            isAnimatedDoor: isAnimated, // Track whether to animate
+            isAnimatedDoor: isAnimated,
+            entryDirection: player.dir as CardinalDirection,
+            warpTrigger: trigger,
             openAnimId: openAnimId ?? undefined,
-            playerHidden: false,
-          };
-          warpHandler.setInProgress(true);
+          }, startedAt);
+
+          // If the sequencer wants to spawn an open animation and we haven't already
+          if (entryResult.action === 'spawnOpenAnimation' && !openAnimId && isAnimated) {
+            // Animation was already spawned above, set the ID
+          }
+
+          // Set the open animation ID if it was spawned
+          if (openAnimId) {
+            doorSequencer.setEntryOpenAnimId(openAnimId);
+          }
+
           playerHiddenRef.current = false;
           player.lockInput();
         };
@@ -1880,85 +1910,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
           pruneDoorAnimations(timestamp);
           advanceDoorEntry(timestamp);
-          const doorExit = doorExitRef.current;
-          if (doorExit.stage === 'opening') {
-            // Only spawn door animation if this is an animated door
-            // Non-animated doors (stairs) skip animation but still do scripted movement
-            if (doorExit.isAnimatedDoor !== false) {
-              if (doorExit.openAnimId === undefined) {
-                logDoor('exit: start door open', {
-                  worldX: doorExit.doorWorldX,
-                  worldY: doorExit.doorWorldY,
-                  metatileId: doorExit.metatileId,
-                  isAnimatedDoor: doorExit.isAnimatedDoor,
-                });
-                spawnDoorAnimation('open', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, timestamp, true).then(
-                  (id) => {
-                    doorExitRef.current.openAnimId = id ?? undefined;
-                  }
-                );
-              }
-              const anim = doorExit.openAnimId
-                ? doorAnimsRef.current.find((a) => a.id === doorExit.openAnimId)
-                : null;
-              const done = !anim || isDoorAnimDone(anim, timestamp);
-              if (done) {
-                const exitDir = doorExit.exitDirection ?? 'down';
-                logDoor('exit: step out of door (animated)', { exitDirection: exitDir });
-                playerControllerRef.current?.forceMove(exitDir, true);
-                playerHiddenRef.current = false;
-                doorExitRef.current.stage = 'stepping';
-              }
-            } else {
-              // Non-animated door: skip straight to stepping
-              const exitDir = doorExit.exitDirection ?? 'down';
-              logDoor('exit: step out of door (non-animated, no door animation)', { exitDirection: exitDir });
-              playerControllerRef.current?.forceMove(exitDir, true);
-              playerHiddenRef.current = false;
-              doorExitRef.current.stage = 'stepping';
-            }
-          } else if (doorExit.stage === 'stepping') {
-            if (!playerControllerRef.current?.isMoving) {
-              // Only close door animation if this is an animated door
-              if (doorExit.isAnimatedDoor !== false) {
-                const start = timestamp;
-                logDoor('exit: start door close (animated)');
-                // Remove the open animation now that we're starting the close
-                doorAnimsRef.current = doorAnimsRef.current.filter(
-                  (anim) => anim.id !== doorExit.openAnimId
-                );
-                spawnDoorAnimation('close', doorExit.doorWorldX, doorExit.doorWorldY, doorExit.metatileId, start).then(
-                  (id) => {
-                    doorExitRef.current.closeAnimId = id ?? undefined;
-                  }
-                );
-                doorExitRef.current.stage = 'closing';
-              } else {
-                // Non-animated door: skip straight to done, unlock immediately
-                logDoor('exit: done (non-animated, no door close)');
-                doorExitRef.current.stage = 'done';
-                warpHandler.setInProgress(false);
-                playerControllerRef.current?.unlockInput();
-                playerHiddenRef.current = false;
-              }
-            }
-          } else if (doorExit.stage === 'closing') {
-            const anim = doorExit.closeAnimId
-              ? doorAnimsRef.current.find((a) => a.id === doorExit.closeAnimId)
-              : null;
-            const done = !anim || isDoorAnimDone(anim, timestamp);
-            if (done) {
-              logDoor('exit: door close complete');
-              // Remove the close animation so the base tile shows
-              doorAnimsRef.current = doorAnimsRef.current.filter(
-                (a) => a.id !== doorExit.closeAnimId
-              );
-              doorExitRef.current.stage = 'done';
-              warpHandler.setInProgress(false);
-              playerControllerRef.current?.unlockInput();
-              playerHiddenRef.current = false;
-            }
-          }
+          advanceDoorExit(timestamp);
           warpHandler.update(safeDelta);
           const playerDirty = playerControllerRef.current?.update(safeDelta) ?? false;
           const player = playerControllerRef.current;
