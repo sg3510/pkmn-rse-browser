@@ -121,29 +121,45 @@ NOTE: Support files created. Additionally, redundant type definitions were remov
 MapRenderer.tsx (FadeState, ArrowOverlayState, WarpRuntimeState, DIRECTION_VECTORS,
 DOOR_FRAME_HEIGHT, DOOR_FRAME_DURATION_MS, DOOR_FADE_DURATION) - now imported from field/types.ts.
 
-### Rewrite MapRenderer (DEFERRED)
-These items require removing existing code, which would change functionality.
-Deferred to a separate PR to maintain zero-regression guarantee:
-- [ ] Replace rendering with `RenderPipeline`
-- [ ] Replace game loop with `useGameEngine`
-- [ ] Replace input with `useInput`
-- [ ] Replace assets with `useMapAssets`
+### Rewrite MapRenderer (IN PROGRESS)
+Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
+- [x] Step 1: Remove duplicate helper functions (260 lines removed, now using tilesetUtils.ts)
+- [~] Step 2: Extract door warp logic to useDoorSequencer (PARTIAL)
+  - [x] Created `src/hooks/useDoorSequencer.ts` hook wrapping DoorSequencer class
+  - [x] Replaced inline `isDoorAnimDone` with imported `isDoorAnimationDone`
+  - [ ] Full integration into MapRenderer.tsx (deferred - complex state machine)
+- [x] Step 3: Switch to RenderPipeline exclusively
+  - [x] Fixed type conflicts between rendering/types.ts and tilesetUtils.ts
+  - [x] Added USE_RENDER_PIPELINE feature flag
+  - [x] Added RenderPipeline code path in compositeScene (background, topBelow, topAbove)
+  - [x] Enabled flag and verified identical rendering output
+  - [x] Remove old renderPassCanvas/renderPass code (COMPLETED - ~170 lines removed)
+- [~] Step 4: Extract game loop to useGameEngine (DEFERRED)
+  - [x] Engine modules already in use (GameLoop, UpdateCoordinator, AnimationTimer)
+  - [x] useGameEngine hook exists in src/hooks/useGameEngine.ts
+  - [ ] Full integration deferred (HIGH RISK - runUpdate is 350+ lines with many ref dependencies)
+- [ ] Step 5: Consolidate asset loading
+- [ ] Step 6: Create thin MapRenderer component
 
-### Delete Old Code (DEFERRED)
-Deferred - requires explicit approval to remove working code:
-- [ ] Remove `renderPass` function
-- [ ] Remove `renderPassCanvas` function
-- [ ] Remove `compositeScene` function
-- [ ] Remove inline state machines
-- [ ] Remove inline input handlers
+### Delete Old Code (PARTIALLY COMPLETE)
+Old rendering code removed with user approval:
+- [x] Remove `renderPass` function
+- [x] Remove `renderPassCanvas` function
+- [x] Remove `drawTileToImageData` function
+- [x] Remove `drawTileToCanvas` function (removed earlier)
+- [x] Remove unused ImageData refs
+- [x] Remove CanvasRenderer initialization
+- [ ] Remove `compositeScene` function (still in use, refactored)
+- [ ] Remove inline state machines (deferred - complex)
+- [ ] Remove inline input handlers (deferred - complex)
 
 ### Verification
 - [x] Build passes with new support files
-- [x] No functions removed (original code preserved)
-- [ ] MapRenderer.tsx < 250 lines (DEFERRED - requires code removal)
-- [x] All features work identically (no changes to runtime)
+- [x] Old rendering code removed (~170 lines)
+- [ ] MapRenderer.tsx < 250 lines (current: ~2930 lines - needs more refactoring)
+- [x] All features work identically (verified by user)
 - [x] No console errors
-- [x] Performance maintained (no changes to runtime)
+- [x] Performance maintained
 
 ---
 
@@ -162,7 +178,7 @@ Deferred - requires explicit approval to remove working code:
 - [x] Elevations render correctly
 - [x] Reflections work
 - [x] Field effects work (grass, sand, water)
-- [ ] Surfing works (not tested)
+- [x] Surfing works
 - [ ] Save/load works (not tested)
 
 ### Performance
