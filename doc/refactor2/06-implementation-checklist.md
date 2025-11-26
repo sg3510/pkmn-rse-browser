@@ -87,9 +87,9 @@ The new modular pipeline is initialized alongside existing code and can be switc
 - [x] Extract arrow overlay → `ArrowOverlay` - **INTEGRATED** into MapRenderer.tsx
 - [x] Extract reflection rendering → `ReflectionRenderer` (utilities module created)
 
-NOTE: FadeController, ArrowOverlay, and WarpHandler have been fully integrated into
-MapRenderer.tsx, replacing the inline state management. DoorSequencer modules exist
-but door entry/exit sequences still use inline code (can be migrated later).
+NOTE: FadeController, ArrowOverlay, WarpHandler, and DoorSequencer have been fully integrated into
+MapRenderer.tsx, replacing all inline state management. Door entry/exit sequences now use
+useDoorSequencer hook with action-based state machine pattern.
 
 ### Testing
 - [ ] Unit tests for `DoorSequencer` (entry + exit)
@@ -124,10 +124,14 @@ DOOR_FRAME_HEIGHT, DOOR_FRAME_DURATION_MS, DOOR_FADE_DURATION) - now imported fr
 ### Rewrite MapRenderer (IN PROGRESS)
 Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
 - [x] Step 1: Remove duplicate helper functions (260 lines removed, now using tilesetUtils.ts)
-- [~] Step 2: Extract door warp logic to useDoorSequencer (PARTIAL)
+- [x] Step 2: Extract door warp logic to useDoorSequencer (COMPLETE)
   - [x] Created `src/hooks/useDoorSequencer.ts` hook wrapping DoorSequencer class
   - [x] Replaced inline `isDoorAnimDone` with imported `isDoorAnimationDone`
-  - [ ] Full integration into MapRenderer.tsx (deferred - complex state machine)
+  - [x] Full integration into MapRenderer.tsx (entry + exit sequences)
+  - [x] Added `startAutoWarp` for non-animated door warps
+  - [x] Removed `DoorEntrySequence`, `DoorExitSequence` interfaces, `doorEntry`, `doorExitRef`
+  - [x] Fixed door animation race conditions with `-1` sentinel value
+  - [x] Matched pokeemerald exit sequence: door starts fully open, then animates closed
 - [x] Step 3: Switch to RenderPipeline exclusively
   - [x] Fixed type conflicts between rendering/types.ts and tilesetUtils.ts
   - [x] Added USE_RENDER_PIPELINE feature flag
@@ -143,6 +147,8 @@ Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
   - [x] Moved getDoorAssetForMetatile function to src/data/doorAssets.ts
   - [x] Moved ARROW_SPRITE_PATH to src/data/doorAssets.ts
   - [x] Created useFieldSprites hook for future sprite consolidation
+  - [x] Created useDoorAnimations hook (~142 lines extracted)
+  - [x] Created useArrowOverlay hook (~94 lines extracted)
   - [ ] Full sprite loading consolidation (deferred to Step 6)
 - [ ] Step 6: Create thin MapRenderer component
 
@@ -155,14 +161,15 @@ Old rendering code removed with user approval:
 - [x] Remove unused ImageData refs
 - [x] Remove CanvasRenderer initialization
 - [ ] Remove `compositeScene` function (still in use, refactored)
-- [ ] Remove inline state machines (deferred - complex)
+- [x] Remove inline door state machines (DoorEntrySequence, DoorExitSequence)
+- [x] Remove remaining inline state machines (all extracted to classes: WarpHandler, FadeController, ArrowOverlay)
 - [ ] Remove inline input handlers (deferred - complex)
 
 ### Verification
 - [x] Build passes with new support files
 - [x] Old rendering code removed (~170 lines)
 - [x] Door asset config moved (~124 lines)
-- [ ] MapRenderer.tsx < 250 lines (current: ~2806 lines - needs more refactoring)
+- [ ] MapRenderer.tsx < 250 lines (current: ~2126 lines - needs more refactoring)
 - [x] All features work identically (verified by user)
 - [x] No console errors
 - [x] Performance maintained

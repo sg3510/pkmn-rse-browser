@@ -13,6 +13,7 @@
  */
 
 import type { SaveResult, SaveData } from '../save';
+import type { CameraView } from '../utils/camera';
 
 /**
  * Props for the MapRenderer component
@@ -103,4 +104,21 @@ export interface MapDebugOptions {
   showWarpMarkers?: boolean;
   /** Show NPC debug info */
   showNpcDebug?: boolean;
+}
+
+/**
+ * Extended camera view with world coordinates
+ *
+ * Adds world-space offsets to the base CameraView for positioning
+ * in the multi-map world coordinate system.
+ */
+export interface WorldCameraView extends CameraView {
+  /** Starting tile X in world coordinates */
+  worldStartTileX: number;
+  /** Starting tile Y in world coordinates */
+  worldStartTileY: number;
+  /** Camera X position in world pixel coordinates */
+  cameraWorldX: number;
+  /** Camera Y position in world pixel coordinates */
+  cameraWorldY: number;
 }

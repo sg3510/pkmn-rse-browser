@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import UPNG from 'upng-js';
+// UPNG import removed - now in useTilesetAnimations hook
 import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldState } from '../services/MapManager';
 import { ObjectEventManager } from '../game/ObjectEventManager';
@@ -14,7 +14,7 @@ import { createInitialState, ObservableState, type Position } from '../engine/Ga
 import { UpdateCoordinator } from '../engine/UpdateCoordinator';
 import { useInput } from '../hooks/useInput';
 import {
-  loadBinary,
+  // loadBinary removed - now in useTilesetAnimations hook
   type MetatileAttributes,
   METATILE_SIZE,
   TILE_SIZE,
@@ -23,7 +23,7 @@ import {
   SECONDARY_TILE_OFFSET,
 } from '../utils/mapLoader';
 // Palette, TilesetKind, getSpritePriorityForElevation, METATILE_LAYER_TYPE_*, MapTileData removed - now using RenderPipeline
-import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
+// TILESET_ANIMATION_CONFIGS removed - now in useTilesetAnimations hook
 import type { CardinalDirection } from '../utils/metatileBehaviors';
 import {
   getArrowDirectionFromBehavior,
@@ -36,7 +36,7 @@ import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewpor
 import { computeCameraView, type CameraView } from '../utils/camera';
 // WarpEvent type used via WarpTrigger from './map/utils'
 
-const PROJECT_ROOT = '/pokeemerald';
+// PROJECT_ROOT removed - now in useTilesetAnimations hook
 
 // Helper to check if debug mode is enabled
 function isDebugMode(): boolean {
@@ -49,7 +49,7 @@ import {
   type TilesetRuntime,
   type RenderContext,
   type ResolvedTile,
-  type LoadedAnimation,
+  // LoadedAnimation removed - now in useTilesetAnimations hook
   type DebugTileInfo,
 } from './map/types';
 import {
@@ -65,20 +65,19 @@ import { DebugRenderer } from './map/renderers/DebugRenderer';
 import { ObjectRenderer } from './map/renderers/ObjectRenderer';
 import { DialogBox, useDialog } from './dialog';
 // Field effect types and controllers from refactored modules
-import {
-  type DoorSize,
-  type DoorAnimDrawable,
-  DOOR_TIMING,
-} from '../field/types';
+import { DOOR_TIMING } from '../field/types';
 import { FadeController } from '../field/FadeController';
-import { ArrowOverlay } from '../field/ArrowOverlay';
+// ArrowOverlay import removed - now using useArrowOverlay hook
 import { WarpHandler } from '../field/WarpHandler';
-import { isDoorAnimationDone } from '../field/DoorSequencer';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
+import { useDoorAnimations } from '../hooks/useDoorAnimations';
+import { useArrowOverlay } from '../hooks/useArrowOverlay';
+import { useDebugCallbacks } from '../hooks/useDebugCallbacks';
+import { useTilesetAnimations } from '../hooks/useTilesetAnimations';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
-import { getDoorAssetForMetatile, ARROW_SPRITE_PATH } from '../data/doorAssets';
+// ARROW_SPRITE_PATH removed - now in useArrowOverlay hook
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { DebugPanel, DEFAULT_DEBUG_OPTIONS, type DebugOptions, type DebugState } from './debug';
 
@@ -232,9 +231,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const tilesetRuntimeCacheRef = useRef<Map<string, TilesetRuntime>>(new Map());
   const debugTilesRef = useRef<DebugTileInfo[]>([]);
   const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const doorSpriteCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
-  const doorAnimsRef = useRef<DoorAnimDrawable[]>([]);
-  const doorAnimIdRef = useRef<number>(1);
+  // Door animations managed by useDoorAnimations hook
+  const doorAnimations = useDoorAnimations();
   const playerHiddenRef = useRef<boolean>(false);
 
   // Dialog system for surf prompts, etc.
@@ -242,12 +240,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const surfPromptInProgressRef = useRef<boolean>(false);
   const itemPickupInProgressRef = useRef<boolean>(false);
   const currentTimestampRef = useRef<number>(0);
-  // ArrowOverlay manages arrow warp indicator state
-  const arrowOverlayRef = useRef<ArrowOverlay>(new ArrowOverlay());
+  // Arrow overlay manages arrow warp indicator state - now using hook
+  const arrowOverlay = useArrowOverlay();
+  // Tileset animations loading - now using hook
+  const tilesetAnimations = useTilesetAnimations();
   // WarpHandler manages warp detection and cooldown state
   const warpHandlerRef = useRef<WarpHandler>(new WarpHandler());
-  const arrowSpriteRef = useRef<HTMLImageElement | HTMLCanvasElement | null>(null);
-  const arrowSpritePromiseRef = useRef<Promise<HTMLImageElement | HTMLCanvasElement> | null>(null);
   // Field sprites (grass, sand, splash, etc.) managed by useFieldSprites hook
   const fieldSprites = useFieldSprites();
   // Door sequencer manages door entry/exit animations via state machine
@@ -318,233 +316,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     },
   }), []);
 
-  const ensureDoorSprite = useCallback(
-    async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
-      const asset = getDoorAssetForMetatile(metatileId);
-      const cached = doorSpriteCacheRef.current.get(asset.path);
-      if (cached && cached.complete) {
-        return { image: cached, size: asset.size };
-      }
-      const img = new Image();
-      img.src = asset.path;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = (err) => reject(err);
-      });
-      doorSpriteCacheRef.current.set(asset.path, img);
-      return { image: img, size: asset.size };
-    },
-    []
-  );
-
-  const renderDoorAnimations = useCallback(
-    (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, now: number) => {
-      const doorAnims = doorAnimsRef.current;
-      if (doorAnims.length === 0) return;
-      for (const anim of doorAnims) {
-        const totalDuration = anim.frameCount * anim.frameDuration;
-        const elapsed = now - anim.startedAt;
-        
-        // Skip rendering if animation is done AND not held
-        if (elapsed >= totalDuration && !anim.holdOnComplete) continue;
-        
-        // Clamp elapsed time to totalDuration when holding on complete
-        const clampedElapsed = anim.holdOnComplete ? Math.min(elapsed, totalDuration - 1) : elapsed;
-        const frameIndexRaw = Math.floor(clampedElapsed / anim.frameDuration);
-        const frameIndex =
-          anim.direction === 'open' ? frameIndexRaw : Math.max(0, anim.frameCount - 1 - frameIndexRaw);
-        const logKey = `${anim.id}:${frameIndex}`;
-        if (!(anim as unknown as { _lastLog?: string })._lastLog || (anim as unknown as { _lastLog?: string })._lastLog !== logKey) {
-          (anim as unknown as { _lastLog?: string })._lastLog = logKey;
-          logDoor('anim-frame', {
-            id: anim.id,
-            dir: anim.direction,
-            metatileId: anim.metatileId,
-            frame: frameIndex,
-            worldX: anim.worldX,
-            worldY: anim.worldY,
-            elapsed,
-          });
-        }
-        const sy = frameIndex * anim.frameHeight;
-        const sw = anim.image.width;
-        const sh = anim.frameHeight;
-        const dx = Math.round(anim.worldX * METATILE_SIZE - view.cameraWorldX);
-        const dy = Math.round((anim.worldY - 1) * METATILE_SIZE - view.cameraWorldY);
-        const dw = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE;
-        const dh = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE * 2;
-        mainCtx.drawImage(anim.image, 0, sy, sw, sh, dx, dy, dw, dh);
-      }
-    },
-    []
-  );
-
-
-  const spawnDoorAnimation = useCallback(
-    async (
-      direction: 'open' | 'close',
-      worldX: number,
-      worldY: number,
-      metatileId: number,
-      startedAt: number,
-      holdOnComplete: boolean = false
-    ): Promise<number | null> => {
-      // COMPREHENSIVE DEBUG LOGGING
-      const stackTrace = new Error().stack;
-      if (isDebugMode()) {
-        console.log('[DOOR_SPAWN]', {
-          direction,
-          worldX,
-          worldY,
-          metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
-          holdOnComplete,
-          calledFrom: stackTrace?.split('\n')[2]?.trim() || 'unknown',
-        });
-      }
-      
-      try {
-        const { image, size } = await ensureDoorSprite(metatileId);
-        const frameCount = Math.max(1, Math.floor(image.height / DOOR_TIMING.FRAME_HEIGHT));
-        const anim: DoorAnimDrawable = {
-          id: doorAnimIdRef.current++,
-          image,
-          direction,
-          frameCount,
-          frameHeight: DOOR_TIMING.FRAME_HEIGHT,
-          frameDuration: DOOR_TIMING.FRAME_DURATION_MS,
-          worldX,
-          worldY,
-          size,
-          startedAt,
-          holdOnComplete,
-          metatileId,
-        };
-        doorAnimsRef.current = [...doorAnimsRef.current, anim];
-        logDoor('anim-start', { id: anim.id, direction, metatileId, frameCount, worldX, worldY });
-        return anim.id;
-      } catch (err) {
-        if (isDebugMode()) {
-          console.warn('Failed to spawn door animation', err);
-        }
-        return null;
-      }
-    },
-    [ensureDoorSprite]
-  );
-
-  // isDoorAnimDone wrapper - uses imported isDoorAnimationDone from DoorSequencer
-  const isDoorAnimDone = useCallback((anim: DoorAnimDrawable | undefined, now: number) => {
-    return isDoorAnimationDone(anim, now);
-  }, []);
-
-  const pruneDoorAnimations = useCallback(
-    (now: number) => {
-      doorAnimsRef.current = doorAnimsRef.current.filter((anim) => {
-        if (anim.holdOnComplete) {
-          return true;
-        }
-        return !isDoorAnimationDone(anim, now);
-      });
-    },
-    []
-  );
-
-  const ensureArrowSprite = useCallback((): Promise<HTMLImageElement | HTMLCanvasElement> => {
-    if (arrowSpriteRef.current) {
-      return Promise.resolve(arrowSpriteRef.current);
-    }
-    if (!arrowSpritePromiseRef.current) {
-      arrowSpritePromiseRef.current = new Promise<HTMLImageElement | HTMLCanvasElement>((resolve, reject) => {
-        const img = new Image();
-        img.src = ARROW_SPRITE_PATH;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Failed to acquire arrow sprite context'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          const colorCounts = new Map<number, number>();
-          for (let i = 0; i < data.length; i += 4) {
-            const alpha = data[i + 3];
-            if (alpha === 0) continue;
-            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-            colorCounts.set(key, (colorCounts.get(key) ?? 0) + 1);
-          }
-          let bgKey = 0;
-          let bgCount = -1;
-          for (const [key, count] of colorCounts.entries()) {
-            if (count > bgCount) {
-              bgKey = key;
-              bgCount = count;
-            }
-          }
-          const bgR = (bgKey >> 16) & 0xff;
-          const bgG = (bgKey >> 8) & 0xff;
-          const bgB = bgKey & 0xff;
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-              data[i + 3] = 0;
-            }
-          }
-          ctx.putImageData(imageData, 0, 0);
-          arrowSpriteRef.current = canvas;
-          resolve(canvas);
-        };
-        img.onerror = (err) => reject(err);
-      }).finally(() => {
-        arrowSpritePromiseRef.current = null;
-      }) as Promise<HTMLImageElement | HTMLCanvasElement>;
-    }
-    return arrowSpritePromiseRef.current!;
-  }, []);
-
-  const updateArrowOverlay = useCallback(
-    (
-      player: PlayerController | null,
-      ctx: RenderContext | null,
-      resolvedTile: ResolvedTile | null,
-      now: number,
-      warpInProgress: boolean
-    ) => {
-      if (!player || !ctx || warpInProgress) {
-        arrowOverlayRef.current.hide();
-        return;
-      }
-      const tile = resolvedTile ?? resolveTileAt(ctx, player.tileX, player.tileY);
-      if (!tile) {
-        arrowOverlayRef.current.hide();
-        return;
-      }
-      const behavior = tile.attributes?.behavior ?? -1;
-      const arrowDir = getArrowDirectionFromBehavior(behavior);
-
-      // Ensure arrow sprite is loaded
-      if (arrowDir && !arrowSpriteRef.current && !arrowSpritePromiseRef.current) {
-        ensureArrowSprite().catch((err) => {
-          if (isDebugMode()) {
-            console.warn('Failed to load arrow sprite', err);
-          }
-        });
-      }
-
-      // Update arrow overlay state using ArrowOverlay class
-      arrowOverlayRef.current.update(
-        player.dir,
-        arrowDir,
-        player.tileX,
-        player.tileY,
-        now,
-        warpInProgress
-      );
-    },
-    [ensureArrowSprite]
-  );
+  // Door animation functions removed - now using useDoorAnimations hook
+  // Arrow overlay functions removed - now using useArrowOverlay hook
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -568,53 +341,25 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   const bottomLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const topLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const compositeLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  
+
+  // Debug callbacks extracted to useDebugCallbacks hook
+  const { refreshDebugOverlay, renderLayerDecomposition, handleCopyTileDebug } = useDebugCallbacks({
+    canvasRef,
+    debugCanvasRef,
+    debugEnabledRef,
+    debugTilesRef,
+    reflectionStateRef,
+    playerControllerRef,
+    bottomLayerCanvasRef,
+    topLayerCanvasRef,
+    compositeLayerCanvasRef,
+    setCenterTileDebugInfo,
+  });
+
   // Set global debug flag when debug enabled changes
   useEffect(() => {
     (window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG] = debugOptions.enabled;
   }, [debugOptions.enabled]);
-
-  // Player Controller
-
-
-  const refreshDebugOverlay = useCallback(
-    (ctx: RenderContext, player: PlayerController, view: WorldCameraView | null) => {
-      if (!debugEnabledRef.current || !view) return;
-      const mainCanvas = canvasRef.current;
-      const dbgCanvas = debugCanvasRef.current;
-      if (!dbgCanvas || !mainCanvas) return;
-
-      DebugRenderer.renderDebugOverlay(
-        ctx,
-        player,
-        view,
-        mainCanvas,
-        dbgCanvas,
-        setCenterTileDebugInfo,
-        debugTilesRef
-      );
-    },
-    [setCenterTileDebugInfo]
-  );
-
-  // Render layer decomposition canvases
-  const renderLayerDecomposition = useCallback((ctx: RenderContext, tileInfo: DebugTileInfo) => {
-    if (!tileInfo || !tileInfo.inBounds) return;
-    
-    const bottomCanvas = bottomLayerCanvasRef.current;
-    const topCanvas = topLayerCanvasRef.current;
-    const compositeCanvas = compositeLayerCanvasRef.current;
-    
-    if (!bottomCanvas || !topCanvas || !compositeCanvas) return;
-
-    DebugRenderer.renderLayerDecomposition(
-      ctx,
-      tileInfo,
-      bottomCanvas,
-      topCanvas,
-      compositeCanvas
-    );
-  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
@@ -662,28 +407,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     }
   };
 
-  const handleCopyTileDebug = useCallback(async () => {
-    const player = playerControllerRef.current;
-    if (!player) return;
-    const payload = {
-      timestamp: new Date().toISOString(),
-      player: {
-        tileX: player.tileX,
-        tileY: player.tileY,
-        x: player.x,
-        y: player.y,
-        dir: player.dir,
-      },
-      reflectionState: reflectionStateRef.current,
-      tiles: debugTilesRef.current,
-    };
-    const text = JSON.stringify(payload, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy debug info', err);
-    }
-  }, []);
+  // handleCopyTileDebug removed - now in useDebugCallbacks hook
 
   const buildPatchedTilesForRuntime = useCallback(
     (runtime: TilesetRuntime, animationState: AnimationState): TilesetBuffers => {
@@ -780,109 +504,20 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     }
   };
 
-  const loadIndexedFrame = async (url: string) => {
-    const buffer = await loadBinary(url);
-    const img = UPNG.decode(buffer);
-
-    let data: Uint8Array;
-    if (img.ctype === 3 && img.depth === 4) {
-      const packed = new Uint8Array(img.data);
-      const unpacked = new Uint8Array(packed.length * 2);
-      for (let i = 0; i < packed.length; i++) {
-        const byte = packed[i];
-        unpacked[i * 2] = (byte >> 4) & 0xF;
-        unpacked[i * 2 + 1] = byte & 0xF;
-      }
-      data = unpacked;
-    } else {
-      data = new Uint8Array(img.data);
-    }
-
-    return { data, width: img.width, height: img.height };
-  };
-
-  const loadTilesetAnimations = useCallback(
-    async (primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> => {
-      const loaded: LoadedAnimation[] = [];
-      const requested = [
-        ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
-        ...(TILESET_ANIMATION_CONFIGS[secondaryId] ?? []),
-      ];
-
-      for (const def of requested) {
-        try {
-          const frames: Uint8Array[] = [];
-          let width = 0;
-          let height = 0;
-
-          for (const framePath of def.frames) {
-            const frame = await loadIndexedFrame(`${PROJECT_ROOT}/${framePath}`);
-            frames.push(frame.data);
-            width = frame.width;
-            height = frame.height;
-          }
-
-          const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
-          const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
-          const sequence = def.sequence ?? frames.map((_, i) => i);
-
-          loaded.push({
-            ...def,
-            frames,
-            width,
-            height,
-            tilesWide,
-            tilesHigh,
-            sequence,
-            destinations: def.destinations,
-          });
-        } catch (err) {
-          if (isDebugMode()) {
-            console.warn(`Animation ${def.id} not loaded:`, err);
-          }
-        }
-      }
-
-      return loaded;
-    },
-    []
-  );
-
-  const computeAnimatedTileIds = (animations: LoadedAnimation[]) => {
-    const primary = new Set<number>();
-    const secondary = new Set<number>();
-
-    for (const anim of animations) {
-      for (const dest of anim.destinations) {
-        let destId = dest.destStart;
-        for (let ty = 0; ty < anim.tilesHigh; ty++) {
-          for (let tx = 0; tx < anim.tilesWide; tx++) {
-            if (anim.tileset === 'primary') {
-              primary.add(destId);
-            } else {
-              secondary.add(destId);
-            }
-            destId++;
-          }
-        }
-      }
-    }
-
-    return { primary, secondary };
-  };
+  // loadIndexedFrame, loadTilesetAnimations, computeAnimatedTileIds moved to useTilesetAnimations hook
 
   const ensureTilesetRuntime = useCallback(
     async (tilesets: TilesetResources): Promise<TilesetRuntime> => {
       const cached = tilesetRuntimeCacheRef.current.get(tilesets.key);
       if (cached) return cached;
       const runtime = buildTilesetRuntime(tilesets);
-      const animations = await loadTilesetAnimations(tilesets.primaryTilesetId, tilesets.secondaryTilesetId);
+      const animations = await tilesetAnimations.loadAnimations(tilesets.primaryTilesetId, tilesets.secondaryTilesetId);
       runtime.animations = animations;
-      runtime.animatedTileIds = computeAnimatedTileIds(animations);
+      runtime.animatedTileIds = tilesetAnimations.computeAnimatedTileIds(animations);
       tilesetRuntimeCacheRef.current.set(tilesets.key, runtime);
       return runtime;
     },
-    [loadTilesetAnimations]
+    [] // tilesetAnimations functions are stable (useCallback with [])
   );
 
   const rebuildContextForWorld = useCallback(
@@ -993,11 +628,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       }
       // ViewportBuffer and old rendering modes removed - now using RenderPipeline exclusively
 
-      renderDoorAnimations(mainCtx, view, nowMs);
-      // Render arrow overlay using ArrowOverlay class
-      const arrowState = arrowOverlayRef.current.getState();
-      if (arrowState && arrowSpriteRef.current) {
-        ObjectRenderer.renderArrow(mainCtx, arrowState, arrowSpriteRef.current, view, nowMs);
+      doorAnimations.render(mainCtx, view, nowMs);
+      // Render arrow overlay using useArrowOverlay hook
+      const arrowState = arrowOverlay.getState();
+      const arrowSprite = arrowOverlay.getSprite();
+      if (arrowState && arrowSprite) {
+        ObjectRenderer.renderArrow(mainCtx, arrowState, arrowSprite, view, nowMs);
       }
       if (player) {
         ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
@@ -1020,7 +656,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
           sand: fieldSprites.sprites.sand,
           splash: fieldSprites.sprites.splash,
           ripple: fieldSprites.sprites.ripple,
-          arrow: arrowSpriteRef.current,
+          arrow: arrowOverlay.getSprite(),
           itemBall: fieldSprites.sprites.itemBall,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
@@ -1102,7 +738,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
           sand: fieldSprites.sprites.sand,
           splash: fieldSprites.sprites.splash,
           ripple: fieldSprites.sprites.ripple,
-          arrow: arrowSpriteRef.current,
+          arrow: arrowOverlay.getSprite(),
           itemBall: fieldSprites.sprites.itemBall,
         };
         ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
@@ -1160,7 +796,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         );
       }
     },
-    [renderDoorAnimations]
+    // doorAnimations functions are stable (useCallback with []), so no dependency needed
+    []
   );
 
   // Field sprite loading functions removed - now using useFieldSprites hook
@@ -1324,7 +961,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             metatileId,
             behavior: trigger.behavior,
           });
-          arrowOverlayRef.current.hide();
+          arrowOverlay.hide();
           // Use the sequencer's startAutoWarp to skip to fade phase
           doorSequencer.startAutoWarp({
             targetX: player.tileX,
@@ -1517,7 +1154,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             warpHandler.setCooldown(350);
             hasRenderedRef.current = false;
             // Clear any remaining door animations from the previous map
-            doorAnimsRef.current = [];
+            doorAnimations.clearAll();
           } catch (err) {
             console.error('Warp failed', err);
           } finally {
@@ -1562,8 +1199,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             if (animId === undefined) return true;
             // -1 is sentinel for "loading in progress" - not done
             if (animId === -1) return false;
-            const anim = doorAnimsRef.current.find((a) => a.id === animId);
-            return !anim || isDoorAnimDone(anim, now);
+            const anim = doorAnimations.findById(animId);
+            return !anim || doorAnimations.isAnimDone(anim, now);
           };
           const isFadeDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
 
@@ -1588,7 +1225,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               logDoor('entry: start door close (animated)');
               // Set to -1 as sentinel for "loading in progress" to prevent race condition
               doorSequencer.setEntryCloseAnimId(-1);
-              spawnDoorAnimation(
+              doorAnimations.spawn(
                 'close',
                 pos?.x ?? 0,
                 pos?.y ?? 0,
@@ -1601,16 +1238,12 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               });
               // Remove open animation
               if (entryState.openAnimId !== undefined) {
-                doorAnimsRef.current = doorAnimsRef.current.filter(
-                  (anim) => anim.id !== entryState.openAnimId
-                );
+                doorAnimations.clearById(entryState.openAnimId);
               }
             }
           } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
             logDoor('entry: door close complete, showing base tile');
-            doorAnimsRef.current = doorAnimsRef.current.filter(
-              (a) => a.id !== result.animId
-            );
+            doorAnimations.clearById(result.animId);
           } else if (result.action === 'startFadeOut' && result.duration) {
             logDoor('entry: start fade out');
             fadeRef.current.startFadeOut(result.duration, now);
@@ -1636,8 +1269,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             if (animId === undefined) return true;
             // -1 is sentinel for "loading in progress" - not done
             if (animId === -1) return false;
-            const anim = doorAnimsRef.current.find((a) => a.id === animId);
-            return !anim || isDoorAnimDone(anim, now);
+            const anim = doorAnimations.findById(animId);
+            return !anim || doorAnimations.isAnimDone(anim, now);
           };
           // Per pokeemerald: wait for fade-in to complete before showing player
           // Fade is complete when it's not active OR when it's marked as complete
@@ -1664,7 +1297,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             // We achieve this by setting startedAt far in the past so animation is already on last frame
             // Door animation: 4 frames * 90ms = 360ms, so 500ms in past ensures we're on last frame
             const alreadyOpenStartedAt = now - 500;
-            spawnDoorAnimation(
+            doorAnimations.spawn(
               'open',
               pos?.x ?? 0,
               pos?.y ?? 0,
@@ -1685,13 +1318,11 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             logDoor('exit: start door close');
             // Remove open animation
             if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
-              doorAnimsRef.current = doorAnimsRef.current.filter(
-                (anim) => anim.id !== exitState.openAnimId
-              );
+              doorAnimations.clearById(exitState.openAnimId);
             }
             // Set to -1 as sentinel for "loading in progress"
             doorSequencer.setExitCloseAnimId(-1);
-            spawnDoorAnimation(
+            doorAnimations.spawn(
               'close',
               pos?.x ?? 0,
               pos?.y ?? 0,
@@ -1704,9 +1335,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             });
           } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
             logDoor('exit: door close complete');
-            doorAnimsRef.current = doorAnimsRef.current.filter(
-              (a) => a.id !== result.animId
-            );
+            doorAnimations.clearById(result.animId);
           }
 
           // Handle completion
@@ -1825,7 +1454,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                 metatileId,
                 map: resolved.map.entry.id,
               });
-              openAnimId = await spawnDoorAnimation(
+              openAnimId = await doorAnimations.spawn(
                 'open',
                 request.targetX,
                 request.targetY,
@@ -1908,7 +1537,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             }
           }
 
-          pruneDoorAnimations(timestamp);
+          doorAnimations.prune(timestamp);
           advanceDoorEntry(timestamp);
           advanceDoorExit(timestamp);
           warpHandler.update(safeDelta);
@@ -1952,9 +1581,10 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
                 }
               }
             }
-            updateArrowOverlay(player, ctx, resolvedForWarp, timestamp, warpHandler.isInProgress());
+            const behavior = resolvedForWarp?.attributes?.behavior ?? -1;
+            arrowOverlay.update(player.dir, player.tileX, player.tileY, behavior, timestamp, warpHandler.isInProgress());
           } else {
-            updateArrowOverlay(null, null, null, timestamp, warpHandler.isInProgress());
+            arrowOverlay.hide();
           }
           let view: WorldCameraView | null = null;
           if (player) {
@@ -2082,9 +1712,9 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
             playerDirty ||
             !hasRenderedRef.current ||
             viewChanged ||
-            doorAnimsRef.current.length > 0 ||
+            doorAnimations.getAnimations().length > 0 ||
             fadeRef.current.isActive() ||
-            arrowOverlayRef.current.isVisible() || // Keep rendering while arrow animates
+            arrowOverlay.isVisible() || // Keep rendering while arrow animates
             debugOptionsRef.current.showCollisionOverlay || // Keep rendering while collision overlay is enabled
             debugOptionsRef.current.showElevationOverlay; // Keep rendering while elevation overlay is enabled
 
@@ -2243,7 +1873,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     mapId,
     mapName,
     compositeScene,
-    loadTilesetAnimations,
+    // tilesetAnimations removed - stable hook functions
     buildPatchedTilesForRuntime,
     refreshDebugOverlay,
     rebuildContextForWorld,
