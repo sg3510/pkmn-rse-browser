@@ -33,7 +33,8 @@ import {
   requiresDoorExitSequence,
 } from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
-import { computeCameraView, type CameraView } from '../utils/camera';
+// computeCameraView moved to useRunUpdate hook
+import type { CameraView } from '../utils/camera';
 // WarpEvent type used via WarpTrigger from './map/utils'
 
 // PROJECT_ROOT removed - now in useTilesetAnimations hook
@@ -55,10 +56,10 @@ import {
 import {
   resolveTileAt,
   findWarpEventAt,
-  detectWarpTrigger,
+  // detectWarpTrigger moved to useRunUpdate hook
   isVerticalObject,
   classifyWarpKind,
-  computeReflectionState,
+  // computeReflectionState moved to useRunUpdate hook
   type WarpTrigger,
 } from './map/utils';
 import { DebugRenderer } from './map/renderers/DebugRenderer';
@@ -74,6 +75,7 @@ import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDebugCallbacks } from '../hooks/useDebugCallbacks';
 import { useTilesetAnimations } from '../hooks/useTilesetAnimations';
+import { useRunUpdate, type RunUpdateRefs, type RunUpdateCallbacks, type EngineFrameResult } from '../hooks/useRunUpdate';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
@@ -117,13 +119,7 @@ export interface WorldCameraView extends CameraView {
   cameraWorldY: number;
 }
 
-interface EngineFrameResult {
-  view: WorldCameraView | null;
-  viewChanged: boolean;
-  animationFrameChanged: boolean;
-  shouldRender: boolean;
-  timestamp: number;
-}
+// EngineFrameResult imported from useRunUpdate hook
 
 
 
@@ -260,6 +256,35 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   // doorExitRef removed - now using DoorSequencer via useDoorSequencer hook
   // FadeController manages screen fade in/out transitions
   const fadeRef = useRef<FadeController>(new FadeController());
+
+  // Set up refs object for useRunUpdate hook
+  const runUpdateRefs: RunUpdateRefs = {
+    renderGenerationRef,
+    lastFrameResultRef,
+    renderContextRef,
+    currentTimestampRef,
+    playerControllerRef,
+    cameraViewRef,
+    lastViewKeyRef,
+    animationTimerRef,
+    tilesetCacheRef,
+    hasRenderedRef,
+    fadeRef,
+    debugOptionsRef,
+    reflectionStateRef,
+    mapManagerRef,
+    renderPipelineRef,
+  };
+
+  // useRunUpdate hook provides the game update loop logic
+  const { createRunUpdate } = useRunUpdate({
+    refs: runUpdateRefs,
+    doorAnimations,
+    arrowOverlay,
+    warpHandler: warpHandlerRef.current,
+    viewportConfig: VIEWPORT_CONFIG,
+    connectionDepth: CONNECTION_DEPTH,
+  });
 
   // Expose save/load methods via ref
   useImperativeHandle(ref, () => ({
@@ -936,7 +961,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         const animationTimer = new AnimationTimer();
         animationTimerRef.current = animationTimer;
 
-        let reanchorInFlight = false;
+        // reanchorInFlight moved to useRunUpdate hook (managed as ref)
         // Reset WarpHandler and set initial position if anchor exists
         const warpHandler = warpHandlerRef.current;
         warpHandler.reset();
@@ -996,7 +1021,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         ) => {
           if (warpHandler.isInProgress() && !options?.force) return;
           warpHandler.setInProgress(true);
-          reanchorInFlight = true;
+          // reanchorInFlight now managed in useRunUpdate hook for automatic transitions
           const shouldUnlockInput = !options?.fromDoor;
           playerControllerRef.current?.lockInput();
           try {
@@ -1162,7 +1187,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
               playerControllerRef.current?.unlockInput();
               warpHandler.setInProgress(false);
             }
-            reanchorInFlight = false;
+            // reanchorInFlight now managed in useRunUpdate hook
           }
         };
 
@@ -1498,248 +1523,20 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
         playerControllerRef.current?.setDoorWarpHandler(handleDoorWarpAttempt);
 
-        const runUpdate = (deltaMs: number, timestamp: number) => {
-          if (generation !== renderGenerationRef.current) {
-            lastFrameResultRef.current = {
-              view: null,
-              viewChanged: false,
-              animationFrameChanged: false,
-              shouldRender: false,
-              timestamp,
-            };
-            return { needsRender: false, viewChanged: false, animationFrameChanged: false, playerDirty: false };
-          }
-
-          const ctx = renderContextRef.current;
-          if (!ctx) {
-            lastFrameResultRef.current = {
-              view: null,
-              viewChanged: false,
-              animationFrameChanged: false,
-              shouldRender: false,
-              timestamp,
-            };
-            return { needsRender: false, viewChanged: false, animationFrameChanged: false, playerDirty: false };
-          }
-
-          const safeDelta = Math.min(deltaMs, 50);
-          currentTimestampRef.current = timestamp;
-
-          // DEBUG: Track player position at start of each update
-          {
-            const p = playerControllerRef.current;
-            if (p) {
-              const posKey = `${p.tileX},${p.tileY},${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-              if ((window as unknown as Record<string, unknown>).__lastPosKey !== posKey) {
-                console.log(`[FRAME_POS] tile:(${p.tileX},${p.tileY}) pixel:(${p.x.toFixed(1)},${p.y.toFixed(1)}) moving:${p.isMoving} dir:${p.dir}`);
-                (window as unknown as Record<string, unknown>).__lastPosKey = posKey;
-              }
-            }
-          }
-
-          doorAnimations.prune(timestamp);
-          advanceDoorEntry(timestamp);
-          advanceDoorExit(timestamp);
-          warpHandler.update(safeDelta);
-          const playerDirty = playerControllerRef.current?.update(safeDelta) ?? false;
-          const player = playerControllerRef.current;
-          if (player && ctx) {
-            const resolvedForWarp = resolveTileAt(ctx, player.tileX, player.tileY);
-            const lastChecked = warpHandler.getState().lastCheckedTile;
-            const tileChanged =
-              !lastChecked ||
-              lastChecked.mapId !== resolvedForWarp?.map.entry.id ||
-              lastChecked.x !== player.tileX ||
-              lastChecked.y !== player.tileY;
-            if (tileChanged && resolvedForWarp) {
-              const behavior = resolvedForWarp.attributes?.behavior ?? -1;
-              if (isDebugMode() && (behavior === 96 || behavior === 97)) {
-                console.log('[TILE_CHANGED_STAIR_LADDER]', {
-                  playerTile: { x: player.tileX, y: player.tileY },
-                  behavior: `0x${behavior.toString(16)} (${behavior})`,
-                  mapId: resolvedForWarp.map.entry.id,
-                  warpInProgress: warpHandler.isInProgress(),
-                  warpOnCooldown: warpHandler.isOnCooldown(),
-                });
-              }
-              warpHandler.updateLastCheckedTile(player.tileX, player.tileY, resolvedForWarp.map.entry.id);
-              if (!warpHandler.isInProgress() && !warpHandler.isOnCooldown()) {
-                const trigger = detectWarpTrigger(ctx, player);
-                if (trigger) {
-                  // Arrow warps are handled through PlayerController's doorWarpHandler
-                  // (triggered when player tries to move in the arrow direction)
-                  if (trigger.kind === 'arrow') {
-                    // Do nothing - wait for player movement input
-                    if (isDebugMode()) {
-                      console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
-                    }
-                  } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
-                    startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
-                  } else {
-                    void performWarp(trigger);
-                  }
-                }
-              }
-            }
-            const behavior = resolvedForWarp?.attributes?.behavior ?? -1;
-            arrowOverlay.update(player.dir, player.tileX, player.tileY, behavior, timestamp, warpHandler.isInProgress());
-          } else {
-            arrowOverlay.hide();
-          }
-          let view: WorldCameraView | null = null;
-          if (player) {
-            const focus = player.getCameraFocus();
-            if (focus) {
-              const bounds = ctx.world.bounds;
-              const padX = VIEWPORT_CONFIG.tilesWide;
-              const padY = VIEWPORT_CONFIG.tilesHigh;
-              const paddedMinX = bounds.minX - padX;
-              const paddedMinY = bounds.minY - padY;
-              const paddedMaxX = bounds.maxX + padX;
-              const paddedMaxY = bounds.maxY + padY;
-              const worldWidth = paddedMaxX - paddedMinX;
-              const worldHeight = paddedMaxY - paddedMinY;
-              const baseView = computeCameraView(
-                worldWidth,
-                worldHeight,
-                focus.x - paddedMinX * METATILE_SIZE,
-                focus.y - paddedMinY * METATILE_SIZE,
-                VIEWPORT_CONFIG
-              );
-              view = {
-                ...baseView,
-                worldStartTileX: baseView.startTileX + paddedMinX,
-                worldStartTileY: baseView.startTileY + paddedMinY,
-                cameraWorldX: baseView.cameraX + paddedMinX * METATILE_SIZE,
-                cameraWorldY: baseView.cameraY + paddedMinY * METATILE_SIZE,
-              };
-            }
-          }
-          cameraViewRef.current = view;
-
-          // DEBUG: Track camera position changes
-          if (view) {
-            const camKey = `${view.cameraWorldX.toFixed(1)},${view.cameraWorldY.toFixed(1)}`;
-            if ((window as unknown as Record<string, unknown>).__lastCamKey !== camKey) {
-              const prevCam = (window as unknown as Record<string, unknown>).__lastCamKey as string | undefined;
-              if (prevCam) {
-                const [prevX, prevY] = prevCam.split(',').map(Number);
-                const deltaX = view.cameraWorldX - prevX;
-                const deltaY = view.cameraWorldY - prevY;
-                // Only log if camera jumped more than 2 pixels (could indicate teleport)
-                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-                  console.log(`[CAMERA_JUMP] cam:(${prevX.toFixed(1)},${prevY.toFixed(1)}) -> (${view.cameraWorldX.toFixed(1)},${view.cameraWorldY.toFixed(1)}) delta:(${deltaX.toFixed(1)},${deltaY.toFixed(1)})`);
-                }
-              }
-              (window as unknown as Record<string, unknown>).__lastCamKey = camKey;
-            }
-          }
-
-          const viewKey = view
-            ? `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`
-            : '';
-          const viewChanged = viewKey !== lastViewKeyRef.current;
-          if (viewChanged) {
-            lastViewKeyRef.current = viewKey;
-          }
-
-          // Detect if player entered a different map; re-anchor world if needed.
-          if (!reanchorInFlight && player) {
-            const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
-            if (resolved && resolved.map.entry.id !== ctx.anchor.entry.id) {
-              reanchorInFlight = true;
-              const targetId = resolved.map.entry.id;
-              const targetOffsetX = resolved.map.offsetX;
-              const targetOffsetY = resolved.map.offsetY;
-              // DEBUG: Log re-anchor start
-              console.log(`[REANCHOR] Starting: player at tile(${player.tileX},${player.tileY}) pixel(${player.x.toFixed(1)},${player.y.toFixed(1)}) moving:${player.isMoving}`);
-              (async () => {
-                const newWorldRaw = await mapManagerRef.current.buildWorld(targetId, CONNECTION_DEPTH);
-                // Shift new world so the target map stays at the same world offset as before reanchor.
-                const newWorld = shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
-                await rebuildContextForWorld(newWorld, targetId);
-                // FIX: Don't reset player position - shiftWorld maintains coordinate continuity.
-                // The old setPosition() call was causing a jump/teleport back effect because:
-                // 1. Player continued moving during async world rebuild
-                // 2. setPosition() would snap player back to stale captured coordinates
-                // 3. setPosition() resets isMoving=false and pixelsMoved=0, canceling sub-tile movement
-                applyTileResolver();
-                applyPipelineResolvers();
-                // Invalidate pipeline caches after re-anchor
-                renderPipelineRef.current?.invalidate();
-                // Update warpHandler with current player position
-                const currentPlayer = playerControllerRef.current;
-                if (currentPlayer) {
-                  // DEBUG: Log re-anchor complete
-                  console.log(`[REANCHOR] Complete: player at tile(${currentPlayer.tileX},${currentPlayer.tileY}) pixel(${currentPlayer.x.toFixed(1)},${currentPlayer.y.toFixed(1)}) moving:${currentPlayer.isMoving}`);
-                  warpHandler.updateLastCheckedTile(currentPlayer.tileX, currentPlayer.tileY, targetId);
-                }
-                warpHandler.setCooldown(Math.max(warpHandler.getCooldownRemaining(), 50));
-              })().finally(() => {
-                reanchorInFlight = false;
-              });
-            }
-          }
-
-          // Use AnimationTimer's tick count for animation timing
-          // CRITICAL: Must use animationTimer (not raw timestamp) because GameLoop's
-          // accumulator pattern can run multiple update cycles per RAF to catch up.
-          // Raw timestamp stays the same for all iterations, but animationTimer.tickCount
-          // advances with each iteration, ensuring animations progress correctly.
-          const frameTick = animationTimerRef.current?.getTickCount() ?? 0;
-          let animationFrameChanged = false;
-          for (const runtime of ctx.tilesetRuntimes.values()) {
-            const animationState: AnimationState = {};
-            for (const anim of runtime.animations) {
-              const seqIndex = Math.floor(frameTick / anim.interval);
-              animationState[anim.id] = seqIndex;
-            }
-            const prevKey = runtime.lastPatchedKey;
-            buildPatchedTilesForRuntime(runtime, animationState);
-            if (runtime.lastPatchedKey !== prevKey) {
-              animationFrameChanged = true;
-            }
-          }
-
-          // CRITICAL FIX: Clear tileset cache when animation frames change
-          // This ensures animated tiles show the correct frame (matching original code behavior)
-          if (animationFrameChanged && tilesetCacheRef.current) {
-            tilesetCacheRef.current.clear();
-          }
-
-          const shouldRender =
-            animationFrameChanged ||
-            playerDirty ||
-            !hasRenderedRef.current ||
-            viewChanged ||
-            doorAnimations.getAnimations().length > 0 ||
-            fadeRef.current.isActive() ||
-            arrowOverlay.isVisible() || // Keep rendering while arrow animates
-            debugOptionsRef.current.showCollisionOverlay || // Keep rendering while collision overlay is enabled
-            debugOptionsRef.current.showElevationOverlay; // Keep rendering while elevation overlay is enabled
-
-          // DEBUG: Log render decision
-          if (!shouldRender && player?.isMoving) {
-            console.warn(`[RENDER_SKIP] Player moving but shouldRender=false! animChanged=${animationFrameChanged} playerDirty=${playerDirty} viewChanged=${viewChanged}`);
-          }
-          const reflectionState = computeReflectionState(ctx, playerControllerRef.current);
-          reflectionStateRef.current = reflectionState;
-
-          lastFrameResultRef.current = {
-            view,
-            viewChanged,
-            animationFrameChanged,
-            shouldRender,
-            timestamp,
-          };
-
-          return {
-            needsRender: shouldRender,
-            viewChanged,
-            animationFrameChanged,
-            playerDirty,
-          };
+        // Create runUpdate function using the hook's factory
+        // Callbacks are passed here since they're defined in this useEffect scope
+        const runUpdateCallbacks: RunUpdateCallbacks = {
+          advanceDoorEntry,
+          advanceDoorExit,
+          startAutoDoorWarp,
+          performWarp,
+          rebuildContextForWorld,
+          applyTileResolver,
+          applyPipelineResolvers,
+          buildPatchedTilesForRuntime,
+          shiftWorld,
         };
+        const runUpdate = createRunUpdate(generation, runUpdateCallbacks);
 
         const renderFrame = (frame: EngineFrameResult) => {
           if (!frame.shouldRender || !frame.view) return;
