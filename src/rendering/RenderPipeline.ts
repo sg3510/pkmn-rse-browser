@@ -171,6 +171,39 @@ export class RenderPipeline {
   }
 
   /**
+   * Composite only the background layer to the main canvas
+   *
+   * Call this first when you need to render priority 2 sprites
+   * between background and topBelow (matching GBA sprite priority).
+   *
+   * @param mainCtx - Main canvas context to draw to
+   * @param view - Camera view for offset calculation
+   */
+  compositeBackgroundOnly(mainCtx: CanvasRenderingContext2D, view: WorldCameraView): void {
+    const layers: LayerCanvases = {
+      background: this.backgroundCanvas,
+      topBelow: this.topBelowCanvas,
+    };
+    this.compositor.compositeBackgroundOnly(mainCtx, view, layers);
+  }
+
+  /**
+   * Composite only the topBelow layer to the main canvas
+   *
+   * Call this after priority 2 sprites are rendered.
+   *
+   * @param mainCtx - Main canvas context to draw to
+   * @param view - Camera view for offset calculation
+   */
+  compositeTopBelowOnly(mainCtx: CanvasRenderingContext2D, view: WorldCameraView): void {
+    const layers: LayerCanvases = {
+      background: this.backgroundCanvas,
+      topBelow: this.topBelowCanvas,
+    };
+    this.compositor.compositeTopBelowOnly(mainCtx, view, layers);
+  }
+
+  /**
    * Composite the topAbove layer to the main canvas
    *
    * Call this after rendering sprites.

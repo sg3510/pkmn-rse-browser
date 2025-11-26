@@ -75,9 +75,6 @@ export class WarpHandler {
   /** Default cooldown after warp completes (ms) */
   private static readonly DEFAULT_COOLDOWN_MS = 350;
 
-  /** Minimum cooldown for warp checks (ms) */
-  private static readonly MIN_CHECK_COOLDOWN_MS = 50;
-
   /**
    * Update cooldown timer
    *
@@ -159,11 +156,9 @@ export class WarpHandler {
    */
   updateLastCheckedTile(tileX: number, tileY: number, mapId: string): void {
     this.state.lastCheckedTile = { mapId, x: tileX, y: tileY };
-    // Add minimum cooldown for warp checks
-    this.state.cooldownMs = Math.max(
-      this.state.cooldownMs,
-      WarpHandler.MIN_CHECK_COOLDOWN_MS
-    );
+    // NOTE: Do NOT set cooldown here! Setting cooldown before the warp check
+    // causes the check to immediately fail. Cooldown should only be set after
+    // a warp actually triggers (via completeWarp or setCooldown).
   }
 
   /**

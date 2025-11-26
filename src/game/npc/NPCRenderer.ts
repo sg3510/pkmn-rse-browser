@@ -16,6 +16,7 @@ import { ObjectRenderer, type SpriteFrameInfo } from '../../components/map/rende
 import { computeObjectReflectionState, getMetatileBehavior } from '../../components/map/utils';
 import type { RenderContext } from '../../components/map/types';
 import { isTallGrassBehavior, isLongGrassBehavior } from '../../utils/metatileBehaviors';
+import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 
 export interface NPCRenderView {
   cameraWorldX: number;
@@ -25,20 +26,33 @@ export interface NPCRenderView {
 }
 
 /**
- * Render NPCs to the canvas with Y-sorting
+ * Render NPCs to the canvas with Y-sorting and elevation-based priority
+ *
+ * In the GBA game, each NPC has a sprite priority based on their elevation:
+ * - Priority 2 (elevation 0-3, 5, 7, 9, 11, 15): Rendered BELOW BG1 (behind bridges/overlays)
+ * - Priority 1 (elevation 4, 6, 8, 10, 12): Rendered ABOVE BG1 (same level as bridges)
+ * - Priority 0 (elevation 13, 14): Rendered ABOVE everything
+ *
+ * NPCs at the SAME priority as the player should be Y-sorted with the player.
+ * NPCs at DIFFERENT priority should be rendered in separate passes (before/after BG layers).
  *
  * @param ctx Canvas 2D context
  * @param npcs Array of visible NPCs to render
  * @param view Current camera/viewport info
  * @param playerTileY Player's tile Y for Y-sorting
  * @param layer 'bottom' for NPCs behind player, 'top' for NPCs in front
+ * @param priorityFilter Optional: only render NPCs with this sprite priority (0, 1, or 2)
+ * @param excludePlayerPriority Optional: exclude NPCs at this priority (player's priority)
+ *        so they can be Y-sorted with player in the player layer instead
  */
 export function renderNPCs(
   ctx: CanvasRenderingContext2D,
   npcs: NPCObject[],
   view: NPCRenderView,
   playerTileY: number,
-  layer: 'bottom' | 'top'
+  layer: 'bottom' | 'top',
+  priorityFilter?: number,
+  excludePlayerPriority?: number
 ): void {
   if (npcs.length === 0) return;
 
@@ -47,6 +61,16 @@ export function renderNPCs(
   for (const npc of npcs) {
     // Skip invisible NPCs
     if (!npc.visible) continue;
+
+    // Get NPC's sprite priority based on their elevation
+    // This matches GBA behavior: sElevationToPriority[elevation]
+    const npcPriority = getSpritePriorityForElevation(npc.elevation);
+
+    // Filter by priority if specified
+    if (priorityFilter !== undefined && npcPriority !== priorityFilter) continue;
+
+    // Exclude NPCs at player's priority (they'll be Y-sorted with player in player layer)
+    if (excludePlayerPriority !== undefined && npcPriority === excludePlayerPriority) continue;
 
     // Y-sorting: NPCs at Y < playerY are behind (bottom layer)
     // NPCs at Y >= playerY are in front (top layer)

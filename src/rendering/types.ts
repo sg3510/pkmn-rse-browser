@@ -15,11 +15,24 @@ import type { Palette, Metatile, MetatileAttributes, MapTileData } from '../util
 import type { CameraView } from '../utils/camera';
 import type { WorldMapInstance, WorldState, TilesetResources } from '../services/MapManager';
 import type { TilesetKind } from '../data/tilesetAnimations';
+// Import shared tileset types for consistency across the codebase
+import type {
+  TilesetRuntime as SharedTilesetRuntime,
+  ReflectionMeta as SharedReflectionMeta,
+  LoadedAnimation as SharedLoadedAnimation,
+  TilesetBuffers as SharedTilesetBuffers,
+} from '../utils/tilesetUtils';
 
 // Re-export for convenience
 export type { Palette, Metatile, MetatileAttributes, MapTileData };
 export type { CameraView };
 export type { TilesetKind };
+
+// Re-export tileset types from shared module
+export type TilesetRuntime = SharedTilesetRuntime;
+export type ReflectionMeta = SharedReflectionMeta;
+export type LoadedAnimation = SharedLoadedAnimation;
+export type TilesetBuffers = SharedTilesetBuffers;
 
 /**
  * Extended camera view with world coordinates
@@ -63,18 +76,7 @@ export interface TileDrawCall {
   layer: 0 | 1;
 }
 
-/**
- * Tileset data buffers for rendering
- *
- * Contains the indexed color data for primary and secondary tilesets.
- * May be patched with animated tile frames.
- */
-export interface TilesetBuffers {
-  /** Primary tileset indexed color data (128px wide) */
-  primary: Uint8Array;
-  /** Secondary tileset indexed color data (128px wide) */
-  secondary: Uint8Array;
-}
+// TilesetBuffers imported from ../utils/tilesetUtils
 
 /**
  * Render context providing all data needed for rendering
@@ -91,64 +93,12 @@ export interface RenderContext {
   anchor: WorldMapInstance;
 }
 
-/**
- * Runtime tileset data with precomputed caches
- *
- * Contains the original tileset resources plus computed data
- * for efficient rendering (masks, reflection metadata, etc.)
- */
-export interface TilesetRuntime {
-  /** Original tileset resources */
-  resources: TilesetResources;
-  /** Transparency masks for primary tiles */
-  primaryTileMasks: Uint8Array[];
-  /** Transparency masks for secondary tiles */
-  secondaryTileMasks: Uint8Array[];
-  /** Reflection metadata for primary metatiles */
-  primaryReflectionMeta: ReflectionMeta[];
-  /** Reflection metadata for secondary metatiles */
-  secondaryReflectionMeta: ReflectionMeta[];
-  /** Loaded animation data */
-  animations: LoadedAnimation[];
-  /** Set of animated tile IDs for quick lookup */
-  animatedTileIds: { primary: Set<number>; secondary: Set<number> };
-  /** Patched tileset buffers with current animation frame */
-  patchedTiles: TilesetBuffers | null;
-  /** Key for cache invalidation */
-  lastPatchedKey: string;
-}
+// TilesetRuntime, ReflectionMeta, LoadedAnimation imported from ../utils/tilesetUtils
 
 /**
  * Reflection type for water/ice surfaces
  */
 export type ReflectionType = 'water' | 'ice';
-
-/**
- * Reflection metadata for a metatile
- *
- * Used to determine where reflections should be rendered
- * and what type of reflection effect to apply.
- */
-export interface ReflectionMeta {
-  /** Whether this metatile has a reflective surface */
-  isReflective: boolean;
-  /** Type of reflection (water has blue tint, ice is clear) */
-  reflectionType: ReflectionType | null;
-  /** 16x16 pixel mask where 1 = reflection allowed, 0 = opaque overlay */
-  pixelMask: Uint8Array;
-}
-
-/**
- * Loaded animation data
- */
-export interface LoadedAnimation {
-  /** Animation configuration key */
-  key: string;
-  /** Animation frames as image data */
-  frames: Uint8Array[];
-  /** Current frame index */
-  currentFrame: number;
-}
 
 /**
  * Resolved tile data at a specific world position

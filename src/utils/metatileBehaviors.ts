@@ -39,7 +39,8 @@ export const MB_BATTLE_PYRAMID_WARP = 13;
 export const MB_MOSSDEEP_GYM_WARP = 14;
 export const MB_MT_PYRE_HOLE = 15;
 export const MB_LAVARIDGE_GYM_B1F_WARP = 41;
-export const MB_NON_ANIMATED_DOOR = 96;
+export const MB_NON_ANIMATED_DOOR = 96;  // 0x60 - stairs
+export const MB_LADDER = 97;              // 0x61 - ladders
 export const MB_EAST_ARROW_WARP = 98;
 export const MB_WEST_ARROW_WARP = 99;
 export const MB_NORTH_ARROW_WARP = 100;
@@ -133,11 +134,11 @@ export function isDoorBehavior(behavior: number): boolean {
 }
 
 /**
- * Check if behavior is a non-animated door (stairs, etc.)
+ * Check if behavior is a non-animated door (stairs, ladders, etc.)
  * These should have exit movement but NO door animation
  */
 export function isNonAnimatedDoorBehavior(behavior: number): boolean {
-  return behavior === MB_NON_ANIMATED_DOOR || behavior === MB_DEEP_SOUTH_WARP;
+  return behavior === MB_NON_ANIMATED_DOOR || behavior === MB_LADDER || behavior === MB_DEEP_SOUTH_WARP;
 }
 
 /**

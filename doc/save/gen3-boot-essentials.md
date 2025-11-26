@@ -86,3 +86,14 @@ If RS: key effectively 0; money/items/stats should be plaintext.
 - Box names null-terminated (0xFF) to avoid stray characters.
 
 Meeting these ensures the Continue option appears and the player spawns in the target map with no softlocks. For more complex states (Pokedex, badges, story progress), set the corresponding flags/vars and matching Pokedex magic bytes as described above. 
+
+## Implementation Tips (from PKHeX & PokeTunes)
+
+- Always validate section IDs (0–13) and signatures before checksums; treat missing/invalid as empty rather than corrupt.
+- For 0x10000 saves, skip secondary slot and extra-sector validation; only slot A exists.
+- Version detection: `SaveBlock2[0xAC]` (0=RS, 1=FRLG, else Emerald if data past 0x890). Japanese detection via OT terminator at `0x06` (0 instead of 0xFF).
+- Emerald XOR scope: money, coins, bag quantities, berry powder, gameStats. PC items stay plaintext. RS behaves as key=0.
+- Storage assembly/writes use sector IDs, not physical order. Copy boxes (sections 5–13) by ID; recompute sector checksums after writes.
+- Party/PKM: enforce substructure order `personality % 24`, checksum decrypted 48 bytes; set party mail ID to 0xFF when no mail.
+- Write both slots on export (mirror active save) unless size is 0x10000; keeps either slot bootable.
+- Extra sectors: only checksum if not all 0/0xFF; preserve raw HoF/battle video/e-Reader data when round-tripping.

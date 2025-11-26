@@ -138,7 +138,12 @@ Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
   - [x] Engine modules already in use (GameLoop, UpdateCoordinator, AnimationTimer)
   - [x] useGameEngine hook exists in src/hooks/useGameEngine.ts
   - [ ] Full integration deferred (HIGH RISK - runUpdate is 350+ lines with many ref dependencies)
-- [ ] Step 5: Consolidate asset loading
+- [x] Step 5: Consolidate asset loading
+  - [x] Moved DOOR_ASSET_MAP (~100 lines) to src/data/doorAssets.ts
+  - [x] Moved getDoorAssetForMetatile function to src/data/doorAssets.ts
+  - [x] Moved ARROW_SPRITE_PATH to src/data/doorAssets.ts
+  - [x] Created useFieldSprites hook for future sprite consolidation
+  - [ ] Full sprite loading consolidation (deferred to Step 6)
 - [ ] Step 6: Create thin MapRenderer component
 
 ### Delete Old Code (PARTIALLY COMPLETE)
@@ -156,7 +161,8 @@ Old rendering code removed with user approval:
 ### Verification
 - [x] Build passes with new support files
 - [x] Old rendering code removed (~170 lines)
-- [ ] MapRenderer.tsx < 250 lines (current: ~2930 lines - needs more refactoring)
+- [x] Door asset config moved (~124 lines)
+- [ ] MapRenderer.tsx < 250 lines (current: ~2806 lines - needs more refactoring)
 - [x] All features work identically (verified by user)
 - [x] No console errors
 - [x] Performance maintained

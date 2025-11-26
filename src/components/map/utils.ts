@@ -145,9 +145,26 @@ export interface WarpTrigger {
 export function detectWarpTrigger(ctx: RenderContext, player: PlayerController): WarpTrigger | null {
   const resolved = resolveTileAt(ctx, player.tileX, player.tileY);
   if (!resolved || resolved.isBorder) return null;
+
+  const behavior = resolved.attributes?.behavior ?? -1;
+
+  // Debug: Log warp check details before looking up warp event
+  if (isDebugMode()) {
+    const localX = player.tileX - resolved.map.offsetX;
+    const localY = player.tileY - resolved.map.offsetY;
+    console.log('[WARP_CHECK]', {
+      playerTile: { x: player.tileX, y: player.tileY },
+      localTile: { x: localX, y: localY },
+      mapId: resolved.map.entry.id,
+      mapOffset: { x: resolved.map.offsetX, y: resolved.map.offsetY },
+      behavior: `0x${behavior.toString(16)} (${behavior})`,
+      warpEventsCount: resolved.map.warpEvents?.length ?? 0,
+      warpEvents: resolved.map.warpEvents?.map(w => ({ x: w.x, y: w.y, dest: w.destMap })),
+    });
+  }
+
   const warpEvent = findWarpEventAt(resolved.map, player.tileX, player.tileY);
   if (!warpEvent) return null;
-  const behavior = resolved.attributes?.behavior ?? -1;
   const metatileId = resolved.mapTile.metatileId;
   const kind = classifyWarpKind(behavior) ?? 'teleport';
   

@@ -38,6 +38,15 @@ import {
   DIRECTION_VECTORS,
 } from './types';
 
+import {
+  MB_EAST_ARROW_WARP,
+  MB_WEST_ARROW_WARP,
+  MB_NORTH_ARROW_WARP,
+  MB_SOUTH_ARROW_WARP,
+  MB_WATER_SOUTH_ARROW_WARP,
+  MB_DEEP_SOUTH_WARP,
+} from '../utils/metatileBehaviors';
+
 /**
  * Arrow animation constants
  */
@@ -232,25 +241,23 @@ export class ArrowOverlay {
  */
 export function getArrowDirectionFromBehavior(behavior: number): CardinalDirection | null {
   // Based on pokeemerald/include/metatile_behaviors.h
-  // MB_EAST_ARROW_WARP = 96 (0x60)
-  // MB_WEST_ARROW_WARP = 97 (0x61)
-  // MB_NORTH_ARROW_WARP = 98 (0x62)
-  // MB_SOUTH_ARROW_WARP = 99 (0x63)
-  // MB_DEEP_SOUTH_WARP = 101 (0x65) - also acts as south arrow
-  // Additional directional behaviors from metatileBehaviors.ts
+  // Use imported constants for correct behavior values:
+  // MB_EAST_ARROW_WARP = 98 (0x62)
+  // MB_WEST_ARROW_WARP = 99 (0x63)
+  // MB_NORTH_ARROW_WARP = 100 (0x64)
+  // MB_SOUTH_ARROW_WARP = 101 (0x65)
+  // MB_WATER_SOUTH_ARROW_WARP = 109 (0x6D)
+  // MB_DEEP_SOUTH_WARP = 110 (0x6E) - also acts as south arrow
   switch (behavior) {
-    case 0x60: // MB_EAST_ARROW_WARP
-    case 0x6C: // MB_MUDDY_SLOPE_EAST
+    case MB_EAST_ARROW_WARP: // 98 (0x62)
       return 'right';
-    case 0x61: // MB_WEST_ARROW_WARP
-    case 0x6D: // MB_MUDDY_SLOPE_WEST
+    case MB_WEST_ARROW_WARP: // 99 (0x63)
       return 'left';
-    case 0x62: // MB_NORTH_ARROW_WARP
-    case 0x6E: // MB_MUDDY_SLOPE_NORTH
+    case MB_NORTH_ARROW_WARP: // 100 (0x64)
       return 'up';
-    case 0x63: // MB_SOUTH_ARROW_WARP
-    case 0x65: // MB_DEEP_SOUTH_WARP (stairs going down)
-    case 0x6F: // MB_MUDDY_SLOPE_SOUTH
+    case MB_SOUTH_ARROW_WARP: // 101 (0x65)
+    case MB_WATER_SOUTH_ARROW_WARP: // 109 (0x6D)
+    case MB_DEEP_SOUTH_WARP: // 110 (0x6E)
       return 'down';
     default:
       return null;

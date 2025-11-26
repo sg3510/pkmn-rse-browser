@@ -80,6 +80,59 @@ export class LayerCompositor {
   }
 
   /**
+   * Composite only the background layer (BG2)
+   *
+   * Used when priority 2 sprites need to be rendered between
+   * background and topBelow layers (matching GBA sprite priority behavior).
+   *
+   * @param ctx - Main canvas context to draw to
+   * @param view - Camera view with offset information
+   * @param layers - Layer canvases to composite
+   * @param options - Composition options
+   */
+  compositeBackgroundOnly(
+    ctx: CanvasRenderingContext2D,
+    view: WorldCameraView,
+    layers: LayerCanvases,
+    options: CompositeOptions = {}
+  ): void {
+    const { clear = true } = options;
+    const offsetX = -Math.round(view.subTileOffsetX);
+    const offsetY = -Math.round(view.subTileOffsetY);
+
+    if (clear) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
+    // Draw background layer only (BG2)
+    if (layers.background) {
+      ctx.drawImage(layers.background, offsetX, offsetY);
+    }
+  }
+
+  /**
+   * Composite only the topBelow layer (BG1 tiles behind player)
+   *
+   * Used after priority 2 sprites are rendered, before player sprites.
+   *
+   * @param ctx - Main canvas context to draw to
+   * @param view - Camera view with offset information
+   * @param layers - Layer canvases to composite
+   */
+  compositeTopBelowOnly(
+    ctx: CanvasRenderingContext2D,
+    view: WorldCameraView,
+    layers: LayerCanvases
+  ): void {
+    const offsetX = -Math.round(view.subTileOffsetX);
+    const offsetY = -Math.round(view.subTileOffsetY);
+
+    if (layers.topBelow) {
+      ctx.drawImage(layers.topBelow, offsetX, offsetY);
+    }
+  }
+
+  /**
    * Composite the topAbove layer
    *
    * This is called after sprites are rendered to draw
