@@ -347,7 +347,154 @@ bool8 MetatileBehavior_IsSurfableAndNotWaterfall(u8 metatileBehavior)
 
 **Key Point:** Waterfalls block normal surfing movement - player cannot move UP onto waterfall tiles without using the Waterfall HM.
 
-### 3.3 Waterfall Field Effect Sequence
+### 3.3 Waterfall Forced Movement (Current Push Down)
+
+**Source:** `public/pokeemerald/src/field_player_avatar.c:143-188, 502-505`
+
+Waterfalls use the **forced movement system** to automatically push players SOUTH (downward). This is the key mechanic that prevents ascending without the HM.
+
+#### Forced Movement Registration
+
+```c
+// Forced movement test functions (determines WHICH forced movement)
+static bool8 (*const sForcedMovementTestFuncs[NUM_FORCED_MOVEMENTS])(u8) = {
+    // ... indices 0-13 are ice, walk directions, currents, slides ...
+    MetatileBehavior_IsWaterfall,        // Index 14
+    // ... jump mat, spin mat, muddy slope ...
+};
+
+// Forced movement action functions (determines HOW to move)
+static bool8 (*const sForcedMovementFuncs[NUM_FORCED_MOVEMENTS + 1])(void) = {
+    ForcedMovement_None,                  // 0
+    // ... indices 1-14 ...
+    ForcedMovement_PushedSouthByCurrent,  // 15 (maps to waterfall at index 14 + 1)
+    // ...
+};
+```
+
+#### The Pushed South Function
+
+```c
+static bool8 ForcedMovement_PushedSouthByCurrent(void)
+{
+    return DoForcedMovement(DIR_SOUTH, PlayerRideWaterCurrent);
+}
+```
+
+**Behavior:**
+1. When player stands on a waterfall tile (`MB_WATERFALL = 19`)
+2. `GetForcedMovementByMetatileBehavior()` finds waterfall at index 14
+3. Returns 14 + 1 = 15
+4. `sForcedMovementFuncs[15]` = `ForcedMovement_PushedSouthByCurrent`
+5. Player is automatically pushed SOUTH with water current animation
+
+#### Player Interaction Scenarios
+
+**Scenario 1: Trying to Ascend (Surfing North into Waterfall)**
+
+**Source:** `public/pokeemerald/src/field_control_avatar.c:448-459`
+
+```c
+static const u8 *GetInteractedWaterScript(struct MapPosition *unused1, u8 metatileBehavior, u8 direction)
+{
+    // Surf check (on land facing water)
+    if (FlagGet(FLAG_BADGE05_GET) == TRUE && PartyHasMonWithSurf() == TRUE
+        && IsPlayerFacingSurfableFishableWater() == TRUE)
+        return EventScript_UseSurf;
+
+    // Waterfall check (must be surfing north + have badge)
+    if (MetatileBehavior_IsWaterfall(metatileBehavior) == TRUE)
+    {
+        if (FlagGet(FLAG_BADGE08_GET) == TRUE && IsPlayerSurfingNorth() == TRUE)
+            return EventScript_UseWaterfall;  // Prompt to use Waterfall HM
+        else
+            return EventScript_CannotUseWaterfall;  // Show "can't use" message
+    }
+    // ...
+}
+```
+
+**What Happens:**
+- Player surfs north INTO waterfall tile
+- If has Rain Badge (FLAG_BADGE08_GET) AND facing north → "Use WATERFALL?" prompt
+- Otherwise → "A wall of water is crashing down with a mighty roar." message
+- Player remains blocked; forced movement pushes them back south
+
+**Scenario 2: Approaching from Above (Going Down)**
+
+When player enters waterfall tile from the top (north):
+1. Collision check allows entry (waterfall has `TILE_FLAG_SURFABLE`)
+2. Once on tile, forced movement activates
+3. `ForcedMovement_PushedSouthByCurrent()` automatically moves player down
+4. Player continues being pushed until off waterfall tiles
+
+**Scenario 3: Trying to Side-Enter (East/West)**
+
+Waterfall tiles are surfable, so player can enter from sides, but:
+1. Once on tile, forced movement activates immediately
+2. Player gets pushed south regardless of entry direction
+3. Cannot traverse waterfall horizontally
+
+#### The Scripts
+
+**Source:** `public/pokeemerald/data/scripts/field_move_scripts.inc:185-209`
+
+```
+EventScript_UseWaterfall::
+    lockall
+    checkpartymove MOVE_WATERFALL
+    goto_if_eq VAR_RESULT, PARTY_SIZE, EventScript_CantWaterfall
+    bufferpartymonnick STR_VAR_1, VAR_RESULT
+    setfieldeffectargument 0, VAR_RESULT
+    msgbox Text_WantToWaterfall, MSGBOX_YESNO
+    goto_if_eq VAR_RESULT, NO, EventScript_EndWaterfall
+    msgbox Text_MonUsedWaterfall, MSGBOX_DEFAULT
+    dofieldeffect FLDEFF_USE_WATERFALL
+    goto EventScript_EndWaterfall
+
+EventScript_CannotUseWaterfall::
+    lockall
+
+EventScript_CantWaterfall::
+    msgbox Text_CantWaterfall, MSGBOX_DEFAULT
+
+EventScript_EndWaterfall::
+    releaseall
+    end
+
+Text_CantWaterfall:
+    .string "A wall of water is crashing down with\n"
+    .string "a wall of mighty roar.$"
+
+Text_WantToWaterfall:
+    .string "It's a large waterfall.\n"
+    .string "Would you like to use WATERFALL?$"
+
+Text_MonUsedWaterfall:
+    .string "{STR_VAR_1} used WATERFALL.$"
+```
+
+#### Surfing North Check
+
+**Source:** `public/pokeemerald/src/field_player_avatar.c:1310-1316`
+
+```c
+bool8 IsPlayerSurfingNorth(void)
+{
+    if (GetPlayerMovementDirection() == DIR_NORTH
+        && TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
+        return TRUE;
+    else
+        return FALSE;
+}
+```
+
+**Requirements for Waterfall HM prompt:**
+1. Must be surfing (`PLAYER_AVATAR_FLAG_SURFING`)
+2. Must be facing/moving NORTH (`DIR_NORTH`)
+3. Must have Rain Badge (`FLAG_BADGE08_GET`)
+
+### 3.4 Waterfall Field Effect Sequence
 
 **Source:** `public/pokeemerald/src/field_effect.c:1828-1897`
 
@@ -437,7 +584,7 @@ static bool8 WaterfallFieldEffect_ContinueRideOrEnd(struct Task *task, struct Ob
 5. If yes, repeat step 3
 6. If no, unlock controls (reached top)
 
-### 3.4 Waterfall Tileset Animation
+### 3.5 Waterfall Tileset Animation
 
 **Source:** `public/pokeemerald/src/tileset_anims.c:128-138, 670-674`
 
