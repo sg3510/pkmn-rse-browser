@@ -157,6 +157,24 @@ export type ElevationFilterFn = (
 ) => boolean;
 
 /**
+ * A rectangular region that needs re-rendering (from DirtyRegionTracker)
+ */
+export interface DirtyRegion {
+  /** X position in pixels on the pass canvas */
+  x: number;
+  /** Y position in pixels on the pass canvas */
+  y: number;
+  /** Width in pixels */
+  width: number;
+  /** Height in pixels */
+  height: number;
+  /** World tile X (for debugging) */
+  worldTileX?: number;
+  /** World tile Y (for debugging) */
+  worldTileY?: number;
+}
+
+/**
  * Render options for the pipeline
  */
 export interface RenderOptions {
@@ -172,6 +190,10 @@ export interface RenderOptions {
   showCollision?: boolean;
   /** Show debug elevation overlay */
   showElevation?: boolean;
+  /** Current game frame (for animation timing) */
+  gameFrame?: number;
+  /** Dirty regions to re-render (optimization for animations) */
+  dirtyRegions?: DirtyRegion[] | null;
 }
 
 /**

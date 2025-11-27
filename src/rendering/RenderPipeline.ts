@@ -18,12 +18,14 @@ import { TilesetCanvasCache } from './TilesetCanvasCache';
 import { PassRenderer } from './PassRenderer';
 import { ElevationFilter } from './ElevationFilter';
 import { LayerCompositor, type LayerCanvases } from './LayerCompositor';
+import { DirtyRegionTracker } from './DirtyRegionTracker';
 import type {
   WorldCameraView,
   RenderContext,
   RenderOptions,
   TileResolverFn,
   IsVerticalObjectFn,
+  DirtyRegion,
 } from './types';
 
 /**
@@ -42,6 +44,7 @@ export class RenderPipeline {
   private compositor: LayerCompositor;
   private elevationFilter: ElevationFilter;
   private tilesetCache: TilesetCanvasCache;
+  private dirtyTracker: DirtyRegionTracker;
 
   // Cached canvases for each pass
   private backgroundCanvas: HTMLCanvasElement | null = null;
@@ -50,6 +53,9 @@ export class RenderPipeline {
 
   // Cache invalidation tracking
   private lastPlayerElevation: number = -1;
+
+  // Track if we need to rescan the viewport for animations
+  private needsViewportScan: boolean = true;
 
   // Resolve and helper functions (set by caller)
   private resolveTile: TileResolverFn | null = null;
@@ -60,6 +66,7 @@ export class RenderPipeline {
     this.passRenderer = new PassRenderer(tilesetCache);
     this.compositor = new LayerCompositor();
     this.elevationFilter = new ElevationFilter(this.isVerticalObject);
+    this.dirtyTracker = new DirtyRegionTracker();
   }
 
   /**
@@ -92,6 +99,9 @@ export class RenderPipeline {
    * - animationChanged: Tileset animation frame changed
    * - elevationChanged: Player elevation changed (affects layer split)
    *
+   * When only animations change, uses dirty rectangle tracking to
+   * only re-render the tiles that contain animated content.
+   *
    * @param ctx - Render context with world and tileset data
    * @param view - Camera view defining visible tiles
    * @param playerElevation - Current player elevation (0-15)
@@ -108,26 +118,61 @@ export class RenderPipeline {
       return;
     }
 
-    const { needsFullRender, animationChanged, elevationChanged: optionElevationChanged } = options;
+    const {
+      needsFullRender,
+      animationChanged,
+      elevationChanged: optionElevationChanged,
+      gameFrame = 0,
+    } = options;
 
     // Check if elevation actually changed
     const elevationChanged = optionElevationChanged || playerElevation !== this.lastPlayerElevation;
     this.lastPlayerElevation = playerElevation;
 
-    // Determine if we need to re-render
-    const needsRender = needsFullRender || animationChanged || elevationChanged ||
-      !this.backgroundCanvas || !this.topBelowCanvas || !this.topAboveCanvas;
+    // Check if view changed
+    const viewChanged = this.dirtyTracker.viewChanged(view);
+
+    // If view changed, we need to rescan for animated tile positions
+    if (viewChanged || this.needsViewportScan) {
+      this.dirtyTracker.scanViewport(view, this.resolveTile, ctx.tilesetRuntimes);
+      this.needsViewportScan = false;
+    }
+
+    // Determine if we need a full re-render vs partial
+    const noCanvases = !this.backgroundCanvas || !this.topBelowCanvas || !this.topAboveCanvas;
+    const needsFullRerender = needsFullRender || viewChanged || elevationChanged || noCanvases;
+
+    // Get dirty regions if only animation changed
+    let dirtyRegions: DirtyRegion[] | null = null;
+    if (!needsFullRerender && animationChanged) {
+      dirtyRegions = this.dirtyTracker.getDirtyRegions(gameFrame, ctx.tilesetRuntimes);
+      // If getDirtyRegions returns null, it means we should do a full render
+      // (too many animated tiles to be worth tracking)
+    }
+
+    // Determine if any render is needed
+    const needsRender = needsFullRerender || animationChanged;
 
     if (needsRender) {
       // Create elevation filters for this player elevation
       const { below: filterBelow, above: filterAbove } = this.elevationFilter.createFilter(playerElevation);
+
+      // If we have dirty regions (partial update), pass them to the renderer
+      // If dirty regions is null (full render), don't pass dirtyRegions
+      // If dirty regions is empty, nothing needs rendering (but we still call the methods)
+      const passOptions = {
+        dirtyRegions: needsFullRerender ? undefined : dirtyRegions,
+      };
 
       // Render background pass
       this.backgroundCanvas = this.passRenderer.renderBackground(
         ctx,
         view,
         this.resolveTile,
-        { existingCanvas: this.backgroundCanvas }
+        {
+          existingCanvas: this.backgroundCanvas,
+          ...passOptions,
+        }
       );
 
       // Render top layer below player
@@ -138,6 +183,7 @@ export class RenderPipeline {
         {
           elevationFilter: filterBelow,
           existingCanvas: this.topBelowCanvas,
+          ...passOptions,
         }
       );
 
@@ -149,6 +195,7 @@ export class RenderPipeline {
         {
           elevationFilter: filterAbove,
           existingCanvas: this.topAboveCanvas,
+          ...passOptions,
         }
       );
     }
@@ -238,6 +285,8 @@ export class RenderPipeline {
     this.topBelowCanvas = null;
     this.topAboveCanvas = null;
     this.lastPlayerElevation = -1;
+    this.needsViewportScan = true;
+    this.dirtyTracker.clear();
   }
 
   /**
@@ -279,6 +328,14 @@ export class RenderPipeline {
       hasBackground: !!this.backgroundCanvas,
       hasTopBelow: !!this.topBelowCanvas,
       hasTopAbove: !!this.topAboveCanvas,
+      dirtyTracker: this.dirtyTracker.getStats(),
     };
+  }
+
+  /**
+   * Get the dirty region tracker (for debugging/testing)
+   */
+  getDirtyTracker(): DirtyRegionTracker {
+    return this.dirtyTracker;
   }
 }
