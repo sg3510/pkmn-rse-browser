@@ -14,6 +14,7 @@
  */
 
 import { TilesetCanvasCache } from './TilesetCanvasCache';
+import { PrerenderedAnimations } from './PrerenderedAnimations';
 import {
   TILE_SIZE,
   TILES_PER_ROW_IN_IMAGE,
@@ -48,6 +49,10 @@ export interface MetatileDrawParams {
   animatedTileIds?: { primary: Set<number>; secondary: Set<number> };
   /** Whether to skip animated tiles */
   skipAnimated?: boolean;
+  /** Pre-rendered animation frames (for optimized animated tile rendering) */
+  prerenderedAnimations?: PrerenderedAnimations | null;
+  /** Current animation cycle count (required if prerenderedAnimations is set) */
+  animationCycle?: number;
 }
 
 /**
@@ -83,6 +88,8 @@ export class TileRenderer {
       secondaryPalettes,
       animatedTileIds,
       skipAnimated,
+      prerenderedAnimations,
+      animationCycle = 0,
     } = params;
 
     for (let i = 0; i < 4; i++) {
@@ -111,12 +118,32 @@ export class TileRenderer {
         : secondaryPalettes[tile.palette];
       if (!palette) continue;
 
+      const destX = screenX + subX;
+      const destY = screenY + subY;
+
+      // Try to use pre-rendered animation frames for animated tiles
+      if (prerenderedAnimations) {
+        const drawn = prerenderedAnimations.drawAnimatedTile(
+          ctx,
+          tile.tileId,
+          tileSource,
+          destX,
+          destY,
+          tile.xflip,
+          tile.yflip,
+          palette,
+          animationCycle
+        );
+        if (drawn) continue; // Successfully drew from prerendered frame
+      }
+
+      // Fall back to normal tile drawing (patched tileset)
       this.drawTile(
         ctx,
         {
           tileId: tile.tileId,
-          destX: screenX + subX,
-          destY: screenY + subY,
+          destX,
+          destY,
           palette,
           xflip: tile.xflip,
           yflip: tile.yflip,

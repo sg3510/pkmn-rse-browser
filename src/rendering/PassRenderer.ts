@@ -47,6 +47,8 @@ export interface PassRenderOptions {
    * If empty array, nothing needs rendering.
    */
   dirtyRegions?: DirtyRegion[] | null;
+  /** Current game frame for animation timing */
+  gameFrame?: number;
 }
 
 /**
@@ -340,6 +342,11 @@ export class PassRenderer {
       secondary: runtime.resources.secondaryTilesImage,
     };
 
+    // Calculate animation cycle from game frame
+    // Animations typically use intervals of 8 or 16 frames
+    // We pass the raw frame count and let PrerenderedAnimations handle the interval
+    const animationCycle = options.gameFrame ?? 0;
+
     return {
       metatile: resolved.metatile!,
       screenX,
@@ -350,6 +357,8 @@ export class PassRenderer {
       secondaryPalettes: resolved.tileset.secondaryPalettes,
       animatedTileIds: runtime.animatedTileIds,
       skipAnimated: options.skipAnimated,
+      prerenderedAnimations: runtime.prerenderedAnimations,
+      animationCycle,
     };
   }
 

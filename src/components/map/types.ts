@@ -2,6 +2,7 @@ import { type WorldMapInstance, type WorldState, type TilesetResources } from '.
 import { type Metatile, type MetatileAttributes, type MapTileData } from '../../utils/mapLoader';
 import { type LoadedAnimation } from '../../hooks/map/useMapAssets';
 import { type TilesetKind } from '../../data/tilesetAnimations';
+import { type PrerenderedAnimations } from '../../rendering/PrerenderedAnimations';
 export { type LoadedAnimation, type TilesetKind };
 
 export type ReflectionType = 'water' | 'ice';
@@ -28,6 +29,8 @@ export interface TilesetRuntime {
   animatedTileIds: { primary: Set<number>; secondary: Set<number> };
   patchedTiles: TilesetBuffers | null;
   lastPatchedKey: string;
+  /** Pre-rendered animation frames (optional, for optimized rendering) */
+  prerenderedAnimations: PrerenderedAnimations | null;
 }
 
 export interface RenderContext {

@@ -3,6 +3,7 @@ import type { TilesetResources } from '../services/MapManager';
 import type { TilesetRuntime, TilesetBuffers } from '../components/map/types';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
 import { useTilesetAnimations } from './useTilesetAnimations';
+import { PrerenderedAnimations } from '../rendering/PrerenderedAnimations';
 import {
   TILE_SIZE,
   TILES_PER_ROW_IN_IMAGE,
@@ -133,6 +134,18 @@ export function useTilesetPatching() {
       const animations = await tilesetAnimations.loadAnimations(tilesets.primaryTilesetId, tilesets.secondaryTilesetId);
       runtime.animations = animations;
       runtime.animatedTileIds = tilesetAnimations.computeAnimatedTileIds(animations);
+
+      // Pre-render animation frames with palettes applied
+      if (animations.length > 0) {
+        const prerendered = new PrerenderedAnimations();
+        await prerendered.prerenderAll(
+          animations,
+          tilesets.primaryPalettes,
+          tilesets.secondaryPalettes
+        );
+        runtime.prerenderedAnimations = prerendered;
+      }
+
       tilesetRuntimeCacheRef.current.set(tilesets.key, runtime);
       return runtime;
     },

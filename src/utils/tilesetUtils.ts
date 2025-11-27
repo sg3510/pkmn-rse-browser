@@ -11,6 +11,7 @@
 
 import type { TilesetResources } from '../services/MapManager';
 import type { Metatile, Palette, MetatileAttributes } from './mapLoader';
+import type { PrerenderedAnimations } from '../rendering/PrerenderedAnimations';
 import {
   METATILE_SIZE,
   TILE_SIZE,
@@ -44,6 +45,8 @@ export interface TilesetRuntime {
   animatedTileIds: { primary: Set<number>; secondary: Set<number> };
   patchedTiles: TilesetBuffers | null;
   lastPatchedKey: string;
+  /** Pre-rendered animation frames (optional, for optimized rendering) */
+  prerenderedAnimations: PrerenderedAnimations | null;
 }
 
 export interface TilesetBuffers {
@@ -378,5 +381,6 @@ export function buildTilesetRuntime(resources: TilesetResources): TilesetRuntime
     animatedTileIds: { primary: new Set(), secondary: new Set() },
     patchedTiles: null,
     lastPatchedKey: '',
+    prerenderedAnimations: null,
   };
 }

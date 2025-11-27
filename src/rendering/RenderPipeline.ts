@@ -162,6 +162,7 @@ export class RenderPipeline {
       // If dirty regions is empty, nothing needs rendering (but we still call the methods)
       const passOptions = {
         dirtyRegions: needsFullRerender ? undefined : dirtyRegions,
+        gameFrame,
       };
 
       // Render background pass

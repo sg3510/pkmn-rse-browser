@@ -44,6 +44,7 @@ const createMockTilesetRuntime = (animatedTileIds: {
   animatedTileIds,
   patchedTiles: null,
   lastPatchedKey: '',
+  prerenderedAnimations: null,
 });
 
 describe('DirtyRegionTracker', () => {
