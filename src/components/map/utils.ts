@@ -7,6 +7,9 @@ import {
   type ReflectionState,
   type ReflectionType,
 } from './types';
+
+// Re-export types used by consumers
+export type { ResolvedTile } from './types';
 import {
   type MapTileData,
   NUM_PRIMARY_METATILES,
