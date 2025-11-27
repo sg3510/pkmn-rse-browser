@@ -33,6 +33,7 @@ import { useWarpExecution, type WarpExecutionRefs } from '../hooks/useWarpExecut
 import { useActionInput } from '../hooks/useActionInput';
 import { useTilesetPatching } from '../hooks/useTilesetPatching';
 import { shiftWorld } from '../utils/worldUtils';
+import { initializeGame } from './MapRendererInit';
 
 interface MapRendererProps {
   mapId: string;
@@ -351,9 +352,6 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
   // Main game initialization effect - uses extracted hooks
   useEffect(() => {
-    // Dynamic import to avoid circular dependencies
-    const { initializeGame } = require('./MapRendererInit');
-
     const generation = renderGenerationRef.current;
 
     initializeGame({

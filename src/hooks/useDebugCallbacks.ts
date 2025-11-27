@@ -5,7 +5,7 @@
  * Extracted to reduce component complexity.
  */
 
-import { useCallback, type RefObject, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, type RefObject, type Dispatch, type SetStateAction } from 'react';
 import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import type { RenderContext, DebugTileInfo, ReflectionState } from '../components/map/types';
 import type { PlayerController } from '../game/PlayerController';
@@ -124,9 +124,9 @@ export function useDebugCallbacks(options: UseDebugCallbacksOptions): UseDebugCa
     }
   }, [playerControllerRef, reflectionStateRef, debugTilesRef]);
 
-  return {
+  return useMemo(() => ({
     refreshDebugOverlay,
     renderLayerDecomposition,
     handleCopyTileDebug,
-  };
+  }), [refreshDebugOverlay, renderLayerDecomposition, handleCopyTileDebug]);
 }

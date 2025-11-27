@@ -5,7 +5,7 @@
  * Extracted from MapRenderer.tsx to reduce component complexity.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import UPNG from 'upng-js';
 import { loadBinary, TILE_SIZE } from '../utils/mapLoader';
 import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
@@ -129,8 +129,8 @@ export function useTilesetAnimations(): UseTilesetAnimationsReturn {
     return { primary, secondary };
   }, []);
 
-  return {
+  return useMemo(() => ({
     loadAnimations,
     computeAnimatedTileIds,
-  };
+  }), [loadAnimations, computeAnimatedTileIds]);
 }

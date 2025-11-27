@@ -77,7 +77,7 @@ export interface InitHooks {
     handleDoorWarpAttempt: (request: DoorWarpRequest) => Promise<void>;
   };
   resetDoorSequencer: () => void;
-  fieldSpritesLoadAll: () => Promise<void>;
+  fieldSpritesLoadAll: () => Promise<unknown>;
   compositeScene: (
     reflectionState: ReflectionState,
     view: WorldCameraView,

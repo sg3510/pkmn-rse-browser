@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useMemo } from 'react';
 import type { TilesetResources } from '../services/MapManager';
 import type { TilesetRuntime, TilesetBuffers } from '../components/map/types';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
@@ -146,10 +146,10 @@ export function useTilesetPatching() {
     tilesetRuntimeCacheRef.current.clear();
   }, []);
 
-  return {
+  return useMemo(() => ({
     buildPatchedTilesForRuntime,
     ensureTilesetRuntime,
     clearCache,
     tilesetRuntimeCacheRef,
-  };
+  }), [buildPatchedTilesForRuntime, ensureTilesetRuntime, clearCache]);
 }
