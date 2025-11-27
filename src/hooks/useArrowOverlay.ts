@@ -5,7 +5,7 @@
  * Extracted from MapRenderer.tsx to reduce component complexity.
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { ArrowOverlay } from '../field/ArrowOverlay';
 import type { ArrowOverlayState, CardinalDirection } from '../field/types';
 import { ARROW_SPRITE_PATH } from '../data/doorAssets';
@@ -162,12 +162,12 @@ export function useArrowOverlay(): UseArrowOverlayReturn {
     overlayRef.current.hide();
   }, []);
 
-  return {
+  return useMemo(() => ({
     getState,
     isVisible,
     getSprite,
     ensureSprite,
     update,
     hide,
-  };
+  }), [getState, isVisible, getSprite, ensureSprite, update, hide]);
 }

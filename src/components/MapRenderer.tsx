@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef, useMemo } from 'react';
 // UPNG import removed - now in useTilesetAnimations hook
-import { PlayerController, type DoorWarpRequest } from '../game/PlayerController';
+import { PlayerController } from '../game/PlayerController';
 import { MapManager, type TilesetResources, type WorldState } from '../services/MapManager';
 import { ObjectEventManager } from '../game/ObjectEventManager';
 import { saveManager, type SaveData, type SaveResult, type LocationState } from '../save';
@@ -19,19 +19,10 @@ import {
   METATILE_SIZE,
   TILE_SIZE,
   TILES_PER_ROW_IN_IMAGE,
-  getMetatileIdFromMapTile,
   SECONDARY_TILE_OFFSET,
 } from '../utils/mapLoader';
 // Palette, TilesetKind, getSpritePriorityForElevation, METATILE_LAYER_TYPE_*, MapTileData removed - now using RenderPipeline
 // TILESET_ANIMATION_CONFIGS removed - now in useTilesetAnimations hook
-import type { CardinalDirection } from '../utils/metatileBehaviors';
-import {
-  getArrowDirectionFromBehavior,
-  isArrowWarpBehavior,
-  isDoorBehavior,
-  isNonAnimatedDoorBehavior,
-  requiresDoorExitSequence,
-} from '../utils/metatileBehaviors';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
 // computeCameraView moved to useRunUpdate hook
 import type { CameraView } from '../utils/camera';
@@ -39,34 +30,24 @@ import type { CameraView } from '../utils/camera';
 
 // PROJECT_ROOT removed - now in useTilesetAnimations hook
 
-// Helper to check if debug mode is enabled
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
-
 import {
   type ReflectionState,
   type TilesetBuffers,
   type TilesetRuntime,
   type RenderContext,
-  type ResolvedTile,
   // LoadedAnimation removed - now in useTilesetAnimations hook
   type DebugTileInfo,
 } from './map/types';
 import {
   resolveTileAt,
-  findWarpEventAt,
   // detectWarpTrigger moved to useRunUpdate hook
   isVerticalObject,
-  classifyWarpKind,
   // computeReflectionState moved to useRunUpdate hook
-  type WarpTrigger,
 } from './map/utils';
-import { DebugRenderer } from './map/renderers/DebugRenderer';
-import { ObjectRenderer } from './map/renderers/ObjectRenderer';
+// DebugRenderer moved to useCompositeScene hook
+// ObjectRenderer moved to useCompositeScene hook
 import { DialogBox, useDialog } from './dialog';
 // Field effect types and controllers from refactored modules
-import { DOOR_TIMING } from '../field/types';
 import { FadeController } from '../field/FadeController';
 // ArrowOverlay import removed - now using useArrowOverlay hook
 import { WarpHandler } from '../field/WarpHandler';
@@ -76,12 +57,15 @@ import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDebugCallbacks } from '../hooks/useDebugCallbacks';
 import { useTilesetAnimations } from '../hooks/useTilesetAnimations';
 import { useRunUpdate, type RunUpdateRefs, type RunUpdateCallbacks, type EngineFrameResult } from '../hooks/useRunUpdate';
+import { useCompositeScene, type CompositeSceneRefs } from '../hooks/useCompositeScene';
 import { buildTilesetRuntime } from '../utils/tilesetUtils';
-import { getSpritePriorityForElevation } from '../utils/elevationPriority';
-import { npcSpriteCache, renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
+// getSpritePriorityForElevation moved to useCompositeScene hook
+import { npcSpriteCache } from '../game/npc';
+// renderNPCs, renderNPCReflections, renderNPCGrassEffects moved to useCompositeScene hook
 // ARROW_SPRITE_PATH removed - now in useArrowOverlay hook
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { DebugPanel, DEFAULT_DEBUG_OPTIONS, type DebugOptions, type DebugState } from './debug';
+import { useWarpExecution, type WarpExecutionRefs, type WarpExecutionCallbacks } from '../hooks/useWarpExecution';
 
 interface MapRendererProps {
   mapId: string;
@@ -158,7 +142,7 @@ const DEBUG_GRID_SIZE = DEBUG_CELL_SIZE * 3;
 const VIEWPORT_CONFIG = DEFAULT_VIEWPORT_CONFIG;
 const VIEWPORT_PIXEL_SIZE = getViewportPixelSize(VIEWPORT_CONFIG);
 const CONNECTION_DEPTH = 2; // anchor + direct neighbors + their neighbors
-// Door timing constants imported from '../field/types' as DOOR_TIMING
+// Door timing constants now used inside useWarpExecution hook
 // DOOR_ASSET_MAP and getDoorAssetForMetatile moved to ../data/doorAssets.ts
 // ARROW_SPRITE_PATH moved to ../data/doorAssets.ts
 
@@ -168,18 +152,10 @@ const DEBUG_MODE_FLAG = 'DEBUG_MODE'; // Global debug flag for console logging
 // DISABLED: The incremental edge rendering approach has bugs with sub-tile offsets
 // USE_VIEWPORT_BUFFER removed - using RenderPipeline exclusively
 
-// Feature flag for using the new modular RenderPipeline
-const USE_RENDER_PIPELINE = true;
+// USE_RENDER_PIPELINE moved to useCompositeScene hook
 
 function applyBehaviorOverrides(attributes: MetatileAttributes[]): MetatileAttributes[] {
   return attributes;
-}
-
-function logDoor(...args: unknown[]) {
-  if (isDebugMode()) {
-    // eslint-disable-next-line no-console
-    console.log('[door]', ...args);
-  }
 }
 
 // Tileset utility functions moved to ../utils/tilesetUtils.ts
@@ -256,9 +232,31 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
   // doorExitRef removed - now using DoorSequencer via useDoorSequencer hook
   // FadeController manages screen fade in/out transitions
   const fadeRef = useRef<FadeController>(new FadeController());
+  // Track last player elevation for split-layer rendering
+  const lastPlayerElevationRef = useRef<number>(0);
+
+  // ensureAuxiliaryCanvases - needed by useCompositeScene hook
+  const ensureAuxiliaryCanvases = useCallback((widthPx: number, heightPx: number) => {
+    if (!backgroundCanvasRef.current) {
+      backgroundCanvasRef.current = document.createElement('canvas');
+    }
+    if (!topCanvasRef.current) {
+      topCanvasRef.current = document.createElement('canvas');
+    }
+    if (backgroundCanvasRef.current && topCanvasRef.current) {
+      const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
+      if (sizeChanged) {
+        backgroundCanvasRef.current.width = widthPx;
+        backgroundCanvasRef.current.height = heightPx;
+        topCanvasRef.current.width = widthPx;
+        topCanvasRef.current.height = heightPx;
+        canvasSizeRef.current = { w: widthPx, h: heightPx };
+      }
+    }
+  }, []);
 
   // Set up refs object for useRunUpdate hook
-  const runUpdateRefs: RunUpdateRefs = {
+  const runUpdateRefs: RunUpdateRefs = useMemo(() => ({
     renderGenerationRef,
     lastFrameResultRef,
     renderContextRef,
@@ -274,7 +272,19 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     reflectionStateRef,
     mapManagerRef,
     renderPipelineRef,
-  };
+  }), []);
+
+  const warpExecutionRefs: WarpExecutionRefs = useMemo(() => ({
+    renderContextRef,
+    playerControllerRef,
+    playerHiddenRef,
+    fadeRef,
+    currentTimestampRef,
+    hasRenderedRef,
+    renderGenerationRef,
+    mapManagerRef,
+    renderPipelineRef,
+  }), []);
 
   // useRunUpdate hook provides the game update loop logic
   const { createRunUpdate } = useRunUpdate({
@@ -284,6 +294,39 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     warpHandler: warpHandlerRef.current,
     viewportConfig: VIEWPORT_CONFIG,
     connectionDepth: CONNECTION_DEPTH,
+  });
+
+  const { createWarpExecutors, resetDoorSequencer } = useWarpExecution({
+    refs: warpExecutionRefs,
+    doorSequencer,
+    doorAnimations,
+    arrowOverlay,
+    warpHandler: warpHandlerRef.current,
+    connectionDepth: CONNECTION_DEPTH,
+  });
+
+  // Set up refs object for useCompositeScene hook
+  const compositeSceneRefs: CompositeSceneRefs = useMemo(() => ({
+    renderContextRef,
+    canvasRef,
+    backgroundCanvasRef,
+    topCanvasRef,
+    playerControllerRef,
+    lastPlayerElevationRef,
+    renderPipelineRef,
+    objectEventManagerRef,
+    playerHiddenRef,
+    debugOptionsRef,
+    fadeRef,
+  }), []);
+
+  // useCompositeScene hook provides the scene rendering logic
+  const { compositeScene } = useCompositeScene({
+    refs: compositeSceneRefs,
+    doorAnimations,
+    arrowOverlay,
+    fieldSprites,
+    ensureAuxiliaryCanvases,
   });
 
   // Expose save/load methods via ref
@@ -510,25 +553,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     []
   );
 
-  const ensureAuxiliaryCanvases = (widthPx: number, heightPx: number) => {
-    if (!backgroundCanvasRef.current) {
-      backgroundCanvasRef.current = document.createElement('canvas');
-    }
-    if (!topCanvasRef.current) {
-      topCanvasRef.current = document.createElement('canvas');
-    }
-    if (backgroundCanvasRef.current && topCanvasRef.current) {
-      const sizeChanged = canvasSizeRef.current.w !== widthPx || canvasSizeRef.current.h !== heightPx;
-      if (sizeChanged) {
-        backgroundCanvasRef.current.width = widthPx;
-        backgroundCanvasRef.current.height = heightPx;
-        topCanvasRef.current.width = widthPx;
-        topCanvasRef.current.height = heightPx;
-        canvasSizeRef.current = { w: widthPx, h: heightPx };
-      }
-    }
-  };
-
+  // ensureAuxiliaryCanvases moved to top near useCompositeScene hook
   // loadIndexedFrame, loadTilesetAnimations, computeAnimatedTileIds moved to useTilesetAnimations hook
 
   const ensureTilesetRuntime = useCallback(
@@ -585,247 +610,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
   // Old rendering functions (drawTileToImageData, drawTileToCanvas, renderPass, renderPassCanvas) removed
   // Now using RenderPipeline exclusively
-
-  const lastPlayerElevationRef = useRef<number>(0);
-
-  // renderPass and renderPassCanvas removed - now using RenderPipeline exclusively
-
-  const compositeScene = useCallback(
-    (
-      reflectionState: ReflectionState,
-      view: WorldCameraView,
-      viewChanged: boolean,
-      animationFrameChanged: boolean,
-      nowMs: number
-    ) => {
-      const ctx = renderContextRef.current;
-      if (!ctx) return;
-      const mainCanvas = canvasRef.current;
-      if (!mainCanvas) return;
-      const mainCtx = mainCanvas.getContext('2d');
-      if (!mainCtx) return;
-
-      const widthPx = view.pixelWidth;
-      const heightPx = view.pixelHeight;
-      ensureAuxiliaryCanvases(widthPx, heightPx);
-
-      const bgCtx = backgroundCanvasRef.current?.getContext('2d');
-      const topCtx = topCanvasRef.current?.getContext('2d');
-      if (!bgCtx || !topCtx) return;
-
-      const player = playerControllerRef.current;
-      const playerElevation = player ? player.getElevation() : 0;
-      const playerPriority = getSpritePriorityForElevation(playerElevation);
-      const elevationChanged = lastPlayerElevationRef.current !== playerElevation;
-      lastPlayerElevationRef.current = playerElevation;
-
-      // Split rendering: Top layer split into "Below Player" and "Above Player"
-      // This fixes the visual issue where player on a bridge (Elev 4) is covered by the bridge
-
-      // RENDER PIPELINE MODE: Uses the new modular RenderPipeline
-      if (USE_RENDER_PIPELINE && renderPipelineRef.current) {
-        const pipeline = renderPipelineRef.current;
-
-        // Render all three passes (cached when view/elevation unchanged)
-        pipeline.render(ctx, view, playerElevation, {
-          needsFullRender: viewChanged,
-          animationChanged: animationFrameChanged,
-          elevationChanged,
-        });
-
-        // Composite background first (for priority 2 sprites to appear behind topBelow)
-        mainCtx.clearRect(0, 0, widthPx, heightPx);
-        pipeline.compositeBackgroundOnly(mainCtx, view);
-
-        // Render priority 2 NPCs that are NOT at player's priority
-        // NPCs at player's priority will be Y-sorted with player in the player layer
-        if (player) {
-          const npcs = objectEventManagerRef.current.getVisibleNPCs();
-          renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', 2, playerPriority);
-          renderNPCs(mainCtx, npcs, view, player.tileY, 'top', 2, playerPriority);
-        }
-
-        // Now composite topBelow layer (bridges, tree tops rendered behind player)
-        pipeline.compositeTopBelowOnly(mainCtx, view);
-
-        // Note: NPCs at player's priority are Y-sorted with player in the player layer
-        // Priority 0 sprites are rendered after topAbove
-      }
-      // ViewportBuffer and old rendering modes removed - now using RenderPipeline exclusively
-
-      doorAnimations.render(mainCtx, view, nowMs);
-      // Render arrow overlay using useArrowOverlay hook
-      const arrowState = arrowOverlay.getState();
-      const arrowSprite = arrowOverlay.getSprite();
-      if (arrowState && arrowSprite) {
-        ObjectRenderer.renderArrow(mainCtx, arrowState, arrowSprite, view, nowMs);
-      }
-      if (player) {
-        ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
-      }
-
-      // Render NPC reflections (before NPCs so reflections appear underneath)
-      {
-        const npcs = objectEventManagerRef.current.getVisibleNPCs();
-        renderNPCReflections(mainCtx, npcs, view, ctx);
-      }
-
-      const playerY = player ? player.y : 0;
-
-      // Render field effects behind player
-      if (player) {
-        const effects = player.getGrassEffectManager().getEffectsForRendering();
-        const sprites = {
-          grass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-          sand: fieldSprites.sprites.sand,
-          splash: fieldSprites.sprites.splash,
-          ripple: fieldSprites.sprites.ripple,
-          arrow: arrowOverlay.getSprite(),
-          itemBall: fieldSprites.sprites.itemBall,
-        };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
-
-        // Render item balls behind player
-        const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'bottom');
-
-        // Render NPCs at player's priority behind player (Y-sorted with player)
-        // Other priority NPCs are rendered in their respective passes (before topBelow or after topAbove)
-        const npcs = objectEventManagerRef.current.getVisibleNPCs();
-        renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', playerPriority);
-
-        // Render grass effects over NPCs (so grass covers their lower body)
-        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-        });
-      }
-
-      // Render surf blob (if surfing or mounting/dismounting)
-      // The blob is rendered BEFORE player so player appears on top
-      if (player && !playerHiddenRef.current) {
-        const surfCtrl = player.getSurfingController();
-        const blobRenderer = surfCtrl.getBlobRenderer();
-        const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
-
-        if (shouldRenderBlob && blobRenderer.isReady()) {
-          const bobOffset = blobRenderer.getBobOffset();
-          let blobScreenX: number;
-          let blobScreenY: number;
-
-          // Determine blob position based on current animation phase
-          if (surfCtrl.isJumpingOn()) {
-            // MOUNTING: Blob is at target water tile (destination)
-            const targetPos = surfCtrl.getTargetPosition();
-            if (targetPos) {
-              const blobWorldX = targetPos.tileX * 16 - 8;
-              const blobWorldY = targetPos.tileY * 16 - 16;
-              blobScreenX = Math.round(blobWorldX - view.cameraWorldX);
-              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
-            } else {
-              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
-              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
-            }
-          } else if (surfCtrl.isJumpingOff()) {
-            // DISMOUNTING: Blob stays at fixed water tile position
-            const fixedPos = surfCtrl.getBlobFixedPosition();
-            if (fixedPos) {
-              const blobWorldX = fixedPos.tileX * 16 - 8;
-              const blobWorldY = fixedPos.tileY * 16 - 16;
-              blobScreenX = Math.round(blobWorldX - view.cameraWorldX);
-              blobScreenY = Math.round(blobWorldY + bobOffset - view.cameraWorldY + 8);
-            } else {
-              blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
-              blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
-            }
-          } else {
-            // Normal surfing: Blob follows player
-            blobScreenX = Math.round(player.x - 8 - view.cameraWorldX);
-            blobScreenY = Math.round(player.y + bobOffset - view.cameraWorldY + 8);
-          }
-
-          // applyBob = false because we already added bobOffset to blobScreenY
-          blobRenderer.render(mainCtx, blobScreenX, blobScreenY, player.dir, false);
-        }
-      }
-
-      if (player && !playerHiddenRef.current) {
-        player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
-      }
-
-      // Render field effects in front of player
-      if (player) {
-        const effects = player.getGrassEffectManager().getEffectsForRendering();
-        const sprites = {
-          grass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-          sand: fieldSprites.sprites.sand,
-          splash: fieldSprites.sprites.splash,
-          ripple: fieldSprites.sprites.ripple,
-          arrow: arrowOverlay.getSprite(),
-          itemBall: fieldSprites.sprites.itemBall,
-        };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
-
-        // Render item balls in front of player
-        const itemBalls = objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'top');
-
-        // Render NPCs at player's priority in front of player (Y-sorted with player)
-        // Other priority NPCs are rendered in their respective passes (before topBelow or after topAbove)
-        const npcs = objectEventManagerRef.current.getVisibleNPCs();
-        renderNPCs(mainCtx, npcs, view, player.tileY, 'top', playerPriority);
-
-        // Render grass effects over NPCs (so grass covers their lower body)
-        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-        });
-      }
-
-      // 3. Draw Top Layer (Above Player)
-      if (USE_RENDER_PIPELINE && renderPipelineRef.current) {
-        // RenderPipeline mode - composite topAbove layer
-        renderPipelineRef.current.compositeTopAbove(mainCtx, view);
-      }
-
-      // Render priority 0 NPCs (elevation 13, 14) that are NOT at player's priority
-      // They appear ABOVE everything including topAbove (GBA priority 0 sprites)
-      // NPCs at player's priority are already Y-sorted with player in the player layer
-      if (player) {
-        const npcs = objectEventManagerRef.current.getVisibleNPCs();
-        renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', 0, playerPriority);
-        renderNPCs(mainCtx, npcs, view, player.tileY, 'top', 0, playerPriority);
-      }
-
-      // Render debug overlays if enabled
-      DebugRenderer.renderCollisionElevationOverlay(mainCtx, ctx, view, {
-        showCollision: debugOptionsRef.current.showCollisionOverlay,
-        showElevation: debugOptionsRef.current.showElevationOverlay,
-      });
-
-      // Render fade overlay using FadeController
-      if (fadeRef.current.isActive()) {
-        const alpha = fadeRef.current.getAlpha(nowMs);
-        mainCtx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        mainCtx.fillRect(0, 0, widthPx, heightPx);
-        if (fadeRef.current.isComplete(nowMs)) {
-          fadeRef.current.clear();
-        }
-      }
-
-      if (isDebugMode()) {
-        console.log(
-          `[MapRender] view (${view.worldStartTileX}, ${view.worldStartTileY}) player (${playerControllerRef.current?.tileX}, ${playerControllerRef.current?.tileY})`
-        );
-      }
-    },
-    // doorAnimations functions are stable (useCallback with []), so no dependency needed
-    []
-  );
-
-  // Field sprite loading functions removed - now using useFieldSprites hook
+  // compositeScene moved to useCompositeScene hook
 
   useEffect(() => {
     (window as unknown as { DEBUG_RENDER?: boolean }).DEBUG_RENDER = false;
@@ -968,558 +753,21 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         if (anchor) {
           warpHandler.updateLastCheckedTile(startTileX, startTileY, anchor.entry.id);
         }
-        // Reset door sequencer for new map load (handles both entry and exit)
-        doorSequencer.reset();
-        const startAutoDoorWarp = (
-          trigger: WarpTrigger,
-          resolved: ResolvedTile,
-          player: PlayerController,
-          entryDirection: CardinalDirection = 'up',
-          _options?: { isAnimatedDoor?: boolean }
-        ) => {
-          if (doorSequencer.isEntryActive()) return false;
-          const now = performance.now();
-          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
-          logDoor('entry: auto door warp (non-animated)', {
-            worldX: player.tileX,
-            worldY: player.tileY,
-            metatileId,
-            behavior: trigger.behavior,
-          });
-          arrowOverlay.hide();
-          // Use the sequencer's startAutoWarp to skip to fade phase
-          doorSequencer.startAutoWarp({
-            targetX: player.tileX,
-            targetY: player.tileY,
-            metatileId,
-            isAnimatedDoor: false,
-            entryDirection,
-            warpTrigger: trigger,
-          }, now, true);
-          player.lockInput();
-          return true;
+        resetDoorSequencer();
+
+        const warpCallbacks: WarpExecutionCallbacks = {
+          rebuildContextForWorld,
+          applyTileResolver,
+          applyPipelineResolvers,
         };
 
-        /**
-         * Perform Warp (Map Transition)
-         * 
-         * Handles the actual map change and player positioning after fade out.
-         * 
-         * Critical Logic for Door Exit Animations:
-         * - Check if DESTINATION tile has door behavior before playing exit animation
-         * - Many indoor exits use arrow warps (behavior 101) or stairs with NO door
-         * - Only play door exit animation if destination tile is actually a door
-         * 
-         * Example: Exiting Brendan's House to Littleroot Town
-         * - Player walks onto arrow warp at (8,8) in BRENDANS_HOUSE_1F (behavior 101, no door)
-         * - Warp destination (5,8) in MAP_LITTLEROOT_TOWN has metatile 0x248 (IS a door)
-         * - We check destination behavior and play door exit animation at (5,8)
-         */
-        const performWarp = async (
-          trigger: WarpTrigger,
-          options?: { force?: boolean; fromDoor?: boolean }
-        ) => {
-          if (warpHandler.isInProgress() && !options?.force) return;
-          warpHandler.setInProgress(true);
-          // reanchorInFlight now managed in useRunUpdate hook for automatic transitions
-          const shouldUnlockInput = !options?.fromDoor;
-          playerControllerRef.current?.lockInput();
-          try {
-            const targetMapId = trigger.warpEvent.destMap;
-            const targetWarpId = trigger.warpEvent.destWarpId;
-            const newWorld = await mapManagerRef.current.buildWorld(targetMapId, CONNECTION_DEPTH);
-            if (generation !== renderGenerationRef.current) return;
-            await rebuildContextForWorld(newWorld, targetMapId);
-            if (generation !== renderGenerationRef.current) return;
-
-            const ctxAfter = renderContextRef.current;
-            const anchorAfter = ctxAfter?.anchor ?? newWorld.maps[0];
-            const destMap =
-              ctxAfter?.world.maps.find((m) => m.entry.id === targetMapId) ?? anchorAfter;
-            const warpEvents = destMap?.warpEvents ?? [];
-            const destWarp = warpEvents[targetWarpId] ?? warpEvents[0];
-            if (!destMap || !destWarp) {
-              if (isDebugMode()) {
-                console.warn(`Warp target missing for ${targetMapId} warp ${targetWarpId}`);
-              }
-              return;
-            }
-            const destWorldX = destMap.offsetX + destWarp.x;
-            const destWorldY = destMap.offsetY + destWarp.y;
-            
-            // Determine facing direction based on context
-            let facing: PlayerController['dir'] = trigger.facing;
-            if (trigger.kind === 'door' && options?.fromDoor && ctxAfter) {
-              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-              const destBehavior = destResolved?.attributes?.behavior ?? -1;
-              const destIsArrow = isArrowWarpBehavior(destBehavior);
-              
-              if (isDoorBehavior(destBehavior)) {
-                facing = 'down'; // Exiting through a door
-              } else if (destIsArrow) {
-                // Arriving at an arrow warp: preserve movement direction
-                facing = trigger.facing;
-              } else {
-                facing = 'up'; // Arrived at non-door, non-arrow destination (stairs, etc.)
-              }
-            } else if (trigger.kind === 'door') {
-              facing = 'down'; // Default for door warps when not using door entry sequence
-            } else if (trigger.kind === 'arrow') {
-              // Arrow warps: always preserve the movement direction
-              // This ensures you face the direction you were moving, not the destination arrow's direction
-              facing = trigger.facing;
-            }
-
-            if (isDebugMode()) {
-              console.log('[WARP_FACING]', {
-                triggerKind: trigger.kind,
-                triggerFacing: trigger.facing,
-                finalFacing: facing,
-                fromDoor: options?.fromDoor,
-              });
-            }
-
-            playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
-            
-            // Check if destination tile actually has a door before playing door exit animation
-            if (options?.fromDoor && ctxAfter) {
-              const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-              const destBehavior = destResolved?.attributes?.behavior ?? -1;
-              const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
-              
-              const isAnimatedDoor = isDoorBehavior(destBehavior);
-              const isNonAnimatedDoor = isNonAnimatedDoorBehavior(destBehavior);
-              const requiresExitSequence = requiresDoorExitSequence(destBehavior);
-              
-              console.log('[WARP_DEST_CHECK]', {
-                fromDoor: options?.fromDoor,
-                triggerKind: trigger.kind,
-                destWorldX,
-                destWorldY,
-                destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
-                destBehavior,
-                isAnimatedDoor,
-                isNonAnimatedDoor,
-                requiresExitSequence,
-              });
-              
-              // Check if destination requires exit sequence (animated or non-animated)
-              if (requiresExitSequence) {
-                // Determine exit direction: for arrow warps, continue in same direction; for doors, exit down
-                const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
-                
-                if (isDebugMode()) {
-                  console.log('[EXIT_SEQUENCE_START]', {
-                    triggerKind: trigger.kind,
-                    triggerFacing: trigger.facing,
-                    exitDirection,
-                    destBehavior,
-                    isAnimatedDoor,
-                  });
-                }
-                
-                logDoor('performWarp: destination requires exit sequence', {
-                  destWorldX,
-                  destWorldY,
-                  destMetatileId,
-                  destBehavior,
-                  isAnimatedDoor,
-                  isNonAnimatedDoor,
-                  exitDirection,
-                  triggerKind: trigger.kind,
-                });
-                playerHiddenRef.current = true;
-                // Start exit sequence using door sequencer
-                doorSequencer.startExit({
-                  doorWorldX: destWorldX,
-                  doorWorldY: destWorldY,
-                  metatileId: destMetatileId,
-                  isAnimatedDoor,
-                  exitDirection: exitDirection as CardinalDirection,
-                }, currentTimestampRef.current);
-                fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
-              } else {
-                if (isDebugMode()) {
-                  console.log('[NO_EXIT_SEQUENCE]', {
-                    triggerKind: trigger.kind,
-                    destBehavior,
-                    requiresExitSequence,
-                    finalFacing: facing,
-                  });
-                }
-                // No door on destination side (e.g., arrow warp, stairs, teleport pad)
-                // Must unlock input immediately since there's no door exit sequence
-                logDoor('performWarp: destination has no door, simple fade in', {
-                  destWorldX,
-                  destWorldY,
-                  destMetatileId,
-                  destBehavior,
-                  behaviorLabel: classifyWarpKind(destBehavior) ?? 'unknown',
-                });
-                playerHiddenRef.current = false;
-                fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
-                // No door exit sequence needed - reset sequencer
-                doorSequencer.sequencer.resetExit();
-                // CRITICAL: Unlock input here since there's no door exit sequence to handle it
-                playerControllerRef.current?.unlockInput();
-                warpHandler.setInProgress(false);
-              }
-            } else if (options?.fromDoor) {
-              fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, currentTimestampRef.current);
-              playerHiddenRef.current = false;
-              doorSequencer.sequencer.resetExit();
-              playerControllerRef.current?.unlockInput();
-              warpHandler.setInProgress(false);
-            }
-            applyTileResolver();
-            applyPipelineResolvers();
-            // Invalidate pipeline caches after warp
-            renderPipelineRef.current?.invalidate();
-            warpHandler.updateLastCheckedTile(destWorldX, destWorldY, destMap.entry.id);
-            warpHandler.setCooldown(350);
-            hasRenderedRef.current = false;
-            // Clear any remaining door animations from the previous map
-            doorAnimations.clearAll();
-          } catch (err) {
-            console.error('Warp failed', err);
-          } finally {
-            if (shouldUnlockInput) {
-              playerControllerRef.current?.unlockInput();
-              warpHandler.setInProgress(false);
-            }
-            // reanchorInFlight now managed in useRunUpdate hook
-          }
-        };
-
-        const handleDoorWarp = (request: DoorWarpRequest) => {
-          const ctx = renderContextRef.current;
-          if (!ctx) return;
-          const resolved = resolveTileAt(ctx, request.targetX, request.targetY);
-          if (!resolved) return;
-          
-          const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
-          if (!warpEvent) return;
-
-          const trigger: WarpTrigger = {
-            kind: classifyWarpKind(request.behavior) ?? 'door',
-            sourceMap: resolved.map,
-            warpEvent,
-            behavior: request.behavior,
-            facing: playerControllerRef.current?.dir ?? 'down'
-          };
-          
-          if (playerControllerRef.current) {
-            startAutoDoorWarp(trigger, resolved, playerControllerRef.current);
-          }
-        };
-        playerControllerRef.current?.setDoorWarpHandler(handleDoorWarp);
-
-        const advanceDoorEntry = (now: number) => {
-          if (!doorSequencer.isEntryActive()) return;
-          const player = playerControllerRef.current;
-          if (!player) return;
-
-          const entryState = doorSequencer.sequencer.getEntryState();
-          const isAnimationDone = (animId: number | undefined) => {
-            if (animId === undefined) return true;
-            // -1 is sentinel for "loading in progress" - not done
-            if (animId === -1) return false;
-            const anim = doorAnimations.findById(animId);
-            return !anim || doorAnimations.isAnimDone(anim, now);
-          };
-          const isFadeDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
-
-          const result = doorSequencer.updateEntry(
-            now,
-            player.isMoving,
-            isAnimationDone,
-            isFadeDone
-          );
-
-          // Handle actions returned by the sequencer
-          if (result.action === 'startPlayerStep' && result.direction) {
-            const pos = doorSequencer.getEntryDoorPosition();
-            logDoor('entry: door fully open, force step into tile', pos?.x, pos?.y);
-            player.forceMove(result.direction, true);
-          } else if (result.action === 'hidePlayer') {
-            logDoor('entry: hide player');
-            playerHiddenRef.current = true;
-            // Also spawn close animation if animated door
-            if (entryState.isAnimatedDoor) {
-              const pos = doorSequencer.getEntryDoorPosition();
-              logDoor('entry: start door close (animated)');
-              // Set to -1 as sentinel for "loading in progress" to prevent race condition
-              doorSequencer.setEntryCloseAnimId(-1);
-              doorAnimations.spawn(
-                'close',
-                pos?.x ?? 0,
-                pos?.y ?? 0,
-                entryState.metatileId,
-                now
-              ).then((closeAnimId) => {
-                if (closeAnimId !== null) {
-                  doorSequencer.setEntryCloseAnimId(closeAnimId);
-                }
-              });
-              // Remove open animation
-              if (entryState.openAnimId !== undefined) {
-                doorAnimations.clearById(entryState.openAnimId);
-              }
-            }
-          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-            logDoor('entry: door close complete, showing base tile');
-            doorAnimations.clearById(result.animId);
-          } else if (result.action === 'startFadeOut' && result.duration) {
-            logDoor('entry: start fade out');
-            fadeRef.current.startFadeOut(result.duration, now);
-          } else if (result.action === 'executeWarp' && result.trigger) {
-            logDoor('entry: warp now');
-            void performWarp(result.trigger as WarpTrigger, { force: true, fromDoor: true });
-          }
-        };
-
-        /**
-         * Advance Door Exit Sequence
-         *
-         * Handles the door exit state machine using the door sequencer.
-         * Called every frame in runUpdate to progress the exit animation.
-         */
-        const advanceDoorExit = (now: number) => {
-          if (!doorSequencer.isExitActive()) return;
-          const player = playerControllerRef.current;
-          if (!player) return;
-
-          const exitState = doorSequencer.sequencer.getExitState();
-          const isAnimationDone = (animId: number | undefined) => {
-            if (animId === undefined) return true;
-            // -1 is sentinel for "loading in progress" - not done
-            if (animId === -1) return false;
-            const anim = doorAnimations.findById(animId);
-            return !anim || doorAnimations.isAnimDone(anim, now);
-          };
-          // Per pokeemerald: wait for fade-in to complete before showing player
-          // Fade is complete when it's not active OR when it's marked as complete
-          const isFadeInDone = !fadeRef.current.isActive() || fadeRef.current.isComplete(now);
-
-          const result = doorSequencer.updateExit(
-            now,
-            player.isMoving,
-            isAnimationDone,
-            isFadeInDone
-          );
-
-          // Handle actions returned by the sequencer
-          if (result.action === 'spawnOpenAnimation') {
-            const pos = doorSequencer.getExitDoorPosition();
-            logDoor('exit: set door to open state (not animating)', {
-              worldX: pos?.x,
-              worldY: pos?.y,
-              metatileId: exitState.metatileId,
-            });
-            // Set to -1 as sentinel for "loading in progress"
-            doorSequencer.setExitOpenAnimId(-1);
-            // Per pokeemerald: FieldSetDoorOpened() sets door to fully-open state BEFORE fade completes
-            // We achieve this by setting startedAt far in the past so animation is already on last frame
-            // Door animation: 4 frames * 90ms = 360ms, so 500ms in past ensures we're on last frame
-            const alreadyOpenStartedAt = now - 500;
-            doorAnimations.spawn(
-              'open',
-              pos?.x ?? 0,
-              pos?.y ?? 0,
-              exitState.metatileId,
-              alreadyOpenStartedAt,
-              true // holdOnComplete - stay on last frame
-            ).then((openAnimId) => {
-              if (openAnimId !== null) {
-                doorSequencer.setExitOpenAnimId(openAnimId);
-              }
-            });
-          } else if (result.action === 'startPlayerStep' && result.direction) {
-            logDoor('exit: step out of door', { exitDirection: result.direction });
-            player.forceMove(result.direction, true);
-            playerHiddenRef.current = false;
-          } else if (result.action === 'spawnCloseAnimation') {
-            const pos = doorSequencer.getExitDoorPosition();
-            logDoor('exit: start door close');
-            // Remove open animation
-            if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
-              doorAnimations.clearById(exitState.openAnimId);
-            }
-            // Set to -1 as sentinel for "loading in progress"
-            doorSequencer.setExitCloseAnimId(-1);
-            doorAnimations.spawn(
-              'close',
-              pos?.x ?? 0,
-              pos?.y ?? 0,
-              exitState.metatileId,
-              now
-            ).then((closeAnimId) => {
-              if (closeAnimId !== null) {
-                doorSequencer.setExitCloseAnimId(closeAnimId);
-              }
-            });
-          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-            logDoor('exit: door close complete');
-            doorAnimations.clearById(result.animId);
-          }
-
-          // Handle completion
-          if (result.done) {
-            logDoor('exit: sequence complete');
-            playerControllerRef.current?.unlockInput();
-            playerHiddenRef.current = false;
-          }
-        };
-
-          /**
-           * Door Entry Handler
-           * 
-           * Triggered when player attempts to enter a door (from outdoor → indoor, etc.)
-           * 
-           * Important: Uses the SOURCE tile's metatile ID (the door tile being entered)
-           * to determine which door animation to play. This is correct because we're
-           * animating the door the player is walking INTO, not the destination tile.
-           * 
-           * Example: Entering Brendan's House from Littleroot Town
-           * - Source tile (5,8) in MAP_LITTLEROOT_TOWN has metatile 0x248 (METATILE_Petalburg_Door_Littleroot)
-           * - Destination tile (8,8) in BRENDANS_HOUSE_1F has metatile 514 (arrow warp, NOT a door)
-           * - We play door animation using 0x248, not 514
-           */
-          const handleDoorWarpAttempt = async (request: DoorWarpRequest) => {
-            if (doorSequencer.isEntryActive() || warpHandler.isInProgress()) return;
-            const ctx = renderContextRef.current;
-            const player = playerControllerRef.current;
-            if (!ctx || !player) return;
-            const resolved = resolveTileAt(ctx, request.targetX, request.targetY);
-          if (!resolved) return;
-          const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
-          if (!warpEvent) return;
-          const behavior = resolved.attributes?.behavior ?? -1;
-          
-          // Check if this is an arrow warp
-          const isArrow = isArrowWarpBehavior(behavior);
-          const requiresExitSeq = requiresDoorExitSequence(behavior);
-          const isAnimated = isDoorBehavior(behavior);
-          
-          if (isDebugMode()) {
-            console.log('[DOOR_WARP_ATTEMPT]', {
-              targetX: request.targetX,
-              targetY: request.targetY,
-              behavior,
-              metatileId: `0x${getMetatileIdFromMapTile(resolved.mapTile).toString(16)} (${getMetatileIdFromMapTile(resolved.mapTile)})`,
-              isDoor: isAnimated,
-              isNonAnimatedDoor: isNonAnimatedDoorBehavior(behavior),
-              isArrowWarp: isArrow,
-              requiresExitSequence: requiresExitSeq,
-              playerDir: player.dir,
-            });
-          }
-          
-          // Handle arrow warps
-          if (isArrow) {
-            const arrowDir = getArrowDirectionFromBehavior(behavior);
-            if (isDebugMode()) {
-              console.log('[ARROW_WARP_ATTEMPT]', {
-                arrowDir,
-                playerDir: player.dir,
-                match: arrowDir === player.dir,
-              });
-            }
-            if (!arrowDir || player.dir !== arrowDir) {
-              if (isDebugMode()) {
-                console.warn('[ARROW_WARP_ATTEMPT] Player not facing arrow direction - REJECTING');
-              }
-              return;
-            }
-            // Arrow warp: trigger auto door warp with no animation
-            const trigger: WarpTrigger = {
-              kind: 'arrow',
-              sourceMap: resolved.map,
-              warpEvent,
-              behavior,
-              facing: player.dir,
-            };
-            if (isDebugMode()) {
-              console.log('[ARROW_WARP_START]', { trigger });
-            }
-            startAutoDoorWarp(trigger, resolved, player, arrowDir, { isAnimatedDoor: false });
-            return;
-          }
-          
-          if (!requiresExitSeq) {
-            if (isDebugMode()) {
-              console.warn('[DOOR_WARP_ATTEMPT] Called for non-door/non-arrow tile - REJECTING', {
-                targetX: request.targetX,
-                targetY: request.targetY,
-                behavior,
-                metatileId: getMetatileIdFromMapTile(resolved.mapTile),
-              });
-            }
-            return;
-          }
-          
-          const trigger: WarpTrigger = {
-            kind: 'door', // Use 'door' for both animated and non-animated door sequences
-            sourceMap: resolved.map,
-            warpEvent,
-            behavior,
-            facing: player.dir,
-          };
-            // Use SOURCE tile's metatile ID for door animation (the door being entered)
-            const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
-            const startedAt = performance.now();
-            
-            // Only spawn door animation if this is an animated door
-            // Non-animated doors (stairs) skip animation but still do entry sequence
-            let openAnimId: number | null | undefined = undefined;
-            if (isAnimated) {
-              logDoor('entry: start door open (animated)', {
-                worldX: request.targetX,
-                worldY: request.targetY,
-                metatileId,
-                map: resolved.map.entry.id,
-              });
-              openAnimId = await doorAnimations.spawn(
-                'open',
-                request.targetX,
-                request.targetY,
-                metatileId,
-                startedAt,
-                true
-              );
-            } else {
-              logDoor('entry: start (non-animated, no door animation)', {
-                worldX: request.targetX,
-                worldY: request.targetY,
-                metatileId,
-                map: resolved.map.entry.id,
-              });
-            }
-          
-          // Start the entry sequence using the door sequencer
-          const entryResult = doorSequencer.startEntry({
-            targetX: request.targetX,
-            targetY: request.targetY,
-            metatileId,
-            isAnimatedDoor: isAnimated,
-            entryDirection: player.dir as CardinalDirection,
-            warpTrigger: trigger,
-            openAnimId: openAnimId ?? undefined,
-          }, startedAt);
-
-          // If the sequencer wants to spawn an open animation and we haven't already
-          if (entryResult.action === 'spawnOpenAnimation' && !openAnimId && isAnimated) {
-            // Animation was already spawned above, set the ID
-          }
-
-          // Set the open animation ID if it was spawned
-          if (openAnimId) {
-            doorSequencer.setEntryOpenAnimId(openAnimId);
-          }
-
-          playerHiddenRef.current = false;
-          player.lockInput();
-        };
+        const {
+          performWarp,
+          startAutoDoorWarp,
+          advanceDoorEntry,
+          advanceDoorExit,
+          handleDoorWarpAttempt,
+        } = createWarpExecutors(generation, warpCallbacks);
 
         playerControllerRef.current?.setDoorWarpHandler(handleDoorWarpAttempt);
 
@@ -1674,6 +922,9 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     buildPatchedTilesForRuntime,
     refreshDebugOverlay,
     rebuildContextForWorld,
+    createRunUpdate,
+    createWarpExecutors,
+    resetDoorSequencer,
   ]);
 
   const handleActionKeyDown = useCallback(async (e: KeyboardEvent) => {

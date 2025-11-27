@@ -13,7 +13,7 @@
  * - itemBall: Item ball sprite
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -122,10 +122,10 @@ export function useFieldSprites(): UseFieldSpritesReturn {
     return spritesRef.current;
   }, [ensureSprite]);
 
-  return {
+  return useMemo(() => ({
     getSprite,
     ensureSprite,
     loadAll,
     sprites: spritesRef.current,
-  };
+  }), [getSprite, ensureSprite, loadAll]);
 }

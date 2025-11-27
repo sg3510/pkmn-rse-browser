@@ -5,7 +5,7 @@
  * Extracted from MapRenderer.tsx to reduce component complexity.
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { type DoorSize, type DoorAnimDrawable, DOOR_TIMING } from '../field/types';
 import { isDoorAnimationDone } from '../field/DoorSequencer';
 import { getDoorAssetForMetatile } from '../data/doorAssets';
@@ -209,7 +209,7 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
     doorAnimsRef.current = [];
   }, []);
 
-  return {
+  return useMemo(() => ({
     ensureSprite,
     spawn,
     isAnimDone,
@@ -219,5 +219,5 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
     findById,
     clearById,
     clearAll,
-  };
+  }), [ensureSprite, spawn, isAnimDone, prune, render, getAnimations, findById, clearById, clearAll]);
 }

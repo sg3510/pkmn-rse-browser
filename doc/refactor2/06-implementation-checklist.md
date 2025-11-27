@@ -138,10 +138,13 @@ Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
   - [x] Added RenderPipeline code path in compositeScene (background, topBelow, topAbove)
   - [x] Enabled flag and verified identical rendering output
   - [x] Remove old renderPassCanvas/renderPass code (COMPLETED - ~170 lines removed)
-- [~] Step 4: Extract game loop to useGameEngine (DEFERRED)
+- [x] Step 4: Extract game loop to useGameEngine (COMPLETE)
   - [x] Engine modules already in use (GameLoop, UpdateCoordinator, AnimationTimer)
   - [x] useGameEngine hook exists in src/hooks/useGameEngine.ts
-  - [ ] Full integration deferred (HIGH RISK - runUpdate is 350+ lines with many ref dependencies)
+  - [x] Created useRunUpdate hook (~377 lines) - extracts main game update loop
+  - [x] Created useCompositeScene hook (~290 lines) - extracts scene rendering
+  - [x] Created useTilesetAnimations hook (~125 lines) - extracts animation loading
+  - [x] Created useDebugCallbacks hook (~100 lines) - extracts debug functions
 - [x] Step 5: Consolidate asset loading
   - [x] Moved DOOR_ASSET_MAP (~100 lines) to src/data/doorAssets.ts
   - [x] Moved getDoorAssetForMetatile function to src/data/doorAssets.ts
@@ -149,6 +152,8 @@ Incremental migration following doc/refactor2/04-a-detailed-migration-plan.md:
   - [x] Created useFieldSprites hook for future sprite consolidation
   - [x] Created useDoorAnimations hook (~142 lines extracted)
   - [x] Created useArrowOverlay hook (~94 lines extracted)
+  - [x] Extracted warp execution + door warp handlers into `useWarpExecution` hook
+  - [x] MapRenderer now calls `useWarpExecution` (no inline warp logic)
   - [ ] Full sprite loading consolidation (deferred to Step 6)
 - [ ] Step 6: Create thin MapRenderer component
 
@@ -160,7 +165,7 @@ Old rendering code removed with user approval:
 - [x] Remove `drawTileToCanvas` function (removed earlier)
 - [x] Remove unused ImageData refs
 - [x] Remove CanvasRenderer initialization
-- [ ] Remove `compositeScene` function (still in use, refactored)
+- [x] Remove `compositeScene` function (extracted to useCompositeScene hook)
 - [x] Remove inline door state machines (DoorEntrySequence, DoorExitSequence)
 - [x] Remove remaining inline state machines (all extracted to classes: WarpHandler, FadeController, ArrowOverlay)
 - [ ] Remove inline input handlers (deferred - complex)
@@ -169,7 +174,7 @@ Old rendering code removed with user approval:
 - [x] Build passes with new support files
 - [x] Old rendering code removed (~170 lines)
 - [x] Door asset config moved (~124 lines)
-- [ ] MapRenderer.tsx < 250 lines (current: ~2126 lines - needs more refactoring)
+- [ ] MapRenderer.tsx < 250 lines (current: ~1041 lines - reduced from 2362 via hook extractions; warp logic now in hook)
 - [x] All features work identically (verified by user)
 - [x] No console errors
 - [x] Performance maintained
