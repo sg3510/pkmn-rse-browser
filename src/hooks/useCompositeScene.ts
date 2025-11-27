@@ -61,7 +61,8 @@ export interface UseCompositeSceneReturn {
     view: WorldCameraView,
     viewChanged: boolean,
     animationFrameChanged: boolean,
-    nowMs: number
+    nowMs: number,
+    gameFrame: number
   ) => void;
 }
 
@@ -83,7 +84,8 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       view: WorldCameraView,
       viewChanged: boolean,
       animationFrameChanged: boolean,
-      nowMs: number
+      nowMs: number,
+      gameFrame: number
     ) => {
       const ctx = refs.renderContextRef.current;
       if (!ctx) return;
@@ -118,6 +120,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
           needsFullRender: viewChanged,
           animationChanged: animationFrameChanged,
           elevationChanged,
+          gameFrame,
         });
 
         // Composite background first (for priority 2 sprites to appear behind topBelow)

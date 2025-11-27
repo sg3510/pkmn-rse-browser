@@ -83,7 +83,8 @@ export interface InitHooks {
     view: WorldCameraView,
     viewChanged: boolean,
     animationFrameChanged: boolean,
-    timestamp: number
+    timestamp: number,
+    gameFrame: number
   ) => void;
   refreshDebugOverlay: (
     ctx: RenderContext,
@@ -338,7 +339,8 @@ export async function initializeGame({
         frame.view,
         frame.viewChanged,
         frame.animationFrameChanged,
-        refs.currentTimestampRef.current
+        refs.currentTimestampRef.current,
+        refs.animationTimerRef.current?.getTickCount() ?? 0
       );
 
       if (refs.debugEnabledRef.current && refs.playerControllerRef.current) {
