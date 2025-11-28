@@ -375,19 +375,20 @@ export class WebGLRenderPipeline {
     // Read pixels from framebuffer
     const passTexture = this.framebufferManager.getPassTexture(pass);
 
-    // First render the pass texture to the WebGL canvas
+    // Always clear WebGL canvas before drawing each pass texture
+    // (we want just this pass's content, not blended with previous)
     this.compositor.compositeToScreen(
       passTexture,
       dims.width,
       dims.height,
       0, // No sub-pixel offset for now
       0,
-      clearFirst
+      true // Always clear WebGL canvas
     );
 
-    // Calculate sub-pixel offset for smooth scrolling
-    const offsetX = view.cameraWorldX - Math.floor(view.cameraWorldX);
-    const offsetY = view.cameraWorldY - Math.floor(view.cameraWorldY);
+    // Calculate sub-tile offset for smooth scrolling (0-15 pixels within the tile)
+    const offsetX = view.subTileOffsetX;
+    const offsetY = view.subTileOffsetY;
 
     // Copy WebGL canvas to 2D context with offset
     if (clearFirst) {

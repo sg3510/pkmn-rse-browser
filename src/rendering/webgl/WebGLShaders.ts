@@ -38,6 +38,7 @@ out vec2 v_texCoord;
 out vec2 v_texCoordSecondary;  // Separate tex coord for secondary (different size)
 out float v_paletteIndex;  // Using float to avoid flat int issues on some GPUs
 out float v_tilesetIndex;
+out float v_tilesetPairIndex;  // Which tileset pair (0 or 1) for multi-tileset worlds
 
 // Constants
 const float TILE_SIZE = 8.0;
@@ -50,11 +51,13 @@ void main() {
   float flags = a_instanceData.w;
 
   // Decode flags (using float math to avoid integer issues)
+  // Flags layout: bit 0: yflip, bit 1: xflip, bit 2: tilesetIndex, bits 3-6: paletteId, bit 7: tilesetPairIndex
   float flagsVal = floor(flags);
   float yflipVal = mod(flagsVal, 2.0);
   float xflipVal = mod(floor(flagsVal / 2.0), 2.0);
   v_tilesetIndex = mod(floor(flagsVal / 4.0), 2.0);
-  v_paletteIndex = floor(flagsVal / 8.0);
+  v_paletteIndex = mod(floor(flagsVal / 8.0), 16.0);  // 4 bits for paletteId (0-15)
+  v_tilesetPairIndex = mod(floor(flagsVal / 128.0), 2.0);  // bit 7 for tilesetPairIndex
 
   bool yflip = yflipVal > 0.5;
   bool xflip = xflipVal > 0.5;
@@ -102,6 +105,7 @@ void main() {
  * - Palette lookup from palette texture
  * - Transparency handling (palette index 0)
  * - Primary/secondary tileset selection
+ * - Multi-tileset pair support for seamless world rendering
  */
 export const TILE_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -111,22 +115,39 @@ in vec2 v_texCoord;           // Tex coords calculated for primary tileset
 in vec2 v_texCoordSecondary;  // Tex coords calculated for secondary tileset
 in float v_paletteIndex;
 in float v_tilesetIndex;
+in float v_tilesetPairIndex;  // Which tileset pair (0 or 1)
 
-// Textures
+// Tileset pair 0 textures
 uniform sampler2D u_primaryTileset;    // Indexed color (R = palette index)
 uniform sampler2D u_secondaryTileset;  // Indexed color (R = palette index)
 uniform sampler2D u_palette;           // 16x16 RGBA (16 palettes x 16 colors)
+
+// Tileset pair 1 textures (for multi-tileset worlds)
+uniform sampler2D u_primaryTileset1;
+uniform sampler2D u_secondaryTileset1;
+uniform sampler2D u_palette1;
 
 // Output
 out vec4 fragColor;
 
 void main() {
-  // Sample the appropriate tileset with its own texture coordinates
+  // Sample the appropriate tileset based on pair index and tileset index
   float paletteColorIndex;
-  if (v_tilesetIndex < 0.5) {
-    paletteColorIndex = texture(u_primaryTileset, v_texCoord).r * 255.0;
+
+  if (v_tilesetPairIndex < 0.5) {
+    // Tileset pair 0
+    if (v_tilesetIndex < 0.5) {
+      paletteColorIndex = texture(u_primaryTileset, v_texCoord).r * 255.0;
+    } else {
+      paletteColorIndex = texture(u_secondaryTileset, v_texCoordSecondary).r * 255.0;
+    }
   } else {
-    paletteColorIndex = texture(u_secondaryTileset, v_texCoordSecondary).r * 255.0;
+    // Tileset pair 1
+    if (v_tilesetIndex < 0.5) {
+      paletteColorIndex = texture(u_primaryTileset1, v_texCoord).r * 255.0;
+    } else {
+      paletteColorIndex = texture(u_secondaryTileset1, v_texCoordSecondary).r * 255.0;
+    }
   }
 
   // Transparency check (palette index 0 = transparent)
@@ -134,14 +155,18 @@ void main() {
     discard;
   }
 
-  // Look up color from palette texture
+  // Look up color from palette texture (selecting correct pair)
   // Palette texture layout: 16 colors wide x 16 palettes tall
   vec2 paletteCoord = vec2(
     (paletteColorIndex + 0.5) / 16.0,   // Color index (X)
     (v_paletteIndex + 0.5) / 16.0       // Palette index (Y)
   );
 
-  fragColor = texture(u_palette, paletteCoord);
+  if (v_tilesetPairIndex < 0.5) {
+    fragColor = texture(u_palette, paletteCoord);
+  } else {
+    fragColor = texture(u_palette1, paletteCoord);
+  }
 }
 `;
 

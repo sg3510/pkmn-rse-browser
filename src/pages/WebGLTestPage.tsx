@@ -277,6 +277,7 @@ function buildMapTiles(
             xflip: tile.xflip,
             yflip: tile.yflip,
             tilesetIndex,
+            tilesetPairIndex: 0,
           });
         }
       }
@@ -322,6 +323,7 @@ function createTestTiles(
         xflip: (x + Math.floor(frame / 30)) % 8 === 0,
         yflip: (y + Math.floor(frame / 30)) % 8 === 0,
         tilesetIndex: 0,
+        tilesetPairIndex: 0,
       });
     }
   }
@@ -356,6 +358,7 @@ function createTilesetGridTiles(
       xflip: false,
       yflip: false,
       tilesetIndex,
+      tilesetPairIndex: 0,
     });
   }
 

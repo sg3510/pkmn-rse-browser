@@ -48,6 +48,8 @@ export interface TileInstance {
   yflip: boolean;
   /** Which tileset (0 = primary, 1 = secondary) */
   tilesetIndex: number;
+  /** Which tileset pair (0 or 1) for multi-tileset worlds */
+  tilesetPairIndex: number;
 }
 
 /**
@@ -61,19 +63,21 @@ export interface PackedTileInstance {
   y: number;
   /** Tile index in tileset */
   tileId: number;
-  /** Packed flags: paletteId (4 bits) | tilesetIndex (1 bit) | xflip (1 bit) | yflip (1 bit) */
+  /** Packed flags: tilesetPairIndex (1 bit) | paletteId (4 bits) | tilesetIndex (1 bit) | xflip (1 bit) | yflip (1 bit) */
   flags: number;
 }
 
 /**
  * Pack tile instance data into GPU format
+ * Flags layout: bit 0: yflip, bit 1: xflip, bit 2: tilesetIndex, bits 3-6: paletteId, bit 7: tilesetPairIndex
  */
 export function packTileInstance(tile: TileInstance): PackedTileInstance {
   const flags =
     (tile.yflip ? 1 : 0) |
     (tile.xflip ? 2 : 0) |
     (tile.tilesetIndex << 2) |
-    (tile.paletteId << 3);
+    (tile.paletteId << 3) |
+    ((tile.tilesetPairIndex ?? 0) << 7);
 
   return {
     x: tile.x,

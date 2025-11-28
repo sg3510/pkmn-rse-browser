@@ -183,6 +183,7 @@ export class TileInstanceBuilder {
         xflip: tile.xflip,
         yflip: tile.yflip,
         tilesetIndex,
+        tilesetPairIndex: 0, // Default to pair 0, will be set by world manager for multi-tileset worlds
       });
     }
   }
@@ -248,12 +249,13 @@ export function packTileInstances(tiles: TileInstance[]): Float32Array {
     const tile = tiles[i];
     const offset = i * 4;
 
-    // Pack flags: yflip(1) | xflip(1) | tilesetIndex(1) | paletteId(4)
+    // Pack flags: yflip(1) | xflip(1) | tilesetIndex(1) | paletteId(4) | tilesetPairIndex(1)
     const flags =
       (tile.yflip ? 1 : 0) |
       (tile.xflip ? 2 : 0) |
       (tile.tilesetIndex << 2) |
-      (tile.paletteId << 3);
+      (tile.paletteId << 3) |
+      ((tile.tilesetPairIndex ?? 0) << 7);
 
     data[offset] = tile.x;
     data[offset + 1] = tile.y;

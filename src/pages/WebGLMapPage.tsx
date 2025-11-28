@@ -9,12 +9,13 @@
  * Access via /#/webgl-map
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { WebGLContext, isWebGL2Supported } from '../rendering/webgl/WebGLContext';
-import { WebGLTileRenderer } from '../rendering/webgl/WebGLTileRenderer';
-import { WebGLAnimationManager } from '../rendering/webgl/WebGLAnimationManager';
-import type { TileInstance } from '../rendering/webgl/types';
-import type { LoadedAnimation } from '../rendering/types';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
+import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
+import type { TileResolverFn, ResolvedTile, WorldCameraView, LoadedAnimation } from '../rendering/types';
+import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
+import { ObjectRenderer, type WorldCameraView as ObjectRendererView } from '../components/map/renderers/ObjectRenderer';
+import { useFieldSprites } from '../hooks/useFieldSprites';
 import UPNG from 'upng-js';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
@@ -24,6 +25,8 @@ import {
   parsePalette,
   loadMapLayout,
   loadMetatileDefinitions,
+  loadMetatileAttributes,
+  loadBorderMetatiles,
   METATILE_SIZE,
   TILE_SIZE,
   loadBinary,
@@ -31,6 +34,7 @@ import {
   type TilesetImageData,
   type Metatile,
   type MapData,
+  type MetatileAttributes,
 } from '../utils/mapLoader';
 import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
 import './WebGLMapPage.css';
@@ -41,30 +45,61 @@ const NUM_PALS_TOTAL = 13;
 const SECONDARY_TILE_OFFSET = 512;
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
 
-type LoadedMapAssets = {
-  mapData: MapData;
-  primaryMetatiles: Metatile[];
-  secondaryMetatiles: Metatile[];
-  primaryImage: TilesetImageData;
-  secondaryImage: TilesetImageData;
-  primaryPalettes: Palette[];
-  secondaryPalettes: Palette[];
-  animations: LoadedAnimation[];
-};
-
-type WorldChunk = {
-  entry: MapIndexEntry;
-  mapData: MapData;
-  offsetX: number; // in tiles
-  offsetY: number; // in tiles
-};
-
 type RenderStats = {
   webgl2Supported: boolean;
   tileCount: number;
   renderTimeMs: number;
   fps: number;
   error: string | null;
+};
+
+type CameraState = {
+  x: number;  // camera world position in pixels
+  y: number;
+};
+
+type DebugTileInfo = {
+  tileX: number;
+  tileY: number;
+  metatileId: number;
+  tileElevation: number;
+  playerElevation: number;
+  collision: number;
+  layerType: number;
+  behavior: number;
+};
+
+/** A single map instance positioned in world space */
+type StitchedMapInstance = {
+  entry: MapIndexEntry;
+  mapData: MapData;
+  offsetX: number;  // World tile offset (can be negative)
+  offsetY: number;
+};
+
+/** World data with multiple stitched maps sharing the same tileset */
+type StitchedWorldData = {
+  maps: StitchedMapInstance[];
+  anchorId: string;
+  worldBounds: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    width: number;
+    height: number;
+  };
+  // Shared tileset assets (all maps use the same tilesets)
+  primaryMetatiles: Metatile[];
+  secondaryMetatiles: Metatile[];
+  primaryAttributes: MetatileAttributes[];
+  secondaryAttributes: MetatileAttributes[];
+  primaryImage: TilesetImageData;
+  secondaryImage: TilesetImageData;
+  primaryPalettes: Palette[];
+  secondaryPalettes: Palette[];
+  animations: LoadedAnimation[];
+  borderMetatiles: number[];
 };
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
@@ -124,6 +159,16 @@ async function loadIndexedFrame(url: string): Promise<{ data: Uint8Array; width:
   return { data, width: img.width, height: img.height };
 }
 
+/** Safely load metatile attributes, returning empty array on error */
+async function safeLoadMetatileAttributes(url: string): Promise<MetatileAttributes[]> {
+  try {
+    return await loadMetatileAttributes(url);
+  } catch (e) {
+    console.warn(`Failed to load metatile attributes from ${url}:`, e);
+    return [];
+  }
+}
+
 /** Load tile animations for the given tileset IDs */
 async function loadAnimationsForTilesets(primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> {
   const loaded: LoadedAnimation[] = [];
@@ -172,135 +217,182 @@ async function loadAnimationsForTilesets(primaryId: string, secondaryId: string)
   return loaded;
 }
 
-/** Build tile instances from map data and metatiles */
-function buildMapTiles(
-  mapData: MapData,
-  primaryMetatiles: Metatile[],
-  secondaryMetatiles: Metatile[]
-): TileInstance[] {
-  const tiles: TileInstance[] = [];
+/** Compute neighbor map offset based on connection direction (matches MapManager.computeOffset) */
+function computeConnectionOffset(
+  baseEntry: MapIndexEntry,
+  neighborEntry: MapIndexEntry,
+  connection: { direction: string; offset: number },
+  baseOffsetX: number,
+  baseOffsetY: number
+): { offsetX: number; offsetY: number } {
+  const dir = connection.direction.toLowerCase();
+  if (dir === 'up' || dir === 'north') {
+    return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY - neighborEntry.height };
+  }
+  if (dir === 'down' || dir === 'south') {
+    return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY + baseEntry.height };
+  }
+  if (dir === 'left' || dir === 'west') {
+    return { offsetX: baseOffsetX - neighborEntry.width, offsetY: baseOffsetY + connection.offset };
+  }
+  if (dir === 'right' || dir === 'east') {
+    return { offsetX: baseOffsetX + baseEntry.width, offsetY: baseOffsetY + connection.offset };
+  }
+  return { offsetX: baseOffsetX, offsetY: baseOffsetY };
+}
 
-  for (let my = 0; my < mapData.height; my++) {
-    for (let mx = 0; mx < mapData.width; mx++) {
-      const mapTile = mapData.layout[my * mapData.width + mx];
-      const metatileId = mapTile.metatileId;
+/**
+ * Load a world of connected maps that share the same tileset.
+ * Only loads maps with matching primary+secondary tilesets (same GPU textures).
+ * Maps with different tilesets are skipped - player must warp to change tileset areas.
+ *
+ * @param anchorEntry - The starting map to build the world from
+ * @param maxDepth - Max connection depth to traverse (default 3 to limit memory usage)
+ */
+async function loadStitchedWorld(
+  anchorEntry: MapIndexEntry,
+  maxDepth: number = 3
+): Promise<StitchedWorldData> {
+  const maps: StitchedMapInstance[] = [];
+  const visited = new Set<string>();
+  const queue: Array<{ entry: MapIndexEntry; offsetX: number; offsetY: number; depth: number }> = [
+    { entry: anchorEntry, offsetX: 0, offsetY: 0, depth: 0 },
+  ];
 
-      const metatile = metatileId < primaryMetatiles.length
-        ? primaryMetatiles[metatileId]
-        : secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET];
+  // Only stitch maps with matching tilesets
+  const anchorPrimaryTileset = anchorEntry.primaryTilesetId;
+  const anchorSecondaryTileset = anchorEntry.secondaryTilesetId;
 
-      if (!metatile) continue;
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current.entry.id)) continue;
 
-      for (let layer = 0; layer < 2; layer++) {
-        for (let i = 0; i < 4; i++) {
-          const tileIndex = layer * 4 + i;
-          const tile = metatile.tiles[tileIndex];
-          if (!tile) continue;
+    // Skip if tilesets don't match (can't render with same GPU textures)
+    if (current.entry.primaryTilesetId !== anchorPrimaryTileset ||
+        current.entry.secondaryTilesetId !== anchorSecondaryTileset) {
+      continue;
+    }
 
-          const subX = (i % 2) * TILE_SIZE;
-          const subY = Math.floor(i / 2) * TILE_SIZE;
+    visited.add(current.entry.id);
 
-          const isSecondary = tile.tileId >= SECONDARY_TILE_OFFSET;
-          const tilesetIndex = isSecondary ? 1 : 0;
-          const effectiveTileId = isSecondary ? tile.tileId - SECONDARY_TILE_OFFSET : tile.tileId;
+    // Load map layout data
+    const layoutPath = `${PROJECT_ROOT}/${current.entry.layoutPath}`;
+    const mapData = await loadMapLayout(`${layoutPath}/map.bin`, current.entry.width, current.entry.height);
 
-          tiles.push({
-            x: mx * METATILE_SIZE + subX,
-            y: my * METATILE_SIZE + subY,
-            tileId: effectiveTileId,
-            paletteId: tile.palette,
-            xflip: tile.xflip,
-            yflip: tile.yflip,
-            tilesetIndex,
-          });
-        }
+    maps.push({
+      entry: current.entry,
+      mapData,
+      offsetX: current.offsetX,
+      offsetY: current.offsetY,
+    });
+
+    // Queue connected maps if we haven't reached max depth
+    if (current.depth < maxDepth) {
+      for (const connection of current.entry.connections || []) {
+        const neighborEntry = mapIndexData.find(m => m.id === connection.map);
+        if (!neighborEntry) continue;
+
+        const { offsetX, offsetY } = computeConnectionOffset(
+          current.entry,
+          neighborEntry,
+          connection,
+          current.offsetX,
+          current.offsetY
+        );
+        queue.push({ entry: neighborEntry, offsetX, offsetY, depth: current.depth + 1 });
       }
     }
   }
 
-  return tiles;
-}
-
-/** Fetch all assets needed for a single map */
-async function loadMapAssets(
-  entry: MapIndexEntry,
-  cache?: Map<string, LoadedMapAssets>
-): Promise<LoadedMapAssets> {
-  if (cache?.has(entry.id)) {
-    return cache.get(entry.id)!;
+  // Compute world bounds
+  let minX = 0, minY = 0, maxX = 0, maxY = 0;
+  for (const map of maps) {
+    minX = Math.min(minX, map.offsetX);
+    minY = Math.min(minY, map.offsetY);
+    maxX = Math.max(maxX, map.offsetX + map.entry.width);
+    maxY = Math.max(maxY, map.offsetY + map.entry.height);
   }
-  const primaryPath = `${PROJECT_ROOT}/${entry.primaryTilesetPath}`;
-  const secondaryPath = `${PROJECT_ROOT}/${entry.secondaryTilesetPath}`;
-  const layoutPath = `${PROJECT_ROOT}/${entry.layoutPath}`;
+
+  // Load shared tileset assets (only once since all maps use same tilesets)
+  const primaryPath = `${PROJECT_ROOT}/${anchorEntry.primaryTilesetPath}`;
+  const secondaryPath = `${PROJECT_ROOT}/${anchorEntry.secondaryTilesetPath}`;
+  const anchorLayoutPath = `${PROJECT_ROOT}/${anchorEntry.layoutPath}`;
 
   const [
-    mapData,
     primaryMetatiles,
     secondaryMetatiles,
+    primaryAttributes,
+    secondaryAttributes,
     primaryImage,
     secondaryImage,
     primaryPalettes,
     secondaryPalettes,
+    borderMetatiles,
   ] = await Promise.all([
-    loadMapLayout(`${layoutPath}/map.bin`, entry.width, entry.height),
     loadMetatileDefinitions(`${primaryPath}/metatiles.bin`),
     loadMetatileDefinitions(`${secondaryPath}/metatiles.bin`),
+    safeLoadMetatileAttributes(`${primaryPath}/metatile_attributes.bin`),
+    safeLoadMetatileAttributes(`${secondaryPath}/metatile_attributes.bin`),
     loadTilesetImage(`${primaryPath}/tiles.png`, true) as Promise<TilesetImageData>,
     loadTilesetImage(`${secondaryPath}/tiles.png`, true) as Promise<TilesetImageData>,
     loadPalettes(primaryPath, 0, NUM_PALS_IN_PRIMARY),
     loadPalettes(secondaryPath, NUM_PALS_IN_PRIMARY, NUM_PALS_TOTAL - NUM_PALS_IN_PRIMARY),
+    loadBorderMetatiles(`${anchorLayoutPath}/border.bin`).catch(() => [] as number[]),
   ]);
 
-  const animations = await loadAnimationsForTilesets(entry.primaryTilesetId, entry.secondaryTilesetId);
+  const animations = await loadAnimationsForTilesets(anchorEntry.primaryTilesetId, anchorEntry.secondaryTilesetId);
 
-  const assets: LoadedMapAssets = {
-    mapData,
+  return {
+    maps,
+    anchorId: anchorEntry.id,
+    worldBounds: {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: maxX - minX,
+      height: maxY - minY,
+    },
     primaryMetatiles,
     secondaryMetatiles,
+    primaryAttributes,
+    secondaryAttributes,
     primaryImage,
     secondaryImage,
     primaryPalettes,
     secondaryPalettes,
     animations,
+    borderMetatiles,
   };
-
-  cache?.set(entry.id, assets);
-  return assets;
 }
 
-/** Compute neighbor offset mirroring the game logic (tiles, not pixels) */
-function computeOffset(
-  base: WorldChunk,
-  neighborEntry: MapIndexEntry,
-  connection: MapIndexEntry['connections'][number]
-): { offsetX: number; offsetY: number } {
-  const dir = connection.direction.toLowerCase();
-  if (dir === 'up' || dir === 'north') {
-    return { offsetX: base.offsetX + connection.offset, offsetY: base.offsetY - neighborEntry.height };
-  }
-  if (dir === 'down' || dir === 'south') {
-    return { offsetX: base.offsetX + connection.offset, offsetY: base.offsetY + base.mapData.height };
-  }
-  if (dir === 'left' || dir === 'west') {
-    return { offsetX: base.offsetX - neighborEntry.width, offsetY: base.offsetY + connection.offset };
-  }
-  if (dir === 'right' || dir === 'east') {
-    return { offsetX: base.offsetX + base.mapData.width, offsetY: base.offsetY + connection.offset };
-  }
-  return { offsetX: base.offsetX, offsetY: base.offsetY };
-}
+
+// Viewport configuration
+const VIEWPORT_TILES_WIDE = 20;
+const VIEWPORT_TILES_HIGH = 20;
 
 export function WebGLMapPage() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const glContextRef = useRef<WebGLContext | null>(null);
-  const tileRendererRef = useRef<WebGLTileRenderer | null>(null);
-  const animationManagerRef = useRef<WebGLAnimationManager | null>(null);
-  const tilesRef = useRef<TileInstance[]>([]);
-  const tilesetGroupsRef = useRef<Array<{ key: string; assets: LoadedMapAssets; tiles: TileInstance[] }>>([]);
-  const mapAssetsCacheRef = useRef<Map<string, LoadedMapAssets>>(new Map());
-  const renderSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  // Canvas refs - we use two canvases: hidden WebGL and visible 2D
+  const displayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Pipeline and state refs
+  const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
+  const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
+  const worldBoundsRef = useRef<{ width: number; height: number; minX: number; minY: number }>({ width: 0, height: 0, minX: 0, minY: 0 });
   const rafRef = useRef<number | null>(null);
-  const currentTilesetKeyRef = useRef<string | null>(null);
+  const cameraRef = useRef<CameraState>({ x: 0, y: 0 });
+  const gbaFrameRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(performance.now());
+  const gbaAccumRef = useRef<number>(0);
+
+  // Player controller ref
+  const playerRef = useRef<PlayerController | null>(null);
+  const playerLoadedRef = useRef<boolean>(false);
+
+  // Field sprites (grass, sand, etc.)
+  const fieldSprites = useFieldSprites();
+  const fieldSpritesLoadedRef = useRef<boolean>(false);
 
   const renderableMaps = useMemo(
     () =>
@@ -312,7 +404,7 @@ export function WebGLMapPage() {
 
   const defaultMap = renderableMaps.find((m) => m.name === 'LittlerootTown') || renderableMaps[0];
   const [selectedMapId, setSelectedMapId] = useState<string>(defaultMap?.id ?? '');
-  const [stitchConnections, setStitchConnections] = useState<boolean>(false);
+  const [stitchedMapCount, setStitchedMapCount] = useState<number>(1);
   const [worldSize, setWorldSize] = useState<{ width: number; height: number }>({
     width: (defaultMap?.width ?? 0) * METATILE_SIZE,
     height: (defaultMap?.height ?? 0) * METATILE_SIZE,
@@ -330,105 +422,353 @@ export function WebGLMapPage() {
     error: null,
   });
   const [loading, setLoading] = useState(false);
+  const [cameraDisplay, setCameraDisplay] = useState<CameraState>({ x: 0, y: 0 });
+  const [debugTile, setDebugTile] = useState<DebugTileInfo | null>(null);
 
-  // Initialize WebGL context and renderer once
+  // Create tile resolver for stitched world (handles multiple maps)
+  const createStitchedTileResolver = useCallback((world: StitchedWorldData): TileResolverFn => {
+    const { maps, primaryMetatiles, secondaryMetatiles, primaryAttributes, secondaryAttributes, borderMetatiles } = world;
+
+    return (worldX: number, worldY: number): ResolvedTile | null => {
+      // Find which map contains this world tile
+      for (const map of maps) {
+        const localX = worldX - map.offsetX;
+        const localY = worldY - map.offsetY;
+
+        if (localX >= 0 && localX < map.entry.width &&
+            localY >= 0 && localY < map.entry.height) {
+          // Found the map containing this tile
+          const idx = localY * map.entry.width + localX;
+          const mapTile = map.mapData.layout[idx];
+          const metatileId = mapTile.metatileId;
+
+          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+          const metatile = isSecondary
+            ? secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
+            : primaryMetatiles[metatileId];
+
+          if (!metatile) return null;
+
+          const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+          const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+          const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
+
+          return {
+            metatile,
+            attributes,
+            mapTile,
+            map: null as any,
+            tileset: null as any,
+            isSecondary,
+            isBorder: false,
+          };
+        }
+      }
+
+      // Out of world bounds - use border tiles
+      if (!borderMetatiles || borderMetatiles.length === 0) {
+        return null;
+      }
+
+      // Calculate border pattern index (2x2 repeating)
+      const borderIndex = ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
+      const borderMetatileId = borderMetatiles[borderIndex];
+
+      const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
+      const metatile = isSecondary
+        ? secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
+        : primaryMetatiles[borderMetatileId];
+
+      if (!metatile) return null;
+
+      const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
+      const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+      const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
+
+      return {
+        metatile,
+        attributes,
+        mapTile: { metatileId: borderMetatileId, collision: 1, elevation: 0 },
+        map: null as any,
+        tileset: null as any,
+        isSecondary,
+        isBorder: true,
+      };
+    };
+  }, []);
+
+  // Create player tile resolver for stitched world
+  const createStitchedPlayerTileResolver = useCallback((world: StitchedWorldData): PlayerTileResolver => {
+    const { maps, primaryAttributes, secondaryAttributes } = world;
+
+    return (worldX: number, worldY: number) => {
+      // Find which map contains this world tile
+      for (const map of maps) {
+        const localX = worldX - map.offsetX;
+        const localY = worldY - map.offsetY;
+
+        if (localX >= 0 && localX < map.entry.width &&
+            localY >= 0 && localY < map.entry.height) {
+          const idx = localY * map.entry.width + localX;
+          const mapTile = map.mapData.layout[idx];
+          const metatileId = mapTile.metatileId;
+          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+          const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+          const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+          const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
+
+          return { mapTile, attributes };
+        }
+      }
+
+      return null;
+    };
+  }, []);
+
+  // Initialize WebGL pipeline and player once
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const displayCanvas = displayCanvasRef.current;
+    if (!displayCanvas) return;
 
-    if (!isWebGL2Supported(canvas)) {
+    // Create hidden WebGL canvas
+    const webglCanvas = document.createElement('canvas');
+    webglCanvasRef.current = webglCanvas;
+
+    if (!isWebGL2Supported(webglCanvas)) {
       setStats((s) => ({ ...s, webgl2Supported: false, error: 'WebGL2 not supported in this browser' }));
       return;
     }
 
-    const ctx = new WebGLContext(canvas);
-    if (!ctx.initialize()) {
-      setStats((s) => ({ ...s, webgl2Supported: false, error: 'Failed to initialize WebGL2 context' }));
+    try {
+      const pipeline = new WebGLRenderPipeline(webglCanvas);
+      pipelineRef.current = pipeline;
+      setStats((s) => ({ ...s, webgl2Supported: true, error: null }));
+    } catch (e) {
+      setStats((s) => ({ ...s, webgl2Supported: false, error: 'Failed to create WebGL pipeline' }));
       return;
     }
 
-    const renderer = new WebGLTileRenderer(ctx);
-    renderer.initialize();
+    // Initialize player controller
+    const player = new PlayerController();
+    playerRef.current = player;
 
-    const animationManager = new WebGLAnimationManager(ctx.getGL(), renderer.getTextureManager());
+    // Load player sprites
+    const loadPlayerSprites = async () => {
+      try {
+        await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
+        await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
+        await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
+        await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+        playerLoadedRef.current = true;
+      } catch (err) {
+        console.error('Failed to load player sprites:', err);
+      }
+    };
+    loadPlayerSprites();
 
-    glContextRef.current = ctx;
-    tileRendererRef.current = renderer;
-    animationManagerRef.current = animationManager;
-
-    setStats((s) => ({ ...s, webgl2Supported: true, error: null }));
+    // Load field sprites (grass, sand, etc.)
+    const loadFieldSprites = async () => {
+      try {
+        await fieldSprites.loadAll();
+        fieldSpritesLoadedRef.current = true;
+      } catch (err) {
+        console.error('Failed to load field sprites:', err);
+      }
+    };
+    loadFieldSprites();
 
     let frameCount = 0;
     let fpsTime = performance.now();
-    let gbaFrame = 0;
-    let gbaAccum = 0;
-    let lastTime = performance.now();
 
     const renderLoop = () => {
-      const currentRenderer = tileRendererRef.current;
-      const currentCtx = glContextRef.current;
-      const canvasEl = canvasRef.current;
-      if (!currentRenderer || !currentCtx || !canvasEl) return;
-
-      // Advance GBA-frame counter based on real time so animations match hardware speed
-      const nowTime = performance.now();
-      const dt = nowTime - lastTime;
-      lastTime = nowTime;
-      gbaAccum += dt;
-      while (gbaAccum >= GBA_FRAME_MS) {
-        gbaAccum -= GBA_FRAME_MS;
-        gbaFrame++;
+      const pipeline = pipelineRef.current;
+      const stitchedWorld = stitchedWorldRef.current;
+      const displayCanvas = displayCanvasRef.current;
+      // Need stitched world to render
+      if (!pipeline || !stitchedWorld || !displayCanvas) {
+        rafRef.current = requestAnimationFrame(renderLoop);
+        return;
       }
 
-      const { width, height } = renderSizeRef.current;
-      const groups = tilesetGroupsRef.current;
-      const totalTiles = tilesRef.current.length;
+      const ctx2d = displayCanvas.getContext('2d');
+      if (!ctx2d) {
+        rafRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
 
-      if (width > 0 && height > 0 && totalTiles > 0) {
-        if (canvasEl.width !== width || canvasEl.height !== height) {
-          canvasEl.width = width;
-          canvasEl.height = height;
+      // Advance GBA-frame counter
+      const nowTime = performance.now();
+      const dt = nowTime - lastTimeRef.current;
+      lastTimeRef.current = nowTime;
+      gbaAccumRef.current += dt;
+      while (gbaAccumRef.current >= GBA_FRAME_MS) {
+        gbaAccumRef.current -= GBA_FRAME_MS;
+        gbaFrameRef.current++;
+      }
+
+      const { width, height, minX, minY } = worldBoundsRef.current;
+
+      // Convert tile offsets to pixel offsets for camera
+      const worldMinX = minX * METATILE_SIZE;
+      const worldMinY = minY * METATILE_SIZE;
+      const player = playerRef.current;
+
+      // Update player if loaded (handles its own input via keyboard events)
+      if (player && playerLoadedRef.current) {
+        player.update(dt);
+      }
+
+      // Camera follows player (center player in viewport)
+      const viewportWidth = VIEWPORT_TILES_WIDE * METATILE_SIZE;
+      const viewportHeight = VIEWPORT_TILES_HIGH * METATILE_SIZE;
+      if (player && playerLoadedRef.current) {
+        const focus = player.getCameraFocus();
+        cameraRef.current.x = focus.x - viewportWidth / 2;
+        cameraRef.current.y = focus.y - viewportHeight / 2;
+      }
+
+      // Clamp camera to world bounds with some border overscan
+      // Allow scrolling a few tiles beyond edges to see border tiles
+      // For stitched worlds, worldMinX/Y can be negative (maps connected left/above anchor)
+      const BORDER_OVERSCAN = 3 * METATILE_SIZE; // Allow 3 tiles of border viewing
+      const camMinX = worldMinX - BORDER_OVERSCAN;
+      const camMaxX = worldMinX + width - viewportWidth + BORDER_OVERSCAN;
+      const camMinY = worldMinY - BORDER_OVERSCAN;
+      const camMaxY = worldMinY + height - viewportHeight + BORDER_OVERSCAN;
+      cameraRef.current.x = Math.max(camMinX, Math.min(cameraRef.current.x, Math.max(camMinX, camMaxX)));
+      cameraRef.current.y = Math.max(camMinY, Math.min(cameraRef.current.y, Math.max(camMinY, camMaxY)));
+
+      if (width > 0 && height > 0) {
+        // Ensure display canvas is sized to viewport
+        if (displayCanvas.width !== viewportWidth || displayCanvas.height !== viewportHeight) {
+          displayCanvas.width = viewportWidth;
+          displayCanvas.height = viewportHeight;
         }
 
         const start = performance.now();
-        currentCtx.clear(0, 0, 0, 0);
 
-        for (const group of groups) {
-          if (currentTilesetKeyRef.current !== group.key) {
-            // Upload tileset + palettes for this group
-            currentRenderer.uploadTileset('primary', group.assets.primaryImage.data, group.assets.primaryImage.width, group.assets.primaryImage.height);
-            currentRenderer.uploadTileset('secondary', group.assets.secondaryImage.data, group.assets.secondaryImage.width, group.assets.secondaryImage.height);
-            currentRenderer.uploadPalettes(
-              combineTilesetPalettes(group.assets.primaryPalettes, group.assets.secondaryPalettes)
+        // Create WorldCameraView for viewport culling
+        const cameraX = cameraRef.current.x;
+        const cameraY = cameraRef.current.y;
+        const startTileX = Math.floor(cameraX / METATILE_SIZE);
+        const startTileY = Math.floor(cameraY / METATILE_SIZE);
+        const subTileOffsetX = cameraX - startTileX * METATILE_SIZE;
+        const subTileOffsetY = cameraY - startTileY * METATILE_SIZE;
+
+        // Render +1 tile in each direction to cover sub-tile offset
+        // (when we shift by subTileOffsetX/Y, we need extra content on the edges)
+        const renderTilesWide = VIEWPORT_TILES_WIDE + 1;
+        const renderTilesHigh = VIEWPORT_TILES_HIGH + 1;
+
+        const view: WorldCameraView = {
+          // CameraView base fields
+          cameraX,
+          cameraY,
+          startTileX,
+          startTileY,
+          subTileOffsetX,
+          subTileOffsetY,
+          tilesWide: renderTilesWide,
+          tilesHigh: renderTilesHigh,
+          pixelWidth: renderTilesWide * METATILE_SIZE,
+          pixelHeight: renderTilesHigh * METATILE_SIZE,
+          // WorldCameraView specific fields
+          worldStartTileX: startTileX,
+          worldStartTileY: startTileY,
+          cameraWorldX: cameraX,
+          cameraWorldY: cameraY,
+        };
+
+        // Get player elevation for layer splitting (same as useCompositeScene)
+        const playerElevation = player && playerLoadedRef.current ? player.getElevation() : 0;
+
+        // Render using pipeline (this does viewport culling!)
+        // Force full render each frame to avoid dirty tracking issues during testing
+        // animationChanged triggers texture updates for animated tiles
+        pipeline.render(
+          null as any, // RenderContext not used by WebGL pipeline
+          view,
+          playerElevation,
+          { gameFrame: gbaFrameRef.current, needsFullRender: true, animationChanged: true }
+        );
+
+        // Composite with sprite rendering between layers (hybrid rendering test)
+        // This matches the game's render order:
+        //   1. Background layer (BG2 - always behind)
+        //   2. TopBelow layer (BG1 tiles behind player based on elevation)
+        //   3. Player and other sprites
+        //   4. TopAbove layer (BG1 tiles in front of player - bridges, roofs, etc)
+
+        pipeline.compositeBackgroundOnly(ctx2d, view);
+        pipeline.compositeTopBelowOnly(ctx2d, view);
+
+        // Create ObjectRenderer view for field effects
+        const objView: ObjectRendererView = {
+          cameraWorldX: cameraX,
+          cameraWorldY: cameraY,
+          pixelWidth: viewportWidth,
+          pixelHeight: viewportHeight,
+        };
+
+        // Render field effects and player with proper Y-sorting
+        if (player && playerLoadedRef.current) {
+          const playerWorldY = player.y + 16; // Player feet Y position
+
+          // Render grass effects behind player (bottom layer)
+          if (fieldSpritesLoadedRef.current) {
+            const effects = player.getGrassEffectManager().getEffectsForRendering();
+            ObjectRenderer.renderFieldEffects(
+              ctx2d,
+              effects,
+              {
+                grass: fieldSprites.sprites.grass,
+                longGrass: fieldSprites.sprites.longGrass,
+                sand: fieldSprites.sprites.sand,
+                splash: fieldSprites.sprites.splash,
+                ripple: fieldSprites.sprites.ripple,
+                arrow: null,
+                itemBall: fieldSprites.sprites.itemBall,
+              },
+              objView,
+              playerWorldY,
+              'bottom'
             );
-
-            // Reconfigure animations for this tileset
-            if (animationManagerRef.current) {
-              animationManagerRef.current.clear();
-              animationManagerRef.current.setTilesetBuffers(
-                group.assets.primaryImage.data,
-                group.assets.primaryImage.width,
-                group.assets.primaryImage.height,
-                group.assets.secondaryImage.data,
-                group.assets.secondaryImage.width,
-                group.assets.secondaryImage.height
-              );
-              if (group.assets.animations.length > 0) {
-                animationManagerRef.current.registerAnimations(group.assets.animations);
-              }
-            }
-
-            currentTilesetKeyRef.current = group.key;
           }
 
-          if (animationManagerRef.current?.hasAnimations()) {
-            animationManagerRef.current.updateAnimations(gbaFrame);
-          }
+          // Render player
+          player.render(ctx2d, cameraX, cameraY);
 
-          currentRenderer.render(group.tiles, { width, height }, { x: 0, y: 0 });
+          // Render grass effects in front of player (top layer)
+          if (fieldSpritesLoadedRef.current) {
+            const effects = player.getGrassEffectManager().getEffectsForRendering();
+            ObjectRenderer.renderFieldEffects(
+              ctx2d,
+              effects,
+              {
+                grass: fieldSprites.sprites.grass,
+                longGrass: fieldSprites.sprites.longGrass,
+                sand: fieldSprites.sprites.sand,
+                splash: fieldSprites.sprites.splash,
+                ripple: fieldSprites.sprites.ripple,
+                arrow: null,
+                itemBall: fieldSprites.sprites.itemBall,
+              },
+              objView,
+              playerWorldY,
+              'top'
+            );
+          }
         }
 
+        pipeline.compositeTopAbove(ctx2d, view);
+
         const renderTime = performance.now() - start;
+
+        // Get tile count from pipeline stats
+        const pipelineStats = pipeline.getStats();
+        const tileCount = pipelineStats.passTileCounts.background +
+                          pipelineStats.passTileCounts.topBelow +
+                          pipelineStats.passTileCounts.topAbove;
 
         frameCount++;
         const now = performance.now();
@@ -436,10 +776,48 @@ export function WebGLMapPage() {
           const fps = Math.round((frameCount * 1000) / (now - fpsTime));
           setStats((s) => ({
             ...s,
-            tileCount: totalTiles,
+            tileCount,
             renderTimeMs: renderTime,
             fps,
           }));
+          setCameraDisplay({ x: cameraRef.current.x, y: cameraRef.current.y });
+
+          // Gather debug tile info for the tile under the player
+          if (player && playerLoadedRef.current) {
+            const tileX = player.tileX;
+            const tileY = player.tileY;
+            const stitchedWorld = stitchedWorldRef.current;
+
+            if (stitchedWorld) {
+              // Use stitched world data
+              const { maps, primaryAttributes, secondaryAttributes } = stitchedWorld;
+              // Find which map the player is in
+              for (const map of maps) {
+                const localX = tileX - map.offsetX;
+                const localY = tileY - map.offsetY;
+                if (localX >= 0 && localX < map.entry.width && localY >= 0 && localY < map.entry.height) {
+                  const mapTile = map.mapData.layout[localY * map.entry.width + localX];
+                  const metatileId = mapTile.metatileId;
+                  const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+                  const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+                  const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+                  const attrs = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
+                  setDebugTile({
+                    tileX,
+                    tileY,
+                    metatileId,
+                    tileElevation: mapTile.elevation,
+                    playerElevation,
+                    collision: mapTile.collision,
+                    layerType: attrs.layerType,
+                    behavior: attrs.behavior,
+                  });
+                  break;
+                }
+              }
+            }
+          }
+
           frameCount = 0;
           fpsTime = now;
         }
@@ -452,140 +830,82 @@ export function WebGLMapPage() {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      animationManagerRef.current?.clear();
-      renderer.dispose();
-      ctx.dispose();
+      pipelineRef.current?.dispose();
+      pipelineRef.current = null;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+      playerLoadedRef.current = false;
     };
   }, []);
 
-  // Load selected map assets and upload to GPU
+  // Load selected map assets and configure pipeline
   useEffect(() => {
     const entry = selectedMap;
-    if (!entry || !tileRendererRef.current || !glContextRef.current) return;
+    const pipeline = pipelineRef.current;
+    if (!entry || !pipeline) return;
 
     let cancelled = false;
     setLoading(true);
     setStats((s) => ({ ...s, error: null }));
+    // Reset camera when map changes
+    cameraRef.current = { x: 0, y: 0 };
+    setCameraDisplay({ x: 0, y: 0 });
 
     const load = async () => {
       try {
-        const mapAssetsCache = mapAssetsCacheRef.current;
-        const anchorAssets = await loadMapAssets(entry, mapAssetsCache);
+        // Always use stitched world loading - it handles single maps too
+        // and automatically expands to include all connected maps with matching tilesets
+        const world = await loadStitchedWorld(entry); // Unlimited depth for same-tileset chains
         if (cancelled) return;
 
-        // Upload tilesets and palettes from the anchor map
-        tileRendererRef.current!.uploadTileset('primary', anchorAssets.primaryImage.data, anchorAssets.primaryImage.width, anchorAssets.primaryImage.height);
-        tileRendererRef.current!.uploadTileset('secondary', anchorAssets.secondaryImage.data, anchorAssets.secondaryImage.width, anchorAssets.secondaryImage.height);
-        tileRendererRef.current!.uploadPalettes(combineTilesetPalettes(anchorAssets.primaryPalettes, anchorAssets.secondaryPalettes));
+        // Store stitched world
+        stitchedWorldRef.current = world;
 
-        // Configure animations (shared tilesets) from anchor
-        if (animationManagerRef.current) {
-          animationManagerRef.current.clear();
-          animationManagerRef.current.setTilesetBuffers(
-            anchorAssets.primaryImage.data,
-            anchorAssets.primaryImage.width,
-            anchorAssets.primaryImage.height,
-            anchorAssets.secondaryImage.data,
-            anchorAssets.secondaryImage.width,
-            anchorAssets.secondaryImage.height
-          );
-          if (anchorAssets.animations.length > 0) {
-            animationManagerRef.current.registerAnimations(anchorAssets.animations);
-          }
-        }
+        // Set up tile resolver for stitched world
+        const resolver = createStitchedTileResolver(world);
+        pipeline.setTileResolver(resolver);
 
-        // Build world chunks (anchor + optional stitched neighbors, any tileset)
-        const chunks: WorldChunk[] = [
-          {
-            entry,
-            mapData: anchorAssets.mapData,
-            offsetX: 0,
-            offsetY: 0,
-          },
-        ];
+        // Upload tilesets (shared across all stitched maps)
+        pipeline.uploadTilesets(
+          world.primaryImage.data,
+          world.primaryImage.width,
+          world.primaryImage.height,
+          world.secondaryImage.data,
+          world.secondaryImage.width,
+          world.secondaryImage.height,
+          world.animations
+        );
+        pipeline.uploadPalettes(combineTilesetPalettes(world.primaryPalettes, world.secondaryPalettes));
 
-        const hasConnections = stitchConnections && entry.connections && entry.connections.length > 0;
+        // Invalidate pipeline cache
+        pipeline.invalidate();
 
-        if (hasConnections) {
-          const mapIndexById = new Map(mapIndexData.map((m) => [m.id, m]));
-          const neighborPromises = entry.connections.map(async (conn) => {
-            const neighborEntry = mapIndexById.get(conn.map);
-            if (!neighborEntry) return null;
-            const assets = await loadMapAssets(neighborEntry, mapAssetsCache);
-            return { entry: neighborEntry, assets, connection: conn };
-          });
-
-          const neighborResults = await Promise.all(neighborPromises);
-          for (const res of neighborResults) {
-            if (!res) continue;
-            const { offsetX, offsetY } = computeOffset(
-              { entry, mapData: anchorAssets.mapData, offsetX: 0, offsetY: 0 },
-              res.entry,
-              res.connection
-            );
-            chunks.push({
-              entry: res.entry,
-              mapData: res.assets.mapData,
-              offsetX,
-              offsetY,
-            });
-          }
-        }
-
-        // Compute world bounds to normalize coordinates
-        let minX = 0;
-        let minY = 0;
-        let maxX = entry.width;
-        let maxY = entry.height;
-        for (const c of chunks) {
-          minX = Math.min(minX, c.offsetX);
-          minY = Math.min(minY, c.offsetY);
-          maxX = Math.max(maxX, c.offsetX + c.mapData.width);
-          maxY = Math.max(maxY, c.offsetY + c.mapData.height);
-        }
-        const shiftX = -minX;
-        const shiftY = -minY;
-
-        // Build tiles for all chunks with shifted coordinates and group by tileset key
-        const groups = new Map<string, { key: string; assets: LoadedMapAssets; tiles: TileInstance[] }>();
-        let totalTiles = 0;
-
-        for (const chunk of chunks) {
-          const chunkAssets = await loadMapAssets(chunk.entry, mapAssetsCache);
-          const tilesetKey = `${chunk.entry.primaryTilesetPath}::${chunk.entry.secondaryTilesetPath}`;
-          const group = groups.get(tilesetKey) ?? {
-            key: tilesetKey,
-            assets: chunkAssets,
-            tiles: [],
-          };
-
-          const baseTiles = buildMapTiles(chunkAssets.mapData, chunkAssets.primaryMetatiles, chunkAssets.secondaryMetatiles);
-          const offsetPxX = (chunk.offsetX + shiftX) * METATILE_SIZE;
-          const offsetPxY = (chunk.offsetY + shiftY) * METATILE_SIZE;
-          for (const t of baseTiles) {
-            group.tiles.push({
-              ...t,
-              x: t.x + offsetPxX,
-              y: t.y + offsetPxY,
-            });
-          }
-
-          totalTiles += baseTiles.length;
-          groups.set(tilesetKey, group);
-        }
-
-        tilesetGroupsRef.current = Array.from(groups.values());
-        tilesRef.current = tilesetGroupsRef.current.flatMap((g) => g.tiles);
-        renderSizeRef.current = {
-          width: (maxX - minX) * METATILE_SIZE,
-          height: (maxY - minY) * METATILE_SIZE,
+        // Set world bounds from stitched world
+        const { worldBounds } = world;
+        const worldWidth = worldBounds.width * METATILE_SIZE;
+        const worldHeight = worldBounds.height * METATILE_SIZE;
+        worldBoundsRef.current = {
+          width: worldWidth,
+          height: worldHeight,
+          minX: worldBounds.minX,
+          minY: worldBounds.minY,
         };
-        setWorldSize({
-          width: renderSizeRef.current.width,
-          height: renderSizeRef.current.height,
-        });
+        setWorldSize({ width: worldWidth, height: worldHeight });
+        setStitchedMapCount(world.maps.length);
 
-        setStats((s) => ({ ...s, tileCount: totalTiles, error: null }));
+        // Set up player with stitched tile resolver
+        const player = playerRef.current;
+        if (player) {
+          const playerResolver = createStitchedPlayerTileResolver(world);
+          player.setTileResolver(playerResolver);
+
+          // Spawn player at center of anchor map (offset 0,0)
+          const spawnX = Math.floor(entry.width / 2);
+          const spawnY = Math.floor(entry.height / 2);
+          player.setPosition(spawnX, spawnY);
+        }
+
+        setStats((s) => ({ ...s, error: null }));
       } catch (err) {
         if (!cancelled) {
           setStats((s) => ({
@@ -603,7 +923,7 @@ export function WebGLMapPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedMap, stitchConnections]);
+  }, [selectedMap, createStitchedTileResolver, createStitchedPlayerTileResolver]);
 
   if (!selectedMap) {
     return (
@@ -624,7 +944,7 @@ export function WebGLMapPage() {
         <a href="#/" style={{ color: '#88f' }}>Back to main</a>
       </div>
       <p style={{ marginTop: -6, color: '#ccc' }}>
-        Pure tiles-only rendering (no NPCs or gameplay). Powered by the WebGL tile renderer + palette/animation system.
+        WebGL tile rendering with player sprite. Powered by the WebGL tile renderer + palette/animation system.
       </p>
 
       <div className="selector">
@@ -650,33 +970,12 @@ export function WebGLMapPage() {
           <span style={{ display: 'block', marginTop: 4 }}>
             Size: {selectedMap.width}×{selectedMap.height} metatiles ({pixelWidth}×{pixelHeight}px)
           </span>
-          {stitchConnections && (
-            <span style={{ display: 'block', marginTop: 4 }}>
-              Stitched canvas: {worldSize.width}px × {worldSize.height}px
+          {stitchedMapCount > 1 && (
+            <span style={{ display: 'block', marginTop: 4, color: '#8cf' }}>
+              Stitched: {stitchedMapCount} maps ({worldSize.width}×{worldSize.height}px world)
             </span>
           )}
         </div>
-        {selectedMap.connections.length > 0 && (
-          <div style={{ marginTop: 8, display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setStitchConnections((v) => !v)}
-              style={{
-                padding: '0.4rem 0.75rem',
-                background: stitchConnections ? '#2356ff' : '#1a1f2d',
-                border: '1px solid #2f3a55',
-                color: '#e6e6e6',
-                borderRadius: 6,
-                cursor: 'pointer',
-              }}
-            >
-              {stitchConnections ? 'Stitch Connections: ON' : 'Stitch Connections: OFF'}
-            </button>
-            <span style={{ fontSize: 12, color: '#9fb0cc' }}>
-              Includes one connected map per direction when tilesets match.
-            </span>
-          </div>
-        )}
         {loading && <div style={{ marginTop: 8, color: '#88f' }}>Loading map data…</div>}
         {stats.error && <div style={{ marginTop: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
       </div>
@@ -684,9 +983,9 @@ export function WebGLMapPage() {
       <div className="map-card">
         <div className="map-canvas-wrapper">
           <canvas
-            ref={canvasRef}
+            ref={displayCanvasRef}
             className="webgl-map-canvas"
-            style={{ width: pixelWidth, height: pixelHeight }}
+            style={{ width: VIEWPORT_TILES_WIDE * METATILE_SIZE, height: VIEWPORT_TILES_HIGH * METATILE_SIZE }}
           />
         </div>
         <div className="map-stats">
@@ -694,7 +993,32 @@ export function WebGLMapPage() {
           <div><strong>FPS:</strong> {stats.fps}</div>
           <div><strong>Render:</strong> {stats.renderTimeMs.toFixed(2)} ms</div>
           <div><strong>WebGL2:</strong> {stats.webgl2Supported ? 'Yes' : 'No'}</div>
-          <div><strong>Animations:</strong> {animationManagerRef.current?.getAnimationCount() ?? 0}</div>
+          <div><strong>Viewport:</strong> {VIEWPORT_TILES_WIDE}×{VIEWPORT_TILES_HIGH} tiles</div>
+          <div><strong>Camera:</strong> ({Math.round(cameraDisplay.x)}, {Math.round(cameraDisplay.y)})</div>
+          <div><strong>World:</strong> {worldSize.width}×{worldSize.height}px</div>
+          <div style={{ marginTop: 8, fontSize: 11, color: '#9fb0cc' }}>
+            Use Arrow Keys to move player. Hold Z to run.
+          </div>
+
+          {/* Debug tile info panel */}
+          {debugTile && (
+            <div style={{ marginTop: 12, padding: 8, background: '#1a1f2d', borderRadius: 4, fontSize: 11 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#88f' }}>Tile Debug</div>
+              <div><strong>Position:</strong> ({debugTile.tileX}, {debugTile.tileY})</div>
+              <div><strong>Metatile ID:</strong> {debugTile.metatileId} {debugTile.metatileId >= 512 ? '(secondary)' : '(primary)'}</div>
+              <div><strong>Tile Elev:</strong> {debugTile.tileElevation}</div>
+              <div><strong>Player Elev:</strong> {debugTile.playerElevation}</div>
+              <div><strong>Collision:</strong> {debugTile.collision}</div>
+              <div><strong>Layer Type:</strong> {debugTile.layerType} {debugTile.layerType === 0 ? '(NORMAL - top in front)' : debugTile.layerType === 1 ? '(COVERED - top in bg)' : debugTile.layerType === 2 ? '(SPLIT)' : ''}</div>
+              <div><strong>Behavior:</strong> 0x{debugTile.behavior.toString(16).toUpperCase()}</div>
+              <div style={{ marginTop: 4, color: debugTile.tileElevation === debugTile.playerElevation ? '#8f8' : '#f88' }}>
+                {debugTile.tileElevation === debugTile.playerElevation ? '✓ Same elevation' : '✗ Different elevation'}
+              </div>
+              <div style={{ marginTop: 2, fontSize: 10, color: '#888' }}>
+                Elev 3 priority: 2 (below BG1)
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

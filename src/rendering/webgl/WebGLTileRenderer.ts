@@ -54,6 +54,10 @@ export class WebGLTileRenderer {
     primaryTileset: WebGLUniformLocation | null;
     secondaryTileset: WebGLUniformLocation | null;
     palette: WebGLUniformLocation | null;
+    // Second tileset pair (for multi-tileset worlds)
+    primaryTileset1: WebGLUniformLocation | null;
+    secondaryTileset1: WebGLUniformLocation | null;
+    palette1: WebGLUniformLocation | null;
   } | null = null;
 
   // Cached attribute locations
@@ -114,6 +118,10 @@ export class WebGLTileRenderer {
       primaryTileset: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTileset'),
       secondaryTileset: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset'),
       palette: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette'),
+      // Second tileset pair uniforms
+      primaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTileset1'),
+      secondaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset1'),
+      palette1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette1'),
     };
   }
 
@@ -183,11 +191,18 @@ export class WebGLTileRenderer {
     gl.uniform2f(this.uniforms.primaryTilesetSize, primarySize.tilesWide, primarySize.tilesHigh);
     gl.uniform2f(this.uniforms.secondaryTilesetSize, secondarySize.tilesWide, secondarySize.tilesHigh);
 
-    // Bind textures and set texture uniforms
+    // Bind textures and set texture uniforms (both pairs)
     this.textureManager.bindTextures(0, 1, 2);
+
+    // Pair 0 texture uniforms
     gl.uniform1i(this.uniforms.primaryTileset, 0);
     gl.uniform1i(this.uniforms.secondaryTileset, 1);
     gl.uniform1i(this.uniforms.palette, 2);
+
+    // Pair 1 texture uniforms (units 3, 4, 5)
+    gl.uniform1i(this.uniforms.primaryTileset1, 3);
+    gl.uniform1i(this.uniforms.secondaryTileset1, 4);
+    gl.uniform1i(this.uniforms.palette1, 5);
 
     // Update instance buffer with tile data
     this.bufferManager.updateInstanceBuffer(tiles);

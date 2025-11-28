@@ -43,6 +43,7 @@ function createTestTiles(
         xflip: x % 4 === 0,
         yflip: y % 4 === 0,
         tilesetIndex: 0, // Primary tileset
+        tilesetPairIndex: 0, // Tileset pair 0
       });
     }
   }
