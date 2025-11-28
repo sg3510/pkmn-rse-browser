@@ -31,20 +31,6 @@ export interface DirtyRegion {
 }
 
 /**
- * Position in the viewport (screen coordinates)
- */
-interface ViewportPosition {
-  /** Local X in viewport (0 to tilesWide-1) */
-  localX: number;
-  /** Local Y in viewport (0 to tilesHigh-1) */
-  localY: number;
-  /** World tile X coordinate */
-  worldX: number;
-  /** World tile Y coordinate */
-  worldY: number;
-}
-
-/**
  * DirtyRegionTracker - Tracks which viewport positions contain animated tiles
  *
  * Usage:

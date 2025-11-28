@@ -8,7 +8,9 @@
 import { PlayerController } from '../game/PlayerController';
 import type { WorldState, TilesetResources } from '../services/MapManager';
 import { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
-import { RenderPipeline } from '../rendering/RenderPipeline';
+import type { IRenderPipeline } from '../rendering/IRenderPipeline';
+import { RenderPipelineFactory, WebGLRenderPipelineAdapter } from '../rendering/RenderPipelineFactory';
+import { RENDERING_CONFIG } from '../config/rendering';
 import { AnimationTimer } from '../engine/AnimationTimer';
 import { GameLoop, type FrameHandler } from '../engine/GameLoop';
 import { createInitialState, ObservableState, type Position } from '../engine/GameState';
@@ -50,7 +52,8 @@ export interface InitRefs {
   debugOptionsRef: React.MutableRefObject<DebugOptions>;
   reflectionStateRef: React.MutableRefObject<ReflectionState>;
   mapManagerRef: React.MutableRefObject<MapManager>;
-  renderPipelineRef: React.MutableRefObject<RenderPipeline | null>;
+  renderPipelineRef: React.MutableRefObject<IRenderPipeline | null>;
+  webglCanvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
   gameLoopRef: React.MutableRefObject<GameLoop | null>;
   updateCoordinatorRef: React.MutableRefObject<UpdateCoordinator | null>;
   gameStateRef: React.MutableRefObject<ObservableState | null>;
@@ -151,6 +154,66 @@ async function rebuildContextForWorld(
   if (npcGraphicsIds.length > 0) {
     await npcSpriteCache.loadMany(npcGraphicsIds);
   }
+
+  // Upload tilesets to WebGL if using WebGL pipeline
+  uploadTilesetsToWebGL(refs, tilesetRuntimes);
+}
+
+/** Tileset width in pixels (16 tiles * 8 pixels) */
+const TILESET_WIDTH = 128;
+
+/**
+ * Upload tilesets and palettes to WebGL pipeline if active.
+ * This is needed because WebGL requires explicit GPU uploads.
+ */
+function uploadTilesetsToWebGL(
+  refs: InitRefs,
+  tilesetRuntimes: Map<string, TilesetRuntime>
+) {
+  const pipeline = refs.renderPipelineRef.current;
+  if (!pipeline || pipeline.rendererType !== 'webgl') {
+    return;
+  }
+
+  // Cast to WebGL adapter to access upload methods
+  const webglPipeline = pipeline as WebGLRenderPipelineAdapter;
+
+  // Use the anchor map's tileset for initial upload
+  const ctx = refs.renderContextRef.current;
+  if (!ctx) return;
+
+  const anchorRuntime = tilesetRuntimes.get(ctx.anchor.tilesets.key);
+  if (!anchorRuntime) return;
+
+  const { resources } = anchorRuntime;
+
+  // Calculate dimensions from data length (tilesets are 128px wide)
+  const primaryWidth = TILESET_WIDTH;
+  const primaryHeight = resources.primaryTilesImage.length / TILESET_WIDTH;
+  const secondaryWidth = TILESET_WIDTH;
+  const secondaryHeight = resources.secondaryTilesImage.length / TILESET_WIDTH;
+
+  // Upload tilesets
+  webglPipeline.uploadTilesets(
+    resources.primaryTilesImage,
+    primaryWidth,
+    primaryHeight,
+    resources.secondaryTilesImage,
+    secondaryWidth,
+    secondaryHeight
+  );
+
+  // Combine palettes (GBA system: slots 0-5 from primary, 6-12 from secondary)
+  const combinedPalettes = [
+    ...resources.primaryPalettes.slice(0, 6),
+    ...resources.secondaryPalettes.slice(6, 13),
+  ];
+  // Pad to 16 palettes
+  while (combinedPalettes.length < 16) {
+    combinedPalettes.push(resources.primaryPalettes[0]);
+  }
+
+  webglPipeline.uploadPalettes(combinedPalettes);
 }
 
 /**
@@ -235,8 +298,36 @@ export async function initializeGame({
     if (!refs.tilesetCacheRef.current) {
       refs.tilesetCacheRef.current = new TilesetCanvasCache();
     }
-    refs.renderPipelineRef.current = new RenderPipeline(refs.tilesetCacheRef.current);
-    console.log('[PERF] RenderPipeline initialized');
+
+    // Create WebGL canvas if WebGL is enabled
+    // Always create a fresh canvas to avoid React StrictMode issues
+    // where the WebGL context gets corrupted between double-invocations
+    let webglCanvas: HTMLCanvasElement | undefined;
+    if (RENDERING_CONFIG.enableWebGL && !RENDERING_CONFIG.forceCanvas2D) {
+      // Always create fresh canvas - reusing can cause context issues in StrictMode
+      refs.webglCanvasRef.current = document.createElement('canvas');
+      webglCanvas = refs.webglCanvasRef.current;
+      // Set initial dimensions (will be resized when viewport is known)
+      // WebGL context fails on zero-size canvas
+      webglCanvas.width = 640;
+      webglCanvas.height = 480;
+    }
+
+    const { pipeline, rendererType } = RenderPipelineFactory.create(webglCanvas, {
+      tilesetCache: refs.tilesetCacheRef.current,
+      preferWebGL: RENDERING_CONFIG.enableWebGL,
+    });
+    refs.renderPipelineRef.current = pipeline;
+    console.log(`[PERF] RenderPipeline initialized (${rendererType})`);
+
+    // Upload tilesets to WebGL now that pipeline exists
+    // (rebuildContextForWorld ran earlier when pipeline was null)
+    if (rendererType === 'webgl') {
+      const renderCtx = refs.renderContextRef.current as RenderContext | null;
+      if (renderCtx) {
+        uploadTilesetsToWebGL(refs, renderCtx.tilesetRuntimes);
+      }
+    }
 
     // Initialize player position
     const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];

@@ -7,14 +7,22 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DirtyRegionTracker } from '../DirtyRegionTracker';
 import type { WorldCameraView, TilesetRuntime, ResolvedTile } from '../types';
-import type { Metatile, Palette, MetatileAttributes, MapTileData } from '../../utils/mapLoader';
+import type { Metatile } from '../../utils/mapLoader';
 
 // Mock data
 const createMockView = (options: Partial<WorldCameraView> = {}): WorldCameraView => ({
-  tilesWide: 20,
-  tilesHigh: 20,
+  // Base CameraView fields
+  cameraX: 0,
+  cameraY: 0,
+  startTileX: 0,
+  startTileY: 0,
   subTileOffsetX: 0,
   subTileOffsetY: 0,
+  tilesWide: 20,
+  tilesHigh: 20,
+  pixelWidth: 320,
+  pixelHeight: 320,
+  // WorldCameraView fields
   worldStartTileX: 0,
   worldStartTileY: 0,
   cameraWorldX: 0,
@@ -23,7 +31,8 @@ const createMockView = (options: Partial<WorldCameraView> = {}): WorldCameraView
 });
 
 const createMockMetatile = (tileIds: number[]): Metatile => ({
-  tiles: tileIds.map((tileId, i) => ({
+  id: 0,
+  tiles: tileIds.map((tileId) => ({
     tileId,
     palette: 0,
     xflip: false,

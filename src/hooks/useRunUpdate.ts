@@ -25,7 +25,7 @@ import type { PlayerController } from '../game/PlayerController';
 import type { WarpHandler } from '../field/WarpHandler';
 import type { FadeController } from '../field/FadeController';
 import type { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
-import type { RenderPipeline } from '../rendering/RenderPipeline';
+import type { IRenderPipeline } from '../rendering/IRenderPipeline';
 import type { AnimationTimer } from '../engine/AnimationTimer';
 import type { MapManager, WorldState } from '../services/MapManager';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
@@ -77,7 +77,7 @@ export interface RunUpdateRefs {
   debugOptionsRef: RefObject<DebugOptions>;
   reflectionStateRef: RefObject<ReflectionState | null>;
   mapManagerRef: RefObject<MapManager>;
-  renderPipelineRef: RefObject<RenderPipeline | null>;
+  renderPipelineRef: RefObject<IRenderPipeline | null>;
 }
 
 /** Callbacks needed by runUpdate - passed at creation time since they're defined in useEffect */

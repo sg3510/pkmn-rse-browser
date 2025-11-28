@@ -10,7 +10,7 @@ import type { RenderContext, ReflectionState } from '../components/map/types';
 import type { WorldCameraView } from '../components/MapRendererTypes';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
-import type { RenderPipeline } from '../rendering/RenderPipeline';
+import type { IRenderPipeline } from '../rendering/IRenderPipeline';
 import type { FadeController } from '../field/FadeController';
 import type { DebugOptions } from '../components/debug';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
@@ -38,7 +38,7 @@ export interface CompositeSceneRefs {
   topCanvasRef: RefObject<HTMLCanvasElement | null>;
   playerControllerRef: RefObject<PlayerController | null>;
   lastPlayerElevationRef: RefObject<number>;
-  renderPipelineRef: RefObject<RenderPipeline | null>;
+  renderPipelineRef: RefObject<IRenderPipeline | null>;
   objectEventManagerRef: RefObject<ObjectEventManager>;
   playerHiddenRef: RefObject<boolean>;
   debugOptionsRef: RefObject<DebugOptions>;

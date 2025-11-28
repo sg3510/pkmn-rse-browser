@@ -15,7 +15,7 @@ import type { PlayerController, DoorWarpRequest } from '../game/PlayerController
 import type { FadeController } from '../field/FadeController';
 import type { WarpHandler } from '../field/WarpHandler';
 import type { MapManager, WorldState } from '../services/MapManager';
-import type { RenderPipeline } from '../rendering/RenderPipeline';
+import type { IRenderPipeline } from '../rendering/IRenderPipeline';
 import type { UseDoorSequencerReturn } from './useDoorSequencer';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
@@ -58,7 +58,7 @@ export interface WarpExecutionRefs {
   hasRenderedRef: RefObject<boolean>;
   renderGenerationRef: RefObject<number>;
   mapManagerRef: RefObject<MapManager>;
-  renderPipelineRef: RefObject<RenderPipeline | null>;
+  renderPipelineRef: RefObject<IRenderPipeline | null>;
 }
 
 /** Callbacks needed by warp execution - passed at creation time */

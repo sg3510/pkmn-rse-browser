@@ -21,6 +21,7 @@ import type {
   ReflectionMeta as SharedReflectionMeta,
   LoadedAnimation as SharedLoadedAnimation,
   TilesetBuffers as SharedTilesetBuffers,
+  AnimationDestination as SharedAnimationDestination,
 } from '../utils/tilesetUtils';
 
 // Re-export for convenience
@@ -33,6 +34,7 @@ export type TilesetRuntime = SharedTilesetRuntime;
 export type ReflectionMeta = SharedReflectionMeta;
 export type LoadedAnimation = SharedLoadedAnimation;
 export type TilesetBuffers = SharedTilesetBuffers;
+export type AnimationDestination = SharedAnimationDestination;
 
 /**
  * Extended camera view with world coordinates

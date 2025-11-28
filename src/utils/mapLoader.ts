@@ -49,6 +49,16 @@ export interface Tileset {
   metatiles: Metatile[];
 }
 
+/**
+ * Tileset image data with dimensions
+ * Used when WebGL needs to know the tileset size for texture upload
+ */
+export interface TilesetImageData {
+  data: Uint8Array;
+  width: number;
+  height: number;
+}
+
 export const NUM_TILES_PER_METATILE = 8;
 export const TILE_SIZE = 8;
 export const METATILE_SIZE = 16;
@@ -100,10 +110,21 @@ export function parsePalette(text: string): Palette {
   return { colors };
 }
 
-export async function loadTilesetImage(url: string): Promise<Uint8Array> {
+/**
+ * Load a tileset image and return indexed pixel data
+ *
+ * @param url - Path to the PNG file
+ * @param withDimensions - If true, returns TilesetImageData with width/height
+ * @returns Uint8Array of palette indices, or TilesetImageData if withDimensions is true
+ */
+export async function loadTilesetImage(url: string, withDimensions: true): Promise<TilesetImageData>;
+export async function loadTilesetImage(url: string, withDimensions?: false): Promise<Uint8Array>;
+export async function loadTilesetImage(url: string, withDimensions?: boolean): Promise<Uint8Array | TilesetImageData> {
   const buffer = await loadBinary(url);
   const img = UPNG.decode(buffer);
-  
+
+  let data: Uint8Array;
+
   if (img.ctype === 3) {
     if (img.depth === 4) {
       // 4bpp: 2 pixels per byte
@@ -115,16 +136,27 @@ export async function loadTilesetImage(url: string): Promise<Uint8Array> {
         unpacked[i * 2] = (byte >> 4) & 0xF;
         unpacked[i * 2 + 1] = byte & 0xF;
       }
-      return unpacked;
+      data = unpacked;
+    } else {
+      data = new Uint8Array(img.data);
     }
-    return new Uint8Array(img.data);
+  } else {
+    // Only warn if debug mode is enabled
+    if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+      console.warn('Tileset image is not indexed (ctype != 3). This might cause issues.', url);
+    }
+    data = new Uint8Array(img.data);
   }
-  
-  // Only warn if debug mode is enabled
-  if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
-    console.warn('Tileset image is not indexed (ctype != 3). This might cause issues.', url);
+
+  if (withDimensions) {
+    return {
+      data,
+      width: img.width,
+      height: img.height,
+    };
   }
-  return new Uint8Array(img.data);
+
+  return data;
 }
 
 export async function loadMetatileDefinitions(url: string): Promise<Metatile[]> {

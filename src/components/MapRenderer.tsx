@@ -4,7 +4,7 @@ import { MapManager } from '../services/MapManager';
 import { ObjectEventManager } from '../game/ObjectEventManager';
 import { saveManager, type SaveData, type SaveResult, type LocationState } from '../save';
 import { TilesetCanvasCache } from '../rendering/TilesetCanvasCache';
-import { RenderPipeline } from '../rendering/RenderPipeline';
+import type { IRenderPipeline } from '../rendering/IRenderPipeline';
 import { AnimationTimer } from '../engine/AnimationTimer';
 import { GameLoop } from '../engine/GameLoop';
 import { ObservableState } from '../engine/GameState';
@@ -114,7 +114,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
 
   // Tileset and pipeline refs
   const tilesetCacheRef = useRef<TilesetCanvasCache | null>(null);
-  const renderPipelineRef = useRef<RenderPipeline | null>(null);
+  const renderPipelineRef = useRef<IRenderPipeline | null>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Field effect refs and controllers
   const warpHandlerRef = useRef<WarpHandler>(new WarpHandler());
@@ -373,6 +374,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         reflectionStateRef,
         mapManagerRef,
         renderPipelineRef,
+        webglCanvasRef,
         gameLoopRef,
         updateCoordinatorRef,
         gameStateRef,
