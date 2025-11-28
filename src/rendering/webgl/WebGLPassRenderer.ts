@@ -141,6 +141,37 @@ export class WebGLPassRenderer {
   }
 
   /**
+   * Re-render all cached passes without rebuilding instances.
+   *
+   * Used for animation-only frames where tileset textures changed but
+   * viewport/elevation stayed the same.
+   */
+  rerenderCached(): void {
+    const dims = this.framebufferManager.getDimensions('background') ??
+      this.framebufferManager.getDimensions('topBelow') ??
+      this.framebufferManager.getDimensions('topAbove');
+    if (!dims) return;
+
+    for (const pass of ['background', 'topBelow', 'topAbove'] as PassName[]) {
+      const instances = this.cachedInstances.get(pass);
+      if (!instances || instances.length === 0) continue;
+      this.renderPassToFramebuffer(pass, instances, dims.width, dims.height);
+    }
+  }
+
+  /**
+   * Get current framebuffer dimensions (if any pass has been rendered)
+   */
+  getCurrentDimensions(): { width: number; height: number } | null {
+    return (
+      this.framebufferManager.getDimensions('background') ||
+      this.framebufferManager.getDimensions('topBelow') ||
+      this.framebufferManager.getDimensions('topAbove') ||
+      null
+    );
+  }
+
+  /**
    * Clear cached instances
    */
   invalidate(): void {

@@ -200,13 +200,14 @@ function uploadTilesetsToWebGL(
     primaryHeight,
     resources.secondaryTilesImage,
     secondaryWidth,
-    secondaryHeight
+    secondaryHeight,
+    anchorRuntime.animations
   );
 
   // Combine palettes (GBA system: slots 0-5 from primary, 6-12 from secondary)
   const combinedPalettes = [
     ...resources.primaryPalettes.slice(0, 6),
-    ...resources.secondaryPalettes.slice(6, 13),
+    ...resources.secondaryPalettes.slice(6, 13), // slots 6-12
   ];
   // Pad to 16 palettes
   while (combinedPalettes.length < 16) {

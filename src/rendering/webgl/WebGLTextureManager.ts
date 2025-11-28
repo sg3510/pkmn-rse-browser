@@ -74,6 +74,9 @@ export class WebGLTextureManager {
       throw new Error('Texture not initialized');
     }
 
+    // Ensure tightly packed rows for single-channel textures (avoids row padding artifacts)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
     // Upload as R8 (single channel, 8 bits)
@@ -134,6 +137,7 @@ export class WebGLTextureManager {
       throw new Error('Texture not initialized');
     }
 
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
     // Partial texture update
@@ -161,6 +165,8 @@ export class WebGLTextureManager {
     if (!this.paletteTexture) {
       throw new Error('Palette texture not initialized');
     }
+
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 
     // Create 16x16 RGBA data (16 palettes × 16 colors × 4 channels)
     const data = new Uint8Array(PALETTES_COUNT * COLORS_PER_PALETTE * 4);

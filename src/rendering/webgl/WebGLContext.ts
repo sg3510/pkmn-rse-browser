@@ -43,8 +43,8 @@ export class WebGLContext {
         antialias: false, // Pixel-perfect rendering, no AA
         depth: false, // 2D rendering, no depth buffer needed
         stencil: false,
-        premultipliedAlpha: false,
-        preserveDrawingBuffer: false,
+        premultipliedAlpha: true, // keep alpha for drawImage to 2D canvas
+        preserveDrawingBuffer: true, // retain alpha channel between composites
         powerPreference: 'high-performance',
       });
 

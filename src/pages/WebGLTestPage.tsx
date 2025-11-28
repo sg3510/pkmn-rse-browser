@@ -101,6 +101,8 @@ const MAP_CONFIGS: Record<string, { layoutPath: string; width: number; height: n
 const NUM_PALS_IN_PRIMARY = 6;
 /** Total number of tileset palettes (slots 0-12) */
 const NUM_PALS_TOTAL = 13;
+/** GBA vblank frame duration (~59.73 Hz) for accurate animation timing */
+const GBA_FRAME_MS = 1000 / 59.7275;
 
 /** Load palettes for a tileset */
 async function loadPalettes(tilesetPath: string, startIndex: number, count: number): Promise<Palette[]> {
@@ -729,12 +731,23 @@ export function WebGLTestPage() {
       setStats(s => ({ ...s, initialized: true }));
 
       // Render loop - reads from refs to get current values
-      let frame = 0;
       let frameCount = 0;
       let fpsTime = performance.now();
       let animationId: number;
+      let gbaFrame = 0;
+      let gbaAccum = 0;
+      let lastTime = performance.now();
 
       const render = () => {
+        // Convert real elapsed time into GBA frame count so animations run at hardware speed
+        const nowTime = performance.now();
+        const dt = nowTime - lastTime;
+        lastTime = nowTime;
+        gbaAccum += dt;
+        while (gbaAccum >= GBA_FRAME_MS) {
+          gbaAccum -= GBA_FRAME_MS;
+          gbaFrame++;
+        }
         const startTime = performance.now();
         const currentTileCount = tileCountRef.current;
         const currentAnimate = animateRef.current;
@@ -744,10 +757,11 @@ export function WebGLTestPage() {
         const currentSelectedTileset = selectedTilesetRef.current;
         const current3Pass = use3PassRef.current;
         const currentEnableTileAnimations = enableTileAnimationsRef.current;
+        const animFrame = currentAnimate ? gbaFrame : 0;
 
         // Update tile animations if enabled
         if (currentEnableTileAnimations && animationManagerRef.current && animationManagerRef.current.hasAnimations()) {
-          animationManagerRef.current.updateAnimations(frame);
+          animationManagerRef.current.updateAnimations(gbaFrame);
         }
 
         // Create tiles based on mode
@@ -760,7 +774,7 @@ export function WebGLTestPage() {
           tiles = createTestTiles(
             currentTileCount.wide,
             currentTileCount.high,
-            currentAnimate ? frame : 0
+            animFrame
           );
           renderWidth = currentTileCount.wide * 8;
           renderHeight = currentTileCount.high * 8;
@@ -865,7 +879,6 @@ export function WebGLTestPage() {
           fpsTime = now;
         }
 
-        frame++;
         animationId = requestAnimationFrame(render);
       };
 

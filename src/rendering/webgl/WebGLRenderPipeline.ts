@@ -19,6 +19,8 @@ import { WebGLPassRenderer } from './WebGLPassRenderer';
 import { WebGLCompositor } from './WebGLCompositor';
 import { WebGLTextureManager } from './WebGLTextureManager';
 import { ElevationFilter } from '../ElevationFilter';
+import { WebGLAnimationManager } from './WebGLAnimationManager';
+import { RENDERING_CONFIG } from '../../config/rendering';
 import type {
   WorldCameraView,
   RenderContext,
@@ -27,6 +29,7 @@ import type {
   IsVerticalObjectFn,
 } from '../types';
 import type { Palette } from '../../utils/mapLoader';
+import type { LoadedAnimation } from '../types';
 
 export class WebGLRenderPipeline {
   private glContext: WebGLContext;
@@ -35,6 +38,7 @@ export class WebGLRenderPipeline {
   private passRenderer: WebGLPassRenderer;
   private compositor: WebGLCompositor;
   private elevationFilter: ElevationFilter;
+  private animationManager: WebGLAnimationManager;
 
   // Configuration
   private canvas: HTMLCanvasElement;
@@ -53,6 +57,9 @@ export class WebGLRenderPipeline {
   // External callbacks for context events
   private onContextLostCallback: (() => void) | null = null;
   private onContextRestoredCallback: (() => void) | null = null;
+
+  // Cache latest tileset buffers for animation updates
+  // (kept in animationManager)
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -74,6 +81,10 @@ export class WebGLRenderPipeline {
       this.tileRenderer
     );
     this.compositor = new WebGLCompositor(this.gl);
+    this.animationManager = new WebGLAnimationManager(
+      this.gl,
+      this.tileRenderer.getTextureManager()
+    );
 
     // Initialize elevation filter
     this.elevationFilter = new ElevationFilter(this.isVerticalObject);
@@ -115,10 +126,25 @@ export class WebGLRenderPipeline {
     primaryHeight: number,
     secondaryTileset: Uint8Array,
     secondaryWidth: number,
-    secondaryHeight: number
+    secondaryHeight: number,
+    animations?: LoadedAnimation[]
   ): void {
     this.tileRenderer.uploadTileset('primary', primaryTileset, primaryWidth, primaryHeight);
     this.tileRenderer.uploadTileset('secondary', secondaryTileset, secondaryWidth, secondaryHeight);
+
+    // Configure animation manager
+    this.animationManager.setTilesetBuffers(
+      primaryTileset,
+      primaryWidth,
+      primaryHeight,
+      secondaryTileset,
+      secondaryWidth,
+      secondaryHeight
+    );
+    if (animations) {
+      this.animationManager.registerAnimations(animations);
+    }
+
     this.tilesetsUploaded = true;
     this.needsFullRender = true;
   }
@@ -164,6 +190,7 @@ export class WebGLRenderPipeline {
       needsFullRender: forceFullRender,
       animationChanged,
       elevationChanged: optionElevationChanged,
+      gameFrame = 0,
     } = options;
 
     // Check if elevation changed
@@ -174,6 +201,31 @@ export class WebGLRenderPipeline {
     const viewHash = `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`;
     const viewChanged = viewHash !== this.lastViewHash;
     this.lastViewHash = viewHash;
+
+    const allowDirtyTracking = RENDERING_CONFIG.webgl.enableDirtyTracking;
+
+    // Handle animation-only frame: update textures and re-blit cached instances
+    const animationOnly =
+      allowDirtyTracking &&
+      animationChanged &&
+      !forceFullRender &&
+      !viewChanged &&
+      !elevationChanged &&
+      !this.needsFullRender;
+
+    if (animationOnly) {
+      const updated = this.animationManager.updateAnimations(gameFrame);
+      const dims = this.passRenderer.getCurrentDimensions();
+      if (updated && dims) {
+        this.passRenderer.rerenderCached();
+      }
+      return;
+    }
+
+    // Ensure textures reflect latest animation frame before full/partial renders
+    if (animationChanged) {
+      this.animationManager.updateAnimations(gameFrame);
+    }
 
     // Determine if we need to re-render
     const shouldRender = this.needsFullRender ||
@@ -308,6 +360,9 @@ export class WebGLRenderPipeline {
     view: WorldCameraView,
     clearFirst: boolean
   ): void {
+    // Ensure pixel-perfect copy from WebGL to 2D canvas (avoid smoothing artifacts)
+    mainCtx.imageSmoothingEnabled = false;
+
     const dims = this.framebufferManager.getDimensions(pass);
     if (!dims) return;
 

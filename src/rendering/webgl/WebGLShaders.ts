@@ -74,21 +74,23 @@ void main() {
   if (xflip) localCoord.x = 1.0 - localCoord.x;
   if (yflip) localCoord.y = 1.0 - localCoord.y;
 
-  // Calculate texture coordinates for PRIMARY tileset
+  // Calculate texture coordinates for PRIMARY tileset (sample texel centers)
   float primaryTilesPerRow = u_primaryTilesetSize.x;
   float primaryTileX = mod(tileId, primaryTilesPerRow);
   float primaryTileY = floor(tileId / primaryTilesPerRow);
   vec2 primaryTileOrigin = vec2(primaryTileX, primaryTileY) / u_primaryTilesetSize;
-  vec2 primaryTileSize = vec2(1.0) / u_primaryTilesetSize;
-  v_texCoord = primaryTileOrigin + localCoord * primaryTileSize;
+  vec2 primaryTexelSize = vec2(1.0) / (u_primaryTilesetSize * TILE_SIZE);
+  vec2 primaryOffset = (localCoord * (TILE_SIZE - 1.0) + 0.5) * primaryTexelSize;
+  v_texCoord = primaryTileOrigin + primaryOffset;
 
-  // Calculate texture coordinates for SECONDARY tileset (different dimensions!)
+  // Calculate texture coordinates for SECONDARY tileset (sample texel centers)
   float secondaryTilesPerRow = u_secondaryTilesetSize.x;
   float secondaryTileX = mod(tileId, secondaryTilesPerRow);
   float secondaryTileY = floor(tileId / secondaryTilesPerRow);
   vec2 secondaryTileOrigin = vec2(secondaryTileX, secondaryTileY) / u_secondaryTilesetSize;
-  vec2 secondaryTileSize = vec2(1.0) / u_secondaryTilesetSize;
-  v_texCoordSecondary = secondaryTileOrigin + localCoord * secondaryTileSize;
+  vec2 secondaryTexelSize = vec2(1.0) / (u_secondaryTilesetSize * TILE_SIZE);
+  vec2 secondaryOffset = (localCoord * (TILE_SIZE - 1.0) + 0.5) * secondaryTexelSize;
+  v_texCoordSecondary = secondaryTileOrigin + secondaryOffset;
 }
 `;
 

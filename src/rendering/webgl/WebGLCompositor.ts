@@ -83,7 +83,7 @@ export class WebGLCompositor {
     gl.viewport(0, 0, viewportWidth, viewportHeight);
 
     if (clearFirst) {
-      gl.clearColor(0, 0, 0, 1);
+      gl.clearColor(0, 0, 0, 0); // transparent clear so layers below remain visible
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 

@@ -15,6 +15,7 @@ import {
   type MetatileAttributes,
   type Palette,
 } from '../utils/mapLoader';
+import type { LoadedAnimation } from '../utils/tilesetUtils';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -34,6 +35,7 @@ export interface TilesetResources {
   secondaryPalettes: Palette[];
   primaryAttributes: MetatileAttributes[];
   secondaryAttributes: MetatileAttributes[];
+  animations: LoadedAnimation[];
 }
 
 export interface LoadedMapData {
@@ -117,6 +119,7 @@ export class MapManager {
       secondaryPalettes,
       primaryAttributes,
       secondaryAttributes,
+      animations: [],
     };
 
     this.tilesetCache.set(tilesetKey, resources);

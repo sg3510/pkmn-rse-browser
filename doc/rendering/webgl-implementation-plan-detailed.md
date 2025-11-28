@@ -701,7 +701,7 @@ export class WebGLRenderPipeline implements IRenderPipeline {
 - [x] `src/rendering/webgl/WebGLPassRenderer.ts`
 - [x] `src/rendering/webgl/WebGLCompositor.ts`
 - [x] `src/rendering/webgl/WebGLRenderPipeline.ts`
-- [ ] `src/rendering/IRenderPipeline.ts` (interface - optional, pipeline can be used directly)
+- [x] `src/rendering/IRenderPipeline.ts` (interface - optional, pipeline can be used directly)
 
 ---
 

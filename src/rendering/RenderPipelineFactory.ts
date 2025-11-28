@@ -316,7 +316,8 @@ class WebGLRenderPipelineAdapter implements IRenderPipeline {
     primaryHeight: number,
     secondaryTileset: Uint8Array,
     secondaryWidth: number,
-    secondaryHeight: number
+    secondaryHeight: number,
+    animations?: Parameters<WebGLRenderPipeline['uploadTilesets']>[6]
   ): void {
     this.pipeline.uploadTilesets(
       primaryTileset,
@@ -324,7 +325,8 @@ class WebGLRenderPipelineAdapter implements IRenderPipeline {
       primaryHeight,
       secondaryTileset,
       secondaryWidth,
-      secondaryHeight
+      secondaryHeight,
+      animations
     );
   }
 
