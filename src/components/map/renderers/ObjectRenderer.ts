@@ -188,10 +188,10 @@ export class ObjectRenderer {
       // Render sprite (with optional horizontal flip for East-facing sand)
       ctx.imageSmoothingEnabled = false;
 
-      // Water ripples need to be clipped to water pixels only
-      // This matches GBA behavior where ripples only show on the blue/water portion of tiles
-      // If the ripple extends into adjacent tiles that are also water, allow the spillover
-      if (effect.type === 'water_ripple' && renderContext) {
+      // Water ripples and puddle splashes need to be clipped to water pixels only
+      // This matches GBA behavior where these effects only show on the blue/water portion of tiles
+      // If the effect extends into adjacent tiles that are also water, allow the spillover
+      if ((effect.type === 'water_ripple' || effect.type === 'puddle_splash') && renderContext) {
         // Create a temporary canvas for the masked ripple
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = frameWidth;
@@ -216,10 +216,11 @@ export class ObjectRenderer {
           const imageData = tempCtx.getImageData(0, 0, frameWidth, frameHeight);
           const data = imageData.data;
 
-          // Ripple world position (top-left of sprite)
-          const rippleWorldX = effect.worldX - frameWidth / 2;
-          // Y offset: ripple is 6px below sprite center
-          const rippleWorldY = effect.worldY + 6 - frameHeight / 2;
+          // Effect world position (top-left of sprite)
+          const effectWorldX = effect.worldX - frameWidth / 2;
+          // Y offset: ripple is 6px below sprite center, splash is 4px
+          const yOffset = effect.type === 'puddle_splash' ? 4 : 6;
+          const effectWorldY = effect.worldY + yOffset - frameHeight / 2;
 
           // Cache tile info lookups to avoid repeated calls for same tile
           const tileCache = new Map<string, { mask: Uint8Array | null }>();
@@ -239,8 +240,8 @@ export class ObjectRenderer {
           for (let py = 0; py < frameHeight; py++) {
             for (let px = 0; px < frameWidth; px++) {
               // World position of this sprite pixel
-              const worldPx = rippleWorldX + px;
-              const worldPy = rippleWorldY + py;
+              const worldPx = effectWorldX + px;
+              const worldPy = effectWorldY + py;
 
               // Which tile does this pixel fall on?
               const pixelTileX = Math.floor(worldPx / METATILE_SIZE);

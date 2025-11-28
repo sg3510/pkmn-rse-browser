@@ -534,9 +534,10 @@ export function computeObjectReflectionState(
   let found: ReflectionType | null = null;
 
   // Search tiles below the object for reflective surfaces
-  // Start from the object's tile and go down (where reflection would appear)
+  // GBA starts at y+1 (one tile below the object's anchor) and scans for 'height' tiles
+  // This matches ObjectEventGetNearbyReflectionType in event_object_movement.c
   for (let i = 0; i < heightTiles && !found; i++) {
-    const y = tileY + i;
+    const y = tileY + 1 + i;  // Start at tileY + 1 like GBA
 
     // Check center tile
     const center = getMetatileBehavior(ctx, tileX, y);

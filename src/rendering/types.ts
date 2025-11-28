@@ -123,6 +123,8 @@ export interface ResolvedTile {
   isSecondary: boolean;
   /** Whether this is a border tile */
   isBorder: boolean;
+  /** Which tileset pair this tile belongs to (0 or 1) for multi-tileset worlds */
+  tilesetPairIndex?: number;
 }
 
 /**

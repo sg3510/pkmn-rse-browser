@@ -55,6 +55,8 @@ export class WebGLTileRenderer {
     secondaryTileset: WebGLUniformLocation | null;
     palette: WebGLUniformLocation | null;
     // Second tileset pair (for multi-tileset worlds)
+    primaryTilesetSize1: WebGLUniformLocation | null;
+    secondaryTilesetSize1: WebGLUniformLocation | null;
     primaryTileset1: WebGLUniformLocation | null;
     secondaryTileset1: WebGLUniformLocation | null;
     palette1: WebGLUniformLocation | null;
@@ -119,6 +121,8 @@ export class WebGLTileRenderer {
       secondaryTileset: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset'),
       palette: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette'),
       // Second tileset pair uniforms
+      primaryTilesetSize1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTilesetSize1'),
+      secondaryTilesetSize1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTilesetSize1'),
       primaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTileset1'),
       secondaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset1'),
       palette1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette1'),
@@ -149,6 +153,25 @@ export class WebGLTileRenderer {
    */
   uploadPalettes(palettes: { colors: string[] }[]): void {
     this.textureManager.uploadPalettes(palettes);
+  }
+
+  /**
+   * Upload tileset data for pair 1 (multi-tileset worlds)
+   */
+  uploadTilesetPair1(
+    tileset: 'primary' | 'secondary',
+    data: Uint8Array,
+    width: number,
+    height: number
+  ): void {
+    this.textureManager.uploadTilesetPair1(tileset, data, width, height);
+  }
+
+  /**
+   * Upload palette data for pair 1 (multi-tileset worlds)
+   */
+  uploadPalettesPair1(palettes: { colors: string[] }[]): void {
+    this.textureManager.uploadPalettesPair1(palettes);
   }
 
   /**
@@ -190,6 +213,12 @@ export class WebGLTileRenderer {
     const secondarySize = this.textureManager.getTilesetSize('secondary');
     gl.uniform2f(this.uniforms.primaryTilesetSize, primarySize.tilesWide, primarySize.tilesHigh);
     gl.uniform2f(this.uniforms.secondaryTilesetSize, secondarySize.tilesWide, secondarySize.tilesHigh);
+
+    // Set pair 1 tileset sizes
+    const primarySize1 = this.textureManager.getTilesetSizePair1('primary');
+    const secondarySize1 = this.textureManager.getTilesetSizePair1('secondary');
+    gl.uniform2f(this.uniforms.primaryTilesetSize1, primarySize1.tilesWide, primarySize1.tilesHigh);
+    gl.uniform2f(this.uniforms.secondaryTilesetSize1, secondarySize1.tilesWide, secondarySize1.tilesHigh);
 
     // Bind textures and set texture uniforms (both pairs)
     this.textureManager.bindTextures(0, 1, 2);

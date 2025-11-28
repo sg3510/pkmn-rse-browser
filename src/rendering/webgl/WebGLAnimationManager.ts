@@ -35,8 +35,9 @@ interface AnimationState {
 export class WebGLAnimationManager {
   private textureManager: WebGLTextureManager;
   private animations: Map<string, AnimationState> = new Map();
+  private animationsPair1: Map<string, AnimationState> = new Map();
 
-  // Cached tileset buffers for patching
+  // Cached tileset buffers for patching (pair 0)
   private primaryBuffer: Uint8Array | null = null;
   private secondaryBuffer: Uint8Array | null = null;
   private primaryWidth: number = 0;
@@ -44,12 +45,20 @@ export class WebGLAnimationManager {
   private secondaryWidth: number = 0;
   private secondaryHeight: number = 0;
 
+  // Cached tileset buffers for patching (pair 1)
+  private primaryBufferPair1: Uint8Array | null = null;
+  private secondaryBufferPair1: Uint8Array | null = null;
+  private primaryWidthPair1: number = 0;
+  private primaryHeightPair1: number = 0;
+  private secondaryWidthPair1: number = 0;
+  private secondaryHeightPair1: number = 0;
+
   constructor(_gl: WebGL2RenderingContext, textureManager: WebGLTextureManager) {
     this.textureManager = textureManager;
   }
 
   /**
-   * Set the tileset buffers for animation patching
+   * Set the tileset buffers for animation patching (pair 0)
    * Must be called after uploading tilesets
    */
   setTilesetBuffers(
@@ -70,7 +79,28 @@ export class WebGLAnimationManager {
   }
 
   /**
-   * Register animations for the current map's tilesets
+   * Set the tileset buffers for animation patching (pair 1)
+   * Must be called after uploading pair 1 tilesets
+   */
+  setTilesetBuffersPair1(
+    primary: Uint8Array,
+    primaryWidth: number,
+    primaryHeight: number,
+    secondary: Uint8Array,
+    secondaryWidth: number,
+    secondaryHeight: number
+  ): void {
+    // Make copies so we can patch them
+    this.primaryBufferPair1 = new Uint8Array(primary);
+    this.secondaryBufferPair1 = new Uint8Array(secondary);
+    this.primaryWidthPair1 = primaryWidth;
+    this.primaryHeightPair1 = primaryHeight;
+    this.secondaryWidthPair1 = secondaryWidth;
+    this.secondaryHeightPair1 = secondaryHeight;
+  }
+
+  /**
+   * Register animations for the current map's tilesets (pair 0)
    */
   registerAnimations(animations: LoadedAnimation[]): void {
     this.animations.clear();
@@ -84,17 +114,78 @@ export class WebGLAnimationManager {
   }
 
   /**
+   * Register animations for pair 1 tilesets
+   */
+  registerAnimationsPair1(animations: LoadedAnimation[]): void {
+    this.animationsPair1.clear();
+
+    for (const anim of animations) {
+      this.animationsPair1.set(anim.id, {
+        animation: anim,
+        lastCyclePerDest: anim.destinations.map(() => -999),
+      });
+    }
+  }
+
+  /**
    * Update all animations for the current game frame
    */
   updateAnimations(gameFrame: number): boolean {
-    if (!this.primaryBuffer || !this.secondaryBuffer) {
-      return false;
+    let anyUpdated = false;
+
+    // Update pair 0 animations
+    if (this.primaryBuffer && this.secondaryBuffer) {
+      const updated = this.updateAnimationsForPair(
+        gameFrame,
+        this.animations,
+        this.primaryBuffer,
+        this.secondaryBuffer,
+        this.primaryWidth,
+        this.primaryHeight,
+        this.secondaryWidth,
+        this.secondaryHeight,
+        false // pair 0
+      );
+      if (updated) anyUpdated = true;
     }
 
+    // Update pair 1 animations
+    if (this.primaryBufferPair1 && this.secondaryBufferPair1) {
+      const updated = this.updateAnimationsForPair(
+        gameFrame,
+        this.animationsPair1,
+        this.primaryBufferPair1,
+        this.secondaryBufferPair1,
+        this.primaryWidthPair1,
+        this.primaryHeightPair1,
+        this.secondaryWidthPair1,
+        this.secondaryHeightPair1,
+        true // pair 1
+      );
+      if (updated) anyUpdated = true;
+    }
+
+    return anyUpdated;
+  }
+
+  /**
+   * Update animations for a specific tileset pair
+   */
+  private updateAnimationsForPair(
+    gameFrame: number,
+    animations: Map<string, AnimationState>,
+    primaryBuffer: Uint8Array,
+    secondaryBuffer: Uint8Array,
+    primaryWidth: number,
+    primaryHeight: number,
+    secondaryWidth: number,
+    secondaryHeight: number,
+    isPair1: boolean
+  ): boolean {
     let primaryDirty = false;
     let secondaryDirty = false;
 
-    for (const state of this.animations.values()) {
+    for (const state of animations.values()) {
       const anim = state.animation;
       const cycle = Math.floor(gameFrame / anim.interval);
 
@@ -125,8 +216,8 @@ export class WebGLAnimationManager {
         if (!frameData) continue;
 
         // Copy tiles from frame to tileset buffer
-        const targetBuffer = anim.tileset === 'primary' ? this.primaryBuffer : this.secondaryBuffer;
-        const targetWidth = anim.tileset === 'primary' ? this.primaryWidth : this.secondaryWidth;
+        const targetBuffer = anim.tileset === 'primary' ? primaryBuffer : secondaryBuffer;
+        const targetWidth = anim.tileset === 'primary' ? primaryWidth : secondaryWidth;
 
         let destId = anim.tileset === 'secondary'
           ? dest.destStart - SECONDARY_TILE_OFFSET
@@ -163,10 +254,18 @@ export class WebGLAnimationManager {
 
     // Re-upload dirty tilesets
     if (primaryDirty) {
-      this.textureManager.uploadTileset('primary', this.primaryBuffer, this.primaryWidth, this.primaryHeight);
+      if (isPair1) {
+        this.textureManager.uploadTilesetPair1('primary', primaryBuffer, primaryWidth, primaryHeight);
+      } else {
+        this.textureManager.uploadTileset('primary', primaryBuffer, primaryWidth, primaryHeight);
+      }
     }
     if (secondaryDirty) {
-      this.textureManager.uploadTileset('secondary', this.secondaryBuffer, this.secondaryWidth, this.secondaryHeight);
+      if (isPair1) {
+        this.textureManager.uploadTilesetPair1('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
+      } else {
+        this.textureManager.uploadTileset('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
+      }
     }
 
     return primaryDirty || secondaryDirty;
@@ -228,7 +327,7 @@ export class WebGLAnimationManager {
    * Check if any animations are registered
    */
   hasAnimations(): boolean {
-    return this.animations.size > 0;
+    return this.animations.size > 0 || this.animationsPair1.size > 0;
   }
 
   /**
@@ -236,13 +335,14 @@ export class WebGLAnimationManager {
    */
   clear(): void {
     this.animations.clear();
+    this.animationsPair1.clear();
   }
 
   /**
    * Get animation count for debugging
    */
   getAnimationCount(): number {
-    return this.animations.size;
+    return this.animations.size + this.animationsPair1.size;
   }
 
   /**
@@ -251,6 +351,9 @@ export class WebGLAnimationManager {
   getDestinationCount(): number {
     let count = 0;
     for (const state of this.animations.values()) {
+      count += state.animation.destinations.length;
+    }
+    for (const state of this.animationsPair1.values()) {
       count += state.animation.destinations.length;
     }
     return count;

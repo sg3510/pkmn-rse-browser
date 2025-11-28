@@ -12,34 +12,27 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
-import type { TileResolverFn, ResolvedTile, WorldCameraView, LoadedAnimation } from '../rendering/types';
+import type { TileResolverFn, ResolvedTile, WorldCameraView, LoadedAnimation, ReflectionMeta, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
 import { ObjectRenderer, type WorldCameraView as ObjectRendererView } from '../components/map/renderers/ObjectRenderer';
 import { useFieldSprites } from '../hooks/useFieldSprites';
-import UPNG from 'upng-js';
+import { WorldManager, type WorldSnapshot, type TilesetPairInfo } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import {
-  loadTilesetImage,
-  loadText,
-  parsePalette,
-  loadMapLayout,
-  loadMetatileDefinitions,
-  loadMetatileAttributes,
-  loadBorderMetatiles,
   METATILE_SIZE,
-  TILE_SIZE,
-  loadBinary,
   type Palette,
   type TilesetImageData,
   type Metatile,
   type MapData,
   type MetatileAttributes,
 } from '../utils/mapLoader';
-import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
+import { buildTilesetRuntime, type TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
+import type { TilesetResources } from '../services/MapManager';
+import { getBridgeTypeFromBehavior, type BridgeType } from '../utils/metatileBehaviors';
+import type { ReflectionState } from '../components/map/types';
 import './WebGLMapPage.css';
 
-const PROJECT_ROOT = '/pokeemerald';
 const NUM_PALS_IN_PRIMARY = 6;
 const NUM_PALS_TOTAL = 13;
 const SECONDARY_TILE_OFFSET = 512;
@@ -77,7 +70,9 @@ type StitchedMapInstance = {
   offsetY: number;
 };
 
-/** World data with multiple stitched maps sharing the same tileset */
+// TilesetPairInfo is now imported from WorldManager
+
+/** World data with multiple stitched maps, potentially using multiple tileset pairs */
 type StitchedWorldData = {
   maps: StitchedMapInstance[];
   anchorId: string;
@@ -89,7 +84,17 @@ type StitchedWorldData = {
     width: number;
     height: number;
   };
-  // Shared tileset assets (all maps use the same tilesets)
+
+  /** All tileset pairs used by maps in this world (max 2 for GPU) */
+  tilesetPairs: TilesetPairInfo[];
+
+  /** Maps each map ID to its tileset pair index in tilesetPairs array */
+  mapTilesetPairIndex: Map<string, number>;
+
+  /** Border metatiles per tileset pair (index matches tilesetPairs) */
+  borderMetatilesPerPair: Map<number, number[]>;
+
+  // Legacy single-tileset fields (for backward compatibility, references tilesetPairs[0])
   primaryMetatiles: Metatile[];
   secondaryMetatiles: Metatile[];
   primaryAttributes: MetatileAttributes[];
@@ -103,20 +108,6 @@ type StitchedWorldData = {
 };
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
-
-/** Load palettes from a tileset path, filling missing entries with black */
-async function loadPalettes(tilesetPath: string, startIndex: number, count: number): Promise<Palette[]> {
-  const palettes: Palette[] = [];
-  for (let i = startIndex; i < startIndex + count; i++) {
-    try {
-      const text = await loadText(`${tilesetPath}/palettes/${i.toString().padStart(2, '0')}.pal`);
-      palettes.push(parsePalette(text));
-    } catch {
-      palettes.push({ colors: Array(16).fill('#000000') });
-    }
-  }
-  return palettes;
-}
 
 /** Combine primary (0-5) and secondary (6-12) palettes into a single GPU palette array */
 function combineTilesetPalettes(primaryPalettes: Palette[], secondaryPalettes: Palette[]): Palette[] {
@@ -137,236 +128,6 @@ function combineTilesetPalettes(primaryPalettes: Palette[], secondaryPalettes: P
   return combined;
 }
 
-/** Decode an indexed PNG frame (handles 4bpp packed data) */
-async function loadIndexedFrame(url: string): Promise<{ data: Uint8Array; width: number; height: number }> {
-  const buffer = await loadBinary(url);
-  const img = UPNG.decode(buffer);
-
-  let data: Uint8Array;
-  if (img.ctype === 3 && img.depth === 4) {
-    const packed = new Uint8Array(img.data);
-    const unpacked = new Uint8Array(packed.length * 2);
-    for (let i = 0; i < packed.length; i++) {
-      const byte = packed[i];
-      unpacked[i * 2] = (byte >> 4) & 0xf;
-      unpacked[i * 2 + 1] = byte & 0xf;
-    }
-    data = unpacked;
-  } else {
-    data = new Uint8Array(img.data);
-  }
-
-  return { data, width: img.width, height: img.height };
-}
-
-/** Safely load metatile attributes, returning empty array on error */
-async function safeLoadMetatileAttributes(url: string): Promise<MetatileAttributes[]> {
-  try {
-    return await loadMetatileAttributes(url);
-  } catch (e) {
-    console.warn(`Failed to load metatile attributes from ${url}:`, e);
-    return [];
-  }
-}
-
-/** Load tile animations for the given tileset IDs */
-async function loadAnimationsForTilesets(primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> {
-  const loaded: LoadedAnimation[] = [];
-  const requested = [
-    ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
-    ...(TILESET_ANIMATION_CONFIGS[secondaryId] ?? []),
-  ];
-
-  for (const def of requested) {
-    try {
-      const frames: Uint8Array[] = [];
-      let width = 0;
-      let height = 0;
-
-      for (const framePath of def.frames) {
-        const frame = await loadIndexedFrame(`${PROJECT_ROOT}/${framePath}`);
-        frames.push(frame.data);
-        width = frame.width;
-        height = frame.height;
-      }
-
-      const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
-      const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
-      const sequence = def.sequence ?? frames.map((_, i) => i);
-
-      loaded.push({
-        id: def.id,
-        tileset: def.tileset,
-        frames,
-        width,
-        height,
-        tilesWide,
-        tilesHigh,
-        sequence,
-        interval: def.interval,
-        destinations: def.destinations,
-        altSequence: def.altSequence,
-        altSequenceThreshold: def.altSequenceThreshold,
-      });
-    } catch (err) {
-      // Non-critical: skip missing animation assets
-      console.warn(`Animation ${def.id} not loaded:`, err);
-    }
-  }
-
-  return loaded;
-}
-
-/** Compute neighbor map offset based on connection direction (matches MapManager.computeOffset) */
-function computeConnectionOffset(
-  baseEntry: MapIndexEntry,
-  neighborEntry: MapIndexEntry,
-  connection: { direction: string; offset: number },
-  baseOffsetX: number,
-  baseOffsetY: number
-): { offsetX: number; offsetY: number } {
-  const dir = connection.direction.toLowerCase();
-  if (dir === 'up' || dir === 'north') {
-    return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY - neighborEntry.height };
-  }
-  if (dir === 'down' || dir === 'south') {
-    return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY + baseEntry.height };
-  }
-  if (dir === 'left' || dir === 'west') {
-    return { offsetX: baseOffsetX - neighborEntry.width, offsetY: baseOffsetY + connection.offset };
-  }
-  if (dir === 'right' || dir === 'east') {
-    return { offsetX: baseOffsetX + baseEntry.width, offsetY: baseOffsetY + connection.offset };
-  }
-  return { offsetX: baseOffsetX, offsetY: baseOffsetY };
-}
-
-/**
- * Load a world of connected maps that share the same tileset.
- * Only loads maps with matching primary+secondary tilesets (same GPU textures).
- * Maps with different tilesets are skipped - player must warp to change tileset areas.
- *
- * @param anchorEntry - The starting map to build the world from
- * @param maxDepth - Max connection depth to traverse (default 3 to limit memory usage)
- */
-async function loadStitchedWorld(
-  anchorEntry: MapIndexEntry,
-  maxDepth: number = 3
-): Promise<StitchedWorldData> {
-  const maps: StitchedMapInstance[] = [];
-  const visited = new Set<string>();
-  const queue: Array<{ entry: MapIndexEntry; offsetX: number; offsetY: number; depth: number }> = [
-    { entry: anchorEntry, offsetX: 0, offsetY: 0, depth: 0 },
-  ];
-
-  // Only stitch maps with matching tilesets
-  const anchorPrimaryTileset = anchorEntry.primaryTilesetId;
-  const anchorSecondaryTileset = anchorEntry.secondaryTilesetId;
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (visited.has(current.entry.id)) continue;
-
-    // Skip if tilesets don't match (can't render with same GPU textures)
-    if (current.entry.primaryTilesetId !== anchorPrimaryTileset ||
-        current.entry.secondaryTilesetId !== anchorSecondaryTileset) {
-      continue;
-    }
-
-    visited.add(current.entry.id);
-
-    // Load map layout data
-    const layoutPath = `${PROJECT_ROOT}/${current.entry.layoutPath}`;
-    const mapData = await loadMapLayout(`${layoutPath}/map.bin`, current.entry.width, current.entry.height);
-
-    maps.push({
-      entry: current.entry,
-      mapData,
-      offsetX: current.offsetX,
-      offsetY: current.offsetY,
-    });
-
-    // Queue connected maps if we haven't reached max depth
-    if (current.depth < maxDepth) {
-      for (const connection of current.entry.connections || []) {
-        const neighborEntry = mapIndexData.find(m => m.id === connection.map);
-        if (!neighborEntry) continue;
-
-        const { offsetX, offsetY } = computeConnectionOffset(
-          current.entry,
-          neighborEntry,
-          connection,
-          current.offsetX,
-          current.offsetY
-        );
-        queue.push({ entry: neighborEntry, offsetX, offsetY, depth: current.depth + 1 });
-      }
-    }
-  }
-
-  // Compute world bounds
-  let minX = 0, minY = 0, maxX = 0, maxY = 0;
-  for (const map of maps) {
-    minX = Math.min(minX, map.offsetX);
-    minY = Math.min(minY, map.offsetY);
-    maxX = Math.max(maxX, map.offsetX + map.entry.width);
-    maxY = Math.max(maxY, map.offsetY + map.entry.height);
-  }
-
-  // Load shared tileset assets (only once since all maps use same tilesets)
-  const primaryPath = `${PROJECT_ROOT}/${anchorEntry.primaryTilesetPath}`;
-  const secondaryPath = `${PROJECT_ROOT}/${anchorEntry.secondaryTilesetPath}`;
-  const anchorLayoutPath = `${PROJECT_ROOT}/${anchorEntry.layoutPath}`;
-
-  const [
-    primaryMetatiles,
-    secondaryMetatiles,
-    primaryAttributes,
-    secondaryAttributes,
-    primaryImage,
-    secondaryImage,
-    primaryPalettes,
-    secondaryPalettes,
-    borderMetatiles,
-  ] = await Promise.all([
-    loadMetatileDefinitions(`${primaryPath}/metatiles.bin`),
-    loadMetatileDefinitions(`${secondaryPath}/metatiles.bin`),
-    safeLoadMetatileAttributes(`${primaryPath}/metatile_attributes.bin`),
-    safeLoadMetatileAttributes(`${secondaryPath}/metatile_attributes.bin`),
-    loadTilesetImage(`${primaryPath}/tiles.png`, true) as Promise<TilesetImageData>,
-    loadTilesetImage(`${secondaryPath}/tiles.png`, true) as Promise<TilesetImageData>,
-    loadPalettes(primaryPath, 0, NUM_PALS_IN_PRIMARY),
-    loadPalettes(secondaryPath, NUM_PALS_IN_PRIMARY, NUM_PALS_TOTAL - NUM_PALS_IN_PRIMARY),
-    loadBorderMetatiles(`${anchorLayoutPath}/border.bin`).catch(() => [] as number[]),
-  ]);
-
-  const animations = await loadAnimationsForTilesets(anchorEntry.primaryTilesetId, anchorEntry.secondaryTilesetId);
-
-  return {
-    maps,
-    anchorId: anchorEntry.id,
-    worldBounds: {
-      minX,
-      minY,
-      maxX,
-      maxY,
-      width: maxX - minX,
-      height: maxY - minY,
-    },
-    primaryMetatiles,
-    secondaryMetatiles,
-    primaryAttributes,
-    secondaryAttributes,
-    primaryImage,
-    secondaryImage,
-    primaryPalettes,
-    secondaryPalettes,
-    animations,
-    borderMetatiles,
-  };
-}
-
-
 // Viewport configuration
 const VIEWPORT_TILES_WIDE = 20;
 const VIEWPORT_TILES_HIGH = 20;
@@ -379,6 +140,8 @@ export function WebGLMapPage() {
   // Pipeline and state refs
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
   const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
+  const worldManagerRef = useRef<WorldManager | null>(null);
+  const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
   const worldBoundsRef = useRef<{ width: number; height: number; minX: number; minY: number }>({ width: 0, height: 0, minX: 0, minY: 0 });
   const rafRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraState>({ x: 0, y: 0 });
@@ -393,6 +156,9 @@ export function WebGLMapPage() {
   // Field sprites (grass, sand, etc.)
   const fieldSprites = useFieldSprites();
   const fieldSpritesLoadedRef = useRef<boolean>(false);
+
+  // Tileset runtimes for reflection detection (built from TilesetPairInfo)
+  const tilesetRuntimesRef = useRef<Map<string, TilesetRuntimeType>>(new Map());
 
   const renderableMaps = useMemo(
     () =>
@@ -425,9 +191,9 @@ export function WebGLMapPage() {
   const [cameraDisplay, setCameraDisplay] = useState<CameraState>({ x: 0, y: 0 });
   const [debugTile, setDebugTile] = useState<DebugTileInfo | null>(null);
 
-  // Create tile resolver for stitched world (handles multiple maps)
-  const createStitchedTileResolver = useCallback((world: StitchedWorldData): TileResolverFn => {
-    const { maps, primaryMetatiles, secondaryMetatiles, primaryAttributes, secondaryAttributes, borderMetatiles } = world;
+  // Create tile resolver from WorldSnapshot (for WorldManager integration)
+  const createSnapshotTileResolver = useCallback((snapshot: WorldSnapshot): TileResolverFn => {
+    const { maps, tilesetPairs, mapTilesetPairIndex, borderMetatilesPerPair } = snapshot;
 
     return (worldX: number, worldY: number): ResolvedTile | null => {
       // Find which map contains this world tile
@@ -437,20 +203,22 @@ export function WebGLMapPage() {
 
         if (localX >= 0 && localX < map.entry.width &&
             localY >= 0 && localY < map.entry.height) {
-          // Found the map containing this tile
+          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+          const pair = tilesetPairs[pairIndex];
+
           const idx = localY * map.entry.width + localX;
           const mapTile = map.mapData.layout[idx];
           const metatileId = mapTile.metatileId;
 
           const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
           const metatile = isSecondary
-            ? secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
-            : primaryMetatiles[metatileId];
+            ? pair.secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
+            : pair.primaryMetatiles[metatileId];
 
           if (!metatile) return null;
 
           const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-          const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+          const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
           const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
 
           return {
@@ -461,28 +229,28 @@ export function WebGLMapPage() {
             tileset: null as any,
             isSecondary,
             isBorder: false,
+            tilesetPairIndex: pairIndex,
           };
         }
       }
 
-      // Out of world bounds - use border tiles
-      if (!borderMetatiles || borderMetatiles.length === 0) {
-        return null;
-      }
+      // Out of bounds - use border tiles
+      const borderMetatiles = borderMetatilesPerPair.get(0) ?? [];
+      if (borderMetatiles.length === 0) return null;
 
-      // Calculate border pattern index (2x2 repeating)
+      const pair = tilesetPairs[0];
       const borderIndex = ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
       const borderMetatileId = borderMetatiles[borderIndex];
 
       const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
       const metatile = isSecondary
-        ? secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
-        : primaryMetatiles[borderMetatileId];
+        ? pair.secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
+        : pair.primaryMetatiles[borderMetatileId];
 
       if (!metatile) return null;
 
       const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
-      const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+      const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
       const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
 
       return {
@@ -493,37 +261,411 @@ export function WebGLMapPage() {
         tileset: null as any,
         isSecondary,
         isBorder: true,
+        tilesetPairIndex: 0,
       };
     };
   }, []);
 
-  // Create player tile resolver for stitched world
-  const createStitchedPlayerTileResolver = useCallback((world: StitchedWorldData): PlayerTileResolver => {
-    const { maps, primaryAttributes, secondaryAttributes } = world;
+  // Create player tile resolver from WorldSnapshot
+  const createSnapshotPlayerTileResolver = useCallback((snapshot: WorldSnapshot): PlayerTileResolver => {
+    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
 
     return (worldX: number, worldY: number) => {
-      // Find which map contains this world tile
       for (const map of maps) {
         const localX = worldX - map.offsetX;
         const localY = worldY - map.offsetY;
 
         if (localX >= 0 && localX < map.entry.width &&
             localY >= 0 && localY < map.entry.height) {
+          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+          const pair = tilesetPairs[pairIndex];
+
           const idx = localY * map.entry.width + localX;
           const mapTile = map.mapData.layout[idx];
           const metatileId = mapTile.metatileId;
           const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
           const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-          const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
+          const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
           const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
 
           return { mapTile, attributes };
         }
       }
-
       return null;
     };
   }, []);
+
+  // Helper to upload tilesets from WorldSnapshot to pipeline
+  const uploadTilesetsFromSnapshot = useCallback((
+    pipeline: WebGLRenderPipeline,
+    snapshot: WorldSnapshot
+  ): void => {
+    const { tilesetPairs } = snapshot;
+
+    if (tilesetPairs.length > 0) {
+      const pair0 = tilesetPairs[0];
+      pipeline.uploadTilesets(
+        pair0.primaryImage.data,
+        pair0.primaryImage.width,
+        pair0.primaryImage.height,
+        pair0.secondaryImage.data,
+        pair0.secondaryImage.width,
+        pair0.secondaryImage.height,
+        pair0.animations
+      );
+      pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
+    }
+
+    if (tilesetPairs.length > 1) {
+      const pair1 = tilesetPairs[1];
+      pipeline.uploadTilesetsPair1(
+        pair1.primaryImage.data,
+        pair1.primaryImage.width,
+        pair1.primaryImage.height,
+        pair1.secondaryImage.data,
+        pair1.secondaryImage.width,
+        pair1.secondaryImage.height,
+        pair1.animations
+      );
+      pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
+    }
+  }, []);
+
+  // Build TilesetRuntime from TilesetPairInfo for reflection detection
+  const buildTilesetRuntimesFromSnapshot = useCallback((snapshot: WorldSnapshot): void => {
+    const { tilesetPairs } = snapshot;
+    const runtimesMap = tilesetRuntimesRef.current;
+
+    for (const pair of tilesetPairs) {
+      if (runtimesMap.has(pair.id)) continue;
+
+      // Create TilesetResources-like object from TilesetPairInfo
+      // We only need the fields used by buildTilesetRuntime
+      const resources = {
+        key: pair.id,
+        primaryTilesetId: pair.primaryTilesetId,
+        secondaryTilesetId: pair.secondaryTilesetId,
+        primaryTilesetPath: '',  // Not needed for runtime building
+        secondaryTilesetPath: '', // Not needed for runtime building
+        primaryMetatiles: pair.primaryMetatiles,
+        secondaryMetatiles: pair.secondaryMetatiles,
+        primaryPalettes: pair.primaryPalettes,
+        secondaryPalettes: pair.secondaryPalettes,
+        primaryTilesImage: pair.primaryImage.data,
+        secondaryTilesImage: pair.secondaryImage.data,
+        primaryAttributes: pair.primaryAttributes,
+        secondaryAttributes: pair.secondaryAttributes,
+        animations: pair.animations,
+      } as TilesetResources;
+
+      const runtime = buildTilesetRuntime(resources);
+      runtimesMap.set(pair.id, runtime);
+    }
+  }, []);
+
+  // Get reflection metadata for a tile from the snapshot
+  const getReflectionMetaFromSnapshot = useCallback((
+    snapshot: WorldSnapshot,
+    tileX: number,
+    tileY: number
+  ): { behavior: number; meta: ReflectionMeta | null } | null => {
+    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
+
+    // Find which map contains this tile
+    for (const map of maps) {
+      const localX = tileX - map.offsetX;
+      const localY = tileY - map.offsetY;
+
+      if (localX >= 0 && localX < map.entry.width &&
+          localY >= 0 && localY < map.entry.height) {
+        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+        const pair = tilesetPairs[pairIndex];
+
+        const idx = localY * map.entry.width + localX;
+        const mapTile = map.mapData.layout[idx];
+        const metatileId = mapTile.metatileId;
+
+        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+        const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
+        const behavior = attrArray[attrIndex]?.behavior ?? 0;
+
+        // Get reflection meta from runtime
+        const runtime = tilesetRuntimesRef.current.get(pair.id);
+        if (!runtime) return { behavior, meta: null };
+
+        const meta = isSecondary
+          ? runtime.secondaryReflectionMeta[attrIndex]
+          : runtime.primaryReflectionMeta[attrIndex];
+
+        return { behavior, meta: meta ?? null };
+      }
+    }
+
+    return null;
+  }, []);
+
+  // Compute reflection state for an object at a tile position
+  // Extended to check one extra tile ahead to match GBA behavior
+  const computeReflectionStateFromSnapshot = useCallback((
+    snapshot: WorldSnapshot,
+    tileX: number,
+    tileY: number,
+    spriteWidth: number = 16,
+    spriteHeight: number = 32
+  ): ReflectionState => {
+    // Calculate how many tiles the sprite covers (GBA formula)
+    const widthTiles = Math.max(1, (spriteWidth + 8) >> 4);
+    const heightTiles = Math.max(1, (spriteHeight + 8) >> 4);
+
+    let found: 'water' | 'ice' | null = null;
+
+    // GBA scans tiles starting at y+1 (one tile below the object's anchor)
+    // and continuing for 'height' tiles. We match this by checking y+1 to y+1+heightTiles
+    for (let i = 0; i < heightTiles && !found; i++) {
+      const y = tileY + 1 + i;  // Start at tileY + 1 like GBA
+
+      // Check center tile
+      const center = getReflectionMetaFromSnapshot(snapshot, tileX, y);
+      if (center?.meta?.isReflective) {
+        found = center.meta.reflectionType;
+        break;
+      }
+
+      // Check tiles to left and right based on sprite width
+      for (let j = 1; j < widthTiles && !found; j++) {
+        const infos = [
+          getReflectionMetaFromSnapshot(snapshot, tileX + j, y),
+          getReflectionMetaFromSnapshot(snapshot, tileX - j, y),
+        ];
+        for (const info of infos) {
+          if (info?.meta?.isReflective) {
+            found = info.meta.reflectionType;
+            break;
+          }
+        }
+      }
+    }
+
+    // Get bridge type from the tile the object is standing on
+    const standingInfo = getReflectionMetaFromSnapshot(snapshot, tileX, tileY);
+    const bridgeType: BridgeType = standingInfo
+      ? getBridgeTypeFromBehavior(standingInfo.behavior)
+      : 'none';
+
+    return {
+      hasReflection: !!found,
+      reflectionType: found,
+      bridgeType,
+    };
+  }, [getReflectionMetaFromSnapshot]);
+
+  // Create a minimal RenderContext from WorldSnapshot for field effect masking
+  const createRenderContextFromSnapshot = useCallback((
+    snapshot: WorldSnapshot
+  ): RenderContext | null => {
+    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
+    if (maps.length === 0 || tilesetPairs.length === 0) return null;
+
+    // Find anchor map (the one at offset 0,0 or the first one)
+    const anchorMap = maps.find(m => m.offsetX === 0 && m.offsetY === 0) ?? maps[0];
+    const anchorPairIndex = mapTilesetPairIndex.get(anchorMap.entry.id) ?? 0;
+    const anchorPair = tilesetPairs[anchorPairIndex];
+
+    // Create TilesetResources for the anchor
+    const anchorTilesetResources: TilesetResources = {
+      key: anchorPair.id,
+      primaryTilesetId: anchorPair.primaryTilesetId,
+      secondaryTilesetId: anchorPair.secondaryTilesetId,
+      primaryTilesetPath: '',
+      secondaryTilesetPath: '',
+      primaryMetatiles: anchorPair.primaryMetatiles,
+      secondaryMetatiles: anchorPair.secondaryMetatiles,
+      primaryPalettes: anchorPair.primaryPalettes,
+      secondaryPalettes: anchorPair.secondaryPalettes,
+      primaryTilesImage: anchorPair.primaryImage.data,
+      secondaryTilesImage: anchorPair.secondaryImage.data,
+      primaryAttributes: anchorPair.primaryAttributes,
+      secondaryAttributes: anchorPair.secondaryAttributes,
+      animations: anchorPair.animations,
+    };
+
+    // Create WorldMapInstance-like objects
+    const worldMaps = maps.map(m => {
+      const pairIndex = mapTilesetPairIndex.get(m.entry.id) ?? 0;
+      const pair = tilesetPairs[pairIndex];
+      return {
+        entry: m.entry,
+        mapData: m.mapData,
+        offsetX: m.offsetX,
+        offsetY: m.offsetY,
+        borderMetatiles: [],
+        tilesets: {
+          key: pair.id,
+          primaryTilesetId: pair.primaryTilesetId,
+          secondaryTilesetId: pair.secondaryTilesetId,
+          primaryTilesetPath: '',
+          secondaryTilesetPath: '',
+          primaryMetatiles: pair.primaryMetatiles,
+          secondaryMetatiles: pair.secondaryMetatiles,
+          primaryPalettes: pair.primaryPalettes,
+          secondaryPalettes: pair.secondaryPalettes,
+          primaryTilesImage: pair.primaryImage.data,
+          secondaryTilesImage: pair.secondaryImage.data,
+          primaryAttributes: pair.primaryAttributes,
+          secondaryAttributes: pair.secondaryAttributes,
+          animations: pair.animations,
+        } as TilesetResources,
+        warpEvents: [],
+        objectEvents: [],
+      };
+    });
+
+    // Create anchor WorldMapInstance
+    const anchor = worldMaps.find(m => m.offsetX === 0 && m.offsetY === 0) ?? worldMaps[0];
+
+    return {
+      world: {
+        anchorId: snapshot.anchorMapId,
+        maps: worldMaps,
+        bounds: {
+          minX: snapshot.worldBounds.minX,
+          minY: snapshot.worldBounds.minY,
+          maxX: snapshot.worldBounds.maxX,
+          maxY: snapshot.worldBounds.maxY,
+        },
+      },
+      tilesetRuntimes: tilesetRuntimesRef.current,
+      anchor: {
+        ...anchor,
+        tilesets: anchorTilesetResources,
+        borderMetatiles: snapshot.borderMetatilesPerPair.get(0) ?? [],
+      },
+    } as RenderContext;
+  }, []);
+
+  // Render player reflection using snapshot-based tile lookup
+  const renderPlayerReflection = useCallback((
+    ctx: CanvasRenderingContext2D,
+    player: PlayerController,
+    reflectionState: ReflectionState,
+    cameraWorldX: number,
+    cameraWorldY: number,
+    snapshot: WorldSnapshot
+  ): void => {
+    if (!reflectionState.hasReflection) return;
+
+    const frame = player.getFrameInfo();
+    if (!frame || !frame.sprite) return;
+
+    const { height } = player.getSpriteSize();
+
+    // Bridge offsets for reflection positioning
+    const BRIDGE_OFFSETS: Record<BridgeType, number> = {
+      none: 0,
+      pondLow: 2,
+      pondMed: 4,
+      pondHigh: 6,
+    };
+
+    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
+    const tileRefX = Math.floor(frame.renderX);
+    const tileRefY = Math.floor(frame.renderY) + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+
+    // For SCREEN RENDERING: Use Math.round() for consistent pixel alignment
+    const reflectionWorldY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+    const screenX = Math.round(frame.renderX - cameraWorldX);
+    const screenY = Math.round(reflectionWorldY - cameraWorldY);
+
+    // Create mask canvas
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = frame.sw;
+    maskCanvas.height = frame.sh;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+    const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+    const maskData = maskImage.data;
+
+    // Calculate tile range for mask building
+    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
+    const pixelEndTileX = Math.floor((tileRefX + frame.sw - 1) / METATILE_SIZE);
+    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
+    const pixelEndTileY = Math.floor((tileRefY + frame.sh - 1) / METATILE_SIZE);
+
+    // Expand range by 1 tile in each direction to catch tiles at boundaries during movement
+    const startTileX = pixelStartTileX - 1;
+    const endTileX = pixelEndTileX + 1;
+    const startTileY = pixelStartTileY;
+    const endTileY = pixelEndTileY + 1;
+
+    // Build mask from reflective tiles
+    for (let ty = startTileY; ty <= endTileY; ty++) {
+      for (let tx = startTileX; tx <= endTileX; tx++) {
+        const info = getReflectionMetaFromSnapshot(snapshot, tx, ty);
+        if (!info?.meta?.isReflective) continue;
+
+        const mask = info.meta.pixelMask;
+        const tileLeft = tx * METATILE_SIZE - tileRefX;
+        const tileTop = ty * METATILE_SIZE - tileRefY;
+
+        for (let y = 0; y < METATILE_SIZE; y++) {
+          const globalY = tileTop + y;
+          if (globalY < 0 || globalY >= frame.sh) continue;
+          for (let x = 0; x < METATILE_SIZE; x++) {
+            const globalX = tileLeft + x;
+            if (globalX < 0 || globalX >= frame.sw) continue;
+            if (mask[y * METATILE_SIZE + x]) {
+              const index = (globalY * frame.sw + globalX) * 4 + 3;
+              maskData[index] = 255;
+            }
+          }
+        }
+      }
+    }
+
+    maskCtx.putImageData(maskImage, 0, 0);
+
+    // Create reflection canvas (flipped sprite)
+    const reflectionCanvas = document.createElement('canvas');
+    reflectionCanvas.width = frame.sw;
+    reflectionCanvas.height = frame.sh;
+    const reflectionCtx = reflectionCanvas.getContext('2d');
+    if (!reflectionCtx) return;
+
+    // Flip vertically
+    reflectionCtx.translate(0, frame.sh);
+    reflectionCtx.scale(frame.flip ? -1 : 1, -1);
+
+    // Draw sprite
+    reflectionCtx.drawImage(
+      frame.sprite,
+      frame.sx, frame.sy, frame.sw, frame.sh,
+      frame.flip ? -frame.sw : 0, 0, frame.sw, frame.sh
+    );
+
+    // Reset transform
+    reflectionCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Apply tint based on reflection type
+    reflectionCtx.globalCompositeOperation = 'source-atop';
+    if (reflectionState.reflectionType === 'water') {
+      reflectionCtx.fillStyle = 'rgba(100, 150, 255, 0.35)';
+    } else {
+      // Ice tint (lighter)
+      reflectionCtx.fillStyle = 'rgba(200, 220, 255, 0.25)';
+    }
+    reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
+
+    // Apply mask
+    reflectionCtx.globalCompositeOperation = 'destination-in';
+    reflectionCtx.drawImage(maskCanvas, 0, 0);
+
+    // Draw to main canvas with transparency
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    ctx.drawImage(reflectionCanvas, screenX, screenY);
+    ctx.restore();
+  }, [getReflectionMetaFromSnapshot]);
 
   // Initialize WebGL pipeline and player once
   useEffect(() => {
@@ -616,6 +758,12 @@ export function WebGLMapPage() {
       // Update player if loaded (handles its own input via keyboard events)
       if (player && playerLoadedRef.current) {
         player.update(dt);
+
+        // Update world manager with player position (triggers dynamic map loading)
+        const worldManager = worldManagerRef.current;
+        if (worldManager) {
+          worldManager.update(player.tileX, player.tileY);
+        }
       }
 
       // Camera follows player (center player in viewport)
@@ -713,6 +861,34 @@ export function WebGLMapPage() {
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
           const playerWorldY = player.y + 16; // Player feet Y position
+          const currentSnapshot = worldSnapshotRef.current;
+
+          // Render player reflection (behind player, on water/ice tiles)
+          if (currentSnapshot) {
+            const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
+            const reflectionState = computeReflectionStateFromSnapshot(
+              currentSnapshot,
+              player.tileX,
+              player.tileY,
+              spriteWidth,
+              spriteHeight
+            );
+            if (reflectionState.hasReflection) {
+              renderPlayerReflection(
+                ctx2d,
+                player,
+                reflectionState,
+                cameraX,
+                cameraY,
+                currentSnapshot
+              );
+            }
+          }
+
+          // Create render context for field effect masking (water ripples, puddle splashes)
+          const fieldEffectRenderContext = currentSnapshot
+            ? createRenderContextFromSnapshot(currentSnapshot)
+            : null;
 
           // Render grass effects behind player (bottom layer)
           if (fieldSpritesLoadedRef.current) {
@@ -731,7 +907,8 @@ export function WebGLMapPage() {
               },
               objView,
               playerWorldY,
-              'bottom'
+              'bottom',
+              fieldEffectRenderContext ?? undefined
             );
           }
 
@@ -755,7 +932,8 @@ export function WebGLMapPage() {
               },
               objView,
               playerWorldY,
-              'top'
+              'top',
+              fieldEffectRenderContext ?? undefined
             );
           }
         }
@@ -835,10 +1013,12 @@ export function WebGLMapPage() {
       playerRef.current?.destroy();
       playerRef.current = null;
       playerLoadedRef.current = false;
+      worldManagerRef.current?.dispose();
+      worldManagerRef.current = null;
     };
   }, []);
 
-  // Load selected map assets and configure pipeline
+  // Load selected map assets and configure pipeline using WorldManager
   useEffect(() => {
     const entry = selectedMap;
     const pipeline = pipelineRef.current;
@@ -851,37 +1031,146 @@ export function WebGLMapPage() {
     cameraRef.current = { x: 0, y: 0 };
     setCameraDisplay({ x: 0, y: 0 });
 
+    // Clean up previous world manager
+    if (worldManagerRef.current) {
+      worldManagerRef.current.dispose();
+      worldManagerRef.current = null;
+    }
+
     const load = async () => {
       try {
-        // Always use stitched world loading - it handles single maps too
-        // and automatically expands to include all connected maps with matching tilesets
-        const world = await loadStitchedWorld(entry); // Unlimited depth for same-tileset chains
+        // Create WorldManager and initialize with selected map
+        const worldManager = new WorldManager();
+        worldManagerRef.current = worldManager;
+
+        // Subscribe to world events for dynamic updates
+        worldManager.on((event) => {
+          if (cancelled) return;
+
+          if (event.type === 'mapsChanged') {
+            // Update snapshot and resolvers
+            worldSnapshotRef.current = event.snapshot;
+
+            // Update tile resolver
+            const resolver = createSnapshotTileResolver(event.snapshot);
+            pipeline.setTileResolver(resolver);
+
+            // Update player resolver
+            const player = playerRef.current;
+            if (player) {
+              const playerResolver = createSnapshotPlayerTileResolver(event.snapshot);
+              player.setTileResolver(playerResolver);
+            }
+
+            // Update world bounds
+            const { worldBounds } = event.snapshot;
+            const worldWidth = worldBounds.width * METATILE_SIZE;
+            const worldHeight = worldBounds.height * METATILE_SIZE;
+            worldBoundsRef.current = {
+              width: worldWidth,
+              height: worldHeight,
+              minX: worldBounds.minX,
+              minY: worldBounds.minY,
+            };
+            setWorldSize({ width: worldWidth, height: worldHeight });
+            setStitchedMapCount(event.snapshot.maps.length);
+
+            // Invalidate pipeline cache
+            pipeline.invalidate();
+          }
+
+          if (event.type === 'tilesetsChanged') {
+            // Re-upload tilesets using the event data directly (snapshot might be stale)
+            const { pair0, pair1 } = event;
+
+            // Upload pair 0
+            pipeline.uploadTilesets(
+              pair0.primaryImage.data,
+              pair0.primaryImage.width,
+              pair0.primaryImage.height,
+              pair0.secondaryImage.data,
+              pair0.secondaryImage.width,
+              pair0.secondaryImage.height,
+              pair0.animations
+            );
+            pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
+
+            // Upload pair 1 if present
+            if (pair1) {
+              pipeline.uploadTilesetsPair1(
+                pair1.primaryImage.data,
+                pair1.primaryImage.width,
+                pair1.primaryImage.height,
+                pair1.secondaryImage.data,
+                pair1.secondaryImage.width,
+                pair1.secondaryImage.height,
+                pair1.animations
+              );
+              pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
+            }
+
+            pipeline.invalidate();
+          }
+
+          if (event.type === 'reanchored') {
+            // Adjust player position by the offset shift
+            const player = playerRef.current;
+            if (player) {
+              player.setPosition(
+                player.tileX - event.offsetShift.x,
+                player.tileY - event.offsetShift.y
+              );
+            }
+          }
+        });
+
+        // Initialize world from selected map
+        const snapshot = await worldManager.initialize(entry.id);
         if (cancelled) return;
 
-        // Store stitched world
-        stitchedWorldRef.current = world;
+        worldSnapshotRef.current = snapshot;
 
-        // Set up tile resolver for stitched world
-        const resolver = createStitchedTileResolver(world);
+        // Build tileset runtimes for reflection detection
+        buildTilesetRuntimesFromSnapshot(snapshot);
+
+        // Also store as stitched world for backward compatibility with debug display
+        stitchedWorldRef.current = {
+          maps: snapshot.maps.map(m => ({
+            entry: m.entry,
+            mapData: m.mapData,
+            offsetX: m.offsetX,
+            offsetY: m.offsetY,
+          })),
+          anchorId: snapshot.anchorMapId,
+          worldBounds: snapshot.worldBounds,
+          tilesetPairs: snapshot.tilesetPairs,
+          mapTilesetPairIndex: snapshot.mapTilesetPairIndex,
+          borderMetatilesPerPair: snapshot.borderMetatilesPerPair,
+          // Legacy fields from primary pair
+          primaryMetatiles: snapshot.tilesetPairs[0]?.primaryMetatiles ?? [],
+          secondaryMetatiles: snapshot.tilesetPairs[0]?.secondaryMetatiles ?? [],
+          primaryAttributes: snapshot.tilesetPairs[0]?.primaryAttributes ?? [],
+          secondaryAttributes: snapshot.tilesetPairs[0]?.secondaryAttributes ?? [],
+          primaryImage: snapshot.tilesetPairs[0]?.primaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
+          secondaryImage: snapshot.tilesetPairs[0]?.secondaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
+          primaryPalettes: snapshot.tilesetPairs[0]?.primaryPalettes ?? [],
+          secondaryPalettes: snapshot.tilesetPairs[0]?.secondaryPalettes ?? [],
+          animations: snapshot.tilesetPairs[0]?.animations ?? [],
+          borderMetatiles: snapshot.borderMetatilesPerPair.get(0) ?? [],
+        };
+
+        // Set up tile resolver
+        const resolver = createSnapshotTileResolver(snapshot);
         pipeline.setTileResolver(resolver);
 
-        // Upload tilesets (shared across all stitched maps)
-        pipeline.uploadTilesets(
-          world.primaryImage.data,
-          world.primaryImage.width,
-          world.primaryImage.height,
-          world.secondaryImage.data,
-          world.secondaryImage.width,
-          world.secondaryImage.height,
-          world.animations
-        );
-        pipeline.uploadPalettes(combineTilesetPalettes(world.primaryPalettes, world.secondaryPalettes));
+        // Upload tilesets
+        uploadTilesetsFromSnapshot(pipeline, snapshot);
 
         // Invalidate pipeline cache
         pipeline.invalidate();
 
-        // Set world bounds from stitched world
-        const { worldBounds } = world;
+        // Set world bounds
+        const { worldBounds } = snapshot;
         const worldWidth = worldBounds.width * METATILE_SIZE;
         const worldHeight = worldBounds.height * METATILE_SIZE;
         worldBoundsRef.current = {
@@ -891,12 +1180,12 @@ export function WebGLMapPage() {
           minY: worldBounds.minY,
         };
         setWorldSize({ width: worldWidth, height: worldHeight });
-        setStitchedMapCount(world.maps.length);
+        setStitchedMapCount(snapshot.maps.length);
 
-        // Set up player with stitched tile resolver
+        // Set up player
         const player = playerRef.current;
         if (player) {
-          const playerResolver = createStitchedPlayerTileResolver(world);
+          const playerResolver = createSnapshotPlayerTileResolver(snapshot);
           player.setTileResolver(playerResolver);
 
           // Spawn player at center of anchor map (offset 0,0)
@@ -922,8 +1211,12 @@ export function WebGLMapPage() {
 
     return () => {
       cancelled = true;
+      if (worldManagerRef.current) {
+        worldManagerRef.current.dispose();
+        worldManagerRef.current = null;
+      }
     };
-  }, [selectedMap, createStitchedTileResolver, createStitchedPlayerTileResolver]);
+  }, [selectedMap, createSnapshotTileResolver, createSnapshotPlayerTileResolver, uploadTilesetsFromSnapshot]);
 
   if (!selectedMap) {
     return (

@@ -56,13 +56,14 @@ export class TileInstanceBuilder {
       if (!resolved?.metatile) return;
 
       const layerType = resolved.attributes?.layerType ?? METATILE_LAYER_TYPE_COVERED;
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
 
       // Background: always draw layer 0
-      this.addMetatileLayer(resolved.metatile, screenX, screenY, 0);
+      this.addMetatileLayer(resolved.metatile, screenX, screenY, 0, tilesetPairIndex);
 
       // COVERED: also draw layer 1 in background
       if (layerType === METATILE_LAYER_TYPE_COVERED) {
-        this.addMetatileLayer(resolved.metatile, screenX, screenY, 1);
+        this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
       }
     });
 
@@ -93,6 +94,7 @@ export class TileInstanceBuilder {
       if (!resolved?.metatile) return;
 
       const layerType = resolved.attributes?.layerType ?? METATILE_LAYER_TYPE_COVERED;
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
 
       // Top pass: only NORMAL and SPLIT have layer 1 here
       if (layerType === METATILE_LAYER_TYPE_COVERED) return;
@@ -105,7 +107,7 @@ export class TileInstanceBuilder {
       // Draw layer 1
       if (layerType === METATILE_LAYER_TYPE_NORMAL ||
           layerType === METATILE_LAYER_TYPE_SPLIT) {
-        this.addMetatileLayer(resolved.metatile, screenX, screenY, 1);
+        this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
       }
     });
 
@@ -131,9 +133,11 @@ export class TileInstanceBuilder {
       const resolved = resolveTile(worldX, worldY);
       if (!resolved?.metatile) return;
 
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
+
       // Draw both layers
-      this.addMetatileLayer(resolved.metatile, screenX, screenY, 0);
-      this.addMetatileLayer(resolved.metatile, screenX, screenY, 1);
+      this.addMetatileLayer(resolved.metatile, screenX, screenY, 0, tilesetPairIndex);
+      this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
     });
 
     return this.instanceBuffer;
@@ -150,12 +154,14 @@ export class TileInstanceBuilder {
    * @param screenX - Screen X position of metatile
    * @param screenY - Screen Y position of metatile
    * @param layer - Which layer (0 or 1)
+   * @param tilesetPairIndex - Which tileset pair (0 or 1) for multi-tileset worlds
    */
   private addMetatileLayer(
     metatile: Metatile,
     screenX: number,
     screenY: number,
-    layer: 0 | 1
+    layer: 0 | 1,
+    tilesetPairIndex: number = 0
   ): void {
     for (let i = 0; i < 4; i++) {
       const tileIndex = layer * 4 + i;
@@ -183,7 +189,7 @@ export class TileInstanceBuilder {
         xflip: tile.xflip,
         yflip: tile.yflip,
         tilesetIndex,
-        tilesetPairIndex: 0, // Default to pair 0, will be set by world manager for multi-tileset worlds
+        tilesetPairIndex,
       });
     }
   }
