@@ -32,6 +32,7 @@ import {
 } from '../utils/mapLoader';
 import type { LoadedAnimation } from '../rendering/types';
 import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
+import { TilesetPairScheduler } from './TilesetPairScheduler';
 import UPNG from 'upng-js';
 
 const PROJECT_ROOT = '/pokeemerald';
@@ -39,8 +40,12 @@ const NUM_PALS_IN_PRIMARY = 6;
 const NUM_PALS_TOTAL = 13;
 const TILE_SIZE = 8;
 
-/** Maximum number of tileset pairs GPU can handle */
-const MAX_TILESET_PAIRS = 2;
+/** Maximum number of unique tileset pairs to keep in CPU memory
+ * The scheduler manages which 2 are in GPU - this is the total that can be cached
+ * Higher values allow more freedom to walk across tileset boundaries
+ * Set high to avoid blocking map loading during development/debugging
+ */
+const MAX_TILESET_PAIRS_IN_MEMORY = 16;
 
 /** Distance in tiles from anchor before re-anchoring */
 const REANCHOR_DISTANCE = 50;
@@ -79,6 +84,7 @@ export interface LoadedMapInstance {
   offsetX: number;  // World tile offset
   offsetY: number;
   tilesetPairIndex: number;  // Index into tilesetPairs array
+  borderMetatiles: number[];  // Per-map border metatiles from border.bin
 }
 
 /**
@@ -88,7 +94,10 @@ export interface WorldSnapshot {
   maps: LoadedMapInstance[];
   tilesetPairs: TilesetPairInfo[];
   mapTilesetPairIndex: Map<string, number>;
-  borderMetatilesPerPair: Map<number, number[]>;
+  /** Border metatiles from the ANCHOR map - used for all out-of-bounds tiles */
+  anchorBorderMetatiles: number[];
+  /** Maps tileset pair ID to GPU slot (0 or 1). Pairs not in GPU are not in this map. */
+  pairIdToGpuSlot: Map<string, 0 | 1>;
   anchorMapId: string;
   worldBounds: {
     minX: number;
@@ -106,9 +115,14 @@ export interface WorldSnapshot {
 export type WorldManagerEvent =
   | { type: 'mapsChanged'; snapshot: WorldSnapshot }
   | { type: 'tilesetsChanged'; pair0: TilesetPairInfo; pair1: TilesetPairInfo | null }
-  | { type: 'reanchored'; newAnchorId: string; offsetShift: { x: number; y: number } };
+  | { type: 'reanchored'; newAnchorId: string; offsetShift: { x: number; y: number } }
+  | { type: 'gpuSlotsSwapped'; slot0PairId: string | null; slot1PairId: string | null; needsRebuild: boolean };
 
 export type WorldManagerEventHandler = (event: WorldManagerEvent) => void;
+
+// Re-export scheduler for external use
+export { TilesetPairScheduler } from './TilesetPairScheduler';
+export type { TilesetBoundary, SchedulerEvent } from './TilesetPairScheduler';
 
 /**
  * Manages dynamic world loading and unloading
@@ -118,7 +132,6 @@ export class WorldManager {
   private tilesetPairs: TilesetPairInfo[] = [];
   private tilesetPairMap: Map<string, number> = new Map();  // pairId -> index
   private mapTilesetPairIndex: Map<string, number> = new Map();
-  private borderMetatilesPerPair: Map<number, number[]> = new Map();
 
   private anchorMapId: string = '';
   private anchorOffsetX: number = 0;
@@ -126,6 +139,39 @@ export class WorldManager {
 
   private eventHandlers: WorldManagerEventHandler[] = [];
   private loadingMaps: Set<string> = new Set();
+
+  /** Tileset pair scheduler for smart loading/unloading */
+  private scheduler: TilesetPairScheduler = new TilesetPairScheduler();
+
+  /**
+   * Set the callback for uploading tileset pairs to GPU
+   * This must be called before initialize() for proper scheduler setup
+   */
+  setGpuUploadCallback(callback: (pair: TilesetPairInfo, slot: 0 | 1) => void): void {
+    // Set up scheduler callbacks
+    this.scheduler.setCallbacks(
+      callback,
+      async (pairId: string) => {
+        // Parse the pair ID to get tileset IDs
+        const [primaryId, secondaryId] = pairId.split('+');
+        // Find a map entry that uses these tilesets
+        const entry = mapIndexData.find(
+          m => m.primaryTilesetId === primaryId && m.secondaryTilesetId === secondaryId
+        );
+        if (!entry) {
+          throw new Error(`No map found for tileset pair: ${pairId}`);
+        }
+        return this.loadTilesetPair(entry);
+      }
+    );
+  }
+
+  /**
+   * Get the scheduler instance for direct access
+   */
+  getScheduler(): TilesetPairScheduler {
+    return this.scheduler;
+  }
 
   /**
    * Initialize the world with a starting map
@@ -143,17 +189,80 @@ export class WorldManager {
     // Load initial world
     await this.loadMapsFromAnchor(startEntry, 0, 0, LOAD_DEPTH);
 
+    // Update scheduler with loaded maps and boundaries
+    this.scheduler.updateBoundaries(
+      Array.from(this.maps.values()),
+      this.mapTilesetPairIndex,
+      this.tilesetPairs
+    );
+
+    // Add all loaded pairs to scheduler cache
+    for (const pair of this.tilesetPairs) {
+      this.scheduler.addToCache(pair);
+    }
+
+    // Set initial GPU slots
+    if (this.tilesetPairs[0]) {
+      this.scheduler.setGpuSlot(this.tilesetPairs[0].id, 0);
+    }
+    if (this.tilesetPairs[1]) {
+      this.scheduler.setGpuSlot(this.tilesetPairs[1].id, 1);
+    }
+
     return this.getSnapshot();
   }
 
   /**
    * Update world based on player position
    * Call this each frame or when player moves significantly
+   *
+   * @param playerTileX - Player's current tile X position
+   * @param playerTileY - Player's current tile Y position
+   * @param playerDirection - Player's facing/movement direction (for predictive loading)
    */
-  async update(playerTileX: number, playerTileY: number): Promise<void> {
+  async update(
+    playerTileX: number,
+    playerTileY: number,
+    playerDirection: 'up' | 'down' | 'left' | 'right' | null = null
+  ): Promise<void> {
     // Find which map the player is currently in
     const currentMap = this.findMapAtPosition(playerTileX, playerTileY);
     if (!currentMap) return;
+
+    // Get the tileset pair for current map
+    const currentPairIndex = this.mapTilesetPairIndex.get(currentMap.entry.id);
+    const currentPair = currentPairIndex !== undefined ? this.tilesetPairs[currentPairIndex] : null;
+
+    // Update scheduler - this handles GPU slot swapping and preloading
+    if (currentPair) {
+      const result = await this.scheduler.update(
+        playerTileX,
+        playerTileY,
+        currentPair.id,
+        playerDirection
+      );
+
+      if (result.needsRebuild) {
+        // GPU slots changed, notify listeners
+        this.emit({
+          type: 'gpuSlotsSwapped',
+          slot0PairId: result.newSlot0,
+          slot1PairId: result.newSlot1,
+          needsRebuild: true,
+        });
+
+        // Also emit tilesetsChanged for backward compatibility
+        const pair0 = result.newSlot0 ? this.scheduler.getCachedPair(result.newSlot0) : null;
+        const pair1 = result.newSlot1 ? this.scheduler.getCachedPair(result.newSlot1) : null;
+        if (pair0) {
+          this.emit({
+            type: 'tilesetsChanged',
+            pair0,
+            pair1,
+          });
+        }
+      }
+    }
 
     // Check if we need to re-anchor
     const distFromAnchor = Math.max(
@@ -184,11 +293,22 @@ export class WorldManager {
       maxY = Math.max(maxY, map.offsetY + map.entry.height);
     }
 
+    // Build pairIdToGpuSlot mapping from scheduler
+    const gpuSlots = this.scheduler.getGpuSlots();
+    const pairIdToGpuSlot = new Map<string, 0 | 1>();
+    if (gpuSlots.slot0) pairIdToGpuSlot.set(gpuSlots.slot0, 0);
+    if (gpuSlots.slot1) pairIdToGpuSlot.set(gpuSlots.slot1, 1);
+
+    // Get anchor map's border metatiles
+    const anchorMap = this.maps.get(this.anchorMapId);
+    const anchorBorderMetatiles = anchorMap?.borderMetatiles ?? [];
+
     return {
       maps: mapsArray,
       tilesetPairs: [...this.tilesetPairs],
       mapTilesetPairIndex: new Map(this.mapTilesetPairIndex),
-      borderMetatilesPerPair: new Map(this.borderMetatilesPerPair),
+      anchorBorderMetatiles,
+      pairIdToGpuSlot,
       anchorMapId: this.anchorMapId,
       worldBounds: {
         minX,
@@ -276,6 +396,13 @@ export class WorldManager {
       this.mapTilesetPairIndex.delete(mapId);
     }
 
+    // Update scheduler boundaries after unloading
+    this.scheduler.updateBoundaries(
+      Array.from(this.maps.values()),
+      this.mapTilesetPairIndex,
+      this.tilesetPairs
+    );
+
     // Emit event
     this.emit({
       type: 'reanchored',
@@ -288,38 +415,83 @@ export class WorldManager {
   }
 
   /**
-   * Load maps connected to a given map
+   * Load maps connected to a given map, including neighbors-of-neighbors
+   * This ensures maps are always stitched close to the player
    */
   private async loadConnectedMaps(fromMap: LoadedMapInstance): Promise<void> {
-    const connections = fromMap.entry.connections || [];
+    // Use BFS to load maps up to 2 connections deep from current map
+    const queue: Array<{ map: LoadedMapInstance; depth: number }> = [{ map: fromMap, depth: 0 }];
+    const visited = new Set<string>([fromMap.entry.id]);
+    const MAX_CONNECTION_DEPTH = 2;
 
-    for (const connection of connections) {
-      if (this.maps.has(connection.map) || this.loadingMaps.has(connection.map)) {
+    const DEBUG_LOADING = false; // Set to true for verbose logging
+
+    while (queue.length > 0) {
+      const { map: currentMap, depth } = queue.shift()!;
+      if (depth >= MAX_CONNECTION_DEPTH) {
+        if (DEBUG_LOADING) console.log(`[LoadMaps] Skip ${currentMap.entry.id} - depth ${depth} >= ${MAX_CONNECTION_DEPTH}`);
         continue;
       }
 
-      const neighborEntry = mapIndexData.find(m => m.id === connection.map);
-      if (!neighborEntry) continue;
+      const connections = currentMap.entry.connections || [];
 
-      // Calculate offset for connected map
-      const { offsetX, offsetY } = this.computeConnectionOffset(
-        fromMap.entry,
-        neighborEntry,
-        connection,
-        fromMap.offsetX,
-        fromMap.offsetY
-      );
+      for (const connection of connections) {
+        if (visited.has(connection.map)) continue;
+        visited.add(connection.map);
 
-      // Check if we can load this map (tileset pair limit)
-      const pairId = this.getTilesetPairId(neighborEntry.primaryTilesetId, neighborEntry.secondaryTilesetId);
-      if (!this.tilesetPairMap.has(pairId) && this.tilesetPairs.length >= MAX_TILESET_PAIRS) {
-        // Can't load - would exceed tileset pair limit
-        continue;
+        if (this.maps.has(connection.map) || this.loadingMaps.has(connection.map)) {
+          // Already loaded - but still add to queue to check ITS connections
+          const existingMap = this.maps.get(connection.map);
+          if (existingMap) {
+            queue.push({ map: existingMap, depth: depth + 1 });
+          }
+          continue;
+        }
+
+        const neighborEntry = mapIndexData.find(m => m.id === connection.map);
+        if (!neighborEntry) continue;
+
+        // Calculate offset for connected map
+        const { offsetX, offsetY } = this.computeConnectionOffset(
+          currentMap.entry,
+          neighborEntry,
+          connection,
+          currentMap.offsetX,
+          currentMap.offsetY
+        );
+
+        // Check tileset pair limit - but prioritize maps that share our current tileset
+        const pairId = this.getTilesetPairId(neighborEntry.primaryTilesetId, neighborEntry.secondaryTilesetId);
+        const currentPairId = this.getTilesetPairId(fromMap.entry.primaryTilesetId, fromMap.entry.secondaryTilesetId);
+        const sharesTileset = pairId === currentPairId || this.tilesetPairMap.has(pairId);
+
+        if (!sharesTileset && this.tilesetPairs.length >= MAX_TILESET_PAIRS_IN_MEMORY) {
+          // Skip maps with new tilesets when at limit, but only for depth > 1
+          // Always try to load immediate neighbors (depth 0 -> depth 1 connections)
+          if (depth > 1) continue;
+        }
+
+        // Load the map
+        try {
+          await this.loadMap(neighborEntry, offsetX, offsetY);
+          // Add newly loaded map to queue to check its connections
+          const loadedMap = this.maps.get(connection.map);
+          if (loadedMap) {
+            queue.push({ map: loadedMap, depth: depth + 1 });
+          }
+        } catch (err) {
+          // Map failed to load (likely tileset limit) - skip it
+          console.warn(`Failed to load map ${connection.map}:`, err);
+        }
       }
-
-      // Load the map
-      await this.loadMap(neighborEntry, offsetX, offsetY);
     }
+
+    // Update scheduler boundaries after loading new maps
+    this.scheduler.updateBoundaries(
+      Array.from(this.maps.values()),
+      this.mapTilesetPairIndex,
+      this.tilesetPairs
+    );
   }
 
   /**
@@ -341,7 +513,7 @@ export class WorldManager {
 
       // Check tileset pair limit
       const pairId = this.getTilesetPairId(current.entry.primaryTilesetId, current.entry.secondaryTilesetId);
-      if (!this.tilesetPairMap.has(pairId) && this.tilesetPairs.length >= MAX_TILESET_PAIRS) {
+      if (!this.tilesetPairMap.has(pairId) && this.tilesetPairs.length >= MAX_TILESET_PAIRS_IN_MEMORY) {
         continue;
       }
 
@@ -382,7 +554,7 @@ export class WorldManager {
       let pairIndex = this.tilesetPairMap.get(pairId);
 
       if (pairIndex === undefined) {
-        if (this.tilesetPairs.length >= MAX_TILESET_PAIRS) {
+        if (this.tilesetPairs.length >= MAX_TILESET_PAIRS_IN_MEMORY) {
           throw new Error(`Cannot load map ${entry.id}: tileset pair limit exceeded`);
         }
 
@@ -391,10 +563,19 @@ export class WorldManager {
         this.tilesetPairs.push(pair);
         this.tilesetPairMap.set(pairId, pairIndex);
 
-        // Load border metatiles for this pair
-        const layoutPath = `${PROJECT_ROOT}/${entry.layoutPath}`;
-        const border = await loadBorderMetatiles(`${layoutPath}/border.bin`).catch(() => [] as number[]);
-        this.borderMetatilesPerPair.set(pairIndex, border);
+        // Add to scheduler cache
+        this.scheduler.addToCache(pair);
+
+        // CRITICAL: Assign GPU slot for the new pair!
+        // The first pair goes to slot 0, second to slot 1
+        // This ensures pairIdToGpuSlot is correct in the snapshot
+        if (pairIndex === 0) {
+          this.scheduler.setGpuSlot(pair.id, 0);
+        } else if (pairIndex === 1) {
+          this.scheduler.setGpuSlot(pair.id, 1);
+        }
+        // Note: pairs beyond index 1 stay in CPU cache only until
+        // the scheduler swaps them into GPU based on player position
 
         // Emit tileset change
         this.emit({
@@ -404,9 +585,12 @@ export class WorldManager {
         });
       }
 
-      // Load map layout
+      // Load map layout and border metatiles (borders are per-map, not per-tileset)
       const layoutPath = `${PROJECT_ROOT}/${entry.layoutPath}`;
-      const mapData = await loadMapLayout(`${layoutPath}/map.bin`, entry.width, entry.height);
+      const [mapData, borderMetatiles] = await Promise.all([
+        loadMapLayout(`${layoutPath}/map.bin`, entry.width, entry.height),
+        loadBorderMetatiles(`${layoutPath}/border.bin`).catch(() => [] as number[]),
+      ]);
 
       const mapInstance: LoadedMapInstance = {
         entry,
@@ -414,6 +598,7 @@ export class WorldManager {
         offsetX,
         offsetY,
         tilesetPairIndex: pairIndex,
+        borderMetatiles,
       };
 
       this.maps.set(entry.id, mapInstance);
@@ -616,6 +801,82 @@ export class WorldManager {
   }
 
   /**
+   * Get debug info about current world state
+   */
+  getDebugInfo(playerTileX: number, playerTileY: number): {
+    currentMap: string | null;
+    anchorMap: string;
+    loadedMaps: Array<{ id: string; offsetX: number; offsetY: number; width: number; height: number; pairIndex: number; pairId: string; inGpu: boolean; borderTileCount: number }>;
+    expectedConnections: Array<{ from: string; direction: string; to: string; loaded: boolean }>;
+    tilesetPairs: number;
+    playerPos: { x: number; y: number };
+    gpuSlot0: string | null;
+    gpuSlot1: string | null;
+    boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
+    nearbyBoundaryCount: number;
+  } {
+    const currentMap = this.findMapAtPosition(playerTileX, playerTileY);
+    const gpuSlots = this.scheduler.getGpuSlots();
+
+    const loadedMaps = Array.from(this.maps.values()).map(m => {
+      const pairIndex = this.mapTilesetPairIndex.get(m.entry.id) ?? -1;
+      const pair = pairIndex >= 0 ? this.tilesetPairs[pairIndex] : null;
+      const pairId = pair?.id ?? 'none';
+      const inGpu = pairId === gpuSlots.slot0 || pairId === gpuSlots.slot1;
+      return {
+        id: m.entry.id,
+        offsetX: m.offsetX,
+        offsetY: m.offsetY,
+        width: m.entry.width,
+        height: m.entry.height,
+        pairIndex,
+        pairId,
+        inGpu,
+        borderTileCount: m.borderMetatiles.length,
+      };
+    });
+
+    // Get expected connections from current map
+    const expectedConnections: Array<{ from: string; direction: string; to: string; loaded: boolean }> = [];
+    if (currentMap) {
+      for (const conn of currentMap.entry.connections || []) {
+        expectedConnections.push({
+          from: currentMap.entry.id,
+          direction: conn.direction,
+          to: conn.map,
+          loaded: this.maps.has(conn.map),
+        });
+      }
+    }
+
+    // Get boundaries for debug visualization
+    const boundaries = this.scheduler.getBoundaries().map(b => ({
+      x: b.worldX,
+      y: b.worldY,
+      length: b.length,
+      orientation: b.orientation,
+      pairA: b.pairIdA.replace('gTileset_', '').replace('+gTileset_', ' + '),
+      pairB: b.pairIdB.replace('gTileset_', '').replace('+gTileset_', ' + '),
+    }));
+
+    // Get nearby boundaries (within preload distance of player)
+    const nearbyBoundaries = this.scheduler.getNearbyBoundaries(playerTileX, playerTileY);
+
+    return {
+      currentMap: currentMap?.entry.id ?? null,
+      anchorMap: this.anchorMapId,
+      loadedMaps,
+      expectedConnections,
+      tilesetPairs: this.tilesetPairs.length,
+      playerPos: { x: playerTileX, y: playerTileY },
+      gpuSlot0: gpuSlots.slot0,
+      gpuSlot1: gpuSlots.slot1,
+      boundaries,
+      nearbyBoundaryCount: nearbyBoundaries.length,
+    };
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {
@@ -623,7 +884,6 @@ export class WorldManager {
     this.tilesetPairs = [];
     this.tilesetPairMap.clear();
     this.mapTilesetPairIndex.clear();
-    this.borderMetatilesPerPair.clear();
     this.eventHandlers = [];
     this.loadingMaps.clear();
   }

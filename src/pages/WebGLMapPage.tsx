@@ -91,9 +91,6 @@ type StitchedWorldData = {
   /** Maps each map ID to its tileset pair index in tilesetPairs array */
   mapTilesetPairIndex: Map<string, number>;
 
-  /** Border metatiles per tileset pair (index matches tilesetPairs) */
-  borderMetatilesPerPair: Map<number, number[]>;
-
   // Legacy single-tileset fields (for backward compatibility, references tilesetPairs[0])
   primaryMetatiles: Metatile[];
   secondaryMetatiles: Metatile[];
@@ -190,10 +187,34 @@ export function WebGLMapPage() {
   const [loading, setLoading] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<CameraState>({ x: 0, y: 0 });
   const [debugTile, setDebugTile] = useState<DebugTileInfo | null>(null);
+  const [mapDebugInfo, setMapDebugInfo] = useState<{
+    currentMap: string | null;
+    anchorMap: string;
+    loadedMaps: Array<{ id: string; offsetX: number; offsetY: number; width: number; height: number; pairId: string; inGpu: boolean; borderTileCount: number }>;
+    expectedConnections: Array<{ from: string; direction: string; to: string; loaded: boolean }>;
+    tilesetPairs: number;
+    playerPos: { x: number; y: number };
+    gpuSlot0: string | null;
+    gpuSlot1: string | null;
+    boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
+    nearbyBoundaryCount: number;
+  } | null>(null);
 
   // Create tile resolver from WorldSnapshot (for WorldManager integration)
   const createSnapshotTileResolver = useCallback((snapshot: WorldSnapshot): TileResolverFn => {
-    const { maps, tilesetPairs, mapTilesetPairIndex, borderMetatilesPerPair } = snapshot;
+    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, pairIdToGpuSlot, anchorMapId } = snapshot;
+
+    // Helper to convert tileset pair array index to GPU slot (0 or 1)
+    const getGpuSlot = (pairIndex: number): number => {
+      const pair = tilesetPairs[pairIndex];
+      if (!pair) return 0;
+      return pairIdToGpuSlot.get(pair.id) ?? 0;
+    };
+
+    // Get anchor map's tileset pair for border rendering
+    const anchorMap = maps.find(m => m.entry.id === anchorMapId) ?? maps[0];
+    const anchorPairIndex = anchorMap ? (mapTilesetPairIndex.get(anchorMap.entry.id) ?? 0) : 0;
+    const anchorPair = tilesetPairs[anchorPairIndex] ?? tilesetPairs[0];
 
     return (worldX: number, worldY: number): ResolvedTile | null => {
       // Find which map contains this world tile
@@ -221,6 +242,9 @@ export function WebGLMapPage() {
           const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
           const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
 
+          // Use GPU slot index (0 or 1), not array index
+          const gpuSlot = getGpuSlot(pairIndex);
+
           return {
             metatile,
             attributes,
@@ -229,29 +253,94 @@ export function WebGLMapPage() {
             tileset: null as any,
             isSecondary,
             isBorder: false,
-            tilesetPairIndex: pairIndex,
+            tilesetPairIndex: gpuSlot,
           };
         }
       }
 
-      // Out of bounds - use border tiles
-      const borderMetatiles = borderMetatilesPerPair.get(0) ?? [];
+      // Out of bounds - find NEAREST map whose tileset pair is IN GPU and use its border tiles
+      // CRITICAL: We can only render tiles from tilesets that are currently in GPU!
+      // If nearest map's tileset isn't in GPU, fall back to a map whose tileset IS in GPU
+      let nearestMap: typeof maps[0] | null = null;
+      let nearestDist = Infinity;
+
+      // Helper to check if a map's tileset is in GPU
+      const isMapTilesetInGpu = (map: typeof maps[0]): boolean => {
+        const pairIndex = mapTilesetPairIndex.get(map.entry.id);
+        if (pairIndex === undefined) return false;
+        const pair = tilesetPairs[pairIndex];
+        if (!pair) return false;
+        return pairIdToGpuSlot.has(pair.id);
+      };
+
+      for (const map of maps) {
+        // ONLY consider maps whose tileset pair is currently in GPU
+        if (!isMapTilesetInGpu(map)) continue;
+
+        // Calculate distance from (worldX, worldY) to map's bounding box
+        const mapLeft = map.offsetX;
+        const mapRight = map.offsetX + map.entry.width;
+        const mapTop = map.offsetY;
+        const mapBottom = map.offsetY + map.entry.height;
+
+        // Horizontal distance (0 if inside map's X range)
+        const dx = worldX < mapLeft ? mapLeft - worldX :
+                   worldX >= mapRight ? worldX - mapRight + 1 : 0;
+        // Vertical distance (0 if inside map's Y range)
+        const dy = worldY < mapTop ? mapTop - worldY :
+                   worldY >= mapBottom ? worldY - mapBottom + 1 : 0;
+
+        // Euclidean distance to bounding box (squared for comparison, no need for sqrt)
+        const dist = dx * dx + dy * dy;
+
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestMap = map;
+        }
+      }
+
+      // Fall back to anchor if no maps with GPU tilesets found
+      if (!nearestMap) {
+        if (anchorBorderMetatiles.length === 0 || !anchorPair) return null;
+        // Use anchor map's borders with anchor's tileset (should be in GPU)
+        nearestMap = anchorMap;
+      }
+
+      // Get border tiles from the nearest map
+      const borderMetatiles = nearestMap.borderMetatiles.length > 0
+        ? nearestMap.borderMetatiles
+        : anchorBorderMetatiles;
+
       if (borderMetatiles.length === 0) return null;
 
-      const pair = tilesetPairs[0];
+      // Get tileset pair for the nearest map
+      const nearestPairIndex = mapTilesetPairIndex.get(nearestMap.entry.id) ?? anchorPairIndex;
+      const nearestPair = tilesetPairs[nearestPairIndex] ?? anchorPair;
+
+      if (!nearestPair) return null;
+
+      // Verify the pair is actually in GPU - if not, we can't render these borders
+      if (!pairIdToGpuSlot.has(nearestPair.id)) {
+        // Tileset not in GPU, cannot render border
+        return null;
+      }
+
       const borderIndex = ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
       const borderMetatileId = borderMetatiles[borderIndex];
 
       const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
       const metatile = isSecondary
-        ? pair.secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
-        : pair.primaryMetatiles[borderMetatileId];
+        ? nearestPair.secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
+        : nearestPair.primaryMetatiles[borderMetatileId];
 
       if (!metatile) return null;
 
       const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
-      const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
+      const attrArray = isSecondary ? nearestPair.secondaryAttributes : nearestPair.primaryAttributes;
       const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
+
+      // Use GPU slot index (0 or 1) of the nearest map's tileset pair
+      const gpuSlot = getGpuSlot(nearestPairIndex);
 
       return {
         metatile,
@@ -261,7 +350,7 @@ export function WebGLMapPage() {
         tileset: null as any,
         isSecondary,
         isBorder: true,
-        tilesetPairIndex: 0,
+        tilesetPairIndex: gpuSlot,
       };
     };
   }, []);
@@ -300,34 +389,36 @@ export function WebGLMapPage() {
     pipeline: WebGLRenderPipeline,
     snapshot: WorldSnapshot
   ): void => {
-    const { tilesetPairs } = snapshot;
+    const { tilesetPairs, pairIdToGpuSlot } = snapshot;
 
-    if (tilesetPairs.length > 0) {
-      const pair0 = tilesetPairs[0];
-      pipeline.uploadTilesets(
-        pair0.primaryImage.data,
-        pair0.primaryImage.width,
-        pair0.primaryImage.height,
-        pair0.secondaryImage.data,
-        pair0.secondaryImage.width,
-        pair0.secondaryImage.height,
-        pair0.animations
-      );
-      pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
-    }
-
-    if (tilesetPairs.length > 1) {
-      const pair1 = tilesetPairs[1];
-      pipeline.uploadTilesetsPair1(
-        pair1.primaryImage.data,
-        pair1.primaryImage.width,
-        pair1.primaryImage.height,
-        pair1.secondaryImage.data,
-        pair1.secondaryImage.width,
-        pair1.secondaryImage.height,
-        pair1.animations
-      );
-      pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
+    // Upload tilesets based on pairIdToGpuSlot mapping, not array index!
+    // This ensures GPU textures match what the scheduler/resolver expects
+    for (const pair of tilesetPairs) {
+      const gpuSlot = pairIdToGpuSlot.get(pair.id);
+      if (gpuSlot === 0) {
+        pipeline.uploadTilesets(
+          pair.primaryImage.data,
+          pair.primaryImage.width,
+          pair.primaryImage.height,
+          pair.secondaryImage.data,
+          pair.secondaryImage.width,
+          pair.secondaryImage.height,
+          pair.animations
+        );
+        pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+      } else if (gpuSlot === 1) {
+        pipeline.uploadTilesetsPair1(
+          pair.primaryImage.data,
+          pair.primaryImage.width,
+          pair.primaryImage.height,
+          pair.secondaryImage.data,
+          pair.secondaryImage.width,
+          pair.secondaryImage.height,
+          pair.animations
+        );
+        pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+      }
+      // Pairs not in GPU (gpuSlot undefined) are skipped - they stay in CPU cache only
     }
   }, []);
 
@@ -539,7 +630,7 @@ export function WebGLMapPage() {
       anchor: {
         ...anchor,
         tilesets: anchorTilesetResources,
-        borderMetatiles: snapshot.borderMetatilesPerPair.get(0) ?? [],
+        borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
       },
     } as RenderContext;
   }, []);
@@ -759,10 +850,18 @@ export function WebGLMapPage() {
       if (player && playerLoadedRef.current) {
         player.update(dt);
 
-        // Update world manager with player position (triggers dynamic map loading)
+        // Update world manager with player position and direction (triggers dynamic map loading)
         const worldManager = worldManagerRef.current;
         if (worldManager) {
-          worldManager.update(player.tileX, player.tileY);
+          // Get player's current facing direction for predictive tileset loading
+          const playerDirection = player.getFacingDirection();
+          worldManager.update(player.tileX, player.tileY, playerDirection);
+
+          // Update debug info every ~500ms
+          if (gbaFrameRef.current % 30 === 0) {
+            const debugInfo = worldManager.getDebugInfo(player.tileX, player.tileY);
+            setMapDebugInfo(debugInfo);
+          }
         }
       }
 
@@ -1080,34 +1179,50 @@ export function WebGLMapPage() {
           }
 
           if (event.type === 'tilesetsChanged') {
-            // Re-upload tilesets using the event data directly (snapshot might be stale)
-            const { pair0, pair1 } = event;
+            // Upload tilesets based on SCHEDULER's GPU slot assignment, not array index!
+            // The scheduler determines which pair should be in which GPU slot
+            const scheduler = worldManager.getScheduler();
+            const { slot0: slot0PairId, slot1: slot1PairId } = scheduler.getGpuSlots();
 
-            // Upload pair 0
-            pipeline.uploadTilesets(
-              pair0.primaryImage.data,
-              pair0.primaryImage.width,
-              pair0.primaryImage.height,
-              pair0.secondaryImage.data,
-              pair0.secondaryImage.width,
-              pair0.secondaryImage.height,
-              pair0.animations
-            );
-            pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
-
-            // Upload pair 1 if present
-            if (pair1) {
-              pipeline.uploadTilesetsPair1(
-                pair1.primaryImage.data,
-                pair1.primaryImage.width,
-                pair1.primaryImage.height,
-                pair1.secondaryImage.data,
-                pair1.secondaryImage.width,
-                pair1.secondaryImage.height,
-                pair1.animations
-              );
-              pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
+            // Upload to GPU slot 0
+            if (slot0PairId) {
+              const slot0Pair = scheduler.getCachedPair(slot0PairId);
+              if (slot0Pair) {
+                pipeline.uploadTilesets(
+                  slot0Pair.primaryImage.data,
+                  slot0Pair.primaryImage.width,
+                  slot0Pair.primaryImage.height,
+                  slot0Pair.secondaryImage.data,
+                  slot0Pair.secondaryImage.width,
+                  slot0Pair.secondaryImage.height,
+                  slot0Pair.animations
+                );
+                pipeline.uploadPalettes(combineTilesetPalettes(slot0Pair.primaryPalettes, slot0Pair.secondaryPalettes));
+              }
             }
+
+            // Upload to GPU slot 1
+            if (slot1PairId) {
+              const slot1Pair = scheduler.getCachedPair(slot1PairId);
+              if (slot1Pair) {
+                pipeline.uploadTilesetsPair1(
+                  slot1Pair.primaryImage.data,
+                  slot1Pair.primaryImage.width,
+                  slot1Pair.primaryImage.height,
+                  slot1Pair.secondaryImage.data,
+                  slot1Pair.secondaryImage.width,
+                  slot1Pair.secondaryImage.height,
+                  slot1Pair.animations
+                );
+                pipeline.uploadPalettesPair1(combineTilesetPalettes(slot1Pair.primaryPalettes, slot1Pair.secondaryPalettes));
+              }
+            }
+
+            // Refresh tile resolver with updated GPU slot info
+            const freshSnapshot = worldManager.getSnapshot();
+            worldSnapshotRef.current = freshSnapshot;
+            const resolver = createSnapshotTileResolver(freshSnapshot);
+            pipeline.setTileResolver(resolver);
 
             pipeline.invalidate();
           }
@@ -1121,6 +1236,90 @@ export function WebGLMapPage() {
                 player.tileY - event.offsetShift.y
               );
             }
+          }
+
+          if (event.type === 'gpuSlotsSwapped') {
+            // GPU slots changed due to player approaching tileset boundary
+            // Re-upload tilesets based on scheduler's new slot assignments
+            const scheduler = worldManager.getScheduler();
+            const { slot0: slot0PairId, slot1: slot1PairId } = scheduler.getGpuSlots();
+
+            if (slot0PairId) {
+              const pair0 = scheduler.getCachedPair(slot0PairId);
+              if (pair0) {
+                pipeline.uploadTilesets(
+                  pair0.primaryImage.data,
+                  pair0.primaryImage.width,
+                  pair0.primaryImage.height,
+                  pair0.secondaryImage.data,
+                  pair0.secondaryImage.width,
+                  pair0.secondaryImage.height,
+                  pair0.animations
+                );
+                pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
+              }
+            }
+
+            if (slot1PairId) {
+              const pair1 = scheduler.getCachedPair(slot1PairId);
+              if (pair1) {
+                pipeline.uploadTilesetsPair1(
+                  pair1.primaryImage.data,
+                  pair1.primaryImage.width,
+                  pair1.primaryImage.height,
+                  pair1.secondaryImage.data,
+                  pair1.secondaryImage.width,
+                  pair1.secondaryImage.height,
+                  pair1.animations
+                );
+                pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
+              }
+            }
+
+            // CRITICAL: Get fresh snapshot with updated pairIdToGpuSlot and recreate tile resolver!
+            // Without this, the tile resolver has stale GPU slot info and can't render border tiles correctly
+            const freshSnapshot = worldManager.getSnapshot();
+            worldSnapshotRef.current = freshSnapshot;
+            const resolver = createSnapshotTileResolver(freshSnapshot);
+            pipeline.setTileResolver(resolver);
+
+            // Also update player resolver
+            const player = playerRef.current;
+            if (player) {
+              const playerResolver = createSnapshotPlayerTileResolver(freshSnapshot);
+              player.setTileResolver(playerResolver);
+            }
+
+            if (event.needsRebuild) {
+              pipeline.invalidate();
+            }
+          }
+        });
+
+        // Set up GPU upload callback for scheduler
+        worldManager.setGpuUploadCallback((pair, slot) => {
+          if (slot === 0) {
+            pipeline.uploadTilesets(
+              pair.primaryImage.data,
+              pair.primaryImage.width,
+              pair.primaryImage.height,
+              pair.secondaryImage.data,
+              pair.secondaryImage.width,
+              pair.secondaryImage.height,
+              pair.animations
+            );
+            pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+          } else {
+            pipeline.uploadTilesetsPair1(
+              pair.primaryImage.data,
+              pair.primaryImage.width,
+              pair.primaryImage.height,
+              pair.secondaryImage.data,
+              pair.secondaryImage.width,
+              pair.secondaryImage.height,
+              pair.animations
+            );
+            pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
           }
         });
 
@@ -1145,7 +1344,6 @@ export function WebGLMapPage() {
           worldBounds: snapshot.worldBounds,
           tilesetPairs: snapshot.tilesetPairs,
           mapTilesetPairIndex: snapshot.mapTilesetPairIndex,
-          borderMetatilesPerPair: snapshot.borderMetatilesPerPair,
           // Legacy fields from primary pair
           primaryMetatiles: snapshot.tilesetPairs[0]?.primaryMetatiles ?? [],
           secondaryMetatiles: snapshot.tilesetPairs[0]?.secondaryMetatiles ?? [],
@@ -1156,7 +1354,7 @@ export function WebGLMapPage() {
           primaryPalettes: snapshot.tilesetPairs[0]?.primaryPalettes ?? [],
           secondaryPalettes: snapshot.tilesetPairs[0]?.secondaryPalettes ?? [],
           animations: snapshot.tilesetPairs[0]?.animations ?? [],
-          borderMetatiles: snapshot.borderMetatilesPerPair.get(0) ?? [],
+          borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
         };
 
         // Set up tile resolver
@@ -1310,6 +1508,47 @@ export function WebGLMapPage() {
               <div style={{ marginTop: 2, fontSize: 10, color: '#888' }}>
                 Elev 3 priority: 2 (below BG1)
               </div>
+            </div>
+          )}
+
+          {/* Map stitching debug panel */}
+          {mapDebugInfo && (
+            <div style={{ marginTop: 12, padding: 8, background: '#1a2d1a', borderRadius: 4, fontSize: 10, maxHeight: 400, overflowY: 'auto' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#8f8' }}>Map Stitching Debug</div>
+              <div><strong>Player:</strong> ({mapDebugInfo.playerPos.x}, {mapDebugInfo.playerPos.y})</div>
+              <div><strong>Current:</strong> {mapDebugInfo.currentMap ?? 'None'}</div>
+              <div><strong>Anchor:</strong> {mapDebugInfo.anchorMap}</div>
+              <div><strong>Tileset Pairs:</strong> {mapDebugInfo.tilesetPairs}</div>
+              <div style={{ marginTop: 4, fontWeight: 'bold', color: '#ff8' }}>GPU Slots:</div>
+              <div style={{ marginLeft: 8 }}>
+                <div>Slot 0: {mapDebugInfo.gpuSlot0?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}</div>
+                <div>Slot 1: {mapDebugInfo.gpuSlot1?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}</div>
+              </div>
+              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Connections:</div>
+              {mapDebugInfo.expectedConnections.map((c, i) => (
+                <div key={i} style={{ color: c.loaded ? '#8f8' : '#f88', marginLeft: 8 }}>
+                  {c.direction}: {c.to.replace('MAP_', '')} {c.loaded ? '✓' : '✗'}
+                </div>
+              ))}
+              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Loaded Maps ({mapDebugInfo.loadedMaps.length}):</div>
+              {mapDebugInfo.loadedMaps.map((m, i) => (
+                <div key={i} style={{ marginLeft: 8, color: m.id === mapDebugInfo.currentMap ? '#ff8' : m.inGpu ? '#8f8' : '#f88' }}>
+                  {m.id.replace('MAP_', '')} @({m.offsetX},{m.offsetY}) {m.inGpu ? '✓GPU' : '✗GPU'} borders:{m.borderTileCount}
+                </div>
+              ))}
+              {mapDebugInfo.boundaries.length > 0 && (
+                <>
+                  <div style={{ marginTop: 4, fontWeight: 'bold', color: '#f8f' }}>Tileset Boundaries ({mapDebugInfo.boundaries.length}):</div>
+                  {mapDebugInfo.boundaries.map((b, i) => (
+                    <div key={i} style={{ marginLeft: 8, color: '#f8f', fontSize: 9 }}>
+                      @({b.x},{b.y}) {b.orientation} len:{b.length}
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 2, color: mapDebugInfo.nearbyBoundaryCount > 0 ? '#ff8' : '#888' }}>
+                    Nearby: {mapDebugInfo.nearbyBoundaryCount} {mapDebugInfo.nearbyBoundaryCount > 0 ? '(preloading)' : ''}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

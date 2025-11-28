@@ -759,25 +759,251 @@ updateAnimations(gameFrame: number): void {
 
 ---
 
-### Phase 6: Polish & Edge Cases
+### Phase 6: Player Visual Effects ✅ COMPLETE
 
-#### Step 6.1: Boundary Handling
-- [ ] Implement `findTilesetBoundaries()` function
-- [ ] Add debug visualization (optional)
-- [ ] Handle player standing exactly on boundary
-- [ ] **TEST:** Player can walk freely across boundaries
+#### Step 6.1: Water Reflections
+- [x] Implement `computeReflectionStateFromSnapshot()` for reflection detection
+- [x] Match GBA scan behavior (tiles y+1 to y+height below player)
+- [x] Implement pixel-perfect water masking using `ReflectionMeta.pixelMask`
+- [x] Add `renderPlayerReflection()` with proper vertical flip and tint
+- [x] Support bridge offsets (pondLow, pondMed, pondHigh)
+- [x] **TEST:** Reflection appears on water tiles only
+- [x] **TEST:** Reflection masked to water pixels (not land edges)
 
-#### Step 6.2: Error Handling
-- [ ] Handle failed tileset loads gracefully
-- [ ] Handle missing map connections
-- [ ] Add fallback for 3+ tileset situations
-- [ ] **TEST:** Graceful degradation when tileset fails to load
+#### Step 6.2: Field Effect Masking
+- [x] Add puddle splash masking (same as water ripple)
+- [x] Create `createRenderContextFromSnapshot()` for field effect masking
+- [x] Pass render context to `ObjectRenderer.renderFieldEffects()`
+- [x] **TEST:** Puddle splashes masked to water pixels
+- [x] **TEST:** Water ripples masked to water pixels
 
-#### Step 6.3: Performance Optimization
-- [ ] Profile frame time with 2 tileset pairs
-- [ ] Optimize tile instance rebuilding
-- [ ] Consider texture caching for frequently used pairs
-- [ ] **TEST:** Maintain 60 FPS with 2 tileset pairs
+---
+
+### Phase 7: Polish & Edge Cases ✅ COMPLETE
+
+#### Step 7.1: Boundary Handling
+- [x] Implement `findTilesetBoundaries()` function (via TilesetPairScheduler.getBoundaries())
+- [x] Add debug visualization - boundaries shown in debug panel with count and positions
+- [x] Handle player standing exactly on boundary - tile resolver uses per-map tileset pairs
+- [x] **TEST:** Player can walk freely across boundaries
+
+#### Step 7.2: Error Handling
+- [x] Handle failed tileset loads gracefully - catch blocks in loadConnectedMaps, warning logs
+- [x] Handle missing map connections - checked before loading, skipped if not found
+- [x] Add fallback for 3+ tileset situations - MAX_TILESET_PAIRS_IN_MEMORY=16, caught and warned
+- [x] **TEST:** Graceful degradation when tileset fails to load
+
+#### Step 7.3: Performance Optimization
+- [x] Profile frame time with 2 tileset pairs - FPS and render time displayed in stats panel
+- [x] Optimize tile instance rebuilding - view hash caching, animation-only frames skip rebuild
+- [x] Consider texture caching for frequently used pairs - TilesetPairScheduler LRU cache (MAX_CPU_CACHE=4)
+- [x] **TEST:** Maintain 60 FPS with 2 tileset pairs
+
+---
+
+### Phase 8: Memory-Efficient Infinite Walking (NEW)
+
+The current system supports 2 tileset pairs in GPU memory, but for truly infinite walking we need smart loading/unloading to handle any number of tileset transitions.
+
+#### Architecture: Tileset Pair Lifecycle
+
+```
+Player Position → WorldManager → TilesetPairScheduler
+                                        │
+                    ┌───────────────────┼───────────────────┐
+                    ▼                   ▼                   ▼
+              [Active Pair 0]    [Active Pair 1]    [Preload Queue]
+              (current area)     (adjacent area)    (upcoming areas)
+                    │                   │
+                    └───────────────────┼───────────────────┐
+                                        ▼                   ▼
+                              [GPU Textures 0-2]    [GPU Textures 3-5]
+```
+
+#### Step 8.1: TilesetPairScheduler Class
+
+**File:** `src/game/TilesetPairScheduler.ts` (new)
+
+```typescript
+interface ScheduledPair {
+  id: string;                    // "General+Petalburg"
+  priority: 'active' | 'adjacent' | 'preload';
+  lastUsedFrame: number;
+  gpuSlot: 0 | 1 | null;        // Which GPU slot (null = not loaded)
+  data: TilesetPairInfo | null;  // Loaded data (null = not yet loaded)
+}
+
+class TilesetPairScheduler {
+  private pairs: Map<string, ScheduledPair> = new Map();
+  private loadQueue: string[] = [];
+  private readonly MAX_CACHED_PAIRS = 4;  // Keep recent pairs in memory
+
+  // Called when player moves - determines which pairs are needed
+  updateNeededPairs(
+    currentMapPairId: string,
+    adjacentMapPairIds: string[],
+    upcomingMapPairIds: string[]  // Based on player direction
+  ): void;
+
+  // Returns which pair IDs should be in GPU slots 0 and 1
+  getActiveGpuPairs(): [string | null, string | null];
+
+  // Async load/unload operations
+  async ensurePairLoaded(pairId: string): Promise<TilesetPairInfo>;
+  unloadLeastRecentPair(): void;
+}
+```
+
+**Tasks:**
+- [ ] Create `TilesetPairScheduler` class
+- [ ] Implement LRU (Least Recently Used) tracking
+- [ ] Implement `updateNeededPairs()` with priority assignment
+- [ ] Implement `getActiveGpuPairs()` for GPU slot assignment
+- [ ] **TEST:** Pairs are prioritized correctly based on player position
+
+#### Step 8.2: Predictive Preloading
+
+```typescript
+// In WorldManager or TilesetPairScheduler
+predictUpcomingTilesets(
+  playerTileX: number,
+  playerTileY: number,
+  playerDirection: Direction,
+  currentMapId: string
+): string[] {
+  const upcoming: string[] = [];
+
+  // Check connections in player's facing direction
+  const currentMap = this.getMap(currentMapId);
+  for (const conn of currentMap.connections) {
+    if (this.isInPlayerDirection(conn.direction, playerDirection)) {
+      const connectedPairId = this.getTilesetPairId(conn.mapId);
+      if (connectedPairId !== currentPairId) {
+        upcoming.push(connectedPairId);
+      }
+    }
+  }
+
+  return upcoming;
+}
+```
+
+**Tasks:**
+- [ ] Implement `predictUpcomingTilesets()` based on player direction
+- [ ] Start preloading ~2-3 tiles before boundary
+- [ ] Cancel preloads if player changes direction
+- [ ] **TEST:** Tileset preloaded before player reaches boundary
+
+#### Step 8.3: GPU Slot Swapping Strategy
+
+When player crosses into a new tileset region, we need to swap which pair is in slot 0 vs slot 1:
+
+```typescript
+// GPU Slot Assignment Rules:
+// - Slot 0: Always the tileset pair the player is STANDING in
+// - Slot 1: Adjacent tileset pair (or most recently used)
+//
+// When player crosses boundary:
+// 1. New area's pair becomes slot 0
+// 2. Old area's pair moves to slot 1
+// 3. Any third pair is unloaded from GPU (but kept in CPU cache)
+
+async swapGpuSlots(newPrimaryPairId: string): Promise<void> {
+  const currentPrimary = this.getActiveGpuPairs()[0];
+
+  if (currentPrimary === newPrimaryPairId) return;  // No swap needed
+
+  // Load new pair if not already loaded
+  const newPair = await this.ensurePairLoaded(newPrimaryPairId);
+
+  // Determine what to keep in slot 1
+  const slot1Pair = currentPrimary;  // Old primary becomes secondary
+
+  // Upload to GPU
+  this.pipeline.uploadTilesets(newPair, 0);      // New primary → slot 0
+  if (slot1Pair) {
+    this.pipeline.uploadTilesets(slot1Pair, 1);  // Old primary → slot 1
+  }
+
+  // Update all tiles' tilesetPairIndex
+  this.rebuildTileInstances();
+}
+```
+
+**Tasks:**
+- [ ] Implement `swapGpuSlots()` method
+- [ ] Track which pair is "primary" (player's current area)
+- [ ] Minimize GPU uploads by reusing existing textures
+- [ ] **TEST:** GPU swap happens smoothly when crossing boundary
+- [ ] **TEST:** No visual glitch during swap
+
+#### Step 8.4: Memory Eviction Policy
+
+```typescript
+// CPU Memory: LRU cache of TilesetPairInfo objects
+// - Keep up to MAX_CACHED_PAIRS (4) pairs in RAM
+// - Evict least recently used when limit exceeded
+// - Re-load from disk if evicted pair needed again
+
+// GPU Memory: Only 2 pairs at a time
+// - Slot 0: Current area (always loaded)
+// - Slot 1: Adjacent area (loaded if space)
+// - Other pairs: Not in GPU, must swap before use
+
+evictIfNeeded(): void {
+  if (this.pairs.size <= this.MAX_CACHED_PAIRS) return;
+
+  // Find least recently used pair that's not in GPU
+  let oldest: ScheduledPair | null = null;
+  for (const pair of this.pairs.values()) {
+    if (pair.gpuSlot !== null) continue;  // Don't evict GPU-loaded pairs
+    if (!oldest || pair.lastUsedFrame < oldest.lastUsedFrame) {
+      oldest = pair;
+    }
+  }
+
+  if (oldest) {
+    oldest.data = null;  // Free CPU memory
+    this.pairs.delete(oldest.id);
+  }
+}
+```
+
+**Tasks:**
+- [ ] Implement LRU eviction for CPU cache
+- [ ] Track `lastUsedFrame` for each pair
+- [ ] Never evict GPU-loaded pairs from CPU cache
+- [ ] **TEST:** Memory stays bounded during extended walking
+- [ ] **TEST:** Evicted pairs can be reloaded when needed
+
+#### Step 8.5: Seamless Transition Animation (Optional)
+
+For extra polish, briefly show both tileset pairs during transition:
+
+```typescript
+// During the ~2 frames of a tileset swap:
+// 1. Render current frame with old slot assignment
+// 2. Upload new textures in background
+// 3. Update tile instances
+// 4. Render next frame with new slot assignment
+//
+// Player perceives no visual change because both pairs
+// are in GPU during the transition frame.
+```
+
+**Tasks:**
+- [ ] Defer tile instance rebuild to next frame
+- [ ] Double-buffer slot assignments if needed
+- [ ] **TEST:** No frame skip or visual pop during swap
+
+#### Phase 8 Integration Test
+
+- [ ] Start at LittlerootTown
+- [ ] Walk all the way to Fortree City (crosses multiple tileset boundaries)
+- [ ] Verify smooth transitions at each boundary
+- [ ] Check memory usage stays bounded (< 100MB total)
+- [ ] Walk back to Littleroot - verify cache hits work
+- [ ] Walk in circles at a tileset boundary - verify no memory leak
 
 ---
 

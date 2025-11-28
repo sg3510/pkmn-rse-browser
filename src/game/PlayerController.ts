@@ -597,6 +597,14 @@ export class PlayerController {
   }
 
   /**
+   * Get the player's current facing direction
+   * Used for predictive tileset loading in WorldManager
+   */
+  public getFacingDirection(): 'up' | 'down' | 'left' | 'right' {
+    return this.dir;
+  }
+
+  /**
    * Get the player's current elevation for COLLISION checks
    *
    * This is the actual tile elevation the player is on.
