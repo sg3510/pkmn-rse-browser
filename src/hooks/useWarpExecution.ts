@@ -22,7 +22,6 @@ import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import {
   resolveTileAt,
   findWarpEventAt,
-  classifyWarpKind,
   type WarpTrigger,
 } from '../components/map/utils';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
@@ -33,7 +32,12 @@ import {
   requiresDoorExitSequence,
   getArrowDirectionFromBehavior,
 } from '../utils/metatileBehaviors';
-import { DOOR_TIMING } from '../field/types';
+import {
+  determineFacing,
+  handleDoorExitSequence,
+  type WarpExecutorDeps,
+  type SpawnPosition,
+} from '../game/WarpExecutor';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -171,6 +175,9 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
         if (warpHandler.isInProgress() && !options?.force) return;
         warpHandler.setInProgress(true);
         const shouldUnlockInput = !options?.fromDoor;
+
+        // Capture prior facing for ladder/surf transitions (GBA preserves facing)
+        const priorFacing = refs.playerControllerRef.current?.getFacingDirection() ?? 'down';
         refs.playerControllerRef.current?.lockInput();
 
         try {
@@ -196,32 +203,20 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
           const destWorldX = destMap.offsetX + destWarp.x;
           const destWorldY = destMap.offsetY + destWarp.y;
 
-          // Determine facing direction based on context
-          let facing: PlayerController['dir'] = trigger.facing;
-          if (trigger.kind === 'door' && options?.fromDoor && ctxAfter) {
-            const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-            const destBehavior = destResolved?.attributes?.behavior ?? -1;
-            const destIsArrow = isArrowWarpBehavior(destBehavior);
+          // Resolve destination tile for facing and exit sequence
+          const destResolved = ctxAfter ? resolveTileAt(ctxAfter, destWorldX, destWorldY) : null;
+          const destBehavior = destResolved?.attributes?.behavior ?? -1;
+          const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
 
-            if (isDoorBehavior(destBehavior)) {
-              facing = 'down'; // Exiting through a door
-            } else if (destIsArrow) {
-              // Arriving at an arrow warp: preserve movement direction
-              facing = trigger.facing;
-            } else {
-              facing = 'up'; // Arrived at non-door, non-arrow destination (stairs, etc.)
-            }
-          } else if (trigger.kind === 'door') {
-            facing = 'down'; // Default for door warps when not using door entry sequence
-          } else if (trigger.kind === 'arrow') {
-            // Arrow warps: always preserve the movement direction
-            facing = trigger.facing;
-          }
+          // Use shared GBA-accurate facing logic from WarpExecutor
+          const facing = determineFacing(destBehavior, { priorFacing });
 
           if (isDebugMode()) {
             console.log('[WARP_FACING]', {
               triggerKind: trigger.kind,
               triggerFacing: trigger.facing,
+              priorFacing,
+              destBehavior,
               finalFacing: facing,
               fromDoor: options?.fromDoor,
             });
@@ -229,94 +224,35 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
 
           refs.playerControllerRef.current?.setPositionAndDirection(destWorldX, destWorldY, facing);
 
-          // Check if destination tile actually has a door before playing door exit animation
-          if (options?.fromDoor && ctxAfter) {
-            const destResolved = resolveTileAt(ctxAfter, destWorldX, destWorldY);
-            const destBehavior = destResolved?.attributes?.behavior ?? -1;
-            const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
+          // Handle door exit sequence using shared WarpExecutor logic
+          if (options?.fromDoor) {
+            const player = refs.playerControllerRef.current;
+            if (player) {
+              // Create WarpExecutor deps from Canvas2D refs
+              const warpDeps: WarpExecutorDeps = {
+                player,
+                doorSequencer,
+                fadeController: refs.fadeRef.current,
+                warpHandler,
+                playerHiddenRef: refs.playerHiddenRef as { current: boolean },
+                getCurrentTime: () => refs.currentTimestampRef.current,
+                onClearDoorAnimations: () => doorAnimations.clearAll(),
+              };
 
-            const isAnimatedDoor = isDoorBehavior(destBehavior);
-            const isNonAnimatedDoor = isNonAnimatedDoorBehavior(destBehavior);
-            const requiresExitSeq = requiresDoorExitSequence(destBehavior);
-
-            console.log('[WARP_DEST_CHECK]', {
-              fromDoor: options?.fromDoor,
-              triggerKind: trigger.kind,
-              destWorldX,
-              destWorldY,
-              destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
-              destBehavior,
-              isAnimatedDoor,
-              isNonAnimatedDoor,
-              requiresExitSequence: requiresExitSeq,
-            });
-
-            // Check if destination requires exit sequence (animated or non-animated)
-            if (requiresExitSeq) {
-              // Determine exit direction: for arrow warps, continue in same direction; for doors, exit down
-              const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
+              const spawnPos: SpawnPosition = { x: destWorldX, y: destWorldY };
 
               if (isDebugMode()) {
-                console.log('[EXIT_SEQUENCE_START]', {
+                console.log('[WARP_EXIT_SEQUENCE]', {
                   triggerKind: trigger.kind,
-                  triggerFacing: trigger.facing,
-                  exitDirection,
                   destBehavior,
-                  isAnimatedDoor,
+                  destMetatileId: `0x${destMetatileId.toString(16)} (${destMetatileId})`,
+                  requiresExitSequence: requiresDoorExitSequence(destBehavior),
                 });
               }
 
-              logDoor('performWarp: destination requires exit sequence', {
-                destWorldX,
-                destWorldY,
-                destMetatileId,
-                destBehavior,
-                isAnimatedDoor,
-                isNonAnimatedDoor,
-                exitDirection,
-                triggerKind: trigger.kind,
-              });
-              (refs.playerHiddenRef as { current: boolean }).current = true;
-              // Start exit sequence using door sequencer
-              doorSequencer.startExit({
-                doorWorldX: destWorldX,
-                doorWorldY: destWorldY,
-                metatileId: destMetatileId,
-                isAnimatedDoor,
-                exitDirection: exitDirection as CardinalDirection,
-              }, refs.currentTimestampRef.current);
-              refs.fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, refs.currentTimestampRef.current);
-            } else {
-              if (isDebugMode()) {
-                console.log('[NO_EXIT_SEQUENCE]', {
-                  triggerKind: trigger.kind,
-                  destBehavior,
-                  requiresExitSequence: requiresExitSeq,
-                  finalFacing: facing,
-                });
-              }
-              // No door on destination side (e.g., arrow warp, stairs, teleport pad)
-              logDoor('performWarp: destination has no door, simple fade in', {
-                destWorldX,
-                destWorldY,
-                destMetatileId,
-                destBehavior,
-                behaviorLabel: classifyWarpKind(destBehavior) ?? 'unknown',
-              });
-              (refs.playerHiddenRef as { current: boolean }).current = false;
-              refs.fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, refs.currentTimestampRef.current);
-              // No door exit sequence needed - reset sequencer
-              doorSequencer.sequencer.resetExit();
-              // CRITICAL: Unlock input here since there's no door exit sequence to handle it
-              refs.playerControllerRef.current?.unlockInput();
-              warpHandler.setInProgress(false);
+              // Use shared GBA-accurate exit sequence logic from WarpExecutor
+              handleDoorExitSequence(warpDeps, spawnPos, destBehavior, destMetatileId, trigger);
             }
-          } else if (options?.fromDoor) {
-            refs.fadeRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, refs.currentTimestampRef.current);
-            (refs.playerHiddenRef as { current: boolean }).current = false;
-            doorSequencer.sequencer.resetExit();
-            refs.playerControllerRef.current?.unlockInput();
-            warpHandler.setInProgress(false);
           }
           callbacks.applyTileResolver();
           callbacks.applyPipelineResolvers();

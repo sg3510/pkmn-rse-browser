@@ -16,5 +16,13 @@ export type {
   TileDebugInfo,
   ObjectsAtTileInfo,
   ObjectDebugInfo,
+  // WebGL-specific types
+  LoadedMapDebugInfo,
+  ConnectionDebugInfo,
+  TilesetBoundaryDebugInfo,
+  MapStitchingDebugInfo,
+  WarpDebugInfo,
+  RenderStatsDebugInfo,
+  WebGLDebugState,
 } from './types';
 export { DEFAULT_DEBUG_OPTIONS } from './types';

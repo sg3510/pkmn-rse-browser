@@ -31,6 +31,9 @@ export { WebGLPassRenderer } from './WebGLPassRenderer';
 export type { PassRenderOptions } from './WebGLPassRenderer';
 export { WebGLRenderPipeline } from './WebGLRenderPipeline';
 
+// Phase 6: Tileset Upload Helpers
+export { uploadTilesetsFromSnapshot, combineTilesetPalettes } from './TilesetUploader';
+
 // Test component
 export { WebGLTest } from './WebGLTest';
 

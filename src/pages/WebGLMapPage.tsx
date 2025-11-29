@@ -12,8 +12,16 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
-import type { TileResolverFn, ResolvedTile, WorldCameraView, LoadedAnimation, ReflectionMeta, RenderContext } from '../rendering/types';
+import { uploadTilesetsFromSnapshot, combineTilesetPalettes } from '../rendering/webgl/TilesetUploader';
+import type { TileResolverFn, WorldCameraView, LoadedAnimation, ReflectionMeta, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
+import { CameraController, createWebGLCameraController } from '../game/CameraController';
+import { TileResolverFactory } from '../game/TileResolverFactory';
+import {
+  executeWarp,
+  type WarpExecutorDeps,
+  type WarpDestination,
+} from '../game/WarpExecutor';
 import { ObjectRenderer, type WorldCameraView as ObjectRendererView } from '../components/map/renderers/ObjectRenderer';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { WorldManager, type WorldSnapshot, type TilesetPairInfo } from '../game/WorldManager';
@@ -34,22 +42,27 @@ import { detectWarpTrigger, resolveTileAt, findWarpEventAt, type WarpTrigger } f
 import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
-import { DOOR_TIMING, FADE_TIMING, type CardinalDirection } from '../field/types';
+import { FADE_TIMING, type CardinalDirection } from '../field/types';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
 import {
+  DebugPanel,
+  DEFAULT_DEBUG_OPTIONS,
+  type DebugOptions,
+  type DebugState,
+  type WebGLDebugState,
+  type PlayerDebugInfo,
+} from '../components/debug';
+import {
   isDoorBehavior,
   isArrowWarpBehavior,
   isNonAnimatedDoorBehavior,
-  requiresDoorExitSequence,
   getArrowDirectionFromBehavior,
 } from '../utils/metatileBehaviors';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import './WebGLMapPage.css';
 
-const NUM_PALS_IN_PRIMARY = 6;
-const NUM_PALS_TOTAL = 13;
 const SECONDARY_TILE_OFFSET = 512;
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
 
@@ -61,21 +74,7 @@ type RenderStats = {
   error: string | null;
 };
 
-type CameraState = {
-  x: number;  // camera world position in pixels
-  y: number;
-};
-
-type DebugTileInfo = {
-  tileX: number;
-  tileY: number;
-  metatileId: number;
-  tileElevation: number;
-  playerElevation: number;
-  collision: number;
-  layerType: number;
-  behavior: number;
-};
+// CameraState type replaced by CameraController from '../game/CameraController'
 
 /** A single map instance positioned in world space */
 type StitchedMapInstance = {
@@ -121,25 +120,6 @@ type StitchedWorldData = {
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
-/** Combine primary (0-5) and secondary (6-12) palettes into a single GPU palette array */
-function combineTilesetPalettes(primaryPalettes: Palette[], secondaryPalettes: Palette[]): Palette[] {
-  const combined: Palette[] = [];
-
-  for (let i = 0; i < NUM_PALS_IN_PRIMARY; i++) {
-    combined.push(primaryPalettes[i] || { colors: Array(16).fill('#000000') });
-  }
-
-  for (let i = NUM_PALS_IN_PRIMARY; i < NUM_PALS_TOTAL; i++) {
-    combined.push(secondaryPalettes[i - NUM_PALS_IN_PRIMARY] || { colors: Array(16).fill('#000000') });
-  }
-
-  for (let i = NUM_PALS_TOTAL; i < 16; i++) {
-    combined.push({ colors: Array(16).fill('#000000') });
-  }
-
-  return combined;
-}
-
 // Viewport configuration
 const VIEWPORT_TILES_WIDE = 20;
 const VIEWPORT_TILES_HIGH = 20;
@@ -156,7 +136,7 @@ export function WebGLMapPage() {
   const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
   const worldBoundsRef = useRef<{ width: number; height: number; minX: number; minY: number }>({ width: 0, height: 0, minX: 0, minY: 0 });
   const rafRef = useRef<number | null>(null);
-  const cameraRef = useRef<CameraState>({ x: 0, y: 0 });
+  const cameraRef = useRef<CameraController | null>(null);
   const gbaFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(performance.now());
   const gbaAccumRef = useRef<number>(0);
@@ -212,8 +192,7 @@ export function WebGLMapPage() {
     error: null,
   });
   const [loading, setLoading] = useState(false);
-  const [cameraDisplay, setCameraDisplay] = useState<CameraState>({ x: 0, y: 0 });
-  const [debugTile, setDebugTile] = useState<DebugTileInfo | null>(null);
+  const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [mapDebugInfo, setMapDebugInfo] = useState<{
     currentMap: string | null;
     anchorMap: string;
@@ -238,256 +217,55 @@ export function WebGLMapPage() {
     worldBounds: { minX: number; minY: number; width: number; height: number };
   } | null>(null);
 
+  // Debug panel state
+  const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
+  const [playerDebugInfo, setPlayerDebugInfo] = useState<PlayerDebugInfo | null>(null);
+
+  // Create WebGL debug state from existing debug info
+  const webglDebugState = useMemo<WebGLDebugState>(() => ({
+    mapStitching: mapDebugInfo,
+    warp: warpDebugInfo,
+    renderStats: {
+      tileCount: stats.tileCount,
+      fps: stats.fps,
+      renderTimeMs: stats.renderTimeMs,
+      webgl2Supported: stats.webgl2Supported,
+      viewportTilesWide: VIEWPORT_TILES_WIDE,
+      viewportTilesHigh: VIEWPORT_TILES_HIGH,
+      cameraX: Math.round(cameraDisplay.x),
+      cameraY: Math.round(cameraDisplay.y),
+      worldWidthPx: worldSize.width,
+      worldHeightPx: worldSize.height,
+    },
+  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize]);
+
+  // Debug state for the panel (WebGL page doesn't track objects)
+  const debugState = useMemo<DebugState>(() => ({
+    player: playerDebugInfo,
+    tile: null,
+    objectsAtPlayerTile: null,
+    objectsAtFacingTile: null,
+    adjacentObjects: null,
+    allVisibleNPCs: [],
+    allVisibleItems: [],
+    totalNPCCount: 0,
+    totalItemCount: 0,
+  }), [playerDebugInfo]);
+
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
 
-  // Create tile resolver from WorldSnapshot (for WorldManager integration)
+  // Create tile resolver from WorldSnapshot using TileResolverFactory
   const createSnapshotTileResolver = useCallback((snapshot: WorldSnapshot): TileResolverFn => {
-    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, pairIdToGpuSlot, anchorMapId } = snapshot;
-
-    // Create a unique ID for this resolver to track which one is active
     const resolverId = ++resolverIdRef.current;
-
-    console.log(`[RESOLVER] #${resolverId} anchor:${anchorMapId} maps:${maps.length} pairs:${tilesetPairs.length}`,
-      maps.map(m => m.entry.id));
-
-    // Helper to convert tileset pair array index to GPU slot (0 or 1)
-    const getGpuSlot = (pairIndex: number): number => {
-      const pair = tilesetPairs[pairIndex];
-      if (!pair) return 0;
-      return pairIdToGpuSlot.get(pair.id) ?? 0;
-    };
-
-    // Get anchor map's tileset pair for border rendering
-    const anchorMap = maps.find(m => m.entry.id === anchorMapId) ?? maps[0];
-    const anchorPairIndex = anchorMap ? (mapTilesetPairIndex.get(anchorMap.entry.id) ?? 0) : 0;
-    const anchorPair = tilesetPairs[anchorPairIndex] ?? tilesetPairs[0];
-
-    // Disable per-tile logging (too noisy during normal operation)
-    const shouldLog = false;
-
-    return (worldX: number, worldY: number): ResolvedTile | null => {
-      // Find which map contains this world tile
-      for (const map of maps) {
-        const localX = worldX - map.offsetX;
-        const localY = worldY - map.offsetY;
-
-        if (localX >= 0 && localX < map.entry.width &&
-            localY >= 0 && localY < map.entry.height) {
-          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-          const pair = tilesetPairs[pairIndex];
-
-          const idx = localY * map.entry.width + localX;
-          const mapTile = map.mapData.layout[idx];
-          const metatileId = mapTile.metatileId;
-
-          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-          const metatile = isSecondary
-            ? pair.secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
-            : pair.primaryMetatiles[metatileId];
-
-          if (!metatile) return null;
-
-          const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-          const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-          const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
-
-          // Use GPU slot index (0 or 1), not array index
-          const gpuSlot = getGpuSlot(pairIndex);
-
-          if (shouldLog) {
-            console.log(`[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> map:${map.entry.id} local(${localX},${localY}) metatile:${metatileId} gpuSlot:${gpuSlot} pair:${pair.id}`);
-          }
-
-          return {
-            metatile,
-            attributes,
-            mapTile,
-            map: null as any,
-            tileset: null as any,
-            isSecondary,
-            isBorder: false,
-            tilesetPairIndex: gpuSlot,
-          };
-        }
-      }
-
-      // Out of bounds - find NEAREST map whose tileset pair is IN GPU and use its border tiles
-      // CRITICAL: We can only render tiles from tilesets that are currently in GPU!
-      // If nearest map's tileset isn't in GPU, fall back to a map whose tileset IS in GPU
-      let nearestMap: typeof maps[0] | null = null;
-      let nearestDist = Infinity;
-
-      // Helper to check if a map's tileset is in GPU
-      const isMapTilesetInGpu = (map: typeof maps[0]): boolean => {
-        const pairIndex = mapTilesetPairIndex.get(map.entry.id);
-        if (pairIndex === undefined) return false;
-        const pair = tilesetPairs[pairIndex];
-        if (!pair) return false;
-        return pairIdToGpuSlot.has(pair.id);
-      };
-
-      for (const map of maps) {
-        // ONLY consider maps whose tileset pair is currently in GPU
-        if (!isMapTilesetInGpu(map)) continue;
-
-        // Calculate distance from (worldX, worldY) to map's bounding box
-        const mapLeft = map.offsetX;
-        const mapRight = map.offsetX + map.entry.width;
-        const mapTop = map.offsetY;
-        const mapBottom = map.offsetY + map.entry.height;
-
-        // Horizontal distance (0 if inside map's X range)
-        const dx = worldX < mapLeft ? mapLeft - worldX :
-                   worldX >= mapRight ? worldX - mapRight + 1 : 0;
-        // Vertical distance (0 if inside map's Y range)
-        const dy = worldY < mapTop ? mapTop - worldY :
-                   worldY >= mapBottom ? worldY - mapBottom + 1 : 0;
-
-        // Euclidean distance to bounding box (squared for comparison, no need for sqrt)
-        const dist = dx * dx + dy * dy;
-
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestMap = map;
-        }
-      }
-
-      // Fall back to anchor if no maps with GPU tilesets found
-      if (!nearestMap) {
-        if (anchorBorderMetatiles.length === 0 || !anchorPair) return null;
-        // Use anchor map's borders with anchor's tileset (should be in GPU)
-        nearestMap = anchorMap;
-      }
-
-      // Get border tiles from the nearest map
-      const borderMetatiles = nearestMap.borderMetatiles.length > 0
-        ? nearestMap.borderMetatiles
-        : anchorBorderMetatiles;
-
-      if (borderMetatiles.length === 0) return null;
-
-      // Get tileset pair for the nearest map
-      const nearestPairIndex = mapTilesetPairIndex.get(nearestMap.entry.id) ?? anchorPairIndex;
-      const nearestPair = tilesetPairs[nearestPairIndex] ?? anchorPair;
-
-      if (!nearestPair) return null;
-
-      // Verify the pair is actually in GPU - if not, we can't render these borders
-      if (!pairIdToGpuSlot.has(nearestPair.id)) {
-        // Tileset not in GPU, cannot render border
-        return null;
-      }
-
-      const borderIndex = ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
-      const borderMetatileId = borderMetatiles[borderIndex];
-
-      const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
-      const metatile = isSecondary
-        ? nearestPair.secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
-        : nearestPair.primaryMetatiles[borderMetatileId];
-
-      if (!metatile) return null;
-
-      const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
-      const attrArray = isSecondary ? nearestPair.secondaryAttributes : nearestPair.primaryAttributes;
-      const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
-
-      // Use GPU slot index (0 or 1) of the nearest map's tileset pair
-      const gpuSlot = getGpuSlot(nearestPairIndex);
-
-      if (shouldLog) {
-        console.log(`[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> BORDER nearestMap:${nearestMap.entry.id} metatile:${borderMetatileId} gpuSlot:${gpuSlot} pair:${nearestPair.id}`);
-      }
-
-      return {
-        metatile,
-        attributes,
-        mapTile: { metatileId: borderMetatileId, collision: 1, elevation: 0 },
-        map: null as any,
-        tileset: null as any,
-        isSecondary,
-        isBorder: true,
-        tilesetPairIndex: gpuSlot,
-      };
-    };
+    console.log(`[RESOLVER] #${resolverId} anchor:${snapshot.anchorMapId} maps:${snapshot.maps.length} pairs:${snapshot.tilesetPairs.length}`,
+      snapshot.maps.map(m => m.entry.id));
+    return TileResolverFactory.fromSnapshot(snapshot, resolverId);
   }, []);
 
-  // Create player tile resolver from WorldSnapshot
+  // Create player tile resolver from WorldSnapshot using TileResolverFactory
   const createSnapshotPlayerTileResolver = useCallback((snapshot: WorldSnapshot): PlayerTileResolver => {
-    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
-
-    return (worldX: number, worldY: number) => {
-      for (const map of maps) {
-        const localX = worldX - map.offsetX;
-        const localY = worldY - map.offsetY;
-
-        if (localX >= 0 && localX < map.entry.width &&
-            localY >= 0 && localY < map.entry.height) {
-          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-          const pair = tilesetPairs[pairIndex];
-
-          const idx = localY * map.entry.width + localX;
-          const mapTile = map.mapData.layout[idx];
-          const metatileId = mapTile.metatileId;
-          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-          const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-          const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-          const attributes: MetatileAttributes = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
-
-          return { mapTile, attributes };
-        }
-      }
-      return null;
-    };
-  }, []);
-
-  // Helper to upload tilesets from WorldSnapshot to pipeline
-  const uploadTilesetsFromSnapshot = useCallback((
-    pipeline: WebGLRenderPipeline,
-    snapshot: WorldSnapshot
-  ): void => {
-    const { tilesetPairs, pairIdToGpuSlot } = snapshot;
-
-    console.log('[TILESET_UPLOAD] ========== UPLOADING TILESETS ==========');
-    console.log('[TILESET_UPLOAD] Tileset pairs:', tilesetPairs.map(p => p.id));
-    console.log('[TILESET_UPLOAD] GPU slot mapping:', Object.fromEntries(pairIdToGpuSlot));
-
-    // Upload tilesets based on pairIdToGpuSlot mapping, not array index!
-    // This ensures GPU textures match what the scheduler/resolver expects
-    for (const pair of tilesetPairs) {
-      const gpuSlot = pairIdToGpuSlot.get(pair.id);
-      console.log(`[TILESET_UPLOAD] Pair ${pair.id}: gpuSlot=${gpuSlot}, primarySize=${pair.primaryImage.width}x${pair.primaryImage.height}, secondarySize=${pair.secondaryImage.width}x${pair.secondaryImage.height}`);
-
-      if (gpuSlot === 0) {
-        console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 0`);
-        pipeline.uploadTilesets(
-          pair.primaryImage.data,
-          pair.primaryImage.width,
-          pair.primaryImage.height,
-          pair.secondaryImage.data,
-          pair.secondaryImage.width,
-          pair.secondaryImage.height,
-          pair.animations
-        );
-        pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-      } else if (gpuSlot === 1) {
-        console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 1`);
-        pipeline.uploadTilesetsPair1(
-          pair.primaryImage.data,
-          pair.primaryImage.width,
-          pair.primaryImage.height,
-          pair.secondaryImage.data,
-          pair.secondaryImage.width,
-          pair.secondaryImage.height,
-          pair.animations
-        );
-        pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-      } else {
-        console.log(`[TILESET_UPLOAD] Pair ${pair.id} NOT in GPU (slot=${gpuSlot})`);
-      }
-    }
-    console.log('[TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========');
+    return TileResolverFactory.createPlayerResolver(snapshot);
   }, []);
 
   // Build TilesetRuntime from TilesetPairInfo for reflection detection
@@ -714,16 +492,17 @@ export function WebGLMapPage() {
     if (!worldManager || !player || !pipeline) return;
 
     const destMapId = trigger.warpEvent.destMap;
-    const destWarpId = trigger.warpEvent.destWarpId;
-    const now = performance.now();
+    // Capture prior facing for ladder/surf transitions (GBA preserves facing)
+    const priorFacing = player.getFacingDirection();
 
     console.log('[WARP] ========== WARP START ==========');
     console.log('[WARP] Source map:', trigger.sourceMap.entry.id);
     console.log('[WARP] Destination map:', destMapId);
     console.log('[WARP] fromDoor:', options?.fromDoor);
+    console.log('[WARP] priorFacing:', priorFacing);
 
     try {
-      // Reinitialize world manager at destination map
+      // ===== WebGL-SPECIFIC: Initialize world at destination =====
       const snapshot = await worldManager.initialize(destMapId);
       worldSnapshotRef.current = snapshot;
 
@@ -760,7 +539,7 @@ export function WebGLMapPage() {
       const playerResolver = createSnapshotPlayerTileResolver(snapshot);
       player.setTileResolver(playerResolver);
 
-      // Upload tilesets
+      // Upload tilesets to GPU
       uploadTilesetsFromSnapshot(pipeline, snapshot);
 
       // Update world bounds
@@ -774,108 +553,55 @@ export function WebGLMapPage() {
       setWorldSize({ width: worldBounds.width * METATILE_SIZE, height: worldBounds.height * METATILE_SIZE });
       setStitchedMapCount(snapshot.maps.length);
 
-      // Find destination warp event to get spawn position
+      // ===== SHARED: Execute warp using WarpExecutor =====
       const destMap = snapshot.maps.find(m => m.entry.id === destMapId);
-      let spawnX = 0;
-      let spawnY = 0;
-      if (destMap && destMap.warpEvents.length > destWarpId) {
-        const destWarp = destMap.warpEvents[destWarpId];
-        spawnX = destMap.offsetX + destWarp.x;
-        spawnY = destMap.offsetY + destWarp.y;
-      } else if (destMap) {
-        spawnX = destMap.offsetX + Math.floor(destMap.entry.width / 2);
-        spawnY = destMap.offsetY + Math.floor(destMap.entry.height / 2);
+      if (!destMap) {
+        console.error('[WARP] Destination map not found in snapshot:', destMapId);
+        return;
       }
 
-      // Determine facing direction based on context
-      let facing: PlayerController['dir'] = trigger.facing;
-      if (trigger.kind === 'door' && options?.fromDoor) {
-        // Check destination tile behavior for proper facing
-        const renderContext = createRenderContextFromSnapshot(snapshot);
-        if (renderContext) {
-          const destResolved = resolveTileAt(renderContext, spawnX, spawnY);
-          const destBehavior = destResolved?.attributes?.behavior ?? -1;
-          if (isDoorBehavior(destBehavior)) {
-            facing = 'down'; // Exiting through a door
-          } else if (isArrowWarpBehavior(destBehavior)) {
-            facing = trigger.facing; // Arrow warp: preserve movement direction
-          } else {
-            facing = 'down'; // Default for door exits
-          }
-        }
-      } else if (trigger.kind === 'door') {
-        facing = 'down';
-      }
+      // Create render context for tile resolution
+      const renderContext = createRenderContextFromSnapshot(snapshot);
 
-      player.setPositionAndDirection(spawnX, spawnY, facing);
+      // Build WarpExecutor dependencies
+      const warpDeps: WarpExecutorDeps = {
+        player,
+        doorSequencer,
+        fadeController: fadeControllerRef.current,
+        warpHandler: warpHandlerRef.current,
+        playerHiddenRef,
+        getCurrentTime: () => performance.now(),
+        onClearDoorAnimations: () => doorAnimations.clearAll(),
+      };
 
-      // Check if destination requires door exit sequence
-      if (options?.fromDoor) {
-        const renderContext = createRenderContextFromSnapshot(snapshot);
-        if (renderContext) {
-          const destResolved = resolveTileAt(renderContext, spawnX, spawnY);
-          const destBehavior = destResolved?.attributes?.behavior ?? -1;
-          const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
-          const isAnimatedDoor = isDoorBehavior(destBehavior);
-          const requiresExitSeq = requiresDoorExitSequence(destBehavior);
+      // Build destination info
+      const destination: WarpDestination = {
+        map: destMap,
+        resolveTileAt: (x, y) => {
+          if (!renderContext) return null;
+          const resolved = resolveTileAt(renderContext, x, y);
+          return resolved ? {
+            attributes: resolved.attributes,
+            mapTile: resolved.mapTile,
+          } : null;
+        },
+      };
 
-          console.log('[WARP] Door exit check:', { destBehavior: destBehavior.toString(16), isAnimatedDoor, requiresExitSeq, destMetatileId });
+      // Execute shared warp logic (spawn position, facing, door sequence)
+      // priorFacing is used for ladders (preserve facing) per GBA behavior
+      executeWarp(warpDeps, trigger, destination, {
+        ...options,
+        priorFacing,
+      });
 
-          if (requiresExitSeq) {
-            // Start door exit sequence
-            const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
-            playerHiddenRef.current = true;
-            console.log('[WARP] Starting door exit sequence, player hidden');
-            doorSequencer.startExit({
-              doorWorldX: spawnX,
-              doorWorldY: spawnY,
-              metatileId: destMetatileId,
-              isAnimatedDoor,
-              exitDirection: exitDirection as CardinalDirection,
-            }, now);
-            fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
-            // NOTE: Do NOT reset doorSequencer here - it needs to complete the exit sequence
-          } else {
-            // No door exit sequence needed
-            playerHiddenRef.current = false;
-            console.log('[WARP] No door exit sequence needed, player visible');
-            fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
-            player.unlockInput();
-            warpHandlerRef.current.setInProgress(false);
-            // Reset door sequencer since we're not using it
-            doorSequencer.reset();
-          }
-        } else {
-          fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
-          playerHiddenRef.current = false;
-          player.unlockInput();
-          warpHandlerRef.current.setInProgress(false);
-          doorSequencer.reset();
-        }
-      } else {
-        // Simple warp (not from door)
-        fadeControllerRef.current.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
-        doorSequencer.reset();
-      }
-
-      // Complete warp - sets cooldown and updates lastCheckedTile
-      warpHandlerRef.current.completeWarp(destMapId, spawnX, spawnY);
-      warpHandlerRef.current.setCooldown(350);
-
-      // Invalidate pipeline and clear old door animations
+      // ===== WebGL-SPECIFIC: Post-warp updates =====
       pipeline.invalidate();
-      doorAnimations.clearAll();
 
-      // NOTE: doorSequencer.reset() moved to specific branches above
-      // If exit sequence is active, it needs to complete to unhide the player
-
-      console.log('[WARP] Warp complete, spawned at', spawnX, spawnY);
+      console.log('[WARP] Warp complete');
       console.log('[WARP] World bounds:', snapshot.worldBounds);
       console.log('[WARP] Loaded maps:', snapshot.maps.map(m => m.entry.id));
       console.log('[WARP] Tileset pairs:', snapshot.tilesetPairs.map(p => p.id));
       console.log('[WARP] GPU slots:', Object.fromEntries(snapshot.pairIdToGpuSlot));
-      console.log('[WARP] Anchor border metatiles:', snapshot.anchorBorderMetatiles);
-      console.log('[WARP] Destination map warps:', destMap?.warpEvents);
 
       // Update debug info for UI
       setWarpDebugInfo({
@@ -1231,6 +957,19 @@ export function WebGLMapPage() {
           if (gbaFrameRef.current % 30 === 0) {
             const debugInfo = worldManager.getDebugInfo(player.tileX, player.tileY);
             setMapDebugInfo(debugInfo);
+
+            // Update player debug info for the debug panel
+            setPlayerDebugInfo({
+              tileX: player.tileX,
+              tileY: player.tileY,
+              pixelX: player.x,
+              pixelY: player.y,
+              direction: player.getFacingDirection(),
+              elevation: player.getElevation(),
+              isMoving: player.isMoving,
+              isSurfing: player.isSurfing(),
+              mapId: debugInfo?.currentMap ?? selectedMap.id,
+            });
           }
 
           // Update arrow overlay based on current tile behavior
@@ -1417,27 +1156,18 @@ export function WebGLMapPage() {
         }
       }
 
-      // Camera follows player (center player in viewport)
-      const viewportWidth = VIEWPORT_TILES_WIDE * METATILE_SIZE;
-      const viewportHeight = VIEWPORT_TILES_HIGH * METATILE_SIZE;
-      if (player && playerLoadedRef.current) {
-        const focus = player.getCameraFocus();
-        cameraRef.current.x = focus.x - viewportWidth / 2;
-        cameraRef.current.y = focus.y - viewportHeight / 2;
+      // Camera follows player (using CameraController)
+      const camera = cameraRef.current;
+      if (camera && player && playerLoadedRef.current) {
+        // Update camera bounds (may have changed due to world updates)
+        camera.setBounds({ minX: worldMinX, minY: worldMinY, width, height });
+        camera.followTarget(player);
       }
 
-      // Clamp camera to world bounds with some border overscan
-      // Allow scrolling a few tiles beyond edges to see border tiles
-      // For stitched worlds, worldMinX/Y can be negative (maps connected left/above anchor)
-      const BORDER_OVERSCAN = 3 * METATILE_SIZE; // Allow 3 tiles of border viewing
-      const camMinX = worldMinX - BORDER_OVERSCAN;
-      const camMaxX = worldMinX + width - viewportWidth + BORDER_OVERSCAN;
-      const camMinY = worldMinY - BORDER_OVERSCAN;
-      const camMaxY = worldMinY + height - viewportHeight + BORDER_OVERSCAN;
-      cameraRef.current.x = Math.max(camMinX, Math.min(cameraRef.current.x, Math.max(camMinX, camMaxX)));
-      cameraRef.current.y = Math.max(camMinY, Math.min(cameraRef.current.y, Math.max(camMinY, camMaxY)));
+      const viewportWidth = VIEWPORT_TILES_WIDE * METATILE_SIZE;
+      const viewportHeight = VIEWPORT_TILES_HIGH * METATILE_SIZE;
 
-      if (width > 0 && height > 0) {
+      if (width > 0 && height > 0 && camera) {
         // Ensure display canvas is sized to viewport
         if (displayCanvas.width !== viewportWidth || displayCanvas.height !== viewportHeight) {
           displayCanvas.width = viewportWidth;
@@ -1446,34 +1176,26 @@ export function WebGLMapPage() {
 
         const start = performance.now();
 
-        // Create WorldCameraView for viewport culling
-        const cameraX = cameraRef.current.x;
-        const cameraY = cameraRef.current.y;
-        const startTileX = Math.floor(cameraX / METATILE_SIZE);
-        const startTileY = Math.floor(cameraY / METATILE_SIZE);
-        const subTileOffsetX = cameraX - startTileX * METATILE_SIZE;
-        const subTileOffsetY = cameraY - startTileY * METATILE_SIZE;
-
-        // Render +1 tile in each direction to cover sub-tile offset
-        // (when we shift by subTileOffsetX/Y, we need extra content on the edges)
-        const renderTilesWide = VIEWPORT_TILES_WIDE + 1;
-        const renderTilesHigh = VIEWPORT_TILES_HIGH + 1;
+        // Get camera view for rendering
+        const camView = camera.getView(1);  // +1 tile for sub-tile scrolling
+        const cameraX = camView.x;
+        const cameraY = camView.y;
 
         const view: WorldCameraView = {
           // CameraView base fields
           cameraX,
           cameraY,
-          startTileX,
-          startTileY,
-          subTileOffsetX,
-          subTileOffsetY,
-          tilesWide: renderTilesWide,
-          tilesHigh: renderTilesHigh,
-          pixelWidth: renderTilesWide * METATILE_SIZE,
-          pixelHeight: renderTilesHigh * METATILE_SIZE,
+          startTileX: camView.startTileX,
+          startTileY: camView.startTileY,
+          subTileOffsetX: camView.subTileOffsetX,
+          subTileOffsetY: camView.subTileOffsetY,
+          tilesWide: camView.tilesWide,
+          tilesHigh: camView.tilesHigh,
+          pixelWidth: camView.tilesWide * METATILE_SIZE,
+          pixelHeight: camView.tilesHigh * METATILE_SIZE,
           // WorldCameraView specific fields
-          worldStartTileX: startTileX,
-          worldStartTileY: startTileY,
+          worldStartTileX: camView.startTileX,
+          worldStartTileY: camView.startTileY,
           cameraWorldX: cameraX,
           cameraWorldY: cameraY,
         };
@@ -1630,42 +1352,9 @@ export function WebGLMapPage() {
             renderTimeMs: renderTime,
             fps,
           }));
-          setCameraDisplay({ x: cameraRef.current.x, y: cameraRef.current.y });
-
-          // Gather debug tile info for the tile under the player
-          if (player && playerLoadedRef.current) {
-            const tileX = player.tileX;
-            const tileY = player.tileY;
-            const stitchedWorld = stitchedWorldRef.current;
-
-            if (stitchedWorld) {
-              // Use stitched world data
-              const { maps, primaryAttributes, secondaryAttributes } = stitchedWorld;
-              // Find which map the player is in
-              for (const map of maps) {
-                const localX = tileX - map.offsetX;
-                const localY = tileY - map.offsetY;
-                if (localX >= 0 && localX < map.entry.width && localY >= 0 && localY < map.entry.height) {
-                  const mapTile = map.mapData.layout[localY * map.entry.width + localX];
-                  const metatileId = mapTile.metatileId;
-                  const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-                  const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-                  const attrArray = isSecondary ? secondaryAttributes : primaryAttributes;
-                  const attrs = attrArray[attrIndex] ?? { behavior: 0, layerType: 0 };
-                  setDebugTile({
-                    tileX,
-                    tileY,
-                    metatileId,
-                    tileElevation: mapTile.elevation,
-                    playerElevation,
-                    collision: mapTile.collision,
-                    layerType: attrs.layerType,
-                    behavior: attrs.behavior,
-                  });
-                  break;
-                }
-              }
-            }
+          if (cameraRef.current) {
+            const pos = cameraRef.current.getPosition();
+            setCameraDisplay({ x: pos.x, y: pos.y });
           }
 
           frameCount = 0;
@@ -1699,8 +1388,12 @@ export function WebGLMapPage() {
     let cancelled = false;
     setLoading(true);
     setStats((s) => ({ ...s, error: null }));
-    // Reset camera when map changes
-    cameraRef.current = { x: 0, y: 0 };
+    // Reset/create camera when map changes
+    if (cameraRef.current) {
+      cameraRef.current.reset();
+    } else {
+      cameraRef.current = createWebGLCameraController(VIEWPORT_TILES_WIDE, VIEWPORT_TILES_HIGH);
+    }
     setCameraDisplay({ x: 0, y: 0 });
 
     // Clean up previous world manager
@@ -1801,13 +1494,17 @@ export function WebGLMapPage() {
           }
 
           if (event.type === 'reanchored') {
-            // Adjust player position by the offset shift
+            // Adjust player and camera positions by the offset shift
             const player = playerRef.current;
             if (player) {
               player.setPosition(
                 player.tileX - event.offsetShift.x,
                 player.tileY - event.offsetShift.y
               );
+            }
+            // Also adjust camera to prevent jitter on reanchor
+            if (cameraRef.current) {
+              cameraRef.current.adjustOffset(event.offsetShift.x, event.offsetShift.y);
             }
           }
 
@@ -2053,100 +1750,19 @@ export function WebGLMapPage() {
           />
         </div>
         <div className="map-stats">
-          <div><strong>Tiles:</strong> {stats.tileCount.toLocaleString()}</div>
-          <div><strong>FPS:</strong> {stats.fps}</div>
-          <div><strong>Render:</strong> {stats.renderTimeMs.toFixed(2)} ms</div>
-          <div><strong>WebGL2:</strong> {stats.webgl2Supported ? 'Yes' : 'No'}</div>
-          <div><strong>Viewport:</strong> {VIEWPORT_TILES_WIDE}×{VIEWPORT_TILES_HIGH} tiles</div>
-          <div><strong>Camera:</strong> ({Math.round(cameraDisplay.x)}, {Math.round(cameraDisplay.y)})</div>
-          <div><strong>World:</strong> {worldSize.width}×{worldSize.height}px</div>
-          <div style={{ marginTop: 8, fontSize: 11, color: '#9fb0cc' }}>
-            Use Arrow Keys to move player. Hold Z to run.
+          <div style={{ fontSize: 11, color: '#9fb0cc' }}>
+            Arrow Keys to move. Z to run. ` for debug panel.
           </div>
-
-          {/* Debug tile info panel */}
-          {debugTile && (
-            <div style={{ marginTop: 12, padding: 8, background: '#1a1f2d', borderRadius: 4, fontSize: 11 }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#88f' }}>Tile Debug</div>
-              <div><strong>Position:</strong> ({debugTile.tileX}, {debugTile.tileY})</div>
-              <div><strong>Metatile ID:</strong> {debugTile.metatileId} {debugTile.metatileId >= 512 ? '(secondary)' : '(primary)'}</div>
-              <div><strong>Tile Elev:</strong> {debugTile.tileElevation}</div>
-              <div><strong>Player Elev:</strong> {debugTile.playerElevation}</div>
-              <div><strong>Collision:</strong> {debugTile.collision}</div>
-              <div><strong>Layer Type:</strong> {debugTile.layerType} {debugTile.layerType === 0 ? '(NORMAL - top in front)' : debugTile.layerType === 1 ? '(COVERED - top in bg)' : debugTile.layerType === 2 ? '(SPLIT)' : ''}</div>
-              <div><strong>Behavior:</strong> 0x{debugTile.behavior.toString(16).toUpperCase()}</div>
-              <div style={{ marginTop: 4, color: debugTile.tileElevation === debugTile.playerElevation ? '#8f8' : '#f88' }}>
-                {debugTile.tileElevation === debugTile.playerElevation ? '✓ Same elevation' : '✗ Different elevation'}
-              </div>
-              <div style={{ marginTop: 2, fontSize: 10, color: '#888' }}>
-                Elev 3 priority: 2 (below BG1)
-              </div>
-            </div>
-          )}
-
-          {/* Map stitching debug panel */}
-          {mapDebugInfo && (
-            <div style={{ marginTop: 12, padding: 8, background: '#1a2d1a', borderRadius: 4, fontSize: 10, maxHeight: 400, overflowY: 'auto' }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#8f8' }}>Map Stitching Debug</div>
-              <div><strong>Player:</strong> ({mapDebugInfo.playerPos.x}, {mapDebugInfo.playerPos.y})</div>
-              <div><strong>Current:</strong> {mapDebugInfo.currentMap ?? 'None'}</div>
-              <div><strong>Anchor:</strong> {mapDebugInfo.anchorMap}</div>
-              <div><strong>Tileset Pairs:</strong> {mapDebugInfo.tilesetPairs}</div>
-              <div style={{ marginTop: 4, fontWeight: 'bold', color: '#ff8' }}>GPU Slots:</div>
-              <div style={{ marginLeft: 8 }}>
-                <div>Slot 0: {mapDebugInfo.gpuSlot0?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}</div>
-                <div>Slot 1: {mapDebugInfo.gpuSlot1?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}</div>
-              </div>
-              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Connections:</div>
-              {mapDebugInfo.expectedConnections.map((c, i) => (
-                <div key={i} style={{ color: c.loaded ? '#8f8' : '#f88', marginLeft: 8 }}>
-                  {c.direction}: {c.to.replace('MAP_', '')} {c.loaded ? '✓' : '✗'}
-                </div>
-              ))}
-              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Loaded Maps ({mapDebugInfo.loadedMaps.length}):</div>
-              {mapDebugInfo.loadedMaps.map((m, i) => (
-                <div key={i} style={{ marginLeft: 8, color: m.id === mapDebugInfo.currentMap ? '#ff8' : m.inGpu ? '#8f8' : '#f88' }}>
-                  {m.id.replace('MAP_', '')} @({m.offsetX},{m.offsetY}) {m.inGpu ? '✓GPU' : '✗GPU'} borders:{m.borderTileCount}
-                </div>
-              ))}
-              {mapDebugInfo.boundaries.length > 0 && (
-                <>
-                  <div style={{ marginTop: 4, fontWeight: 'bold', color: '#f8f' }}>Tileset Boundaries ({mapDebugInfo.boundaries.length}):</div>
-                  {mapDebugInfo.boundaries.map((b, i) => (
-                    <div key={i} style={{ marginLeft: 8, color: '#f8f', fontSize: 9 }}>
-                      @({b.x},{b.y}) {b.orientation} len:{b.length}
-                    </div>
-                  ))}
-                  <div style={{ marginTop: 2, color: mapDebugInfo.nearbyBoundaryCount > 0 ? '#ff8' : '#888' }}>
-                    Nearby: {mapDebugInfo.nearbyBoundaryCount} {mapDebugInfo.nearbyBoundaryCount > 0 ? '(preloading)' : ''}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Warp/Tileset Debug Panel */}
-          {warpDebugInfo && (
-            <div style={{ marginTop: 12, padding: 8, background: '#2d1a1a', borderRadius: 4, fontSize: 10, maxHeight: 300, overflowY: 'auto' }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#f88' }}>Warp/Tileset Debug</div>
-              <div><strong>Last Warp To:</strong> {warpDebugInfo.lastWarpTo.replace('MAP_', '')}</div>
-              <div><strong>Current Anchor:</strong> {warpDebugInfo.currentAnchor.replace('MAP_', '')}</div>
-              <div><strong>Resolver Version:</strong> {warpDebugInfo.resolverVersion}</div>
-              <div><strong>World Bounds:</strong> ({warpDebugInfo.worldBounds.minX},{warpDebugInfo.worldBounds.minY}) {warpDebugInfo.worldBounds.width}x{warpDebugInfo.worldBounds.height}</div>
-              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Snapshot Maps ({warpDebugInfo.snapshotMaps.length}):</div>
-              {warpDebugInfo.snapshotMaps.map((m, i) => (
-                <div key={i} style={{ marginLeft: 8, color: '#8f8' }}>{m.replace('MAP_', '')}</div>
-              ))}
-              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Tileset Pairs ({warpDebugInfo.snapshotPairs.length}):</div>
-              {warpDebugInfo.snapshotPairs.map((p, i) => (
-                <div key={i} style={{ marginLeft: 8, color: '#88f' }}>
-                  {p} → GPU Slot {warpDebugInfo.gpuSlots[p] ?? 'NONE'}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Debug Panel - slide-out sidebar with WebGL tab */}
+      <DebugPanel
+        options={debugOptions}
+        onChange={setDebugOptions}
+        state={debugState}
+        webglState={webglDebugState}
+      />
     </div>
   );
 }

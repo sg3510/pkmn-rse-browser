@@ -15,6 +15,7 @@ import type {
   DebugTileInfo,
   ObjectsAtTileInfo,
   PlayerDebugInfo,
+  WebGLDebugState,
 } from './types';
 import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
 
@@ -36,6 +37,8 @@ interface DebugPanelProps {
   compositeLayerCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   /** Callback for copying tile debug info */
   onCopyTileDebug?: () => void;
+  /** WebGL-specific debug state (only shown when provided) */
+  webglState?: WebGLDebugState | null;
 }
 
 export const DebugPanel: React.FC<DebugPanelProps> = ({
@@ -49,9 +52,10 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   topLayerCanvasRef,
   compositeLayerCanvasRef,
   onCopyTileDebug,
+  webglState,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'objects' | 'tile'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'objects' | 'tile' | 'webgl'>('general');
 
   // Sync panel open state with debug enabled
   useEffect(() => {
@@ -185,6 +189,13 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             active={activeTab === 'tile'}
             onClick={() => setActiveTab('tile')}
           />
+          {webglState && (
+            <TabButton
+              label="WebGL"
+              active={activeTab === 'webgl'}
+              onClick={() => setActiveTab('webgl')}
+            />
+          )}
         </div>
 
         {/* Scrollable Content */}
@@ -210,6 +221,9 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               compositeLayerCanvasRef={compositeLayerCanvasRef}
               onCopyTileDebug={onCopyTileDebug}
             />
+          )}
+          {activeTab === 'webgl' && webglState && (
+            <WebGLTab webglState={webglState} />
           )}
         </div>
       </div>
@@ -700,6 +714,186 @@ const TileTab: React.FC<{
     )}
   </>
 );
+
+// WebGL-specific debug tab
+const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
+  const { mapStitching, warp, renderStats } = webglState;
+
+  return (
+    <>
+      {/* Render Stats - performance overview */}
+      {renderStats && (
+        <Section title="Render Stats">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+            <InfoRow label="Tiles" value={renderStats.tileCount.toLocaleString()} />
+            <InfoRow label="FPS" value={renderStats.fps} />
+            <InfoRow label="Render" value={`${renderStats.renderTimeMs.toFixed(2)} ms`} />
+            <InfoRow label="WebGL2" value={renderStats.webgl2Supported ? 'Yes' : 'No'} />
+            <InfoRow label="Viewport" value={`${renderStats.viewportTilesWide}×${renderStats.viewportTilesHigh}`} />
+            <InfoRow label="Camera" value={`(${renderStats.cameraX}, ${renderStats.cameraY})`} />
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <InfoRow label="World" value={`${renderStats.worldWidthPx}×${renderStats.worldHeightPx}px`} />
+          </div>
+        </Section>
+      )}
+
+      {/* GPU Slots - most critical WebGL info */}
+      {mapStitching && (
+        <Section title="GPU Tileset Slots">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{
+              padding: 6,
+              backgroundColor: '#2a2a3a',
+              borderRadius: 4,
+              borderLeft: '3px solid #88f',
+            }}>
+              <div style={{ fontSize: '9px', color: '#888', marginBottom: 2 }}>Slot 0</div>
+              <div style={{ color: '#fff', fontSize: '11px' }}>
+                {mapStitching.gpuSlot0?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}
+              </div>
+            </div>
+            <div style={{
+              padding: 6,
+              backgroundColor: '#2a2a3a',
+              borderRadius: 4,
+              borderLeft: '3px solid #f88',
+            }}>
+              <div style={{ fontSize: '9px', color: '#888', marginBottom: 2 }}>Slot 1</div>
+              <div style={{ color: '#fff', fontSize: '11px' }}>
+                {mapStitching.gpuSlot1?.replace('gTileset_', '').replace('+gTileset_', ' + ') ?? 'empty'}
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 8, fontSize: '10px', color: '#888' }}>
+            Total tileset pairs: {mapStitching.tilesetPairs}
+          </div>
+        </Section>
+      )}
+
+      {/* World State */}
+      {mapStitching && (
+        <Section title="World State">
+          <InfoRow label="Current Map" value={mapStitching.currentMap?.replace('MAP_', '') ?? 'None'} />
+          <InfoRow label="Anchor Map" value={mapStitching.anchorMap.replace('MAP_', '')} />
+          <InfoRow label="Player" value={`(${mapStitching.playerPos.x}, ${mapStitching.playerPos.y})`} />
+        </Section>
+      )}
+
+      {/* Warp/Resolver State */}
+      {warp && (
+        <Section title="Resolver State">
+          <InfoRow label="Version" value={warp.resolverVersion} />
+          <InfoRow label="Last Warp" value={warp.lastWarpTo.replace('MAP_', '')} />
+          <InfoRow label="Anchor" value={warp.currentAnchor.replace('MAP_', '')} />
+          <InfoRow
+            label="World Bounds"
+            value={`(${warp.worldBounds.minX},${warp.worldBounds.minY}) ${warp.worldBounds.width}x${warp.worldBounds.height}`}
+          />
+        </Section>
+      )}
+
+      {/* Loaded Maps */}
+      {mapStitching && mapStitching.loadedMaps.length > 0 && (
+        <Section title={`Loaded Maps (${mapStitching.loadedMaps.length})`}>
+          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+            {mapStitching.loadedMaps.map((m, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '3px 0',
+                  borderBottom: '1px solid #333',
+                  fontSize: '9px',
+                  color: m.id === mapStitching.currentMap ? '#ff8' : m.inGpu ? '#8f8' : '#f88',
+                }}
+              >
+                <span>{m.id.replace('MAP_', '')}</span>
+                <span style={{ color: '#888' }}>
+                  ({m.offsetX},{m.offsetY}) {m.inGpu ? '✓GPU' : '✗GPU'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Connections */}
+      {mapStitching && mapStitching.expectedConnections.length > 0 && (
+        <Section title="Connections">
+          {mapStitching.expectedConnections.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '2px 0',
+                fontSize: '9px',
+                color: c.loaded ? '#8f8' : '#f88',
+              }}
+            >
+              <span>{c.direction}</span>
+              <span>
+                {c.to.replace('MAP_', '')} {c.loaded ? '✓' : '✗'}
+              </span>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      {/* Tileset Boundaries */}
+      {mapStitching && mapStitching.boundaries.length > 0 && (
+        <Section title={`Tileset Boundaries (${mapStitching.boundaries.length})`}>
+          <div style={{ maxHeight: 100, overflowY: 'auto' }}>
+            {mapStitching.boundaries.map((b, i) => (
+              <div key={i} style={{ fontSize: '9px', color: '#f8f', padding: '2px 0' }}>
+                @({b.x},{b.y}) {b.orientation} len:{b.length}
+              </div>
+            ))}
+          </div>
+          <div style={{
+            marginTop: 4,
+            fontSize: '10px',
+            color: mapStitching.nearbyBoundaryCount > 0 ? '#ff8' : '#888',
+          }}>
+            Nearby: {mapStitching.nearbyBoundaryCount} {mapStitching.nearbyBoundaryCount > 0 ? '(preloading)' : ''}
+          </div>
+        </Section>
+      )}
+
+      {/* GPU Slot Assignments (from warp state) */}
+      {warp && warp.snapshotPairs.length > 0 && (
+        <Section title="Tileset Pair → GPU Slot">
+          {warp.snapshotPairs.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '2px 0',
+                fontSize: '9px',
+                color: '#88f',
+              }}
+            >
+              <span>{p.replace('gTileset_', '').replace('+gTileset_', ' + ')}</span>
+              <span style={{ color: warp.gpuSlots[p] !== undefined ? '#8f8' : '#f88' }}>
+                → Slot {warp.gpuSlots[p] ?? 'NONE'}
+              </span>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      {/* No WebGL state */}
+      {!mapStitching && !warp && (
+        <div style={{ color: '#666', fontStyle: 'italic', padding: 16 }}>
+          No WebGL debug info available
+        </div>
+      )}
+    </>
+  );
+};
 
 // Reusable components
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({

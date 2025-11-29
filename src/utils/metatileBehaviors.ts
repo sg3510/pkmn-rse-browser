@@ -48,9 +48,12 @@ export const MB_SOUTH_ARROW_WARP = 101;
 export const MB_AQUA_HIDEOUT_WARP = 103;
 export const MB_LAVARIDGE_GYM_1F_WARP = 104;
 export const MB_ANIMATED_DOOR = 105;
+export const MB_PETALBURG_GYM_DOOR = 141;  // 0x8D - Same behavior as animated door
 export const MB_WATER_DOOR = 108;
 export const MB_WATER_SOUTH_ARROW_WARP = 109;
 export const MB_DEEP_SOUTH_WARP = 110;
+export const MB_SHOAL_CAVE_ENTRANCE = 102;  // 0x66 - Treated as south arrow warp
+export const MB_STAIRS_OUTSIDE_ABANDONED_SHIP = 107;  // 0x6B - Treated as north arrow warp
 
 const REFLECTIVE_BEHAVIORS = new Set([
   MB_POND_WATER,
@@ -91,22 +94,18 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
 }
 
 /**
- * Door behaviors that trigger door ANIMATIONS
- * 
- * IMPORTANT: MB_NON_ANIMATED_DOOR is NOT included here!
- * In the GBA code, MetatileBehavior_IsDoor (used for door animations) only checks:
+ * Door behaviors that trigger door ANIMATIONS (MetatileBehavior_IsDoor)
+ *
+ * From GBA code (metatile_behavior.c lines 228-234):
  * - MB_ANIMATED_DOOR
- * - MB_PETALBURG_GYM_DOOR (same as MB_ANIMATED_DOOR)
- * 
- * MB_NON_ANIMATED_DOOR is used for stairs and other warps that should NOT animate.
- * See public/pokeemerald/src/metatile_behavior.c lines 228-234
- * and public/pokeemerald/src/field_door.c line 535
+ * - MB_PETALBURG_GYM_DOOR
+ *
+ * IMPORTANT: MB_WATER_DOOR is NOT animated! It uses non-animated door exit.
+ * See public/pokeemerald/src/field_screen_effect.c SetUpWarpExitTask
  */
 const DOOR_BEHAVIORS = new Set<number>([
-  MB_ANIMATED_DOOR, // 105 - Standard animated doors
-  MB_WATER_DOOR,    // 108 - Water-based doors (also animated)
-  // NOTE: MB_NON_ANIMATED_DOOR (96) is deliberately NOT included
-  // It represents stairs and other non-animated warps
+  MB_ANIMATED_DOOR,      // 105 - Standard animated doors
+  MB_PETALBURG_GYM_DOOR, // 141 - Petalburg gym door (same behavior)
 ]);
 
 const TELEPORT_PAD_BEHAVIORS = new Set<number>([
@@ -125,6 +124,8 @@ const ARROW_WARP_BEHAVIORS = new Set<number>([
   MB_NORTH_ARROW_WARP,
   MB_SOUTH_ARROW_WARP,
   MB_WATER_SOUTH_ARROW_WARP,
+  MB_SHOAL_CAVE_ENTRANCE,            // Treated as south arrow
+  MB_STAIRS_OUTSIDE_ABANDONED_SHIP,  // Treated as north arrow
 ]);
 
 export type CardinalDirection = 'up' | 'down' | 'left' | 'right';
@@ -134,16 +135,41 @@ export function isDoorBehavior(behavior: number): boolean {
 }
 
 /**
- * Check if behavior is a non-animated door (stairs, ladders, etc.)
- * These should have exit movement but NO door animation
+ * Check if behavior is a non-animated door (MetatileBehavior_IsNonAnimDoor)
+ *
+ * From GBA code (metatile_behavior.c lines 262-270):
+ * - MB_NON_ANIMATED_DOOR (stairs)
+ * - MB_WATER_DOOR (underwater doors)
+ * - MB_DEEP_SOUTH_WARP (deep south exits)
+ *
+ * These tiles have exit movement (walk one tile in facing direction) but NO door animation.
+ * IMPORTANT: MB_LADDER is NOT included - ladders preserve facing and have NO exit sequence!
  */
 export function isNonAnimatedDoorBehavior(behavior: number): boolean {
-  return behavior === MB_NON_ANIMATED_DOOR || behavior === MB_LADDER || behavior === MB_DEEP_SOUTH_WARP;
+  return behavior === MB_NON_ANIMATED_DOOR ||
+         behavior === MB_WATER_DOOR ||
+         behavior === MB_DEEP_SOUTH_WARP;
+}
+
+/**
+ * Check if behavior is a ladder (MetatileBehavior_IsLadder)
+ *
+ * Ladders are special: they preserve pre-warp facing and have NO exit sequence.
+ * The player simply appears on the ladder facing the same direction they were before.
+ */
+export function isLadderBehavior(behavior: number): boolean {
+  return behavior === MB_LADDER;
 }
 
 /**
  * Check if behavior requires door exit sequence (with or without animation)
- * This includes both animated doors AND non-animated doors (stairs)
+ *
+ * From GBA code (field_screen_effect.c SetUpWarpExitTask):
+ * - MetatileBehavior_IsDoor → Task_ExitDoor (animated: open door, walk down, close)
+ * - MetatileBehavior_IsNonAnimDoor → Task_ExitNonAnimDoor (walk one tile in facing)
+ * - Everything else → Task_ExitNonDoor (just fade in, no movement)
+ *
+ * IMPORTANT: Ladders, arrow warps, teleporters do NOT have exit sequences!
  */
 export function requiresDoorExitSequence(behavior: number): boolean {
   return isDoorBehavior(behavior) || isNonAnimatedDoorBehavior(behavior);
@@ -157,20 +183,39 @@ export function isArrowWarpBehavior(behavior: number): boolean {
   return ARROW_WARP_BEHAVIORS.has(behavior);
 }
 
+/**
+ * Directional arrow warp checks - match GBA MetatileBehavior_Is*ArrowWarp functions
+ * These are used by GetAdjustedInitialDirection to determine facing after warp.
+ */
+export function isSouthArrowWarp(behavior: number): boolean {
+  return behavior === MB_SOUTH_ARROW_WARP ||
+         behavior === MB_WATER_SOUTH_ARROW_WARP ||
+         behavior === MB_SHOAL_CAVE_ENTRANCE;
+}
+
+export function isNorthArrowWarp(behavior: number): boolean {
+  return behavior === MB_NORTH_ARROW_WARP ||
+         behavior === MB_STAIRS_OUTSIDE_ABANDONED_SHIP;
+}
+
+export function isWestArrowWarp(behavior: number): boolean {
+  return behavior === MB_WEST_ARROW_WARP;
+}
+
+export function isEastArrowWarp(behavior: number): boolean {
+  return behavior === MB_EAST_ARROW_WARP;
+}
+
+export function isDeepSouthWarp(behavior: number): boolean {
+  return behavior === MB_DEEP_SOUTH_WARP;
+}
+
 export function getArrowDirectionFromBehavior(behavior: number): CardinalDirection | null {
-  switch (behavior) {
-    case MB_SOUTH_ARROW_WARP:
-    case MB_WATER_SOUTH_ARROW_WARP:
-      return 'down';
-    case MB_NORTH_ARROW_WARP:
-      return 'up';
-    case MB_WEST_ARROW_WARP:
-      return 'left';
-    case MB_EAST_ARROW_WARP:
-      return 'right';
-    default:
-      return null;
-  }
+  if (isSouthArrowWarp(behavior)) return 'down';
+  if (isNorthArrowWarp(behavior)) return 'up';
+  if (isWestArrowWarp(behavior)) return 'left';
+  if (isEastArrowWarp(behavior)) return 'right';
+  return null;
 }
 
 export function isWarpBehavior(behavior: number): boolean {
