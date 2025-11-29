@@ -819,10 +819,13 @@ export function WebGLMapPage() {
           const isAnimatedDoor = isDoorBehavior(destBehavior);
           const requiresExitSeq = requiresDoorExitSequence(destBehavior);
 
+          console.log('[WARP] Door exit check:', { destBehavior: destBehavior.toString(16), isAnimatedDoor, requiresExitSeq, destMetatileId });
+
           if (requiresExitSeq) {
             // Start door exit sequence
             const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
             playerHiddenRef.current = true;
+            console.log('[WARP] Starting door exit sequence, player hidden');
             doorSequencer.startExit({
               doorWorldX: spawnX,
               doorWorldY: spawnY,
@@ -831,22 +834,28 @@ export function WebGLMapPage() {
               exitDirection: exitDirection as CardinalDirection,
             }, now);
             fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
+            // NOTE: Do NOT reset doorSequencer here - it needs to complete the exit sequence
           } else {
             // No door exit sequence needed
             playerHiddenRef.current = false;
+            console.log('[WARP] No door exit sequence needed, player visible');
             fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
             player.unlockInput();
             warpHandlerRef.current.setInProgress(false);
+            // Reset door sequencer since we're not using it
+            doorSequencer.reset();
           }
         } else {
           fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
           playerHiddenRef.current = false;
           player.unlockInput();
           warpHandlerRef.current.setInProgress(false);
+          doorSequencer.reset();
         }
       } else {
         // Simple warp (not from door)
         fadeControllerRef.current.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
+        doorSequencer.reset();
       }
 
       // Complete warp - sets cooldown and updates lastCheckedTile
@@ -857,8 +866,8 @@ export function WebGLMapPage() {
       pipeline.invalidate();
       doorAnimations.clearAll();
 
-      // Reset door sequencer for fresh start in new map
-      doorSequencer.reset();
+      // NOTE: doorSequencer.reset() moved to specific branches above
+      // If exit sequence is active, it needs to complete to unhide the player
 
       console.log('[WARP] Warp complete, spawned at', spawnX, spawnY);
       console.log('[WARP] World bounds:', snapshot.worldBounds);
