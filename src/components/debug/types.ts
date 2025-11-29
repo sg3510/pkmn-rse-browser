@@ -196,10 +196,23 @@ export interface RenderStatsDebugInfo {
 }
 
 /**
+ * Shimmer debug info
+ */
+export interface ShimmerDebugInfo {
+  enabled: boolean;
+  gbaFrame: number;
+  frameInCycle: number;
+  scaleX0: number;
+  scaleX1: number;
+  amplify: number;
+}
+
+/**
  * Combined WebGL debug state
  */
 export interface WebGLDebugState {
   mapStitching: MapStitchingDebugInfo | null;
   warp: WarpDebugInfo | null;
   renderStats: RenderStatsDebugInfo | null;
+  shimmer?: ShimmerDebugInfo | null;
 }

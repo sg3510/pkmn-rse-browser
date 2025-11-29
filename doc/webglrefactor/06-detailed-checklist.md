@@ -432,44 +432,184 @@ Each checkbox represents a single change that can be tested independently.
 
 ---
 
-## Phase 7: Extract Reflection Rendering
+## Phase 7: Unify Reflection Logic (GBA-Faithful)
 
 **Risk Level**: Medium
-**Estimated Impact**: -100 lines from WebGLMapPage.tsx
+**Estimated Impact**: -100 lines from WebGLMapPage.tsx, GBA-accurate reflections
 **Dependencies**: Phase 4
+**Reference**: `doc/reflect/reflection-plan.md`, GBA C code analysis below
 
-### 7.1 Create ReflectionRenderer
+### GBA C Code Reference (Source of Truth)
 
-- [ ] Create `src/rendering/ReflectionRenderer.ts`
-- [ ] Define interface for reflection state computation
-- [ ] **TEST**: File compiles
+**Files:**
+- `field_effect_helpers.c`: `UpdateObjectReflectionSprite`, `LoadObjectReflectionPalette`, `GetReflectionVerticalOffset`
+- `event_object_movement.c`: `ObjectEventGetNearbyReflectionType`, `GetGroundEffectFlags_Reflection`
+- `metatile_behavior.c`: `MetatileBehavior_GetBridgeType`, `MetatileBehavior_IsReflective`, `MetatileBehavior_IsIce`
 
-### 7.2 Extract computeReflectionStateFromSnapshot
+**Key GBA Logic:**
 
-- [ ] Move reflection state computation from WebGLMapPage
-- [ ] Handle water reflection detection
-- [ ] Handle ice reflection detection
-- [ ] Handle bridge type detection
-- [ ] **TEST**: Reflection state computed correctly over water
+1. **Bridge Types** (`metatile_behavior.h`):
+   - `BRIDGE_TYPE_OCEAN` (0) - Routes 110/119 log bridges
+   - `BRIDGE_TYPE_POND_LOW` (1) - Unused
+   - `BRIDGE_TYPE_POND_MED` (2) - Route 120 south
+   - `BRIDGE_TYPE_POND_HIGH` (3) - Route 120 north
 
-### 7.3 Extract renderPlayerReflection
+2. **Bridge Vertical Offsets** (`field_effect_helpers.c:78-82`):
+   ```c
+   bridgeReflectionVerticalOffsets[] = {
+     [BRIDGE_TYPE_POND_LOW - 1] = 12,
+     [BRIDGE_TYPE_POND_MED - 1] = 28,
+     [BRIDGE_TYPE_POND_HIGH - 1] = 44
+   };
+   ```
+   ✅ FIXED: Now using `{none: 0, ocean: 0, pondLow: 12, pondMed: 28, pondHigh: 44}`
 
-- [ ] Move reflection rendering logic
-- [ ] Handle reflection offset calculation
-- [ ] Handle alpha blending
-- [ ] **TEST**: Reflection renders correctly on water tiles
+3. **Reflection Y Position** (`field_effect_helpers.c:143`):
+   ```c
+   reflectionSprite->y = mainSprite->y + GetReflectionVerticalOffset(objectEvent) + reflectionSprite->sReflectionVerticalOffset;
+   // GetReflectionVerticalOffset = height - 2
+   // sReflectionVerticalOffset = bridge offset (0, 12, 28, or 44)
+   ```
 
-### 7.4 Integrate into WebGLMapPage
+4. **Bridge Type Detection** (`field_effect_helpers.c:84-86`):
+   ```c
+   // Check BOTH previous AND current metatile behavior
+   if ((bridgeType = MetatileBehavior_GetBridgeType(objectEvent->previousMetatileBehavior))
+    || (bridgeType = MetatileBehavior_GetBridgeType(objectEvent->currentMetatileBehavior)))
+   ```
+   We currently only check current position.
 
-- [ ] Use ReflectionRenderer in render loop
-- [ ] **TEST**: Walk over water (surfing), see reflection
-- [ ] **TEST**: Walk near water, no false reflections
-- [ ] **TEST**: Ice reflection works (if applicable)
+5. **Bridge Palette** (`field_effect_helpers.c:112-122`):
+   - Non-bridge: Regular reflection palette (water tint)
+   - On pond bridge: Solid blue palette `RGB(74, 115, 172)` from `bridge_reflection.pal`
+   - This is a SOLID color (all 16 palette entries identical) - reflection becomes silhouette
+   - Purpose: Blend with dark water under high Route 120 bridges
+   - ✅ IMPLEMENTED: Using `rgb(74, 115, 172)` in `BRIDGE_REFLECTION_TINT`
+
+6. **Reflection Detection** (`event_object_movement.c:7625-7652`):
+   - Footprint math: `width = (spriteWidth + 8) >> 4`, `height = (spriteHeight + 8) >> 4`
+   - Scans from y+1 downward for `height` rows
+   - Checks BOTH `currentCoords` AND `previousCoords` (we only check current)
+   - Returns: `REFL_TYPE_ICE` if ice, `REFL_TYPE_WATER` if reflective, else `REFL_TYPE_NONE`
+
+### 7.1 Fix Bridge Offsets (CRITICAL BUG FIX) ✅ DONE
+
+- [x] Update `BRIDGE_OFFSETS` in `ReflectionRenderer.ts`:
+  ```typescript
+  export const BRIDGE_OFFSETS: Record<BridgeType, number> = {
+    none: 0,      // No bridge
+    ocean: 0,     // Ocean bridges (Routes 110/119) - NO extra offset
+    pondLow: 12,  // Low pond bridge (unused in game)
+    pondMed: 28,  // Medium pond bridge (Route 120 south)
+    pondHigh: 44, // High pond bridge (Route 120 north)
+  };
+  ```
+- [x] Add `ocean` to `BridgeType` in `metatileBehaviors.ts`
+- [x] Update `getBridgeTypeFromBehavior()` to handle `MB_BRIDGE_OVER_OCEAN`
+- [x] Add `isPondBridge()` helper to check if bridge needs dark tint (excludes ocean)
+- [ ] **TEST**: Route 120 bridges show reflection ~28-44px below player
+
+### 7.2 Fix Bridge Type Detection
+
+- [ ] Update bridge detection to check BOTH current AND previous tile behavior
+- [ ] Match GBA logic: `bridgeType = getBridgeType(prev) || getBridgeType(current)`
+- [ ] Add `previousMetatileBehavior` tracking to PlayerController or reflection state
+- [ ] **TEST**: Reflection persists one frame when stepping off bridge
+
+### 7.3 Unify Constants (Deduplicate) ✅ DONE
+
+~~Current drift between `ReflectionRenderer.ts` and `WebGLMapPage.tsx`:~~
+
+| Constant | ReflectionRenderer.ts | WebGLMapPage.tsx | Status |
+|----------|----------------------|------------------|--------|
+| Water tint | `rgba(70, 120, 200, 0.35)` | Uses `getReflectionTint()` | ✅ Unified |
+| Ice tint | `rgba(180, 220, 255, 0.35)` | Uses `getReflectionTint()` | ✅ Unified |
+| Bridge offsets | `{0, 0, 12, 28, 44}` | Uses imported `BRIDGE_OFFSETS` | ✅ Unified |
+| Bridge tint | `rgb(74, 115, 172)` (GBA solid) | Uses `getReflectionTint()` | ✅ GBA-accurate |
+
+- [x] Pick canonical tint values (using ReflectionRenderer.ts)
+- [x] Import constants in WebGLMapPage.tsx instead of hardcoding
+- [x] Use `getReflectionTint()` and `getReflectionAlpha()` helpers
+- [x] Use `BRIDGE_REFLECTION_TINT` for pond bridges only (ocean uses normal water tint per GBA)
+- [x] Also update ObjectRenderer.ts to use shared `BRIDGE_OFFSETS`
+- [ ] **TEST**: Colors match between renderers
+
+### 7.4 Extract computeReflectionStateFromSnapshot
+
+- [ ] Move from WebGLMapPage.tsx (currently ~60 lines around line 347)
+- [ ] Create `ReflectionStateComputer.ts` or add to `ReflectionRenderer.ts`
+- [ ] Interface:
+  ```typescript
+  function computeReflectionState(
+    resolveTile: (x: number, y: number) => ReflectionMeta | null,
+    tileX: number,
+    tileY: number,
+    spriteWidth: number,
+    spriteHeight: number,
+    previousBehavior?: number  // For bridge persistence
+  ): ReflectionState
+  ```
+- [ ] Make renderer-agnostic (works with callback, not WorldSnapshot)
+- [ ] **TEST**: Reflection state matches for WebGL and Canvas2D
+
+### 7.5 Fix Reflection Detection Window
+
+GBA scans BOTH current AND previous coords for reflection type:
+```c
+RETURN_REFLECTION_TYPE_AT(objEvent->currentCoords.x, objEvent->currentCoords.y + 1 + i)
+RETURN_REFLECTION_TYPE_AT(objEvent->previousCoords.x, objEvent->previousCoords.y + 1 + i)
+```
+
+- [ ] Track previous tile position in PlayerController or reflection state
+- [ ] Check both positions in `computeReflectionState()`
+- [ ] This causes reflection to "linger" one frame when stepping off water
+- [ ] **TEST**: Reflection visible for one frame after stepping off water (optional, low priority)
+
+### 7.6 Extract renderPlayerReflection
+
+- [ ] Move from WebGLMapPage.tsx (currently ~120 lines around line 625)
+- [ ] Create shared `renderReflection()` function or class method
+- [ ] Parameters:
+  ```typescript
+  function renderReflection(
+    ctx: CanvasRenderingContext2D,
+    sprite: HTMLCanvasElement,
+    spriteFrame: { sx, sy, sw, sh, flip },
+    worldX: number,
+    worldY: number,
+    spriteHeight: number,
+    reflectionState: ReflectionState,
+    reflectiveMask?: HTMLCanvasElement  // Optional for masked rendering
+  ): void
+  ```
+- [ ] Use unified constants for tint/alpha/offset
+- [ ] **TEST**: Reflection renders identically
+
+### 7.7 Integrate into WebGLMapPage ✅ PARTIALLY DONE
+
+- [x] Import from `ReflectionRenderer.ts` (`BRIDGE_OFFSETS`, `getReflectionTint`, `getReflectionAlpha`)
+- [ ] Replace inline reflection code with shared functions (render function not extracted yet)
+- [x] Remove hardcoded constants (use imports) ✓
+- [ ] **TEST**: Walk near water (surfing) → reflection visible
+- [ ] **TEST**: Walk on Route 120 bridges → reflection much lower
+- [ ] **TEST**: Ice tiles → ice-tinted reflection
+- [ ] **TEST**: No false reflections on land
+
+### 7.8 Prepare Canvas2D Parity (Optional)
+
+- [ ] Ensure `computeReflectionState()` in `map/utils.ts` uses same logic
+- [ ] Use shared constants from `ReflectionRenderer.ts`
+- [ ] **TEST**: Reflections match between renderers
 
 **Phase 7 Complete Verification:**
-- [ ] Reflection rendering works correctly
-- [ ] No visual artifacts
-- [ ] Performance unchanged
+- [x] Bridge offsets match GBA: {0, 0, 12, 28, 44} including ocean ✓
+- [x] Constants deduplicated between files ✓
+- [x] Bridge tint applied when on pond bridges (`rgb(74, 115, 172)` solid silhouette) ✓
+- [x] Ocean bridges use normal water tint (no dark palette) per GBA ✓
+- [ ] Reflection Y position correct on Route 120 bridges (needs visual test)
+- [ ] No visual artifacts (needs visual test)
+- [x] Build passes ✓
+- [ ] ~100 lines removed from WebGLMapPage.tsx (extraction phases 7.4/7.6 pending)
 
 ---
 

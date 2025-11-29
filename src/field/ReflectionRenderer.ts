@@ -46,6 +46,16 @@
  */
 
 import type { BridgeType } from '../utils/metatileBehaviors';
+import { isPondBridge } from '../utils/metatileBehaviors';
+
+// Re-export shimmer utilities for convenient imports
+export {
+  ReflectionShimmer,
+  getGlobalShimmer,
+  isShimmerEnabled,
+  setShimmerEnabled,
+  applyGbaAffineShimmer,
+} from './ReflectionShimmer';
 
 /**
  * Reflection type for surface effects
@@ -67,22 +77,24 @@ export interface ReflectionState {
 }
 
 /**
- * Bridge offsets for reflection Y position
+ * Bridge offsets for reflection Y position (GBA-accurate)
  *
  * When standing on bridges over water, the reflection needs to be
  * offset down to account for the bridge height.
  *
- * Values in pixels:
+ * From GBA's bridgeReflectionVerticalOffsets[] (field_effect_helpers.c:78-82):
  * - none: 0 (not on bridge)
- * - pondLow: 2 (low bridge)
- * - pondMed: 4 (medium bridge)
- * - pondHigh: 6 (high bridge)
+ * - ocean: 0 (Routes 110/119 log bridges - no extra offset)
+ * - pondLow: 12 (unused in game)
+ * - pondMed: 28 (Route 120 south bridge)
+ * - pondHigh: 44 (Route 120 north bridge)
  */
 export const BRIDGE_OFFSETS: Record<BridgeType, number> = {
   none: 0,
-  pondLow: 2,
-  pondMed: 4,
-  pondHigh: 6,
+  ocean: 0,
+  pondLow: 12,
+  pondMed: 28,
+  pondHigh: 44,
 };
 
 /**
@@ -98,9 +110,16 @@ export const REFLECTION_TINTS: Record<ReflectionType, string> = {
 };
 
 /**
- * Darker tint when on bridge over water
+ * Bridge reflection color (GBA-accurate)
+ *
+ * From pokeemerald graphics/object_events/palettes/bridge_reflection.pal:
+ * The GBA uses a SOLID palette replacement of RGB(74, 115, 172) for all 16 colors.
+ * This makes bridge reflections appear as solid blue silhouettes, not tinted sprites.
+ *
+ * The color is applied as a solid fill (no alpha in the color itself).
+ * Final transparency is controlled by REFLECTION_ALPHA.bridge (0.6).
  */
-export const BRIDGE_REFLECTION_TINT = 'rgba(20, 40, 70, 0.55)';
+export const BRIDGE_REFLECTION_TINT = 'rgb(74, 115, 172)';
 
 /**
  * Reflection alpha by bridge state
@@ -167,6 +186,10 @@ export function calculateReflectionY(
 /**
  * Get the appropriate tint color for a reflection
  *
+ * From GBA's IsSpecialBridgeReflectionPaletteNeeded (field_effect_helpers.c):
+ * - Pond bridges (low/med/high) use dark blue tint to blend with dark water under bridge
+ * - Ocean bridges use normal water tint (no special palette)
+ *
  * @param reflectionType - Type of reflection (water/ice)
  * @param bridgeType - Type of bridge being stood on
  * @returns CSS color string for the tint
@@ -175,7 +198,8 @@ export function getReflectionTint(
   reflectionType: ReflectionType | null,
   bridgeType: BridgeType
 ): string {
-  if (bridgeType !== 'none') {
+  // Only pond bridges get the dark blue tint, not ocean bridges
+  if (isPondBridge(bridgeType)) {
     return BRIDGE_REFLECTION_TINT;
   }
   return REFLECTION_TINTS[reflectionType ?? 'water'];
@@ -184,11 +208,14 @@ export function getReflectionTint(
 /**
  * Get the appropriate alpha for a reflection
  *
+ * Pond bridges have slightly reduced alpha to better blend with dark tint.
+ * Ocean bridges use normal alpha.
+ *
  * @param bridgeType - Type of bridge being stood on
  * @returns Alpha value (0-1)
  */
 export function getReflectionAlpha(bridgeType: BridgeType): number {
-  return bridgeType === 'none' ? REFLECTION_ALPHA.normal : REFLECTION_ALPHA.bridge;
+  return isPondBridge(bridgeType) ? REFLECTION_ALPHA.bridge : REFLECTION_ALPHA.normal;
 }
 
 /**

@@ -72,9 +72,24 @@ export function isIceBehavior(behavior: number): boolean {
   return behavior === MB_ICE;
 }
 
-export type BridgeType = 'none' | 'pondLow' | 'pondMed' | 'pondHigh';
+/**
+ * Bridge type enum matching GBA's BRIDGE_TYPE_* constants
+ *
+ * From include/metatile_behavior.h:
+ * - BRIDGE_TYPE_OCEAN (0): Routes 110/119 log bridges - NO extra offset, normal tint
+ * - BRIDGE_TYPE_POND_LOW (1): Unused in game - 12px offset, dark blue tint
+ * - BRIDGE_TYPE_POND_MED (2): Route 120 south bridge - 28px offset, dark blue tint
+ * - BRIDGE_TYPE_POND_HIGH (3): Route 120 north bridge - 44px offset, dark blue tint
+ */
+export type BridgeType = 'none' | 'ocean' | 'pondLow' | 'pondMed' | 'pondHigh';
 
+/**
+ * Get bridge type from metatile behavior
+ *
+ * Matches GBA's MetatileBehavior_GetBridgeType (metatile_behavior.c:788-810)
+ */
 export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
+  // Check edge tiles first (these are specific to med/high bridges)
   if (behavior === MB_BRIDGE_OVER_POND_MED_EDGE_1 || behavior === MB_BRIDGE_OVER_POND_MED_EDGE_2) {
     return 'pondMed';
   }
@@ -82,6 +97,8 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
     return 'pondHigh';
   }
   switch (behavior) {
+    case MB_BRIDGE_OVER_OCEAN:
+      return 'ocean';
     case MB_BRIDGE_OVER_POND_LOW:
       return 'pondLow';
     case MB_BRIDGE_OVER_POND_MED:
@@ -91,6 +108,17 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
     default:
       return 'none';
   }
+}
+
+/**
+ * Check if bridge type is a pond bridge (requires special dark reflection palette)
+ *
+ * From GBA's IsSpecialBridgeReflectionPaletteNeeded (field_effect_helpers.c):
+ * - BRIDGE_TYPE_POND_LOW, BRIDGE_TYPE_POND_MED, BRIDGE_TYPE_POND_HIGH need dark blue tint
+ * - BRIDGE_TYPE_OCEAN does NOT need special palette (uses normal water tint)
+ */
+export function isPondBridge(bridgeType: BridgeType): boolean {
+  return bridgeType === 'pondLow' || bridgeType === 'pondMed' || bridgeType === 'pondHigh';
 }
 
 /**

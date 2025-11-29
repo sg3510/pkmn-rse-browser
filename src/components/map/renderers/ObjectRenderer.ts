@@ -4,6 +4,11 @@ import type { ItemBallObject } from '../../../types/objectEvents';
 import { METATILE_SIZE } from '../../../utils/mapLoader';
 import { getMetatileBehavior } from '../utils';
 import type { RenderContext, ReflectionState } from '../types';
+import {
+  BRIDGE_OFFSETS,
+  getGlobalShimmer,
+  applyGbaAffineShimmer,
+} from '../../../field/ReflectionRenderer';
 
 const DEBUG_REFLECTION_FLAG = 'PKMN_DEBUG_REFLECTION';
 function isReflectionDebugMode(): boolean {
@@ -51,14 +56,6 @@ export interface SpriteFrameInfo {
   tileX: number;   // Tile X position (for reflection detection)
   tileY: number;   // Tile Y position (for reflection detection)
 }
-
-// Bridge offsets for reflections
-const BRIDGE_OFFSETS: Record<'none' | 'pondLow' | 'pondMed' | 'pondHigh', number> = {
-  none: 0,
-  pondLow: 2,
-  pondMed: 4,
-  pondHigh: 6,
-};
 
 // Arrow animation constants
 // GBA uses 32 ticks @ 60fps ≈ 533ms per frame
@@ -453,11 +450,27 @@ export class ObjectRenderer {
     reflectionCtx.drawImage(maskCanvas, 0, 0);
     reflectionCtx.globalCompositeOperation = 'source-over';
 
-    // Draw to main canvas
+    // Draw to main canvas with shimmer effect (water only - ice is still)
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-    ctx.drawImage(reflectionCanvas, screenX, screenY);
+
+    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
+    // which disables affine mode, so ice reflections don't wobble
+    if (reflectionState.reflectionType === 'water') {
+      const shimmer = getGlobalShimmer();
+      const matrixNum: 0 | 1 = frame.flip ? 1 : 0;
+      const scaleX = shimmer.getScaleX(matrixNum);
+
+      // Apply GBA-style affine transformation with nearest-neighbor sampling
+      // This creates visible pixel-stepping artifacts like the real GBA
+      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
+      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, scaleX);
+      ctx.drawImage(shimmerCanvas, screenX, screenY);
+    } else {
+      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
+      ctx.drawImage(reflectionCanvas, screenX, screenY);
+    }
     ctx.restore();
   }
 
@@ -579,11 +592,27 @@ export class ObjectRenderer {
     reflectionCtx.drawImage(maskCanvas, 0, 0);
     reflectionCtx.globalCompositeOperation = 'source-over';
 
-    // Draw to main canvas
+    // Draw to main canvas with shimmer effect (water only - ice is still)
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-    ctx.drawImage(reflectionCanvas, screenX, screenY);
+
+    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
+    // which disables affine mode, so ice reflections don't wobble
+    if (reflectionState.reflectionType === 'water') {
+      const objShimmer = getGlobalShimmer();
+      const objMatrixNum: 0 | 1 = flip ? 1 : 0;
+      const objScaleX = objShimmer.getScaleX(objMatrixNum);
+
+      // Apply GBA-style affine transformation with nearest-neighbor sampling
+      // This creates visible pixel-stepping artifacts like the real GBA
+      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
+      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, objScaleX);
+      ctx.drawImage(shimmerCanvas, screenX, screenY);
+    } else {
+      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
+      ctx.drawImage(reflectionCanvas, screenX, screenY);
+    }
     ctx.restore();
   }
 

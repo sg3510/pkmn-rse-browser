@@ -38,6 +38,14 @@ import {
 import { buildTilesetRuntime, type TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import type { TilesetResources } from '../services/MapManager';
 import { getBridgeTypeFromBehavior, type BridgeType } from '../utils/metatileBehaviors';
+import {
+  BRIDGE_OFFSETS,
+  getReflectionTint,
+  getReflectionAlpha,
+  getGlobalShimmer,
+  ReflectionShimmer,
+  applyGbaAffineShimmer,
+} from '../field/ReflectionRenderer';
 import { detectWarpTrigger, resolveTileAt, findWarpEventAt, type WarpTrigger } from '../components/map/utils';
 import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
@@ -237,6 +245,7 @@ export function WebGLMapPage() {
       worldWidthPx: worldSize.width,
       worldHeightPx: worldSize.height,
     },
+    shimmer: getGlobalShimmer().getDebugInfo(),
   }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize]);
 
   // Debug state for the panel (WebGL page doesn't track objects)
@@ -640,21 +649,14 @@ export function WebGLMapPage() {
     if (!frame || !frame.sprite) return;
 
     const { height } = player.getSpriteSize();
-
-    // Bridge offsets for reflection positioning
-    const BRIDGE_OFFSETS: Record<BridgeType, number> = {
-      none: 0,
-      pondLow: 2,
-      pondMed: 4,
-      pondHigh: 6,
-    };
+    const bridgeOffset = BRIDGE_OFFSETS[reflectionState.bridgeType];
 
     // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
     const tileRefX = Math.floor(frame.renderX);
-    const tileRefY = Math.floor(frame.renderY) + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+    const tileRefY = Math.floor(frame.renderY) + height - 2 + bridgeOffset;
 
     // For SCREEN RENDERING: Use Math.round() for consistent pixel alignment
-    const reflectionWorldY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
+    const reflectionWorldY = frame.renderY + height - 2 + bridgeOffset;
     const screenX = Math.round(frame.renderX - cameraWorldX);
     const screenY = Math.round(reflectionWorldY - cameraWorldY);
 
@@ -727,24 +729,40 @@ export function WebGLMapPage() {
     // Reset transform
     reflectionCtx.setTransform(1, 0, 0, 1, 0, 0);
 
-    // Apply tint based on reflection type
+    // Apply tint based on reflection type and bridge type
+    // GBA uses dark blue tint for pond bridges (low/med/high) to blend with dark water under bridge
     reflectionCtx.globalCompositeOperation = 'source-atop';
-    if (reflectionState.reflectionType === 'water') {
-      reflectionCtx.fillStyle = 'rgba(100, 150, 255, 0.35)';
-    } else {
-      // Ice tint (lighter)
-      reflectionCtx.fillStyle = 'rgba(200, 220, 255, 0.25)';
-    }
+    reflectionCtx.fillStyle = getReflectionTint(reflectionState.reflectionType, reflectionState.bridgeType);
     reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
 
     // Apply mask
     reflectionCtx.globalCompositeOperation = 'destination-in';
     reflectionCtx.drawImage(maskCanvas, 0, 0);
 
-    // Draw to main canvas with transparency
+    // Draw to main canvas with transparency and shimmer effect (water only - ice is still)
+    // Pond bridges use slightly reduced alpha to better blend with dark tint
     ctx.save();
-    ctx.globalAlpha = 0.65;
-    ctx.drawImage(reflectionCanvas, screenX, screenY);
+    ctx.globalAlpha = getReflectionAlpha(reflectionState.bridgeType);
+
+    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
+    // which disables affine mode, so ice reflections don't wobble
+    if (reflectionState.reflectionType === 'water') {
+      const shimmer = getGlobalShimmer();
+      const matrixNum = ReflectionShimmer.getMatrixForDirection(
+        playerRef.current?.dir ?? 'down',
+        frame.flip
+      );
+      const scaleX = shimmer.getScaleX(matrixNum);
+
+      // Apply GBA-style affine transformation with nearest-neighbor sampling
+      // This creates visible pixel-stepping artifacts like the real GBA
+      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
+      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, scaleX);
+      ctx.drawImage(shimmerCanvas, screenX, screenY);
+    } else {
+      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
+      ctx.drawImage(reflectionCanvas, screenX, screenY);
+    }
     ctx.restore();
   }, [getReflectionMetaFromSnapshot]);
 
@@ -931,6 +949,9 @@ export function WebGLMapPage() {
         gbaAccumRef.current -= GBA_FRAME_MS;
         gbaFrameRef.current++;
       }
+
+      // Update shimmer animation (GBA-accurate reflection distortion)
+      getGlobalShimmer().update(nowTime);
 
       const { width, height, minX, minY } = worldBoundsRef.current;
 

@@ -23,6 +23,7 @@ export type {
   MapStitchingDebugInfo,
   WarpDebugInfo,
   RenderStatsDebugInfo,
+  ShimmerDebugInfo,
   WebGLDebugState,
 } from './types';
 export { DEFAULT_DEBUG_OPTIONS } from './types';

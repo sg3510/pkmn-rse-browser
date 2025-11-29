@@ -20,6 +20,7 @@ import { ObjectRenderer } from '../components/map/renderers/ObjectRenderer';
 import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
+import { getGlobalShimmer } from '../field/ReflectionRenderer';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;
@@ -87,6 +88,9 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       nowMs: number,
       gameFrame: number
     ) => {
+      // Update shimmer animation (GBA-accurate reflection distortion)
+      getGlobalShimmer().update(nowMs);
+
       const ctx = refs.renderContextRef.current;
       if (!ctx) return;
       const mainCanvas = refs.canvasRef.current;

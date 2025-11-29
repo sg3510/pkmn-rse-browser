@@ -1,0 +1,1597 @@
+<logs>
+3x3 Tile Grid
+Tile Info
+Map:
+Route117
+World:
+(-36, 11)
+Local:
+(24, 11)
+Metatile:
+531 (2nd)
+Behavior:
+0x00
+Elevation & Collision
+Tile Elev:
+3
+Player Elev:
+3
+Collision:
+0 (Pass)
+Layer Info
+Layer Type:
+NORMAL (0)
+Layer Decomposition
+Bottom
+Top
+Composite
+Render Passes
+✓ Background (bottom)
+✗ Top-Below (before player)
+✓ Top-Above (after player)
+{
+  "timestamp": "2025-11-29T16:44:07.101Z",
+  "player": {
+    "tileX": -36,
+    "tileY": 11,
+    "x": -576,
+    "y": 160,
+    "dir": "down"
+  },
+  "reflectionState": {
+    "hasReflection": true,
+    "reflectionType": "water",
+    "bridgeType": "none"
+  },
+  "tiles": [
+    {
+      "inBounds": true,
+      "tileX": -37,
+      "tileY": 10,
+      "mapTile": {
+        "metatileId": 524,
+        "collision": 0,
+        "elevation": 3
+      },
+      "metatileId": 524,
+      "isSecondary": true,
+      "behavior": 0,
+      "layerType": 0,
+      "layerTypeLabel": "NORMAL",
+      "isReflective": false,
+      "reflectionType": null,
+      "reflectionMaskAllow": 0,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 624,
+          "xflip": false,
+          "yflip": false,
+          "palette": 8
+        },
+        {
+          "tileId": 625,
+          "xflip": false,
+          "yflip": false,
+          "palette": 8
+        },
+        {
+          "tileId": 626,
+          "xflip": false,
+          "yflip": false,
+          "palette": 8
+        },
+        {
+          "tileId": 627,
+          "xflip": false,
+          "yflip": false,
+          "palette": 8
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 23,
+      "localY": 10,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 3,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 256,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": true,
+      "topBelowPassReason": "Player elev 3 (priority 2) draws BELOW top layer",
+      "topAbovePassReason": "Player elev 3 (priority 2) draws BELOW top layer (topAbove)",
+      "bottomTileDetails": [],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -36,
+      "tileY": 10,
+      "mapTile": {
+        "metatileId": 1,
+        "collision": 0,
+        "elevation": 3
+      },
+      "metatileId": 1,
+      "isSecondary": false,
+      "behavior": 0,
+      "layerType": 0,
+      "layerTypeLabel": "NORMAL",
+      "isReflective": false,
+      "reflectionType": null,
+      "reflectionMaskAllow": 0,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 24,
+      "localY": 10,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 3,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 256,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": true,
+      "topBelowPassReason": "Player elev 3 (priority 2) draws BELOW top layer",
+      "topAbovePassReason": "Player elev 3 (priority 2) draws BELOW top layer (topAbove)",
+      "bottomTileDetails": [
+        "Tile 0: ID=2, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 1: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 2: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 3: ID=2, Pal=2, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 531,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 524,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -35,
+      "tileY": 10,
+      "mapTile": {
+        "metatileId": 1,
+        "collision": 0,
+        "elevation": 3
+      },
+      "metatileId": 1,
+      "isSecondary": false,
+      "behavior": 0,
+      "layerType": 0,
+      "layerTypeLabel": "NORMAL",
+      "isReflective": false,
+      "reflectionType": null,
+      "reflectionMaskAllow": 0,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 25,
+      "localY": 10,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 3,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 256,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": true,
+      "topBelowPassReason": "Player elev 3 (priority 2) draws BELOW top layer",
+      "topAbovePassReason": "Player elev 3 (priority 2) draws BELOW top layer (topAbove)",
+      "bottomTileDetails": [
+        "Tile 0: ID=2, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 1: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 2: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 3: ID=2, Pal=2, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -37,
+      "tileY": 11,
+      "mapTile": {
+        "metatileId": 178,
+        "collision": 0,
+        "elevation": 1
+      },
+      "metatileId": 178,
+      "isSecondary": false,
+      "behavior": 16,
+      "layerType": 1,
+      "layerTypeLabel": "COVERED",
+      "isReflective": true,
+      "reflectionType": "water",
+      "reflectionMaskAllow": 144,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 110,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 111,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 127,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 23,
+      "localY": 11,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 1,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 144,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": false,
+      "topBelowPassReason": "COVERED: both layers render in background pass (behind player)",
+      "topAbovePassReason": "COVERED: both layers render in background pass (behind player)",
+      "bottomTileDetails": [
+        "Tile 0: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 1: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 2: ID=286, Pal=1, Flip=, Transparent=0/64px",
+        "Tile 3: ID=270, Pal=0, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=110, Pal=3, Flip=, Transparent=34/64px",
+        "Tile 5: ID=111, Pal=3, Flip=, Transparent=13/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=127, Pal=3, Flip=, Transparent=33/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 524,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 194,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 531,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 194,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -36,
+      "tileY": 11,
+      "mapTile": {
+        "metatileId": 531,
+        "collision": 0,
+        "elevation": 3
+      },
+      "metatileId": 531,
+      "isSecondary": true,
+      "behavior": 0,
+      "layerType": 0,
+      "layerTypeLabel": "NORMAL",
+      "isReflective": false,
+      "reflectionType": null,
+      "reflectionMaskAllow": 0,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 652,
+          "xflip": false,
+          "yflip": false,
+          "palette": 9
+        },
+        {
+          "tileId": 653,
+          "xflip": false,
+          "yflip": false,
+          "palette": 9
+        },
+        {
+          "tileId": 654,
+          "xflip": false,
+          "yflip": false,
+          "palette": 9
+        },
+        {
+          "tileId": 655,
+          "xflip": false,
+          "yflip": false,
+          "palette": 9
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 24,
+      "localY": 11,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 3,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 256,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": true,
+      "topBelowPassReason": "Player elev 3 (priority 2) draws BELOW top layer",
+      "topAbovePassReason": "Player elev 3 (priority 2) draws BELOW top layer (topAbove)",
+      "bottomTileDetails": [],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 177,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -35,
+      "tileY": 11,
+      "mapTile": {
+        "metatileId": 1,
+        "collision": 0,
+        "elevation": 3
+      },
+      "metatileId": 1,
+      "isSecondary": false,
+      "behavior": 0,
+      "layerType": 0,
+      "layerTypeLabel": "NORMAL",
+      "isReflective": false,
+      "reflectionType": null,
+      "reflectionMaskAllow": 0,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 3,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        },
+        {
+          "tileId": 2,
+          "xflip": false,
+          "yflip": false,
+          "palette": 2
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 25,
+      "localY": 11,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 3,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 256,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": true,
+      "topBelowPassReason": "Player elev 3 (priority 2) draws BELOW top layer",
+      "topAbovePassReason": "Player elev 3 (priority 2) draws BELOW top layer (topAbove)",
+      "bottomTileDetails": [
+        "Tile 0: ID=2, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 1: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 2: ID=3, Pal=2, Flip=, Transparent=0/64px",
+        "Tile 3: ID=2, Pal=2, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 531,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -37,
+      "tileY": 12,
+      "mapTile": {
+        "metatileId": 194,
+        "collision": 0,
+        "elevation": 1
+      },
+      "metatileId": 194,
+      "isSecondary": false,
+      "behavior": 16,
+      "layerType": 1,
+      "layerTypeLabel": "COVERED",
+      "isReflective": true,
+      "reflectionType": "water",
+      "reflectionMaskAllow": 244,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 159,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 23,
+      "localY": 12,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 1,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 244,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": false,
+      "topBelowPassReason": "COVERED: both layers render in background pass (behind player)",
+      "topAbovePassReason": "COVERED: both layers render in background pass (behind player)",
+      "bottomTileDetails": [
+        "Tile 0: ID=286, Pal=1, Flip=, Transparent=0/64px",
+        "Tile 1: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 2: ID=286, Pal=1, Flip=, Transparent=0/64px",
+        "Tile 3: ID=286, Pal=1, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 5: ID=159, Pal=3, Flip=, Transparent=52/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "south": {
+          "metatileId": 161,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 177,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "west": {
+          "metatileId": 161,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -36,
+      "tileY": 12,
+      "mapTile": {
+        "metatileId": 177,
+        "collision": 0,
+        "elevation": 1
+      },
+      "metatileId": 177,
+      "isSecondary": false,
+      "behavior": 16,
+      "layerType": 1,
+      "layerTypeLabel": "COVERED",
+      "isReflective": true,
+      "reflectionType": "water",
+      "reflectionMaskAllow": 196,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 110,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 109,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 24,
+      "localY": 12,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 1,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 196,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": false,
+      "topBelowPassReason": "COVERED: both layers render in background pass (behind player)",
+      "topAbovePassReason": "COVERED: both layers render in background pass (behind player)",
+      "bottomTileDetails": [
+        "Tile 0: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 1: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 2: ID=286, Pal=1, Flip=, Transparent=0/64px",
+        "Tile 3: ID=286, Pal=1, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=110, Pal=3, Flip=, Transparent=34/64px",
+        "Tile 5: ID=109, Pal=3, Flip=, Transparent=34/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=0, Pal=0, Flip=, Transparent=64/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 531,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 161,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 178,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "west": {
+          "metatileId": 194,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    },
+    {
+      "inBounds": true,
+      "tileX": -35,
+      "tileY": 12,
+      "mapTile": {
+        "metatileId": 178,
+        "collision": 0,
+        "elevation": 1
+      },
+      "metatileId": 178,
+      "isSecondary": false,
+      "behavior": 16,
+      "layerType": 1,
+      "layerTypeLabel": "COVERED",
+      "isReflective": true,
+      "reflectionType": "water",
+      "reflectionMaskAllow": 144,
+      "reflectionMaskTotal": 256,
+      "bottomTiles": [
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 286,
+          "xflip": false,
+          "yflip": false,
+          "palette": 1
+        },
+        {
+          "tileId": 270,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        }
+      ],
+      "topTiles": [
+        {
+          "tileId": 110,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 111,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        },
+        {
+          "tileId": 0,
+          "xflip": false,
+          "yflip": false,
+          "palette": 0
+        },
+        {
+          "tileId": 127,
+          "xflip": false,
+          "yflip": false,
+          "palette": 3
+        }
+      ],
+      "mapId": "MAP_ROUTE117",
+      "mapName": "Route117",
+      "localX": 25,
+      "localY": 12,
+      "paletteIndex": 0,
+      "warpEvent": null,
+      "warpKind": null,
+      "primaryTilesetId": "gTileset_General",
+      "secondaryTilesetId": "gTileset_Mauville",
+      "elevation": 1,
+      "collision": 0,
+      "collisionPassable": true,
+      "playerElevation": 3,
+      "isLedge": false,
+      "bottomLayerTransparency": 0,
+      "topLayerTransparency": 144,
+      "renderedInBackgroundPass": true,
+      "renderedInTopBelowPass": false,
+      "renderedInTopAbovePass": false,
+      "topBelowPassReason": "COVERED: both layers render in background pass (behind player)",
+      "topAbovePassReason": "COVERED: both layers render in background pass (behind player)",
+      "bottomTileDetails": [
+        "Tile 0: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 1: ID=270, Pal=0, Flip=, Transparent=0/64px",
+        "Tile 2: ID=286, Pal=1, Flip=, Transparent=0/64px",
+        "Tile 3: ID=270, Pal=0, Flip=, Transparent=0/64px"
+      ],
+      "topTileDetails": [
+        "Tile 4: ID=110, Pal=3, Flip=, Transparent=34/64px",
+        "Tile 5: ID=111, Pal=3, Flip=, Transparent=13/64px",
+        "Tile 6: ID=0, Pal=0, Flip=, Transparent=64/64px",
+        "Tile 7: ID=127, Pal=3, Flip=, Transparent=33/64px"
+      ],
+      "adjacentTileInfo": {
+        "north": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "south": {
+          "metatileId": 186,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        },
+        "east": {
+          "metatileId": 1,
+          "layerType": 0,
+          "layerTypeLabel": "NORMAL"
+        },
+        "west": {
+          "metatileId": 177,
+          "layerType": 1,
+          "layerTypeLabel": "COVERED"
+        }
+      }
+    }
+  ]
+}3x3 Tile Grid
+Tile Info
+Map:
+Route117
+World:
+(-36, 13)
+Local:
+(24, 13)
+Metatile:
+161 (1st)
+Behavior:
+0x10
+Elevation & Collision
+Tile Elev:
+1
+Player Elev:
+1
+Collision:
+0 (Pass)
+Layer Info
+Layer Type:
+COVERED (1)
+Layer Decomposition
+Bottom
+Top
+Composite
+Render Passes
+✓ Background (bottom)
+✗ Top-Below (before player)
+✗ Top-Above (after player)
+Reflection
+Type:
+water
+Mask:
+256/256 pxPlayer
+Tile:
+(-39, 9)
+Pixel:
+(-624.0, 128.0)
+Direction:
+down
+Elevation:
+3
+Map:
+ROUTE117
+Moving:
+NO
+Surfing:
+NO
+Object Summary
+Visible NPCs:
+0
+Total NPCs:
+0
+Visible Items:
+0
+Total Items:
+0Shimmer (Reflection)
+Enabled:
+Yes
+Amplify:
+1×
+GBA Frame:
+6228
+Cycle Frame:
+36/48
+Scale X (M0):
+0.99219
+Scale X (M1):
+1.00391
+Tip: Set window.SHIMMER_AMPLIFY = 20 to make shimmer visible
+Render Stats
+Tiles:
+4,032
+FPS:
+120
+Render:
+0.30 ms
+WebGL2:
+Yes
+Viewport:
+20×20
+Camera:
+(-776, -8)
+World:
+6720×5120px
+GPU Tileset Slots
+Slot 0
+General + Mauville
+Slot 1
+General + Fallarbor
+Total tileset pairs: 8
+World State
+Current Map:
+ROUTE117
+Anchor Map:
+MAUVILLE_CITY
+Player:
+(-39, 9)
+Loaded Maps (15)
+MAUVILLE_CITY
+(0,0) ✓GPU
+ROUTE111
+(0,-140) ✓GPU
+ROUTE110
+(0,20) ✓GPU
+ROUTE117
+(-60,0) ✓GPU
+ROUTE118
+(40,0) ✓GPU
+VERDANTURF_TOWN
+(-80,0) ✓GPU
+ROUTE113
+(-100,-140) ✓GPU
+ROUTE103
+(-80,80) ✗GPU
+ROUTE119
+(80,-140) ✗GPU
+ROUTE123
+(120,0) ✗GPU
+SLATEPORT_CITY
+(0,120) ✗GPU
+ROUTE112
+(-40,-120) ✗GPU
+FALLARBOR_TOWN
+(-120,-140) ✓GPU
+LAVARIDGE_TOWN
+(-60,-80) ✗GPU
+ROUTE116
+(-160,-20) ✗GPU
+Connections
+left
+VERDANTURF_TOWN ✓
+right
+MAUVILLE_CITY ✓
+Tileset Boundaries (8)
+@(0,-140) vertical len:20
+@(0,-120) vertical len:60
+@(0,120) horizontal len:40
+@(0,80) vertical len:22
+@(80,0) horizontal len:40
+@(120,0) vertical len:20
+@(-160,0) horizontal len:20
+@(-40,-120) horizontal len:40
+Nearby: 0
+WorldManager.ts:202 [INIT] World epoch incremented to 1
+WorldManager.ts:212 [INIT] Starting initialize for MAP_LITTLEROOT_TOWN, connections: [{…}]
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_LITTLEROOT_TOWN at offset (0, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: 
+WorldManager.ts:637 [LOAD_MAP] Entry connections: ['up->MAP_ROUTE101']
+installHook.js:1 [INIT] World epoch incremented to 1
+installHook.js:1 [INIT] Starting initialize for MAP_LITTLEROOT_TOWN, connections: [{…}]
+installHook.js:1 [LOAD_MAP] Loading MAP_LITTLEROOT_TOWN at offset (0, 0) epoch=1
+installHook.js:1 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: 
+installHook.js:1 [LOAD_MAP] Entry connections: ['up->MAP_ROUTE101']
+:5173/#/webgl-map:1 Failed to decode downloaded font: http://localhost:5173/fonts/pokemon-emerald-pro.otf
+:5173/#/webgl-map:1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+:5173/#/webgl-map:1 Failed to decode downloaded font: http://localhost:5173/fonts/pokemon-emerald-pro.otf
+:5173/#/webgl-map:1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Petalburg, total pairs now: 1
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_LITTLEROOT_TOWN, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Petalburg, total pairs now: 1
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_LITTLEROOT_TOWN, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #1 anchor:MAP_LITTLEROOT_TOWN maps:0 pairs:1 []
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_LITTLEROOT_TOWN. Total maps: 1, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE101 at offset (0, -20) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_OLDALE_TOWN', 'down->MAP_LITTLEROOT_TOWN']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_LITTLEROOT_TOWN. Total maps: 1, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #2 anchor:MAP_LITTLEROOT_TOWN maps:1 pairs:1 ['MAP_LITTLEROOT_TOWN']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE101 at offset (0, -20) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_OLDALE_TOWN', 'down->MAP_LITTLEROOT_TOWN']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE101. Total maps: 2, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_OLDALE_TOWN at offset (0, -40) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE103', 'down->MAP_ROUTE101', 'left->MAP_ROUTE102']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE101. Total maps: 2, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #3 anchor:MAP_LITTLEROOT_TOWN maps:2 pairs:1 (2) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_OLDALE_TOWN at offset (0, -40) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE103', 'down->MAP_ROUTE101', 'left->MAP_ROUTE102']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_OLDALE_TOWN. Total maps: 3, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE103 at offset (0, -62) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['down->MAP_OLDALE_TOWN', 'right->MAP_ROUTE110']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_OLDALE_TOWN. Total maps: 3, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #4 anchor:MAP_LITTLEROOT_TOWN maps:3 pairs:1 (3) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE103 at offset (0, -62) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['down->MAP_OLDALE_TOWN', 'right->MAP_ROUTE110']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE103. Total maps: 4, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE102 at offset (-50, -40) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN, MAP_ROUTE103
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_PETALBURG_CITY', 'right->MAP_OLDALE_TOWN']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE103. Total maps: 4, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #5 anchor:MAP_LITTLEROOT_TOWN maps:4 pairs:1 (4) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN', 'MAP_ROUTE103']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE102 at offset (-50, -40) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN, MAP_ROUTE103
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_PETALBURG_CITY', 'right->MAP_OLDALE_TOWN']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE102. Total maps: 5, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:214 [INIT] After loadMapsFromAnchor, loaded maps: (5) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN', 'MAP_ROUTE103', 'MAP_ROUTE102']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE102. Total maps: 5, anchor: MAP_LITTLEROOT_TOWN
+WebGLMapPage.tsx:269 [RESOLVER] #6 anchor:MAP_LITTLEROOT_TOWN maps:5 pairs:1 (5) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN', 'MAP_ROUTE103', 'MAP_ROUTE102']
+WorldManager.ts:214 [INIT] After loadMapsFromAnchor, loaded maps: (5) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN', 'MAP_ROUTE103', 'MAP_ROUTE102']
+WebGLMapPage.tsx:269 [RESOLVER] #7 anchor:MAP_LITTLEROOT_TOWN maps:5 pairs:1 (5) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN', 'MAP_ROUTE103', 'MAP_ROUTE102']
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_General+gTileset_Petalburg']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_General+gTileset_Petalburg: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:109 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+PlayerController.ts:549 [TELEPORT_DEBUG] setPosition called: (0,0) -> (10,10) pixel: (0.0,0.0) -> (160,144)     at PlayerController.setPosition (http://localhost:5173/src/game/PlayerController.ts?t=1764431743285:417:7) <-     at load (http://localhost:5173/src/pages/WebGLMapPage.tsx?t=1764435522258:1211:18)
+WorldManager.ts:202 [INIT] World epoch incremented to 1
+WorldManager.ts:212 [INIT] Starting initialize for MAP_MAUVILLE_CITY, connections: (4) [{…}, {…}, {…}, {…}]
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_MAUVILLE_CITY at offset (0, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: 
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (4) ['up->MAP_ROUTE111', 'down->MAP_ROUTE110', 'left->MAP_ROUTE117', 'right->MAP_ROUTE118']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Mauville, total pairs now: 1
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_MAUVILLE_CITY, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #8 anchor:MAP_MAUVILLE_CITY maps:0 pairs:1 []
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_MAUVILLE_CITY. Total maps: 1, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #9 anchor:MAP_MAUVILLE_CITY maps:1 pairs:1 ['MAP_MAUVILLE_CITY']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE111 at offset (0, -140) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['down->MAP_MAUVILLE_CITY', 'left->MAP_ROUTE113', 'left->MAP_ROUTE112']
+WorldManager.ts:478 [LOAD_CONNECTED] From MAP_MAUVILLE_CITY with 3/4 unloaded connections (epoch 1): (3) ['down->MAP_ROUTE110', 'left->MAP_ROUTE117', 'right->MAP_ROUTE118']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE110 via down from MAP_MAUVILLE_CITY at depth 0 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE110 at offset (0, 20) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_MAUVILLE_CITY', 'down->MAP_SLATEPORT_CITY', 'left->MAP_ROUTE103']
+WorldManager.ts:478 [LOAD_CONNECTED] From MAP_MAUVILLE_CITY with 2/4 unloaded connections (epoch 1): (2) ['left->MAP_ROUTE117', 'right->MAP_ROUTE118']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE117 via left from MAP_MAUVILLE_CITY at depth 0 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE117 at offset (-60, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_VERDANTURF_TOWN', 'right->MAP_MAUVILLE_CITY']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE111. Total maps: 2, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #10 anchor:MAP_MAUVILLE_CITY maps:2 pairs:1 (2) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE118 at offset (40, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE119', 'left->MAP_MAUVILLE_CITY', 'right->MAP_ROUTE123']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE113 via left from MAP_ROUTE111 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE113 at offset (-100, -140) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['down->MAP_ROUTE112', 'left->MAP_FALLARBOR_TOWN', 'right->MAP_ROUTE111']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE112 via left from MAP_ROUTE111 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE112 at offset (-40, -120) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE113', 'left->MAP_LAVARIDGE_TOWN', 'right->MAP_ROUTE111']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE110. Total maps: 3, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #11 anchor:MAP_MAUVILLE_CITY maps:3 pairs:1 (3) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_SLATEPORT_CITY via down from MAP_ROUTE110 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_SLATEPORT_CITY at offset (0, 120) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE110', 'down->MAP_ROUTE109', 'right->MAP_ROUTE134']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE117. Total maps: 4, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #12 anchor:MAP_MAUVILLE_CITY maps:4 pairs:1 (4) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_VERDANTURF_TOWN via left from MAP_ROUTE117 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_VERDANTURF_TOWN at offset (-80, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_ROUTE116', 'right->MAP_ROUTE117']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE118. Total maps: 5, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #13 anchor:MAP_MAUVILLE_CITY maps:5 pairs:1 (5) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE103 at offset (-80, 80) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['down->MAP_OLDALE_TOWN', 'right->MAP_ROUTE110']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE119 via up from MAP_ROUTE118 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE119 at offset (80, -140) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['down->MAP_ROUTE118', 'right->MAP_FORTREE_CITY']
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE123 via right from MAP_ROUTE118 at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE123 at offset (120, 0) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_ROUTE122', 'left->MAP_ROUTE118']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_VERDANTURF_TOWN. Total maps: 6, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #14 anchor:MAP_MAUVILLE_CITY maps:6 pairs:1 (6) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Fallarbor, total pairs now: 2
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE113, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #15 anchor:MAP_MAUVILLE_CITY maps:6 pairs:2 (6) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Petalburg, total pairs now: 3
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE103, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #16 anchor:MAP_MAUVILLE_CITY maps:6 pairs:3 (6) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE113. Total maps: 7, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #17 anchor:MAP_MAUVILLE_CITY maps:7 pairs:3 (7) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Fortree, total pairs now: 4
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE119, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #18 anchor:MAP_MAUVILLE_CITY maps:7 pairs:4 (7) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE103. Total maps: 8, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #19 anchor:MAP_MAUVILLE_CITY maps:8 pairs:4 (8) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_FALLARBOR_TOWN at offset (-120, -140) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_ROUTE114', 'right->MAP_ROUTE113']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Lilycove, total pairs now: 5
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE123, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #20 anchor:MAP_MAUVILLE_CITY maps:8 pairs:5 (8) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE119. Total maps: 9, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #21 anchor:MAP_MAUVILLE_CITY maps:9 pairs:5 (9) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_FALLARBOR_TOWN. Total maps: 10, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #22 anchor:MAP_MAUVILLE_CITY maps:10 pairs:5 (10) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_LAVARIDGE_TOWN at offset (-60, -80) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: ['right->MAP_ROUTE112']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE123. Total maps: 11, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #23 anchor:MAP_MAUVILLE_CITY maps:11 pairs:5 (11) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Slateport, total pairs now: 6
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_SLATEPORT_CITY, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #24 anchor:MAP_MAUVILLE_CITY maps:11 pairs:6 (11) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_SLATEPORT_CITY. Total maps: 12, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #25 anchor:MAP_MAUVILLE_CITY maps:12 pairs:6 (12) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Lavaridge, total pairs now: 7
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE112, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #26 anchor:MAP_MAUVILLE_CITY maps:12 pairs:7 (12) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE112. Total maps: 13, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #27 anchor:MAP_MAUVILLE_CITY maps:13 pairs:7 (13) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Lavaridge, total pairs now: 8
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_LAVARIDGE_TOWN, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #28 anchor:MAP_MAUVILLE_CITY maps:13 pairs:8 (13) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_LAVARIDGE_TOWN. Total maps: 14, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #29 anchor:MAP_MAUVILLE_CITY maps:14 pairs:8 (14) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE109 at offset (0, 180) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_SLATEPORT_CITY', 'left->MAP_ROUTE108']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE109. Total maps: 15, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #30 anchor:MAP_MAUVILLE_CITY maps:15 pairs:8 (15) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE134 at offset (40, 120) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN, MAP_ROUTE109
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_SLATEPORT_CITY', 'right->MAP_ROUTE133']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Pacifidlog, total pairs now: 9
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE134, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #31 anchor:MAP_MAUVILLE_CITY maps:15 pairs:9 (15) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE134. Total maps: 16, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #32 anchor:MAP_MAUVILLE_CITY maps:16 pairs:9 (16) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_OLDALE_TOWN at offset (-80, 102) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN, MAP_ROUTE109, MAP_ROUTE134
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (3) ['up->MAP_ROUTE103', 'down->MAP_ROUTE101', 'left->MAP_ROUTE102']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_OLDALE_TOWN. Total maps: 17, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #33 anchor:MAP_MAUVILLE_CITY maps:17 pairs:9 (17) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_FORTREE_CITY at offset (120, -140) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN, MAP_ROUTE109, MAP_ROUTE134, MAP_OLDALE_TOWN
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['left->MAP_ROUTE119', 'right->MAP_ROUTE120']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_FORTREE_CITY. Total maps: 18, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #34 anchor:MAP_MAUVILLE_CITY maps:18 pairs:9 (18) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY']
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE122 at offset (220, -40) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN, MAP_ROUTE109, MAP_ROUTE134, MAP_OLDALE_TOWN, MAP_FORTREE_CITY
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['up->MAP_ROUTE121', 'down->MAP_ROUTE123']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE122. Total maps: 19, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #35 anchor:MAP_MAUVILLE_CITY maps:19 pairs:9 (19) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY', 'MAP_ROUTE122']
+WorldManager.ts:214 [INIT] After loadMapsFromAnchor, loaded maps: (19) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY', 'MAP_ROUTE122']
+WebGLMapPage.tsx:269 [RESOLVER] #36 anchor:MAP_MAUVILLE_CITY maps:19 pairs:9 (19) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY', 'MAP_ROUTE122']
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: (9) ['gTileset_General+gTileset_Mauville', 'gTileset_General+gTileset_Fallarbor', 'gTileset_General+gTileset_Petalburg', 'gTileset_General+gTileset_Fortree', 'gTileset_General+gTileset_Lilycove', 'gTileset_General+gTileset_Slateport', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Pacifidlog']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_General+gTileset_Mauville: 0, gTileset_General+gTileset_Fallarbor: 1}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Mauville to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree: gpuSlot=undefined, primarySize=128x256, secondarySize=128x248
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove: gpuSlot=undefined, primarySize=128x256, secondarySize=128x216
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge: gpuSlot=undefined, primarySize=128x256, secondarySize=128x232
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge: gpuSlot=undefined, primarySize=128x256, secondarySize=128x232
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Pacifidlog: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:106 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Pacifidlog NOT in GPU (slot=undefined)
+TilesetUploader.ts:109 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+PlayerController.ts:549 [TELEPORT_DEBUG] setPosition called: (7,10) -> (20,10) pixel: (112.0,144.0) -> (320,144)     at PlayerController.setPosition (http://localhost:5173/src/game/PlayerController.ts?t=1764431743285:417:7) <-     at load (http://localhost:5173/src/pages/WebGLMapPage.tsx?t=1764435522258:1211:18)
+ window.DEBUG_SHIMMER = true
+true
+WorldManager.ts:540 [LOAD_CONNECTED] Loading MAP_ROUTE116 via up from MAP_VERDANTURF_TOWN at depth 1 (epoch 1)
+WorldManager.ts:635 [LOAD_MAP] Loading MAP_ROUTE116 at offset (-160, -20) epoch=1
+WorldManager.ts:636 [LOAD_MAP] Current anchor: MAP_MAUVILLE_CITY, loaded maps: MAP_MAUVILLE_CITY, MAP_ROUTE111, MAP_ROUTE110, MAP_ROUTE117, MAP_ROUTE118, MAP_VERDANTURF_TOWN, MAP_ROUTE113, MAP_ROUTE103, MAP_ROUTE119, MAP_FALLARBOR_TOWN, MAP_ROUTE123, MAP_SLATEPORT_CITY, MAP_ROUTE112, MAP_LAVARIDGE_TOWN, MAP_ROUTE109, MAP_ROUTE134, MAP_OLDALE_TOWN, MAP_FORTREE_CITY, MAP_ROUTE122
+WorldManager.ts:637 [LOAD_MAP] Entry connections: (2) ['down->MAP_VERDANTURF_TOWN', 'left->MAP_RUSTBORO_CITY']
+WorldManager.ts:678 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Rustboro, total pairs now: 10
+WorldManager.ts:679 [TILESET_CHANGE] For map: MAP_ROUTE116, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #37 anchor:MAP_MAUVILLE_CITY maps:19 pairs:10 (19) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY', 'MAP_ROUTE122']
+WorldManager.ts:715 [MAPS_CHANGED] Emitting after loading MAP_ROUTE116. Total maps: 20, anchor: MAP_MAUVILLE_CITY
+WebGLMapPage.tsx:269 [RESOLVER] #38 anchor:MAP_MAUVILLE_CITY maps:20 pairs:10 (20) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE113', 'MAP_ROUTE103', 'MAP_ROUTE119', 'MAP_FALLARBOR_TOWN', 'MAP_ROUTE123', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE112', 'MAP_LAVARIDGE_TOWN', 'MAP_ROUTE109', 'MAP_ROUTE134', 'MAP_OLDALE_TOWN', 'MAP_FORTREE_CITY', 'MAP_ROUTE122', 'MAP_ROUTE116']
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99609, matrix=0, frame=720, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99707, matrix=0, frame=721, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99707, matrix=0, frame=721, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99805, matrix=0, frame=722, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99805, matrix=0, frame=722, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99902, matrix=0, frame=723, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99902, matrix=0, frame=723, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=724, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=724, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=725, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=725, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=726, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=1.00000, matrix=0, frame=726, amplify=1
+
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99609, matrix=0, frame=1627, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99609, matrix=0, frame=1627, amplify=1
+WebGLMapPage.tsx:749 [SHIMMER] renderPlayerReflection called, reflectionType="water", hasReflection=true
+WebGLMapPage.tsx:763 [SHIMMER] WebGL APPLYING: scaleX=0.99609, 
+</logs>
+<issue>
+shimmer in reflection is 100% not happening but i can see my reflection tile right below me is water and a tile that i assume is meant to shimmer?
+
+how come logs show shimmer? 
+
+is there something happening to the reflection? it also doesnt work in canvas2d nor in webgl so weird i see the logs but i 10000% do not see the effect
+</issue>
