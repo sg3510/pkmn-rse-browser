@@ -30,7 +30,22 @@ import {
 import { buildTilesetRuntime, type TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import type { TilesetResources } from '../services/MapManager';
 import { getBridgeTypeFromBehavior, type BridgeType } from '../utils/metatileBehaviors';
+import { detectWarpTrigger, resolveTileAt, findWarpEventAt, type WarpTrigger } from '../components/map/utils';
 import type { ReflectionState } from '../components/map/types';
+import { WarpHandler } from '../field/WarpHandler';
+import { FadeController } from '../field/FadeController';
+import { DOOR_TIMING, FADE_TIMING, type CardinalDirection } from '../field/types';
+import { useDoorAnimations } from '../hooks/useDoorAnimations';
+import { useArrowOverlay } from '../hooks/useArrowOverlay';
+import { useDoorSequencer } from '../hooks/useDoorSequencer';
+import {
+  isDoorBehavior,
+  isArrowWarpBehavior,
+  isNonAnimatedDoorBehavior,
+  requiresDoorExitSequence,
+  getArrowDirectionFromBehavior,
+} from '../utils/metatileBehaviors';
+import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import './WebGLMapPage.css';
 
 const NUM_PALS_IN_PRIMARY = 6;
@@ -148,7 +163,19 @@ export function WebGLMapPage() {
 
   // Player controller ref
   const playerRef = useRef<PlayerController | null>(null);
+
+  // Warp system refs
+  const warpHandlerRef = useRef<WarpHandler>(new WarpHandler());
+  const fadeControllerRef = useRef<FadeController>(new FadeController());
+  const pendingWarpRef = useRef<WarpTrigger | null>(null);
+  const warpingRef = useRef<boolean>(false);
   const playerLoadedRef = useRef<boolean>(false);
+  const playerHiddenRef = useRef<boolean>(false);
+
+  // Door animation and arrow overlay hooks (reuse Canvas2D code)
+  const doorAnimations = useDoorAnimations();
+  const arrowOverlay = useArrowOverlay();
+  const doorSequencer = useDoorSequencer({ warpHandler: warpHandlerRef.current });
 
   // Field sprites (grass, sand, etc.)
   const fieldSprites = useFieldSprites();
@@ -200,9 +227,29 @@ export function WebGLMapPage() {
     nearbyBoundaryCount: number;
   } | null>(null);
 
+  // Debug state for warp/tileset tracking
+  const [warpDebugInfo, setWarpDebugInfo] = useState<{
+    lastWarpTo: string;
+    currentAnchor: string;
+    snapshotMaps: string[];
+    snapshotPairs: string[];
+    gpuSlots: Record<string, number>;
+    resolverVersion: number;
+    worldBounds: { minX: number; minY: number; width: number; height: number };
+  } | null>(null);
+
+  // Track resolver creation for debugging
+  const resolverIdRef = useRef(0);
+
   // Create tile resolver from WorldSnapshot (for WorldManager integration)
   const createSnapshotTileResolver = useCallback((snapshot: WorldSnapshot): TileResolverFn => {
     const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, pairIdToGpuSlot, anchorMapId } = snapshot;
+
+    // Create a unique ID for this resolver to track which one is active
+    const resolverId = ++resolverIdRef.current;
+
+    console.log(`[RESOLVER] #${resolverId} anchor:${anchorMapId} maps:${maps.length} pairs:${tilesetPairs.length}`,
+      maps.map(m => m.entry.id));
 
     // Helper to convert tileset pair array index to GPU slot (0 or 1)
     const getGpuSlot = (pairIndex: number): number => {
@@ -215,6 +262,9 @@ export function WebGLMapPage() {
     const anchorMap = maps.find(m => m.entry.id === anchorMapId) ?? maps[0];
     const anchorPairIndex = anchorMap ? (mapTilesetPairIndex.get(anchorMap.entry.id) ?? 0) : 0;
     const anchorPair = tilesetPairs[anchorPairIndex] ?? tilesetPairs[0];
+
+    // Disable per-tile logging (too noisy during normal operation)
+    const shouldLog = false;
 
     return (worldX: number, worldY: number): ResolvedTile | null => {
       // Find which map contains this world tile
@@ -244,6 +294,10 @@ export function WebGLMapPage() {
 
           // Use GPU slot index (0 or 1), not array index
           const gpuSlot = getGpuSlot(pairIndex);
+
+          if (shouldLog) {
+            console.log(`[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> map:${map.entry.id} local(${localX},${localY}) metatile:${metatileId} gpuSlot:${gpuSlot} pair:${pair.id}`);
+          }
 
           return {
             metatile,
@@ -342,6 +396,10 @@ export function WebGLMapPage() {
       // Use GPU slot index (0 or 1) of the nearest map's tileset pair
       const gpuSlot = getGpuSlot(nearestPairIndex);
 
+      if (shouldLog) {
+        console.log(`[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> BORDER nearestMap:${nearestMap.entry.id} metatile:${borderMetatileId} gpuSlot:${gpuSlot} pair:${nearestPair.id}`);
+      }
+
       return {
         metatile,
         attributes,
@@ -391,11 +449,18 @@ export function WebGLMapPage() {
   ): void => {
     const { tilesetPairs, pairIdToGpuSlot } = snapshot;
 
+    console.log('[TILESET_UPLOAD] ========== UPLOADING TILESETS ==========');
+    console.log('[TILESET_UPLOAD] Tileset pairs:', tilesetPairs.map(p => p.id));
+    console.log('[TILESET_UPLOAD] GPU slot mapping:', Object.fromEntries(pairIdToGpuSlot));
+
     // Upload tilesets based on pairIdToGpuSlot mapping, not array index!
     // This ensures GPU textures match what the scheduler/resolver expects
     for (const pair of tilesetPairs) {
       const gpuSlot = pairIdToGpuSlot.get(pair.id);
+      console.log(`[TILESET_UPLOAD] Pair ${pair.id}: gpuSlot=${gpuSlot}, primarySize=${pair.primaryImage.width}x${pair.primaryImage.height}, secondarySize=${pair.secondaryImage.width}x${pair.secondaryImage.height}`);
+
       if (gpuSlot === 0) {
+        console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 0`);
         pipeline.uploadTilesets(
           pair.primaryImage.data,
           pair.primaryImage.width,
@@ -407,6 +472,7 @@ export function WebGLMapPage() {
         );
         pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
       } else if (gpuSlot === 1) {
+        console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 1`);
         pipeline.uploadTilesetsPair1(
           pair.primaryImage.data,
           pair.primaryImage.width,
@@ -417,9 +483,11 @@ export function WebGLMapPage() {
           pair.animations
         );
         pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+      } else {
+        console.log(`[TILESET_UPLOAD] Pair ${pair.id} NOT in GPU (slot=${gpuSlot})`);
       }
-      // Pairs not in GPU (gpuSlot undefined) are skipped - they stay in CPU cache only
     }
+    console.log('[TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========');
   }, []);
 
   // Build TilesetRuntime from TilesetPairInfo for reflection detection
@@ -607,7 +675,7 @@ export function WebGLMapPage() {
           secondaryAttributes: pair.secondaryAttributes,
           animations: pair.animations,
         } as TilesetResources,
-        warpEvents: [],
+        warpEvents: m.warpEvents ?? [],
         objectEvents: [],
       };
     });
@@ -634,6 +702,193 @@ export function WebGLMapPage() {
       },
     } as RenderContext;
   }, []);
+
+  // Execute a warp to destination map
+  const performWarp = useCallback(async (
+    trigger: WarpTrigger,
+    options?: { force?: boolean; fromDoor?: boolean }
+  ) => {
+    const worldManager = worldManagerRef.current;
+    const player = playerRef.current;
+    const pipeline = pipelineRef.current;
+    if (!worldManager || !player || !pipeline) return;
+
+    const destMapId = trigger.warpEvent.destMap;
+    const destWarpId = trigger.warpEvent.destWarpId;
+    const now = performance.now();
+
+    console.log('[WARP] ========== WARP START ==========');
+    console.log('[WARP] Source map:', trigger.sourceMap.entry.id);
+    console.log('[WARP] Destination map:', destMapId);
+    console.log('[WARP] fromDoor:', options?.fromDoor);
+
+    try {
+      // Reinitialize world manager at destination map
+      const snapshot = await worldManager.initialize(destMapId);
+      worldSnapshotRef.current = snapshot;
+
+      // Build tileset runtimes for the new world
+      buildTilesetRuntimesFromSnapshot(snapshot);
+
+      // Update stitched world ref for backward compatibility
+      stitchedWorldRef.current = {
+        maps: snapshot.maps.map(m => ({
+          entry: m.entry,
+          mapData: m.mapData,
+          offsetX: m.offsetX,
+          offsetY: m.offsetY,
+        })),
+        anchorId: snapshot.anchorMapId,
+        worldBounds: snapshot.worldBounds,
+        tilesetPairs: snapshot.tilesetPairs,
+        mapTilesetPairIndex: snapshot.mapTilesetPairIndex,
+        primaryMetatiles: snapshot.tilesetPairs[0]?.primaryMetatiles ?? [],
+        secondaryMetatiles: snapshot.tilesetPairs[0]?.secondaryMetatiles ?? [],
+        primaryAttributes: snapshot.tilesetPairs[0]?.primaryAttributes ?? [],
+        secondaryAttributes: snapshot.tilesetPairs[0]?.secondaryAttributes ?? [],
+        primaryImage: snapshot.tilesetPairs[0]?.primaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
+        secondaryImage: snapshot.tilesetPairs[0]?.secondaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
+        primaryPalettes: snapshot.tilesetPairs[0]?.primaryPalettes ?? [],
+        secondaryPalettes: snapshot.tilesetPairs[0]?.secondaryPalettes ?? [],
+        animations: snapshot.tilesetPairs[0]?.animations ?? [],
+        borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
+      };
+
+      // Set up new tile resolvers
+      const resolver = createSnapshotTileResolver(snapshot);
+      pipeline.setTileResolver(resolver);
+      const playerResolver = createSnapshotPlayerTileResolver(snapshot);
+      player.setTileResolver(playerResolver);
+
+      // Upload tilesets
+      uploadTilesetsFromSnapshot(pipeline, snapshot);
+
+      // Update world bounds
+      const { worldBounds } = snapshot;
+      worldBoundsRef.current = {
+        width: worldBounds.width * METATILE_SIZE,
+        height: worldBounds.height * METATILE_SIZE,
+        minX: worldBounds.minX,
+        minY: worldBounds.minY,
+      };
+      setWorldSize({ width: worldBounds.width * METATILE_SIZE, height: worldBounds.height * METATILE_SIZE });
+      setStitchedMapCount(snapshot.maps.length);
+
+      // Find destination warp event to get spawn position
+      const destMap = snapshot.maps.find(m => m.entry.id === destMapId);
+      let spawnX = 0;
+      let spawnY = 0;
+      if (destMap && destMap.warpEvents.length > destWarpId) {
+        const destWarp = destMap.warpEvents[destWarpId];
+        spawnX = destMap.offsetX + destWarp.x;
+        spawnY = destMap.offsetY + destWarp.y;
+      } else if (destMap) {
+        spawnX = destMap.offsetX + Math.floor(destMap.entry.width / 2);
+        spawnY = destMap.offsetY + Math.floor(destMap.entry.height / 2);
+      }
+
+      // Determine facing direction based on context
+      let facing: PlayerController['dir'] = trigger.facing;
+      if (trigger.kind === 'door' && options?.fromDoor) {
+        // Check destination tile behavior for proper facing
+        const renderContext = createRenderContextFromSnapshot(snapshot);
+        if (renderContext) {
+          const destResolved = resolveTileAt(renderContext, spawnX, spawnY);
+          const destBehavior = destResolved?.attributes?.behavior ?? -1;
+          if (isDoorBehavior(destBehavior)) {
+            facing = 'down'; // Exiting through a door
+          } else if (isArrowWarpBehavior(destBehavior)) {
+            facing = trigger.facing; // Arrow warp: preserve movement direction
+          } else {
+            facing = 'down'; // Default for door exits
+          }
+        }
+      } else if (trigger.kind === 'door') {
+        facing = 'down';
+      }
+
+      player.setPositionAndDirection(spawnX, spawnY, facing);
+
+      // Check if destination requires door exit sequence
+      if (options?.fromDoor) {
+        const renderContext = createRenderContextFromSnapshot(snapshot);
+        if (renderContext) {
+          const destResolved = resolveTileAt(renderContext, spawnX, spawnY);
+          const destBehavior = destResolved?.attributes?.behavior ?? -1;
+          const destMetatileId = destResolved ? getMetatileIdFromMapTile(destResolved.mapTile) : 0;
+          const isAnimatedDoor = isDoorBehavior(destBehavior);
+          const requiresExitSeq = requiresDoorExitSequence(destBehavior);
+
+          if (requiresExitSeq) {
+            // Start door exit sequence
+            const exitDirection = trigger.kind === 'arrow' ? trigger.facing : 'down';
+            playerHiddenRef.current = true;
+            doorSequencer.startExit({
+              doorWorldX: spawnX,
+              doorWorldY: spawnY,
+              metatileId: destMetatileId,
+              isAnimatedDoor,
+              exitDirection: exitDirection as CardinalDirection,
+            }, now);
+            fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
+          } else {
+            // No door exit sequence needed
+            playerHiddenRef.current = false;
+            fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
+            player.unlockInput();
+            warpHandlerRef.current.setInProgress(false);
+          }
+        } else {
+          fadeControllerRef.current.startFadeIn(DOOR_TIMING.FADE_DURATION_MS, now);
+          playerHiddenRef.current = false;
+          player.unlockInput();
+          warpHandlerRef.current.setInProgress(false);
+        }
+      } else {
+        // Simple warp (not from door)
+        fadeControllerRef.current.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
+      }
+
+      // Complete warp - sets cooldown and updates lastCheckedTile
+      warpHandlerRef.current.completeWarp(destMapId, spawnX, spawnY);
+      warpHandlerRef.current.setCooldown(350);
+
+      // Invalidate pipeline and clear old door animations
+      pipeline.invalidate();
+      doorAnimations.clearAll();
+
+      // Reset door sequencer for fresh start in new map
+      doorSequencer.reset();
+
+      console.log('[WARP] Warp complete, spawned at', spawnX, spawnY);
+      console.log('[WARP] World bounds:', snapshot.worldBounds);
+      console.log('[WARP] Loaded maps:', snapshot.maps.map(m => m.entry.id));
+      console.log('[WARP] Tileset pairs:', snapshot.tilesetPairs.map(p => p.id));
+      console.log('[WARP] GPU slots:', Object.fromEntries(snapshot.pairIdToGpuSlot));
+      console.log('[WARP] Anchor border metatiles:', snapshot.anchorBorderMetatiles);
+      console.log('[WARP] Destination map warps:', destMap?.warpEvents);
+
+      // Update debug info for UI
+      setWarpDebugInfo({
+        lastWarpTo: destMapId,
+        currentAnchor: snapshot.anchorMapId,
+        snapshotMaps: snapshot.maps.map(m => m.entry.id),
+        snapshotPairs: snapshot.tilesetPairs.map(p => p.id),
+        gpuSlots: Object.fromEntries(snapshot.pairIdToGpuSlot),
+        resolverVersion: resolverIdRef.current,
+        worldBounds: snapshot.worldBounds,
+      });
+
+      // Reset warpingRef for door warps (non-door warps reset in .then() callback)
+      if (options?.fromDoor) {
+        warpingRef.current = false;
+      }
+    } catch (err) {
+      console.error('[WARP] Failed to perform warp:', err);
+      warpHandlerRef.current.setInProgress(false);
+      warpingRef.current = false;
+    }
+  }, [createSnapshotTileResolver, createSnapshotPlayerTileResolver, uploadTilesetsFromSnapshot, buildTilesetRuntimesFromSnapshot, createRenderContextFromSnapshot, doorSequencer, doorAnimations]);
 
   // Render player reflection using snapshot-based tile lookup
   const renderPlayerReflection = useCallback((
@@ -792,6 +1047,109 @@ export function WebGLMapPage() {
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
         await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+
+        // Set up door warp handler for animated door and arrow warp entry
+        player.setDoorWarpHandler(async (request) => {
+          console.log('[DOOR_HANDLER] Called with request:', request);
+
+          if (doorSequencer.isEntryActive()) {
+            console.log('[DOOR_HANDLER] Rejected: doorSequencer.isEntryActive()');
+            return;
+          }
+          if (warpHandlerRef.current.isInProgress()) {
+            console.log('[DOOR_HANDLER] Rejected: warpHandler.isInProgress()');
+            return;
+          }
+
+          const snapshot = worldSnapshotRef.current;
+          if (!snapshot) {
+            console.log('[DOOR_HANDLER] Rejected: no snapshot');
+            return;
+          }
+
+          const renderContext = createRenderContextFromSnapshot(snapshot);
+          if (!renderContext) {
+            console.log('[DOOR_HANDLER] Rejected: no renderContext');
+            return;
+          }
+
+          const resolved = resolveTileAt(renderContext, request.targetX, request.targetY);
+          if (!resolved) {
+            console.log('[DOOR_HANDLER] Rejected: no resolved tile at', request.targetX, request.targetY);
+            return;
+          }
+
+          const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
+          if (!warpEvent) {
+            console.log('[DOOR_HANDLER] Rejected: no warpEvent at', request.targetX, request.targetY, 'in map', resolved.map.entry.id);
+            console.log('[DOOR_HANDLER] Available warps:', resolved.map.warpEvents);
+            return;
+          }
+
+          console.log('[DOOR_HANDLER] Found warp:', warpEvent);
+
+          const behavior = resolved.attributes?.behavior ?? -1;
+          const isArrow = isArrowWarpBehavior(behavior);
+          const isAnimated = isDoorBehavior(behavior);
+          const isNonAnimated = isNonAnimatedDoorBehavior(behavior);
+          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+
+          const trigger: WarpTrigger = {
+            kind: isArrow ? 'arrow' : 'door',
+            sourceMap: resolved.map,
+            warpEvent,
+            behavior,
+            facing: player.dir,
+          };
+
+          // For arrow warps, check player is facing arrow direction
+          if (isArrow) {
+            const arrowDir = getArrowDirectionFromBehavior(behavior);
+            if (!arrowDir || player.dir !== arrowDir) return;
+
+            // Start auto-warp (skip animation, go straight to fade)
+            arrowOverlay.hide();
+            doorSequencer.startAutoWarp({
+              targetX: player.tileX,
+              targetY: player.tileY,
+              metatileId,
+              isAnimatedDoor: false,
+              entryDirection: arrowDir as CardinalDirection,
+              warpTrigger: trigger,
+            }, performance.now(), true);
+            player.lockInput();
+            return;
+          }
+
+          // For animated doors, spawn open animation and start entry sequence
+          if (isAnimated) {
+            const startedAt = performance.now();
+            const openAnimId = await doorAnimations.spawn('open', request.targetX, request.targetY, metatileId, startedAt, true);
+            doorSequencer.startEntry({
+              targetX: request.targetX,
+              targetY: request.targetY,
+              metatileId,
+              isAnimatedDoor: true,
+              entryDirection: player.dir as CardinalDirection,
+              warpTrigger: trigger,
+              openAnimId: openAnimId ?? undefined,
+            }, startedAt);
+            if (openAnimId) doorSequencer.setEntryOpenAnimId(openAnimId);
+            player.lockInput();
+          } else if (isNonAnimated) {
+            // Non-animated door (stairs, etc.) - just fade
+            doorSequencer.startAutoWarp({
+              targetX: request.targetX,
+              targetY: request.targetY,
+              metatileId,
+              isAnimatedDoor: false,
+              entryDirection: player.dir as CardinalDirection,
+              warpTrigger: trigger,
+            }, performance.now(), true);
+            player.lockInput();
+          }
+        });
+
         playerLoadedRef.current = true;
       } catch (err) {
         console.error('Failed to load player sprites:', err);
@@ -846,8 +1204,11 @@ export function WebGLMapPage() {
       const worldMinY = minY * METATILE_SIZE;
       const player = playerRef.current;
 
+      // Update warp handler cooldown
+      warpHandlerRef.current.update(dt);
+
       // Update player if loaded (handles its own input via keyboard events)
-      if (player && playerLoadedRef.current) {
+      if (player && playerLoadedRef.current && !warpingRef.current) {
         player.update(dt);
 
         // Update world manager with player position and direction (triggers dynamic map loading)
@@ -862,6 +1223,188 @@ export function WebGLMapPage() {
             const debugInfo = worldManager.getDebugInfo(player.tileX, player.tileY);
             setMapDebugInfo(debugInfo);
           }
+
+          // Update arrow overlay based on current tile behavior
+          const snapshot = worldSnapshotRef.current;
+          if (snapshot && !warpHandlerRef.current.isInProgress()) {
+            const renderContext = createRenderContextFromSnapshot(snapshot);
+            if (renderContext) {
+              const resolved = resolveTileAt(renderContext, player.tileX, player.tileY);
+              const behavior = resolved?.attributes?.behavior ?? 0;
+              arrowOverlay.update(
+                player.dir as CardinalDirection,
+                player.tileX,
+                player.tileY,
+                behavior,
+                nowTime,
+                doorSequencer.isActive()
+              );
+            }
+          }
+
+          // Check for warps when player tile changes (matches Canvas2D useRunUpdate logic)
+          if (snapshot && !warpHandlerRef.current.isInProgress() && !doorSequencer.isActive()) {
+            const renderContext = createRenderContextFromSnapshot(snapshot);
+            if (renderContext) {
+              const resolvedForWarp = resolveTileAt(renderContext, player.tileX, player.tileY);
+
+              if (resolvedForWarp) {
+                const currentMapId = resolvedForWarp.map.entry.id;
+
+                // Check if tile changed
+                const lastChecked = warpHandlerRef.current.getState().lastCheckedTile;
+                const tileChanged = !lastChecked ||
+                  lastChecked.mapId !== currentMapId ||
+                  lastChecked.x !== player.tileX ||
+                  lastChecked.y !== player.tileY;
+
+                if (tileChanged) {
+                  warpHandlerRef.current.updateLastCheckedTile(player.tileX, player.tileY, currentMapId);
+
+                  if (!warpHandlerRef.current.isOnCooldown()) {
+                    const trigger = detectWarpTrigger(renderContext, player);
+                    if (trigger) {
+                      // Arrow warps are handled through PlayerController's doorWarpHandler
+                      if (trigger.kind === 'arrow') {
+                        // Just update arrow overlay, don't auto-warp
+                      } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
+                        // Non-animated doors (stairs, ladders): auto-warp with fade
+                        console.log('[WARP] Non-animated door warp:', trigger.kind, 'to', trigger.warpEvent.destMap);
+                        arrowOverlay.hide();
+                        doorSequencer.startAutoWarp({
+                          targetX: player.tileX,
+                          targetY: player.tileY,
+                          metatileId: getMetatileIdFromMapTile(resolvedForWarp.mapTile),
+                          isAnimatedDoor: false,
+                          entryDirection: player.dir as CardinalDirection,
+                          warpTrigger: trigger,
+                        }, nowTime, true);
+                        player.lockInput();
+                      } else {
+                        // Other walk-over warps: simple warp
+                        console.log('[WARP] Walk-over warp:', trigger.kind, 'to', trigger.warpEvent.destMap);
+                        warpHandlerRef.current.startWarp(player.tileX, player.tileY, currentMapId);
+                        pendingWarpRef.current = trigger;
+                        warpingRef.current = true;
+                        player.lockInput();
+                        fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Advance door entry sequence
+      if (doorSequencer.isEntryActive()) {
+        const player = playerRef.current;
+        if (player) {
+          const entryState = doorSequencer.sequencer.getEntryState();
+          const isAnimationDone = (animId: number | undefined) => {
+            if (animId === undefined) return true;
+            if (animId === -1) return false; // Loading in progress
+            const anim = doorAnimations.findById(animId);
+            return !anim || doorAnimations.isAnimDone(anim, nowTime);
+          };
+          const isFadeDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
+
+          const result = doorSequencer.updateEntry(nowTime, player.isMoving, isAnimationDone, isFadeDone);
+
+          if (result.action === 'startPlayerStep' && result.direction) {
+            player.forceMove(result.direction, true);
+          } else if (result.action === 'hidePlayer') {
+            playerHiddenRef.current = true;
+            // Spawn close animation if animated door
+            if (entryState.isAnimatedDoor) {
+              const pos = doorSequencer.getEntryDoorPosition();
+              doorSequencer.setEntryCloseAnimId(-1);
+              doorAnimations.spawn('close', pos?.x ?? 0, pos?.y ?? 0, entryState.metatileId, nowTime)
+                .then((closeAnimId) => {
+                  if (closeAnimId !== null) doorSequencer.setEntryCloseAnimId(closeAnimId);
+                });
+              if (entryState.openAnimId !== undefined) doorAnimations.clearById(entryState.openAnimId);
+            }
+          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
+            doorAnimations.clearById(result.animId);
+          } else if (result.action === 'startFadeOut' && result.duration) {
+            fadeControllerRef.current.startFadeOut(result.duration, nowTime);
+          } else if (result.action === 'executeWarp' && result.trigger) {
+            // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
+            warpingRef.current = true;
+            void performWarp(result.trigger as WarpTrigger, { force: true, fromDoor: true });
+          }
+        }
+      }
+
+      // Advance door exit sequence
+      if (doorSequencer.isExitActive()) {
+        const player = playerRef.current;
+        if (player) {
+          const exitState = doorSequencer.sequencer.getExitState();
+          const isAnimationDone = (animId: number | undefined) => {
+            if (animId === undefined) return true;
+            if (animId === -1) return false;
+            const anim = doorAnimations.findById(animId);
+            return !anim || doorAnimations.isAnimDone(anim, nowTime);
+          };
+          const isFadeInDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
+
+          const result = doorSequencer.updateExit(nowTime, player.isMoving, isAnimationDone, isFadeInDone);
+
+          if (result.action === 'spawnOpenAnimation') {
+            const pos = doorSequencer.getExitDoorPosition();
+            doorSequencer.setExitOpenAnimId(-1);
+            // Set door to fully-open state before fade completes
+            const alreadyOpenStartedAt = nowTime - 500;
+            doorAnimations.spawn('open', pos?.x ?? 0, pos?.y ?? 0, exitState.metatileId, alreadyOpenStartedAt, true)
+              .then((openAnimId) => {
+                if (openAnimId !== null) doorSequencer.setExitOpenAnimId(openAnimId);
+              });
+          } else if (result.action === 'startPlayerStep' && result.direction) {
+            player.forceMove(result.direction, true);
+            playerHiddenRef.current = false;
+          } else if (result.action === 'spawnCloseAnimation') {
+            const pos = doorSequencer.getExitDoorPosition();
+            if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
+              doorAnimations.clearById(exitState.openAnimId);
+            }
+            doorSequencer.setExitCloseAnimId(-1);
+            doorAnimations.spawn('close', pos?.x ?? 0, pos?.y ?? 0, exitState.metatileId, nowTime)
+              .then((closeAnimId) => {
+                if (closeAnimId !== null) doorSequencer.setExitCloseAnimId(closeAnimId);
+              });
+          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
+            doorAnimations.clearById(result.animId);
+          }
+
+          if (result.done) {
+            player.unlockInput();
+            playerHiddenRef.current = false;
+          }
+        }
+      }
+
+      // Handle pending warp when fade out completes
+      if (warpingRef.current && pendingWarpRef.current) {
+        const fade = fadeControllerRef.current;
+        if (fade.getDirection() === 'out' && fade.isComplete(nowTime)) {
+          // Fade out complete, execute warp
+          const trigger = pendingWarpRef.current;
+          pendingWarpRef.current = null;
+          void performWarp(trigger).then(() => {
+            warpingRef.current = false;
+            // Unlock player input after fade in starts
+            const player = playerRef.current;
+            if (player) {
+              // Delay unlock until fade in completes
+              setTimeout(() => {
+                player.unlockInput();
+              }, FADE_TIMING.DEFAULT_DURATION_MS);
+            }
+          });
         }
       }
 
@@ -949,6 +1492,10 @@ export function WebGLMapPage() {
         pipeline.compositeBackgroundOnly(ctx2d, view);
         pipeline.compositeTopBelowOnly(ctx2d, view);
 
+        // Render door animations (between topBelow and sprites)
+        doorAnimations.prune(nowTime);
+        doorAnimations.render(ctx2d, view, nowTime);
+
         // Create ObjectRenderer view for field effects
         const objView: ObjectRendererView = {
           cameraWorldX: cameraX,
@@ -1011,8 +1558,19 @@ export function WebGLMapPage() {
             );
           }
 
-          // Render player
-          player.render(ctx2d, cameraX, cameraY);
+          // Render player (unless hidden during door sequence)
+          if (!playerHiddenRef.current) {
+            player.render(ctx2d, cameraX, cameraY);
+          }
+
+          // Render arrow overlay (reuse ObjectRenderer.renderArrow from Canvas2D)
+          if (arrowOverlay.isVisible() && !doorSequencer.isActive()) {
+            const arrowState = arrowOverlay.getState();
+            const arrowSprite = arrowOverlay.getSprite();
+            if (arrowState && arrowSprite) {
+              ObjectRenderer.renderArrow(ctx2d, arrowState, arrowSprite, view, nowTime);
+            }
+          }
 
           // Render grass effects in front of player (top layer)
           if (fieldSpritesLoadedRef.current) {
@@ -1038,6 +1596,12 @@ export function WebGLMapPage() {
         }
 
         pipeline.compositeTopAbove(ctx2d, view);
+
+        // Render fade overlay (for warp transitions)
+        const fade = fadeControllerRef.current;
+        if (fade.isActive()) {
+          fade.render(ctx2d, viewportWidth, viewportHeight, nowTime);
+        }
 
         const renderTime = performance.now() - start;
 
@@ -1549,6 +2113,27 @@ export function WebGLMapPage() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Warp/Tileset Debug Panel */}
+          {warpDebugInfo && (
+            <div style={{ marginTop: 12, padding: 8, background: '#2d1a1a', borderRadius: 4, fontSize: 10, maxHeight: 300, overflowY: 'auto' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#f88' }}>Warp/Tileset Debug</div>
+              <div><strong>Last Warp To:</strong> {warpDebugInfo.lastWarpTo.replace('MAP_', '')}</div>
+              <div><strong>Current Anchor:</strong> {warpDebugInfo.currentAnchor.replace('MAP_', '')}</div>
+              <div><strong>Resolver Version:</strong> {warpDebugInfo.resolverVersion}</div>
+              <div><strong>World Bounds:</strong> ({warpDebugInfo.worldBounds.minX},{warpDebugInfo.worldBounds.minY}) {warpDebugInfo.worldBounds.width}x{warpDebugInfo.worldBounds.height}</div>
+              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Snapshot Maps ({warpDebugInfo.snapshotMaps.length}):</div>
+              {warpDebugInfo.snapshotMaps.map((m, i) => (
+                <div key={i} style={{ marginLeft: 8, color: '#8f8' }}>{m.replace('MAP_', '')}</div>
+              ))}
+              <div style={{ marginTop: 4, fontWeight: 'bold' }}>Tileset Pairs ({warpDebugInfo.snapshotPairs.length}):</div>
+              {warpDebugInfo.snapshotPairs.map((p, i) => (
+                <div key={i} style={{ marginLeft: 8, color: '#88f' }}>
+                  {p} → GPU Slot {warpDebugInfo.gpuSlots[p] ?? 'NONE'}
+                </div>
+              ))}
             </div>
           )}
         </div>

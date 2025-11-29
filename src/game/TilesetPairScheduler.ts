@@ -552,6 +552,22 @@ export class TilesetPairScheduler {
   }
 
   /**
+   * Reset all state (but keep callbacks and event handlers)
+   *
+   * Call this when warping to a new world to clear cached data
+   * while preserving the upload callbacks.
+   */
+  reset(): void {
+    this.cache.clear();
+    this.boundaries = [];
+    this.gpuSlot0 = null;
+    this.gpuSlot1 = null;
+    this.loadingPairs.clear();
+    this.currentFrame = 0;
+    // Note: Keep callbacks and event handlers intact
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {
