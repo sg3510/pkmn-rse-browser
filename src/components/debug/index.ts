@@ -25,5 +25,8 @@ export type {
   RenderStatsDebugInfo,
   ShimmerDebugInfo,
   WebGLDebugState,
+  // Reflection tile debug types
+  ReflectionTileDebugInfo,
+  ReflectionTileGridDebugInfo,
 } from './types';
 export { DEFAULT_DEBUG_OPTIONS } from './types';

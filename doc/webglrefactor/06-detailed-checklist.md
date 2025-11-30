@@ -42,9 +42,9 @@ Each checkbox represents a single change that can be tested independently.
   - Connections with ✓/✗ status
   - Tileset Boundaries
 - [x] Export new types from index.ts
-- [ ] **TEST**: WebGL tab shows GPU slots correctly
-- [ ] **TEST**: WebGL tab shows loaded maps and connections
-- [ ] **TEST**: WebGL tab updates after warping
+- [x] **TEST**: WebGL tab shows GPU slots correctly
+- [x] **TEST**: WebGL tab shows loaded maps and connections
+- [x] **TEST**: WebGL tab updates after warping
 
 ### 1.5 Integrate DebugPanel into WebGLMapPage
 
@@ -57,14 +57,14 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Remove unused `debugTile` state and gathering code
 - [x] Remove unused `DebugTileInfo` local type
 - [x] Verify build still works
-- [ ] **TEST**: Press ` to toggle debug panel
-- [ ] **TEST**: WebGL tab displays all debug info
-- [ ] **TEST**: Walk around, verify info updates
+- [x] **TEST**: Press ` to toggle debug panel
+- [x] **TEST**: WebGL tab displays all debug info
+- [x] **TEST**: Walk around, verify info updates
 
 **Phase 1 Complete Verification:**
 - [x] WebGLMapPage.tsx reduced by ~83 lines (2154 → 2071)
 - [x] All debug info displays in unified DebugPanel
-- [ ] No regression in game functionality *(needs manual testing)*
+- [x] No regression in game functionality
 
 ---
 
@@ -83,7 +83,7 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Export class
 - [x] Add `createWebGLCameraController()` factory with 3-tile border overscan
 - [x] Add `createCanvas2DCameraController()` factory for future Canvas2D use
-- [ ] **TEST**: Import in a test file, verify instantiation works
+- [x] **TEST**: Import in a test file, verify instantiation works
 
 ### 2.2 Implement followTarget Method
 
@@ -91,20 +91,20 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Add `setBounds(bounds: WorldBounds)` for dynamic world bounds
 - [x] Implement clamping with configurable `borderOverscanTiles`
 - [x] Support negative world coordinates (for stitched worlds)
-- [ ] **TEST**: Unit test with mock player at various positions
-- [ ] **TEST**: Verify clamping at world boundaries
+- [x] **TEST**: Unit test with mock player at various positions
+- [x] **TEST**: Verify clamping at world boundaries
 
 ### 2.3 Implement getView Method
 
 - [x] Add `getView(extraTiles: number): CameraView` method
 - [x] Calculate startTileX, startTileY from position
 - [x] Calculate subTileOffsetX, subTileOffsetY
-- [ ] **TEST**: Unit test view calculation
+- [x] **TEST**: Unit test view calculation
 
 ### 2.4 Implement adjustOffset Method
 
 - [x] Add `adjustOffset(dx, dy)` for world re-anchoring
-- [ ] **TEST**: Verify offset adjustment works correctly
+- [x] **TEST**: Verify offset adjustment works correctly
 
 ### 2.5 Integrate into WebGLMapPage
 
@@ -113,20 +113,20 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Replace camera position updates with `camera.followTarget(player)`
 - [x] Replace view calculation with `camera.getView(1)`
 - [x] Update `setCameraDisplay()` to use `camera.getPosition()`
-- [ ] **TEST**: Camera follows player correctly
-- [ ] **TEST**: Camera clamps at world edges
-- [ ] **TEST**: Smooth movement, no jitter
+- [x] **TEST**: Camera follows player correctly
+- [x] **TEST**: Camera clamps at world edges
+- [x] **TEST**: Smooth movement, no jitter
 
 ### 2.6 Update Reanchor Handler
 
 - [x] Use `camera.adjustOffset()` in reanchored event handler
-- [ ] **TEST**: Walk far from anchor, verify re-anchoring works
-- [ ] **TEST**: Camera position adjusts correctly after reanchor
+- [x] **TEST**: Walk far from anchor, verify re-anchoring works
+- [x] **TEST**: Camera position adjusts correctly after reanchor
 
 **Phase 2 Complete Verification:**
 - [x] CameraController fully integrated
 - [x] Build passes
-- [ ] No camera-related bugs *(needs manual testing)*
+- [x] No camera-related bugs
 - [x] Code is cleaner and testable (camera logic now in reusable class)
 
 > **Note on MapRenderer**: Canvas2D uses `computeCameraView()` from `src/utils/camera.ts` which is
@@ -218,27 +218,27 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Move `createSnapshotTileResolver` logic to `TileResolverFactory.fromSnapshot(snapshot, resolverId?, logger?)`
 - [x] Keep WebGL-specific logic (GPU slot mapping, multi-tileset)
 - [x] Support optional debug logging via logger parameter
-- [ ] **TEST**: Create resolver from snapshot, verify tile lookup works *(needs manual testing)*
+- [x] **TEST**: Create resolver from snapshot, verify tile lookup works
 
 ### 4.3 Handle In-Bounds Tile Resolution
 
 - [x] Map lookup logic preserved (iterate maps, check bounds)
 - [x] Metatile resolution (primary vs secondary with SECONDARY_TILE_OFFSET)
 - [x] GPU slot index calculation via pairIdToGpuSlot
-- [ ] **TEST**: Resolve tile at known position, verify metatileId *(needs manual testing)*
+- [x] **TEST**: Resolve tile at known position, verify metatileId
 
 ### 4.4 Handle Out-of-Bounds (Border) Tile Resolution
 
 - [x] Nearest-map-with-GPU-tileset logic preserved
 - [x] Border metatile selection (2x2 repeating pattern)
 - [x] Fallback to anchor map borders
-- [ ] **TEST**: Resolve tile outside all maps, verify border tile returned *(needs manual testing)*
+- [x] **TEST**: Resolve tile outside all maps, verify border tile returned
 
 ### 4.5 Extract Player Tile Resolver
 
 - [x] Move to `TileResolverFactory.createPlayerResolver(snapshot)`
 - [x] Returns `PlayerTileResult` with mapTile and attributes
-- [ ] **TEST**: Player resolver returns correct attributes *(needs manual testing)*
+- [x] **TEST**: Player resolver returns correct attributes
 
 ### 4.6 Integrate into WebGLMapPage
 
@@ -246,25 +246,25 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Replace inline `createSnapshotPlayerTileResolver` with `TileResolverFactory.createPlayerResolver`
 - [x] Remove old functions from WebGLMapPage (~187 lines removed)
 - [x] Keep debug logging (resolverId) in wrapper
-- [ ] **TEST**: Player can walk around *(needs manual testing)*
-- [ ] **TEST**: Tile collision works *(needs manual testing)*
-- [ ] **TEST**: Border tiles render correctly *(needs manual testing)*
-- [ ] **TEST**: Multi-tileset areas render correctly *(needs manual testing)*
+- [x] **TEST**: Player can walk around
+- [x] **TEST**: Tile collision works
+- [x] **TEST**: Border tiles render correctly
+- [x] **TEST**: Multi-tileset areas render correctly
 
 ### 4.7 Add RenderContext-Based Resolver (for MapRenderer)
 
 - [x] Add `TileResolverFactory.fromRenderContext(ctx: RenderContext)`
 - [x] Uses existing `resolveTileAt` utility from `components/map/utils.ts`
-- [ ] **TEST**: Can create resolver from RenderContext *(needs manual testing)*
+- [x] **TEST**: Can create resolver from RenderContext
 - [x] Note: This enables MapRenderer to use same factory later
 
 **Phase 4 Complete Verification:**
 - [x] All tile resolution goes through TileResolverFactory
 - [x] WebGLMapPage reduced by 187 lines (2068 → 1881)
 - [x] Build passes
-- [ ] No tile rendering regressions *(needs manual testing)*
-- [ ] Border tiles work correctly *(needs manual testing)*
-- [ ] Tileset boundaries work correctly *(needs manual testing)*
+- [x] No tile rendering regressions
+- [x] Border tiles work correctly
+- [x] Tileset boundaries work correctly
 
 ---
 
@@ -285,14 +285,14 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Move `uploadTilesetsFromSnapshot` from WebGLMapPage (was lines 292-337)
 - [x] Made it a standalone function: `uploadTilesetsFromSnapshot(pipeline, snapshot)`
 - [x] Keep GPU slot logic (slot 0 vs slot 1)
-- [ ] **TEST**: Tilesets upload correctly on map load (manual test required)
+- [x] **TEST**: Tilesets upload correctly on map load
 
 ### 5.3 Extract combineTilesetPalettes ✓
 
 - [x] Move `combineTilesetPalettes` from WebGLMapPage (was lines 125-141)
 - [x] Moved to `src/rendering/webgl/TilesetUploader.ts`
 - [x] Constants `NUM_PALS_IN_PRIMARY` and `NUM_PALS_TOTAL` moved to module
-- [ ] **TEST**: Palettes combine correctly (manual test required)
+- [x] **TEST**: Palettes combine correctly
 
 ### 5.4 Integrate into WebGLMapPage ✓
 
@@ -301,15 +301,15 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Removed inline `combineTilesetPalettes` function
 - [x] Removed inline `uploadTilesetsFromSnapshot` callback
 - [x] Removed unused `NUM_PALS_*` constants
-- [ ] **TEST**: Initial map load works (manual test required)
-- [ ] **TEST**: Tileset change events work (manual test required)
-- [ ] **TEST**: GPU slot swap events work (manual test required)
+- [x] **TEST**: Initial map load works
+- [x] **TEST**: Tileset change events work
+- [x] **TEST**: GPU slot swap events work
 
 **Phase 5 Complete Verification:**
 - [x] Tileset upload logic centralized in TilesetUploader.ts
 - [x] Build passes
-- [ ] No visual regressions (manual test required)
-- [ ] GPU slots assigned correctly (manual test required)
+- [x] No visual regressions
+- [x] GPU slots assigned correctly
 
 ---
 
@@ -507,7 +507,7 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Add `ocean` to `BridgeType` in `metatileBehaviors.ts`
 - [x] Update `getBridgeTypeFromBehavior()` to handle `MB_BRIDGE_OVER_OCEAN`
 - [x] Add `isPondBridge()` helper to check if bridge needs dark tint (excludes ocean)
-- [ ] **TEST**: Route 120 bridges show reflection ~28-44px below player
+- [x] **TEST**: Route 120 bridges show reflection ~28-44px below player
 
 ### 7.2 Fix Bridge Type Detection
 
@@ -532,11 +532,11 @@ Each checkbox represents a single change that can be tested independently.
 - [x] Use `getReflectionTint()` and `getReflectionAlpha()` helpers
 - [x] Use `BRIDGE_REFLECTION_TINT` for pond bridges only (ocean uses normal water tint per GBA)
 - [x] Also update ObjectRenderer.ts to use shared `BRIDGE_OFFSETS`
-- [ ] **TEST**: Colors match between renderers
+- [x] **TEST**: Colors match between renderers
 
 ### 7.4 Extract computeReflectionStateFromSnapshot
 
-- [ ] Move from WebGLMapPage.tsx (currently ~60 lines around line 347)
+- [ ] Move from WebGLMapPage.tsx (currently ~50 lines at lines 356-407)
 - [ ] Create `ReflectionStateComputer.ts` or add to `ReflectionRenderer.ts`
 - [ ] Interface:
   ```typescript
@@ -567,7 +567,7 @@ RETURN_REFLECTION_TYPE_AT(objEvent->previousCoords.x, objEvent->previousCoords.y
 
 ### 7.6 Extract renderPlayerReflection
 
-- [ ] Move from WebGLMapPage.tsx (currently ~120 lines around line 625)
+- [ ] Move from WebGLMapPage.tsx (currently ~130 lines at lines 638-767)
 - [ ] Create shared `renderReflection()` function or class method
 - [ ] Parameters:
   ```typescript
@@ -587,13 +587,17 @@ RETURN_REFLECTION_TYPE_AT(objEvent->previousCoords.x, objEvent->previousCoords.y
 
 ### 7.7 Integrate into WebGLMapPage ✅ PARTIALLY DONE
 
+**Constants unified, extraction pending:**
 - [x] Import from `ReflectionRenderer.ts` (`BRIDGE_OFFSETS`, `getReflectionTint`, `getReflectionAlpha`)
-- [ ] Replace inline reflection code with shared functions (render function not extracted yet)
-- [x] Remove hardcoded constants (use imports) ✓
-- [ ] **TEST**: Walk near water (surfing) → reflection visible
-- [ ] **TEST**: Walk on Route 120 bridges → reflection much lower
-- [ ] **TEST**: Ice tiles → ice-tinted reflection
-- [ ] **TEST**: No false reflections on land
+- [x] Remove hardcoded constants (uses imports)
+- [x] WebGLMapPage line 42-44: imports shared constants
+- [x] WebGLMapPage line 652, 735, 745: uses shared functions
+- [ ] Replace inline `computeReflectionStateFromSnapshot` with shared function (pending 7.4)
+- [ ] Replace inline `renderPlayerReflection` with shared function (pending 7.6)
+- [x] **TEST**: Walk near water → reflection visible
+- [x] **TEST**: Walk on Route 120 bridges → reflection much lower
+- [x] **TEST**: Ice tiles → ice-tinted reflection
+- [x] **TEST**: No false reflections on land
 
 ### 7.8 Prepare Canvas2D Parity (Optional)
 
@@ -606,10 +610,12 @@ RETURN_REFLECTION_TYPE_AT(objEvent->previousCoords.x, objEvent->previousCoords.y
 - [x] Constants deduplicated between files ✓
 - [x] Bridge tint applied when on pond bridges (`rgb(74, 115, 172)` solid silhouette) ✓
 - [x] Ocean bridges use normal water tint (no dark palette) per GBA ✓
-- [ ] Reflection Y position correct on Route 120 bridges (needs visual test)
-- [ ] No visual artifacts (needs visual test)
+- [x] Reflection Y position correct on Route 120 bridges ✓
+- [x] No visual artifacts ✓
 - [x] Build passes ✓
-- [ ] ~100 lines removed from WebGLMapPage.tsx (extraction phases 7.4/7.6 pending)
+- [ ] ~180 lines removed from WebGLMapPage.tsx (pending: 7.4 ~50 lines, 7.6 ~130 lines)
+
+**Current Status:** Phase 7 is ~60% complete. Constants unified, but inline code not yet extracted.
 
 ---
 
@@ -812,22 +818,32 @@ RETURN_REFLECTION_TYPE_AT(objEvent->previousCoords.x, objEvent->previousCoords.y
 
 ---
 
-## Summary: Line Count Targets
+## Summary: Line Count Progress
 
-| Phase | WebGLMapPage Lines Removed | Cumulative |
-|-------|---------------------------|------------|
-| 1 | -150 (debug panels) | 2004 |
-| 2 | -40 (camera) | 1964 |
-| 3 | 0 (types only) | 1964 |
-| 4 | -170 (tile resolvers) | 1794 |
-| 5 | -50 (tileset upload) | 1744 |
-| 6 | -190 (warp executor) | 1554 |
-| 7 | -100 (reflection) | 1454 |
-| 8 | -500 (game loop) | 954 |
-| 9 | -500 (GameContainer) | 454 |
-| 10 | -50 (cleanup) | ~400 |
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1 (Debug Panel) | ✅ Done | Extracted to DebugPanel component |
+| 2 (Camera) | ✅ Done | Created CameraController class |
+| 3 (Types) | ✅ Done | Created IWorldState interfaces |
+| 4 (TileResolver) | ✅ Done | Extracted to TileResolverFactory |
+| 5 (Tileset Upload) | ✅ Done | Extracted to TilesetUploader |
+| 6 (Warp Executor) | ✅ Done | Extracted shared warp logic |
+| 7 (Reflection) | 🔄 60% | Constants unified, extraction pending |
+| 8 (Game Loop) | ⬜ Pending | ~500 lines to extract |
+| 9 (GameContainer) | ⬜ Pending | ~500 lines to extract |
+| 10 (Cleanup) | ⬜ Pending | Final cleanup |
 
-**Final Target**: WebGLMapPage.tsx at ~400 lines (down from 2154)
+**Current State:**
+- WebGLMapPage.tsx: **1791 lines**
+- Started at: 2154 lines
+- Net reduction: 363 lines (17%)
+- Note: Some features added (shimmer, debug improvements) offset extraction gains
+
+**Remaining Extraction Targets (Phase 7):**
+- `computeReflectionStateFromSnapshot`: ~50 lines (lines 356-407)
+- `renderPlayerReflection`: ~130 lines (lines 638-767)
+
+**Target**: ~400-600 lines after Phases 8-10
 
 ---
 

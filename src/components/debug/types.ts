@@ -208,6 +208,69 @@ export interface ShimmerDebugInfo {
 }
 
 /**
+ * Comprehensive tile debug info for reflection debugging
+ * Shows all data about a tile relevant to reflection rendering
+ */
+export interface ReflectionTileDebugInfo {
+  // Position
+  worldX: number;
+  worldY: number;
+  relativeX: number;  // Relative to player (-2 to +2)
+  relativeY: number;
+
+  // Map info
+  mapId: string | null;
+  isBorder: boolean;
+
+  // Metatile info
+  metatileId: number | null;
+  isSecondary: boolean;
+
+  // Behavior and collision
+  behavior: number | null;
+  behaviorName: string;
+  elevation: number | null;
+  collision: number | null;
+
+  // Reflection info
+  isReflective: boolean;
+  reflectionType: 'water' | 'ice' | null;
+  hasPixelMask: boolean;
+  maskPixelCount: number;  // How many pixels in the mask are set
+
+  // Animation info
+  isAnimated: boolean;
+  animationId: string | null;
+
+  // Runtime lookup
+  runtimeFound: boolean;
+  runtimeId: string | null;
+}
+
+/**
+ * Grid of tiles around the player for reflection debugging
+ */
+export interface ReflectionTileGridDebugInfo {
+  playerTileX: number;
+  playerTileY: number;
+  destTileX: number;
+  destTileY: number;
+  isMoving: boolean;
+  moveDirection: string;
+
+  // 5x5 grid centered on player (±2 in each direction)
+  // Indexed as tiles[relY + 2][relX + 2] where rel is -2 to +2
+  tiles: ReflectionTileDebugInfo[][];
+
+  // Current reflection state
+  currentReflectionState: {
+    hasReflection: boolean;
+    reflectionType: 'water' | 'ice' | null;
+    bridgeType: string;
+  };
+}
+
+/**
  * Combined WebGL debug state
  */
 export interface WebGLDebugState {
@@ -215,4 +278,5 @@ export interface WebGLDebugState {
   warp: WarpDebugInfo | null;
   renderStats: RenderStatsDebugInfo | null;
   shimmer?: ShimmerDebugInfo | null;
+  reflectionTileGrid?: ReflectionTileGridDebugInfo | null;
 }

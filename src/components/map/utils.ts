@@ -209,7 +209,27 @@ export function layerTypeToLabel(layerType: number): string {
   }
 }
 
-export function resolveBridgeType(ctx: RenderContext, tileX: number, tileY: number): BridgeType {
+/**
+ * Resolve bridge type for reflection rendering.
+ * GBA checks previous behavior first, then current.
+ * See: field_effect_helpers.c LoadObjectReflectionPalette (lines 84-86)
+ */
+export function resolveBridgeType(
+  ctx: RenderContext,
+  tileX: number,
+  tileY: number,
+  prevTileX?: number,
+  prevTileY?: number
+): BridgeType {
+  // Check previous position first (GBA behavior)
+  if (prevTileX !== undefined && prevTileY !== undefined) {
+    const prevInfo = getMetatileBehavior(ctx, prevTileX, prevTileY);
+    if (prevInfo) {
+      const prevBridge = getBridgeTypeFromBehavior(prevInfo.behavior);
+      if (prevBridge !== 'none') return prevBridge;
+    }
+  }
+  // Then check current position
   const info = getMetatileBehavior(ctx, tileX, tileY);
   if (!info) return 'none';
   return getBridgeTypeFromBehavior(info.behavior);
@@ -514,9 +534,14 @@ export function describeTile(
  * Generic reflection state computation for any object at a tile position
  * Used by both player and NPCs
  *
+ * GBA checks BOTH currentCoords AND previousCoords for reflection detection.
+ * See: event_object_movement.c ObjectEventGetNearbyReflectionType (lines 7625-7650)
+ *
  * @param ctx - Render context
- * @param tileX - Object's tile X position
- * @param tileY - Object's tile Y position
+ * @param tileX - Object's current tile X position
+ * @param tileY - Object's current tile Y position
+ * @param prevTileX - Object's previous tile X position
+ * @param prevTileY - Object's previous tile Y position
  * @param spriteWidth - Sprite width in pixels (default 16)
  * @param spriteHeight - Sprite height in pixels (default 32)
  */
@@ -524,6 +549,8 @@ export function computeObjectReflectionState(
   ctx: RenderContext,
   tileX: number,
   tileY: number,
+  prevTileX: number,
+  prevTileY: number,
   spriteWidth: number = 16,
   spriteHeight: number = 32
 ): ReflectionState {
@@ -535,24 +562,29 @@ export function computeObjectReflectionState(
 
   // Search tiles below the object for reflective surfaces
   // GBA starts at y+1 (one tile below the object's anchor) and scans for 'height' tiles
-  // This matches ObjectEventGetNearbyReflectionType in event_object_movement.c
+  // It checks BOTH current AND previous coords.
   for (let i = 0; i < heightTiles && !found; i++) {
-    const y = tileY + 1 + i;  // Start at tileY + 1 like GBA
+    const currentY = tileY + 1 + i;
+    const prevY = prevTileY + 1 + i;
 
-    // Check center tile
-    const center = getMetatileBehavior(ctx, tileX, y);
-    if (center?.meta?.isReflective) {
-      found = center.meta.reflectionType;
-      break;
+    // Check center tile at BOTH current and previous positions
+    for (const [checkX, checkY] of [[tileX, currentY], [prevTileX, prevY]] as const) {
+      const center = getMetatileBehavior(ctx, checkX, checkY);
+      if (center?.meta?.isReflective) {
+        found = center.meta.reflectionType;
+        break;
+      }
     }
+    if (found) break;
 
-    // Check tiles to left and right based on sprite width
+    // Check tiles to left and right at BOTH current and previous positions
     for (let j = 1; j < widthTiles && !found; j++) {
-      const infos = [
-        getMetatileBehavior(ctx, tileX + j, y),
-        getMetatileBehavior(ctx, tileX - j, y),
+      const positions: [number, number][] = [
+        [tileX + j, currentY], [tileX - j, currentY],
+        [prevTileX + j, prevY], [prevTileX - j, prevY],
       ];
-      for (const info of infos) {
+      for (const [x, y] of positions) {
+        const info = getMetatileBehavior(ctx, x, y);
         if (info?.meta?.isReflective) {
           found = info.meta.reflectionType;
           break;
@@ -561,7 +593,7 @@ export function computeObjectReflectionState(
     }
   }
 
-  const bridgeType = resolveBridgeType(ctx, tileX, tileY);
+  const bridgeType = resolveBridgeType(ctx, tileX, tileY, prevTileX, prevTileY);
 
   return {
     hasReflection: !!found,
@@ -579,5 +611,19 @@ export function computeReflectionState(
   }
 
   const { width, height } = player.getSpriteSize();
-  return computeObjectReflectionState(ctx, player.tileX, player.tileY, width, height);
+  // GBA SEMANTICS for reflection detection (ObjectEventGetNearbyReflectionType):
+  // - currentCoords = DESTINATION tile (where moving TO)
+  // - previousCoords = ORIGIN tile (where came FROM)
+  // During movement: check tiles below destination AND origin
+  // When idle: destination = origin (same tile)
+  const destTile = player.getDestinationTile();
+  return computeObjectReflectionState(
+    ctx,
+    destTile.x,     // GBA currentCoords = destination
+    destTile.y,
+    player.tileX,   // GBA previousCoords = origin
+    player.tileY,
+    width,
+    height
+  );
 }

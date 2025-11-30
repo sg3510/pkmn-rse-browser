@@ -187,10 +187,13 @@ export function renderNPCReflections(
     const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
     // Compute reflection state for this NPC
+    // NPCs don't move yet, so previous position equals current position
     const reflectionState = computeObjectReflectionState(
       renderContext,
       npc.tileX,
       npc.tileY,
+      npc.tileX,  // prevTileX - same as current for static NPCs
+      npc.tileY,  // prevTileY - same as current for static NPCs
       sw,
       sh
     );

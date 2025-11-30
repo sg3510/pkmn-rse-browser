@@ -717,10 +717,148 @@ const TileTab: React.FC<{
 
 // WebGL-specific debug tab
 const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
-  const { mapStitching, warp, renderStats, shimmer } = webglState;
+  const { mapStitching, warp, renderStats, shimmer, reflectionTileGrid } = webglState;
 
   return (
     <>
+      {/* Reflection Tile Grid - Critical for debugging reflection bugs */}
+      {reflectionTileGrid && (
+        <Section title="Reflection Tile Grid (5×5)">
+          {/* Player/Movement State */}
+          <div style={{ marginBottom: 8, padding: 6, backgroundColor: '#2a2a3a', borderRadius: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '10px' }}>
+              <span style={{ color: '#888' }}>Player:</span>
+              <span>({reflectionTileGrid.playerTileX}, {reflectionTileGrid.playerTileY})</span>
+              <span style={{ color: '#888' }}>Dest:</span>
+              <span style={{ color: reflectionTileGrid.isMoving ? '#ff8' : '#888' }}>
+                ({reflectionTileGrid.destTileX}, {reflectionTileGrid.destTileY})
+              </span>
+              <span style={{ color: '#888' }}>Moving:</span>
+              <span style={{ color: reflectionTileGrid.isMoving ? '#4f4' : '#666' }}>
+                {reflectionTileGrid.isMoving ? `YES (${reflectionTileGrid.moveDirection})` : 'NO'}
+              </span>
+            </div>
+          </div>
+
+          {/* Current Reflection State */}
+          <div style={{
+            marginBottom: 8,
+            padding: 6,
+            backgroundColor: reflectionTileGrid.currentReflectionState.hasReflection ? '#2a3a2a' : '#2a2a2a',
+            borderRadius: 4,
+            borderLeft: reflectionTileGrid.currentReflectionState.hasReflection ? '3px solid #4f4' : '3px solid #444',
+          }}>
+            <div style={{ fontSize: '10px', color: '#888', marginBottom: 4 }}>Reflection State:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '10px' }}>
+              <span style={{ color: '#888' }}>Has Reflection:</span>
+              <span style={{ color: reflectionTileGrid.currentReflectionState.hasReflection ? '#4f4' : '#f44' }}>
+                {reflectionTileGrid.currentReflectionState.hasReflection ? 'YES' : 'NO'}
+              </span>
+              <span style={{ color: '#888' }}>Type:</span>
+              <span style={{ color: '#4af' }}>
+                {reflectionTileGrid.currentReflectionState.reflectionType ?? 'none'}
+              </span>
+              <span style={{ color: '#888' }}>Bridge:</span>
+              <span>{reflectionTileGrid.currentReflectionState.bridgeType}</span>
+            </div>
+          </div>
+
+          {/* 5x5 Grid Visualization */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: '9px', color: '#888', marginBottom: 4 }}>
+              Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 2,
+              fontSize: '8px',
+            }}>
+              {reflectionTileGrid.tiles.map((row, rowIdx) =>
+                row.map((tile, colIdx) => {
+                  const isPlayer = tile.relativeX === 0 && tile.relativeY === 0;
+                  const isDest = tile.worldX === reflectionTileGrid.destTileX && tile.worldY === reflectionTileGrid.destTileY;
+                  const bgColor = isPlayer ? '#446' : tile.isBorder ? '#553' : tile.isReflective ? '#353' : '#333';
+                  const borderColor = isDest && reflectionTileGrid.isMoving ? '#ff0' : isPlayer ? '#88f' : tile.isReflective ? '#4f4' : '#444';
+
+                  return (
+                    <div
+                      key={`${rowIdx}-${colIdx}`}
+                      style={{
+                        padding: 3,
+                        backgroundColor: bgColor,
+                        border: `2px solid ${borderColor}`,
+                        borderRadius: 2,
+                        textAlign: 'center',
+                        minHeight: 40,
+                      }}
+                      title={`(${tile.worldX}, ${tile.worldY}) - ${tile.behaviorName} - Meta ${tile.metatileId}`}
+                    >
+                      <div style={{ color: tile.isReflective ? '#4f4' : '#888', fontWeight: 'bold' }}>
+                        {tile.metatileId ?? '?'}
+                      </div>
+                      <div style={{ color: '#888', fontSize: '7px' }}>
+                        {tile.relativeX},{tile.relativeY}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Detailed tile info for tiles below player (y+1, y+2) - most relevant for reflection */}
+          <div style={{ fontSize: '9px', color: '#888', marginBottom: 4 }}>
+            Tiles Below Player (reflection scan area):
+          </div>
+          {[1, 2].map(yOffset => {
+            const tile = reflectionTileGrid.tiles[2 + yOffset]?.[2]; // Center column (player X), offset Y
+            if (!tile) return null;
+            return (
+              <div
+                key={yOffset}
+                style={{
+                  marginBottom: 6,
+                  padding: 6,
+                  backgroundColor: tile.isReflective ? '#2a3a2a' : '#2a2a2a',
+                  borderRadius: 4,
+                  borderLeft: tile.isReflective ? '3px solid #4f4' : '3px solid #f44',
+                  fontSize: '9px',
+                }}
+              >
+                <div style={{ fontWeight: 'bold', marginBottom: 4, color: tile.isReflective ? '#4f4' : '#f88' }}>
+                  Y+{yOffset}: ({tile.worldX}, {tile.worldY}) {tile.isBorder ? '[BORDER]' : ''}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px' }}>
+                  <span style={{ color: '#666' }}>Metatile:</span>
+                  <span>{tile.metatileId ?? 'null'} {tile.isSecondary ? '(2nd)' : '(1st)'}</span>
+                  <span style={{ color: '#666' }}>Behavior:</span>
+                  <span style={{ color: '#4af' }}>{tile.behavior} ({tile.behaviorName})</span>
+                  <span style={{ color: '#666' }}>Reflective:</span>
+                  <span style={{ color: tile.isReflective ? '#4f4' : '#f44' }}>
+                    {tile.isReflective ? `YES (${tile.reflectionType})` : 'NO'}
+                  </span>
+                  <span style={{ color: '#666' }}>Pixel Mask:</span>
+                  <span style={{ color: tile.hasPixelMask ? '#4f4' : '#f44' }}>
+                    {tile.hasPixelMask ? `${tile.maskPixelCount}/256 px` : 'NONE'}
+                  </span>
+                  <span style={{ color: '#666' }}>Elevation:</span>
+                  <span>{tile.elevation ?? 'null'}</span>
+                  <span style={{ color: '#666' }}>Collision:</span>
+                  <span>{tile.collision ?? 'null'}</span>
+                  <span style={{ color: '#666' }}>Runtime:</span>
+                  <span style={{ color: tile.runtimeFound ? '#4f4' : '#f44' }}>
+                    {tile.runtimeFound ? 'FOUND' : 'MISSING'}
+                  </span>
+                  <span style={{ color: '#666' }}>Map:</span>
+                  <span style={{ fontSize: '8px' }}>{tile.mapId?.replace('MAP_', '') ?? 'null'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </Section>
+      )}
+
       {/* Shimmer (Reflection Distortion) */}
       {shimmer && (
         <Section title="Shimmer (Reflection)">

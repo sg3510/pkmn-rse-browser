@@ -1388,7 +1388,57 @@ export class PlayerController {
   public getSpriteSize() {
     return { width: this.SPRITE_WIDTH, height: this.SPRITE_HEIGHT };
   }
-  
+
+  /**
+   * Get the previous tile position (before current movement).
+   * Used for reflection detection - GBA checks both current AND previous coords.
+   */
+  public getPreviousTilePosition() {
+    return { x: this.prevTileX, y: this.prevTileY };
+  }
+
+  /**
+   * Get the destination tile during movement (where player is moving TO).
+   *
+   * GBA SEMANTICS (critical for reflection detection):
+   * - currentCoords = DESTINATION tile (where moving TO)
+   * - previousCoords = ORIGIN tile (where came FROM)
+   *
+   * During movement from tile A to tile B:
+   * - this.tileX/tileY = A (origin, updated to B only when movement completes)
+   * - getDestinationTile() = B (destination during movement, A when idle)
+   *
+   * This matches ObjectEventGetNearbyReflectionType in event_object_movement.c
+   * which checks tiles below BOTH currentCoords AND previousCoords.
+   */
+  public getDestinationTile(): { x: number; y: number } {
+    if (!this.isMoving) {
+      // Not moving - destination equals current position
+      return { x: this.tileX, y: this.tileY };
+    }
+
+    // Calculate destination based on movement direction
+    let destX = this.tileX;
+    let destY = this.tileY;
+
+    switch (this.dir) {
+      case 'up':
+        destY = this.tileY - 1;
+        break;
+      case 'down':
+        destY = this.tileY + 1;
+        break;
+      case 'left':
+        destX = this.tileX - 1;
+        break;
+      case 'right':
+        destX = this.tileX + 1;
+        break;
+    }
+
+    return { x: destX, y: destY };
+  }
+
   public destroy() {
       window.removeEventListener('keydown', this.handleKeyDown);
       window.removeEventListener('keyup', this.handleKeyUp);

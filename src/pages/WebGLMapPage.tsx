@@ -61,6 +61,8 @@ import {
   type DebugState,
   type WebGLDebugState,
   type PlayerDebugInfo,
+  type ReflectionTileDebugInfo,
+  type ReflectionTileGridDebugInfo,
 } from '../components/debug';
 import {
   isDoorBehavior,
@@ -228,6 +230,11 @@ export function WebGLMapPage() {
   // Debug panel state
   const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
   const [playerDebugInfo, setPlayerDebugInfo] = useState<PlayerDebugInfo | null>(null);
+  const [reflectionTileGridDebug, setReflectionTileGridDebug] = useState<ReflectionTileGridDebugInfo | null>(null);
+
+  // Ref for debug options so render loop can access current value
+  const debugOptionsRef = useRef<DebugOptions>(debugOptions);
+  debugOptionsRef.current = debugOptions;
 
   // Create WebGL debug state from existing debug info
   const webglDebugState = useMemo<WebGLDebugState>(() => ({
@@ -246,7 +253,8 @@ export function WebGLMapPage() {
       worldHeightPx: worldSize.height,
     },
     shimmer: getGlobalShimmer().getDebugInfo(),
-  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize]);
+    reflectionTileGrid: reflectionTileGridDebug,
+  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, reflectionTileGridDebug]);
 
   // Debug state for the panel (WebGL page doesn't track objects)
   const debugState = useMemo<DebugState>(() => ({
@@ -315,7 +323,7 @@ export function WebGLMapPage() {
     tileX: number,
     tileY: number
   ): { behavior: number; meta: ReflectionMeta | null } | null => {
-    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
+    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, anchorMapId } = snapshot;
 
     // Find which map contains this tile
     for (const map of maps) {
@@ -337,7 +345,19 @@ export function WebGLMapPage() {
         const behavior = attrArray[attrIndex]?.behavior ?? 0;
 
         // Get reflection meta from runtime
-        const runtime = tilesetRuntimesRef.current.get(pair.id);
+        // First try the expected pair ID, then try all runtimes as fallback
+        // (This handles cases where pair IDs might differ between how they're stored vs looked up)
+        let runtime = tilesetRuntimesRef.current.get(pair.id);
+
+        // Fallback: try looking up by the pair's key/identifier variants
+        if (!runtime && tilesetRuntimesRef.current.size > 0) {
+          // Try first available runtime as fallback (for single-tileset scenarios)
+          const firstRuntime = tilesetRuntimesRef.current.values().next().value;
+          if (firstRuntime) {
+            runtime = firstRuntime;
+          }
+        }
+
         if (!runtime) return { behavior, meta: null };
 
         const meta = isSecondary
@@ -348,15 +368,57 @@ export function WebGLMapPage() {
       }
     }
 
-    return null;
+    // BORDER FALLBACK: Tile is outside all loaded maps
+    // Use anchor map's border metatiles (same logic as Canvas2D's resolveTileAt)
+    if (!anchorBorderMetatiles || anchorBorderMetatiles.length === 0) {
+      return null;
+    }
+
+    // Find anchor map to get its tileset pair
+    const anchorMap = maps.find(m => m.entry.id === anchorMapId);
+    if (!anchorMap) return null;
+
+    const anchorPairIndex = mapTilesetPairIndex.get(anchorMapId) ?? 0;
+    const anchorPair = tilesetPairs[anchorPairIndex];
+    if (!anchorPair) return null;
+
+    // Calculate local coords relative to anchor for 2x2 repeating border pattern
+    const anchorLocalX = tileX - anchorMap.offsetX;
+    const anchorLocalY = tileY - anchorMap.offsetY;
+    const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
+    const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
+
+    const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
+    const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
+    const attrArray = isSecondary ? anchorPair.secondaryAttributes : anchorPair.primaryAttributes;
+    const behavior = attrArray[attrIndex]?.behavior ?? 0;
+
+    // Get reflection meta from runtime (with fallback)
+    let runtime = tilesetRuntimesRef.current.get(anchorPair.id);
+    if (!runtime && tilesetRuntimesRef.current.size > 0) {
+      const firstRuntime = tilesetRuntimesRef.current.values().next().value;
+      if (firstRuntime) {
+        runtime = firstRuntime;
+      }
+    }
+    if (!runtime) return { behavior, meta: null };
+
+    const meta = isSecondary
+      ? runtime.secondaryReflectionMeta[attrIndex]
+      : runtime.primaryReflectionMeta[attrIndex];
+
+    return { behavior, meta: meta ?? null };
   }, []);
 
   // Compute reflection state for an object at a tile position
-  // Extended to check one extra tile ahead to match GBA behavior
+  // GBA checks BOTH currentCoords AND previousCoords for reflection detection
+  // See: event_object_movement.c ObjectEventGetNearbyReflectionType (lines 7625-7650)
   const computeReflectionStateFromSnapshot = useCallback((
     snapshot: WorldSnapshot,
     tileX: number,
     tileY: number,
+    prevTileX: number,
+    prevTileY: number,
     spriteWidth: number = 16,
     spriteHeight: number = 32
   ): ReflectionState => {
@@ -367,24 +429,29 @@ export function WebGLMapPage() {
     let found: 'water' | 'ice' | null = null;
 
     // GBA scans tiles starting at y+1 (one tile below the object's anchor)
-    // and continuing for 'height' tiles. We match this by checking y+1 to y+1+heightTiles
+    // and continuing for 'height' tiles. It checks BOTH current AND previous coords.
     for (let i = 0; i < heightTiles && !found; i++) {
-      const y = tileY + 1 + i;  // Start at tileY + 1 like GBA
+      const currentY = tileY + 1 + i;
+      const prevY = prevTileY + 1 + i;
 
-      // Check center tile
-      const center = getReflectionMetaFromSnapshot(snapshot, tileX, y);
-      if (center?.meta?.isReflective) {
-        found = center.meta.reflectionType;
-        break;
+      // Check center tile at BOTH current and previous positions
+      for (const [checkX, checkY] of [[tileX, currentY], [prevTileX, prevY]] as const) {
+        const center = getReflectionMetaFromSnapshot(snapshot, checkX, checkY);
+        if (center?.meta?.isReflective) {
+          found = center.meta.reflectionType;
+          break;
+        }
       }
+      if (found) break;
 
-      // Check tiles to left and right based on sprite width
+      // Check tiles to left and right at BOTH current and previous positions
       for (let j = 1; j < widthTiles && !found; j++) {
-        const infos = [
-          getReflectionMetaFromSnapshot(snapshot, tileX + j, y),
-          getReflectionMetaFromSnapshot(snapshot, tileX - j, y),
+        const positions: [number, number][] = [
+          [tileX + j, currentY], [tileX - j, currentY],
+          [prevTileX + j, prevY], [prevTileX - j, prevY],
         ];
-        for (const info of infos) {
+        for (const [x, y] of positions) {
+          const info = getReflectionMetaFromSnapshot(snapshot, x, y);
           if (info?.meta?.isReflective) {
             found = info.meta.reflectionType;
             break;
@@ -393,11 +460,13 @@ export function WebGLMapPage() {
       }
     }
 
-    // Get bridge type from the tile the object is standing on
-    const standingInfo = getReflectionMetaFromSnapshot(snapshot, tileX, tileY);
-    const bridgeType: BridgeType = standingInfo
-      ? getBridgeTypeFromBehavior(standingInfo.behavior)
-      : 'none';
+    // Get bridge type - GBA checks previous behavior first, then current
+    // See: field_effect_helpers.c LoadObjectReflectionPalette (lines 84-86)
+    const prevInfo = getReflectionMetaFromSnapshot(snapshot, prevTileX, prevTileY);
+    const currentInfo = getReflectionMetaFromSnapshot(snapshot, tileX, tileY);
+    const prevBridgeType = prevInfo ? getBridgeTypeFromBehavior(prevInfo.behavior) : 'none';
+    const currentBridgeType = currentInfo ? getBridgeTypeFromBehavior(currentInfo.behavior) : 'none';
+    const bridgeType: BridgeType = prevBridgeType !== 'none' ? prevBridgeType : currentBridgeType;
 
     return {
       hasReflection: !!found,
@@ -405,6 +474,195 @@ export function WebGLMapPage() {
       bridgeType,
     };
   }, [getReflectionMetaFromSnapshot]);
+
+  // Behavior name lookup for debug display
+  const BEHAVIOR_NAMES: Record<number, string> = {
+    0: 'NORMAL', 1: 'SECRET_BASE_WALL', 2: 'TALL_GRASS', 3: 'LONG_GRASS',
+    6: 'DEEP_SAND', 7: 'SHORT_GRASS', 8: 'CAVE', 16: 'POND_WATER',
+    17: 'INTERIOR_DEEP_WATER', 18: 'DEEP_WATER', 19: 'WATERFALL',
+    20: 'SOOTOPOLIS_DEEP_WATER', 21: 'OCEAN_WATER', 22: 'PUDDLE',
+    23: 'SHALLOW_WATER', 32: 'ICE', 33: 'SAND', 38: 'THIN_ICE',
+    39: 'CRACKED_ICE', 40: 'HOT_SPRINGS', 43: 'REFLECTION_UNDER_BRIDGE',
+    56: 'JUMP_EAST', 57: 'JUMP_WEST', 58: 'JUMP_NORTH', 59: 'JUMP_SOUTH',
+  };
+
+  // Get comprehensive debug info for a single tile
+  const getTileDebugInfo = useCallback((
+    snapshot: WorldSnapshot,
+    worldX: number,
+    worldY: number,
+    relX: number,
+    relY: number
+  ): ReflectionTileDebugInfo => {
+    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, anchorMapId } = snapshot;
+
+    // Default empty info
+    const defaultInfo: ReflectionTileDebugInfo = {
+      worldX, worldY, relativeX: relX, relativeY: relY,
+      mapId: null, isBorder: false,
+      metatileId: null, isSecondary: false,
+      behavior: null, behaviorName: 'UNKNOWN', elevation: null, collision: null,
+      isReflective: false, reflectionType: null, hasPixelMask: false, maskPixelCount: 0,
+      isAnimated: false, animationId: null,
+      runtimeFound: false, runtimeId: null,
+    };
+
+    // Find which map contains this tile
+    for (const map of maps) {
+      const localX = worldX - map.offsetX;
+      const localY = worldY - map.offsetY;
+
+      if (localX >= 0 && localX < map.entry.width &&
+          localY >= 0 && localY < map.entry.height) {
+        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+        const pair = tilesetPairs[pairIndex];
+
+        const idx = localY * map.entry.width + localX;
+        const mapTile = map.mapData.layout[idx];
+        const metatileId = mapTile.metatileId;
+
+        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+        const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
+        const behavior = attrArray[attrIndex]?.behavior ?? 0;
+
+        // Get runtime for reflection info
+        let runtime = tilesetRuntimesRef.current.get(pair.id);
+        if (!runtime && tilesetRuntimesRef.current.size > 0) {
+          runtime = tilesetRuntimesRef.current.values().next().value;
+        }
+
+        const meta = runtime
+          ? (isSecondary
+              ? runtime.secondaryReflectionMeta[attrIndex]
+              : runtime.primaryReflectionMeta[attrIndex])
+          : null;
+
+        // Count mask pixels if available
+        let maskPixelCount = 0;
+        if (meta?.pixelMask) {
+          for (let i = 0; i < meta.pixelMask.length; i++) {
+            if (meta.pixelMask[i]) maskPixelCount++;
+          }
+        }
+
+        // Check if animated (using destinations array)
+        const animations = pair.animations || [];
+        const animInfo = animations.find(anim =>
+          anim.destinations?.some(dest => {
+            const targetId = isSecondary ? dest.destStart - SECONDARY_TILE_OFFSET : dest.destStart;
+            return targetId === attrIndex;
+          })
+        );
+
+        return {
+          worldX, worldY, relativeX: relX, relativeY: relY,
+          mapId: map.entry.id, isBorder: false,
+          metatileId, isSecondary,
+          behavior, behaviorName: BEHAVIOR_NAMES[behavior] || `UNK_${behavior}`,
+          elevation: mapTile.elevation, collision: mapTile.collision,
+          isReflective: meta?.isReflective ?? false,
+          reflectionType: meta?.reflectionType ?? null,
+          hasPixelMask: !!meta?.pixelMask,
+          maskPixelCount,
+          isAnimated: !!animInfo,
+          animationId: animInfo?.id ?? null,
+          runtimeFound: !!runtime,
+          runtimeId: pair.id,
+        };
+      }
+    }
+
+    // Border fallback
+    if (anchorBorderMetatiles && anchorBorderMetatiles.length > 0) {
+      const anchorMap = maps.find(m => m.entry.id === anchorMapId);
+      if (anchorMap) {
+        const anchorPairIndex = mapTilesetPairIndex.get(anchorMapId) ?? 0;
+        const pair = tilesetPairs[anchorPairIndex];
+
+        const anchorLocalX = worldX - anchorMap.offsetX;
+        const anchorLocalY = worldY - anchorMap.offsetY;
+        const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
+        const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
+
+        const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
+        const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
+        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
+        const behavior = attrArray[attrIndex]?.behavior ?? 0;
+
+        let runtime = tilesetRuntimesRef.current.get(pair.id);
+        if (!runtime && tilesetRuntimesRef.current.size > 0) {
+          runtime = tilesetRuntimesRef.current.values().next().value;
+        }
+
+        const meta = runtime
+          ? (isSecondary
+              ? runtime.secondaryReflectionMeta[attrIndex]
+              : runtime.primaryReflectionMeta[attrIndex])
+          : null;
+
+        let maskPixelCount = 0;
+        if (meta?.pixelMask) {
+          for (let i = 0; i < meta.pixelMask.length; i++) {
+            if (meta.pixelMask[i]) maskPixelCount++;
+          }
+        }
+
+        return {
+          worldX, worldY, relativeX: relX, relativeY: relY,
+          mapId: anchorMapId, isBorder: true,
+          metatileId: borderMetatileId, isSecondary,
+          behavior, behaviorName: BEHAVIOR_NAMES[behavior] || `UNK_${behavior}`,
+          elevation: 0, collision: 1,
+          isReflective: meta?.isReflective ?? false,
+          reflectionType: meta?.reflectionType ?? null,
+          hasPixelMask: !!meta?.pixelMask,
+          maskPixelCount,
+          isAnimated: false, animationId: null,
+          runtimeFound: !!runtime, runtimeId: pair.id,
+        };
+      }
+    }
+
+    return defaultInfo;
+  }, []);
+
+  // Get debug info for 5x5 grid around player
+  const getReflectionTileGridDebug = useCallback((
+    snapshot: WorldSnapshot,
+    playerTileX: number,
+    playerTileY: number,
+    destTileX: number,
+    destTileY: number,
+    isMoving: boolean,
+    moveDirection: string,
+    reflectionState: ReflectionState
+  ): ReflectionTileGridDebugInfo => {
+    const tiles: ReflectionTileDebugInfo[][] = [];
+
+    // Build 5x5 grid (relY from -2 to +2, relX from -2 to +2)
+    for (let relY = -2; relY <= 2; relY++) {
+      const row: ReflectionTileDebugInfo[] = [];
+      for (let relX = -2; relX <= 2; relX++) {
+        const worldX = playerTileX + relX;
+        const worldY = playerTileY + relY;
+        row.push(getTileDebugInfo(snapshot, worldX, worldY, relX, relY));
+      }
+      tiles.push(row);
+    }
+
+    return {
+      playerTileX, playerTileY,
+      destTileX, destTileY,
+      isMoving, moveDirection,
+      tiles,
+      currentReflectionState: {
+        hasReflection: reflectionState.hasReflection,
+        reflectionType: reflectionState.reflectionType,
+        bridgeType: reflectionState.bridgeType,
+      },
+    };
+  }, [getTileDebugInfo]);
 
   // Create a minimal RenderContext from WorldSnapshot for field effect masking
   const createRenderContextFromSnapshot = useCallback((
@@ -1264,13 +1522,37 @@ export function WebGLMapPage() {
           // Render player reflection (behind player, on water/ice tiles)
           if (currentSnapshot) {
             const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
+            // GBA SEMANTICS for reflection detection (ObjectEventGetNearbyReflectionType):
+            // - currentCoords = DESTINATION tile (where moving TO)
+            // - previousCoords = ORIGIN tile (where came FROM)
+            // During movement: check tiles below destination AND origin
+            // When idle: destination = origin (same tile)
+            const destTile = player.getDestinationTile();
             const reflectionState = computeReflectionStateFromSnapshot(
               currentSnapshot,
-              player.tileX,
+              destTile.x,     // GBA currentCoords = destination
+              destTile.y,
+              player.tileX,   // GBA previousCoords = origin
               player.tileY,
               spriteWidth,
               spriteHeight
             );
+
+            // Update reflection tile grid debug info (every 100ms to stay responsive)
+            if (debugOptionsRef.current.enabled && gbaFrameRef.current % 6 === 0) {
+              const gridDebug = getReflectionTileGridDebug(
+                currentSnapshot,
+                player.tileX,
+                player.tileY,
+                destTile.x,
+                destTile.y,
+                player.isMoving,
+                player.dir,
+                reflectionState
+              );
+              setReflectionTileGridDebug(gridDebug);
+            }
+
             if (reflectionState.hasReflection) {
               renderPlayerReflection(
                 ctx2d,

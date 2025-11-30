@@ -170,9 +170,10 @@ export function isBlueDominantColor(rgb: [number, number, number]): boolean {
 
 /**
  * Build flags indicating which palettes contain water-like colors.
+ * Uses isWaterColor() for consistent detection with the per-pixel check.
  */
 export function buildPaletteWaterFlags(paletteRgb: PaletteRgbLUT): boolean[] {
-  return paletteRgb.map((colors) => colors.some((c, idx) => idx !== 0 && isBlueDominantColor(c)));
+  return paletteRgb.map((colors) => colors.some((c, idx) => idx !== 0 && isWaterColor(c)));
 }
 
 /**
@@ -331,6 +332,20 @@ export function buildReflectionMeta(
         ? secondaryTileMasks[localId]
         : primaryTileMasks[localId];
       applyTileMaskToMetatile(pixelMask, lut, i, tile.xflip, tile.yflip);
+    }
+
+    // Step 3: If metatile has reflective behavior but no water pixels were detected,
+    // the tile likely uses animated water (placeholder data in base tileset).
+    // Fall back to fully reflective mask for these tiles.
+    let hasAnyPixel = false;
+    for (let i = 0; i < pixelMask.length; i++) {
+      if (pixelMask[i] !== 0) {
+        hasAnyPixel = true;
+        break;
+      }
+    }
+    if (!hasAnyPixel) {
+      pixelMask.fill(1);
     }
 
     return { isReflective, reflectionType: reflectionType as 'water' | 'ice' | null, pixelMask };
