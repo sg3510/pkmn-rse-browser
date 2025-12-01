@@ -46,7 +46,15 @@
  */
 
 import type { BridgeType } from '../utils/metatileBehaviors';
-import { isPondBridge } from '../utils/metatileBehaviors';
+import { isPondBridge, getBridgeTypeFromBehavior } from '../utils/metatileBehaviors';
+import type { ReflectionMeta } from '../utils/tilesetUtils';
+import {
+  ReflectionShimmer,
+  getGlobalShimmer,
+  applyGbaAffineShimmer,
+  isShimmerEnabled,
+  setShimmerEnabled,
+} from './ReflectionShimmer';
 
 // Re-export shimmer utilities for convenient imports
 export {
@@ -55,7 +63,7 @@ export {
   isShimmerEnabled,
   setShimmerEnabled,
   applyGbaAffineShimmer,
-} from './ReflectionShimmer';
+};
 
 /**
  * Reflection type for surface effects
@@ -243,4 +251,243 @@ export function createEmptyReflectionState(): ReflectionState {
     reflectionType: null,
     bridgeType: 'none',
   };
+}
+
+// =============================================================================
+// Generic Reflection Computation and Rendering
+// =============================================================================
+
+const METATILE_SIZE = 16;
+
+/**
+ * Result from looking up reflection meta at a tile position.
+ * Both WebGL and Canvas2D use this interface.
+ */
+export interface ReflectionMetaResult {
+  behavior: number;
+  meta: ReflectionMeta | null;
+}
+
+/**
+ * Callback type for looking up reflection metadata at a tile.
+ * Implementations differ between WebGL (snapshot-based) and Canvas2D (context-based).
+ */
+export type ReflectionMetaProvider = (tileX: number, tileY: number) => ReflectionMetaResult | null;
+
+/**
+ * Generic reflection state computation for any object.
+ *
+ * GBA checks BOTH currentCoords AND previousCoords for reflection detection.
+ * See: event_object_movement.c ObjectEventGetNearbyReflectionType (lines 7625-7650)
+ *
+ * @param getReflectionMeta - Callback to get reflection meta at a tile
+ * @param tileX - Object's current/destination tile X
+ * @param tileY - Object's current/destination tile Y
+ * @param prevTileX - Object's previous/origin tile X
+ * @param prevTileY - Object's previous/origin tile Y
+ * @param spriteWidth - Sprite width in pixels (default 16)
+ * @param spriteHeight - Sprite height in pixels (default 32)
+ */
+export function computeReflectionState(
+  getReflectionMeta: ReflectionMetaProvider,
+  tileX: number,
+  tileY: number,
+  prevTileX: number,
+  prevTileY: number,
+  spriteWidth: number = 16,
+  spriteHeight: number = 32
+): ReflectionState {
+  // Calculate how many tiles the sprite covers (GBA formula)
+  const widthTiles = Math.max(1, (spriteWidth + 8) >> 4);
+  const heightTiles = Math.max(1, (spriteHeight + 8) >> 4);
+
+  let found: ReflectionType | null = null;
+
+  // GBA scans tiles starting at y+1 (one tile below the object's anchor)
+  // and continuing for 'height' tiles. It checks BOTH current AND previous coords.
+  for (let i = 0; i < heightTiles && !found; i++) {
+    const currentY = tileY + 1 + i;
+    const prevY = prevTileY + 1 + i;
+
+    // Check center tile at BOTH current and previous positions
+    for (const [checkX, checkY] of [[tileX, currentY], [prevTileX, prevY]] as const) {
+      const center = getReflectionMeta(checkX, checkY);
+      if (center?.meta?.isReflective) {
+        found = center.meta.reflectionType;
+        break;
+      }
+    }
+    if (found) break;
+
+    // Check tiles to left and right at BOTH current and previous positions
+    for (let j = 1; j < widthTiles && !found; j++) {
+      const positions: [number, number][] = [
+        [tileX + j, currentY], [tileX - j, currentY],
+        [prevTileX + j, prevY], [prevTileX - j, prevY],
+      ];
+      for (const [x, y] of positions) {
+        const info = getReflectionMeta(x, y);
+        if (info?.meta?.isReflective) {
+          found = info.meta.reflectionType;
+          break;
+        }
+      }
+    }
+  }
+
+  // Get bridge type - GBA checks previous behavior first, then current
+  // See: field_effect_helpers.c LoadObjectReflectionPalette (lines 84-86)
+  const prevInfo = getReflectionMeta(prevTileX, prevTileY);
+  const currentInfo = getReflectionMeta(tileX, tileY);
+  const prevBridgeType = prevInfo ? getBridgeTypeFromBehavior(prevInfo.behavior) : 'none';
+  const currentBridgeType = currentInfo ? getBridgeTypeFromBehavior(currentInfo.behavior) : 'none';
+  const bridgeType: BridgeType = prevBridgeType !== 'none' ? prevBridgeType : currentBridgeType;
+
+  return {
+    hasReflection: !!found,
+    reflectionType: found,
+    bridgeType,
+  };
+}
+
+/**
+ * Build a mask canvas for reflection rendering.
+ * The mask determines which pixels show the reflection based on reflective tile areas.
+ *
+ * @param getReflectionMeta - Callback to get reflection meta at a tile
+ * @param tileRefX - Reference X in world pixels (floored sprite position)
+ * @param tileRefY - Reference Y in world pixels (reflection start position)
+ * @param width - Sprite width
+ * @param height - Sprite height
+ * @returns Mask canvas where alpha=255 means show reflection
+ */
+export function buildReflectionMask(
+  getReflectionMeta: ReflectionMetaProvider,
+  tileRefX: number,
+  tileRefY: number,
+  width: number,
+  height: number
+): HTMLCanvasElement {
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = width;
+  maskCanvas.height = height;
+  const maskCtx = maskCanvas.getContext('2d');
+  if (!maskCtx) return maskCanvas;
+
+  const maskImage = maskCtx.createImageData(width, height);
+  const maskData = maskImage.data;
+
+  // Calculate tile range for mask building
+  const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
+  const pixelEndTileX = Math.floor((tileRefX + width - 1) / METATILE_SIZE);
+  const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
+  const pixelEndTileY = Math.floor((tileRefY + height - 1) / METATILE_SIZE);
+
+  // Expand range by 1 tile to catch tiles at boundaries during movement
+  const startTileX = pixelStartTileX - 1;
+  const endTileX = pixelEndTileX + 1;
+  const startTileY = pixelStartTileY;
+  const endTileY = pixelEndTileY + 1;
+
+  // Build mask from reflective tiles
+  for (let ty = startTileY; ty <= endTileY; ty++) {
+    for (let tx = startTileX; tx <= endTileX; tx++) {
+      const info = getReflectionMeta(tx, ty);
+      if (!info?.meta?.isReflective) continue;
+
+      const mask = info.meta.pixelMask;
+      const tileLeft = tx * METATILE_SIZE - tileRefX;
+      const tileTop = ty * METATILE_SIZE - tileRefY;
+
+      for (let y = 0; y < METATILE_SIZE; y++) {
+        const globalY = tileTop + y;
+        if (globalY < 0 || globalY >= height) continue;
+        for (let x = 0; x < METATILE_SIZE; x++) {
+          const globalX = tileLeft + x;
+          if (globalX < 0 || globalX >= width) continue;
+          if (mask[y * METATILE_SIZE + x]) {
+            const index = (globalY * width + globalX) * 4 + 3;
+            maskData[index] = 255;
+          }
+        }
+      }
+    }
+  }
+
+  maskCtx.putImageData(maskImage, 0, 0);
+  return maskCanvas;
+}
+
+/**
+ * Render a sprite reflection with mask, tint, and optional shimmer.
+ *
+ * This is the core rendering function shared between WebGL and Canvas2D.
+ *
+ * @param ctx - Canvas 2D rendering context
+ * @param sprite - Sprite image
+ * @param sx, sy, sw, sh - Source rectangle in sprite sheet
+ * @param flip - Horizontal flip flag
+ * @param screenX, screenY - Screen position for reflection
+ * @param reflectionState - Computed reflection state
+ * @param maskCanvas - Pre-built mask canvas
+ * @param direction - Player direction (for shimmer)
+ */
+export function renderSpriteReflection(
+  ctx: CanvasRenderingContext2D,
+  sprite: HTMLCanvasElement | HTMLImageElement,
+  sx: number, sy: number, sw: number, sh: number,
+  flip: boolean,
+  screenX: number, screenY: number,
+  reflectionState: ReflectionState,
+  maskCanvas: HTMLCanvasElement,
+  direction: 'up' | 'down' | 'left' | 'right' = 'down'
+): void {
+  // Create reflection canvas (flipped sprite)
+  const reflectionCanvas = document.createElement('canvas');
+  reflectionCanvas.width = sw;
+  reflectionCanvas.height = sh;
+  const reflectionCtx = reflectionCanvas.getContext('2d');
+  if (!reflectionCtx) return;
+
+  // Flip vertically
+  reflectionCtx.translate(0, sh);
+  reflectionCtx.scale(flip ? -1 : 1, -1);
+
+  // Draw sprite
+  reflectionCtx.drawImage(
+    sprite,
+    sx, sy, sw, sh,
+    flip ? -sw : 0, 0, sw, sh
+  );
+
+  // Reset transform
+  reflectionCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Apply tint based on reflection type and bridge type
+  reflectionCtx.globalCompositeOperation = 'source-atop';
+  reflectionCtx.fillStyle = getReflectionTint(reflectionState.reflectionType, reflectionState.bridgeType);
+  reflectionCtx.fillRect(0, 0, sw, sh);
+
+  // Apply mask
+  reflectionCtx.globalCompositeOperation = 'destination-in';
+  reflectionCtx.drawImage(maskCanvas, 0, 0);
+
+  // Draw to main canvas with transparency and shimmer effect
+  ctx.save();
+  ctx.globalAlpha = getReflectionAlpha(reflectionState.bridgeType);
+
+  // Apply shimmer only for WATER reflections - GBA ice reflections don't shimmer
+  if (reflectionState.reflectionType === 'water') {
+    const shimmer = getGlobalShimmer();
+    const matrixNum = ReflectionShimmer.getMatrixForDirection(direction, flip);
+    const scaleX = shimmer.getScaleX(matrixNum);
+
+    // Apply GBA-style affine transformation
+    const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, scaleX);
+    ctx.drawImage(shimmerCanvas, screenX, screenY);
+  } else {
+    // Ice reflections don't shimmer
+    ctx.drawImage(reflectionCanvas, screenX, screenY);
+  }
+  ctx.restore();
 }

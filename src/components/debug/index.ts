@@ -30,3 +30,11 @@ export type {
   ReflectionTileGridDebugInfo,
 } from './types';
 export { DEFAULT_DEBUG_OPTIONS } from './types';
+
+// WebGL debug utilities
+export {
+  BEHAVIOR_NAMES,
+  getBehaviorName,
+  getTileDebugInfo,
+  getReflectionTileGridDebug,
+} from './webglDebugUtils';

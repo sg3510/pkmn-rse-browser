@@ -1390,6 +1390,20 @@ export class PlayerController {
   }
 
   /**
+   * Get all loaded sprite sheets for WebGL upload
+   * Returns a map of sprite name to HTMLCanvasElement
+   */
+  public getSpriteSheets(): Map<string, HTMLCanvasElement> {
+    const sheets = new Map<string, HTMLCanvasElement>();
+    for (const [key, canvas] of Object.entries(this.sprites)) {
+      if (canvas) {
+        sheets.set(key, canvas);
+      }
+    }
+    return sheets;
+  }
+
+  /**
    * Get the previous tile position (before current movement).
    * Used for reflection detection - GBA checks both current AND previous coords.
    */
@@ -1950,6 +1964,23 @@ export class PlayerController {
    */
   public isSurfing(): boolean {
     return this.surfingController.isSurfing();
+  }
+
+  /**
+   * Check if currently running (for WebGL sprite sheet selection).
+   */
+  public isRunning(): boolean {
+    return this.currentState instanceof RunningState;
+  }
+
+  /**
+   * Get the current sprite sheet key for WebGL rendering.
+   * Returns 'surfing', 'running', or 'walking'.
+   */
+  public getCurrentSpriteKey(): string {
+    if (this.isSurfing()) return 'surfing';
+    if (this.isRunning()) return 'running';
+    return 'walking';
   }
 
   /**

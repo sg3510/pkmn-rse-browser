@@ -17,6 +17,17 @@ export { useDoorSequencer, type UseDoorSequencerOptions, type UseDoorSequencerRe
 export { useFieldSprites, type FieldSprites, type FieldSpriteKey, type UseFieldSpritesReturn } from './useFieldSprites';
 export { useActionInput, type ActionInputDeps } from './useActionInput';
 export { useTilesetPatching } from './useTilesetPatching';
+export {
+  useUnifiedGameLoop,
+  GBA_FRAME_MS,
+  type GameLoopCallbacks,
+  type GameLoopDeps,
+  type GameLoopConfig,
+  type GameLoopState,
+  type WorldBounds,
+  type TileResolutionResult,
+  type UseUnifiedGameLoopReturn,
+} from './useUnifiedGameLoop';
 
 // Map hooks
 export { useMapAssets, type TilesetRuntime, type LoadedAnimation, type ReflectionMeta } from './map/useMapAssets';

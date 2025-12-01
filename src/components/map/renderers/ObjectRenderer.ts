@@ -6,14 +6,11 @@ import { getMetatileBehavior } from '../utils';
 import type { RenderContext, ReflectionState } from '../types';
 import {
   BRIDGE_OFFSETS,
-  getGlobalShimmer,
-  applyGbaAffineShimmer,
+  buildReflectionMask,
+  renderSpriteReflection,
+  type ReflectionMetaProvider,
 } from '../../../field/ReflectionRenderer';
 
-const DEBUG_REFLECTION_FLAG = 'PKMN_DEBUG_REFLECTION';
-function isReflectionDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_REFLECTION_FLAG];
-}
 
 export interface WorldCameraView {
   cameraWorldX: number;
@@ -306,14 +303,9 @@ export class ObjectRenderer {
   }
 
   /**
-   * Render water/ice reflection for the player
+   * Render water/ice reflection for the player using shared reflection functions.
    *
-   * BUG FIX: During movement, floating-point pixel positions can cause the reflection
-   * to flicker when crossing tile boundaries. The tile lookup uses floor(pos / METATILE_SIZE),
-   * so sub-pixel positions can cause inconsistent tile selection frame-to-frame.
-   *
-   * Solution: Floor the pixel positions for tile lookups to ensure stable tile selection.
-   * Screen rendering still uses rounded positions for smooth visual placement.
+   * Uses shared buildReflectionMask and renderSpriteReflection from ReflectionRenderer.
    */
   static renderReflection(
     ctx: CanvasRenderingContext2D,
@@ -329,159 +321,37 @@ export class ObjectRenderer {
 
     const { height } = player.getSpriteSize();
 
-    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries.
-    // The tile lookup uses floor(pos / METATILE_SIZE), so float positions can cause
-    // the reflection to flicker between tiles when crossing boundaries.
+    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
     const tileRefX = Math.floor(frame.renderX);
     const tileRefY = Math.floor(frame.renderY) + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
 
-    // For SCREEN RENDERING: Use Math.round() to avoid floating-point precision errors.
-    // This matches PlayerController.render() which also uses Math.round().
+    // For SCREEN RENDERING: Use Math.round() for consistent pixel alignment
     const reflectionWorldY = frame.renderY + height - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
     const screenX = Math.round(frame.renderX - view.cameraWorldX);
     const screenY = Math.round(reflectionWorldY - view.cameraWorldY);
 
-    // Create mask canvas
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = frame.sw;
-    maskCanvas.height = frame.sh;
-    const maskCtx = maskCanvas.getContext('2d');
-    if (!maskCtx) return;
-    const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
-    const maskData = maskImage.data;
+    // Create provider callback for RenderContext-based tile lookup
+    const provider: ReflectionMetaProvider = (x, y) => getMetatileBehavior(renderContext, x, y);
 
-    // Build reflection mask from reflective tiles
-    // CRITICAL: The player sprite may be offset from tile alignment (e.g., 32px surfing sprite
-    // centered on 16px tile = 8px offset). During movement, this offset causes the pixel-based
-    // tile range to differ from what computeReflectionState checked (which uses discrete tileX/Y).
-    //
-    // To ensure coverage, we expand the tile range to include:
-    // 1. All tiles the sprite visually covers at its current pixel position
-    // 2. Adjacent tiles that computeReflectionState would have checked
-    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
-    const pixelEndTileX = Math.floor((tileRefX + frame.sw - 1) / METATILE_SIZE);
-    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
-    const pixelEndTileY = Math.floor((tileRefY + frame.sh - 1) / METATILE_SIZE);
+    // Build mask using shared function
+    const maskCanvas = buildReflectionMask(provider, tileRefX, tileRefY, frame.sw, frame.sh);
 
-    // Expand range by 1 tile in each direction to catch tiles at boundaries during movement
-    // This matches how computeReflectionState searches tiles around player.tileX/tileY
-    const startTileX = pixelStartTileX - 1;
-    const endTileX = pixelEndTileX + 1;
-    const startTileY = pixelStartTileY;
-    const endTileY = pixelEndTileY + 1;
-
-    let maskPixelsSet = 0;
-    let tilesChecked = 0;
-    let reflectiveTiles = 0;
-
-    for (let ty = startTileY; ty <= endTileY; ty++) {
-      for (let tx = startTileX; tx <= endTileX; tx++) {
-        tilesChecked++;
-        const info = getMetatileBehavior(renderContext, tx, ty);
-        if (!info?.meta?.isReflective) {
-          if (isReflectionDebugMode()) {
-            console.log(`[REFLECTION] Tile (${tx}, ${ty}): NOT reflective - info:`, info ? { behavior: info.behavior, hasMetaA: !!info.meta } : 'null');
-          }
-          continue;
-        }
-        reflectiveTiles++;
-        const mask = info.meta.pixelMask;
-        // Use floored tileRefX/Y for consistent mask coordinate calculation
-        const tileLeft = tx * METATILE_SIZE - tileRefX;
-        const tileTop = ty * METATILE_SIZE - tileRefY;
-        for (let y = 0; y < METATILE_SIZE; y++) {
-          const globalY = tileTop + y;
-          if (globalY < 0 || globalY >= frame.sh) continue;
-          for (let x = 0; x < METATILE_SIZE; x++) {
-            const globalX = tileLeft + x;
-            if (globalX < 0 || globalX >= frame.sw) continue;
-            if (mask[y * METATILE_SIZE + x]) {
-              const index = (globalY * frame.sw + globalX) * 4 + 3;
-              maskData[index] = 255;
-              maskPixelsSet++;
-            }
-          }
-        }
-      }
-    }
-
-    if (isReflectionDebugMode()) {
-      console.log(`[REFLECTION] player.tile=(${player.tileX}, ${player.tileY}), frame.render=(${frame.renderX.toFixed(1)}, ${frame.renderY.toFixed(1)}), tileRef=(${tileRefX}, ${tileRefY}), tileRange=X[${startTileX}-${endTileX}] Y[${startTileY}-${endTileY}], checked=${tilesChecked}, reflective=${reflectiveTiles}, maskPixels=${maskPixelsSet}`);
-    }
-
-    maskCtx.putImageData(maskImage, 0, 0);
-
-    // Create reflection canvas (flipped sprite)
-    const reflectionCanvas = document.createElement('canvas');
-    reflectionCanvas.width = frame.sw;
-    reflectionCanvas.height = frame.sh;
-    const reflectionCtx = reflectionCanvas.getContext('2d');
-    if (!reflectionCtx) return;
-    reflectionCtx.clearRect(0, 0, frame.sw, frame.sh);
-    reflectionCtx.save();
-    reflectionCtx.translate(frame.flip ? frame.sw : 0, frame.sh);
-    reflectionCtx.scale(frame.flip ? -1 : 1, -1);
-    reflectionCtx.drawImage(
+    // Render using shared function (uses GBA-accurate tints and shimmer)
+    renderSpriteReflection(
+      ctx,
       frame.sprite,
-      frame.sx,
-      frame.sy,
-      frame.sw,
-      frame.sh,
-      0,
-      0,
-      frame.sw,
-      frame.sh
+      frame.sx, frame.sy, frame.sw, frame.sh,
+      frame.flip,
+      screenX, screenY,
+      reflectionState,
+      maskCanvas,
+      player.dir
     );
-    reflectionCtx.restore();
-
-    // Apply tint
-    reflectionCtx.globalCompositeOperation = 'source-atop';
-    const baseTint =
-      reflectionState.reflectionType === 'ice'
-        ? 'rgba(180, 220, 255, 0.35)'
-        : 'rgba(70, 120, 200, 0.35)';
-    const bridgeTint = 'rgba(20, 40, 70, 0.55)';
-    reflectionCtx.fillStyle = reflectionState.bridgeType === 'none' ? baseTint : bridgeTint;
-    reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
-    reflectionCtx.globalCompositeOperation = 'source-over';
-
-    // Apply mask
-    reflectionCtx.globalCompositeOperation = 'destination-in';
-    reflectionCtx.drawImage(maskCanvas, 0, 0);
-    reflectionCtx.globalCompositeOperation = 'source-over';
-
-    // Draw to main canvas with shimmer effect (water only - ice is still)
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-
-    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
-    // which disables affine mode, so ice reflections don't wobble
-    if (reflectionState.reflectionType === 'water') {
-      const shimmer = getGlobalShimmer();
-      const matrixNum: 0 | 1 = frame.flip ? 1 : 0;
-      const scaleX = shimmer.getScaleX(matrixNum);
-
-      // Apply GBA-style affine transformation with nearest-neighbor sampling
-      // This creates visible pixel-stepping artifacts like the real GBA
-      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
-      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, scaleX);
-      ctx.drawImage(shimmerCanvas, screenX, screenY);
-    } else {
-      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
-      ctx.drawImage(reflectionCanvas, screenX, screenY);
-    }
-    ctx.restore();
   }
 
   /**
    * Generic reflection rendering for any sprite (player, NPC, etc.)
-   *
-   * This implements the same reflection logic as the GBA:
-   * - Vertically flipped sprite
-   * - Positioned at sprite.y + height - 2 + bridgeOffset
-   * - Blue/ice tint based on reflection type
-   * - Masked to only show on reflective tile pixels (BG1 transparency)
+   * Uses shared buildReflectionMask and renderSpriteReflection from ReflectionRenderer.
    *
    * @param ctx - Canvas context to draw to
    * @param frameInfo - Sprite frame information
@@ -501,119 +371,34 @@ export class ObjectRenderer {
     const { sprite, sx, sy, sw, sh, flip, worldX, worldY } = frameInfo;
 
     // Calculate reflection Y position: sprite bottom - 2 + bridge offset
-    // This matches GBA: GetReflectionVerticalOffset() returns height - 2
     const reflectionWorldY = worldY + sh - 2 + BRIDGE_OFFSETS[reflectionState.bridgeType];
 
-    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
+    // For TILE LOOKUP: Use floored world positions to prevent flickering
     const tileRefX = Math.floor(worldX);
     const tileRefY = Math.floor(reflectionWorldY);
 
-    // For SCREEN RENDERING: Use Math.round() to avoid floating-point precision errors
+    // For SCREEN RENDERING: Use Math.round() for consistent pixel alignment
     const screenX = Math.round(worldX - view.cameraWorldX);
     const screenY = Math.round(reflectionWorldY - view.cameraWorldY);
 
-    // Create mask canvas
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = sw;
-    maskCanvas.height = sh;
-    const maskCtx = maskCanvas.getContext('2d');
-    if (!maskCtx) return;
-    const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
-    const maskData = maskImage.data;
+    // Create provider callback for RenderContext-based tile lookup
+    const provider: ReflectionMetaProvider = (x, y) => getMetatileBehavior(renderContext, x, y);
 
-    // Build reflection mask from reflective tiles
-    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
-    const pixelEndTileX = Math.floor((tileRefX + sw - 1) / METATILE_SIZE);
-    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
-    const pixelEndTileY = Math.floor((tileRefY + sh - 1) / METATILE_SIZE);
+    // Build mask using shared function
+    const maskCanvas = buildReflectionMask(provider, tileRefX, tileRefY, sw, sh);
 
-    // Expand range by 1 tile to catch tiles at boundaries during movement
-    const startTileX = pixelStartTileX - 1;
-    const endTileX = pixelEndTileX + 1;
-    const startTileY = pixelStartTileY;
-    const endTileY = pixelEndTileY + 1;
-
-    let maskPixelsSet = 0;
-
-    for (let ty = startTileY; ty <= endTileY; ty++) {
-      for (let tx = startTileX; tx <= endTileX; tx++) {
-        const info = getMetatileBehavior(renderContext, tx, ty);
-        if (!info?.meta?.isReflective) continue;
-        const mask = info.meta.pixelMask;
-        const tileLeft = tx * METATILE_SIZE - tileRefX;
-        const tileTop = ty * METATILE_SIZE - tileRefY;
-        for (let y = 0; y < METATILE_SIZE; y++) {
-          const globalY = tileTop + y;
-          if (globalY < 0 || globalY >= sh) continue;
-          for (let x = 0; x < METATILE_SIZE; x++) {
-            const globalX = tileLeft + x;
-            if (globalX < 0 || globalX >= sw) continue;
-            if (mask[y * METATILE_SIZE + x]) {
-              const index = (globalY * sw + globalX) * 4 + 3;
-              maskData[index] = 255;
-              maskPixelsSet++;
-            }
-          }
-        }
-      }
-    }
-
-    // Skip rendering if no mask pixels (nothing to show)
-    if (maskPixelsSet === 0) return;
-
-    maskCtx.putImageData(maskImage, 0, 0);
-
-    // Create reflection canvas (flipped sprite)
-    const reflectionCanvas = document.createElement('canvas');
-    reflectionCanvas.width = sw;
-    reflectionCanvas.height = sh;
-    const reflectionCtx = reflectionCanvas.getContext('2d');
-    if (!reflectionCtx) return;
-    reflectionCtx.clearRect(0, 0, sw, sh);
-    reflectionCtx.save();
-    reflectionCtx.translate(flip ? sw : 0, sh);
-    reflectionCtx.scale(flip ? -1 : 1, -1);
-    reflectionCtx.drawImage(sprite, sx, sy, sw, sh, 0, 0, sw, sh);
-    reflectionCtx.restore();
-
-    // Apply tint
-    reflectionCtx.globalCompositeOperation = 'source-atop';
-    const baseTint =
-      reflectionState.reflectionType === 'ice'
-        ? 'rgba(180, 220, 255, 0.35)'
-        : 'rgba(70, 120, 200, 0.35)';
-    const bridgeTint = 'rgba(20, 40, 70, 0.55)';
-    reflectionCtx.fillStyle = reflectionState.bridgeType === 'none' ? baseTint : bridgeTint;
-    reflectionCtx.fillRect(0, 0, sw, sh);
-    reflectionCtx.globalCompositeOperation = 'source-over';
-
-    // Apply mask
-    reflectionCtx.globalCompositeOperation = 'destination-in';
-    reflectionCtx.drawImage(maskCanvas, 0, 0);
-    reflectionCtx.globalCompositeOperation = 'source-over';
-
-    // Draw to main canvas with shimmer effect (water only - ice is still)
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = reflectionState.bridgeType === 'none' ? 0.65 : 0.6;
-
-    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
-    // which disables affine mode, so ice reflections don't wobble
-    if (reflectionState.reflectionType === 'water') {
-      const objShimmer = getGlobalShimmer();
-      const objMatrixNum: 0 | 1 = flip ? 1 : 0;
-      const objScaleX = objShimmer.getScaleX(objMatrixNum);
-
-      // Apply GBA-style affine transformation with nearest-neighbor sampling
-      // This creates visible pixel-stepping artifacts like the real GBA
-      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
-      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, objScaleX);
-      ctx.drawImage(shimmerCanvas, screenX, screenY);
-    } else {
-      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
-      ctx.drawImage(reflectionCanvas, screenX, screenY);
-    }
-    ctx.restore();
+    // Render using shared function (uses GBA-accurate tints and shimmer)
+    // Note: NPCs use 'down' direction for shimmer matrix selection
+    renderSpriteReflection(
+      ctx,
+      sprite,
+      sx, sy, sw, sh,
+      flip,
+      screenX, screenY,
+      reflectionState,
+      maskCanvas,
+      'down'
+    );
   }
 
   /**

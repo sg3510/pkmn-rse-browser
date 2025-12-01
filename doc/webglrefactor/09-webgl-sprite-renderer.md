@@ -1,0 +1,1279 @@
+# 09 - Unified WebGL Sprite Renderer
+
+This document outlines the plan for implementing a unified WebGL sprite renderer to eliminate the hybrid Canvas2D/WebGL rendering approach and achieve full GPU-accelerated rendering.
+
+## Related Documentation
+
+### Our Implementation
+- **`doc/reflect/reflection-parity-plan.md`** - Comprehensive reflection system documentation (masking, bridge offsets, layer semantics)
+- **`doc/reflect/shimmer.md`** - Detailed shimmer/distortion investigation with GBA code analysis
+- **`src/field/ReflectionShimmer.ts`** - GBA-accurate shimmer animation (48-frame loop, affine math)
+- **`src/field/ReflectionRenderer.ts`** - Reflection rendering utilities, `applyGbaAffineShimmer()`
+
+### GBA Source Code References (pokeemerald)
+- **`public/pokeemerald/src/data/field_effects/field_effect_objects.h`** (lines 849-892)
+  - `sAffineAnim_ReflectionDistortion_0` / `sAffineAnim_ReflectionDistortion_1` - The affine animation sequences
+  - `gFieldEffectObjectTemplate_ReflectionDistortion` - Template for invisible distortion sprites
+- **`public/pokeemerald/src/event_object_movement.c`** (lines ~1207-1219)
+  - `CreateReflectionEffectSprites()` - Spawns the two invisible distortion sprites at reset
+  - `ObjectEventGetNearbyReflectionType()` - Detection logic for water/ice
+- **`public/pokeemerald/src/field_effect_helpers.c`**
+  - `SetUpReflection()` / `UpdateObjectReflectionSprite()` - Reflection sprite creation/update
+  - `LoadObjectReflectionPalette()` / `LoadObjectHighBridgeReflectionPalette()` - Palette handling
+
+## Table of Contents
+
+1. [Problem Statement](#problem-statement)
+2. [Current Architecture](#current-architecture)
+3. [Proposed Architecture](#proposed-architecture)
+4. [Modularity Goals](#modularity-goals)
+5. [Component Design](#component-design)
+6. [Shader Design](#shader-design)
+7. [Implementation Phases](#implementation-phases)
+8. [Detailed Checklist](#detailed-checklist)
+9. [Risk Assessment](#risk-assessment)
+
+---
+
+## Modularity Goals
+
+**Long-term goal:** Merge `src/pages/WebGLMapPage.tsx` and `src/components/MapRenderer.tsx` by separating renderer from game loop.
+
+### Existing Architecture to Leverage
+
+| File | Purpose |
+|------|---------|
+| `src/rendering/IRenderPipeline.ts` | Interface for tile renderers (Canvas2D/WebGL) |
+| `src/rendering/RenderPipelineFactory.ts` | Factory with automatic fallback |
+| `src/rendering/types.ts` | React-free shared types |
+
+### New Interfaces to Create
+
+```typescript
+// src/rendering/ISpriteRenderer.ts
+interface ISpriteRenderer {
+  readonly rendererType: 'canvas2d' | 'webgl';
+
+  // Upload sprite sheet to renderer
+  uploadSpriteSheet(name: string, source: HTMLCanvasElement | ImageData): void;
+
+  // Render a batch of sprites (sorted by caller)
+  renderBatch(sprites: SpriteInstance[], view: WorldCameraView): void;
+
+  // For reflections - set water mask
+  setWaterMask?(maskData: Uint8Array, width: number, height: number): void;
+
+  // Cleanup
+  dispose(): void;
+}
+
+// src/rendering/types.ts (add to existing)
+interface SpriteInstance {
+  // Position in world pixels
+  worldX: number;
+  worldY: number;
+
+  // Sprite dimensions
+  width: number;
+  height: number;
+
+  // Atlas region
+  atlasName: string;
+  atlasX: number;
+  atlasY: number;
+  atlasWidth: number;
+  atlasHeight: number;
+
+  // Transform
+  flipX: boolean;
+  flipY: boolean;
+
+  // Appearance
+  alpha: number;
+  tintR: number;
+  tintG: number;
+  tintB: number;
+
+  // Sorting
+  sortKey: number;  // Y + subpriority
+
+  // Flags
+  isReflection: boolean;
+  shimmerScale?: number;  // Only for water reflections
+}
+```
+
+### Integration Path
+
+```
+Phase 1-2: WebGLSpriteRenderer (standalone, WebGLMapPage only)
+    ↓
+Phase 3: Create ISpriteRenderer interface
+    ↓
+Phase 4: Canvas2DSpriteRenderer implements ISpriteRenderer
+    ↓
+Phase 5: Add sprites to IRenderPipeline
+    ↓
+Future: Unified GameRenderer using IRenderPipeline + ISpriteRenderer
+         ← Both MapRenderer and WebGLMapPage can use this
+```
+
+### Key Design Principles
+
+1. **Renderer-agnostic data:** `SpriteInstance` contains no WebGL/Canvas2D specifics
+2. **No React in rendering code:** All rendering logic in `src/rendering/`
+3. **Interface-first:** Define `ISpriteRenderer` before Canvas2D implementation
+4. **Shared types:** Add sprite types to `src/rendering/types.ts`
+5. **Factory pattern:** Eventually `SpriteRendererFactory` like `RenderPipelineFactory`
+6. **REUSE EXISTING COMPONENTS:** Never duplicate logic - use what's already built in `src/`
+
+### Components to Reuse (NOT Duplicate)
+
+| Existing Component | Reuse For |
+|-------------------|-----------|
+| `WebGLContext` | GL context management, shader compilation |
+| `WebGLTextureManager` | Texture upload patterns (adapt for sprites) |
+| `WebGLBufferManager` | Buffer management patterns |
+| `ReflectionShimmer` | Shimmer animation state (already renderer-agnostic) |
+| `ReflectionRenderer` | Tint colors, offsets, `applyGbaAffineShimmer()` |
+| `WebGLShaders` | Shader compilation helpers |
+
+---
+
+## GBA Architecture Analysis (Key Insights from pokeemerald)
+
+After thorough analysis of the GBA source code, several key insights significantly simplify our approach:
+
+### GBA Hardware Constraints (For Reference)
+
+| Resource | GBA Limit | Our WebGL Equivalent |
+|----------|-----------|---------------------|
+| OAM entries | 128 (64 active sprites) | Unlimited (GPU instancing) |
+| Sprite tiles | 1024 (32KB VRAM) | 2048x2048 texture atlas (~16MB) |
+| Palettes | 16 slots × 16 colors | Unlimited (direct RGBA) |
+| Affine matrices | 32 | Unlimited (per-instance) |
+
+### Key GBA Patterns We Should Adopt
+
+#### 1. Reflection as Separate Sprite (GBA vs Our Implementation)
+
+**GBA Approach** (`field_effect_helpers.c:SetUpReflection`):
+```c
+// Reflection is a COPY of the sprite with modified properties
+reflectionSprite = CreateCopySpriteAt(sprite, x, y, subpriority=152);
+reflectionSprite->oam.paletteNum = gReflectionEffectPaletteMap[paletteNum];
+reflectionSprite->oam.affineMode = ST_OAM_AFFINE_NORMAL;  // For V-flip
+```
+
+**What actually clips reflections on GBA (not binary!)**
+- The reflection sprite is OAM priority 3 (lowest) and sits **behind BG1**. Any non-empty BG1 tile hides the reflection; blank/transparent pixels let it show.
+- Edge/puddle metatiles bake the “mask” into BG1: ground art on the top layer, water on the bottom layer.
+- Evidence from `public/pokeemerald/data/tilesets/primary/general/metatiles.bin` (8×16‑bit entries per metatile):
+  - Metatile **177** → bottom `[270,270,286,286]` (all water), top `[110,109,0,0]`. Top row is land (tiles 110/109), bottom row is blank → reflection only shows in the lower 8px row.
+  - Metatile **200** → bottom `[286,286,286,286]`, top `[253,254,269,0]`. Three quadrants of land occlude the reflection; only the bottom‑right quadrant is exposed.
+  - Metatile **202** → bottom `[286×4]`, top `[302(yflip),253(xflip),0,285(xflip)]`. Mixed shoreline pieces leave just one quadrant open.
+- Puddles and shoreline tiles achieve “partial reflection” entirely through these BG1 overlays—there **is** per-quadrant (and sometimes per-pixel, if the overlay tile has transparent pixels) clipping on hardware.
+
+**Why WE still need an explicit per-pixel mask:**
+| Feature | GBA | Our Implementation |
+|---------|-----|-------------------|
+| Character position | Tile-aligned (16px grid) | Sub-pixel precision |
+| Movement | Discrete tile steps | Smooth continuous |
+| BG1 clipping | Coarse (8×8 overlay + transparent pixels) | Must replicate, plus handle mid-tile overlap |
+| Water/ground overlap while moving | Never sampled | Common; reflection spans water + land in one frame |
+
+Without a mask, smooth movement leaks reflection onto ground and ignores the BG1 holes that the GBA uses to carve puddles/shorelines. Our mask reproduces the BG1 overlay behavior **and** handles sub-tile movement.
+
+#### 2. Bitmap-Based Tile Allocation
+
+**GBA Approach** (`sprite.c`):
+```c
+// 128-byte bitmap tracks 1024 tile slots
+static u8 sSpriteTileAllocBitmap[128];
+
+#define ALLOC_SPRITE_TILE(n) (sSpriteTileAllocBitmap[(n) / 8] |= (1 << ((n) % 8)))
+#define FREE_SPRITE_TILE(n)  (sSpriteTileAllocBitmap[(n) / 8] &= ~(1 << ((n) % 8)))
+
+// First-fit contiguous allocation
+s16 AllocSpriteTiles(u16 tileCount) {
+    // Scan bitmap for first contiguous run of free tiles
+}
+```
+
+**Our approach:** Use similar bitmap for texture atlas region allocation, but we have 2048×2048 pixels vs 1024 tiles.
+
+#### 3. Sheet-Based vs Individual Frame Loading
+
+**GBA has two sprite modes:**
+1. **Sheet-based** (`usingSheet=true`): All frames pre-loaded, animation changes tile offset
+2. **Individual frames** (`usingSheet=false`): DMA copy each frame on demand
+
+**Our approach:** Always use sheet-based (pre-load entire sprite sheet to atlas). We have enough VRAM.
+
+#### 4. OAM Buffer + Sort + Single Upload
+
+**GBA Pipeline** (`sprite.c:BuildOamBuffer`):
+```c
+1. UpdateOamCoords()        // Calculate screen positions
+2. BuildSpritePriorities()  // Pack priority values
+3. SortSprites()            // Insertion sort by priority
+4. AddSpritesToOamBuffer()  // Build final buffer
+5. LoadOam()                // Single DMA to hardware
+```
+
+**Our approach:** Same pattern!
+1. Build sprite instance array
+2. Sort by Y-position + subpriority
+3. Upload to GPU buffer
+4. Single instanced draw call
+
+#### 5. Reflection Palette Remapping
+
+**GBA uses palette slots** (`event_object_movement.c`):
+```c
+const u8 gReflectionEffectPaletteMap[16] = {
+    [PALSLOT_PLAYER] = PALSLOT_PLAYER_REFLECTION,
+    // Each sprite type has a corresponding reflection palette
+};
+```
+
+**Our approach:** Pass tint color as uniform/instance data instead of palette remapping:
+- Normal sprite: `colorMod = (1.0, 1.0, 1.0, 1.0)`
+- Water reflection: `colorMod = (0.27, 0.47, 0.78, 0.65)` (blue tint + alpha)
+- Ice reflection: `colorMod = (0.7, 0.86, 1.0, 0.65)` (white-blue tint)
+- Bridge reflection: `colorMod = (0.29, 0.45, 0.67, 0.6)` (solid dark blue)
+
+### Revised Reflection Strategy (Corrected After Deep Investigation)
+
+**⚠️ CORRECTION (updated with metatile evidence):** We must keep per-pixel masking. The GBA achieves partial reflections via BG1 overlays; we need a texture mask to mirror those holes and to cover our smooth sub-tile motion.
+
+**Updated Phase 4 Plan:**
+
+**Phase 4a - Basic reflection (GBA-parity for tile-aligned positions):**
+- Reflection as sprite instance with V-flip + tint
+- Tile-based visibility check (show if standing tile is reflective)
+- Fast, simple, matches GBA behavior for stationary characters
+
+**Phase 4b - Per-pixel masking (required for smooth movement):**
+- Build mask texture from water tiles' pixelMask data
+- Sample mask in fragment shader
+- Discard non-water pixels
+- **This is what we already have in Canvas2D - must port to WebGL**
+
+The GBA relies on BG1 overlays to carve the holes; we need the mask to mirror that behavior **and** to handle continuous movement that crosses tile boundaries.
+
+---
+
+## ⚠️ Critical Investigation Findings (Updated After Code Analysis)
+
+### 1. NO STENCIL BUFFER - Critical Blocker for Phase 4
+
+**Location:** `src/rendering/webgl/WebGLContext.ts:41-48`
+
+```typescript
+const gl = this.canvas.getContext('webgl2', {
+  stencil: false,  // ⚠️ STENCIL DISABLED!
+  depth: false,
+  // ...
+});
+```
+
+**Impact:** The original plan for stencil-based reflection masking WILL NOT WORK without modifying `WebGLContext`.
+
+**Options:**
+1. **Modify WebGLContext** to enable stencil buffer (adds ~4MB GPU memory for 1080p)
+2. **Texture-based masking** - render mask to texture, sample in fragment shader
+3. **Hybrid approach** - keep Canvas2D for reflections only (defeats full unification)
+
+**Recommendation:** Option 2 (texture-based masking) for Phase 4. No stencil needed.
+
+### 2. Texture Units Already Allocated
+
+**Location:** `src/rendering/webgl/WebGLTextureManager.ts:392-428`
+
+Current allocation:
+- Unit 0: Primary tileset (pair 0)
+- Unit 1: Secondary tileset (pair 0)
+- Unit 2: Palette (pair 0)
+- Unit 3: Primary tileset (pair 1)
+- Unit 4: Secondary tileset (pair 1)
+- Unit 5: Palette (pair 1)
+
+**Available:** Units 6-15 (minimum 16 units guaranteed by WebGL2)
+
+**Plan:** Use Unit 6 for sprite atlas, Unit 7 for reflection mask texture (if needed)
+
+### 3. Shimmer Effect - PIXEL-PERFECT GBA PARITY REQUIRED
+
+**Our Implementation:**
+- `src/field/ReflectionShimmer.ts` - GBA-accurate affine animation
+- `src/field/ReflectionRenderer.ts` - `applyGbaAffineShimmer()` per-pixel transform
+
+**Documentation:** See `doc/reflect/shimmer.md` for detailed GBA code analysis.
+
+**GBA C Source (for reference during implementation):**
+- `public/pokeemerald/src/data/field_effects/field_effect_objects.h` (lines 849-892)
+  - `sAffineAnim_ReflectionDistortion_0/1` - The 48-frame affine sequences
+- `public/pokeemerald/src/field_effect_helpers.c`
+  - `SetUpReflection()` - Sets `affineMode = ST_OAM_AFFINE_NORMAL` for water (shimmer ON)
+  - Ice uses `stillReflection = TRUE` → no affine mode → no shimmer
+
+The GBA shimmer effect uses:
+- 48-frame loop (~0.8 seconds at 59.73 Hz)
+- X-scale varies ±1.56% (0.984375 to 1.015625)
+- **Per-pixel nearest-neighbor sampling** (GBA affine hardware)
+- Different matrix for east-facing sprites (matrix 1 vs matrix 0)
+- ONLY applied to water reflections, NOT ice
+
+**⚠️ NO COMPROMISE - GBA achieved this on a 16.78 MHz CPU. We MUST match it exactly.**
+
+**Current Canvas2D Implementation (REFERENCE):**
+```typescript
+// applyGbaAffineShimmer() in ReflectionShimmer.ts - PIXEL PERFECT
+for (let dstX = 0; dstX < w; dstX++) {
+  // Centered inverse transform: sample source at ((x - cx) / scale) + cx
+  const srcXf = centerX + (dstX - centerX) * invScale;
+  const srcX = Math.floor(srcXf);  // Nearest-neighbor (floor, not round!)
+  // ... copy pixel
+}
+```
+
+**WebGL Implementation (MUST MATCH):**
+```glsl
+// Fragment shader - per-pixel affine transform with nearest-neighbor
+uniform float u_shimmerScale;
+uniform vec2 u_spriteCenter;  // Center of sprite in texture coords
+
+void main() {
+  // Inverse affine transform (same math as applyGbaAffineShimmer)
+  float invScale = 1.0 / u_shimmerScale;
+  vec2 centered = v_texCoord - u_spriteCenter;
+  centered.x *= invScale;
+  vec2 srcCoord = centered + u_spriteCenter;
+
+  // Nearest-neighbor sampling (critical for GBA parity!)
+  // Use texelFetch or floor() to pixel coordinates, NOT texture() interpolation
+  ivec2 texelCoord = ivec2(floor(srcCoord * u_atlasSize));
+  vec4 texColor = texelFetch(u_spriteAtlas, texelCoord, 0);
+  // ...
+}
+```
+
+**Why vertex shader scaling is WRONG:**
+- Vertex scaling changes quad corners, then GPU interpolates → linear interpolation
+- GBA does per-pixel inverse transform with floor() → nearest-neighbor
+- Visual difference: vertex scaling is smooth, GBA shimmer has discrete pixel "jumps"
+
+**Validation:** Compare WebGL shimmer against Canvas2D `applyGbaAffineShimmer()` frame-by-frame. They MUST be identical.
+
+### 4. Reflection Mask Building
+
+**Location:** `src/field/ReflectionRenderer.ts:364-419`
+
+`buildReflectionMask()` iterates through tiles and reads `pixelMask` data (16x16 Uint8Array per tile) to build a per-pixel mask.
+
+**For WebGL:**
+1. Pre-compute visible water tile positions
+2. Upload pixelMask data to mask texture (or generate from tile data)
+3. Sample mask texture in fragment shader to discard non-water pixels
+
+### 5. Long Grass Clipping
+
+**Location:** `src/game/PlayerController.ts` (render method)
+
+When in long grass, bottom 50% of sprite is clipped.
+
+**WebGL Solution:** Use `gl.scissor()` test - simpler than shader-based clipping:
+```typescript
+gl.enable(gl.SCISSOR_TEST);
+gl.scissor(x, y, width, height / 2);  // Clip bottom half
+// render sprite
+gl.disable(gl.SCISSOR_TEST);
+```
+
+### 6. Player Sprite Dimensions
+
+- Normal: 16×32 pixels (walking, running)
+- Surfing: 32×32 pixels
+- Jump: uses `spriteYOffset` for arc
+- Source: HTMLCanvasElement with RGBA (transparency pre-processed)
+
+---
+
+## Problem Statement
+
+### Current Hybrid Rendering Issues
+
+The current WebGL implementation renders tiles via GPU but sprites via Canvas2D, requiring **3 GPU→CPU→GPU round trips per frame**:
+
+```
+Current Frame Pipeline:
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. GPU: Render Background tiles to framebuffer                           │
+│ 2. GPU: Render TopBelow tiles to framebuffer                             │
+│ 3. GPU→CPU: Copy TopBelow framebuffer to 2D canvas  ← EXPENSIVE          │
+│ 4. CPU: 2D Canvas renders door animations                                │
+│ 5. CPU: 2D Canvas renders player reflection (per-pixel masking)          │
+│ 6. CPU: 2D Canvas renders field effects (bottom layer)                   │
+│ 7. CPU: 2D Canvas renders player sprite                                  │
+│ 8. CPU: 2D Canvas renders field effects (top layer)                      │
+│ 9. GPU→CPU: Copy TopAbove framebuffer to 2D canvas  ← EXPENSIVE          │
+│10. CPU: 2D Canvas renders fade overlay                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Performance impact:**
+- `drawImage()` from WebGL canvas forces GPU sync
+- Each composite blocks until GPU finishes rendering
+- Can't batch sprites with tiles
+- Prevents future GPU effects (weather, time-of-day, shaders)
+
+### What's Currently NOT in WebGL
+
+| Component | Current Renderer | Instances/Frame | Notes |
+|-----------|-----------------|-----------------|-------|
+| Map tiles | WebGL (instanced) | 300-600 | ✅ Already optimized |
+| Player sprite | Canvas2D | 1 | Simple drawImage |
+| Player reflection | Canvas2D | 0-1 | Per-pixel water masking |
+| NPC sprites | Canvas2D | 0-10 | Y-sorted with player |
+| Field effects | Canvas2D | 5-20 | Grass, sand, ripples |
+| Door animations | Canvas2D | 0-2 | Temporary overlays |
+| Arrow overlay | Canvas2D | 0-1 | Warp indicator |
+| Fade overlay | Canvas2D | 0-1 | Fullscreen rect |
+
+---
+
+## Current Architecture
+
+### Render Order (WebGLMapPage.tsx:830-974)
+
+```typescript
+// 1-2. WebGL tile passes
+pipeline.render(ctx, view, playerElevation, options);
+
+// 3. Composite background + topBelow
+pipeline.compositeBackgroundOnly(ctx2d, view);
+pipeline.compositeTopBelowOnly(ctx2d, view);    // GPU→CPU copy #1
+
+// 4-8. Canvas2D sprite rendering
+doorAnimations.render(ctx2d, view, nowTime);
+renderPlayerReflection(ctx2d, player, reflectionState, ...);
+ObjectRenderer.renderFieldEffects(ctx2d, effects, sprites, view, playerWorldY, 'bottom');
+player.render(ctx2d, cameraX, cameraY);
+ObjectRenderer.renderFieldEffects(ctx2d, effects, sprites, view, playerWorldY, 'top');
+
+// 9. Composite topAbove
+pipeline.compositeTopAbove(ctx2d, view);        // GPU→CPU copy #2
+
+// 10. Fade overlay
+fade.render(ctx2d, viewportWidth, viewportHeight, nowTime);
+```
+
+### Elevation/Priority System
+
+The `ElevationFilter` class splits the top layer based on player elevation:
+
+```typescript
+// Player elevation 3 (under bridge): all top tiles render ABOVE player
+// Player elevation 4 (on bridge): bridge tiles render BELOW, ground ABOVE
+
+createFilter(playerElevation) {
+  const playerPriority = getSpritePriorityForElevation(playerElevation);
+  const playerAboveTopLayer = playerPriority <= 1;
+
+  return {
+    below: (tile) => playerAboveTopLayer && !(sameElevation && blocked),
+    above: (tile) => !playerAboveTopLayer || (sameElevation && blocked)
+  };
+}
+```
+
+This must be preserved in the WebGL implementation.
+
+---
+
+## Proposed Architecture
+
+### New Render Order (Single GPU Pipeline)
+
+```
+Proposed Frame Pipeline:
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. GPU: Render Background tiles to combined framebuffer                  │
+│ 2. GPU: Render TopBelow tiles to combined framebuffer                    │
+│ 3. GPU: Render sprites to combined framebuffer (single batch, Y-sorted)  │
+│    ├── Reflections (with texture-based water pixel masking)              │
+│    ├── Field effects (subpriority < player)                              │
+│    ├── Player + NPCs (Y-sorted)                                          │
+│    ├── Field effects (subpriority >= player)                             │
+│    └── Door animations, arrow overlays                                   │
+│ 4. GPU: Render TopAbove tiles to combined framebuffer                    │
+│ 5. GPU: Render fade overlay (fullscreen quad with alpha)                 │
+│ 6. GPU→CPU: Single composite to screen canvas                            │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- **1 composite vs 3** - eliminates 2 GPU sync points
+- **Unified Z-sorting** - all sprites sorted in single pass
+- **GPU effects** - reflections, weather, time-of-day possible
+- **Simpler code** - one pipeline, not hybrid
+
+### Component Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         WebGLRenderPipeline                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│  WebGLTileRenderer          │  WebGLSpriteRenderer (NEW)                │
+│  ├── TileInstanceBuilder    │  ├── SpriteInstanceBuilder               │
+│  ├── Tile shaders           │  ├── Sprite shaders                      │
+│  └── Tileset textures       │  ├── Sprite texture atlas                │
+│                             │  └── Reflection mask texture             │
+├─────────────────────────────────────────────────────────────────────────┤
+│  WebGLFramebufferManager    │  WebGLTextureManager                      │
+│  └── Combined framebuffer   │  └── Sprite atlas management             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Design
+
+### 1. WebGLSpriteRenderer
+
+**Location:** `src/rendering/webgl/WebGLSpriteRenderer.ts`
+
+**Responsibilities:**
+- Compile and manage sprite shaders
+- Upload sprite textures to GPU
+- Render sprite batches with instancing
+- Handle sprite flipping (xflip, yflip)
+- Support per-sprite alpha/tint for reflections
+
+```typescript
+interface SpriteInstance {
+  x: number;           // Screen X position
+  y: number;           // Screen Y position
+  width: number;       // Sprite width (8, 16, 32, etc.)
+  height: number;      // Sprite height
+  atlasX: number;      // X offset in texture atlas
+  atlasY: number;      // Y offset in texture atlas
+  flipX: boolean;      // Horizontal flip
+  flipY: boolean;      // Vertical flip (for reflections)
+  alpha: number;       // Opacity (1.0 normal, 0.5 for reflections)
+  tintR: number;       // Tint red (for water/ice reflections)
+  tintG: number;       // Tint green
+  tintB: number;       // Tint blue
+  sortKey: number;     // Y-position + subpriority for sorting
+}
+
+class WebGLSpriteRenderer {
+  initialize(): void;
+  uploadSpriteAtlas(name: string, imageData: ImageData, width: number, height: number): void;
+  renderBatch(sprites: SpriteInstance[], viewportWidth: number, viewportHeight: number): void;
+  dispose(): void;
+}
+```
+
+### 2. SpriteInstanceBuilder
+
+**Location:** `src/rendering/webgl/SpriteInstanceBuilder.ts`
+
+**Responsibilities:**
+- Build sprite instance arrays from game state
+- Sort sprites by Y-position + subpriority
+- Pack sprite data for GPU upload
+
+```typescript
+class SpriteInstanceBuilder {
+  private instances: SpriteInstance[] = [];
+
+  clear(): void;
+
+  addPlayer(player: PlayerController, cameraX: number, cameraY: number): void;
+  addNPCs(npcs: NPCController[], cameraX: number, cameraY: number): void;
+  addFieldEffects(effects: FieldEffectForRendering[], sprites: SpriteAtlasInfo): void;
+  addDoorAnimations(doors: DoorAnimation[], cameraX: number, cameraY: number): void;
+  addReflection(sprite: SpriteInstance, reflectionType: 'water' | 'ice'): void;
+
+  // Sort by sortKey and return packed Float32Array
+  buildAndSort(): Float32Array;
+}
+```
+
+### 3. WebGLSpriteAtlas
+
+**Location:** `src/rendering/webgl/WebGLSpriteAtlas.ts`
+
+**Responsibilities:**
+- Pack multiple sprite sheets into a single texture atlas
+- Track sprite locations within atlas
+- Support dynamic atlas updates (door animation frames)
+
+```typescript
+interface AtlasRegion {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  frameWidth: number;   // For animated sprites
+  frameHeight: number;
+  frameCount: number;
+}
+
+class WebGLSpriteAtlas {
+  private gl: WebGL2RenderingContext;
+  private texture: WebGLTexture;
+  private regions: Map<string, AtlasRegion>;
+
+  constructor(gl: WebGL2RenderingContext, maxSize: number);
+
+  addSprite(name: string, canvas: HTMLCanvasElement, frameWidth?: number, frameHeight?: number): AtlasRegion;
+  getRegion(name: string): AtlasRegion | undefined;
+  getTexture(): WebGLTexture;
+
+  dispose(): void;
+}
+```
+
+### 4. WebGLWaterMask (Unified Water-Surface Masking)
+
+**Location:** `src/rendering/webgl/WebGLWaterMask.ts`
+
+**Responsibilities:**
+- Build per-pixel water mask texture from tile `pixelMask` data
+- Upload mask to GPU as R8 texture (texture unit 7)
+- Track dirty state and rebuild when camera moves
+- **Used by ALL water-surface effects, not just reflections**
+
+**Why texture-based masking (not stencil):**
+1. WebGLContext has `stencil: false` - no stencil buffer available
+2. Texture masking is more flexible and doesn't require context recreation
+3. GBA uses BG1 overlay transparency for masking; we replicate this with a mask texture
+
+**How GBA does it (for reference):**
+- **ALL sprites at OAM priority 3** render behind BG1 layer
+- Shoreline metatiles have BG1 overlay with transparent pixels on water, opaque on ground
+- BG1 naturally occludes **any** priority-3 sprite on ground pixels
+- This includes: reflections, puddle splashes, water ripples
+
+**Sprites that need water masking (OAM priority 3 on GBA):**
+| Effect | GBA Priority | Needs Mask |
+|--------|-------------|------------|
+| Player/NPC reflection | 3 | ✅ Yes |
+| Puddle splash | 3 | ✅ Yes |
+| Water ripple | 3 | ✅ Yes |
+| Grass rustling | 1-2 | ❌ No |
+| Sand footprints | 1-2 | ❌ No |
+
+**Our approach:**
+- Build mask texture from each metatile's `pixelMask` (water=1, ground=0)
+- Sample mask in fragment shader for any water-surface sprite
+- Discard pixels where mask < 0.5
+
+```typescript
+class WebGLWaterMask {
+  private maskTexture: WebGLTexture;
+  private dirty: boolean = true;
+
+  // Build mask from visible water tiles' pixelMask data
+  buildMaskTexture(
+    visibleTiles: Array<{x: number, y: number, pixelMask: Uint8Array}>,
+    viewportWidth: number,
+    viewportHeight: number
+  ): void;
+
+  // Upload to GPU
+  uploadMaskTexture(gl: WebGL2RenderingContext, textureUnit: number): void;
+
+  // Mark dirty when camera moves
+  invalidate(): void;
+
+  // Check if a sprite type needs water masking
+  static needsWaterMask(spriteType: SpriteType): boolean {
+    return spriteType === 'reflection'
+        || spriteType === 'puddle_splash'
+        || spriteType === 'water_ripple';
+  }
+}
+```
+
+---
+
+## Shader Design
+
+### Sprite Vertex Shader
+
+```glsl
+#version 300 es
+precision highp float;
+
+// Per-vertex (quad corners)
+in vec2 a_position;  // (0,0), (1,0), (0,1), (1,1)
+
+// Per-instance
+in vec4 a_spriteRect;    // x, y, width, height (screen coords)
+in vec4 a_atlasRect;     // x, y, width, height (atlas coords, normalized)
+in vec4 a_colorMod;      // r, g, b, a (tint + alpha)
+in float a_flags;        // packed: flipX, flipY
+
+uniform vec2 u_viewportSize;
+uniform vec2 u_atlasSize;
+
+out vec2 v_texCoord;
+out vec4 v_colorMod;
+
+void main() {
+  // Unpack flags
+  float flagsVal = floor(a_flags);
+  bool flipX = mod(flagsVal, 2.0) > 0.5;
+  bool flipY = mod(floor(flagsVal / 2.0), 2.0) > 0.5;
+
+  // Calculate vertex position
+  vec2 localPos = a_position;
+  vec2 screenPos = a_spriteRect.xy + localPos * a_spriteRect.zw;
+
+  // Convert to clip space
+  vec2 clipPos = (screenPos / u_viewportSize) * 2.0 - 1.0;
+  clipPos.y = -clipPos.y;
+
+  gl_Position = vec4(clipPos, 0.0, 1.0);
+
+  // Calculate texture coordinates with flip
+  vec2 texCoord = localPos;
+  if (flipX) texCoord.x = 1.0 - texCoord.x;
+  if (flipY) texCoord.y = 1.0 - texCoord.y;
+
+  // Map to atlas region
+  v_texCoord = a_atlasRect.xy + texCoord * a_atlasRect.zw;
+  v_colorMod = a_colorMod;
+}
+```
+
+### Sprite Fragment Shader
+
+```glsl
+#version 300 es
+precision highp float;
+
+in vec2 v_texCoord;
+in vec4 v_colorMod;
+
+uniform sampler2D u_atlas;
+
+out vec4 fragColor;
+
+void main() {
+  vec4 texColor = texture(u_atlas, v_texCoord);
+
+  // Discard transparent pixels
+  if (texColor.a < 0.01) {
+    discard;
+  }
+
+  // Apply tint (multiply RGB) and alpha
+  fragColor = vec4(texColor.rgb * v_colorMod.rgb, texColor.a * v_colorMod.a);
+}
+```
+
+### Reflection Fragment Shader (Water Masking + GBA Shimmer)
+
+For rendering reflections with per-pixel water masking AND pixel-perfect GBA shimmer:
+
+```glsl
+#version 300 es
+precision highp float;
+
+in vec2 v_texCoord;
+in vec4 v_colorMod;
+in vec2 v_atlasRegion;     // xy = atlas region origin (normalized)
+in vec2 v_atlasRegionSize; // Size of sprite in atlas (normalized)
+
+uniform sampler2D u_spriteAtlas;
+uniform sampler2D u_waterMask;  // R8 texture: water=1.0, ground=0.0
+uniform ivec2 u_atlasSize;      // Atlas dimensions in pixels
+
+// Water mask alignment
+uniform vec2 u_maskOffset;
+uniform vec2 u_maskSize;
+
+// Shimmer uniforms (water reflections only, NOT ice)
+uniform float u_shimmerScale;   // 0.984375 to 1.015625 (from ReflectionShimmer)
+uniform bool u_shimmerEnabled;  // false for ice reflections
+
+out vec4 fragColor;
+
+void main() {
+  vec2 sampleCoord = v_texCoord;
+
+  // ========== GBA SHIMMER (PIXEL-PERFECT) ==========
+  // This MUST match applyGbaAffineShimmer() exactly!
+  // GBA uses per-pixel inverse affine transform with floor() for nearest-neighbor
+  if (u_shimmerEnabled && abs(u_shimmerScale - 1.0) > 0.0001) {
+    // Convert to local sprite coordinates (0-1 within sprite)
+    vec2 localCoord = (v_texCoord - v_atlasRegion) / v_atlasRegionSize;
+
+    // Inverse affine transform centered on sprite (same as GBA)
+    float invScale = 1.0 / u_shimmerScale;
+    float centerX = 0.5;
+    localCoord.x = centerX + (localCoord.x - centerX) * invScale;
+
+    // Convert back to atlas coordinates
+    sampleCoord = v_atlasRegion + localCoord * v_atlasRegionSize;
+  }
+
+  // ========== NEAREST-NEIGHBOR SAMPLING (GBA-ACCURATE) ==========
+  // Use texelFetch with floor() - NOT texture() which interpolates!
+  ivec2 texelCoord = ivec2(floor(sampleCoord * vec2(u_atlasSize)));
+
+  // Bounds check (shimmer can push coords outside sprite)
+  ivec2 regionStart = ivec2(v_atlasRegion * vec2(u_atlasSize));
+  ivec2 regionEnd = regionStart + ivec2(v_atlasRegionSize * vec2(u_atlasSize));
+  if (texelCoord.x < regionStart.x || texelCoord.x >= regionEnd.x) {
+    discard;  // Outside sprite bounds after shimmer transform
+  }
+
+  vec4 texColor = texelFetch(u_spriteAtlas, texelCoord, 0);
+
+  // Discard transparent pixels
+  if (texColor.a < 0.01) {
+    discard;
+  }
+
+  // ========== WATER MASK (BG1 OVERLAY REPLICATION) ==========
+  vec2 maskCoord = (gl_FragCoord.xy + u_maskOffset) / u_maskSize;
+  float isWater = texture(u_waterMask, maskCoord).r;
+
+  if (isWater < 0.5) {
+    discard;  // Ground pixel - occluded by BG1
+  }
+
+  // Apply tint and alpha
+  fragColor = vec4(texColor.rgb * v_colorMod.rgb, texColor.a * v_colorMod.a);
+}
+```
+
+**GBA Parity Requirements:**
+1. **Shimmer transform**: Centered inverse scale with `floor()` for nearest-neighbor (NOT linear interpolation)
+2. **Sampling**: `texelFetch()` with integer coordinates (NOT `texture()` which interpolates)
+3. **48-frame loop**: Scale from `ReflectionShimmer.getScaleX(matrixNum)` at 59.73 Hz
+4. **Matrix selection**: Matrix 0 for W/N/S facing, Matrix 1 for E facing (H-flipped sprites)
+5. **Water only**: Shimmer disabled for ice reflections
+
+**Validation**: Frame-by-frame comparison with Canvas2D `applyGbaAffineShimmer()` output. Must be IDENTICAL.
+
+---
+
+## Implementation Phases
+
+### Phase 1: Core Sprite Renderer (~200 lines)
+
+**Goal:** Render player sprite via WebGL
+
+**Files:**
+- `src/rendering/webgl/WebGLSpriteShaders.ts` - Shader source code
+- `src/rendering/webgl/WebGLSpriteRenderer.ts` - Sprite rendering logic
+
+**Tasks:**
+1. Create sprite vertex/fragment shaders
+2. Implement basic sprite batch rendering
+3. Upload player sprite sheet as texture
+4. Render player in correct position (no sorting yet)
+
+**Validation:** Player renders correctly, no visual difference from Canvas2D
+
+### Phase 2: Sprite Atlas + Field Effects (~150 lines)
+
+**Goal:** Render all field effect sprites via WebGL
+
+**Files:**
+- `src/rendering/webgl/WebGLSpriteAtlas.ts` - Texture atlas management
+- `src/rendering/webgl/SpriteInstanceBuilder.ts` - Instance building
+
+**Tasks:**
+1. Create sprite atlas from field effect PNGs
+2. Implement SpriteInstanceBuilder for field effects
+3. Add Y-sorting logic
+4. Render grass, sand, ripples via WebGL
+
+**Validation:** Field effects render correctly with proper Y-sorting
+
+### Phase 3: Unified Render Pipeline (~100 lines)
+
+**Goal:** Single-pass sprite rendering, eliminate hybrid compositing
+
+**Files:**
+- `src/rendering/webgl/WebGLRenderPipeline.ts` - Pipeline modifications
+- `src/pages/WebGLMapPage.tsx` - Render loop changes
+
+**Tasks:**
+1. Modify pipeline to render sprites between tile passes
+2. Remove intermediate `composite*` calls
+3. Single final composite to screen
+4. Add door animations and arrow overlay to sprite batch
+
+**Validation:** 1 composite instead of 3, same visual output
+
+### Phase 4: Reflections (~150 lines)
+
+**Goal:** GPU-accelerated reflection rendering with per-pixel water masking
+
+**⚠️ Key finding:** GBA achieves per-pixel masking via BG1 overlay transparency (shoreline metatiles have opaque ground, transparent water on BG1). We must replicate this with texture masking, plus handle smooth sub-pixel movement.
+
+**Phase 4a - Basic Reflection Sprite (~50 lines):**
+1. Add reflection as sprite instance with `flipY=true`
+2. Calculate Y position: `spriteY + height - 2 + bridgeOffset`
+3. Apply tint via colorMod:
+   - Water: `(0.27, 0.47, 0.78, 0.65)`
+   - Ice: `(0.7, 0.86, 1.0, 0.65)`
+   - Bridge: `(0.29, 0.45, 0.67, 0.6)`
+4. Shimmer via `u_shimmerScale` uniform (water only)
+
+**Phase 4b - Per-Pixel Water Masking (~100 lines):**
+Required for smooth movement - character can be between water/ground tiles.
+
+1. Build mask texture from visible water tiles' `pixelMask` data
+2. Upload mask to texture unit 7 (R8 format)
+3. Add reflection fragment shader variant that samples mask
+4. Discard pixels where mask < 0.5
+
+**Alternative approach:** Use tile-based visibility for stationary, mask only during movement (optimization)
+
+**Validation:**
+- Reflection ONLY appears on water pixels
+- No reflection visible on ground during movement between tiles
+
+### Phase 5: Cleanup + NPC Support (~100 lines)
+
+**Goal:** Remove Canvas2D sprite code, add NPC support
+
+**Tasks:**
+1. Add NPC sprites to sprite atlas
+2. Include NPCs in sprite batch with Y-sorting
+3. Remove `ObjectRenderer` Canvas2D code
+4. Remove hybrid rendering code paths
+
+**Validation:** Full WebGL rendering, no Canvas2D sprite code
+
+---
+
+## Detailed Checklist
+
+### Phase 1: Core Sprite Renderer
+
+- [ ] Create `src/rendering/webgl/WebGLSpriteShaders.ts`
+  - [ ] Define SPRITE_VERTEX_SHADER constant
+  - [ ] Define SPRITE_FRAGMENT_SHADER constant
+  - [ ] Add shader compilation helpers
+
+- [ ] Create `src/rendering/webgl/WebGLSpriteRenderer.ts`
+  - [ ] Constructor takes WebGL2RenderingContext
+  - [ ] `initialize()` - compile shaders, create VAO, create buffers
+  - [ ] `uploadTexture(name, imageData, width, height)` - upload sprite sheet
+  - [ ] `renderSprite(x, y, width, height, atlasRegion, flags)` - render single sprite
+  - [ ] `dispose()` - cleanup GL resources
+
+- [ ] Integrate with WebGLMapPage
+  - [ ] Create sprite renderer instance
+  - [ ] Upload player sprite sheet on load
+  - [ ] Replace `player.render(ctx2d, ...)` with sprite renderer call
+  - [ ] **TEST**: Player renders in correct position
+  - [ ] **TEST**: Player animation frames work
+  - [ ] **TEST**: Player flip (east direction) works
+
+### Phase 2: Sprite Atlas + Field Effects
+
+- [ ] Create `src/rendering/webgl/WebGLSpriteAtlas.ts`
+  - [ ] Constructor with max atlas size (2048x2048)
+  - [ ] `addSprite(name, canvas, frameWidth, frameHeight)` - add sprite to atlas
+  - [ ] `getRegion(name)` - get atlas coordinates
+  - [ ] `getTexture()` - get WebGL texture handle
+  - [ ] `dispose()` - cleanup
+
+- [ ] Create `src/rendering/webgl/SpriteInstanceBuilder.ts`
+  - [ ] `clear()` - reset instance array
+  - [ ] `addSprite(instance: SpriteInstance)` - add to batch
+  - [ ] `addFieldEffect(effect, atlasRegion)` - convert FieldEffectForRendering
+  - [ ] `buildSorted()` - sort by Y and return Float32Array
+
+- [ ] Update WebGLSpriteRenderer for batching
+  - [ ] `renderBatch(instances: Float32Array, count: number)` - instanced draw
+  - [ ] Use instanced attributes for sprite data
+
+- [ ] Integrate field effects
+  - [ ] Load field effect sprites into atlas on init
+  - [ ] Build sprite instances from FieldEffectManager
+  - [ ] Render field effects via sprite renderer
+  - [ ] **TEST**: Grass animates correctly
+  - [ ] **TEST**: Sand footprints show and fade
+  - [ ] **TEST**: Water ripples render on water only
+  - [ ] **TEST**: Y-sorting works (grass behind/in front of player)
+
+### Phase 3: Unified Render Pipeline
+
+- [ ] Modify WebGLRenderPipeline
+  - [ ] Add `renderSprites(sprites: Float32Array)` method
+  - [ ] Render sprites to same framebuffer as tiles (between passes)
+  - [ ] Remove intermediate composite calls
+
+- [ ] Update WebGLMapPage render loop
+  - [ ] Build all sprite instances before render
+  - [ ] Call single `pipeline.renderFrame(view, sprites)` method
+  - [ ] Single composite at end
+  - [ ] **TEST**: Same visual output as hybrid
+  - [ ] **TEST**: Performance improvement (measure composite time)
+
+- [ ] Add door animations to sprite batch
+  - [ ] Convert DoorAnimation to SpriteInstance
+  - [ ] Upload door sprites to atlas
+  - [ ] **TEST**: Door open/close animations work
+
+- [ ] Add arrow overlay to sprite batch
+  - [ ] Convert arrow overlay to SpriteInstance
+  - [ ] **TEST**: Arrow warp indicator animates
+
+### Phase 4a: Basic Reflection Sprite
+
+- [ ] Add reflection support to SpriteInstanceBuilder
+  - [ ] `addReflection(spriteInstance, reflectionState)` method
+  - [ ] Calculate Y position: `spriteY + height - 2 + BRIDGE_OFFSETS[bridgeType]`
+  - [ ] Set `flipY: true`
+  - [ ] Set subpriority to 152 (draws behind main sprite)
+
+- [ ] Implement reflection tinting
+  - [ ] Water tint: `colorMod = (0.27, 0.47, 0.78, 0.65)`
+  - [ ] Ice tint: `colorMod = (0.7, 0.86, 1.0, 0.65)`
+  - [ ] Pond bridge tint: `colorMod = (0.29, 0.45, 0.67, 0.6)` (solid blue)
+  - [ ] Ocean bridge: uses water tint (no special handling)
+
+- [ ] Implement shimmer animation **(PIXEL-PERFECT GBA PARITY REQUIRED)**
+  - [ ] Pass `u_shimmerScale` uniform to reflection fragment shader
+  - [ ] **Fragment shader per-pixel inverse affine transform** (NOT vertex shader!)
+  - [ ] Use `texelFetch()` with `floor()` for nearest-neighbor sampling
+  - [ ] Match `applyGbaAffineShimmer()` exactly - same centered transform math
+  - [ ] Get scale from `ReflectionShimmer.getScaleX(matrixNum)`
+  - [ ] Matrix 0 for west/north/south, Matrix 1 for east (H-flipped)
+  - [ ] Shimmer for water only, NOT ice
+  - [ ] **TEST**: Frame-by-frame comparison with Canvas2D output - MUST be identical
+
+### Phase 4b: Per-Pixel Water Masking (REQUIRED for smooth movement)
+
+**Why needed:** GBA uses BG1 overlay transparency for masking. We must replicate this, plus handle our smooth sub-pixel movement. Without masking, reflection appears on ground pixels.
+
+- [ ] Create `src/rendering/webgl/WebGLWaterMask.ts`
+  - [ ] `buildMaskTexture(visibleWaterTiles)` - iterate tiles, copy pixelMask data
+  - [ ] `uploadMaskTexture(gl, textureUnit)` - upload to GPU as R8 texture
+  - [ ] Track dirty state, rebuild when camera moves by tile
+
+- [ ] Update sprite fragment shader for reflection mode
+  - [ ] Add `uniform sampler2D u_reflectionMask` (texture unit 7)
+  - [ ] Add `uniform vec2 u_maskOffset` (align mask with reflection position)
+  - [ ] Sample mask texture, discard if mask < 0.5
+
+- [ ] Integrate with WebGLSpriteRenderer
+  - [ ] `setWaterMask(maskTexture)` method
+  - [ ] Enable mask sampling for water-surface sprites (reflections, puddles, ripples)
+  - [ ] Pass mask offset based on camera position
+
+### Phase 4 Testing
+
+- [ ] **TEST**: Reflection appears at correct Y offset
+- [ ] **TEST**: Reflection has correct tint for water/ice/bridge
+- [ ] **TEST**: Shimmer animates at GBA speed (~0.8s, 48 frames)
+- [ ] **TEST**: Reflection draws behind main sprite
+- [ ] **TEST**: Reflection ONLY visible on water pixels (not ground)
+- [ ] **TEST**: No ugly ground reflection during smooth movement between tiles
+
+### Phase 5: Cleanup + NPC Support
+
+- [ ] Add NPC support
+  - [ ] Upload NPC sprite sheets to atlas (on demand)
+  - [ ] Add `addNPC(npc, atlasRegion)` to SpriteInstanceBuilder
+  - [ ] **TEST**: NPCs render correctly
+  - [ ] **TEST**: NPC Y-sorting with player works
+
+- [ ] Remove Canvas2D sprite code
+  - [ ] Remove `ObjectRenderer.renderFieldEffects`
+  - [ ] Remove `ObjectRenderer.renderReflection`
+  - [ ] Remove `ObjectRenderer.renderArrow`
+  - [ ] Remove hybrid composite calls from WebGLMapPage
+  - [ ] Remove unused imports
+
+- [ ] Final validation
+  - [ ] **TEST**: All maps render correctly
+  - [ ] **TEST**: Bridge elevation works
+  - [ ] **TEST**: Door warps work
+  - [ ] **TEST**: Performance benchmark (FPS, frame time)
+
+---
+
+## Risk Assessment
+
+### MEDIUM Risk: Water-Surface Masking (Replicating GBA BG1 Overlay)
+
+**How GBA handles this:**
+- **ALL sprites at OAM priority 3** render behind BG1 layer
+- Shoreline metatiles (177, 200, 202, etc.) have BG1 overlay with transparent pixels on water, opaque on ground
+- BG1 naturally occludes **any priority-3 sprite** on ground pixels via hardware compositing
+- This masks: reflections, puddle splashes, water ripples - all with ONE mechanism
+
+**Sprites that need water masking:**
+| Effect | GBA Priority | Why |
+|--------|-------------|-----|
+| Player/NPC reflection | 3 | Continuous, follows player |
+| Puddle splash | 3 | One-shot, but spans partial tiles |
+| Water ripple | 3 | One-shot, but spans partial tiles |
+
+**Why WE need explicit masking:**
+1. We don't have GBA's layer-priority hardware compositing
+2. Our smooth sub-pixel movement means sprites can span water+ground in one frame
+3. We must replicate the BG1 overlay behavior in software via texture masking
+
+**Challenges:**
+- Must build mask texture from visible water tiles' `pixelMask` data (same data the Canvas2D path uses)
+- Mask must update when camera/player moves
+- Need to align mask coordinates with sprite position in fragment shader
+- **Same mask texture serves ALL water-surface effects** (simplifies implementation)
+
+**Mitigation:**
+- Cache mask texture, rebuild only when camera moves by full tile
+- Use R8 format for minimal memory (1 byte per pixel)
+- Use existing `pixelMask` data from tiles (already computed for Canvas2D path)
+- Single `WebGLWaterMask` component reused by reflections, puddles, ripples
+
+**Phase 4a (LOW risk):** Basic reflection sprite with V-flip + tint
+**Phase 4b (MEDIUM risk):** Per-pixel masking for all water-surface effects
+
+### LOW Risk: Texture Atlas Size (GBA Pattern: Bitmap Allocation)
+
+**Risk:** All sprites must fit in one atlas for single-batch rendering.
+
+**How GBA handles this (32KB VRAM!):**
+```c
+// 128-byte bitmap tracks 1024 tile slots - O(1) alloc/dealloc
+static u8 sSpriteTileAllocBitmap[128];
+#define ALLOC_SPRITE_TILE(n) (sSpriteTileAllocBitmap[(n)/8] |= (1 << ((n)%8)))
+```
+- GBA fits ALL overworld sprites in 32KB
+- Uses bitmap allocation for contiguous free-space finding
+- Tag system for bulk alloc/free of sprite sheets
+
+**Why this is LOW risk for us:**
+- We have 2048x2048 atlas = **16MB** vs GBA's 32KB (500x more space)
+- Player (256x256) + field effects + doors + NPCs ≈ 500KB total
+- Bitmap allocation pattern ensures no fragmentation
+- Can lazy-load sprite sheets on demand, free when despawned
+
+### LOW Risk: Y-Sorting Precision (GBA Pattern: Incremental Insertion Sort)
+
+**Risk:** Float precision for sort keys across large worlds.
+
+**How GBA handles this:**
+```c
+// Two-level priority: [oam.priority:2 bits][subpriority:8 bits]
+u16 priority = sprite->subpriority | (sprite->oam.priority << 8);
+
+// Insertion sort - O(n) when mostly sorted (typical case)
+while (prevPriority > currentPriority ||
+       (prevPriority == currentPriority && prevY < currentY)) {
+    swap(renderOrder[j], renderOrder[j-1]);
+}
+```
+- Composite sort key fits in 16 bits
+- Incremental sort: sprites mostly stay in order between frames
+- Only re-sorts sprites that actually moved
+
+**Why this is LOW risk for us:**
+- Use 32-bit integer sort keys: `(layer << 24) | (subpriority << 16) | (yPos & 0xFFFF)`
+- World coordinates bounded (< 10000 tiles = fits in 16 bits)
+- Same incremental sort pattern: O(n) typical case
+
+### LOW Risk: Performance Regression (GBA Pattern: Phased Rendering)
+
+**Risk:** Instanced sprite rendering might not be faster than Canvas2D for small sprite counts.
+
+**How GBA handles this (16.78 MHz CPU!):**
+```c
+void BuildOamBuffer(void) {
+    UpdateOamCoords();         // Phase 1: positions
+    BuildSpritePriorities();   // Phase 2: sort keys
+    SortSprites();             // Phase 3: incremental sort
+    AddSpritesToOamBuffer();   // Phase 4: build buffer
+    // Phase 5: DMA copy at VBlank (hardware accelerated)
+}
+```
+- Decoupled update/render phases
+- Buffer in fast RAM, bulk DMA to hardware
+- Deferred tile copies spread across frames
+
+**Why this is LOW risk for us:**
+- Main win: eliminating 2 GPU→CPU composite round-trips
+- Single instanced draw call vs multiple `drawImage()` calls
+- GPU handles sorting implicitly via depth buffer (if needed)
+- Even worst case: same sprite performance, better overall frame time
+
+---
+
+## File Summary (Corrected After Deep GBA Investigation)
+
+| File | Lines | Phase | Notes |
+|------|-------|-------|-------|
+| `WebGLSpriteShaders.ts` | ~100 | 1,4 | Includes reflection mask shader variant |
+| `WebGLSpriteRenderer.ts` | ~250 | 1-4 | Handles mask texture upload/sampling |
+| `WebGLSpriteAtlas.ts` | ~120 | 2 | Bitmap-based allocation (GBA pattern) |
+| `SpriteInstanceBuilder.ts` | ~150 | 2-5 | Includes reflection as sprite instance |
+| `WebGLWaterMask.ts` | ~100 | 4b | Build mask texture for all water-surface effects |
+| Pipeline/Page updates | ~100 | 3-5 | |
+| **Total** | **~820** | | |
+
+**Estimated reduction after cleanup:** ~200 lines removed from ObjectRenderer and hybrid code
+
+**Net change:** +620 lines, cleaner architecture and better performance
+
+**Key insights from GBA analysis:**
+- GBA DOES have per-pixel masking via BG1 overlay transparency (not binary on/off)
+- Shoreline metatiles (177, 200, 202) bake the mask into BG1: opaque ground, transparent water
+- **ALL sprites at OAM priority 3** are occluded by opaque BG1 pixels (reflections, puddles, ripples)
+- ONE mechanism masks ALL water-surface effects - we replicate with single `WebGLWaterMask`
+- We must replicate this BG1 overlay behavior via texture masking in fragment shader
+- Our smooth sub-pixel movement adds an extra requirement: handling mid-tile overlap
+
+---
+
+## Implementation Notes
+
+### Phase 1 Scope (Minimal First Implementation)
+
+For Phase 1, focus on the absolute minimum to prove the approach works:
+
+1. **Single sprite rendering** (not batched yet)
+2. **Player sprite only** (16×32 or 32×32)
+3. **Basic features:** position, flip, frame selection
+4. **No reflections, no field effects, no sorting**
+
+This allows testing the shader pipeline before adding complexity.
+
+### Texture Unit Assignment
+
+| Unit | Current Use | Sprite Renderer Use |
+|------|------------|---------------------|
+| 0-5 | Tileset pairs | (unchanged) |
+| 6 | (free) | Sprite atlas |
+| 7 | (free) | Reflection mask texture |
+| 8-15 | (free) | Future use |
+
+### Long Grass Clipping Strategy
+
+Use scissor test for simplicity:
+```typescript
+if (player.inLongGrass) {
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(screenX, screenY, width, height / 2);
+}
+spriteRenderer.renderSprite(...);
+if (player.inLongGrass) {
+  gl.disable(gl.SCISSOR_TEST);
+}
+```

@@ -12,8 +12,21 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
-import { uploadTilesetsFromSnapshot, combineTilesetPalettes } from '../rendering/webgl/TilesetUploader';
-import type { TileResolverFn, WorldCameraView, LoadedAnimation, ReflectionMeta, RenderContext } from '../rendering/types';
+import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
+import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
+import {
+  createSpriteFromFrameInfo,
+  createFieldEffectSprite,
+  createPlayerReflectionSprite,
+  createNPCSpriteInstance,
+  createNPCReflectionSprite,
+  calculateSortKey,
+  getPlayerAtlasName,
+  getFieldEffectAtlasName,
+  getNPCAtlasName,
+} from '../rendering/spriteUtils';
+import type { SpriteInstance } from '../rendering/types';
+import type { TileResolverFn, WorldCameraView, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
 import { CameraController, createWebGLCameraController } from '../game/CameraController';
 import { TileResolverFactory } from '../game/TileResolverFactory';
@@ -22,29 +35,31 @@ import {
   type WarpExecutorDeps,
   type WarpDestination,
 } from '../game/WarpExecutor';
+import {
+  getReflectionMetaFromSnapshot,
+  createRenderContextFromSnapshot,
+  createStitchedWorldFromSnapshot,
+  buildTilesetRuntimesForSnapshot,
+  type StitchedWorldData,
+} from '../game/snapshotUtils';
+import {
+  createWorldManagerEventHandler,
+  createGpuUploadCallback,
+  updateWorldBounds,
+} from '../game/worldManagerEvents';
 import { ObjectRenderer, type WorldCameraView as ObjectRendererView } from '../components/map/renderers/ObjectRenderer';
+import { ObjectEventManager } from '../game/ObjectEventManager';
+import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { useFieldSprites } from '../hooks/useFieldSprites';
-import { WorldManager, type WorldSnapshot, type TilesetPairInfo } from '../game/WorldManager';
+import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
+import { METATILE_SIZE } from '../utils/mapLoader';
+import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
-  METATILE_SIZE,
-  type Palette,
-  type TilesetImageData,
-  type Metatile,
-  type MapData,
-  type MetatileAttributes,
-} from '../utils/mapLoader';
-import { buildTilesetRuntime, type TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
-import type { TilesetResources } from '../services/MapManager';
-import { getBridgeTypeFromBehavior, type BridgeType } from '../utils/metatileBehaviors';
-import {
-  BRIDGE_OFFSETS,
-  getReflectionTint,
-  getReflectionAlpha,
+  computeReflectionState,
   getGlobalShimmer,
-  ReflectionShimmer,
-  applyGbaAffineShimmer,
+  type ReflectionMetaProvider,
 } from '../field/ReflectionRenderer';
 import { detectWarpTrigger, resolveTileAt, findWarpEventAt, type WarpTrigger } from '../components/map/utils';
 import type { ReflectionState } from '../components/map/types';
@@ -57,23 +72,25 @@ import { useDoorSequencer } from '../hooks/useDoorSequencer';
 import {
   DebugPanel,
   DEFAULT_DEBUG_OPTIONS,
+  getReflectionTileGridDebug,
   type DebugOptions,
   type DebugState,
   type WebGLDebugState,
   type PlayerDebugInfo,
-  type ReflectionTileDebugInfo,
   type ReflectionTileGridDebugInfo,
 } from '../components/debug';
-import {
-  isDoorBehavior,
-  isArrowWarpBehavior,
-  isNonAnimatedDoorBehavior,
-  getArrowDirectionFromBehavior,
-} from '../utils/metatileBehaviors';
+import { isNonAnimatedDoorBehavior } from '../utils/metatileBehaviors';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
+import {
+  handleDoorEntryAction,
+  handleDoorExitAction,
+  createAnimationDoneChecker,
+  startDoorWarpSequence,
+  type DoorActionDeps,
+  type DoorWarpContext,
+} from '../game/DoorActionDispatcher';
 import './WebGLMapPage.css';
 
-const SECONDARY_TILE_OFFSET = 512;
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
 
 type RenderStats = {
@@ -85,48 +102,7 @@ type RenderStats = {
 };
 
 // CameraState type replaced by CameraController from '../game/CameraController'
-
-/** A single map instance positioned in world space */
-type StitchedMapInstance = {
-  entry: MapIndexEntry;
-  mapData: MapData;
-  offsetX: number;  // World tile offset (can be negative)
-  offsetY: number;
-};
-
-// TilesetPairInfo is now imported from WorldManager
-
-/** World data with multiple stitched maps, potentially using multiple tileset pairs */
-type StitchedWorldData = {
-  maps: StitchedMapInstance[];
-  anchorId: string;
-  worldBounds: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-    width: number;
-    height: number;
-  };
-
-  /** All tileset pairs used by maps in this world (max 2 for GPU) */
-  tilesetPairs: TilesetPairInfo[];
-
-  /** Maps each map ID to its tileset pair index in tilesetPairs array */
-  mapTilesetPairIndex: Map<string, number>;
-
-  // Legacy single-tileset fields (for backward compatibility, references tilesetPairs[0])
-  primaryMetatiles: Metatile[];
-  secondaryMetatiles: Metatile[];
-  primaryAttributes: MetatileAttributes[];
-  secondaryAttributes: MetatileAttributes[];
-  primaryImage: TilesetImageData;
-  secondaryImage: TilesetImageData;
-  primaryPalettes: Palette[];
-  secondaryPalettes: Palette[];
-  animations: LoadedAnimation[];
-  borderMetatiles: number[];
-};
+// StitchedWorldData now imported from '../game/snapshotUtils'
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
@@ -141,6 +117,7 @@ export function WebGLMapPage() {
 
   // Pipeline and state refs
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
+  const spriteRendererRef = useRef<WebGLSpriteRenderer | null>(null);
   const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
   const worldManagerRef = useRef<WorldManager | null>(null);
   const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
@@ -173,6 +150,10 @@ export function WebGLMapPage() {
 
   // Tileset runtimes for reflection detection (built from TilesetPairInfo)
   const tilesetRuntimesRef = useRef<Map<string, TilesetRuntimeType>>(new Map());
+
+  // Object event manager for NPCs and items
+  const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
+  const npcSpritesLoadedRef = useRef<Set<string>>(new Set());
 
   const renderableMaps = useMemo(
     () =>
@@ -287,132 +268,122 @@ export function WebGLMapPage() {
 
   // Build TilesetRuntime from TilesetPairInfo for reflection detection
   const buildTilesetRuntimesFromSnapshot = useCallback((snapshot: WorldSnapshot): void => {
-    const { tilesetPairs } = snapshot;
-    const runtimesMap = tilesetRuntimesRef.current;
-
-    for (const pair of tilesetPairs) {
-      if (runtimesMap.has(pair.id)) continue;
-
-      // Create TilesetResources-like object from TilesetPairInfo
-      // We only need the fields used by buildTilesetRuntime
-      const resources = {
-        key: pair.id,
-        primaryTilesetId: pair.primaryTilesetId,
-        secondaryTilesetId: pair.secondaryTilesetId,
-        primaryTilesetPath: '',  // Not needed for runtime building
-        secondaryTilesetPath: '', // Not needed for runtime building
-        primaryMetatiles: pair.primaryMetatiles,
-        secondaryMetatiles: pair.secondaryMetatiles,
-        primaryPalettes: pair.primaryPalettes,
-        secondaryPalettes: pair.secondaryPalettes,
-        primaryTilesImage: pair.primaryImage.data,
-        secondaryTilesImage: pair.secondaryImage.data,
-        primaryAttributes: pair.primaryAttributes,
-        secondaryAttributes: pair.secondaryAttributes,
-        animations: pair.animations,
-      } as TilesetResources;
-
-      const runtime = buildTilesetRuntime(resources);
-      runtimesMap.set(pair.id, runtime);
-    }
+    buildTilesetRuntimesForSnapshot(snapshot, tilesetRuntimesRef.current);
   }, []);
 
-  // Get reflection metadata for a tile from the snapshot
-  const getReflectionMetaFromSnapshot = useCallback((
-    snapshot: WorldSnapshot,
-    tileX: number,
-    tileY: number
-  ): { behavior: number; meta: ReflectionMeta | null } | null => {
-    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, anchorMapId } = snapshot;
+  // Load object events from map.json files for each map in snapshot
+  const loadObjectEventsFromSnapshot = useCallback(async (snapshot: WorldSnapshot): Promise<void> => {
+    const objectManager = objectEventManagerRef.current;
+    const spriteRenderer = spriteRendererRef.current;
 
-    // Find which map contains this tile
-    for (const map of maps) {
-      const localX = tileX - map.offsetX;
-      const localY = tileY - map.offsetY;
+    // Clear previous objects
+    objectManager.clear();
 
-      if (localX >= 0 && localX < map.entry.width &&
-          localY >= 0 && localY < map.entry.height) {
-        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-        const pair = tilesetPairs[pairIndex];
+    // Load object events from each map's map.json file
+    const PROJECT_ROOT = '/pokeemerald';
+    for (const mapInst of snapshot.maps) {
+      try {
+        const mapJsonPath = `${PROJECT_ROOT}/data/maps/${mapInst.entry.folder}/map.json`;
+        const response = await fetch(mapJsonPath);
+        if (!response.ok) continue;
+        const data = await response.json() as { object_events?: Array<Record<string, unknown>> };
+        const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
 
-        const idx = localY * map.entry.width + localX;
-        const mapTile = map.mapData.layout[idx];
-        const metatileId = mapTile.metatileId;
+        // Parse object events to ObjectEventData format
+        const objectEvents = objectEventsRaw
+          .map((obj) => {
+            const graphics_id = String(obj.graphics_id ?? '');
+            const x = Number(obj.x ?? 0);
+            const y = Number(obj.y ?? 0);
+            if (!graphics_id || !Number.isFinite(x) || !Number.isFinite(y)) return null;
 
-        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-        const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-        const behavior = attrArray[attrIndex]?.behavior ?? 0;
+            return {
+              local_id: typeof obj.local_id === 'string' ? obj.local_id : undefined,
+              graphics_id,
+              x,
+              y,
+              elevation: Number(obj.elevation ?? 0),
+              movement_type: String(obj.movement_type ?? ''),
+              movement_range_x: Number(obj.movement_range_x ?? 0),
+              movement_range_y: Number(obj.movement_range_y ?? 0),
+              trainer_type: String(obj.trainer_type ?? ''),
+              trainer_sight_or_berry_tree_id: String(obj.trainer_sight_or_berry_tree_id ?? '0'),
+              script: String(obj.script ?? ''),
+              flag: String(obj.flag ?? '0'),
+            };
+          })
+          .filter((obj): obj is NonNullable<typeof obj> => obj !== null);
 
-        // Get reflection meta from runtime
-        // First try the expected pair ID, then try all runtimes as fallback
-        // (This handles cases where pair IDs might differ between how they're stored vs looked up)
-        let runtime = tilesetRuntimesRef.current.get(pair.id);
+        if (objectEvents.length > 0) {
+          objectManager.parseMapObjects(
+            mapInst.entry.id,
+            objectEvents,
+            mapInst.offsetX,
+            mapInst.offsetY
+          );
+        }
+      } catch (err) {
+        console.warn(`[WebGL] Failed to load object events for ${mapInst.entry.id}:`, err);
+      }
+    }
 
-        // Fallback: try looking up by the pair's key/identifier variants
-        if (!runtime && tilesetRuntimesRef.current.size > 0) {
-          // Try first available runtime as fallback (for single-tileset scenarios)
-          const firstRuntime = tilesetRuntimesRef.current.values().next().value;
-          if (firstRuntime) {
-            runtime = firstRuntime;
+    // Get unique graphics IDs needed for NPCs
+    const graphicsIds = objectManager.getUniqueNPCGraphicsIds();
+    if (graphicsIds.length === 0) return;
+
+    // Load sprites that haven't been loaded yet
+    const newIds = graphicsIds.filter(id => !npcSpritesLoadedRef.current.has(id));
+    if (newIds.length > 0) {
+      await npcSpriteCache.loadMany(newIds);
+
+      // Upload loaded sprites to WebGL renderer
+      if (spriteRenderer) {
+        for (const graphicsId of newIds) {
+          const sprite = npcSpriteCache.get(graphicsId);
+          if (sprite) {
+            const atlasName = getNPCAtlasName(graphicsId);
+            const dims = npcSpriteCache.getDimensions(graphicsId);
+            spriteRenderer.uploadSpriteSheet(atlasName, sprite, {
+              frameWidth: dims.frameWidth,
+              frameHeight: dims.frameHeight,
+            });
+            npcSpritesLoadedRef.current.add(graphicsId);
+            console.log(`[WebGL] Uploaded NPC sprite: ${atlasName} (${sprite.width}x${sprite.height})`);
           }
         }
-
-        if (!runtime) return { behavior, meta: null };
-
-        const meta = isSecondary
-          ? runtime.secondaryReflectionMeta[attrIndex]
-          : runtime.primaryReflectionMeta[attrIndex];
-
-        return { behavior, meta: meta ?? null };
       }
     }
-
-    // BORDER FALLBACK: Tile is outside all loaded maps
-    // Use anchor map's border metatiles (same logic as Canvas2D's resolveTileAt)
-    if (!anchorBorderMetatiles || anchorBorderMetatiles.length === 0) {
-      return null;
-    }
-
-    // Find anchor map to get its tileset pair
-    const anchorMap = maps.find(m => m.entry.id === anchorMapId);
-    if (!anchorMap) return null;
-
-    const anchorPairIndex = mapTilesetPairIndex.get(anchorMapId) ?? 0;
-    const anchorPair = tilesetPairs[anchorPairIndex];
-    if (!anchorPair) return null;
-
-    // Calculate local coords relative to anchor for 2x2 repeating border pattern
-    const anchorLocalX = tileX - anchorMap.offsetX;
-    const anchorLocalY = tileY - anchorMap.offsetY;
-    const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
-    const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
-
-    const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
-    const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
-    const attrArray = isSecondary ? anchorPair.secondaryAttributes : anchorPair.primaryAttributes;
-    const behavior = attrArray[attrIndex]?.behavior ?? 0;
-
-    // Get reflection meta from runtime (with fallback)
-    let runtime = tilesetRuntimesRef.current.get(anchorPair.id);
-    if (!runtime && tilesetRuntimesRef.current.size > 0) {
-      const firstRuntime = tilesetRuntimesRef.current.values().next().value;
-      if (firstRuntime) {
-        runtime = firstRuntime;
-      }
-    }
-    if (!runtime) return { behavior, meta: null };
-
-    const meta = isSecondary
-      ? runtime.secondaryReflectionMeta[attrIndex]
-      : runtime.primaryReflectionMeta[attrIndex];
-
-    return { behavior, meta: meta ?? null };
   }, []);
 
-  // Compute reflection state for an object at a tile position
-  // GBA checks BOTH currentCoords AND previousCoords for reflection detection
-  // See: event_object_movement.c ObjectEventGetNearbyReflectionType (lines 7625-7650)
+  // Initialize world state from a snapshot (shared between initial load and warps)
+  const initializeWorldFromSnapshot = useCallback(async (
+    snapshot: WorldSnapshot,
+    pipeline: WebGLRenderPipeline
+  ): Promise<void> => {
+    // Update snapshot ref
+    worldSnapshotRef.current = snapshot;
+
+    // Build tileset runtimes for reflection detection
+    buildTilesetRuntimesFromSnapshot(snapshot);
+
+    // Update stitched world for backward compatibility
+    stitchedWorldRef.current = createStitchedWorldFromSnapshot(snapshot);
+
+    // Set up tile resolver
+    const resolver = createSnapshotTileResolver(snapshot);
+    pipeline.setTileResolver(resolver);
+
+    // Upload tilesets to GPU
+    uploadTilesetsFromSnapshot(pipeline, snapshot);
+
+    // Update world bounds
+    updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
+
+    // Load object events (NPCs, items) and upload sprites to WebGL
+    await loadObjectEventsFromSnapshot(snapshot);
+  }, [buildTilesetRuntimesFromSnapshot, createSnapshotTileResolver, uploadTilesetsFromSnapshot, loadObjectEventsFromSnapshot]);
+
+  // Compute reflection state for an object at a tile position using shared function
   const computeReflectionStateFromSnapshot = useCallback((
     snapshot: WorldSnapshot,
     tileX: number,
@@ -422,330 +393,15 @@ export function WebGLMapPage() {
     spriteWidth: number = 16,
     spriteHeight: number = 32
   ): ReflectionState => {
-    // Calculate how many tiles the sprite covers (GBA formula)
-    const widthTiles = Math.max(1, (spriteWidth + 8) >> 4);
-    const heightTiles = Math.max(1, (spriteHeight + 8) >> 4);
-
-    let found: 'water' | 'ice' | null = null;
-
-    // GBA scans tiles starting at y+1 (one tile below the object's anchor)
-    // and continuing for 'height' tiles. It checks BOTH current AND previous coords.
-    for (let i = 0; i < heightTiles && !found; i++) {
-      const currentY = tileY + 1 + i;
-      const prevY = prevTileY + 1 + i;
-
-      // Check center tile at BOTH current and previous positions
-      for (const [checkX, checkY] of [[tileX, currentY], [prevTileX, prevY]] as const) {
-        const center = getReflectionMetaFromSnapshot(snapshot, checkX, checkY);
-        if (center?.meta?.isReflective) {
-          found = center.meta.reflectionType;
-          break;
-        }
-      }
-      if (found) break;
-
-      // Check tiles to left and right at BOTH current and previous positions
-      for (let j = 1; j < widthTiles && !found; j++) {
-        const positions: [number, number][] = [
-          [tileX + j, currentY], [tileX - j, currentY],
-          [prevTileX + j, prevY], [prevTileX - j, prevY],
-        ];
-        for (const [x, y] of positions) {
-          const info = getReflectionMetaFromSnapshot(snapshot, x, y);
-          if (info?.meta?.isReflective) {
-            found = info.meta.reflectionType;
-            break;
-          }
-        }
-      }
-    }
-
-    // Get bridge type - GBA checks previous behavior first, then current
-    // See: field_effect_helpers.c LoadObjectReflectionPalette (lines 84-86)
-    const prevInfo = getReflectionMetaFromSnapshot(snapshot, prevTileX, prevTileY);
-    const currentInfo = getReflectionMetaFromSnapshot(snapshot, tileX, tileY);
-    const prevBridgeType = prevInfo ? getBridgeTypeFromBehavior(prevInfo.behavior) : 'none';
-    const currentBridgeType = currentInfo ? getBridgeTypeFromBehavior(currentInfo.behavior) : 'none';
-    const bridgeType: BridgeType = prevBridgeType !== 'none' ? prevBridgeType : currentBridgeType;
-
-    return {
-      hasReflection: !!found,
-      reflectionType: found,
-      bridgeType,
-    };
-  }, [getReflectionMetaFromSnapshot]);
-
-  // Behavior name lookup for debug display
-  const BEHAVIOR_NAMES: Record<number, string> = {
-    0: 'NORMAL', 1: 'SECRET_BASE_WALL', 2: 'TALL_GRASS', 3: 'LONG_GRASS',
-    6: 'DEEP_SAND', 7: 'SHORT_GRASS', 8: 'CAVE', 16: 'POND_WATER',
-    17: 'INTERIOR_DEEP_WATER', 18: 'DEEP_WATER', 19: 'WATERFALL',
-    20: 'SOOTOPOLIS_DEEP_WATER', 21: 'OCEAN_WATER', 22: 'PUDDLE',
-    23: 'SHALLOW_WATER', 32: 'ICE', 33: 'SAND', 38: 'THIN_ICE',
-    39: 'CRACKED_ICE', 40: 'HOT_SPRINGS', 43: 'REFLECTION_UNDER_BRIDGE',
-    56: 'JUMP_EAST', 57: 'JUMP_WEST', 58: 'JUMP_NORTH', 59: 'JUMP_SOUTH',
-  };
-
-  // Get comprehensive debug info for a single tile
-  const getTileDebugInfo = useCallback((
-    snapshot: WorldSnapshot,
-    worldX: number,
-    worldY: number,
-    relX: number,
-    relY: number
-  ): ReflectionTileDebugInfo => {
-    const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, anchorMapId } = snapshot;
-
-    // Default empty info
-    const defaultInfo: ReflectionTileDebugInfo = {
-      worldX, worldY, relativeX: relX, relativeY: relY,
-      mapId: null, isBorder: false,
-      metatileId: null, isSecondary: false,
-      behavior: null, behaviorName: 'UNKNOWN', elevation: null, collision: null,
-      isReflective: false, reflectionType: null, hasPixelMask: false, maskPixelCount: 0,
-      isAnimated: false, animationId: null,
-      runtimeFound: false, runtimeId: null,
-    };
-
-    // Find which map contains this tile
-    for (const map of maps) {
-      const localX = worldX - map.offsetX;
-      const localY = worldY - map.offsetY;
-
-      if (localX >= 0 && localX < map.entry.width &&
-          localY >= 0 && localY < map.entry.height) {
-        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-        const pair = tilesetPairs[pairIndex];
-
-        const idx = localY * map.entry.width + localX;
-        const mapTile = map.mapData.layout[idx];
-        const metatileId = mapTile.metatileId;
-
-        const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-        const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-        const behavior = attrArray[attrIndex]?.behavior ?? 0;
-
-        // Get runtime for reflection info
-        let runtime = tilesetRuntimesRef.current.get(pair.id);
-        if (!runtime && tilesetRuntimesRef.current.size > 0) {
-          runtime = tilesetRuntimesRef.current.values().next().value;
-        }
-
-        const meta = runtime
-          ? (isSecondary
-              ? runtime.secondaryReflectionMeta[attrIndex]
-              : runtime.primaryReflectionMeta[attrIndex])
-          : null;
-
-        // Count mask pixels if available
-        let maskPixelCount = 0;
-        if (meta?.pixelMask) {
-          for (let i = 0; i < meta.pixelMask.length; i++) {
-            if (meta.pixelMask[i]) maskPixelCount++;
-          }
-        }
-
-        // Check if animated (using destinations array)
-        const animations = pair.animations || [];
-        const animInfo = animations.find(anim =>
-          anim.destinations?.some(dest => {
-            const targetId = isSecondary ? dest.destStart - SECONDARY_TILE_OFFSET : dest.destStart;
-            return targetId === attrIndex;
-          })
-        );
-
-        return {
-          worldX, worldY, relativeX: relX, relativeY: relY,
-          mapId: map.entry.id, isBorder: false,
-          metatileId, isSecondary,
-          behavior, behaviorName: BEHAVIOR_NAMES[behavior] || `UNK_${behavior}`,
-          elevation: mapTile.elevation, collision: mapTile.collision,
-          isReflective: meta?.isReflective ?? false,
-          reflectionType: meta?.reflectionType ?? null,
-          hasPixelMask: !!meta?.pixelMask,
-          maskPixelCount,
-          isAnimated: !!animInfo,
-          animationId: animInfo?.id ?? null,
-          runtimeFound: !!runtime,
-          runtimeId: pair.id,
-        };
-      }
-    }
-
-    // Border fallback
-    if (anchorBorderMetatiles && anchorBorderMetatiles.length > 0) {
-      const anchorMap = maps.find(m => m.entry.id === anchorMapId);
-      if (anchorMap) {
-        const anchorPairIndex = mapTilesetPairIndex.get(anchorMapId) ?? 0;
-        const pair = tilesetPairs[anchorPairIndex];
-
-        const anchorLocalX = worldX - anchorMap.offsetX;
-        const anchorLocalY = worldY - anchorMap.offsetY;
-        const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
-        const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
-
-        const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
-        const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
-        const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-        const behavior = attrArray[attrIndex]?.behavior ?? 0;
-
-        let runtime = tilesetRuntimesRef.current.get(pair.id);
-        if (!runtime && tilesetRuntimesRef.current.size > 0) {
-          runtime = tilesetRuntimesRef.current.values().next().value;
-        }
-
-        const meta = runtime
-          ? (isSecondary
-              ? runtime.secondaryReflectionMeta[attrIndex]
-              : runtime.primaryReflectionMeta[attrIndex])
-          : null;
-
-        let maskPixelCount = 0;
-        if (meta?.pixelMask) {
-          for (let i = 0; i < meta.pixelMask.length; i++) {
-            if (meta.pixelMask[i]) maskPixelCount++;
-          }
-        }
-
-        return {
-          worldX, worldY, relativeX: relX, relativeY: relY,
-          mapId: anchorMapId, isBorder: true,
-          metatileId: borderMetatileId, isSecondary,
-          behavior, behaviorName: BEHAVIOR_NAMES[behavior] || `UNK_${behavior}`,
-          elevation: 0, collision: 1,
-          isReflective: meta?.isReflective ?? false,
-          reflectionType: meta?.reflectionType ?? null,
-          hasPixelMask: !!meta?.pixelMask,
-          maskPixelCount,
-          isAnimated: false, animationId: null,
-          runtimeFound: !!runtime, runtimeId: pair.id,
-        };
-      }
-    }
-
-    return defaultInfo;
+    // Create a provider callback that wraps getReflectionMetaFromSnapshot for this snapshot
+    const provider: ReflectionMetaProvider = (x, y) =>
+      getReflectionMetaFromSnapshot(snapshot, tilesetRuntimesRef.current, x, y);
+    return computeReflectionState(provider, tileX, tileY, prevTileX, prevTileY, spriteWidth, spriteHeight);
   }, []);
 
-  // Get debug info for 5x5 grid around player
-  const getReflectionTileGridDebug = useCallback((
-    snapshot: WorldSnapshot,
-    playerTileX: number,
-    playerTileY: number,
-    destTileX: number,
-    destTileY: number,
-    isMoving: boolean,
-    moveDirection: string,
-    reflectionState: ReflectionState
-  ): ReflectionTileGridDebugInfo => {
-    const tiles: ReflectionTileDebugInfo[][] = [];
-
-    // Build 5x5 grid (relY from -2 to +2, relX from -2 to +2)
-    for (let relY = -2; relY <= 2; relY++) {
-      const row: ReflectionTileDebugInfo[] = [];
-      for (let relX = -2; relX <= 2; relX++) {
-        const worldX = playerTileX + relX;
-        const worldY = playerTileY + relY;
-        row.push(getTileDebugInfo(snapshot, worldX, worldY, relX, relY));
-      }
-      tiles.push(row);
-    }
-
-    return {
-      playerTileX, playerTileY,
-      destTileX, destTileY,
-      isMoving, moveDirection,
-      tiles,
-      currentReflectionState: {
-        hasReflection: reflectionState.hasReflection,
-        reflectionType: reflectionState.reflectionType,
-        bridgeType: reflectionState.bridgeType,
-      },
-    };
-  }, [getTileDebugInfo]);
-
-  // Create a minimal RenderContext from WorldSnapshot for field effect masking
-  const createRenderContextFromSnapshot = useCallback((
-    snapshot: WorldSnapshot
-  ): RenderContext | null => {
-    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
-    if (maps.length === 0 || tilesetPairs.length === 0) return null;
-
-    // Find anchor map (the one at offset 0,0 or the first one)
-    const anchorMap = maps.find(m => m.offsetX === 0 && m.offsetY === 0) ?? maps[0];
-    const anchorPairIndex = mapTilesetPairIndex.get(anchorMap.entry.id) ?? 0;
-    const anchorPair = tilesetPairs[anchorPairIndex];
-
-    // Create TilesetResources for the anchor
-    const anchorTilesetResources: TilesetResources = {
-      key: anchorPair.id,
-      primaryTilesetId: anchorPair.primaryTilesetId,
-      secondaryTilesetId: anchorPair.secondaryTilesetId,
-      primaryTilesetPath: '',
-      secondaryTilesetPath: '',
-      primaryMetatiles: anchorPair.primaryMetatiles,
-      secondaryMetatiles: anchorPair.secondaryMetatiles,
-      primaryPalettes: anchorPair.primaryPalettes,
-      secondaryPalettes: anchorPair.secondaryPalettes,
-      primaryTilesImage: anchorPair.primaryImage.data,
-      secondaryTilesImage: anchorPair.secondaryImage.data,
-      primaryAttributes: anchorPair.primaryAttributes,
-      secondaryAttributes: anchorPair.secondaryAttributes,
-      animations: anchorPair.animations,
-    };
-
-    // Create WorldMapInstance-like objects
-    const worldMaps = maps.map(m => {
-      const pairIndex = mapTilesetPairIndex.get(m.entry.id) ?? 0;
-      const pair = tilesetPairs[pairIndex];
-      return {
-        entry: m.entry,
-        mapData: m.mapData,
-        offsetX: m.offsetX,
-        offsetY: m.offsetY,
-        borderMetatiles: [],
-        tilesets: {
-          key: pair.id,
-          primaryTilesetId: pair.primaryTilesetId,
-          secondaryTilesetId: pair.secondaryTilesetId,
-          primaryTilesetPath: '',
-          secondaryTilesetPath: '',
-          primaryMetatiles: pair.primaryMetatiles,
-          secondaryMetatiles: pair.secondaryMetatiles,
-          primaryPalettes: pair.primaryPalettes,
-          secondaryPalettes: pair.secondaryPalettes,
-          primaryTilesImage: pair.primaryImage.data,
-          secondaryTilesImage: pair.secondaryImage.data,
-          primaryAttributes: pair.primaryAttributes,
-          secondaryAttributes: pair.secondaryAttributes,
-          animations: pair.animations,
-        } as TilesetResources,
-        warpEvents: m.warpEvents ?? [],
-        objectEvents: [],
-      };
-    });
-
-    // Create anchor WorldMapInstance
-    const anchor = worldMaps.find(m => m.offsetX === 0 && m.offsetY === 0) ?? worldMaps[0];
-
-    return {
-      world: {
-        anchorId: snapshot.anchorMapId,
-        maps: worldMaps,
-        bounds: {
-          minX: snapshot.worldBounds.minX,
-          minY: snapshot.worldBounds.minY,
-          maxX: snapshot.worldBounds.maxX,
-          maxY: snapshot.worldBounds.maxY,
-        },
-      },
-      tilesetRuntimes: tilesetRuntimesRef.current,
-      anchor: {
-        ...anchor,
-        tilesets: anchorTilesetResources,
-        borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
-      },
-    } as RenderContext;
+  // Wrapper to create RenderContext from snapshot (used for field effects, warp detection)
+  const getRenderContextFromSnapshot = useCallback((snapshot: WorldSnapshot): RenderContext | null => {
+    return createRenderContextFromSnapshot(snapshot, tilesetRuntimesRef.current);
   }, []);
 
   // Execute a warp to destination map
@@ -771,54 +427,13 @@ export function WebGLMapPage() {
     try {
       // ===== WebGL-SPECIFIC: Initialize world at destination =====
       const snapshot = await worldManager.initialize(destMapId);
-      worldSnapshotRef.current = snapshot;
 
-      // Build tileset runtimes for the new world
-      buildTilesetRuntimesFromSnapshot(snapshot);
+      // Initialize world state (shared helper)
+      await initializeWorldFromSnapshot(snapshot, pipeline);
 
-      // Update stitched world ref for backward compatibility
-      stitchedWorldRef.current = {
-        maps: snapshot.maps.map(m => ({
-          entry: m.entry,
-          mapData: m.mapData,
-          offsetX: m.offsetX,
-          offsetY: m.offsetY,
-        })),
-        anchorId: snapshot.anchorMapId,
-        worldBounds: snapshot.worldBounds,
-        tilesetPairs: snapshot.tilesetPairs,
-        mapTilesetPairIndex: snapshot.mapTilesetPairIndex,
-        primaryMetatiles: snapshot.tilesetPairs[0]?.primaryMetatiles ?? [],
-        secondaryMetatiles: snapshot.tilesetPairs[0]?.secondaryMetatiles ?? [],
-        primaryAttributes: snapshot.tilesetPairs[0]?.primaryAttributes ?? [],
-        secondaryAttributes: snapshot.tilesetPairs[0]?.secondaryAttributes ?? [],
-        primaryImage: snapshot.tilesetPairs[0]?.primaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
-        secondaryImage: snapshot.tilesetPairs[0]?.secondaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
-        primaryPalettes: snapshot.tilesetPairs[0]?.primaryPalettes ?? [],
-        secondaryPalettes: snapshot.tilesetPairs[0]?.secondaryPalettes ?? [],
-        animations: snapshot.tilesetPairs[0]?.animations ?? [],
-        borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
-      };
-
-      // Set up new tile resolvers
-      const resolver = createSnapshotTileResolver(snapshot);
-      pipeline.setTileResolver(resolver);
+      // Set up player resolver
       const playerResolver = createSnapshotPlayerTileResolver(snapshot);
       player.setTileResolver(playerResolver);
-
-      // Upload tilesets to GPU
-      uploadTilesetsFromSnapshot(pipeline, snapshot);
-
-      // Update world bounds
-      const { worldBounds } = snapshot;
-      worldBoundsRef.current = {
-        width: worldBounds.width * METATILE_SIZE,
-        height: worldBounds.height * METATILE_SIZE,
-        minX: worldBounds.minX,
-        minY: worldBounds.minY,
-      };
-      setWorldSize({ width: worldBounds.width * METATILE_SIZE, height: worldBounds.height * METATILE_SIZE });
-      setStitchedMapCount(snapshot.maps.length);
 
       // ===== SHARED: Execute warp using WarpExecutor =====
       const destMap = snapshot.maps.find(m => m.entry.id === destMapId);
@@ -828,7 +443,7 @@ export function WebGLMapPage() {
       }
 
       // Create render context for tile resolution
-      const renderContext = createRenderContextFromSnapshot(snapshot);
+      const renderContext = getRenderContextFromSnapshot(snapshot);
 
       // Build WarpExecutor dependencies
       const warpDeps: WarpExecutorDeps = {
@@ -890,139 +505,7 @@ export function WebGLMapPage() {
       warpHandlerRef.current.setInProgress(false);
       warpingRef.current = false;
     }
-  }, [createSnapshotTileResolver, createSnapshotPlayerTileResolver, uploadTilesetsFromSnapshot, buildTilesetRuntimesFromSnapshot, createRenderContextFromSnapshot, doorSequencer, doorAnimations]);
-
-  // Render player reflection using snapshot-based tile lookup
-  const renderPlayerReflection = useCallback((
-    ctx: CanvasRenderingContext2D,
-    player: PlayerController,
-    reflectionState: ReflectionState,
-    cameraWorldX: number,
-    cameraWorldY: number,
-    snapshot: WorldSnapshot
-  ): void => {
-    if (!reflectionState.hasReflection) return;
-
-    const frame = player.getFrameInfo();
-    if (!frame || !frame.sprite) return;
-
-    const { height } = player.getSpriteSize();
-    const bridgeOffset = BRIDGE_OFFSETS[reflectionState.bridgeType];
-
-    // For TILE LOOKUP: Use floored world positions to prevent flickering at tile boundaries
-    const tileRefX = Math.floor(frame.renderX);
-    const tileRefY = Math.floor(frame.renderY) + height - 2 + bridgeOffset;
-
-    // For SCREEN RENDERING: Use Math.round() for consistent pixel alignment
-    const reflectionWorldY = frame.renderY + height - 2 + bridgeOffset;
-    const screenX = Math.round(frame.renderX - cameraWorldX);
-    const screenY = Math.round(reflectionWorldY - cameraWorldY);
-
-    // Create mask canvas
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = frame.sw;
-    maskCanvas.height = frame.sh;
-    const maskCtx = maskCanvas.getContext('2d');
-    if (!maskCtx) return;
-    const maskImage = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
-    const maskData = maskImage.data;
-
-    // Calculate tile range for mask building
-    const pixelStartTileX = Math.floor(tileRefX / METATILE_SIZE);
-    const pixelEndTileX = Math.floor((tileRefX + frame.sw - 1) / METATILE_SIZE);
-    const pixelStartTileY = Math.floor(tileRefY / METATILE_SIZE);
-    const pixelEndTileY = Math.floor((tileRefY + frame.sh - 1) / METATILE_SIZE);
-
-    // Expand range by 1 tile in each direction to catch tiles at boundaries during movement
-    const startTileX = pixelStartTileX - 1;
-    const endTileX = pixelEndTileX + 1;
-    const startTileY = pixelStartTileY;
-    const endTileY = pixelEndTileY + 1;
-
-    // Build mask from reflective tiles
-    for (let ty = startTileY; ty <= endTileY; ty++) {
-      for (let tx = startTileX; tx <= endTileX; tx++) {
-        const info = getReflectionMetaFromSnapshot(snapshot, tx, ty);
-        if (!info?.meta?.isReflective) continue;
-
-        const mask = info.meta.pixelMask;
-        const tileLeft = tx * METATILE_SIZE - tileRefX;
-        const tileTop = ty * METATILE_SIZE - tileRefY;
-
-        for (let y = 0; y < METATILE_SIZE; y++) {
-          const globalY = tileTop + y;
-          if (globalY < 0 || globalY >= frame.sh) continue;
-          for (let x = 0; x < METATILE_SIZE; x++) {
-            const globalX = tileLeft + x;
-            if (globalX < 0 || globalX >= frame.sw) continue;
-            if (mask[y * METATILE_SIZE + x]) {
-              const index = (globalY * frame.sw + globalX) * 4 + 3;
-              maskData[index] = 255;
-            }
-          }
-        }
-      }
-    }
-
-    maskCtx.putImageData(maskImage, 0, 0);
-
-    // Create reflection canvas (flipped sprite)
-    const reflectionCanvas = document.createElement('canvas');
-    reflectionCanvas.width = frame.sw;
-    reflectionCanvas.height = frame.sh;
-    const reflectionCtx = reflectionCanvas.getContext('2d');
-    if (!reflectionCtx) return;
-
-    // Flip vertically
-    reflectionCtx.translate(0, frame.sh);
-    reflectionCtx.scale(frame.flip ? -1 : 1, -1);
-
-    // Draw sprite
-    reflectionCtx.drawImage(
-      frame.sprite,
-      frame.sx, frame.sy, frame.sw, frame.sh,
-      frame.flip ? -frame.sw : 0, 0, frame.sw, frame.sh
-    );
-
-    // Reset transform
-    reflectionCtx.setTransform(1, 0, 0, 1, 0, 0);
-
-    // Apply tint based on reflection type and bridge type
-    // GBA uses dark blue tint for pond bridges (low/med/high) to blend with dark water under bridge
-    reflectionCtx.globalCompositeOperation = 'source-atop';
-    reflectionCtx.fillStyle = getReflectionTint(reflectionState.reflectionType, reflectionState.bridgeType);
-    reflectionCtx.fillRect(0, 0, frame.sw, frame.sh);
-
-    // Apply mask
-    reflectionCtx.globalCompositeOperation = 'destination-in';
-    reflectionCtx.drawImage(maskCanvas, 0, 0);
-
-    // Draw to main canvas with transparency and shimmer effect (water only - ice is still)
-    // Pond bridges use slightly reduced alpha to better blend with dark tint
-    ctx.save();
-    ctx.globalAlpha = getReflectionAlpha(reflectionState.bridgeType);
-
-    // Apply shimmer only for WATER reflections - GBA ice reflections use stillReflection=TRUE
-    // which disables affine mode, so ice reflections don't wobble
-    if (reflectionState.reflectionType === 'water') {
-      const shimmer = getGlobalShimmer();
-      const matrixNum = ReflectionShimmer.getMatrixForDirection(
-        playerRef.current?.dir ?? 'down',
-        frame.flip
-      );
-      const scaleX = shimmer.getScaleX(matrixNum);
-
-      // Apply GBA-style affine transformation with nearest-neighbor sampling
-      // This creates visible pixel-stepping artifacts like the real GBA
-      // Canvas2D's ctx.scale() uses bilinear interpolation which smooths out the effect
-      const shimmerCanvas = applyGbaAffineShimmer(reflectionCanvas, scaleX);
-      ctx.drawImage(shimmerCanvas, screenX, screenY);
-    } else {
-      // Ice reflections don't shimmer (GBA uses stillReflection=TRUE)
-      ctx.drawImage(reflectionCanvas, screenX, screenY);
-    }
-    ctx.restore();
-  }, [getReflectionMetaFromSnapshot]);
+  }, [initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, createRenderContextFromSnapshot, doorSequencer, doorAnimations]);
 
   // Initialize WebGL pipeline and player once
   useEffect(() => {
@@ -1042,6 +525,11 @@ export function WebGLMapPage() {
       const pipeline = new WebGLRenderPipeline(webglCanvas);
       pipelineRef.current = pipeline;
       setStats((s) => ({ ...s, webgl2Supported: true, error: null }));
+
+      // Initialize sprite renderer (shares GL context with pipeline)
+      const spriteRenderer = new WebGLSpriteRenderer(pipeline.getGL());
+      spriteRenderer.initialize();
+      spriteRendererRef.current = spriteRenderer;
     } catch (e) {
       setStats((s) => ({ ...s, webgl2Supported: false, error: 'Failed to create WebGL pipeline' }));
       return;
@@ -1060,17 +548,9 @@ export function WebGLMapPage() {
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
 
         // Set up door warp handler for animated door and arrow warp entry
+        // Uses shared DoorActionDispatcher for the sequence logic
         player.setDoorWarpHandler(async (request) => {
           console.log('[DOOR_HANDLER] Called with request:', request);
-
-          if (doorSequencer.isEntryActive()) {
-            console.log('[DOOR_HANDLER] Rejected: doorSequencer.isEntryActive()');
-            return;
-          }
-          if (warpHandlerRef.current.isInProgress()) {
-            console.log('[DOOR_HANDLER] Rejected: warpHandler.isInProgress()');
-            return;
-          }
 
           const snapshot = worldSnapshotRef.current;
           if (!snapshot) {
@@ -1078,7 +558,7 @@ export function WebGLMapPage() {
             return;
           }
 
-          const renderContext = createRenderContextFromSnapshot(snapshot);
+          const renderContext = getRenderContextFromSnapshot(snapshot);
           if (!renderContext) {
             console.log('[DOOR_HANDLER] Rejected: no renderContext');
             return;
@@ -1093,73 +573,48 @@ export function WebGLMapPage() {
           const warpEvent = findWarpEventAt(resolved.map, request.targetX, request.targetY);
           if (!warpEvent) {
             console.log('[DOOR_HANDLER] Rejected: no warpEvent at', request.targetX, request.targetY, 'in map', resolved.map.entry.id);
-            console.log('[DOOR_HANDLER] Available warps:', resolved.map.warpEvents);
             return;
           }
 
           console.log('[DOOR_HANDLER] Found warp:', warpEvent);
 
-          const behavior = resolved.attributes?.behavior ?? -1;
-          const isArrow = isArrowWarpBehavior(behavior);
-          const isAnimated = isDoorBehavior(behavior);
-          const isNonAnimated = isNonAnimatedDoorBehavior(behavior);
-          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
-
-          const trigger: WarpTrigger = {
-            kind: isArrow ? 'arrow' : 'door',
-            sourceMap: resolved.map,
+          // Build context for shared door warp handler
+          const ctx: DoorWarpContext = {
+            targetX: request.targetX,
+            targetY: request.targetY,
+            behavior: resolved.attributes?.behavior ?? -1,
+            metatileId: getMetatileIdFromMapTile(resolved.mapTile),
             warpEvent,
-            behavior,
-            facing: player.dir,
+            sourceMap: resolved.map,
           };
 
-          // For arrow warps, check player is facing arrow direction
-          if (isArrow) {
-            const arrowDir = getArrowDirectionFromBehavior(behavior);
-            if (!arrowDir || player.dir !== arrowDir) return;
+          // Use shared door warp sequence starter
+          const started = await startDoorWarpSequence(ctx, {
+            player,
+            doorSequencer,
+            doorAnimations,
+            arrowOverlay,
+            warpHandler: warpHandlerRef.current,
+          });
 
-            // Start auto-warp (skip animation, go straight to fade)
-            arrowOverlay.hide();
-            doorSequencer.startAutoWarp({
-              targetX: player.tileX,
-              targetY: player.tileY,
-              metatileId,
-              isAnimatedDoor: false,
-              entryDirection: arrowDir as CardinalDirection,
-              warpTrigger: trigger,
-            }, performance.now(), true);
-            player.lockInput();
-            return;
-          }
-
-          // For animated doors, spawn open animation and start entry sequence
-          if (isAnimated) {
-            const startedAt = performance.now();
-            const openAnimId = await doorAnimations.spawn('open', request.targetX, request.targetY, metatileId, startedAt, true);
-            doorSequencer.startEntry({
-              targetX: request.targetX,
-              targetY: request.targetY,
-              metatileId,
-              isAnimatedDoor: true,
-              entryDirection: player.dir as CardinalDirection,
-              warpTrigger: trigger,
-              openAnimId: openAnimId ?? undefined,
-            }, startedAt);
-            if (openAnimId) doorSequencer.setEntryOpenAnimId(openAnimId);
-            player.lockInput();
-          } else if (isNonAnimated) {
-            // Non-animated door (stairs, etc.) - just fade
-            doorSequencer.startAutoWarp({
-              targetX: request.targetX,
-              targetY: request.targetY,
-              metatileId,
-              isAnimatedDoor: false,
-              entryDirection: player.dir as CardinalDirection,
-              warpTrigger: trigger,
-            }, performance.now(), true);
-            player.lockInput();
+          if (started) {
+            console.log('[DOOR_HANDLER] Door sequence started');
           }
         });
+
+        // Upload player sprite sheets to WebGL renderer
+        const spriteRenderer = spriteRendererRef.current;
+        if (spriteRenderer) {
+          const spriteSheets = player.getSpriteSheets();
+          for (const [key, canvas] of spriteSheets) {
+            const atlasName = getPlayerAtlasName(key);
+            spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
+              frameWidth: key === 'shadow' ? 16 : 16,
+              frameHeight: key === 'shadow' ? 8 : 32,
+            });
+            console.log(`[WebGL] Uploaded sprite sheet: ${atlasName} (${canvas.width}x${canvas.height})`);
+          }
+        }
 
         playerLoadedRef.current = true;
       } catch (err) {
@@ -1172,6 +627,21 @@ export function WebGLMapPage() {
     const loadFieldSprites = async () => {
       try {
         await fieldSprites.loadAll();
+
+        // Upload field sprites to WebGL renderer
+        const spriteRenderer = spriteRendererRef.current;
+        if (spriteRenderer) {
+          const fieldSpriteKeys = ['grass', 'longGrass', 'sand', 'splash', 'ripple'] as const;
+          for (const key of fieldSpriteKeys) {
+            const canvas = fieldSprites.sprites[key];
+            if (canvas) {
+              const atlasName = getFieldEffectAtlasName(key);
+              spriteRenderer.uploadSpriteSheet(atlasName, canvas);
+              console.log(`[WebGL] Uploaded field sprite: ${atlasName} (${canvas.width}x${canvas.height})`);
+            }
+          }
+        }
+
         fieldSpritesLoadedRef.current = true;
       } catch (err) {
         console.error('Failed to load field sprites:', err);
@@ -1254,7 +724,7 @@ export function WebGLMapPage() {
           // Update arrow overlay based on current tile behavior
           const snapshot = worldSnapshotRef.current;
           if (snapshot && !warpHandlerRef.current.isInProgress()) {
-            const renderContext = createRenderContextFromSnapshot(snapshot);
+            const renderContext = getRenderContextFromSnapshot(snapshot);
             if (renderContext) {
               const resolved = resolveTileAt(renderContext, player.tileX, player.tileY);
               const behavior = resolved?.attributes?.behavior ?? 0;
@@ -1271,7 +741,7 @@ export function WebGLMapPage() {
 
           // Check for warps when player tile changes (matches Canvas2D useRunUpdate logic)
           if (snapshot && !warpHandlerRef.current.isInProgress() && !doorSequencer.isActive()) {
-            const renderContext = createRenderContextFromSnapshot(snapshot);
+            const renderContext = getRenderContextFromSnapshot(snapshot);
             if (renderContext) {
               const resolvedForWarp = resolveTileAt(renderContext, player.tileX, player.tileY);
 
@@ -1325,92 +795,55 @@ export function WebGLMapPage() {
         }
       }
 
-      // Advance door entry sequence
+      // Advance door entry sequence (uses shared DoorActionDispatcher)
       if (doorSequencer.isEntryActive()) {
         const player = playerRef.current;
         if (player) {
           const entryState = doorSequencer.sequencer.getEntryState();
-          const isAnimationDone = (animId: number | undefined) => {
-            if (animId === undefined) return true;
-            if (animId === -1) return false; // Loading in progress
-            const anim = doorAnimations.findById(animId);
-            return !anim || doorAnimations.isAnimDone(anim, nowTime);
-          };
+          const isAnimationDone = createAnimationDoneChecker(doorAnimations, nowTime);
           const isFadeDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
 
           const result = doorSequencer.updateEntry(nowTime, player.isMoving, isAnimationDone, isFadeDone);
 
-          if (result.action === 'startPlayerStep' && result.direction) {
-            player.forceMove(result.direction, true);
-          } else if (result.action === 'hidePlayer') {
-            playerHiddenRef.current = true;
-            // Spawn close animation if animated door
-            if (entryState.isAnimatedDoor) {
-              const pos = doorSequencer.getEntryDoorPosition();
-              doorSequencer.setEntryCloseAnimId(-1);
-              doorAnimations.spawn('close', pos?.x ?? 0, pos?.y ?? 0, entryState.metatileId, nowTime)
-                .then((closeAnimId) => {
-                  if (closeAnimId !== null) doorSequencer.setEntryCloseAnimId(closeAnimId);
-                });
-              if (entryState.openAnimId !== undefined) doorAnimations.clearById(entryState.openAnimId);
-            }
-          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-            doorAnimations.clearById(result.animId);
-          } else if (result.action === 'startFadeOut' && result.duration) {
-            fadeControllerRef.current.startFadeOut(result.duration, nowTime);
-          } else if (result.action === 'executeWarp' && result.trigger) {
-            // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
-            warpingRef.current = true;
-            void performWarp(result.trigger as WarpTrigger, { force: true, fromDoor: true });
-          }
+          // Use shared action dispatcher
+          const actionDeps: DoorActionDeps = {
+            player,
+            doorSequencer,
+            doorAnimations,
+            fadeController: fadeControllerRef.current,
+            playerHiddenRef,
+            onExecuteWarp: (trigger) => {
+              // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
+              warpingRef.current = true;
+              void performWarp(trigger, { force: true, fromDoor: true });
+            },
+          };
+
+          handleDoorEntryAction(result, entryState, actionDeps, nowTime);
         }
       }
 
-      // Advance door exit sequence
+      // Advance door exit sequence (uses shared DoorActionDispatcher)
       if (doorSequencer.isExitActive()) {
         const player = playerRef.current;
         if (player) {
           const exitState = doorSequencer.sequencer.getExitState();
-          const isAnimationDone = (animId: number | undefined) => {
-            if (animId === undefined) return true;
-            if (animId === -1) return false;
-            const anim = doorAnimations.findById(animId);
-            return !anim || doorAnimations.isAnimDone(anim, nowTime);
-          };
+          const isAnimationDone = createAnimationDoneChecker(doorAnimations, nowTime);
           const isFadeInDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
 
           const result = doorSequencer.updateExit(nowTime, player.isMoving, isAnimationDone, isFadeInDone);
 
-          if (result.action === 'spawnOpenAnimation') {
-            const pos = doorSequencer.getExitDoorPosition();
-            doorSequencer.setExitOpenAnimId(-1);
-            // Set door to fully-open state before fade completes
-            const alreadyOpenStartedAt = nowTime - 500;
-            doorAnimations.spawn('open', pos?.x ?? 0, pos?.y ?? 0, exitState.metatileId, alreadyOpenStartedAt, true)
-              .then((openAnimId) => {
-                if (openAnimId !== null) doorSequencer.setExitOpenAnimId(openAnimId);
-              });
-          } else if (result.action === 'startPlayerStep' && result.direction) {
-            player.forceMove(result.direction, true);
-            playerHiddenRef.current = false;
-          } else if (result.action === 'spawnCloseAnimation') {
-            const pos = doorSequencer.getExitDoorPosition();
-            if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
-              doorAnimations.clearById(exitState.openAnimId);
-            }
-            doorSequencer.setExitCloseAnimId(-1);
-            doorAnimations.spawn('close', pos?.x ?? 0, pos?.y ?? 0, exitState.metatileId, nowTime)
-              .then((closeAnimId) => {
-                if (closeAnimId !== null) doorSequencer.setExitCloseAnimId(closeAnimId);
-              });
-          } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-            doorAnimations.clearById(result.animId);
-          }
+          // Use shared action dispatcher
+          const actionDeps: DoorActionDeps = {
+            player,
+            doorSequencer,
+            doorAnimations,
+            fadeController: fadeControllerRef.current,
+            playerHiddenRef,
+            onExecuteWarp: () => {}, // Not used in exit sequence
+          };
 
-          if (result.done) {
-            player.unlockInput();
-            playerHiddenRef.current = false;
-          }
+          handleDoorExitAction(result, exitState, actionDeps, nowTime);
         }
       }
 
@@ -1499,10 +932,11 @@ export function WebGLMapPage() {
         //   3. Player and other sprites
         //   4. TopAbove layer (BG1 tiles in front of player - bridges, roofs, etc)
 
-        pipeline.compositeBackgroundOnly(ctx2d, view);
-        pipeline.compositeTopBelowOnly(ctx2d, view);
+        // NOTE: Layer compositing happens in the sprite rendering section below
+        // because we need to know if there are reflections to decide the render order.
+        // See "SPLIT LAYER RENDERING FOR REFLECTIONS" below.
 
-        // Render door animations (between topBelow and sprites)
+        // Render door animations
         doorAnimations.prune(nowTime);
         doorAnimations.render(ctx2d, view, nowTime);
 
@@ -1542,6 +976,7 @@ export function WebGLMapPage() {
             if (debugOptionsRef.current.enabled && gbaFrameRef.current % 6 === 0) {
               const gridDebug = getReflectionTileGridDebug(
                 currentSnapshot,
+                tilesetRuntimesRef.current,
                 player.tileX,
                 player.tileY,
                 destTile.x,
@@ -1553,48 +988,231 @@ export function WebGLMapPage() {
               setReflectionTileGridDebug(gridDebug);
             }
 
-            if (reflectionState.hasReflection) {
-              renderPlayerReflection(
-                ctx2d,
-                player,
-                reflectionState,
-                cameraX,
-                cameraY,
-                currentSnapshot
+            // reflectionState is used for WebGL sprite rendering below
+          }
+
+          // === WebGL Sprite Rendering (player + field effects + reflections batched) ===
+          const spriteRenderer = spriteRendererRef.current;
+          if (spriteRenderer && spriteRenderer.isValid()) {
+            const allSprites: SpriteInstance[] = [];
+
+            // Build WorldCameraView for sprite renderer
+            const spriteView: WorldCameraView = {
+              ...view,
+              cameraWorldX: cameraX,
+              cameraWorldY: cameraY,
+            };
+
+            // Add field effects (bottom and top layers)
+            if (fieldSpritesLoadedRef.current) {
+              const effects = player.getGrassEffectManager().getEffectsForRendering();
+              for (const effect of effects) {
+                // Try bottom layer
+                const bottomSprite = createFieldEffectSprite(effect, playerWorldY, 'bottom');
+                if (bottomSprite) allSprites.push(bottomSprite);
+                // Try top layer
+                const topSprite = createFieldEffectSprite(effect, playerWorldY, 'top');
+                if (topSprite) allSprites.push(topSprite);
+              }
+            }
+
+            // Add NPC sprites and reflections
+            const npcs = objectEventManagerRef.current.getVisibleNPCs();
+            for (const npc of npcs) {
+              const atlasName = getNPCAtlasName(npc.graphicsId);
+              if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+
+              // Calculate sort key for this NPC (feet Y + mid priority)
+              const npcSortKey = calculateSortKey(
+                npc.tileY * METATILE_SIZE + 16, // feet at bottom of tile
+                128
+              );
+
+              const npcSprite = createNPCSpriteInstance(npc, npcSortKey);
+              if (npcSprite) {
+                allSprites.push(npcSprite);
+
+                // Add NPC reflection if on reflective tile
+                const snapshot = worldSnapshotRef.current;
+                if (snapshot) {
+                  const npcReflectionState = computeReflectionStateFromSnapshot(
+                    snapshot,
+                    npc.tileX,
+                    npc.tileY,
+                    npc.tileX, // NPCs don't move yet, so prev = current
+                    npc.tileY,
+                    npcSprite.width,
+                    npcSprite.height
+                  );
+
+                  const npcReflection = createNPCReflectionSprite(
+                    npcSprite,
+                    npcReflectionState,
+                    npc.direction
+                  );
+                  if (npcReflection) {
+                    allSprites.push(npcReflection);
+                  }
+                }
+              }
+            }
+
+            // Add player sprite and reflection (unless hidden)
+            if (!playerHiddenRef.current) {
+              const frameInfo = player.getFrameInfo();
+              if (frameInfo) {
+                const spriteKey = player.getCurrentSpriteKey();
+                const atlasName = getPlayerAtlasName(spriteKey);
+                if (spriteRenderer.hasSpriteSheet(atlasName)) {
+                  const playerSprite = createSpriteFromFrameInfo(
+                    frameInfo,
+                    atlasName,
+                    calculateSortKey(player.y + 32, 128) // feet Y + mid priority
+                  );
+                  allSprites.push(playerSprite);
+
+                  // Add reflection sprite if player has reflection (WebGL batched)
+                  // Reflection state was computed above for debug display
+                  const snapshot = worldSnapshotRef.current;
+                  if (snapshot) {
+                    const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
+                    const destTile = player.getDestinationTile();
+                    const reflectionState = computeReflectionStateFromSnapshot(
+                      snapshot,
+                      destTile.x,
+                      destTile.y,
+                      player.tileX,
+                      player.tileY,
+                      spriteWidth,
+                      spriteHeight
+                    );
+
+                    const reflectionSprite = createPlayerReflectionSprite(
+                      playerSprite,
+                      reflectionState,
+                      player.dir
+                    );
+                    if (reflectionSprite) {
+                      allSprites.push(reflectionSprite);
+                    }
+                  }
+                }
+              }
+            }
+
+            // Sort all sprites by sortKey for proper Y-ordering
+            allSprites.sort((a, b) => a.sortKey - b.sortKey);
+
+            // Split sprites into reflections and normal sprites
+            const reflectionSprites = allSprites.filter((s) => s.isReflection);
+            const normalSprites = allSprites.filter((s) => !s.isReflection);
+
+            const gl = pipeline.getGL();
+            const webglCanvas = webglCanvasRef.current;
+
+            // === SPLIT LAYER RENDERING FOR REFLECTIONS ===
+            // GBA renders reflections at OAM priority 3 (behind BG1).
+            // BG1's opaque pixels naturally occlude reflections.
+            //
+            // For tiles like 177 (water with shore edge):
+            // - Layer 0 = water (BG2)
+            // - Layer 1 = shore edge (BG1) - should cover reflections
+            //
+            // Render order:
+            // 1. Layer 0 only (water base)
+            // 2. Reflections (on top of water)
+            // 3. Layer 1 of ALL tiles (shore edges cover reflections)
+            // 4. Normal sprites
+
+            if (reflectionSprites.length > 0) {
+              // === STEP 1: Render and composite ONLY layer 0 ===
+              pipeline.renderAndCompositeLayer0Only(ctx2d, view);
+
+              // === STEP 2: Render reflections (after layer 0, before layer 1) ===
+              if (webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                spriteRenderer.setWaterMask(null);
+                spriteRenderer.renderBatch(reflectionSprites, spriteView);
+
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
+
+              // === STEP 3: Render and composite layer 1 of ALL tiles ===
+              // This covers reflections with shore edges, ground decorations, etc.
+              pipeline.renderAndCompositeLayer1Only(ctx2d, view);
+
+              // === STEP 4: Render normal sprites ===
+              if (normalSprites.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                spriteRenderer.renderBatch(normalSprites, spriteView);
+
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
+            } else {
+              // No reflections - use standard compositing
+              pipeline.compositeBackgroundOnly(ctx2d, view);
+              pipeline.compositeTopBelowOnly(ctx2d, view);
+
+              // Render all sprites
+              if (allSprites.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                spriteRenderer.renderBatch(allSprites, spriteView);
+
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
+            }
+          } else {
+            // Fallback to Canvas2D rendering
+            const fieldEffectRenderContext = currentSnapshot
+              ? getRenderContextFromSnapshot(currentSnapshot)
+              : null;
+
+            if (fieldSpritesLoadedRef.current) {
+              const effects = player.getGrassEffectManager().getEffectsForRendering();
+              ObjectRenderer.renderFieldEffects(
+                ctx2d, effects,
+                {
+                  grass: fieldSprites.sprites.grass,
+                  longGrass: fieldSprites.sprites.longGrass,
+                  sand: fieldSprites.sprites.sand,
+                  splash: fieldSprites.sprites.splash,
+                  ripple: fieldSprites.sprites.ripple,
+                  arrow: null,
+                  itemBall: fieldSprites.sprites.itemBall,
+                },
+                objView, playerWorldY, 'bottom', fieldEffectRenderContext ?? undefined
               );
             }
-          }
 
-          // Create render context for field effect masking (water ripples, puddle splashes)
-          const fieldEffectRenderContext = currentSnapshot
-            ? createRenderContextFromSnapshot(currentSnapshot)
-            : null;
+            if (!playerHiddenRef.current) {
+              player.render(ctx2d, cameraX, cameraY);
+            }
 
-          // Render grass effects behind player (bottom layer)
-          if (fieldSpritesLoadedRef.current) {
-            const effects = player.getGrassEffectManager().getEffectsForRendering();
-            ObjectRenderer.renderFieldEffects(
-              ctx2d,
-              effects,
-              {
-                grass: fieldSprites.sprites.grass,
-                longGrass: fieldSprites.sprites.longGrass,
-                sand: fieldSprites.sprites.sand,
-                splash: fieldSprites.sprites.splash,
-                ripple: fieldSprites.sprites.ripple,
-                arrow: null,
-                itemBall: fieldSprites.sprites.itemBall,
-              },
-              objView,
-              playerWorldY,
-              'bottom',
-              fieldEffectRenderContext ?? undefined
-            );
-          }
-
-          // Render player (unless hidden during door sequence)
-          if (!playerHiddenRef.current) {
-            player.render(ctx2d, cameraX, cameraY);
+            if (fieldSpritesLoadedRef.current) {
+              const effects = player.getGrassEffectManager().getEffectsForRendering();
+              ObjectRenderer.renderFieldEffects(
+                ctx2d, effects,
+                {
+                  grass: fieldSprites.sprites.grass,
+                  longGrass: fieldSprites.sprites.longGrass,
+                  sand: fieldSprites.sprites.sand,
+                  splash: fieldSprites.sprites.splash,
+                  ripple: fieldSprites.sprites.ripple,
+                  arrow: null,
+                  itemBall: fieldSprites.sprites.itemBall,
+                },
+                objView, playerWorldY, 'top', fieldEffectRenderContext ?? undefined
+              );
+            }
           }
 
           // Render arrow overlay (reuse ObjectRenderer.renderArrow from Canvas2D)
@@ -1604,28 +1222,6 @@ export function WebGLMapPage() {
             if (arrowState && arrowSprite) {
               ObjectRenderer.renderArrow(ctx2d, arrowState, arrowSprite, view, nowTime);
             }
-          }
-
-          // Render grass effects in front of player (top layer)
-          if (fieldSpritesLoadedRef.current) {
-            const effects = player.getGrassEffectManager().getEffectsForRendering();
-            ObjectRenderer.renderFieldEffects(
-              ctx2d,
-              effects,
-              {
-                grass: fieldSprites.sprites.grass,
-                longGrass: fieldSprites.sprites.longGrass,
-                sand: fieldSprites.sprites.sand,
-                splash: fieldSprites.sprites.splash,
-                ripple: fieldSprites.sprites.ripple,
-                arrow: null,
-                itemBall: fieldSprites.sprites.itemBall,
-              },
-              objView,
-              playerWorldY,
-              'top',
-              fieldEffectRenderContext ?? undefined
-            );
           }
         }
 
@@ -1674,6 +1270,8 @@ export function WebGLMapPage() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       pipelineRef.current?.dispose();
       pipelineRef.current = null;
+      spriteRendererRef.current?.dispose();
+      spriteRendererRef.current = null;
       playerRef.current?.destroy();
       playerRef.current = null;
       playerLoadedRef.current = false;
@@ -1712,246 +1310,35 @@ export function WebGLMapPage() {
         worldManagerRef.current = worldManager;
 
         // Subscribe to world events for dynamic updates
-        worldManager.on((event) => {
-          if (cancelled) return;
-
-          if (event.type === 'mapsChanged') {
-            // Update snapshot and resolvers
-            worldSnapshotRef.current = event.snapshot;
-
-            // Update tile resolver
-            const resolver = createSnapshotTileResolver(event.snapshot);
-            pipeline.setTileResolver(resolver);
-
-            // Update player resolver
-            const player = playerRef.current;
-            if (player) {
-              const playerResolver = createSnapshotPlayerTileResolver(event.snapshot);
-              player.setTileResolver(playerResolver);
-            }
-
-            // Update world bounds
-            const { worldBounds } = event.snapshot;
-            const worldWidth = worldBounds.width * METATILE_SIZE;
-            const worldHeight = worldBounds.height * METATILE_SIZE;
-            worldBoundsRef.current = {
-              width: worldWidth,
-              height: worldHeight,
-              minX: worldBounds.minX,
-              minY: worldBounds.minY,
-            };
-            setWorldSize({ width: worldWidth, height: worldHeight });
-            setStitchedMapCount(event.snapshot.maps.length);
-
-            // Invalidate pipeline cache
-            pipeline.invalidate();
-          }
-
-          if (event.type === 'tilesetsChanged') {
-            // Upload tilesets based on SCHEDULER's GPU slot assignment, not array index!
-            // The scheduler determines which pair should be in which GPU slot
-            const scheduler = worldManager.getScheduler();
-            const { slot0: slot0PairId, slot1: slot1PairId } = scheduler.getGpuSlots();
-
-            // Upload to GPU slot 0
-            if (slot0PairId) {
-              const slot0Pair = scheduler.getCachedPair(slot0PairId);
-              if (slot0Pair) {
-                pipeline.uploadTilesets(
-                  slot0Pair.primaryImage.data,
-                  slot0Pair.primaryImage.width,
-                  slot0Pair.primaryImage.height,
-                  slot0Pair.secondaryImage.data,
-                  slot0Pair.secondaryImage.width,
-                  slot0Pair.secondaryImage.height,
-                  slot0Pair.animations
-                );
-                pipeline.uploadPalettes(combineTilesetPalettes(slot0Pair.primaryPalettes, slot0Pair.secondaryPalettes));
-              }
-            }
-
-            // Upload to GPU slot 1
-            if (slot1PairId) {
-              const slot1Pair = scheduler.getCachedPair(slot1PairId);
-              if (slot1Pair) {
-                pipeline.uploadTilesetsPair1(
-                  slot1Pair.primaryImage.data,
-                  slot1Pair.primaryImage.width,
-                  slot1Pair.primaryImage.height,
-                  slot1Pair.secondaryImage.data,
-                  slot1Pair.secondaryImage.width,
-                  slot1Pair.secondaryImage.height,
-                  slot1Pair.animations
-                );
-                pipeline.uploadPalettesPair1(combineTilesetPalettes(slot1Pair.primaryPalettes, slot1Pair.secondaryPalettes));
-              }
-            }
-
-            // Refresh tile resolver with updated GPU slot info
-            const freshSnapshot = worldManager.getSnapshot();
-            worldSnapshotRef.current = freshSnapshot;
-            const resolver = createSnapshotTileResolver(freshSnapshot);
-            pipeline.setTileResolver(resolver);
-
-            pipeline.invalidate();
-          }
-
-          if (event.type === 'reanchored') {
-            // Adjust player and camera positions by the offset shift
-            const player = playerRef.current;
-            if (player) {
-              player.setPosition(
-                player.tileX - event.offsetShift.x,
-                player.tileY - event.offsetShift.y
-              );
-            }
-            // Also adjust camera to prevent jitter on reanchor
-            if (cameraRef.current) {
-              cameraRef.current.adjustOffset(event.offsetShift.x, event.offsetShift.y);
-            }
-          }
-
-          if (event.type === 'gpuSlotsSwapped') {
-            // GPU slots changed due to player approaching tileset boundary
-            // Re-upload tilesets based on scheduler's new slot assignments
-            const scheduler = worldManager.getScheduler();
-            const { slot0: slot0PairId, slot1: slot1PairId } = scheduler.getGpuSlots();
-
-            if (slot0PairId) {
-              const pair0 = scheduler.getCachedPair(slot0PairId);
-              if (pair0) {
-                pipeline.uploadTilesets(
-                  pair0.primaryImage.data,
-                  pair0.primaryImage.width,
-                  pair0.primaryImage.height,
-                  pair0.secondaryImage.data,
-                  pair0.secondaryImage.width,
-                  pair0.secondaryImage.height,
-                  pair0.animations
-                );
-                pipeline.uploadPalettes(combineTilesetPalettes(pair0.primaryPalettes, pair0.secondaryPalettes));
-              }
-            }
-
-            if (slot1PairId) {
-              const pair1 = scheduler.getCachedPair(slot1PairId);
-              if (pair1) {
-                pipeline.uploadTilesetsPair1(
-                  pair1.primaryImage.data,
-                  pair1.primaryImage.width,
-                  pair1.primaryImage.height,
-                  pair1.secondaryImage.data,
-                  pair1.secondaryImage.width,
-                  pair1.secondaryImage.height,
-                  pair1.animations
-                );
-                pipeline.uploadPalettesPair1(combineTilesetPalettes(pair1.primaryPalettes, pair1.secondaryPalettes));
-              }
-            }
-
-            // CRITICAL: Get fresh snapshot with updated pairIdToGpuSlot and recreate tile resolver!
-            // Without this, the tile resolver has stale GPU slot info and can't render border tiles correctly
-            const freshSnapshot = worldManager.getSnapshot();
-            worldSnapshotRef.current = freshSnapshot;
-            const resolver = createSnapshotTileResolver(freshSnapshot);
-            pipeline.setTileResolver(resolver);
-
-            // Also update player resolver
-            const player = playerRef.current;
-            if (player) {
-              const playerResolver = createSnapshotPlayerTileResolver(freshSnapshot);
-              player.setTileResolver(playerResolver);
-            }
-
-            if (event.needsRebuild) {
-              pipeline.invalidate();
-            }
-          }
-        });
+        const eventHandler = createWorldManagerEventHandler(
+          {
+            pipeline,
+            worldSnapshotRef,
+            playerRef,
+            cameraRef,
+            worldBoundsRef,
+            setWorldSize,
+            setStitchedMapCount,
+            createSnapshotTileResolver,
+            createSnapshotPlayerTileResolver,
+            isCancelled: () => cancelled,
+          },
+          worldManager
+        );
+        worldManager.on(eventHandler);
 
         // Set up GPU upload callback for scheduler
-        worldManager.setGpuUploadCallback((pair, slot) => {
-          if (slot === 0) {
-            pipeline.uploadTilesets(
-              pair.primaryImage.data,
-              pair.primaryImage.width,
-              pair.primaryImage.height,
-              pair.secondaryImage.data,
-              pair.secondaryImage.width,
-              pair.secondaryImage.height,
-              pair.animations
-            );
-            pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-          } else {
-            pipeline.uploadTilesetsPair1(
-              pair.primaryImage.data,
-              pair.primaryImage.width,
-              pair.primaryImage.height,
-              pair.secondaryImage.data,
-              pair.secondaryImage.width,
-              pair.secondaryImage.height,
-              pair.animations
-            );
-            pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-          }
-        });
+        worldManager.setGpuUploadCallback(createGpuUploadCallback(pipeline));
 
         // Initialize world from selected map
         const snapshot = await worldManager.initialize(entry.id);
         if (cancelled) return;
 
-        worldSnapshotRef.current = snapshot;
+        // Initialize world state (shared helper)
+        await initializeWorldFromSnapshot(snapshot, pipeline);
 
-        // Build tileset runtimes for reflection detection
-        buildTilesetRuntimesFromSnapshot(snapshot);
-
-        // Also store as stitched world for backward compatibility with debug display
-        stitchedWorldRef.current = {
-          maps: snapshot.maps.map(m => ({
-            entry: m.entry,
-            mapData: m.mapData,
-            offsetX: m.offsetX,
-            offsetY: m.offsetY,
-          })),
-          anchorId: snapshot.anchorMapId,
-          worldBounds: snapshot.worldBounds,
-          tilesetPairs: snapshot.tilesetPairs,
-          mapTilesetPairIndex: snapshot.mapTilesetPairIndex,
-          // Legacy fields from primary pair
-          primaryMetatiles: snapshot.tilesetPairs[0]?.primaryMetatiles ?? [],
-          secondaryMetatiles: snapshot.tilesetPairs[0]?.secondaryMetatiles ?? [],
-          primaryAttributes: snapshot.tilesetPairs[0]?.primaryAttributes ?? [],
-          secondaryAttributes: snapshot.tilesetPairs[0]?.secondaryAttributes ?? [],
-          primaryImage: snapshot.tilesetPairs[0]?.primaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
-          secondaryImage: snapshot.tilesetPairs[0]?.secondaryImage ?? { data: new Uint8Array(), width: 0, height: 0 },
-          primaryPalettes: snapshot.tilesetPairs[0]?.primaryPalettes ?? [],
-          secondaryPalettes: snapshot.tilesetPairs[0]?.secondaryPalettes ?? [],
-          animations: snapshot.tilesetPairs[0]?.animations ?? [],
-          borderMetatiles: snapshot.anchorBorderMetatiles ?? [],
-        };
-
-        // Set up tile resolver
-        const resolver = createSnapshotTileResolver(snapshot);
-        pipeline.setTileResolver(resolver);
-
-        // Upload tilesets
-        uploadTilesetsFromSnapshot(pipeline, snapshot);
-
-        // Invalidate pipeline cache
+        // Invalidate pipeline cache (initial load only)
         pipeline.invalidate();
-
-        // Set world bounds
-        const { worldBounds } = snapshot;
-        const worldWidth = worldBounds.width * METATILE_SIZE;
-        const worldHeight = worldBounds.height * METATILE_SIZE;
-        worldBoundsRef.current = {
-          width: worldWidth,
-          height: worldHeight,
-          minX: worldBounds.minX,
-          minY: worldBounds.minY,
-        };
-        setWorldSize({ width: worldWidth, height: worldHeight });
-        setStitchedMapCount(snapshot.maps.length);
 
         // Set up player
         const player = playerRef.current;
@@ -1987,7 +1374,7 @@ export function WebGLMapPage() {
         worldManagerRef.current = null;
       }
     };
-  }, [selectedMap, createSnapshotTileResolver, createSnapshotPlayerTileResolver, uploadTilesetsFromSnapshot]);
+  }, [selectedMap, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver]);
 
   if (!selectedMap) {
     return (

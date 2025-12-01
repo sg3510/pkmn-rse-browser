@@ -58,3 +58,38 @@ src/
 2. `MapRenderer.tsx` and `WebGLMapPage.tsx` share 80%+ of game logic
 3. Adding new field effects works in both renderers automatically
 4. Switching renderers requires only pipeline swap, not code changes
+
+## Document Index
+
+| Doc | Title | Status |
+|-----|-------|--------|
+| [01](./01-current-state.md) | Current State Analysis | ✅ Complete |
+| [02](./02-shared-abstractions.md) | Shared Abstractions | ✅ Complete |
+| [03](./03-implementation-phases.md) | Implementation Phases | ✅ Complete |
+| [04](./04-component-breakdown.md) | Component Breakdown | ✅ Complete |
+| [05](./05-quick-start.md) | Quick Start Guide | ✅ Complete |
+| [06](./06-detailed-checklist.md) | Detailed Checklist | ✅ Complete |
+| [07](./07-additional-deduplication.md) | Additional Deduplication | ✅ Complete |
+| [08](./08-door-warp-unification.md) | Door/Warp Unification | ✅ Complete |
+| [09](./09-webgl-sprite-renderer.md) | **WebGL Sprite Renderer** | 🔲 Planned |
+
+## Current Progress
+
+### Phase 1-8: Completed ✅
+
+- WebGLMapPage.tsx: **1204 lines** (down from 2154, -44%)
+- Shared hooks and utilities across Canvas2D and WebGL
+- Door/warp system unified via `DoorActionDispatcher`
+
+### Phase 9: Full WebGL Rendering (Next)
+
+**Problem:** Current hybrid rendering requires 3 GPU→CPU→GPU round trips per frame for sprite interleaving.
+
+**Solution:** Unified WebGL sprite renderer that eliminates Canvas2D sprite rendering entirely.
+
+**Expected gains:**
+- Eliminate 2 framebuffer copy operations per frame
+- Enable future GPU effects (weather, time-of-day, shaders)
+- Cleaner single-pipeline architecture
+
+See [09-webgl-sprite-renderer.md](./09-webgl-sprite-renderer.md) for full implementation plan.

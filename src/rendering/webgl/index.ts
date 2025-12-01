@@ -34,6 +34,9 @@ export { WebGLRenderPipeline } from './WebGLRenderPipeline';
 // Phase 6: Tileset Upload Helpers
 export { uploadTilesetsFromSnapshot, combineTilesetPalettes } from './TilesetUploader';
 
+// Phase 7: Sprite Rendering
+export { WebGLSpriteRenderer } from './WebGLSpriteRenderer';
+
 // Test component
 export { WebGLTest } from './WebGLTest';
 

@@ -74,6 +74,54 @@ export class WebGLPassRenderer {
   }
 
   /**
+   * Render ONLY layer 0 (bottom layer) of all metatiles
+   *
+   * Used for reflection rendering where we need to insert reflections
+   * between layer 0 and layer 1. The order should be:
+   * 1. renderLayer0Only() - water/ground base
+   * 2. [render reflections]
+   * 3. renderLayer1Only() - shore edges cover reflections
+   *
+   * @param view - Camera view
+   * @param resolveTile - Tile resolver function
+   * @param width - Framebuffer width
+   * @param height - Framebuffer height
+   */
+  renderLayer0Only(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn,
+    width: number,
+    height: number
+  ): void {
+    const instances = this.instanceBuilder.buildLayer0Instances(view, resolveTile);
+    this.cachedInstances.set('background', instances);
+    this.renderPassToFramebuffer('background', instances, width, height);
+  }
+
+  /**
+   * Render ONLY layer 1 (top layer) of ALL metatiles
+   *
+   * Renders layer 1 for ALL tiles regardless of layer type (NORMAL, COVERED, SPLIT).
+   * Used after reflection rendering to ensure layer 1 covers reflections.
+   *
+   * @param view - Camera view
+   * @param resolveTile - Tile resolver function
+   * @param width - Framebuffer width
+   * @param height - Framebuffer height
+   */
+  renderLayer1Only(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn,
+    width: number,
+    height: number
+  ): void {
+    const instances = this.instanceBuilder.buildLayer1Instances(view, resolveTile);
+    // Use topBelow framebuffer for layer 1
+    this.cachedInstances.set('topBelow', instances);
+    this.renderPassToFramebuffer('topBelow', instances, width, height);
+  }
+
+  /**
    * Render the top layer below player
    *
    * @param view - Camera view

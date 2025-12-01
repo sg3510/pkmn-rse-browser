@@ -38,6 +38,12 @@ import {
   type WarpExecutorDeps,
   type SpawnPosition,
 } from '../game/WarpExecutor';
+import {
+  handleDoorEntryAction,
+  handleDoorExitAction,
+  createAnimationDoneChecker,
+  type DoorActionDeps,
+} from '../game/DoorActionDispatcher';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -277,6 +283,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
        * Advance Door Entry Sequence
        *
        * Called every frame in runUpdate to progress door entry animation.
+       * Uses shared DoorActionDispatcher for action handling.
        */
       const advanceDoorEntry = (now: number): void => {
         if (!doorSequencer.isEntryActive()) return;
@@ -284,13 +291,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
         if (!player) return;
 
         const entryState = doorSequencer.sequencer.getEntryState();
-        const isAnimationDone = (animId: number | undefined) => {
-          if (animId === undefined) return true;
-          // -1 is sentinel for "loading in progress" - not done
-          if (animId === -1) return false;
-          const anim = doorAnimations.findById(animId);
-          return !anim || doorAnimations.isAnimDone(anim, now);
-        };
+        const isAnimationDone = createAnimationDoneChecker(doorAnimations, now);
         const isFadeDone = !refs.fadeRef.current.isActive() || refs.fadeRef.current.isComplete(now);
 
         const result = doorSequencer.updateEntry(
@@ -300,46 +301,20 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
           isFadeDone
         );
 
-        // Handle actions returned by the sequencer
-        if (result.action === 'startPlayerStep' && result.direction) {
-          const pos = doorSequencer.getEntryDoorPosition();
-          logDoor('entry: door fully open, force step into tile', pos?.x, pos?.y);
-          player.forceMove(result.direction, true);
-        } else if (result.action === 'hidePlayer') {
-          logDoor('entry: hide player');
-          (refs.playerHiddenRef as { current: boolean }).current = true;
-          // Also spawn close animation if animated door
-          if (entryState.isAnimatedDoor) {
-            const pos = doorSequencer.getEntryDoorPosition();
-            logDoor('entry: start door close (animated)');
-            // Set to -1 as sentinel for "loading in progress" to prevent race condition
-            doorSequencer.setEntryCloseAnimId(-1);
-            doorAnimations.spawn(
-              'close',
-              pos?.x ?? 0,
-              pos?.y ?? 0,
-              entryState.metatileId,
-              now
-            ).then((closeAnimId) => {
-              if (closeAnimId !== null) {
-                doorSequencer.setEntryCloseAnimId(closeAnimId);
-              }
-            });
-            // Remove open animation
-            if (entryState.openAnimId !== undefined) {
-              doorAnimations.clearById(entryState.openAnimId);
-            }
-          }
-        } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-          logDoor('entry: door close complete, showing base tile');
-          doorAnimations.clearById(result.animId);
-        } else if (result.action === 'startFadeOut' && result.duration) {
-          logDoor('entry: start fade out');
-          refs.fadeRef.current.startFadeOut(result.duration, now);
-        } else if (result.action === 'executeWarp' && result.trigger) {
-          logDoor('entry: warp now');
-          void performWarp(result.trigger as WarpTrigger, { force: true, fromDoor: true });
-        }
+        // Use shared action dispatcher
+        const actionDeps: DoorActionDeps = {
+          player,
+          doorSequencer,
+          doorAnimations,
+          fadeController: refs.fadeRef.current,
+          playerHiddenRef: refs.playerHiddenRef as { current: boolean },
+          onExecuteWarp: (trigger) => {
+            logDoor('entry: warp now');
+            void performWarp(trigger, { force: true, fromDoor: true });
+          },
+        };
+
+        handleDoorEntryAction(result, entryState, actionDeps, now);
       };
 
       /**
@@ -347,6 +322,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
        *
        * Handles the door exit state machine using the door sequencer.
        * Called every frame in runUpdate to progress the exit animation.
+       * Uses shared DoorActionDispatcher for action handling.
        */
       const advanceDoorExit = (now: number): void => {
         if (!doorSequencer.isExitActive()) return;
@@ -354,13 +330,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
         if (!player) return;
 
         const exitState = doorSequencer.sequencer.getExitState();
-        const isAnimationDone = (animId: number | undefined) => {
-          if (animId === undefined) return true;
-          // -1 is sentinel for "loading in progress" - not done
-          if (animId === -1) return false;
-          const anim = doorAnimations.findById(animId);
-          return !anim || doorAnimations.isAnimDone(anim, now);
-        };
+        const isAnimationDone = createAnimationDoneChecker(doorAnimations, now);
         // Per pokeemerald: wait for fade-in to complete before showing player
         const isFadeInDone = !refs.fadeRef.current.isActive() || refs.fadeRef.current.isComplete(now);
 
@@ -371,64 +341,19 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
           isFadeInDone
         );
 
-        // Handle actions returned by the sequencer
-        if (result.action === 'spawnOpenAnimation') {
-          const pos = doorSequencer.getExitDoorPosition();
-          logDoor('exit: set door to open state (not animating)', {
-            worldX: pos?.x,
-            worldY: pos?.y,
-            metatileId: exitState.metatileId,
-          });
-          // Set to -1 as sentinel for "loading in progress"
-          doorSequencer.setExitOpenAnimId(-1);
-          // Per pokeemerald: FieldSetDoorOpened() sets door to fully-open state BEFORE fade completes
-          const alreadyOpenStartedAt = now - 500;
-          doorAnimations.spawn(
-            'open',
-            pos?.x ?? 0,
-            pos?.y ?? 0,
-            exitState.metatileId,
-            alreadyOpenStartedAt,
-            true // holdOnComplete - stay on last frame
-          ).then((openAnimId) => {
-            if (openAnimId !== null) {
-              doorSequencer.setExitOpenAnimId(openAnimId);
-            }
-          });
-        } else if (result.action === 'startPlayerStep' && result.direction) {
-          logDoor('exit: step out of door', { exitDirection: result.direction });
-          player.forceMove(result.direction, true);
-          (refs.playerHiddenRef as { current: boolean }).current = false;
-        } else if (result.action === 'spawnCloseAnimation') {
-          const pos = doorSequencer.getExitDoorPosition();
-          logDoor('exit: start door close');
-          // Remove open animation
-          if (exitState.openAnimId !== undefined && exitState.openAnimId !== -1) {
-            doorAnimations.clearById(exitState.openAnimId);
-          }
-          // Set to -1 as sentinel for "loading in progress"
-          doorSequencer.setExitCloseAnimId(-1);
-          doorAnimations.spawn(
-            'close',
-            pos?.x ?? 0,
-            pos?.y ?? 0,
-            exitState.metatileId,
-            now
-          ).then((closeAnimId) => {
-            if (closeAnimId !== null) {
-              doorSequencer.setExitCloseAnimId(closeAnimId);
-            }
-          });
-        } else if (result.action === 'removeCloseAnimation' && result.animId !== undefined) {
-          logDoor('exit: door close complete');
-          doorAnimations.clearById(result.animId);
-        }
+        // Use shared action dispatcher
+        const actionDeps: DoorActionDeps = {
+          player,
+          doorSequencer,
+          doorAnimations,
+          fadeController: refs.fadeRef.current,
+          playerHiddenRef: refs.playerHiddenRef as { current: boolean },
+          onExecuteWarp: () => {}, // Not used in exit sequence
+        };
 
-        // Handle completion
-        if (result.done) {
+        const done = handleDoorExitAction(result, exitState, actionDeps, now);
+        if (done) {
           logDoor('exit: sequence complete');
-          refs.playerControllerRef.current?.unlockInput();
-          (refs.playerHiddenRef as { current: boolean }).current = false;
         }
       };
 

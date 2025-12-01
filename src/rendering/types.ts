@@ -222,3 +222,97 @@ export type IsVerticalObjectFn = (tileX: number, tileY: number) => boolean;
  * Function type for resolving tiles at world coordinates
  */
 export type TileResolverFn = (tileX: number, tileY: number) => ResolvedTile | null;
+
+// =============================================================================
+// Sprite Rendering Types (Renderer-Agnostic)
+// =============================================================================
+
+/**
+ * Sprite instance data for rendering
+ *
+ * This type is renderer-agnostic - it contains all information needed
+ * to render a sprite without any WebGL/Canvas2D specifics. Both
+ * WebGLSpriteRenderer and Canvas2DSpriteRenderer use this same type.
+ *
+ * Coordinates are in WORLD pixels (not screen pixels). The renderer
+ * converts to screen coordinates using the camera view.
+ */
+export interface SpriteInstance {
+  // === Position (world pixels) ===
+  /** X position in world pixel coordinates */
+  worldX: number;
+  /** Y position in world pixel coordinates */
+  worldY: number;
+
+  // === Dimensions ===
+  /** Sprite width in pixels */
+  width: number;
+  /** Sprite height in pixels */
+  height: number;
+
+  // === Atlas region ===
+  /** Name of the sprite sheet (for texture lookup) */
+  atlasName: string;
+  /** X offset within the atlas texture (pixels) */
+  atlasX: number;
+  /** Y offset within the atlas texture (pixels) */
+  atlasY: number;
+  /** Width of sprite region in atlas (pixels) */
+  atlasWidth: number;
+  /** Height of sprite region in atlas (pixels) */
+  atlasHeight: number;
+
+  // === Transform ===
+  /** Horizontal flip (east-facing sprites) */
+  flipX: boolean;
+  /** Vertical flip (reflections) */
+  flipY: boolean;
+
+  // === Appearance ===
+  /** Overall opacity (0-1) */
+  alpha: number;
+  /** Tint red component (0-1, 1 = no tint) */
+  tintR: number;
+  /** Tint green component (0-1, 1 = no tint) */
+  tintG: number;
+  /** Tint blue component (0-1, 1 = no tint) */
+  tintB: number;
+
+  // === Sorting ===
+  /**
+   * Sort key for Y-ordering
+   * Higher values render later (on top)
+   * Typically: (worldY << 8) | subpriority
+   */
+  sortKey: number;
+
+  // === Reflection-specific ===
+  /** Whether this is a reflection sprite (needs water mask) */
+  isReflection: boolean;
+  /**
+   * Shimmer X-scale for water reflections (0.984-1.016)
+   * Only used when isReflection=true, undefined for ice/normal sprites
+   */
+  shimmerScale?: number;
+}
+
+/**
+ * Sprite sheet metadata
+ *
+ * Describes a sprite sheet uploaded to the renderer.
+ * Used for looking up atlas regions.
+ */
+export interface SpriteSheetInfo {
+  /** Unique name for this sprite sheet */
+  name: string;
+  /** Width of the full sheet in pixels */
+  width: number;
+  /** Height of the full sheet in pixels */
+  height: number;
+  /** Width of a single frame (for animated sprites) */
+  frameWidth?: number;
+  /** Height of a single frame (for animated sprites) */
+  frameHeight?: number;
+  /** Number of frames in the sheet */
+  frameCount?: number;
+}

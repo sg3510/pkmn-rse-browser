@@ -71,6 +71,68 @@ export class TileInstanceBuilder {
   }
 
   /**
+   * Build tile instances for ONLY layer 0 (bottom layer)
+   *
+   * Used for reflection rendering where we need:
+   * 1. Layer 0 (water/ground)
+   * 2. Reflections
+   * 3. Layer 1 (shore edges, covers reflections)
+   *
+   * @param view - Camera view defining visible area
+   * @param resolveTile - Function to resolve tile data at world coordinates
+   * @returns Array of tile instances for layer 0 only
+   */
+  buildLayer0Instances(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn
+  ): TileInstance[] {
+    this.instanceBuffer.length = 0;
+
+    this.forEachVisibleTile(view, (worldX, worldY, screenX, screenY) => {
+      const resolved = resolveTile(worldX, worldY);
+      if (!resolved?.metatile) return;
+
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
+
+      // Only draw layer 0
+      this.addMetatileLayer(resolved.metatile, screenX, screenY, 0, tilesetPairIndex);
+    });
+
+    return this.instanceBuffer;
+  }
+
+  /**
+   * Build tile instances for ONLY layer 1 (top layer) of ALL tiles
+   *
+   * Unlike buildTopLayerInstances which excludes COVERED tiles,
+   * this includes layer 1 of ALL tiles regardless of layer type.
+   *
+   * Used after reflection rendering to ensure layer 1 covers reflections.
+   *
+   * @param view - Camera view defining visible area
+   * @param resolveTile - Function to resolve tile data at world coordinates
+   * @returns Array of tile instances for layer 1 of all tiles
+   */
+  buildLayer1Instances(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn
+  ): TileInstance[] {
+    this.instanceBuffer.length = 0;
+
+    this.forEachVisibleTile(view, (worldX, worldY, screenX, screenY) => {
+      const resolved = resolveTile(worldX, worldY);
+      if (!resolved?.metatile) return;
+
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
+
+      // Draw layer 1 for ALL tiles (including COVERED)
+      this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
+    });
+
+    return this.instanceBuffer;
+  }
+
+  /**
    * Build tile instances for the top layer pass
    *
    * Top layer includes:

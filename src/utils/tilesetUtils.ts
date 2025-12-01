@@ -18,7 +18,7 @@ import {
   TILES_PER_ROW_IN_IMAGE,
   SECONDARY_TILE_OFFSET,
 } from './mapLoader';
-import { isReflectiveBehavior, isIceBehavior } from './metatileBehaviors';
+import { isReflectiveBehavior, isIceBehavior, MB_PUDDLE } from './metatileBehaviors';
 
 const TILESET_STRIDE = TILES_PER_ROW_IN_IMAGE * TILE_SIZE; // 128px
 
@@ -170,10 +170,10 @@ export function isBlueDominantColor(rgb: [number, number, number]): boolean {
 
 /**
  * Build flags indicating which palettes contain water-like colors.
- * Uses isWaterColor() for consistent detection with the per-pixel check.
+ * Uses isBlueDominantColor() for stricter detection to avoid false positives.
  */
 export function buildPaletteWaterFlags(paletteRgb: PaletteRgbLUT): boolean[] {
-  return paletteRgb.map((colors) => colors.some((c, idx) => idx !== 0 && isWaterColor(c)));
+  return paletteRgb.map((colors) => colors.some((c, idx) => idx !== 0 && isBlueDominantColor(c)));
 }
 
 /**
@@ -337,6 +337,7 @@ export function buildReflectionMeta(
     // Step 3: If metatile has reflective behavior but no water pixels were detected,
     // the tile likely uses animated water (placeholder data in base tileset).
     // Fall back to fully reflective mask for these tiles.
+    // EXCEPTION: PUDDLE tiles may not have visible water - don't apply fallback for them.
     let hasAnyPixel = false;
     for (let i = 0; i < pixelMask.length; i++) {
       if (pixelMask[i] !== 0) {
@@ -344,7 +345,7 @@ export function buildReflectionMeta(
         break;
       }
     }
-    if (!hasAnyPixel) {
+    if (!hasAnyPixel && behavior !== MB_PUDDLE) {
       pixelMask.fill(1);
     }
 

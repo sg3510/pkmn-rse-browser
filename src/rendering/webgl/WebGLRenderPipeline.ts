@@ -99,6 +99,16 @@ export class WebGLRenderPipeline {
   }
 
   /**
+   * Get the WebGL2 rendering context
+   *
+   * Useful for creating additional renderers (e.g., WebGLSpriteRenderer)
+   * that share the same GL context.
+   */
+  getGL(): WebGL2RenderingContext {
+    return this.gl;
+  }
+
+  /**
    * Set the tile resolver function
    */
   setTileResolver(fn: TileResolverFn): void {
@@ -332,6 +342,46 @@ export class WebGLRenderPipeline {
    * Composite only the topBelow layer
    */
   compositeTopBelowOnly(mainCtx: CanvasRenderingContext2D, view: WorldCameraView): void {
+    this.compositePassToCanvas('topBelow', mainCtx, view, false);
+  }
+
+  /**
+   * Render ONLY layer 0 and composite immediately
+   *
+   * Used for reflection rendering. The order should be:
+   * 1. renderAndCompositeLayer0Only() - water/ground base
+   * 2. [render reflections]
+   * 3. renderAndCompositeLayer1Only() - shore edges cover reflections
+   */
+  renderAndCompositeLayer0Only(
+    mainCtx: CanvasRenderingContext2D,
+    view: WorldCameraView
+  ): void {
+    if (!this.resolveTile) return;
+
+    const renderWidth = view.tilesWide * 16;
+    const renderHeight = view.tilesHigh * 16;
+
+    this.passRenderer.renderLayer0Only(view, this.resolveTile, renderWidth, renderHeight);
+    this.compositePassToCanvas('background', mainCtx, view, true);
+  }
+
+  /**
+   * Render ONLY layer 1 (of ALL tiles) and composite immediately
+   *
+   * Used after reflection rendering. This renders layer 1 of ALL tiles
+   * (including COVERED tiles) so shore edges properly cover reflections.
+   */
+  renderAndCompositeLayer1Only(
+    mainCtx: CanvasRenderingContext2D,
+    view: WorldCameraView
+  ): void {
+    if (!this.resolveTile) return;
+
+    const renderWidth = view.tilesWide * 16;
+    const renderHeight = view.tilesHigh * 16;
+
+    this.passRenderer.renderLayer1Only(view, this.resolveTile, renderWidth, renderHeight);
     this.compositePassToCanvas('topBelow', mainCtx, view, false);
   }
 
