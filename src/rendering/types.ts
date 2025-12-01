@@ -287,13 +287,22 @@ export interface SpriteInstance {
   sortKey: number;
 
   // === Reflection-specific ===
-  /** Whether this is a reflection sprite (needs water mask) */
+  /** Whether this is a reflection sprite (needs water mask + shimmer) */
   isReflection: boolean;
   /**
    * Shimmer X-scale for water reflections (0.984-1.016)
    * Only used when isReflection=true, undefined for ice/normal sprites
    */
   shimmerScale?: number;
+
+  // === Water layer effects ===
+  /**
+   * Whether this sprite renders in the reflection layer (between BG0 and BG1).
+   * Used for water surface effects like puddle splash and ripples.
+   * These render with water mask clipping but NO shimmer or vertical flip.
+   * GBA renders these at OAM priority 3 like reflections.
+   */
+  isReflectionLayer?: boolean;
 }
 
 /**

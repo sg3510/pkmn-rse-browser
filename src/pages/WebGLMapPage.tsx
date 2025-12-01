@@ -1104,36 +1104,40 @@ export function WebGLMapPage() {
             // Sort all sprites by sortKey for proper Y-ordering
             allSprites.sort((a, b) => a.sortKey - b.sortKey);
 
-            // Split sprites into reflections and normal sprites
-            const reflectionSprites = allSprites.filter((s) => s.isReflection);
-            const normalSprites = allSprites.filter((s) => !s.isReflection);
+            // Split sprites into reflection-layer sprites and normal sprites
+            // Reflection layer includes:
+            // - Reflections (isReflection=true): player/NPC reflections with shimmer
+            // - Water effects (isReflectionLayer=true): puddle splashes, ripples (no shimmer)
+            // Both render between layer 0 and layer 1 with water mask clipping.
+            const reflectionLayerSprites = allSprites.filter((s) => s.isReflection || s.isReflectionLayer);
+            const normalSprites = allSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
 
             const gl = pipeline.getGL();
             const webglCanvas = webglCanvasRef.current;
 
-            // === SPLIT LAYER RENDERING FOR REFLECTIONS ===
-            // GBA renders reflections at OAM priority 3 (behind BG1).
-            // BG1's opaque pixels naturally occlude reflections.
+            // === SPLIT LAYER RENDERING FOR REFLECTION-LAYER SPRITES ===
+            // GBA renders reflections and water effects at OAM priority 3 (behind BG1).
+            // BG1's opaque pixels naturally occlude them.
             //
             // For tiles like 177 (water with shore edge):
             // - Layer 0 = water (BG2)
-            // - Layer 1 = shore edge (BG1) - should cover reflections
+            // - Layer 1 = shore edge (BG1) - should cover reflections and water effects
             //
             // Render order:
             // 1. Layer 0 only (water base)
-            // 2. Reflections (on top of water)
-            // 3. Layer 1 of ALL tiles (shore edges cover reflections)
+            // 2. Reflection-layer sprites (reflections + water effects, with water mask)
+            // 3. Layer 1 of ALL tiles (shore edges cover reflection-layer sprites)
             // 4. Normal sprites
 
-            if (reflectionSprites.length > 0) {
+            if (reflectionLayerSprites.length > 0) {
               // === STEP 1: Render and composite ONLY layer 0 ===
               pipeline.renderAndCompositeLayer0Only(ctx2d, view);
 
-              // === STEP 2: Render reflections with water mask ===
+              // === STEP 2: Render reflection-layer sprites with water mask ===
               // Build a viewport-sized water mask from reflective tile pixels.
-              // This is the FIX for the bug where reflections rendered on non-reflective tiles:
-              // Non-reflective tiles (like grass) don't contribute to the mask, so reflections
-              // are clipped away on those tiles. Only reflective tiles (water, ice) contribute.
+              // Non-reflective tiles (like grass) don't contribute to the mask, so
+              // reflection-layer sprites are clipped away on those tiles.
+              // This applies to both reflections AND water effects (puddle, ripple).
               if (webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 gl.clearColor(0, 0, 0, 0);
@@ -1160,7 +1164,7 @@ export function WebGLMapPage() {
                   spriteRenderer.setWaterMask(waterMask);
                 }
 
-                spriteRenderer.renderBatch(reflectionSprites, spriteView);
+                spriteRenderer.renderBatch(reflectionLayerSprites, spriteView);
 
                 ctx2d.drawImage(webglCanvas, 0, 0);
               }

@@ -274,6 +274,11 @@ export function createFieldEffectSprite(
   const subpriority = isInFront ? 64 : 0;
   const sortKey = calculateSortKey(effect.worldY, subpriority);
 
+  // Water surface effects (puddle_splash, water_ripple) render in the reflection layer
+  // between BG0 and BG1, just like reflections. They use water mask clipping but
+  // NO shimmer effect. On GBA these render at OAM priority 3.
+  const isWaterEffect = effect.type === 'puddle_splash' || effect.type === 'water_ripple';
+
   return {
     worldX,
     worldY,
@@ -292,6 +297,7 @@ export function createFieldEffectSprite(
     tintB: 1.0,
     sortKey,
     isReflection: false,
+    isReflectionLayer: isWaterEffect,
   };
 }
 

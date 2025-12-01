@@ -266,9 +266,13 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
         continue;
       }
 
-      // Split into normal and reflection sprites
-      const normalSprites = atlasSprites.filter((s) => !s.isReflection);
-      const reflectionSprites = atlasSprites.filter((s) => s.isReflection);
+      // Split into normal sprites and reflection-layer sprites
+      // Reflection layer includes:
+      // - Reflections (isReflection=true): use shimmer from shimmerScale
+      // - Water effects (isReflectionLayer=true): no shimmer (shimmerScale=undefined → 1.0)
+      // Both use the reflection shader for water mask clipping.
+      const normalSprites = atlasSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+      const reflectionLayerSprites = atlasSprites.filter((s) => s.isReflection || s.isReflectionLayer);
 
       // Render normal sprites with standard shader
       if (normalSprites.length > 0 && this.spriteProgram) {
@@ -279,14 +283,15 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
         this.renderSpriteBatch(normalSprites, view, sheet);
       }
 
-      // Render reflection sprites with reflection shader (water mask + shimmer)
-      if (reflectionSprites.length > 0 && this.reflectionProgram) {
+      // Render reflection-layer sprites with reflection shader (water mask)
+      // Shimmer is controlled per-sprite: reflections have shimmerScale, water effects don't
+      if (reflectionLayerSprites.length > 0 && this.reflectionProgram) {
         gl.useProgram(this.reflectionProgram.program);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
         this.setUniforms(this.reflectionProgram, view, sheet);
         this.setReflectionUniforms(this.reflectionProgram, sheet);
-        this.renderSpriteBatch(reflectionSprites, view, sheet);
+        this.renderSpriteBatch(reflectionLayerSprites, view, sheet);
       }
     }
   }
