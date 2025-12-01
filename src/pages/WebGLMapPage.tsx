@@ -937,9 +937,8 @@ export function WebGLMapPage() {
         // because we need to know if there are reflections to decide the render order.
         // See "SPLIT LAYER RENDERING FOR REFLECTIONS" below.
 
-        // Render door animations
+        // Prune expired door animations (actual rendering happens after layer compositing)
         doorAnimations.prune(nowTime);
-        doorAnimations.render(ctx2d, view, nowTime);
 
         // Create ObjectRenderer view for field effects
         const objView: ObjectRendererView = {
@@ -1133,6 +1132,10 @@ export function WebGLMapPage() {
               // === STEP 1: Render and composite ONLY layer 0 ===
               pipeline.renderAndCompositeLayer0Only(ctx2d, view);
 
+              // === STEP 1.5: Render door animations (after BG, before sprites) ===
+              // Door animations render at ground level, will be covered by layer 1 (bridges)
+              doorAnimations.render(ctx2d, view, nowTime);
+
               // === STEP 2: Render reflection-layer sprites with water mask ===
               // Build a viewport-sized water mask from reflective tile pixels.
               // Non-reflective tiles (like grass) don't contribute to the mask, so
@@ -1188,6 +1191,9 @@ export function WebGLMapPage() {
               pipeline.compositeBackgroundOnly(ctx2d, view);
               pipeline.compositeTopBelowOnly(ctx2d, view);
 
+              // Render door animations (after BG, before sprites)
+              doorAnimations.render(ctx2d, view, nowTime);
+
               // Render all sprites
               if (allSprites.length > 0 && webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1201,6 +1207,12 @@ export function WebGLMapPage() {
             }
           } else {
             // Fallback to Canvas2D rendering
+            pipeline.compositeBackgroundOnly(ctx2d, view);
+            pipeline.compositeTopBelowOnly(ctx2d, view);
+
+            // Render door animations (after BG, before sprites)
+            doorAnimations.render(ctx2d, view, nowTime);
+
             const fieldEffectRenderContext = currentSnapshot
               ? getRenderContextFromSnapshot(currentSnapshot)
               : null;

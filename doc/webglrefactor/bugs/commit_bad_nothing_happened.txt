@@ -1,0 +1,103 @@
+diff --git a/src/pages/WebGLMapPage.tsx b/src/pages/WebGLMapPage.tsx
+index 820e819..bebb690 100644
+--- a/src/pages/WebGLMapPage.tsx
++++ b/src/pages/WebGLMapPage.tsx
+@@ -910,17 +910,22 @@ export function WebGLMapPage() {
+         const subTileOffsetY = camView.subTileOffsetY;
+ 
+         // Calculate tile coverage and gap analysis
+-        const tilesCoveredWidth = view.tilesWide * 16;
+-        const tilesCoveredHeight = view.tilesHigh * 16;
+-        // When subTileOffset > 0, tiles shift UP/LEFT, exposing gap at BOTTOM/RIGHT
+-        // Gap = offset amount (tiles don't extend far enough to cover shifted area)
+-        const gapRight = subTileOffsetX > 0 ? subTileOffsetX : 0;
+-        const gapBottom = subTileOffsetY > 0 ? subTileOffsetY : 0;
+-        const hasGap = gapRight > 0 || gapBottom > 0;
++        // TileInstanceBuilder now renders +1 tile when subTileOffset > 0
++        const extraX = subTileOffsetX > 0 ? 1 : 0;
++        const extraY = subTileOffsetY > 0 ? 1 : 0;
++        const actualTilesWide = view.tilesWide + extraX;
++        const actualTilesHigh = view.tilesHigh + extraY;
++        const tilesCoveredWidth = actualTilesWide * 16;
++        const tilesCoveredHeight = actualTilesHigh * 16;
++
++        // Gap is now 0 because we render extra tiles to cover the offset
++        const gapRight = 0;
++        const gapBottom = 0;
++        const hasGap = false;
+ 
+         // Each metatile has 2 layers × 4 tiles = 8 tile instances
+         // But we render layer 0 and layer 1 separately, so ~4 instances per metatile per pass
+-        const estimatedInstanceCount = view.tilesWide * view.tilesHigh * 4;
++        const estimatedInstanceCount = actualTilesWide * actualTilesHigh * 4;
+ 
+         setRenderingPipelineDebug({
+           canvas: {
+@@ -936,10 +941,10 @@ export function WebGLMapPage() {
+             subTileOffsetY,
+           },
+           view: {
+-            tilesWide: view.tilesWide,
+-            tilesHigh: view.tilesHigh,
+-            pixelWidth: view.pixelWidth,
+-            pixelHeight: view.pixelHeight,
++            tilesWide: actualTilesWide,
++            tilesHigh: actualTilesHigh,
++            pixelWidth: tilesCoveredWidth,
++            pixelHeight: tilesCoveredHeight,
+             worldStartTileX: view.worldStartTileX,
+             worldStartTileY: view.worldStartTileY,
+           },
+@@ -952,7 +957,7 @@ export function WebGLMapPage() {
+             offsetY: (subTileOffsetY * 2) / canvas.height,
+           },
+           tiles: {
+-            totalRendered: view.tilesWide * view.tilesHigh,
++            totalRendered: actualTilesWide * actualTilesHigh,
+             pixelsCovered: {
+               width: tilesCoveredWidth,
+               height: tilesCoveredHeight,
+@@ -962,10 +967,10 @@ export function WebGLMapPage() {
+           gap: {
+             right: gapRight,
+             bottom: gapBottom,
+-            causedByOffset: hasGap && (subTileOffsetX > 0 || subTileOffsetY > 0),
+-            explanation: hasGap
+-              ? `Tiles shift by (${subTileOffsetX}, ${subTileOffsetY})px but only ${view.tilesWide}×${view.tilesHigh} tiles rendered. Need +1 tile when offset>0. NPCs render direct to canvas so they appear fine.`
+-              : 'No gap - tiles fully cover canvas',
++            causedByOffset: false,
++            explanation: extraX > 0 || extraY > 0
++              ? `Rendering ${actualTilesWide}×${actualTilesHigh} tiles (+${extraX},+${extraY} extra) to cover offset (${subTileOffsetX},${subTileOffsetY}). No gap.`
++              : 'No offset - standard tile coverage',
+           },
+         });
+ 
+diff --git a/src/rendering/webgl/TileInstanceBuilder.ts b/src/rendering/webgl/TileInstanceBuilder.ts
+index d24c5b3..9a2b9ec 100644
+--- a/src/rendering/webgl/TileInstanceBuilder.ts
++++ b/src/rendering/webgl/TileInstanceBuilder.ts
+@@ -258,6 +258,9 @@ export class TileInstanceBuilder {
+ 
+   /**
+    * Iterate over all visible tiles in the view
++   *
++   * When subTileOffset > 0, tiles are shifted, exposing a gap at the edge.
++   * We render +1 tile in that direction to fill the gap.
+    */
+   private forEachVisibleTile(
+     view: WorldCameraView,
+@@ -268,8 +271,12 @@ export class TileInstanceBuilder {
+       screenY: number
+     ) => void
+   ): void {
+-    for (let ty = 0; ty < view.tilesHigh; ty++) {
+-      for (let tx = 0; tx < view.tilesWide; tx++) {
++    // Render extra tiles when offset causes gap at right/bottom edge
++    const extraX = view.subTileOffsetX > 0 ? 1 : 0;
++    const extraY = view.subTileOffsetY > 0 ? 1 : 0;
++
++    for (let ty = 0; ty < view.tilesHigh + extraY; ty++) {
++      for (let tx = 0; tx < view.tilesWide + extraX; tx++) {
+         const worldX = view.worldStartTileX + tx;
+         const worldY = view.worldStartTileY + ty;
+         const screenX = tx * METATILE_SIZE;

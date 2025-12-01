@@ -2,6 +2,80 @@
 
 This document outlines the plan for implementing a unified WebGL sprite renderer to eliminate the hybrid Canvas2D/WebGL rendering approach and achieve full GPU-accelerated rendering.
 
+> **Last Updated:** 2024-12-01
+> **Status:** Phase 1-4 COMPLETE for WebGLMapPage. Phase 5+ (unification) in progress.
+
+## Guiding Principles
+
+1. **Move everything to WebGL in super small bite-sized steps** - Each architecture change MUST be tested
+2. **No hybrid rendering** - Either full WebGL (WebGLMapPage) OR full Canvas2D (MapRenderer), never mixed
+3. **Minimize logic duplication** - Share game logic (PlayerController, hooks), keep rendering separate
+4. **Always refer to C code in `public/pokeemerald/*`** - Stay authentic to GBA behavior
+5. **Reflections and animations like puddles MUST be masked by BG1** - Render over BG0 for reflective tiles
+6. **Reflection shimmer MUST use authentic GBA matrix multiply code** - Nothing else
+7. **Menus and chat messages render in HTML** - Exception to WebGL-everything rule
+
+## Current Implementation Status
+
+### What's DONE in WebGL (WebGLMapPage.tsx)
+
+| Feature | Status | Location |
+|---------|--------|----------|
+| WebGLSpriteRenderer | ✅ Complete | `src/rendering/webgl/WebGLSpriteRenderer.ts` |
+| ISpriteRenderer interface | ✅ Complete | `src/rendering/ISpriteRenderer.ts` |
+| SpriteInstance type | ✅ Complete | `src/rendering/types.ts` |
+| Player sprite rendering | ✅ Complete | Uses `createSpriteFromFrameInfo()` |
+| Player reflection w/ shimmer | ✅ Complete | Uses `createPlayerReflectionSprite()` |
+| NPC sprites | ✅ Complete | Uses `createNPCSpriteInstance()` |
+| NPC reflections | ✅ Complete | Uses `createNPCReflectionSprite()` |
+| Field effects (grass, sand) | ✅ Complete | Uses `createFieldEffectSprite()` |
+| Water mask for reflections | ✅ Complete | `buildWaterMaskFromView()` |
+| Puddle splash clipping | ✅ Complete | Uses reflection shader |
+| Water ripple clipping | ✅ Complete | Uses reflection shader |
+| Split layer rendering | ✅ Complete | `renderAndCompositeLayer0Only()`, `renderAndCompositeLayer1Only()` |
+| Door animations | ✅ Complete | Uses shared `useDoorAnimations` hook |
+| Arrow overlay | ✅ Complete | Uses shared `useArrowOverlay` hook |
+| Warp system | ✅ Complete | Uses shared `WarpExecutor`, `DoorActionDispatcher` |
+| Fade transitions | ✅ Complete | Uses shared `FadeController` |
+
+### What's MISSING in WebGL (needs to be ported)
+
+| Feature | Canvas2D Location | Priority |
+|---------|------------------|----------|
+| Surf blob rendering | `useCompositeScene.ts:198-242` | HIGH |
+| Item ball rendering | `ObjectRenderer.renderItemBalls()` | MEDIUM |
+| NPC grass effects | `renderNPCGrassEffects()` in `src/game/npc/` | MEDIUM |
+| Long grass scissor clipping | PlayerController inLongGrass flag | LOW |
+| Debug collision/elevation overlay | `DebugRenderer.renderCollisionElevationOverlay()` | LOW |
+| Priority 0 NPC rendering | `useCompositeScene.ts:282-288` | LOW |
+
+### Shared Code (Already Unified)
+
+| Component | Location | Used By |
+|-----------|----------|---------|
+| `ReflectionShimmer` | `src/field/ReflectionShimmer.ts` | Both |
+| `computeReflectionState()` | `src/field/ReflectionRenderer.ts` | Both |
+| `buildReflectionMask()` | `src/field/ReflectionRenderer.ts` | Canvas2D only (WebGL uses `buildWaterMaskFromView`) |
+| `FadeController` | `src/field/FadeController.ts` | Both |
+| `WarpHandler` | `src/field/WarpHandler.ts` | Both |
+| `useDoorAnimations` | `src/hooks/useDoorAnimations.ts` | Both |
+| `useDoorSequencer` | `src/hooks/useDoorSequencer.ts` | Both |
+| `useArrowOverlay` | `src/hooks/useArrowOverlay.ts` | Both |
+| `WarpExecutor` | `src/game/WarpExecutor.ts` | Both |
+| `DoorActionDispatcher` | `src/game/DoorActionDispatcher.ts` | Both |
+| `PlayerController` | `src/game/PlayerController.ts` | Both |
+| `ObjectEventManager` | `src/game/ObjectEventManager.ts` | Both |
+
+### Duplicate Code (Needs Unification)
+
+| Feature | Canvas2D | WebGL | Unified Target |
+|---------|----------|-------|----------------|
+| Scene compositing | `useCompositeScene` hook | Inline in `WebGLMapPage.tsx:953-1201` | New `useSceneComposer` abstraction |
+| Reflection rendering | `ObjectRenderer.renderReflection()` | `createPlayerReflectionSprite()` + shader | Keep WebGL approach, deprecate Canvas2D |
+| Field effect building | `ObjectRenderer.renderFieldEffects()` | `createFieldEffectSprite()` | Keep spriteUtils approach |
+| World state management | `MapManager` + RenderContext | `WorldManager` + WorldSnapshot | Evaluate merging |
+| NPC rendering | `renderNPCs()` in game/npc/ | Inline in WebGLMapPage | Extract to shared utility |
+
 ## Related Documentation
 
 ### Our Implementation
@@ -961,151 +1035,321 @@ Required for smooth movement - character can be between water/ground tiles.
 
 ## Detailed Checklist
 
-### Phase 1: Core Sprite Renderer
+### Phase 1-4: Core WebGL Sprite Rendering ✅ COMPLETE
 
-- [ ] Create `src/rendering/webgl/WebGLSpriteShaders.ts`
-  - [ ] Define SPRITE_VERTEX_SHADER constant
-  - [ ] Define SPRITE_FRAGMENT_SHADER constant
-  - [ ] Add shader compilation helpers
+These phases are implemented in `WebGLMapPage.tsx` and related files.
 
-- [ ] Create `src/rendering/webgl/WebGLSpriteRenderer.ts`
-  - [ ] Constructor takes WebGL2RenderingContext
-  - [ ] `initialize()` - compile shaders, create VAO, create buffers
-  - [ ] `uploadTexture(name, imageData, width, height)` - upload sprite sheet
-  - [ ] `renderSprite(x, y, width, height, atlasRegion, flags)` - render single sprite
-  - [ ] `dispose()` - cleanup GL resources
+- [x] `WebGLSpriteShaders.ts` - Vertex and fragment shaders for sprites
+- [x] `WebGLSpriteRenderer.ts` - GPU-accelerated sprite batching
+- [x] `ISpriteRenderer.ts` - Renderer-agnostic interface
+- [x] `spriteUtils.ts` - Convert game objects to SpriteInstance
+- [x] Player sprite rendering with flip and animation
+- [x] NPC sprite rendering with direction-based frames
+- [x] Field effects (grass, sand, splash, ripple)
+- [x] Reflection rendering with shimmer and water masking
+- [x] Split layer rendering for reflection occlusion
+- [x] Door animations via shared hooks
+- [x] Arrow overlay via shared hooks
+- [x] Warp system via shared WarpExecutor
 
-- [ ] Integrate with WebGLMapPage
-  - [ ] Create sprite renderer instance
-  - [ ] Upload player sprite sheet on load
-  - [ ] Replace `player.render(ctx2d, ...)` with sprite renderer call
-  - [ ] **TEST**: Player renders in correct position
-  - [ ] **TEST**: Player animation frames work
-  - [ ] **TEST**: Player flip (east direction) works
+---
 
-### Phase 2: Sprite Atlas + Field Effects
+### Phase 5: Complete WebGL Feature Parity
 
-- [ ] Create `src/rendering/webgl/WebGLSpriteAtlas.ts`
-  - [ ] Constructor with max atlas size (2048x2048)
-  - [ ] `addSprite(name, canvas, frameWidth, frameHeight)` - add sprite to atlas
-  - [ ] `getRegion(name)` - get atlas coordinates
-  - [ ] `getTexture()` - get WebGL texture handle
-  - [ ] `dispose()` - cleanup
+#### 5.1 Add Surf Blob Rendering to WebGL
 
-- [ ] Create `src/rendering/webgl/SpriteInstanceBuilder.ts`
-  - [ ] `clear()` - reset instance array
-  - [ ] `addSprite(instance: SpriteInstance)` - add to batch
-  - [ ] `addFieldEffect(effect, atlasRegion)` - convert FieldEffectForRendering
-  - [ ] `buildSorted()` - sort by Y and return Float32Array
+**Reference:** `src/hooks/useCompositeScene.ts:198-242`
 
-- [ ] Update WebGLSpriteRenderer for batching
-  - [ ] `renderBatch(instances: Float32Array, count: number)` - instanced draw
-  - [ ] Use instanced attributes for sprite data
+- [ ] Create `createSurfBlobSprite()` in `spriteUtils.ts`
+  - [ ] Calculate blob world position based on surf state (mounting/dismounting/normal)
+  - [ ] Apply bob offset from `blobRenderer.getBobOffset()`
+  - [ ] Handle fixed position during dismount via `surfCtrl.getBlobFixedPosition()`
+  - [ ] Set appropriate sort key (render before player)
 
-- [ ] Integrate field effects
-  - [ ] Load field effect sprites into atlas on init
-  - [ ] Build sprite instances from FieldEffectManager
-  - [ ] Render field effects via sprite renderer
-  - [ ] **TEST**: Grass animates correctly
-  - [ ] **TEST**: Sand footprints show and fade
-  - [ ] **TEST**: Water ripples render on water only
-  - [ ] **TEST**: Y-sorting works (grass behind/in front of player)
+- [ ] Upload surf blob sprite sheet in WebGLMapPage
+  - [ ] Add blob sprite loading similar to player sprites
+  - [ ] Use `getPlayerAtlasName('surfing')` or create separate blob atlas
 
-### Phase 3: Unified Render Pipeline
+- [ ] Add blob to sprite batch when surfing/jumping
+  - [ ] Check `player.isSurfing() || surfCtrl.isJumping()`
+  - [ ] Include in sprite array before player sprite
 
-- [ ] Modify WebGLRenderPipeline
-  - [ ] Add `renderSprites(sprites: Float32Array)` method
-  - [ ] Render sprites to same framebuffer as tiles (between passes)
-  - [ ] Remove intermediate composite calls
+- [ ] **TEST**: Blob appears when entering water
+- [ ] **TEST**: Blob stays in place during dismount animation
+- [ ] **TEST**: Blob bobs up and down correctly
 
-- [ ] Update WebGLMapPage render loop
-  - [ ] Build all sprite instances before render
-  - [ ] Call single `pipeline.renderFrame(view, sprites)` method
-  - [ ] Single composite at end
-  - [ ] **TEST**: Same visual output as hybrid
-  - [ ] **TEST**: Performance improvement (measure composite time)
+#### 5.2 Add Item Ball Rendering to WebGL
 
-- [ ] Add door animations to sprite batch
-  - [ ] Convert DoorAnimation to SpriteInstance
-  - [ ] Upload door sprites to atlas
-  - [ ] **TEST**: Door open/close animations work
+**Reference:** `src/components/map/renderers/ObjectRenderer.ts:436-479`
 
-- [ ] Add arrow overlay to sprite batch
-  - [ ] Convert arrow overlay to SpriteInstance
-  - [ ] **TEST**: Arrow warp indicator animates
+- [ ] Create `createItemBallSprite()` in `spriteUtils.ts`
+  - [ ] Convert `ItemBallObject` to `SpriteInstance`
+  - [ ] World position: `tileX * 16, tileY * 16`
+  - [ ] Single 16x16 frame (no animation)
+  - [ ] Y-sorting: items at Y < playerY behind, Y >= playerY in front
 
-### Phase 4a: Basic Reflection Sprite
+- [ ] Upload item ball sprite in WebGLMapPage
+  - [ ] Add to field sprites loading (`fieldSprites.sprites.itemBall`)
+  - [ ] Upload with `getFieldEffectAtlasName('itemBall')`
 
-- [ ] Add reflection support to SpriteInstanceBuilder
-  - [ ] `addReflection(spriteInstance, reflectionState)` method
-  - [ ] Calculate Y position: `spriteY + height - 2 + BRIDGE_OFFSETS[bridgeType]`
-  - [ ] Set `flipY: true`
-  - [ ] Set subpriority to 152 (draws behind main sprite)
+- [ ] Add items to sprite batch
+  - [ ] Get visible items from `objectEventManagerRef.current.getVisibleItemBalls()`
+  - [ ] Create sprites for both bottom and top layers
 
-- [ ] Implement reflection tinting
-  - [ ] Water tint: `colorMod = (0.27, 0.47, 0.78, 0.65)`
-  - [ ] Ice tint: `colorMod = (0.7, 0.86, 1.0, 0.65)`
-  - [ ] Pond bridge tint: `colorMod = (0.29, 0.45, 0.67, 0.6)` (solid blue)
-  - [ ] Ocean bridge: uses water tint (no special handling)
+- [ ] **TEST**: Item balls render at correct positions
+- [ ] **TEST**: Items appear behind/in front of player correctly
 
-- [ ] Implement shimmer animation **(PIXEL-PERFECT GBA PARITY REQUIRED)**
-  - [ ] Pass `u_shimmerScale` uniform to reflection fragment shader
-  - [ ] **Fragment shader per-pixel inverse affine transform** (NOT vertex shader!)
-  - [ ] Use `texelFetch()` with `floor()` for nearest-neighbor sampling
-  - [ ] Match `applyGbaAffineShimmer()` exactly - same centered transform math
-  - [ ] Get scale from `ReflectionShimmer.getScaleX(matrixNum)`
-  - [ ] Matrix 0 for west/north/south, Matrix 1 for east (H-flipped)
-  - [ ] Shimmer for water only, NOT ice
-  - [ ] **TEST**: Frame-by-frame comparison with Canvas2D output - MUST be identical
+#### 5.3 Add NPC Grass Effect Rendering to WebGL
 
-### Phase 4b: Per-Pixel Water Masking (REQUIRED for smooth movement)
+**Reference:** `src/game/npc/renderNPCGrassEffects.ts`
 
-**Why needed:** GBA uses BG1 overlay transparency for masking. We must replicate this, plus handle our smooth sub-pixel movement. Without masking, reflection appears on ground pixels.
+- [ ] Create `createNPCGrassEffectSprite()` in `spriteUtils.ts`
+  - [ ] Check NPC's current tile for grass behavior
+  - [ ] Use same grass sprite as player effects
+  - [ ] Position at NPC's feet (same logic as player grass)
 
-- [ ] Create `src/rendering/webgl/WebGLWaterMask.ts`
-  - [ ] `buildMaskTexture(visibleWaterTiles)` - iterate tiles, copy pixelMask data
-  - [ ] `uploadMaskTexture(gl, textureUnit)` - upload to GPU as R8 texture
-  - [ ] Track dirty state, rebuild when camera moves by tile
+- [ ] Add NPC grass effects to sprite batch
+  - [ ] After adding NPC sprites, add their grass effects
+  - [ ] Only for NPCs in tall/long grass tiles
 
-- [ ] Update sprite fragment shader for reflection mode
-  - [ ] Add `uniform sampler2D u_reflectionMask` (texture unit 7)
-  - [ ] Add `uniform vec2 u_maskOffset` (align mask with reflection position)
-  - [ ] Sample mask texture, discard if mask < 0.5
+- [ ] **TEST**: Grass covers NPC lower body like player
+- [ ] **TEST**: Works with moving NPCs (when implemented)
 
-- [ ] Integrate with WebGLSpriteRenderer
-  - [ ] `setWaterMask(maskTexture)` method
-  - [ ] Enable mask sampling for water-surface sprites (reflections, puddles, ripples)
-  - [ ] Pass mask offset based on camera position
+#### 5.4 Add Long Grass Scissor Clipping to WebGL
 
-### Phase 4 Testing
+**Reference:** `src/game/PlayerController.ts` - inLongGrass flag
 
-- [ ] **TEST**: Reflection appears at correct Y offset
-- [ ] **TEST**: Reflection has correct tint for water/ice/bridge
-- [ ] **TEST**: Shimmer animates at GBA speed (~0.8s, 48 frames)
-- [ ] **TEST**: Reflection draws behind main sprite
-- [ ] **TEST**: Reflection ONLY visible on water pixels (not ground)
-- [ ] **TEST**: No ugly ground reflection during smooth movement between tiles
+- [ ] Check `player.inLongGrass` flag before rendering player sprite
+- [ ] Use `gl.enable(gl.SCISSOR_TEST)` to clip bottom 50%
+- [ ] Calculate scissor rect based on screen position:
+  ```typescript
+  const screenY = player.y - view.cameraWorldY;
+  gl.scissor(0, screenY, viewportWidth, spriteHeight / 2);
+  ```
+- [ ] Disable scissor after rendering player
 
-### Phase 5: Cleanup + NPC Support
+- [ ] **TEST**: Player clipped at waist in long grass
+- [ ] **TEST**: No visual artifacts at grass edge
 
-- [ ] Add NPC support
-  - [ ] Upload NPC sprite sheets to atlas (on demand)
-  - [ ] Add `addNPC(npc, atlasRegion)` to SpriteInstanceBuilder
-  - [ ] **TEST**: NPCs render correctly
-  - [ ] **TEST**: NPC Y-sorting with player works
+#### 5.5 Add Priority 0 NPC Rendering (Elevation 13-14)
 
-- [ ] Remove Canvas2D sprite code
-  - [ ] Remove `ObjectRenderer.renderFieldEffects`
-  - [ ] Remove `ObjectRenderer.renderReflection`
-  - [ ] Remove `ObjectRenderer.renderArrow`
-  - [ ] Remove hybrid composite calls from WebGLMapPage
-  - [ ] Remove unused imports
+**Reference:** `src/hooks/useCompositeScene.ts:282-288`
 
-- [ ] Final validation
-  - [ ] **TEST**: All maps render correctly
-  - [ ] **TEST**: Bridge elevation works
-  - [ ] **TEST**: Door warps work
-  - [ ] **TEST**: Performance benchmark (FPS, frame time)
+- [ ] Update NPC sprite building to track priority
+  - [ ] Get NPC priority from `getSpritePriorityForElevation(npc.elevation)`
+  - [ ] Separate NPCs into priority groups
+
+- [ ] Render priority 0 NPCs AFTER topAbove layer
+  - [ ] These are "flying" NPCs that appear above everything
+  - [ ] Rare but important for visual correctness
+
+- [ ] **TEST**: High-elevation NPCs render above bridges
+
+---
+
+### Phase 6: Clean Mode Separation (No Hybrid Fallback)
+
+**Philosophy:** Either WebGL works fully OR we use full Canvas2D. No hybrid in-between.
+
+```
+User opens app
+    ↓
+WebGL2 supported?
+    ├── YES → WebGLMapPage (full WebGL rendering)
+    └── NO  → MapRenderer (full Canvas2D rendering)
+```
+
+#### 6.1 Remove Canvas2D Fallback from WebGLMapPage
+
+**Goal:** WebGLMapPage is 100% WebGL - if WebGL fails, redirect to Canvas2D mode
+
+- [ ] Remove Canvas2D fallback path in WebGLMapPage render loop
+  - [ ] Delete the `else` branch at line ~1208 (Canvas2D sprite fallback)
+  - [ ] If `spriteRenderer` is invalid, show error or redirect to Canvas2D mode
+
+- [ ] Add WebGL capability check on page load
+  - [ ] If WebGL2 not supported, redirect to `/#/map` (Canvas2D)
+  - [ ] Show user-friendly message about fallback
+
+- [ ] Remove `ObjectRenderer` usage from WebGLMapPage
+  - [ ] All sprite rendering via `WebGLSpriteRenderer`
+  - [ ] No `drawImage` calls for sprites
+
+#### 6.2 Keep MapRenderer as Full Canvas2D Mode
+
+**Goal:** MapRenderer stays as the complete Canvas2D implementation
+
+- [ ] MapRenderer continues to use:
+  - [ ] `RenderPipeline` (Canvas2D tile rendering)
+  - [ ] `ObjectRenderer` (Canvas2D sprite rendering)
+  - [ ] `useCompositeScene` (Canvas2D compositing)
+
+- [ ] No changes needed - it's already the full Canvas2D path
+
+#### 6.3 Shared Code Between Modes
+
+**Goal:** Maximize code reuse without hybrid rendering
+
+**Shared (renderer-agnostic):**
+| Component | Location | Notes |
+|-----------|----------|-------|
+| `PlayerController` | `src/game/` | Movement, animation state |
+| `ObjectEventManager` | `src/game/` | NPC management |
+| `ReflectionShimmer` | `src/field/` | 48-frame animation timing |
+| `computeReflectionState()` | `src/field/` | Detection logic |
+| `FadeController` | `src/field/` | Fade timing |
+| `useDoorAnimations` | `src/hooks/` | Door sprite loading, animation state |
+| `useDoorSequencer` | `src/hooks/` | Door/warp state machine |
+| `WarpExecutor` | `src/game/` | Warp logic |
+
+**Mode-specific:**
+| Feature | WebGL Mode | Canvas2D Mode |
+|---------|------------|---------------|
+| Tile rendering | `WebGLRenderPipeline` | `RenderPipeline` |
+| Sprite rendering | `WebGLSpriteRenderer` | `ObjectRenderer` |
+| Scene compositing | Inline in WebGLMapPage | `useCompositeScene` |
+| World state | `WorldManager` + snapshots | `MapManager` + RenderContext |
+
+#### 6.4 Future: Optional Unified GameRenderer
+
+**Goal:** Eventually merge into single component with renderer selection
+
+This is OPTIONAL and can be done later. For now, two separate pages is fine:
+- `/#/webgl-map` → WebGLMapPage (WebGL mode)
+- `/#/map` → MapRenderer (Canvas2D mode)
+
+- [ ] (Future) Create `GameRenderer` that:
+  - [ ] Detects WebGL2 support
+  - [ ] Instantiates appropriate pipeline/renderer
+  - [ ] Uses shared game logic hooks
+  - [ ] Switches render implementation at component level, not per-frame
+
+---
+
+### Phase 7: Cleanup and Optimization
+
+#### 7.1 Clean Up WebGLMapPage
+
+- [ ] Remove Canvas2D fallback code from WebGLMapPage
+  - [ ] Delete `ObjectRenderer` import and usage
+  - [ ] Delete fallback `else` branch in sprite rendering
+  - [ ] Remove unused Canvas2D context operations
+
+- [ ] Remove hybrid `drawImage` calls for door animations
+  - [ ] Convert door animations to WebGL sprites (or keep as overlay)
+  - [ ] Decision: doors could stay as Canvas2D overlay since they're rare
+
+#### 7.2 Keep ObjectRenderer for Canvas2D Mode
+
+**Note:** `ObjectRenderer` stays for MapRenderer (Canvas2D mode) - it's NOT duplicate code, it's the Canvas2D implementation.
+
+- [ ] `ObjectRenderer` methods stay as-is:
+  - [ ] `renderFieldEffects()` - used by MapRenderer
+  - [ ] `renderReflection()` - used by MapRenderer
+  - [ ] `renderArrow()` - used by MapRenderer
+  - [ ] `renderItemBalls()` - used by MapRenderer
+
+- [ ] WebGL equivalents are in `spriteUtils.ts` + `WebGLSpriteRenderer`
+
+#### 7.3 Performance Optimization
+
+- [ ] Profile WebGL vs Canvas2D performance
+  - [ ] Measure FPS on various maps
+  - [ ] Measure frame time breakdown
+
+- [ ] Optimize water mask rebuilding
+  - [ ] Only rebuild when camera crosses tile boundary
+  - [ ] Use dirty tracking similar to DirtyRegionTracker
+
+- [ ] Optimize sprite batching
+  - [ ] Pool Float32Array for instance data
+  - [ ] Minimize array allocations per frame
+
+#### 7.4 Documentation
+
+- [ ] Update architecture diagram showing two separate paths
+- [ ] Document when to use WebGL vs Canvas2D mode
+- [ ] Add inline comments for GBA parity decisions
+
+---
+
+## Micro-Step Implementation Guide
+
+For each feature, follow this pattern:
+
+### Step Pattern Template
+
+```
+1. Read the Canvas2D implementation to understand the feature
+2. Identify the GBA C code reference (if applicable)
+3. Create/update spriteUtils helper function
+4. Add sprite building to WebGLMapPage render loop
+5. Test in isolation (single map, specific scenario)
+6. Test edge cases (boundaries, transitions)
+7. Commit with descriptive message
+```
+
+### Example: Adding Surf Blob
+
+```
+Step 1: Read useCompositeScene.ts:198-242
+Step 2: Reference field_effect_helpers.c SynchroniseSurfPosition
+Step 3: Create createSurfBlobSprite() in spriteUtils.ts
+Step 4: Add to WebGLMapPage after field effects, before player
+Step 5: Test on Route 102/103 (water areas)
+Step 6: Test mounting/dismounting animation
+Step 7: Commit "feat(webgl): add surf blob sprite rendering"
+```
+
+---
+
+## GBA Reference Code Locations
+
+| Feature | File | Function/Lines |
+|---------|------|----------------|
+| Reflection creation | `field_effect_helpers.c` | `SetUpReflection()` L47-68 |
+| Reflection update | `field_effect_helpers.c` | `UpdateObjectReflectionSprite()` L124-163 |
+| Reflection type detection | `event_object_movement.c` | `ObjectEventGetNearbyReflectionType()` L7625-7650 |
+| Shimmer animation | `field_effect_objects.h` | `sAffineAnim_ReflectionDistortion_*` L849-892 |
+| Bridge palette | `field_effect_helpers.c` | `LoadObjectHighBridgeReflectionPalette()` L114-122 |
+| Surf blob | `field_effect_helpers.c` | `SynchroniseSurfPosition()`, `UpdateBobbingEffect()` |
+| Grass effect | `field_effect_helpers.c` | `UpdateGrassFieldEffectSubpriority()` |
+| Arrow warp | `field_effect_helpers.c` | `CreateWarpArrowSprite()`, `ShowWarpArrowSprite()` L175-200 |
+| OAM priority | `event_object_movement.c` | `sElevationToPriority[]` |
+
+---
+
+## Testing Checklist by Map Type
+
+### Water Areas (Route 102, 103, 110)
+- [ ] Reflection shows on water
+- [ ] Reflection hidden on shore edges
+- [ ] Shimmer animation runs
+- [ ] Surf blob appears/disappears correctly
+
+### Bridge Areas (Route 110, 119, 120)
+- [ ] Player under bridge renders correctly
+- [ ] Player on bridge elevation works
+- [ ] Reflection uses dark blue tint on pond bridges
+- [ ] Reflection Y offset correct for bridge height
+
+### Grass Areas (Route 101, 102)
+- [ ] Tall grass covers player feet
+- [ ] Long grass clips player at waist
+- [ ] Sand footprints appear and fade
+- [ ] Grass effects Y-sort with player
+
+### Indoor Areas (Pokemon Centers, Houses)
+- [ ] Door animations work
+- [ ] Arrow warps work
+- [ ] No reflections on non-water tiles
+- [ ] NPCs render correctly
+
+### Town Areas (Littleroot, Oldale)
+- [ ] Item balls visible
+- [ ] NPCs visible with correct direction
+- [ ] Warp transitions smooth
+- [ ] No visual artifacts at map boundaries
 
 ---
 
