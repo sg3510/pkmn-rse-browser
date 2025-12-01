@@ -23,6 +23,11 @@ import {
 import { isPondBridge, isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { getNPCFrameInfo, getNPCFrameRect } from '../game/npc/NPCSpriteLoader';
 import { METATILE_SIZE } from '../utils/mapLoader';
+import {
+  computeFieldEffectLayer,
+  getFieldEffectDimensions,
+  getFieldEffectYOffset,
+} from './fieldEffectUtils';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -200,16 +205,6 @@ export function createPlayerReflectionSprite(
   );
 }
 
-/** Field effect sprite dimensions by type */
-const FIELD_EFFECT_DIMENSIONS: Record<string, { width: number; height: number }> = {
-  tall: { width: 16, height: 16 },
-  long: { width: 16, height: 16 },
-  sand: { width: 16, height: 16 },
-  deep_sand: { width: 16, height: 16 },
-  puddle_splash: { width: 16, height: 8 },
-  water_ripple: { width: 16, height: 16 },
-};
-
 /** Map field effect type to atlas name */
 const FIELD_EFFECT_ATLAS_NAMES: Record<string, string> = {
   tall: 'field-grass',
@@ -235,30 +230,13 @@ export function createFieldEffectSprite(
 ): SpriteInstance | null {
   if (!effect.visible) return null;
 
-  const dims = FIELD_EFFECT_DIMENSIONS[effect.type] || { width: 16, height: 16 };
+  const dims = getFieldEffectDimensions(effect.type);
   const atlasName = FIELD_EFFECT_ATLAS_NAMES[effect.type];
   if (!atlasName) return null;
 
-  // Y-sorting logic (matches ObjectRenderer.renderFieldEffects)
-  let isInFront = effect.worldY >= playerWorldY;
-
-  if (effect.type === 'sand' || effect.type === 'deep_sand' ||
-      effect.type === 'puddle_splash' || effect.type === 'water_ripple') {
-    // These always render behind player
-    isInFront = false;
-  } else {
-    // Dynamic layering from subpriority (for tall grass)
-    if (effect.subpriorityOffset > 0) {
-      isInFront = false;
-    }
-  }
-
-  // GBA behavior: When player moves DOWN from grass, grass renders BEHIND player
-  // This implements UpdateGrassFieldEffectSubpriority which adjusts subpriority
-  // so grass animation can complete naturally without covering the player
-  if (effect.renderBehindPlayer) {
-    isInFront = false;
-  }
+  // Use shared utility for Y-sorting logic
+  const effectLayer = computeFieldEffectLayer(effect, playerWorldY);
+  const isInFront = effectLayer === 'front';
 
   // Filter by layer
   if (layer === 'bottom' && isInFront) return null;
@@ -266,17 +244,11 @@ export function createFieldEffectSprite(
 
   // Calculate world position (convert from center to top-left)
   // FieldEffectManager returns center coordinates (tile*16 + 8)
-  let worldX = effect.worldX - dims.width / 2;
-  let worldY: number;
+  const worldX = effect.worldX - dims.width / 2;
 
-  // Y offset based on effect type (matches ObjectRenderer)
-  if (effect.type === 'water_ripple') {
-    worldY = effect.worldY + 6 - dims.height / 2;
-  } else if (effect.type === 'puddle_splash') {
-    worldY = effect.worldY + 4 - dims.height / 2;
-  } else {
-    worldY = effect.worldY - dims.height / 2;
-  }
+  // Y offset from shared utility (water effects are offset downward to appear at feet)
+  const yOffset = getFieldEffectYOffset(effect.type);
+  const worldY = effect.worldY + yOffset - dims.height / 2;
 
   // Calculate atlas coordinates
   const atlasX = effect.frame * dims.width;
@@ -585,10 +557,10 @@ export function createNPCGrassEffectSprite(
     worldY,
     width: GRASS_FRAME_SIZE,
     height: GRASS_FRAME_SIZE,
-    srcX: GRASS_RESTING_FRAME * GRASS_FRAME_SIZE,
-    srcY: 0,
-    srcWidth: GRASS_FRAME_SIZE,
-    srcHeight: GRASS_FRAME_SIZE,
+    atlasX: GRASS_RESTING_FRAME * GRASS_FRAME_SIZE,
+    atlasY: 0,
+    atlasWidth: GRASS_FRAME_SIZE,
+    atlasHeight: GRASS_FRAME_SIZE,
     flipX: false,
     flipY: false,
     alpha: 1.0,

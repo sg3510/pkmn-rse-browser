@@ -10,6 +10,11 @@ import {
   renderSpriteReflection,
   type ReflectionMetaProvider,
 } from '../../../field/ReflectionRenderer';
+import {
+  shouldRenderInLayer,
+  getFieldEffectDimensions,
+  getFieldEffectYOffset,
+} from '../../../rendering/fieldEffectUtils';
 
 
 export interface WorldCameraView {
@@ -94,8 +99,8 @@ export class ObjectRenderer {
     renderContext?: RenderContext
   ): void {
     for (const effect of effects) {
-      // Skip if not visible (for flickering effects like sand)
-      if (!effect.visible) continue;
+      // Use shared utility to check if effect should render in this layer
+      if (!shouldRenderInLayer(effect, playerY, layer)) continue;
 
       // Select sprite based on effect type
       let sprite: HTMLCanvasElement | null = null;
@@ -107,44 +112,8 @@ export class ObjectRenderer {
 
       if (!sprite) continue;
 
-      // Y-sorting:
-      // Sand, puddle splashes, and water ripples always render behind player (bottom layer)
-      // Grass effects use dynamic Y-sorting
-      let isInFront = effect.worldY >= playerY;
-
-      if (effect.type === 'sand' || effect.type === 'deep_sand' ||
-          effect.type === 'puddle_splash' || effect.type === 'water_ripple') {
-        // Sand footprints, puddle splashes, and ripples always render behind player
-        // They appear at the player's feet level
-        isInFront = false;
-      } else {
-        // Dynamic layering from subpriority (for tall grass)
-        // If subpriority offset is high (4), it means "lower priority" relative to player, so render BEHIND.
-        if (effect.subpriorityOffset > 0) {
-          isInFront = false;
-        }
-      }
-
-      // GBA behavior: When player moves DOWN from grass, grass renders BEHIND player
-      // This implements UpdateGrassFieldEffectSubpriority which adjusts subpriority
-      // so grass animation can complete naturally without covering the player
-      if (effect.renderBehindPlayer) {
-        isInFront = false;
-      }
-
-      // Filter by layer
-      if (layer === 'bottom' && isInFront) continue;
-      if (layer === 'top' && !isInFront) continue;
-
-      // Frame dimensions depend on effect type
-      // Most effects are 16x16, but splash is 16x8
-      let frameWidth = 16;
-      let frameHeight = 16;
-      if (effect.type === 'puddle_splash') {
-        frameWidth = 16;
-        frameHeight = 8;
-      }
-      // water_ripple is 16x16 (default, no change needed)
+      // Get dimensions from shared utility
+      const { width: frameWidth, height: frameHeight } = getFieldEffectDimensions(effect.type);
 
       const sx = effect.frame * frameWidth; // Frames are horizontal
       const sy = 0;
@@ -155,36 +124,9 @@ export class ObjectRenderer {
       // We need to subtract half the frame size to convert to top-left corner
       const screenX = Math.round(effect.worldX - view.cameraWorldX - frameWidth / 2);
 
-      // Y positioning based on C code analysis:
-      // - Ripple: sprite->y + (height/2) - 2 = positioned 6px down from sprite center (at feet)
-      // - Splash: y2 = (height/2) - 4 = positioned 4px down from sprite center (at feet)
-      //
-      // For 16px player sprite centered at tile:
-      // - worldY is tile center (tile*16 + 8)
-      // - Player feet are at worldY + 8 (bottom of tile)
-      // - Ripple should appear 2px above feet: worldY + 8 - 2 = worldY + 6
-      // - Splash should appear 4px above feet: worldY + 8 - 4 = worldY + 4
-      //
-      // Since we're drawing from top-left corner and sprite is centered:
-      // screenY = worldY + offset - (frameHeight / 2) for center-based
-      let screenY: number;
-      if (effect.type === 'water_ripple') {
-        // Ripple: 6px down from sprite center, then offset by half frame height
-        // From C: gFieldEffectArguments[1] = sprite->y + (graphicsInfo->height >> 1) - 2
-        // For 16px sprite: height/2 - 2 = 6, so effect is at sprite.y + 6
-        // worldY is tile center, so effect world position = worldY + 6
-        // Then convert to screen top-left: screenY = (worldY + 6) - cameraY - frameHeight/2
-        screenY = Math.round(effect.worldY - view.cameraWorldY + 6 - frameHeight / 2);
-      } else if (effect.type === 'puddle_splash') {
-        // Splash: 4px down from sprite center, then offset by half frame height
-        // From C: sprite->y2 = (graphicsInfo->height >> 1) - 4
-        // For 16px sprite: height/2 - 4 = 4, so effect is at sprite.y + 4
-        // worldY is tile center, so effect world position = worldY + 4
-        // Then convert to screen top-left: screenY = (worldY + 4) - cameraY - frameHeight/2
-        screenY = Math.round(effect.worldY - view.cameraWorldY + 4 - frameHeight / 2);
-      } else {
-        screenY = Math.round(effect.worldY - view.cameraWorldY - frameHeight / 2);
-      }
+      // Y offset from shared utility (water effects are offset downward to appear at feet)
+      const yOffset = getFieldEffectYOffset(effect.type);
+      const screenY = Math.round(effect.worldY - view.cameraWorldY + yOffset - frameHeight / 2);
 
       // Render sprite (with optional horizontal flip for East-facing sand)
       ctx.imageSmoothingEnabled = false;

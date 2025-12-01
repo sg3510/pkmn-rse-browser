@@ -2,7 +2,7 @@
 
 This document outlines the plan for implementing a unified WebGL sprite renderer to eliminate the hybrid Canvas2D/WebGL rendering approach and achieve full GPU-accelerated rendering.
 
-> **Last Updated:** 2024-12-01
+> **Last Updated:** 2025-12-01
 > **Status:** Phase 1-4 COMPLETE for WebGLMapPage. Phase 5+ (unification) in progress.
 
 ## Guiding Principles
@@ -65,6 +65,16 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 | `DoorActionDispatcher` | `src/game/DoorActionDispatcher.ts` | Both |
 | `PlayerController` | `src/game/PlayerController.ts` | Both |
 | `ObjectEventManager` | `src/game/ObjectEventManager.ts` | Both |
+| `fieldEffectUtils` | `src/rendering/fieldEffectUtils.ts` | Both (NEW) |
+
+### Recently Deduplicated
+
+| Feature | Before | After |
+|---------|--------|-------|
+| Field effect Y-sorting | Duplicate logic in `ObjectRenderer.ts:110-133` and `spriteUtils.ts:242-265` | Shared `computeFieldEffectLayer()` in `fieldEffectUtils.ts` |
+| Field effect Y-offsets | Duplicate logic in `ObjectRenderer.ts:170-187` and `spriteUtils.ts:273-279` | Shared `getFieldEffectYOffset()` in `fieldEffectUtils.ts` |
+| Field effect dimensions | Inline constants in both files | Shared `FIELD_EFFECT_DIMENSIONS` + `getFieldEffectDimensions()` |
+| Field effect layer filtering | Duplicate visibility/layer logic | Shared `shouldRenderInLayer()` in `fieldEffectUtils.ts` |
 
 ### Duplicate Code (Needs Unification)
 
@@ -72,9 +82,9 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 |---------|----------|-------|----------------|
 | Scene compositing | `useCompositeScene` hook | Inline in `WebGLMapPage.tsx:953-1201` | New `useSceneComposer` abstraction |
 | Reflection rendering | `ObjectRenderer.renderReflection()` | `createPlayerReflectionSprite()` + shader | Keep WebGL approach, deprecate Canvas2D |
-| Field effect building | `ObjectRenderer.renderFieldEffects()` | `createFieldEffectSprite()` | Keep spriteUtils approach |
+| ~~Field effect building~~ | ~~`ObjectRenderer.renderFieldEffects()`~~ | ~~`createFieldEffectSprite()`~~ | ✅ DONE - Both now use `fieldEffectUtils.ts` |
 | World state management | `MapManager` + RenderContext | `WorldManager` + WorldSnapshot | Evaluate merging |
-| NPC rendering | `renderNPCs()` in game/npc/ | Inline in WebGLMapPage | Extract to shared utility |
+| NPC rendering | `renderNPCs()` in game/npc/ | Inline in WebGLMapPage | Keep separate (minimal duplication) |
 
 ## Related Documentation
 
