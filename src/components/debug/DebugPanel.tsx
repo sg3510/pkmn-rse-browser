@@ -864,14 +864,10 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
         <Section title="Shimmer (Reflection)">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
             <InfoRow label="Enabled" value={shimmer.enabled ? 'Yes' : 'No'} />
-            <InfoRow label="Amplify" value={`${shimmer.amplify}×`} />
             <InfoRow label="GBA Frame" value={shimmer.gbaFrame} />
             <InfoRow label="Cycle Frame" value={`${shimmer.frameInCycle}/48`} />
             <InfoRow label="Scale X (M0)" value={shimmer.scaleX0.toFixed(5)} />
             <InfoRow label="Scale X (M1)" value={shimmer.scaleX1.toFixed(5)} />
-          </div>
-          <div style={{ marginTop: 8, fontSize: '10px', color: '#888' }}>
-            Tip: Set window.SHIMMER_AMPLIFY = 20 to make shimmer visible
           </div>
         </Section>
       )}

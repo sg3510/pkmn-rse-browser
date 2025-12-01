@@ -204,7 +204,6 @@ export interface ShimmerDebugInfo {
   frameInCycle: number;
   scaleX0: number;
   scaleX1: number;
-  amplify: number;
 }
 
 /**

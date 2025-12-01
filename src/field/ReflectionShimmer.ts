@@ -113,21 +113,6 @@ function buildScaleTable(initialXScale: number, deltaSeq: number[]): number[] {
 }
 
 /**
- * Optional debug amplification factor - set via window.SHIMMER_AMPLIFY.
- * Defaults to 1.0 for exact GBA behaviour.
- */
-function getAmplifyFactor(): number {
-  if (typeof window === 'undefined') return 1;
-  const amplify = (window as unknown as { SHIMMER_AMPLIFY?: number }).SHIMMER_AMPLIFY;
-  return typeof amplify === 'number' ? amplify : 1;
-}
-
-function applyAmplify(scale: number): number {
-  const factor = getAmplifyFactor();
-  return factor === 1 ? scale : 1 + (scale - 1) * factor;
-}
-
-/**
  * Reflection shimmer state manager
  *
  * Tracks animation state and provides current scale factors for reflection rendering.
@@ -212,18 +197,17 @@ export class ReflectionShimmer {
 
     // Frame 0 = initial absolute command; subsequent frames follow the 48f loop.
     if (this._gbaFrame === 0) {
-      return applyAmplify(INITIAL_SCALE[matrixNum]);
+      return INITIAL_SCALE[matrixNum];
     }
 
     const frameInCycle = (this._gbaFrame - 1) % SHIMMER_LOOP_FRAMES;
-    const scale = matrixNum === 0 ? SCALE_TABLE_0[frameInCycle] : SCALE_TABLE_1[frameInCycle];
-    return applyAmplify(scale);
+    return matrixNum === 0 ? SCALE_TABLE_0[frameInCycle] : SCALE_TABLE_1[frameInCycle];
   }
 
   /**
    * Get debug info about current shimmer state
    */
-  getDebugInfo(): { enabled: boolean; gbaFrame: number; frameInCycle: number; scaleX0: number; scaleX1: number; amplify: number } {
+  getDebugInfo(): { enabled: boolean; gbaFrame: number; frameInCycle: number; scaleX0: number; scaleX1: number } {
     const frameInCycle = this._gbaFrame === 0 ? -1 : (this._gbaFrame - 1) % SHIMMER_LOOP_FRAMES;
     return {
       enabled: this._enabled,
@@ -231,7 +215,6 @@ export class ReflectionShimmer {
       frameInCycle,
       scaleX0: this.getScaleX(0),
       scaleX1: this.getScaleX(1),
-      amplify: getAmplifyFactor(),
     };
   }
 
