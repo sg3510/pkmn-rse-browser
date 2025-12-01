@@ -20,7 +20,7 @@ import {
   getGlobalShimmer,
   ReflectionShimmer,
 } from '../field/ReflectionRenderer';
-import { isPondBridge } from '../utils/metatileBehaviors';
+import { isPondBridge, isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { getNPCFrameInfo, getNPCFrameRect } from '../game/npc/NPCSpriteLoader';
 import { METATILE_SIZE } from '../utils/mapLoader';
 
@@ -45,28 +45,34 @@ const REFLECTION_TINT_COLORS = {
  * @param frameInfo - Frame info from player.getFrameInfo()
  * @param atlasName - Name of the sprite sheet (e.g., 'player-walking')
  * @param sortKey - Y-sort key for depth ordering
+ * @param clipToHalf - If true, only show top half of sprite (for long grass)
  * @returns SpriteInstance ready for rendering
  */
 export function createSpriteFromFrameInfo(
   frameInfo: FrameInfo,
   atlasName: string,
-  sortKey: number
+  sortKey: number,
+  clipToHalf: boolean = false
 ): SpriteInstance {
+  // For long grass clipping, only show top half of sprite
+  const displayHeight = clipToHalf ? Math.floor(frameInfo.sh / 2) : frameInfo.sh;
+  const srcHeight = clipToHalf ? Math.floor(frameInfo.sh / 2) : frameInfo.sh;
+
   return {
     // World position (from FrameInfo.renderX/renderY)
     worldX: frameInfo.renderX,
     worldY: frameInfo.renderY,
 
-    // Dimensions
+    // Dimensions (may be clipped for long grass)
     width: frameInfo.sw,
-    height: frameInfo.sh,
+    height: displayHeight,
 
     // Atlas region (source rectangle in sprite sheet)
     atlasName,
     atlasX: frameInfo.sx,
     atlasY: frameInfo.sy,
     atlasWidth: frameInfo.sw,
-    atlasHeight: frameInfo.sh,
+    atlasHeight: srcHeight,
 
     // Transform
     flipX: frameInfo.flip,
@@ -245,6 +251,13 @@ export function createFieldEffectSprite(
     if (effect.subpriorityOffset > 0) {
       isInFront = false;
     }
+  }
+
+  // GBA behavior: When player moves DOWN from grass, grass renders BEHIND player
+  // This implements UpdateGrassFieldEffectSubpriority which adjusts subpriority
+  // so grass animation can complete naturally without covering the player
+  if (effect.renderBehindPlayer) {
+    isInFront = false;
   }
 
   // Filter by layer
@@ -522,4 +535,67 @@ export function createNPCReflectionSprite(
     alpha,
     shimmerScale
   );
+}
+
+/**
+ * Grass sprite constants
+ */
+const GRASS_FRAME_SIZE = 16;
+const GRASS_RESTING_FRAME = 0; // Frame 0 = grass at full coverage (resting state)
+
+/**
+ * Create a grass effect sprite for an NPC standing on grass
+ *
+ * In the GBA game, NPCs standing on tall/long grass have the grass sprite
+ * rendered OVER them, showing only their upper body (head and shoulders).
+ * The grass uses frame 0 (the "resting" state) at full coverage.
+ *
+ * @param npc - The NPC object
+ * @param behavior - Metatile behavior at NPC's position
+ * @param npcSortKey - The NPC's sort key (grass renders slightly after)
+ * @returns SpriteInstance for the grass, or null if not on grass
+ */
+export function createNPCGrassEffectSprite(
+  npc: NPCObject,
+  behavior: number,
+  npcSortKey: number
+): SpriteInstance | null {
+  // Determine grass type from behavior
+  let atlasName: string;
+  if (isTallGrassBehavior(behavior)) {
+    atlasName = 'field-grass';
+  } else if (isLongGrassBehavior(behavior)) {
+    atlasName = 'field-longGrass';
+  } else {
+    return null; // NPC not on grass
+  }
+
+  // Calculate grass position (centered on tile, like field effects)
+  // Grass covers the NPC's lower body
+  const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2;
+  const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2;
+
+  // Grass renders ON TOP of NPC, so add small offset to sortKey
+  // This ensures grass is drawn after the NPC sprite
+  const grassSortKey = npcSortKey + 1;
+
+  return {
+    atlasName,
+    worldX,
+    worldY,
+    width: GRASS_FRAME_SIZE,
+    height: GRASS_FRAME_SIZE,
+    srcX: GRASS_RESTING_FRAME * GRASS_FRAME_SIZE,
+    srcY: 0,
+    srcWidth: GRASS_FRAME_SIZE,
+    srcHeight: GRASS_FRAME_SIZE,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey: grassSortKey,
+    isReflection: false,
+  };
 }

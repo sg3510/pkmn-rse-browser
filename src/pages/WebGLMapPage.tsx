@@ -20,6 +20,7 @@ import {
   createPlayerReflectionSprite,
   createNPCSpriteInstance,
   createNPCReflectionSprite,
+  createNPCGrassEffectSprite,
   calculateSortKey,
   getPlayerAtlasName,
   getFieldEffectAtlasName,
@@ -1053,6 +1054,21 @@ export function WebGLMapPage() {
                   if (npcReflection) {
                     allSprites.push(npcReflection);
                   }
+
+                  // Add grass effect if NPC is on grass tile
+                  // Grass renders OVER NPCs (shows only head/shoulders)
+                  const tileMeta = getReflectionMetaFromSnapshot(
+                    snapshot,
+                    tilesetRuntimesRef.current,
+                    npc.tileX,
+                    npc.tileY
+                  );
+                  if (tileMeta) {
+                    const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, npcSortKey);
+                    if (grassSprite) {
+                      allSprites.push(grassSprite);
+                    }
+                  }
                 }
               }
             }
@@ -1064,10 +1080,13 @@ export function WebGLMapPage() {
                 const spriteKey = player.getCurrentSpriteKey();
                 const atlasName = getPlayerAtlasName(spriteKey);
                 if (spriteRenderer.hasSpriteSheet(atlasName)) {
+                  // Clip player to half height when on long grass (matches GBA behavior)
+                  const clipToHalf = player.isOnLongGrass();
                   const playerSprite = createSpriteFromFrameInfo(
                     frameInfo,
                     atlasName,
-                    calculateSortKey(player.y + 32, 128) // feet Y + mid priority
+                    calculateSortKey(player.y + 32, 128), // feet Y + mid priority
+                    clipToHalf
                   );
                   allSprites.push(playerSprite);
 

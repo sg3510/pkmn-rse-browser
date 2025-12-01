@@ -1099,34 +1099,31 @@ These phases are implemented in `WebGLMapPage.tsx` and related files.
 - [ ] **TEST**: Item balls render at correct positions
 - [ ] **TEST**: Items appear behind/in front of player correctly
 
-#### 5.3 Add NPC Grass Effect Rendering to WebGL
+#### 5.3 Add NPC Grass Effect Rendering to WebGL ✅ DONE
 
 **Reference:** `src/game/npc/renderNPCGrassEffects.ts`
 
-- [ ] Create `createNPCGrassEffectSprite()` in `spriteUtils.ts`
-  - [ ] Check NPC's current tile for grass behavior
-  - [ ] Use same grass sprite as player effects
-  - [ ] Position at NPC's feet (same logic as player grass)
+- [x] Create `createNPCGrassEffectSprite()` in `spriteUtils.ts`
+  - [x] Check NPC's current tile for grass behavior
+  - [x] Use same grass sprite as player effects
+  - [x] Position at NPC's feet (centered on tile)
 
-- [ ] Add NPC grass effects to sprite batch
-  - [ ] After adding NPC sprites, add their grass effects
-  - [ ] Only for NPCs in tall/long grass tiles
+- [x] Add NPC grass effects to sprite batch
+  - [x] After adding NPC sprites, add their grass effects
+  - [x] Only for NPCs in tall/long grass tiles
 
 - [ ] **TEST**: Grass covers NPC lower body like player
 - [ ] **TEST**: Works with moving NPCs (when implemented)
 
-#### 5.4 Add Long Grass Scissor Clipping to WebGL
+#### 5.4 Add Long Grass Clipping to WebGL ✅ DONE
 
-**Reference:** `src/game/PlayerController.ts` - inLongGrass flag
+**Reference:** `src/game/PlayerController.ts` - `isOnLongGrass()`
 
-- [ ] Check `player.inLongGrass` flag before rendering player sprite
-- [ ] Use `gl.enable(gl.SCISSOR_TEST)` to clip bottom 50%
-- [ ] Calculate scissor rect based on screen position:
-  ```typescript
-  const screenY = player.y - view.cameraWorldY;
-  gl.scissor(0, screenY, viewportWidth, spriteHeight / 2);
-  ```
-- [ ] Disable scissor after rendering player
+- [x] Check `player.isOnLongGrass()` flag when creating player sprite
+- [x] Pass `clipToHalf` parameter to `createSpriteFromFrameInfo()`
+- [x] Sprite height and srcHeight reduced to 50% (shows only top half)
+
+**Note:** Used sprite height clipping instead of scissor test - cleaner approach that stays in the batched render path.
 
 - [ ] **TEST**: Player clipped at waist in long grass
 - [ ] **TEST**: No visual artifacts at grass edge

@@ -30,6 +30,7 @@ export interface FieldEffect {
   completed: boolean;      // Animation finished
   visible: boolean;        // For flickering effects
   direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
+  renderBehindPlayer: boolean;  // When player moves DOWN from grass, render grass behind player
 }
 
 export interface FieldEffectForRendering {
@@ -42,6 +43,7 @@ export interface FieldEffectForRendering {
   visible: boolean;
   direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
   flipHorizontal?: boolean;  // For East-facing sand footprints
+  renderBehindPlayer?: boolean;  // True when player is moving DOWN from this grass tile
 }
 
 /**
@@ -162,6 +164,7 @@ export class FieldEffectManager {
       completed: skipAnimation, // If skipping, mark as completed immediately
       visible: true,
       direction,
+      renderBehindPlayer: false,
     };
 
     this.effects.set(id, effect);
@@ -272,19 +275,20 @@ export class FieldEffectManager {
   }
 
   /**
-   * Clean up completed grass effects.
+   * Clean up completed grass effects and update render priority.
    *
-   * Behavior per pokeemerald (UpdateTallGrassFieldEffect in field_effect_helpers.c):
+   * Behavior per pokeemerald (UpdateTallGrassFieldEffect + UpdateGrassFieldEffectSubpriority):
    * - Effects that end at frame 0: Keep until player moves away from tile
    * - Other completed effects: Remove immediately
+   * - When player moves DOWN from grass: DON'T remove! Instead, render grass BEHIND player
+   *   (GBA does this via subpriority adjustment in UpdateGrassFieldEffectSubpriority)
    *
    * Frame 0 is the "resting" frame that shows grass covering player's feet.
    * It persists whether it got there via animation (1→2→3→4→0) or spawn (start at 0).
    *
-   * Direction-aware cleanup (per pokeemerald logic):
-   * - The effect is removed when BOTH currentCoords AND previousCoords are NOT on the grass tile
-   * - When moving DOWN from grass: Remove immediately (player sprite visually covers grass)
-   * - When moving UP/LEFT/RIGHT: Keep until player fully leaves (previousCoords also off tile)
+   * Direction-aware behavior (per pokeemerald logic):
+   * - When moving DOWN from grass: Set renderBehindPlayer=true (grass continues animating behind player)
+   * - When moving UP/LEFT/RIGHT: Keep grass in front until player fully leaves
    * - When JUMPING (ledge): Remove immediately regardless of direction
    *
    * @param ownerPositions - Map of owner IDs to position info including destination and direction
@@ -301,6 +305,26 @@ export class FieldEffectManager {
     isJumping: boolean;
   }>): void {
     for (const [id, effect] of this.effects.entries()) {
+      const ownerPos = ownerPositions.get(effect.ownerObjectId);
+
+      // Update renderBehindPlayer flag for grass effects based on player direction
+      // This implements GBA's UpdateGrassFieldEffectSubpriority behavior
+      if ((effect.type === 'tall' || effect.type === 'long') && ownerPos) {
+        const currentOnGrass = ownerPos.tileX === effect.tileX && ownerPos.tileY === effect.tileY;
+        const movingAwayDown = ownerPos.isMoving &&
+          ownerPos.direction === 'down' &&
+          (ownerPos.destTileX !== effect.tileX || ownerPos.destTileY !== effect.tileY);
+
+        // When player is on grass and moving DOWN away, render grass behind player
+        // This lets the animation complete naturally while staying visually correct
+        if (currentOnGrass && movingAwayDown) {
+          effect.renderBehindPlayer = true;
+        } else if (!currentOnGrass && !ownerPos.isMoving) {
+          // Reset when player has fully left and stopped moving
+          effect.renderBehindPlayer = false;
+        }
+      }
+
       if (!effect.completed) {
         continue; // Don't clean up until animation finishes
       }
@@ -308,7 +332,6 @@ export class FieldEffectManager {
       // For effects at frame 0 (tall/long grass), keep until player moves away
       // Frame 0 is the final "resting" frame that covers the player's feet
       if ((effect.type === 'tall' || effect.type === 'long') && effect.animationFrame === 0) {
-        const ownerPos = ownerPositions.get(effect.ownerObjectId);
         if (!ownerPos) {
           // Owner doesn't exist anymore, remove effect
           if (isDebugMode()) {
@@ -322,9 +345,6 @@ export class FieldEffectManager {
         const currentOnGrass = ownerPos.tileX === effect.tileX && ownerPos.tileY === effect.tileY;
         // Check if owner's previous position matches grass tile
         const previousOnGrass = ownerPos.prevTileX === effect.tileX && ownerPos.prevTileY === effect.tileY;
-        // Check if owner is moving AWAY from grass (destination is different tile)
-        const movingAwayFromGrass = ownerPos.isMoving &&
-          (ownerPos.destTileX !== effect.tileX || ownerPos.destTileY !== effect.tileY);
 
         // Special case: JUMPING over a ledge - remove grass immediately
         // When jumping, the player sprite quickly moves away and the grass should disappear
@@ -336,26 +356,14 @@ export class FieldEffectManager {
           continue;
         }
 
-        // Special case: Moving DOWN from grass - remove immediately
-        // When moving down, player sprite visually covers the grass, so hide it right away
-        if (currentOnGrass && movingAwayFromGrass && ownerPos.direction === 'down') {
-          if (isDebugMode()) {
-            console.log(`[GRASS] Removing frame 0 effect ${id} - owner moving DOWN away from grass`);
-          }
-          this.effects.delete(id);
+        if (currentOnGrass) {
+          // Player still on this grass tile - keep effect
+          // (renderBehindPlayer handles the visual priority when moving down)
           continue;
         }
 
-        if (currentOnGrass && !movingAwayFromGrass) {
-          // Player still on this grass tile and not moving away - keep effect
-          if (isDebugMode() && Math.random() < 0.01) {
-            console.log(`[GRASS] Keeping frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner still there`);
-          }
-          continue;
-        }
-
-        // Player has moved off the grass tile (or is moving away in non-down direction)
-        // For UP/LEFT/RIGHT: keep until both current AND previous positions are off grass
+        // Player has moved off the grass tile
+        // Keep until both current AND previous positions are off grass
         // This matches pokeemerald: (currentCoords != sprite) AND (previousCoords != sprite)
         if (!currentOnGrass && !previousOnGrass) {
           // Both current and previous positions are off the grass - remove
@@ -363,11 +371,6 @@ export class FieldEffectManager {
             console.log(`[GRASS] Removing frame 0 effect ${id} at (${effect.tileX}, ${effect.tileY}) - owner fully left`);
           }
           this.effects.delete(id);
-        } else {
-          // Still transitioning (UP/LEFT/RIGHT) - keep for now
-          if (isDebugMode() && Math.random() < 0.1) {
-            console.log(`[GRASS] Keeping frame 0 effect ${id} - owner transitioning (prev still on grass)`);
-          }
         }
       } else {
         // For animated effects, remove immediately after completion
@@ -415,6 +418,7 @@ export class FieldEffectManager {
         visible: effect.visible,
         direction: effect.direction,
         flipHorizontal,
+        renderBehindPlayer: effect.renderBehindPlayer,
       });
     }
 
@@ -433,28 +437,5 @@ export class FieldEffectManager {
    */
   clear(): void {
     this.effects.clear();
-  }
-
-  /**
-   * Immediately remove any grass effect at the specified tile.
-   * Used when moving DOWN from a grass tile - the grass should disappear instantly
-   * regardless of animation state (because the player sprite visually covers it).
-   *
-   * @param tileX - Tile X coordinate
-   * @param tileY - Tile Y coordinate
-   * @param ownerObjectId - Owner ID to filter by (usually 'player')
-   */
-  removeGrassAtTile(tileX: number, tileY: number, ownerObjectId: string): void {
-    for (const [id, effect] of this.effects.entries()) {
-      if ((effect.type === 'tall' || effect.type === 'long') &&
-          effect.tileX === tileX &&
-          effect.tileY === tileY &&
-          effect.ownerObjectId === ownerObjectId) {
-        if (isDebugMode()) {
-          console.log(`[GRASS] Immediately removing grass effect ${id} at (${tileX}, ${tileY}) - moving DOWN`);
-        }
-        this.effects.delete(id);
-      }
-    }
   }
 }

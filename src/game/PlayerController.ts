@@ -893,12 +893,6 @@ export class PlayerController {
           console.log(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
         }
 
-        // When moving DOWN, immediately remove any grass at current tile
-        // (player sprite visually covers the grass when moving down)
-        if (newDir === 'down') {
-          this.removeGrassWhenMovingDown();
-        }
-
         // Create sand footprint as we START to move off current tile
         this.checkAndTriggerSandFootprints();
 
@@ -934,11 +928,6 @@ export class PlayerController {
   public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
     this.dir = direction;
 
-    // When moving DOWN, immediately remove any grass at current tile
-    if (direction === 'down') {
-      this.removeGrassWhenMovingDown();
-    }
-
     // Create sand footprint as we START to move
     this.checkAndTriggerSandFootprints();
 
@@ -959,10 +948,6 @@ export class PlayerController {
     const targetTileY = this.tileY + dy;
 
     if (ignoreCollision) {
-      // When moving DOWN, immediately remove any grass at current tile
-      if (direction === 'down') {
-        this.removeGrassWhenMovingDown();
-      }
       // Create sand footprint as we START to move
       this.checkAndTriggerSandFootprints();
       // Trigger tall grass on begin step
@@ -973,10 +958,6 @@ export class PlayerController {
     }
 
     if (!this.isCollisionAt(targetTileX, targetTileY)) {
-      // When moving DOWN, immediately remove any grass at current tile
-      if (direction === 'down') {
-        this.removeGrassWhenMovingDown();
-      }
       // Create sand footprint as we START to move
       this.checkAndTriggerSandFootprints();
       // Trigger tall grass on begin step
@@ -1525,10 +1506,6 @@ export class PlayerController {
       // Check collision but IGNORE elevation mismatch because ledges are designed to change elevation
       if (!this.isCollisionAt(landTileX, landTileY, { ignoreElevation: true })) {
         this.dir = dir; // Face the ledge
-        // When jumping from grass while moving down, remove the grass immediately
-        if (dir === 'down') {
-          this.removeGrassWhenMovingDown();
-        }
         this.changeState(new JumpingState(wasRunning));
         return true;
       }
@@ -1691,15 +1668,6 @@ export class PlayerController {
     } else {
       this.currentGrassType = null;
     }
-  }
-
-  /**
-   * Remove grass effects at the current tile when moving DOWN.
-   * This should be called immediately when starting to move down from a grass tile,
-   * so the grass disappears right away (player sprite visually covers it).
-   */
-  private removeGrassWhenMovingDown(): void {
-    this.grassEffectManager.removeGrassAtTile(this.tileX, this.tileY, 'player');
   }
 
   /**

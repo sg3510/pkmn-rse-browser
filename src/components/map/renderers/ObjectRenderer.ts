@@ -125,6 +125,13 @@ export class ObjectRenderer {
         }
       }
 
+      // GBA behavior: When player moves DOWN from grass, grass renders BEHIND player
+      // This implements UpdateGrassFieldEffectSubpriority which adjusts subpriority
+      // so grass animation can complete naturally without covering the player
+      if (effect.renderBehindPlayer) {
+        isInFront = false;
+      }
+
       // Filter by layer
       if (layer === 'bottom' && isInFront) continue;
       if (layer === 'top' && !isInFront) continue;
