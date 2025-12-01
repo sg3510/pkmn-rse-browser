@@ -24,6 +24,7 @@ import {
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getNPCAtlasName,
+  buildWaterMaskFromView,
 } from '../rendering/spriteUtils';
 import type { SpriteInstance } from '../rendering/types';
 import type { TileResolverFn, WorldCameraView, RenderContext } from '../rendering/types';
@@ -1128,13 +1129,37 @@ export function WebGLMapPage() {
               // === STEP 1: Render and composite ONLY layer 0 ===
               pipeline.renderAndCompositeLayer0Only(ctx2d, view);
 
-              // === STEP 2: Render reflections (after layer 0, before layer 1) ===
+              // === STEP 2: Render reflections with water mask ===
+              // Build a viewport-sized water mask from reflective tile pixels.
+              // This is the FIX for the bug where reflections rendered on non-reflective tiles:
+              // Non-reflective tiles (like grass) don't contribute to the mask, so reflections
+              // are clipped away on those tiles. Only reflective tiles (water, ice) contribute.
               if (webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
 
-                spriteRenderer.setWaterMask(null);
+                // Build water mask from current view
+                const currentSnapshot = worldSnapshotRef.current;
+                if (currentSnapshot) {
+                  const waterMask = buildWaterMaskFromView(
+                    view.pixelWidth,
+                    view.pixelHeight,
+                    view.cameraWorldX,
+                    view.cameraWorldY,
+                    (tileX, tileY) => {
+                      const meta = getReflectionMetaFromSnapshot(
+                        currentSnapshot,
+                        tilesetRuntimesRef.current,
+                        tileX,
+                        tileY
+                      );
+                      return meta?.meta ? { isReflective: meta.meta.isReflective, pixelMask: meta.meta.pixelMask } : null;
+                    }
+                  );
+                  spriteRenderer.setWaterMask(waterMask);
+                }
+
                 spriteRenderer.renderBatch(reflectionSprites, spriteView);
 
                 ctx2d.drawImage(webglCanvas, 0, 0);

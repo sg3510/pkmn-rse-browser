@@ -84,7 +84,6 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
 
   // Water mask texture (for reflections)
   private waterMaskTexture: WebGLTexture | null = null;
-  private waterMaskData: WaterMaskData | null = null;
 
   // Stats
   private lastBatchSize = 0;
@@ -295,11 +294,13 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
   /**
    * Set water mask for reflection clipping
    *
-   * @param mask - Water mask data, or null to clear
+   * The mask determines which screen pixels show reflections:
+   * - 255 = reflective (water/ice) - show reflection
+   * - 0 = non-reflective (grass/land) - hide reflection
+   *
+   * @param mask - Water mask data, or null to use default (all reflective)
    */
   setWaterMask(mask: WaterMaskData | null): void {
-    this.waterMaskData = mask;
-
     if (!mask || !this.waterMaskTexture) {
       return;
     }
@@ -507,18 +508,15 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.uniform2i(atlasSizeLoc, sheet.width, sheet.height);
 
     // Water mask texture (unit 1)
-    if (this.waterMaskTexture && this.waterMaskData) {
+    // ALWAYS bind the water mask texture - it's required for the shader
+    // If no mask data is set, the default 1x1 white texture shows all reflections
+    // If mask data IS set, it clips reflections to only reflective tile pixels
+    if (this.waterMaskTexture) {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.waterMaskTexture);
 
       const maskLoc = this.shaders.getUniformLocation(gl, program, 'u_waterMask');
       gl.uniform1i(maskLoc, 1);
-
-      const maskOffsetLoc = this.shaders.getUniformLocation(gl, program, 'u_maskOffset');
-      gl.uniform2f(maskOffsetLoc, this.waterMaskData.worldOffsetX, this.waterMaskData.worldOffsetY);
-
-      const maskSizeLoc = this.shaders.getUniformLocation(gl, program, 'u_maskSize');
-      gl.uniform2f(maskSizeLoc, this.waterMaskData.width, this.waterMaskData.height);
     }
 
     // Note: shimmer scale is now per-instance via a_shimmerScale attribute

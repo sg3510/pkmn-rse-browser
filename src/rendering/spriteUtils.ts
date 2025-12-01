@@ -375,8 +375,14 @@ export function buildWaterMaskFromView(
       if (!meta?.isReflective || !meta.pixelMask) continue;
 
       // Calculate tile position in screen coordinates
-      const tileScreenX = tileX * METATILE_SIZE - cameraWorldX;
-      const tileScreenY = tileY * METATILE_SIZE - cameraWorldY;
+      // CRITICAL: Use Math.floor to get integer screen positions!
+      // During smooth camera scrolling, cameraWorldX/Y are floats.
+      // Without flooring, we get float screen coords that cause:
+      // 1. Wrong array indices (JS truncates toward zero, not floor)
+      // 2. Y-flip errors (319.5 truncates to 318, off by 1)
+      // 3. Edge bugs (negative floats like -0.1 wrap to huge indices)
+      const tileScreenX = Math.floor(tileX * METATILE_SIZE - cameraWorldX);
+      const tileScreenY = Math.floor(tileY * METATILE_SIZE - cameraWorldY);
 
       // Copy pixel mask to water mask
       for (let py = 0; py < METATILE_SIZE; py++) {

@@ -149,9 +149,8 @@ uniform sampler2D u_waterMask;  // R8 texture: water=1.0, ground=0.0
 // Atlas dimensions for texelFetch
 uniform ivec2 u_atlasSize;
 
-// Water mask alignment
-uniform vec2 u_maskOffset;
-uniform vec2 u_maskSize;
+// Viewport size for screen-space water mask sampling
+uniform vec2 u_viewportSize;
 
 // Output
 out vec4 fragColor;
@@ -188,11 +187,21 @@ void main() {
     discard;
   }
 
+  // ========== WATER MASK SAMPLING ==========
+  // Sample the water mask texture in screen space.
+  // gl_FragCoord is in screen pixels (origin bottom-left).
+  // The mask is viewport-sized, so UV = fragCoord / viewportSize.
+  // Y-flip is already handled in buildWaterMaskFromView().
+  vec2 maskUV = gl_FragCoord.xy / u_viewportSize;
+  float maskVal = texture(u_waterMask, maskUV).r;
+
+  // Discard pixels that are NOT on reflective tiles (mask = 0)
+  // This prevents reflections from appearing on non-reflective tiles like grass
+  if (maskVal < 0.5) {
+    discard;
+  }
+
   // ========== OUTPUT ==========
-  // Water masking is handled by layer compositing:
-  // Reflections render AFTER background but BEFORE topBelow layer.
-  // TopBelow's opaque pixels naturally occlude reflections (GBA-accurate).
-  // No shader-based water mask needed.
   fragColor = vec4(texColor.rgb * v_colorMod.rgb, texColor.a * v_colorMod.a);
 }
 `;
