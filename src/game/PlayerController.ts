@@ -23,6 +23,7 @@ import {
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
+import { getShadowPosition } from '../rendering/spriteUtils';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -1298,27 +1299,12 @@ export class PlayerController {
   public render(ctx: CanvasRenderingContext2D, cameraX: number = 0, cameraY: number = 0) {
     // Render shadow if enabled (during jumps)
     // Shadow stays on ground while player sprite moves up/down via spriteYOffset
+    // Uses shared getShadowPosition() for consistent positioning with WebGL
     if (this.showShadow && this.sprites['shadow']) {
       const shadow = this.sprites['shadow'];
-      // Shadow sprite is 16x8 pixels
-      // For 32px tall sprite: feet are at this.y + 32
-      // Shadow should be at feet position minus half shadow height (4px)
-      // So shadow top = this.y + 32 - 4 = this.y + 28
-      // But shadow also needs to NOT follow the jump arc (stays on ground)
-      // this.y already represents ground position (no spriteYOffset in it)
-      //
-      // GBA calculation: sYOffset = (height/2) - shadowVerticalOffset = 16 - 4 = 12
-      // shadow.y = player.y + 12
-      // But our coordinate system is different - our this.y is 16 above GBA's sprite.y
-      // So we need: shadow.y = this.y + 16 + 12 = this.y + 28
-      // This is what we already have, so the math checks out.
-      //
-      // For 32px surfing sprites: renderX = this.x - 8
-      // Shadow (16px) should center at same point as 32px sprite center
-      // 32px sprite center = renderX + 16 = this.x - 8 + 16 = this.x + 8
-      // Shadow center = shadowX + 8, so shadowX = this.x (no additional offset needed)
-      const shadowX = Math.round(this.x - cameraX);
-      const shadowY = Math.round(this.y - cameraY) + 28;
+      const shadowPos = getShadowPosition(this.x, this.y);
+      const shadowX = Math.round(shadowPos.worldX - cameraX);
+      const shadowY = Math.round(shadowPos.worldY - cameraY);
       ctx.drawImage(shadow, shadowX, shadowY);
     }
 

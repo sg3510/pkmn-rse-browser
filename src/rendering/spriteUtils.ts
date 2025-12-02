@@ -571,3 +571,86 @@ export function createNPCGrassEffectSprite(
     isReflection: false,
   };
 }
+
+/**
+ * Shadow sprite constants (GBA-accurate)
+ *
+ * GBA calculation for shadow Y offset:
+ * sYOffset = (spriteHeight/2) - shadowVerticalOffset = 16 - 4 = 12
+ * shadow.y = player.y + 12 (in GBA coords)
+ *
+ * Our coordinate system has player.y 16 pixels above GBA's sprite.y,
+ * so: shadow.y = player.y + 16 + 12 = player.y + 28
+ */
+export const SHADOW_WIDTH = 16;
+export const SHADOW_HEIGHT = 8;
+export const SHADOW_Y_OFFSET = 28; // Offset from player.y to shadow top
+
+/**
+ * Shadow position info - renderer-agnostic data for shadow rendering
+ */
+export interface ShadowPosition {
+  worldX: number;
+  worldY: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Get shadow position for a player during jumps
+ *
+ * Shadow stays on ground (doesn't follow spriteYOffset) while player
+ * sprite moves up/down during the jump arc.
+ *
+ * @param playerX - Player world X position
+ * @param playerY - Player world Y position (ground level, no spriteYOffset)
+ * @returns Shadow position data
+ */
+export function getShadowPosition(playerX: number, playerY: number): ShadowPosition {
+  return {
+    worldX: playerX,
+    worldY: playerY + SHADOW_Y_OFFSET,
+    width: SHADOW_WIDTH,
+    height: SHADOW_HEIGHT,
+  };
+}
+
+/**
+ * Create a shadow SpriteInstance for WebGL rendering
+ *
+ * Used when player is jumping (showShadow = true). Shadow renders
+ * at ground level behind the player sprite.
+ *
+ * @param playerX - Player world X position
+ * @param playerY - Player world Y position (ground level)
+ * @param playerSortKey - Player's sort key (shadow uses lower priority)
+ * @returns SpriteInstance for the shadow
+ */
+export function createPlayerShadowSprite(
+  playerX: number,
+  playerY: number,
+  playerSortKey: number
+): SpriteInstance {
+  const pos = getShadowPosition(playerX, playerY);
+
+  return {
+    worldX: pos.worldX,
+    worldY: pos.worldY,
+    width: pos.width,
+    height: pos.height,
+    atlasName: getPlayerAtlasName('shadow'),
+    atlasX: 0,
+    atlasY: 0,
+    atlasWidth: SHADOW_WIDTH,
+    atlasHeight: SHADOW_HEIGHT,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    // Shadow renders behind player (lower subpriority)
+    sortKey: playerSortKey - 64,
+    isReflection: false,
+  };
+}

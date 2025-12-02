@@ -18,6 +18,7 @@ import {
   createSpriteFromFrameInfo,
   createFieldEffectSprite,
   createPlayerReflectionSprite,
+  createPlayerShadowSprite,
   createNPCSpriteInstance,
   createNPCReflectionSprite,
   createNPCGrassEffectSprite,
@@ -1077,31 +1078,11 @@ export function WebGLMapPage() {
                 const atlasName = getPlayerAtlasName(spriteKey);
                 if (spriteRenderer.hasSpriteSheet(atlasName)) {
                   // Render shadow if player is jumping (shadow stays on ground)
-                  // Shadow sprite is 16x8, positioned at player's feet
-                  // GBA: shadow.y = player.y + (height/2) - shadowVerticalOffset = player.y + 16 - 4 = player.y + 12
-                  // Our coords: shadow.y = this.y + 28 (this.y is 16 above GBA's sprite.y)
                   if (player.showShadow) {
                     const shadowAtlas = getPlayerAtlasName('shadow');
                     if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
-                      const shadowSprite: SpriteInstance = {
-                        worldX: player.x,
-                        worldY: player.y + 28, // Ground level at player's feet
-                        width: 16,
-                        height: 8,
-                        atlasName: shadowAtlas,
-                        atlasX: 0,
-                        atlasY: 0,
-                        atlasWidth: 16,
-                        atlasHeight: 8,
-                        flipX: false,
-                        flipY: false,
-                        alpha: 1.0,
-                        tintR: 1.0,
-                        tintG: 1.0,
-                        tintB: 1.0,
-                        sortKey: calculateSortKey(player.y + 32, 64), // Same Y as player but lower priority (renders first)
-                        isReflection: false,
-                      };
+                      const playerSortKey = calculateSortKey(player.y + 32, 128);
+                      const shadowSprite = createPlayerShadowSprite(player.x, player.y, playerSortKey);
                       allSprites.push(shadowSprite);
                     }
                   }
