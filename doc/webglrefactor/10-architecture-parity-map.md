@@ -295,7 +295,7 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Consolidated 5 duplicate `WorldCameraView` type definitions
   - [x] Canonical definition now in `src/rendering/types.ts`
   - [x] Removed unused `CameraView` imports
-  - [ ] **PARITY:** Canvas2D path should also use `buildWorldCameraView()` (TODO)
+  - [x] **PARITY:** Canvas2D path uses `buildWorldCameraView()` in `useRunUpdate.ts`
   - [x] **TEST:** Build passes, camera view correct
 
 - [x] **1.6** Fix WebGL sprite renderer Y-sort order ✅ DONE (2025-12-02)
@@ -315,13 +315,12 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] **PARITY:** Both renderers use shared utility
   - [x] **TEST:** Build passes, both renderers use identical Y coordinate for field effect layering
 
-- [ ] **1.8** Precomputed field-effect layers + sortKeys
-  - [ ] Extend `FieldEffectManager.getEffectsForRendering(playerFeetY?)` to return `layer` + `sortKey`
-  - [ ] Wire WebGL renderer to use returned values (drop local compute)
-  - [ ] Wire Canvas renderer to optional use (keeps two-pass draw but same data)
-  - [ ] **PARITY:** Both renderers use same precomputed values
-  - [ ] **TEST:** WebGL and Canvas show identical grass/sand/ripple ordering
-  - **Why:** Today, ordering is recomputed differently per renderer (WebGL sorts; Canvas draws in fixed passes). Centralizing the sort data in the manager guarantees parity and reduces renderer logic/bugs.
+- [x] **1.8** Precomputed field-effect layers + sortKeys ✅ SUPERSEDED by 1.9
+  - [x] SpriteBatcher now handles field effect layer computation via `computeFieldEffectLayer()`
+  - [x] Sort keys computed in `buildSpriteBatches()` using `calculateSortKey()`
+  - [x] Both renderers use SpriteBatcher for layer/sort decisions
+  - [x] **PARITY:** Both renderers use SpriteBatcher (see 1.9)
+  - [x] **TEST:** WebGL and Canvas show identical grass/sand/ripple ordering
 
 - [x] **1.9** Unified SpriteBatcher for render order consistency ✅ DONE (2025-12-02)
   - [x] Created `src/rendering/SpriteBatcher.ts` with `buildSpriteBatches()` function
@@ -348,25 +347,32 @@ Quick wins - extract duplicated functions without changing architecture.
 
 Warp handling is complex - extract carefully.
 
-- [ ] **2.1** Create `src/game/WarpTriggerProcessor.ts`
-  - [ ] Extract tile-change detection logic
-  - [ ] Extract warp trigger classification (arrow, door, walk-over)
-  - [ ] Return action descriptor, don't execute directly
-  - [ ] **PARITY:** Both renderers use shared warp detection
-  - [ ] **TEST:** All warp types detected correctly
+- [x] **2.1** Create `src/game/WarpTriggerProcessor.ts` ✅ DONE (2025-12-02)
+  - [x] Extract tile-change detection logic
+  - [x] Extract warp trigger classification (arrow, door, walk-over)
+  - [x] Return action descriptor (`WarpAction` type), don't execute directly
+  - [x] Integrated into `useRunUpdate.ts` (Canvas2D)
+  - [x] Integrated into `WebGLMapPage.tsx` (WebGL)
+  - [x] Removed `isNonAnimatedDoorBehavior` import from WebGLMapPage (now internal to processor)
+  - [x] **PARITY:** Both renderers use shared warp detection
+  - [x] **TEST:** Build passes, both renderers use WarpTriggerProcessor
 
-- [ ] **2.2** Create `src/hooks/useWarpFlow.ts` hook
-  - [ ] Combine warp detection + execution in single hook
-  - [ ] Accept renderer-agnostic dependencies
-  - [ ] Handle fade, door sequencer, warp executor coordination
-  - [ ] **PARITY:** Both renderers use unified hook
-  - [ ] **TEST:** Warps work identically in both modes
+- [x] **2.2** Create `src/game/DoorSequenceRunner.ts` ✅ DONE (2025-12-02)
+  - [x] Created shared door entry/exit update functions (simpler than a full hook)
+  - [x] `runDoorEntryUpdate(deps, nowTime)` - advances door entry sequence
+  - [x] `runDoorExitUpdate(deps, nowTime)` - advances door exit sequence
+  - [x] Both use `DoorActionDispatcher` internally
+  - [x] Integrated into `WebGLMapPage.tsx` - replaced ~50 lines of inline code
+  - [x] Integrated into `useWarpExecution.ts` - simplified advanceDoorEntry/Exit
+  - [x] **PARITY:** Both renderers use shared DoorSequenceRunner functions
+  - [x] **TEST:** Build passes, both renderers use shared door update logic
 
-- [ ] **2.3** Reconcile `useWarpExecution` with new hook
-  - [ ] Decide: merge or keep separate
-  - [ ] Ensure MapRenderer uses unified approach
-  - [ ] **PARITY:** Single warp execution path for both renderers
-  - [ ] **TEST:** No regression in Canvas2D warps
+- [x] **2.3** Reconcile `useWarpExecution` with door sequence unification ✅ DONE (2025-12-02)
+  - [x] Decided: Keep `useWarpExecution` for Canvas2D, use shared functions for door updates
+  - [x] Updated `useWarpExecution` to use `DoorSequenceRunner` functions
+  - [x] Removed duplicate `DoorActionDeps` imports from both renderers
+  - [x] **PARITY:** Single door sequence update path for both renderers
+  - [x] **TEST:** No regression in Canvas2D warps
 
 ---
 
@@ -554,7 +560,8 @@ Final unification step - **OKR completion checkpoint**.
 | `src/hooks/usePlayerUpdate.ts` | Player logic | ~150 |
 | `src/hooks/useWarpFlow.ts` | Warp orchestration | ~200 |
 | `src/hooks/useSceneComposition.ts` | Sprite building | ~250 |
-| `src/game/WarpTriggerProcessor.ts` | Warp detection | ~100 |
+| `src/game/WarpTriggerProcessor.ts` | Unified warp detection | ~250 |
+| `src/game/DoorSequenceRunner.ts` | Unified door update loops | ~140 |
 | `src/game/setupObjectCollisionChecker.ts` | Collision setup | ~20 |
 | `src/game/findPlayerSpawnPosition.ts` | Spawn logic | ~50 |
 | `src/game/buildWorldCameraView.ts` | Camera view | ~40 |
@@ -583,8 +590,10 @@ Final unification step - **OKR completion checkpoint**.
 
 | Logic | Status | Notes |
 |-------|--------|-------|
-| Warp Detection | ✅ Shared | `detectWarpTrigger` |
+| Warp Detection | ✅ Shared | `detectWarpTrigger`, `WarpTriggerProcessor.processWarpTrigger()` |
 | Warp Execution | ✅ Shared | `executeWarp` |
+| Warp Processing | ✅ Shared | `WarpTriggerProcessor.ts` - unified tile-change detection & classification |
+| Door Sequence Updates | ✅ Shared | `DoorSequenceRunner.ts` - unified door entry/exit update loops |
 | Reflection Math | ✅ Shared | `ReflectionRenderer` |
 | Shimmer Effect | ✅ Shared | `ReflectionShimmer` |
 | Door Sequences | ✅ Shared | `DoorActionDispatcher` |

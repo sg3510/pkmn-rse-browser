@@ -11,12 +11,12 @@
 import { useCallback, useRef, type RefObject } from 'react';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import { computeCameraView } from '../utils/camera';
+import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import {
   resolveTileAt,
-  detectWarpTrigger,
   computeReflectionState,
 } from '../components/map/utils';
-import { isNonAnimatedDoorBehavior } from '../utils/metatileBehaviors';
+import { processWarpTrigger, updateWarpHandlerTile } from '../game/WarpTriggerProcessor';
 import type { RenderContext, ReflectionState, TilesetRuntime, ResolvedTile } from '../components/map/types';
 import type { CardinalDirection } from '../utils/metatileBehaviors';
 import type { WorldCameraView } from '../components/MapRendererTypes';
@@ -184,45 +184,44 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
         const player = refs.playerControllerRef.current;
 
         if (player && ctx) {
-          const resolvedForWarp = resolveTileAt(ctx, player.tileX, player.tileY);
-          const lastChecked = warpHandler.getState().lastCheckedTile;
-          const tileChanged =
-            !lastChecked ||
-            lastChecked.mapId !== resolvedForWarp?.map.entry.id ||
-            lastChecked.x !== player.tileX ||
-            lastChecked.y !== player.tileY;
+          // Use shared WarpTriggerProcessor for unified warp detection
+          const warpResult = processWarpTrigger({
+            player,
+            renderContext: ctx,
+            warpHandler,
+          });
 
-          if (tileChanged && resolvedForWarp) {
-            const behavior = resolvedForWarp.attributes?.behavior ?? -1;
+          // Update warp handler's last checked tile if tile changed
+          if (warpResult.tileChanged) {
+            updateWarpHandlerTile(warpHandler, warpResult);
+
+            // Debug logging for stair/ladder behaviors
+            const behavior = warpResult.behavior ?? -1;
             if (isDebugMode() && (behavior === 96 || behavior === 97)) {
               console.log('[TILE_CHANGED_STAIR_LADDER]', {
                 playerTile: { x: player.tileX, y: player.tileY },
                 behavior: `0x${behavior.toString(16)} (${behavior})`,
-                mapId: resolvedForWarp.map.entry.id,
+                mapId: warpResult.currentTile?.mapId,
                 warpInProgress: warpHandler.isInProgress(),
                 warpOnCooldown: warpHandler.isOnCooldown(),
               });
             }
-            warpHandler.updateLastCheckedTile(player.tileX, player.tileY, resolvedForWarp.map.entry.id);
-
-            if (!warpHandler.isInProgress() && !warpHandler.isOnCooldown()) {
-              const trigger = detectWarpTrigger(ctx, player);
-              if (trigger) {
-                // Arrow warps are handled through PlayerController's doorWarpHandler
-                if (trigger.kind === 'arrow') {
-                  if (isDebugMode()) {
-                    console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
-                  }
-                } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
-                  callbacks.startAutoDoorWarp(trigger, resolvedForWarp, player, 'up', { isAnimatedDoor: false });
-                } else {
-                  void callbacks.performWarp(trigger);
-                }
-              }
-            }
           }
 
-          const behavior = resolvedForWarp?.attributes?.behavior ?? -1;
+          // Handle warp actions
+          const action = warpResult.action;
+          if (action.type === 'arrow') {
+            if (isDebugMode()) {
+              console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
+            }
+          } else if (action.type === 'autoDoorWarp') {
+            callbacks.startAutoDoorWarp(action.trigger, action.resolvedTile, player, 'up', { isAnimatedDoor: false });
+          } else if (action.type === 'walkOverWarp') {
+            void callbacks.performWarp(action.trigger);
+          }
+
+          // Update arrow overlay
+          const behavior = warpResult.behavior ?? -1;
           arrowOverlay.update(player.dir, player.tileX, player.tileY, behavior, timestamp, warpHandler.isInProgress());
         } else {
           arrowOverlay.hide();
@@ -249,13 +248,7 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
               focus.y - paddedMinY * METATILE_SIZE,
               viewportConfig
             );
-            view = {
-              ...baseView,
-              worldStartTileX: baseView.startTileX + paddedMinX,
-              worldStartTileY: baseView.startTileY + paddedMinY,
-              cameraWorldX: baseView.cameraX + paddedMinX * METATILE_SIZE,
-              cameraWorldY: baseView.cameraY + paddedMinY * METATILE_SIZE,
-            };
+            view = buildWorldCameraView(baseView, paddedMinX, paddedMinY);
           }
         }
         (refs.cameraViewRef as { current: WorldCameraView | null }).current = view;

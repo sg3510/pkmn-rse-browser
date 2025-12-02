@@ -39,11 +39,10 @@ import {
   type SpawnPosition,
 } from '../game/WarpExecutor';
 import {
-  handleDoorEntryAction,
-  handleDoorExitAction,
-  createAnimationDoneChecker,
-  type DoorActionDeps,
-} from '../game/DoorActionDispatcher';
+  runDoorEntryUpdate,
+  runDoorExitUpdate,
+  type DoorSequenceDeps,
+} from '../game/DoorSequenceRunner';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -283,26 +282,13 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
        * Advance Door Entry Sequence
        *
        * Called every frame in runUpdate to progress door entry animation.
-       * Uses shared DoorActionDispatcher for action handling.
+       * Uses shared DoorSequenceRunner for action handling.
        */
       const advanceDoorEntry = (now: number): void => {
-        if (!doorSequencer.isEntryActive()) return;
         const player = refs.playerControllerRef.current;
         if (!player) return;
 
-        const entryState = doorSequencer.sequencer.getEntryState();
-        const isAnimationDone = createAnimationDoneChecker(doorAnimations, now);
-        const isFadeDone = !refs.fadeRef.current.isActive() || refs.fadeRef.current.isComplete(now);
-
-        const result = doorSequencer.updateEntry(
-          now,
-          player.isMoving,
-          isAnimationDone,
-          isFadeDone
-        );
-
-        // Use shared action dispatcher
-        const actionDeps: DoorActionDeps = {
+        const doorDeps: DoorSequenceDeps = {
           player,
           doorSequencer,
           doorAnimations,
@@ -314,7 +300,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
           },
         };
 
-        handleDoorEntryAction(result, entryState, actionDeps, now);
+        runDoorEntryUpdate(doorDeps, now);
       };
 
       /**
@@ -322,27 +308,13 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
        *
        * Handles the door exit state machine using the door sequencer.
        * Called every frame in runUpdate to progress the exit animation.
-       * Uses shared DoorActionDispatcher for action handling.
+       * Uses shared DoorSequenceRunner for action handling.
        */
       const advanceDoorExit = (now: number): void => {
-        if (!doorSequencer.isExitActive()) return;
         const player = refs.playerControllerRef.current;
         if (!player) return;
 
-        const exitState = doorSequencer.sequencer.getExitState();
-        const isAnimationDone = createAnimationDoneChecker(doorAnimations, now);
-        // Per pokeemerald: wait for fade-in to complete before showing player
-        const isFadeInDone = !refs.fadeRef.current.isActive() || refs.fadeRef.current.isComplete(now);
-
-        const result = doorSequencer.updateExit(
-          now,
-          player.isMoving,
-          isAnimationDone,
-          isFadeInDone
-        );
-
-        // Use shared action dispatcher
-        const actionDeps: DoorActionDeps = {
+        const doorDeps: DoorSequenceDeps = {
           player,
           doorSequencer,
           doorAnimations,
@@ -351,7 +323,7 @@ export function useWarpExecution(options: UseWarpExecutionOptions): UseWarpExecu
           onExecuteWarp: () => {}, // Not used in exit sequence
         };
 
-        const done = handleDoorExitAction(result, exitState, actionDeps, now);
+        const done = runDoorExitUpdate(doorDeps, now);
         if (done) {
           logDoor('exit: sequence complete');
         }

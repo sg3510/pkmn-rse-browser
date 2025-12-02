@@ -72,7 +72,9 @@ import {
   getGlobalShimmer,
   type ReflectionMetaProvider,
 } from '../field/ReflectionRenderer';
-import { detectWarpTrigger, resolveTileAt, findWarpEventAt, type WarpTrigger } from '../components/map/utils';
+import { resolveTileAt, findWarpEventAt, type WarpTrigger } from '../components/map/utils';
+import { processWarpTrigger, updateWarpHandlerTile } from '../game/WarpTriggerProcessor';
+import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../game/DoorSequenceRunner';
 import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
@@ -97,7 +99,7 @@ import {
   type PriorityDebugInfo,
   type SpriteSortDebugInfo,
 } from '../components/debug';
-import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
+import { isLongGrassBehavior } from '../utils/metatileBehaviors';
 import {
   getPlayerFeetY,
   getPlayerCenterY,
@@ -107,11 +109,7 @@ import {
 import { buildSpriteBatches, type SortableSpriteInfo } from '../rendering/SpriteBatcher';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
-  handleDoorEntryAction,
-  handleDoorExitAction,
-  createAnimationDoneChecker,
   startDoorWarpSequence,
-  type DoorActionDeps,
   type DoorWarpContext,
 } from '../game/DoorActionDispatcher';
 import './WebGLMapPage.css';
@@ -816,112 +814,71 @@ export function WebGLMapPage() {
             }
           }
 
-          // Check for warps when player tile changes (matches Canvas2D useRunUpdate logic)
-          if (snapshot && !warpHandlerRef.current.isInProgress() && !doorSequencer.isActive()) {
+          // Check for warps using shared WarpTriggerProcessor
+          if (snapshot) {
             const renderContext = getRenderContextFromSnapshot(snapshot);
             if (renderContext) {
-              const resolvedForWarp = resolveTileAt(renderContext, player.tileX, player.tileY);
+              const warpResult = processWarpTrigger({
+                player,
+                renderContext,
+                warpHandler: warpHandlerRef.current,
+                isDoorSequencerActive: doorSequencer.isActive(),
+              });
 
-              if (resolvedForWarp) {
-                const currentMapId = resolvedForWarp.map.entry.id;
+              // Update warp handler's last checked tile if tile changed
+              if (warpResult.tileChanged) {
+                updateWarpHandlerTile(warpHandlerRef.current, warpResult);
+              }
 
-                // Check if tile changed
-                const lastChecked = warpHandlerRef.current.getState().lastCheckedTile;
-                const tileChanged = !lastChecked ||
-                  lastChecked.mapId !== currentMapId ||
-                  lastChecked.x !== player.tileX ||
-                  lastChecked.y !== player.tileY;
-
-                if (tileChanged) {
-                  warpHandlerRef.current.updateLastCheckedTile(player.tileX, player.tileY, currentMapId);
-
-                  if (!warpHandlerRef.current.isOnCooldown()) {
-                    const trigger = detectWarpTrigger(renderContext, player);
-                    if (trigger) {
-                      // Arrow warps are handled through PlayerController's doorWarpHandler
-                      if (trigger.kind === 'arrow') {
-                        // Just update arrow overlay, don't auto-warp
-                      } else if (isNonAnimatedDoorBehavior(trigger.behavior)) {
-                        // Non-animated doors (stairs, ladders): auto-warp with fade
-                        console.log('[WARP] Non-animated door warp:', trigger.kind, 'to', trigger.warpEvent.destMap);
-                        arrowOverlay.hide();
-                        doorSequencer.startAutoWarp({
-                          targetX: player.tileX,
-                          targetY: player.tileY,
-                          metatileId: getMetatileIdFromMapTile(resolvedForWarp.mapTile),
-                          isAnimatedDoor: false,
-                          entryDirection: player.dir as CardinalDirection,
-                          warpTrigger: trigger,
-                        }, nowTime, true);
-                        player.lockInput();
-                      } else {
-                        // Other walk-over warps: simple warp
-                        console.log('[WARP] Walk-over warp:', trigger.kind, 'to', trigger.warpEvent.destMap);
-                        warpHandlerRef.current.startWarp(player.tileX, player.tileY, currentMapId);
-                        pendingWarpRef.current = trigger;
-                        warpingRef.current = true;
-                        player.lockInput();
-                        fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-                      }
-                    }
-                  }
-                }
+              // Handle warp actions
+              const action = warpResult.action;
+              if (action.type === 'arrow') {
+                // Arrow warps are handled through PlayerController's doorWarpHandler
+                // Just update arrow overlay, don't auto-warp
+              } else if (action.type === 'autoDoorWarp') {
+                // Non-animated doors (stairs, ladders): auto-warp with fade
+                console.log('[WARP] Non-animated door warp:', action.trigger.kind, 'to', action.trigger.warpEvent.destMap);
+                arrowOverlay.hide();
+                doorSequencer.startAutoWarp({
+                  targetX: player.tileX,
+                  targetY: player.tileY,
+                  metatileId: getMetatileIdFromMapTile(action.resolvedTile.mapTile),
+                  isAnimatedDoor: false,
+                  entryDirection: player.dir as CardinalDirection,
+                  warpTrigger: action.trigger,
+                }, nowTime, true);
+                player.lockInput();
+              } else if (action.type === 'walkOverWarp') {
+                // Other walk-over warps: simple warp
+                console.log('[WARP] Walk-over warp:', action.trigger.kind, 'to', action.trigger.warpEvent.destMap);
+                warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
+                pendingWarpRef.current = action.trigger;
+                warpingRef.current = true;
+                player.lockInput();
+                fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
               }
             }
           }
         }
       }
 
-      // Advance door entry sequence (uses shared DoorActionDispatcher)
-      if (doorSequencer.isEntryActive()) {
-        const player = playerRef.current;
-        if (player) {
-          const entryState = doorSequencer.sequencer.getEntryState();
-          const isAnimationDone = createAnimationDoneChecker(doorAnimations, nowTime);
-          const isFadeDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
+      // Advance door sequences using shared DoorSequenceRunner
+      if (player) {
+        const doorDeps: DoorSequenceDeps = {
+          player,
+          doorSequencer,
+          doorAnimations,
+          fadeController: fadeControllerRef.current,
+          playerHiddenRef,
+          onExecuteWarp: (trigger) => {
+            // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
+            warpingRef.current = true;
+            void performWarp(trigger, { force: true, fromDoor: true });
+          },
+        };
 
-          const result = doorSequencer.updateEntry(nowTime, player.isMoving, isAnimationDone, isFadeDone);
-
-          // Use shared action dispatcher
-          const actionDeps: DoorActionDeps = {
-            player,
-            doorSequencer,
-            doorAnimations,
-            fadeController: fadeControllerRef.current,
-            playerHiddenRef,
-            onExecuteWarp: (trigger) => {
-              // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
-              warpingRef.current = true;
-              void performWarp(trigger, { force: true, fromDoor: true });
-            },
-          };
-
-          handleDoorEntryAction(result, entryState, actionDeps, nowTime);
-        }
-      }
-
-      // Advance door exit sequence (uses shared DoorActionDispatcher)
-      if (doorSequencer.isExitActive()) {
-        const player = playerRef.current;
-        if (player) {
-          const exitState = doorSequencer.sequencer.getExitState();
-          const isAnimationDone = createAnimationDoneChecker(doorAnimations, nowTime);
-          const isFadeInDone = !fadeControllerRef.current.isActive() || fadeControllerRef.current.isComplete(nowTime);
-
-          const result = doorSequencer.updateExit(nowTime, player.isMoving, isAnimationDone, isFadeInDone);
-
-          // Use shared action dispatcher
-          const actionDeps: DoorActionDeps = {
-            player,
-            doorSequencer,
-            doorAnimations,
-            fadeController: fadeControllerRef.current,
-            playerHiddenRef,
-            onExecuteWarp: () => {}, // Not used in exit sequence
-          };
-
-          handleDoorExitAction(result, exitState, actionDeps, nowTime);
-        }
+        runDoorEntryUpdate(doorDeps, nowTime);
+        runDoorExitUpdate(doorDeps, nowTime);
       }
 
       // Handle pending warp when fade out completes
