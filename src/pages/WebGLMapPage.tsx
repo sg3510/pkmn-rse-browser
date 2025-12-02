@@ -602,12 +602,34 @@ export function WebGLMapPage() {
 
           console.log('[DOOR_HANDLER] Found warp:', warpEvent);
 
+          const behavior = resolved.attributes?.behavior ?? -1;
+          const metatileId = getMetatileIdFromMapTile(resolved.mapTile);
+
+          // Debug: Check the tileset attributes arrays
+          const tileset = resolved.tileset;
+          console.log('[DOOR_HANDLER] Tileset attributes debug:', {
+            primaryAttributesLength: tileset?.primaryAttributes?.length ?? 0,
+            secondaryAttributesLength: tileset?.secondaryAttributes?.length ?? 0,
+            metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+            isSecondary: resolved.isSecondary,
+            attrAtIndex: resolved.isSecondary
+              ? tileset?.secondaryAttributes?.[metatileId - 512]
+              : tileset?.primaryAttributes?.[metatileId],
+          });
+
+          console.log('[DOOR_HANDLER] Tile info:', {
+            metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+            behavior,
+            hasAttributes: !!resolved.attributes,
+            attributes: resolved.attributes,
+          });
+
           // Build context for shared door warp handler
           const ctx: DoorWarpContext = {
             targetX: request.targetX,
             targetY: request.targetY,
-            behavior: resolved.attributes?.behavior ?? -1,
-            metatileId: getMetatileIdFromMapTile(resolved.mapTile),
+            behavior,
+            metatileId,
             warpEvent,
             sourceMap: resolved.map,
           };
@@ -1228,10 +1250,6 @@ export function WebGLMapPage() {
               // === STEP 1: Render and composite ONLY layer 0 ===
               pipeline.renderAndCompositeLayer0Only(ctx2d, view);
 
-              // === STEP 1.5: Render door animations (after BG, before sprites) ===
-              // Door animations render at ground level, will be covered by layer 1 (bridges)
-              doorAnimations.render(ctx2d, view, nowTime);
-
               // === STEP 2: Render reflection-layer sprites with water mask ===
               // Build a viewport-sized water mask from reflective tile pixels.
               // Non-reflective tiles (like grass) don't contribute to the mask, so
@@ -1286,6 +1304,10 @@ export function WebGLMapPage() {
               // This covers reflections with shore edges, ground decorations, etc.
               pipeline.renderAndCompositeLayer1Only(ctx2d, view);
 
+              // === STEP 3.5: Render door animations AFTER layer 1 but BEFORE sprites ===
+              // Player should walk IN FRONT of the open door
+              doorAnimations.render(ctx2d, view, nowTime);
+
               // === STEP 4: Render P1 normal sprites + player ===
               if (normalSprites.length > 0 && webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1314,7 +1336,8 @@ export function WebGLMapPage() {
 
               pipeline.compositeTopBelowOnly(ctx2d, view);
 
-              // Render door animations (after BG, before sprites)
+              // Render door animations AFTER TopBelow but BEFORE sprites
+              // Player should walk IN FRONT of the open door
               doorAnimations.render(ctx2d, view, nowTime);
 
               // Render P1 sprites + player (between TopBelow and TopAbove)

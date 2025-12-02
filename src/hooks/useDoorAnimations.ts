@@ -63,15 +63,24 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
   const ensureSprite = useCallback(
     async (metatileId: number): Promise<{ image: HTMLImageElement; size: DoorSize }> => {
       const asset = getDoorAssetForMetatile(metatileId);
+      console.log('[DOOR_ANIM] ensureSprite for metatile', `0x${metatileId.toString(16)}`, '-> path:', asset.path);
       const cached = doorSpriteCacheRef.current.get(asset.path);
       if (cached && cached.complete) {
+        console.log('[DOOR_ANIM] Using cached sprite');
         return { image: cached, size: asset.size };
       }
       const img = new Image();
       img.src = asset.path;
+      console.log('[DOOR_ANIM] Loading sprite from:', asset.path);
       await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = (err) => reject(err);
+        img.onload = () => {
+          console.log('[DOOR_ANIM] Sprite loaded successfully:', img.width, 'x', img.height);
+          resolve();
+        };
+        img.onerror = (err) => {
+          console.error('[DOOR_ANIM] Sprite load FAILED:', err);
+          reject(err);
+        };
       });
       doorSpriteCacheRef.current.set(asset.path, img);
       return { image: img, size: asset.size };
@@ -102,7 +111,9 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
       }
 
       try {
+        console.log('[DOOR_ANIM] spawn() called:', { direction, worldX, worldY, metatileId: `0x${metatileId.toString(16)}` });
         const { image, size } = await ensureSprite(metatileId);
+        console.log('[DOOR_ANIM] sprite loaded:', { width: image.width, height: image.height, size });
         const frameCount = Math.max(1, Math.floor(image.height / DOOR_TIMING.FRAME_HEIGHT));
         const anim: DoorAnimDrawable = {
           id: doorAnimIdRef.current++,
@@ -119,12 +130,11 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
           metatileId,
         };
         doorAnimsRef.current = [...doorAnimsRef.current, anim];
+        console.log('[DOOR_ANIM] animation created:', { id: anim.id, frameCount, totalAnimations: doorAnimsRef.current.length });
         logDoor('anim-start', { id: anim.id, direction, metatileId, frameCount, worldX, worldY });
         return anim.id;
       } catch (err) {
-        if (isDebugMode()) {
-          console.warn('Failed to spawn door animation', err);
-        }
+        console.error('[DOOR_ANIM] Failed to spawn door animation:', err);
         return null;
       }
     },
@@ -147,6 +157,15 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
   const render = useCallback(
     (mainCtx: CanvasRenderingContext2D, view: WorldCameraView, now: number): void => {
       const doorAnims = doorAnimsRef.current;
+      // Log every frame when animations exist
+      if (doorAnims.length > 0) {
+        console.log('[DOOR_ANIM] render() called with', doorAnims.length, 'animations, view:', {
+          cameraWorldX: view.cameraWorldX,
+          cameraWorldY: view.cameraWorldY,
+          pixelWidth: view.pixelWidth,
+          pixelHeight: view.pixelHeight,
+        });
+      }
       if (doorAnims.length === 0) return;
 
       for (const anim of doorAnims) {
@@ -187,6 +206,16 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
         const dy = Math.round((anim.worldY - 1) * METATILE_SIZE - view.cameraWorldY);
         const dw = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE;
         const dh = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE * 2;
+
+        console.log('[DOOR_ANIM] drawing frame:', {
+          animId: anim.id,
+          frameIndex,
+          src: { sy, sw, sh },
+          dest: { dx, dy, dw, dh },
+          worldPos: { x: anim.worldX, y: anim.worldY },
+          imageLoaded: anim.image.complete,
+        });
+
         mainCtx.drawImage(anim.image, 0, sy, sw, sh, dx, dy, dw, dh);
       }
     },

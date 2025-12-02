@@ -303,6 +303,14 @@ export async function startDoorWarpSequence(
   const isAnimated = isDoorBehavior(behavior);
   const isNonAnimated = isNonAnimatedDoorBehavior(behavior);
 
+  console.log('[DOOR_SEQUENCE] Classification:', {
+    behavior,
+    metatileId: `0x${metatileId.toString(16)} (${metatileId})`,
+    isArrow,
+    isAnimated,
+    isNonAnimated,
+  });
+
   // Build warp trigger
   const trigger: WarpTrigger = {
     kind: isArrow ? 'arrow' : 'door',
@@ -341,9 +349,11 @@ export async function startDoorWarpSequence(
 
   // ===== Animated Doors =====
   if (isAnimated) {
+    console.log('[DOOR_SEQUENCE] Entering ANIMATED door branch for metatile', `0x${metatileId.toString(16)}`);
     const startedAt = performance.now();
 
     // Spawn door open animation
+    console.log('[DOOR_SEQUENCE] Calling doorAnimations.spawn()...');
     const openAnimId = await doorAnimations.spawn(
       'open',
       targetX,
@@ -352,6 +362,7 @@ export async function startDoorWarpSequence(
       startedAt,
       true // holdOnComplete - stay on last frame
     );
+    console.log('[DOOR_SEQUENCE] doorAnimations.spawn() returned:', openAnimId);
 
     // Start entry sequence
     doorSequencer.startEntry(
