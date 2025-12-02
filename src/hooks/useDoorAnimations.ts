@@ -24,6 +24,20 @@ function logDoor(event: string, data: Record<string, unknown>): void {
   }
 }
 
+/**
+ * Sprite data for WebGL upload
+ */
+export interface DoorSpriteForUpload {
+  /** The loaded image element */
+  image: HTMLImageElement;
+  /** Door size (1 = standard, 2 = large) */
+  size: DoorSize;
+  /** Width of the sprite sheet */
+  width: number;
+  /** Height of the sprite sheet */
+  height: number;
+}
+
 export interface UseDoorAnimationsReturn {
   /** Load door sprite if not cached */
   ensureSprite: (metatileId: number) => Promise<{ image: HTMLImageElement; size: DoorSize }>;
@@ -40,7 +54,7 @@ export interface UseDoorAnimationsReturn {
   isAnimDone: (anim: DoorAnimDrawable | undefined, now: number) => boolean;
   /** Remove completed animations */
   prune: (now: number) => void;
-  /** Render all active door animations */
+  /** Render all active door animations (Canvas2D fallback) */
   render: (ctx: CanvasRenderingContext2D, view: WorldCameraView, now: number) => void;
   /** Get current animations (for checking completion) */
   getAnimations: () => DoorAnimDrawable[];
@@ -50,6 +64,8 @@ export interface UseDoorAnimationsReturn {
   clearById: (id: number) => void;
   /** Clear all animations */
   clearAll: () => void;
+  /** Get sprite data for WebGL upload (returns null if not cached) */
+  getSpriteForUpload: (metatileId: number) => DoorSpriteForUpload | null;
 }
 
 /**
@@ -207,6 +223,20 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
     doorAnimsRef.current = [];
   }, []);
 
+  const getSpriteForUpload = useCallback((metatileId: number): DoorSpriteForUpload | null => {
+    const asset = getDoorAssetForMetatile(metatileId);
+    const cached = doorSpriteCacheRef.current.get(asset.path);
+    if (!cached || !cached.complete) {
+      return null;
+    }
+    return {
+      image: cached,
+      size: asset.size,
+      width: cached.width,
+      height: cached.height,
+    };
+  }, []);
+
   return useMemo(() => ({
     ensureSprite,
     spawn,
@@ -217,5 +247,6 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
     findById,
     clearById,
     clearAll,
-  }), [ensureSprite, spawn, isAnimDone, prune, render, getAnimations, findById, clearById, clearAll]);
+    getSpriteForUpload,
+  }), [ensureSprite, spawn, isAnimDone, prune, render, getAnimations, findById, clearById, clearAll, getSpriteForUpload]);
 }

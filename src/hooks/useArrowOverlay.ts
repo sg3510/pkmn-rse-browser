@@ -16,6 +16,18 @@ function isDebugMode(): boolean {
   return !!(window as unknown as Record<string, boolean>).DEBUG_DOOR;
 }
 
+/**
+ * Arrow sprite data for WebGL upload
+ */
+export interface ArrowSpriteForUpload {
+  /** The loaded sprite as canvas (with transparency applied) */
+  canvas: HTMLCanvasElement;
+  /** Width of the sprite sheet */
+  width: number;
+  /** Height of the sprite sheet */
+  height: number;
+}
+
 export interface UseArrowOverlayReturn {
   /** Get the current arrow overlay state */
   getState: () => ArrowOverlayState | null;
@@ -36,6 +48,8 @@ export interface UseArrowOverlayReturn {
   ) => void;
   /** Hide the arrow overlay */
   hide: () => void;
+  /** Get sprite data for WebGL upload (returns null if not loaded) */
+  getSpriteForUpload: () => ArrowSpriteForUpload | null;
 }
 
 /**
@@ -162,6 +176,22 @@ export function useArrowOverlay(): UseArrowOverlayReturn {
     overlayRef.current.hide();
   }, []);
 
+  const getSpriteForUpload = useCallback((): ArrowSpriteForUpload | null => {
+    const sprite = spriteRef.current;
+    if (!sprite) {
+      return null;
+    }
+    // The sprite is stored as HTMLCanvasElement after processing
+    if (sprite instanceof HTMLCanvasElement) {
+      return {
+        canvas: sprite,
+        width: sprite.width,
+        height: sprite.height,
+      };
+    }
+    return null;
+  }, []);
+
   return useMemo(() => ({
     getState,
     isVisible,
@@ -169,5 +199,6 @@ export function useArrowOverlay(): UseArrowOverlayReturn {
     ensureSprite,
     update,
     hide,
-  }), [getState, isVisible, getSprite, ensureSprite, update, hide]);
+    getSpriteForUpload,
+  }), [getState, isVisible, getSprite, ensureSprite, update, hide, getSpriteForUpload]);
 }

@@ -28,6 +28,8 @@ import type { FadeController } from '../field/FadeController';
 import type { WarpHandler } from '../field/WarpHandler';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
 import type { DoorWarpRequest } from '../game/PlayerController';
+import { SpawnPositionFinder } from '../utils/spawnPositionFinder';
+import { isSurfableBehavior } from '../utils/metatileBehaviors';
 import type { CardinalDirection } from '../field/types';
 
 export interface WorldCameraView extends CameraView {
@@ -330,14 +332,34 @@ export async function initializeGame({
       }
     }
 
-    // Initialize player position
+    // Initialize player position using smart spawn finder
     const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
     if (!anchor) {
       throw new Error('Failed to determine anchor map for warp setup');
     }
-    const startTileX = Math.floor(anchor.mapData.width / 2);
-    const startTileY = Math.floor(anchor.mapData.height / 2);
-    player.setPositionAndDirection(startTileX, startTileY, 'down');
+    const spawnFinder = new SpawnPositionFinder();
+    const renderCtxForSpawn = refs.renderContextRef.current;
+    // Extract warp points for exit reachability (important for indoor maps)
+    const warpPoints = anchor.warpEvents?.map(w => ({ x: w.x, y: w.y })) ?? [];
+    const spawnResult = spawnFinder.findSpawnPosition(
+      anchor.mapData.width,
+      anchor.mapData.height,
+      (x, y) => {
+        const index = y * anchor.mapData.width + x;
+        const tile = anchor.mapData.layout[index];
+        if (!tile || tile.collision !== 0) return false;
+        // Also check for water tiles (require surf to traverse)
+        if (renderCtxForSpawn) {
+          const resolved = resolveTileAt(renderCtxForSpawn, x, y);
+          if (resolved?.attributes && isSurfableBehavior(resolved.attributes.behavior)) {
+            return false;
+          }
+        }
+        return true;
+      },
+      warpPoints
+    );
+    player.setPositionAndDirection(spawnResult.x, spawnResult.y, 'down');
 
     const resolveTileForPlayer = (tileX: number, tileY: number) => {
       const ctx = refs.renderContextRef.current;
@@ -377,7 +399,7 @@ export async function initializeGame({
     const warpHandler = refs.warpHandlerRef.current;
     warpHandler.reset();
     if (anchor) {
-      warpHandler.updateLastCheckedTile(startTileX, startTileY, anchor.entry.id);
+      warpHandler.updateLastCheckedTile(spawnResult.x, spawnResult.y, anchor.entry.id);
     }
     hooks.resetDoorSequencer();
 

@@ -22,10 +22,13 @@ import {
   createNPCSpriteInstance,
   createNPCReflectionSprite,
   createNPCGrassEffectSprite,
+  createDoorAnimationSprite,
   calculateSortKey,
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getNPCAtlasName,
+  getDoorAtlasName,
+  ARROW_ATLAS_NAME,
   buildWaterMaskFromView,
 } from '../rendering/spriteUtils';
 import type { SpriteInstance } from '../rendering/types';
@@ -58,6 +61,8 @@ import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import { METATILE_SIZE } from '../utils/mapLoader';
+import { SpawnPositionFinder } from '../utils/spawnPositionFinder';
+import { isSurfableBehavior } from '../utils/metatileBehaviors';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
   computeReflectionState,
@@ -158,6 +163,11 @@ export function WebGLMapPage() {
   // Object event manager for NPCs and items
   const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
   const npcSpritesLoadedRef = useRef<Set<string>>(new Set());
+
+  // Track door sprites uploaded to WebGL (keyed by metatileId hex)
+  const doorSpritesUploadedRef = useRef<Set<string>>(new Set());
+  // Track if arrow sprite is uploaded to WebGL
+  const arrowSpriteUploadedRef = useRef<boolean>(false);
 
   // Track visible NPCs/items for debug panel (updated during render loop)
   const visibleNPCsRef = useRef<NPCObject[]>([]);
@@ -1051,6 +1061,106 @@ export function WebGLMapPage() {
             // Store for priority-based rendering (low priority before TopBelow, P0 after TopAbove)
             prioritySpriteView = spriteView;
 
+            // === Build door animation sprites ===
+            // Upload door sprites to WebGL and create SpriteInstances
+            const doorSprites: SpriteInstance[] = [];
+            const doorAnims = doorAnimations.getAnimations();
+            for (const anim of doorAnims) {
+              // Upload sprite to WebGL if not already uploaded
+              const atlasName = getDoorAtlasName(anim.metatileId);
+              if (!doorSpritesUploadedRef.current.has(atlasName)) {
+                const spriteData = doorAnimations.getSpriteForUpload(anim.metatileId);
+                if (spriteData) {
+                  // Create canvas from HTMLImageElement for WebGL upload
+                  const canvas = document.createElement('canvas');
+                  canvas.width = spriteData.width;
+                  canvas.height = spriteData.height;
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                    ctx.drawImage(spriteData.image, 0, 0);
+                    spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
+                      frameWidth: spriteData.width,
+                      frameHeight: 32, // Door frames are 32px tall
+                    });
+                    doorSpritesUploadedRef.current.add(atlasName);
+                  }
+                }
+              }
+
+              // Create SpriteInstance for this door animation
+              if (spriteRenderer.hasSpriteSheet(atlasName)) {
+                const spriteData = doorAnimations.getSpriteForUpload(anim.metatileId);
+                if (spriteData) {
+                  const doorSprite = createDoorAnimationSprite(
+                    anim,
+                    nowTime,
+                    spriteData.width,
+                    spriteData.height
+                  );
+                  if (doorSprite) {
+                    doorSprites.push(doorSprite);
+                  }
+                }
+              }
+            }
+
+            // === Build arrow overlay sprite ===
+            let arrowSprite: SpriteInstance | null = null;
+            if (arrowOverlay.isVisible() && !doorSequencer.isActive()) {
+              // Upload arrow sprite if not already uploaded
+              if (!arrowSpriteUploadedRef.current) {
+                const arrowData = arrowOverlay.getSpriteForUpload();
+                if (arrowData) {
+                  spriteRenderer.uploadSpriteSheet(ARROW_ATLAS_NAME, arrowData.canvas, {
+                    frameWidth: 16,
+                    frameHeight: 16,
+                  });
+                  arrowSpriteUploadedRef.current = true;
+                }
+              }
+
+              // Create arrow SpriteInstance
+              const arrowState = arrowOverlay.getState();
+              if (arrowState && spriteRenderer.hasSpriteSheet(ARROW_ATLAS_NAME)) {
+                const arrowData = arrowOverlay.getSpriteForUpload();
+                if (arrowData) {
+                  // Use inline arrow animation logic (matches current Canvas2D code)
+                  const ARROW_FRAME_SIZE = 16;
+                  const ARROW_FRAME_DURATION_MS = 533;
+                  const ARROW_FRAME_SEQUENCES: Record<CardinalDirection, number[]> = {
+                    down: [3, 7], up: [0, 4], left: [1, 5], right: [2, 6],
+                  };
+                  const framesPerRow = Math.max(1, Math.floor(arrowData.width / ARROW_FRAME_SIZE));
+                  const frameSequence = ARROW_FRAME_SEQUENCES[arrowState.direction];
+                  const elapsed = nowTime - arrowState.startedAt;
+                  const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
+                  const frameIndex = frameSequence[seqIndex];
+                  const atlasX = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
+                  const atlasY = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
+
+                  arrowSprite = {
+                    worldX: arrowState.worldX * METATILE_SIZE,
+                    worldY: arrowState.worldY * METATILE_SIZE,
+                    width: ARROW_FRAME_SIZE,
+                    height: ARROW_FRAME_SIZE,
+                    atlasName: ARROW_ATLAS_NAME,
+                    atlasX,
+                    atlasY,
+                    atlasWidth: ARROW_FRAME_SIZE,
+                    atlasHeight: ARROW_FRAME_SIZE,
+                    flipX: false,
+                    flipY: false,
+                    alpha: 1.0,
+                    tintR: 1.0,
+                    tintG: 1.0,
+                    tintB: 1.0,
+                    sortKey: calculateSortKey(arrowState.worldY * METATILE_SIZE, 1),
+                    isReflection: false,
+                  };
+                }
+              }
+            }
+
             // Add field effects (bottom and top layers)
             if (fieldSpritesLoadedRef.current) {
               const effects = player.getGrassEffectManager().getEffectsForRendering();
@@ -1304,9 +1414,17 @@ export function WebGLMapPage() {
               // This covers reflections with shore edges, ground decorations, etc.
               pipeline.renderAndCompositeLayer1Only(ctx2d, view);
 
-              // === STEP 3.5: Door animations (see CompositeOrder.ts) ===
+              // === STEP 3.5: Door animations + arrow via WebGL (see CompositeOrder.ts) ===
               // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
-              doorAnimations.render(ctx2d, view, nowTime);
+              const overlaySprites = [...doorSprites];
+              if (arrowSprite) overlaySprites.push(arrowSprite);
+              if (overlaySprites.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                spriteRenderer.renderBatch(overlaySprites, spriteView);
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
 
               // === STEP 4: Render P1 normal sprites + player ===
               if (normalSprites.length > 0 && webglCanvas) {
@@ -1336,9 +1454,17 @@ export function WebGLMapPage() {
 
               pipeline.compositeTopBelowOnly(ctx2d, view);
 
-              // Door animations (see CompositeOrder.ts for canonical render order)
+              // Door animations + arrow via WebGL (see CompositeOrder.ts for canonical render order)
               // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
-              doorAnimations.render(ctx2d, view, nowTime);
+              const overlaySpritesNonReflection = [...doorSprites];
+              if (arrowSprite) overlaySpritesNonReflection.push(arrowSprite);
+              if (overlaySpritesNonReflection.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                spriteRenderer.renderBatch(overlaySpritesNonReflection, spriteView);
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
 
               // Render P1 sprites + player (between TopBelow and TopAbove)
               if (allSprites.length > 0 && webglCanvas) {
@@ -1353,30 +1479,7 @@ export function WebGLMapPage() {
             }
           }
 
-          // Render arrow overlay (inline - no ObjectRenderer dependency)
-          if (arrowOverlay.isVisible() && !doorSequencer.isActive()) {
-            const arrowState = arrowOverlay.getState();
-            const arrowSprite = arrowOverlay.getSprite();
-            if (arrowState && arrowSprite && arrowState.visible) {
-              // Arrow animation constants (matches GBA: 32 ticks @ 60fps ≈ 533ms per frame)
-              const ARROW_FRAME_SIZE = 16;
-              const ARROW_FRAME_DURATION_MS = 533;
-              const ARROW_FRAME_SEQUENCES: Record<'up' | 'down' | 'left' | 'right', number[]> = {
-                down: [3, 7], up: [0, 4], left: [1, 5], right: [2, 6],
-              };
-
-              const framesPerRow = Math.max(1, Math.floor(arrowSprite.width / ARROW_FRAME_SIZE));
-              const frameSequence = ARROW_FRAME_SEQUENCES[arrowState.direction];
-              const elapsed = nowTime - arrowState.startedAt;
-              const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
-              const frameIndex = frameSequence[seqIndex];
-              const sx = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
-              const sy = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
-              const dx = Math.round(arrowState.worldX * METATILE_SIZE - cameraX);
-              const dy = Math.round(arrowState.worldY * METATILE_SIZE - cameraY);
-              ctx2d.drawImage(arrowSprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);
-            }
-          }
+          // Arrow overlay is now rendered via WebGL in the overlay sprites batch above
         }
 
         pipeline.compositeTopAbove(ctx2d, view);
@@ -1526,10 +1629,35 @@ export function WebGLMapPage() {
             return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
           });
 
-          // Spawn player at center of anchor map (offset 0,0)
-          const spawnX = Math.floor(entry.width / 2);
-          const spawnY = Math.floor(entry.height / 2);
-          player.setPosition(spawnX, spawnY);
+          // Spawn player using smart spawn finder (finds optimal walkable position)
+          const anchorMap = snapshot.maps.find(m => m.entry.id === entry.id) ?? snapshot.maps[0];
+          const tilesetPairIndex = snapshot.mapTilesetPairIndex.get(anchorMap.entry.id);
+          const tilesetPair = tilesetPairIndex !== undefined ? snapshot.tilesetPairs[tilesetPairIndex] : null;
+          // Extract warp points for exit reachability (important for indoor maps)
+          const warpPoints = anchorMap.warpEvents?.map(w => ({ x: w.x, y: w.y })) ?? [];
+          const spawnFinder = new SpawnPositionFinder();
+          const spawnResult = spawnFinder.findSpawnPosition(
+            anchorMap.mapData.width,
+            anchorMap.mapData.height,
+            (x, y) => {
+              const index = y * anchorMap.mapData.width + x;
+              const tile = anchorMap.mapData.layout[index];
+              if (!tile || tile.collision !== 0) return false;
+              // Also check for water tiles (require surf to traverse)
+              if (tilesetPair) {
+                const metatileId = tile.metatileId;
+                const attrs = metatileId < 512
+                  ? tilesetPair.primaryAttributes[metatileId]
+                  : tilesetPair.secondaryAttributes[metatileId - 512];
+                if (attrs && isSurfableBehavior(attrs.behavior)) {
+                  return false;
+                }
+              }
+              return true;
+            },
+            warpPoints
+          );
+          player.setPosition(spawnResult.x, spawnResult.y);
         }
 
         setStats((s) => ({ ...s, error: null }));

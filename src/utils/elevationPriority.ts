@@ -1,5 +1,16 @@
-// Sprite priority table from pokeemerald's sElevationToPriority (event_object_movement.c)
-// Index = elevation (0-15). Lower number = higher priority (drawn above BG).
+/**
+ * Sprite priority table from pokeemerald's sElevationToPriority
+ * Source: public/pokeemerald/src/event_object_movement.c line 7729
+ *
+ * Index = elevation (0-15). Lower number = higher priority (drawn on top).
+ *
+ * GBA Priority System:
+ * - Priority 0: Above all BG layers (elevation 13-14)
+ * - Priority 1: Same as BG1 (elevated objects, bridges) - elevation 4,6,8,10,12
+ * - Priority 2: Same as BG2 (ground level) - elevation 0-3,5,7,9,11,15
+ *
+ * When sprite priority == BG priority, sprite draws ON TOP of that BG layer.
+ */
 export const ELEVATION_TO_PRIORITY: number[] = [
   2, // 0
   2, // 1

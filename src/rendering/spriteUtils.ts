@@ -13,6 +13,7 @@ import type { FrameInfo } from '../game/PlayerController';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { ReflectionState } from '../field/ReflectionRenderer';
 import type { NPCObject } from '../types/objectEvents';
+import type { DoorAnimDrawable, ArrowOverlayState, CardinalDirection } from '../field/types';
 import {
   BRIDGE_OFFSETS,
   REFLECTION_VERTICAL_OFFSET,
@@ -657,6 +658,182 @@ export function createPlayerShadowSprite(
     tintB: 1.0,
     // Shadow renders behind player (lower subpriority)
     sortKey: playerSortKey - 64,
+    isReflection: false,
+  };
+}
+
+// =============================================================================
+// Door Animation Sprites
+// =============================================================================
+
+/** Door animation atlas name prefix */
+const DOOR_ATLAS_PREFIX = 'door-';
+
+/**
+ * Get the atlas name for a door animation sprite
+ *
+ * @param metatileId - The metatile ID of the door
+ * @returns Atlas name for WebGLSpriteRenderer
+ */
+export function getDoorAtlasName(metatileId: number): string {
+  return `${DOOR_ATLAS_PREFIX}${metatileId.toString(16)}`;
+}
+
+/**
+ * Create a SpriteInstance from a DoorAnimDrawable
+ *
+ * Door animations are rendered at their world position with frame-based animation.
+ * The frame is calculated based on elapsed time and direction (open/close).
+ *
+ * Per CompositeOrder.ts: Door animations render AFTER topBelow but BEFORE sprites,
+ * so player walks IN FRONT of open doors.
+ *
+ * @param anim - Door animation drawable from useDoorAnimations
+ * @param now - Current timestamp for frame calculation
+ * @param atlasWidth - Width of the door sprite atlas (pixels)
+ * @param atlasHeight - Height of the door sprite atlas (pixels)
+ * @returns SpriteInstance or null if animation is done and not held
+ */
+export function createDoorAnimationSprite(
+  anim: DoorAnimDrawable,
+  now: number,
+  atlasWidth: number,
+  _atlasHeight: number
+): SpriteInstance | null {
+  const totalDuration = anim.frameCount * anim.frameDuration;
+  const elapsed = now - anim.startedAt;
+
+  // Skip if animation is done AND not held
+  if (elapsed >= totalDuration && !anim.holdOnComplete) {
+    return null;
+  }
+
+  // Clamp elapsed time when holding on complete
+  const clampedElapsed = anim.holdOnComplete
+    ? Math.min(elapsed, totalDuration - 1)
+    : elapsed;
+  const frameIndexRaw = Math.floor(clampedElapsed / anim.frameDuration);
+
+  // For close animations, play frames in reverse
+  const frameIndex =
+    anim.direction === 'open'
+      ? frameIndexRaw
+      : Math.max(0, anim.frameCount - 1 - frameIndexRaw);
+
+  // Door sprite dimensions
+  const frameWidth = atlasWidth; // Full width of sprite sheet
+  const frameHeight = anim.frameHeight; // 32px per frame
+
+  // World position: doors are positioned at (worldX, worldY-1) in metatile coords
+  // because the door graphic is 2 tiles tall and positioned above the door tile
+  const worldX = anim.worldX * METATILE_SIZE;
+  const worldY = (anim.worldY - 1) * METATILE_SIZE;
+
+  // Display dimensions based on door size
+  const displayWidth = anim.size === 2 ? METATILE_SIZE * 2 : METATILE_SIZE;
+  const displayHeight = METATILE_SIZE * 2; // Doors are always 2 tiles tall
+
+  // Door animations render behind player but above topBelow layer
+  // Use a very low sortKey to ensure they render before sprites
+  const sortKey = calculateSortKey(worldY, 0);
+
+  return {
+    worldX,
+    worldY,
+    width: displayWidth,
+    height: displayHeight,
+    atlasName: getDoorAtlasName(anim.metatileId),
+    atlasX: 0,
+    atlasY: frameIndex * frameHeight,
+    atlasWidth: frameWidth,
+    atlasHeight: frameHeight,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey,
+    isReflection: false,
+  };
+}
+
+// =============================================================================
+// Arrow Overlay Sprites
+// =============================================================================
+
+/** Arrow overlay atlas name */
+export const ARROW_ATLAS_NAME = 'arrow-overlay';
+
+/** Arrow sprite dimensions (from GBA field effects) */
+const ARROW_FRAME_WIDTH = 16;
+const ARROW_FRAME_HEIGHT = 16;
+
+/** Arrow animation timing */
+const ARROW_FRAME_DURATION_MS = 100;
+const ARROW_FRAME_COUNT = 4;
+
+/** Direction to frame row mapping (arrow sprite has 4 directions) */
+const ARROW_DIRECTION_ROW: Record<CardinalDirection, number> = {
+  down: 0,
+  up: 1,
+  left: 2,
+  right: 3,
+};
+
+/**
+ * Create a SpriteInstance from ArrowOverlayState
+ *
+ * Arrow overlays appear on arrow warp tiles to indicate forced movement direction.
+ * The arrow animates with a pulsing/bouncing effect.
+ *
+ * @param state - Arrow overlay state from useArrowOverlay
+ * @param now - Current timestamp for animation
+ * @param atlasWidth - Width of the arrow sprite atlas
+ * @param atlasHeight - Height of the arrow sprite atlas
+ * @returns SpriteInstance or null if arrow is not visible
+ */
+export function createArrowOverlaySprite(
+  state: ArrowOverlayState,
+  now: number,
+  _atlasWidth: number,
+  _atlasHeight: number
+): SpriteInstance | null {
+  if (!state.visible) {
+    return null;
+  }
+
+  // Calculate animation frame
+  const elapsed = now - state.startedAt;
+  const frameIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % ARROW_FRAME_COUNT;
+
+  // Get direction row
+  const dirRow = ARROW_DIRECTION_ROW[state.direction];
+
+  // World position (centered on tile)
+  const worldX = state.worldX * METATILE_SIZE;
+  const worldY = state.worldY * METATILE_SIZE;
+
+  // Arrow renders above topBelow but before sprites (like doors)
+  const sortKey = calculateSortKey(worldY, 1);
+
+  return {
+    worldX,
+    worldY,
+    width: ARROW_FRAME_WIDTH,
+    height: ARROW_FRAME_HEIGHT,
+    atlasName: ARROW_ATLAS_NAME,
+    atlasX: frameIndex * ARROW_FRAME_WIDTH,
+    atlasY: dirRow * ARROW_FRAME_HEIGHT,
+    atlasWidth: ARROW_FRAME_WIDTH,
+    atlasHeight: ARROW_FRAME_HEIGHT,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey,
     isReflection: false,
   };
 }
