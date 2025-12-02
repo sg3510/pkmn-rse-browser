@@ -24,6 +24,7 @@ import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
+import { getPlayerCenterY } from '../game/playerCoords';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;
@@ -165,7 +166,9 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         renderNPCReflections(mainCtx, npcs, view, ctx);
       }
 
-      const playerY = player ? player.y : 0;
+      // Use player sprite center Y for field effect layer comparison
+      // This must match WebGLMapPage.tsx for consistent rendering
+      const playerY = player ? getPlayerCenterY(player) : 0;
 
       // Render field effects behind player
       if (player) {

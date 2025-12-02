@@ -271,20 +271,38 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Removed unused `CameraView` imports
   - [x] **TEST:** Build passes, camera view correct
 
-- [ ] **1.6** Canonical player coordinates (feet baseline)
-  - [ ] Add `src/game/playerCoords.ts` with helpers: `getPlayerFeetY(player)`, `getFeetAdjustedY(worldY)`
-  - [ ] Update WebGLMapPage and MapRenderer paths to use the helper before field-effect sorting
-  - [ ] **TEST:** Tall grass frame 4 sorts above player at rest; switches behind when moving down
-  - **Why:** Both renderers currently pass different Y baselines into shared field-effect logic; this caused the WebGL-only tall grass layering bug. A single helper makes the contract explicit and prevents silent drift.
+- [x] **1.6** Fix WebGL sprite renderer Y-sort order ✅ DONE (2025-12-02)
+  - [x] **BUG FOUND:** `WebGLSpriteRenderer.renderBatch()` was grouping sprites by atlas name before rendering
+  - [x] This destroyed the Y-sort order (all NPCs grouped together, player separate)
+  - [x] **FIX:** Changed to batch consecutive sprites with same atlas, preserving sort order
+  - [x] Also fixed grass sortKey using wrong Y offset (+8 instead of +16)
+  - [x] **TEST:** Build passes, NPC Y-sorting works, grass renders correctly
+  - **Root cause:** Atlas grouping was done for "efficiency" but broke the fundamental Y-sort contract
 
-- [ ] **1.7** Precomputed field-effect layers + sortKeys
+- [x] **1.7** Canonical player coordinates (feet baseline) ✅ DONE (2025-12-02)
+  - [x] Created `src/game/playerCoords.ts` with helpers: `getPlayerFeetY`, `getPlayerCenterY`, `getPlayerSortKey`, `getNPCSortKey`, `calculateSortKey`
+  - [x] Updated WebGLMapPage to use shared utilities
+  - [x] Updated `useCompositeScene.ts` (Canvas2D path) to use `getPlayerCenterY()` for field effect layering
+  - [x] **BUG FIXED:** Canvas2D was using `player.y` (sprite top) instead of `player.y + 16` (sprite center) for effect comparison
+  - [x] `spriteUtils.ts` now re-exports `calculateSortKey` from `playerCoords.ts`
+  - [x] **TEST:** Build passes, both renderers use identical Y coordinate for field effect layering
+
+- [ ] **1.8** Precomputed field-effect layers + sortKeys
   - [ ] Extend `FieldEffectManager.getEffectsForRendering(playerFeetY?)` to return `layer` + `sortKey`
   - [ ] Wire WebGL renderer to use returned values (drop local compute)
   - [ ] Wire Canvas renderer to optional use (keeps two-pass draw but same data)
   - [ ] **TEST:** WebGL and Canvas show identical grass/sand/ripple ordering
   - **Why:** Today, ordering is recomputed differently per renderer (WebGL sorts; Canvas draws in fixed passes). Centralizing the sort data in the manager guarantees parity and reduces renderer logic/bugs.
 
-- [ ] **1.8** Regression test for grass ordering
+- [x] **1.9** Unified SpriteBatcher for render order consistency ✅ DONE (2025-12-02)
+  - [x] Created `src/rendering/SpriteBatcher.ts` with `buildSpriteBatches()` function
+  - [x] Takes: player, NPCs, field effects, options → Returns: `SpriteBatchResult` with `lowPriority`, `ySorted`, `highPriority` batches
+  - [x] Returns renderer-agnostic `SortableSpriteInfo` objects (not WebGL-specific `SpriteInstance`)
+  - [x] Includes utility functions: `splitAroundPlayer()`, `getEffectsForLayer()`, `getNPCsFromBatch()`
+  - [x] WebGLMapPage ready to adopt; Canvas2D can use for identical ordering
+  - [x] **TEST:** Build passes, SpriteBatcher compiles and exports correctly
+
+- [ ] **1.10** Regression test for grass ordering
   - [ ] Add a small headless Jest/Vitest test that builds a tall-grass effect and asserts:
         - front layer sortKey > player sortKey when idle/facing down
         - behind layer when `renderBehindPlayer` is true (moving down)
@@ -490,6 +508,8 @@ Final unification step.
 | `src/game/setupObjectCollisionChecker.ts` | Collision setup | ~20 |
 | `src/game/findPlayerSpawnPosition.ts` | Spawn logic | ~50 |
 | `src/game/buildWorldCameraView.ts` | Camera view | ~40 |
+| `src/game/playerCoords.ts` | Canonical player Y coords | ~127 |
+| `src/rendering/SpriteBatcher.ts` | Unified sprite batching | ~315 |
 | `src/field/ArrowAnimationConstants.ts` | Arrow timing | ~30 |
 | `src/rendering/Canvas2DSpriteRenderer.ts` | Canvas2D sprites | ~150 |
 | `src/rendering/Canvas2DFadeRenderer.ts` | Canvas2D fade | ~30 |
@@ -529,6 +549,12 @@ Final unification step.
 | Collision Setup | ✅ Shared | `setupObjectCollisionChecker()` |
 | Arrow Frame Calc | ✅ Shared | `ArrowAnimationConstants.ts` |
 | Camera View Build | ✅ Shared | `buildWorldCameraView()` |
+| Y-Sort Key Calc | ✅ Shared | `calculateSortKey()` in `playerCoords.ts` (re-exported from `spriteUtils.ts`) |
+| Player Coords | ✅ Shared | `getPlayerCenterY()`, `getPlayerFeetY()` in `playerCoords.ts` |
+| Field Effect Layer | ✅ Shared | `computeFieldEffectLayer()` in `fieldEffectUtils.ts` |
+| Sprite Batching | ✅ Shared | `buildSpriteBatches()` in `SpriteBatcher.ts` (ready for adoption) |
+| NPC Render Layer | ✅ Shared | `getNPCRenderLayer()` in `elevationPriority.ts` |
+| WebGL Y-Sort Order | ✅ Fixed | `WebGLSpriteRenderer.renderBatch()` now preserves order |
 
 ---
 
@@ -543,7 +569,61 @@ Final unification step.
 
 ---
 
-## 11. Related Documentation
+## 11. Bugs Found & Fixed During Parity Work
+
+### 11.1 WebGL Y-Sort Order Bug (Fixed 2025-12-02)
+
+**Symptoms:**
+- Player always rendered on top of NPCs regardless of Y position
+- Tall grass frame 4 always rendered behind player (should be in front when at rest)
+
+**Root Cause:**
+`WebGLSpriteRenderer.renderBatch()` was grouping ALL sprites by atlas name:
+```typescript
+// OLD CODE - BROKEN
+const atlasGroups = this.groupByAtlas(sprites);
+for (const [atlasName, atlasSprites] of atlasGroups) {
+  // All NPC sprites rendered together, then player...
+}
+```
+
+This destroyed the carefully computed Y-sort order. If the sorted array was:
+```
+[NPC_A (sortKey=100), Player (sortKey=150), NPC_B (sortKey=200)]
+```
+
+It would be regrouped as:
+```
+{"npc-BOY": [NPC_A, NPC_B], "player-walking": [Player]}
+```
+
+And rendered as: `NPC_A → NPC_B → Player` (wrong!)
+
+**Fix:**
+Changed to batch **consecutive** sprites with the same atlas, preserving sort order:
+```typescript
+// NEW CODE - CORRECT
+while (batchStart < sprites.length) {
+  // Find consecutive sprites with same atlas
+  // Render that batch, then continue to next
+  // This preserves Y-sort order while still batching when possible
+}
+```
+
+**Also Fixed:**
+- Grass sortKey was using `playerWorldY + 8` instead of `playerWorldY + 16`
+- This caused 8-pixel Y offset that put grass behind player
+
+**Why Canvas2D Worked:**
+Canvas2D uses separate render passes (bottom effects → player → top effects) without sortKey batching, so the atlas grouping bug didn't affect it.
+
+**Files Changed:**
+- `src/rendering/webgl/WebGLSpriteRenderer.ts` - Fixed batching logic
+- `src/rendering/spriteUtils.ts` - Fixed grass sortKey Y offset
+
+---
+
+## 12. Related Documentation
 
 - `doc/webglrefactor/09-webgl-sprite-renderer.md` - WebGL sprite implementation
 - `src/rendering/ISpriteRenderer.ts` - Existing sprite interface

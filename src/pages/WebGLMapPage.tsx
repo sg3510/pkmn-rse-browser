@@ -99,6 +99,13 @@ import {
 } from '../components/debug';
 import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { getNPCRenderLayer } from '../utils/elevationPriority';
+import {
+  getPlayerFeetY,
+  getPlayerCenterY,
+  getPlayerSortKey,
+  getNPCSortKey,
+  DEFAULT_SPRITE_SUBPRIORITY,
+} from '../game/playerCoords';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
   handleDoorEntryAction,
@@ -1012,7 +1019,7 @@ export function WebGLMapPage() {
 
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
-          const playerWorldY = player.y + 16; // Player sprite center Y (NOT feet - feet is player.y + 32)
+          const playerWorldY = getPlayerCenterY(player); // Player sprite center Y (NOT feet - feet is player.y + 32)
           const currentSnapshot = worldSnapshotRef.current;
 
           // Render player reflection (behind player, on water/ice tiles)
@@ -1196,10 +1203,7 @@ export function WebGLMapPage() {
               const isOnLongGrass = tileMeta ? isLongGrassBehavior(tileMeta.behavior) : false;
 
               // Calculate sort key for this NPC (feet Y + mid priority)
-              const npcSortKey = calculateSortKey(
-                npc.tileY * METATILE_SIZE + 16, // feet at bottom of tile
-                128
-              );
+              const npcSortKey = getNPCSortKey(npc.tileY);
 
               const npcSprite = createNPCSpriteInstance(npc, npcSortKey, isOnLongGrass);
               if (npcSprite) {
@@ -1274,7 +1278,7 @@ export function WebGLMapPage() {
                   if (player.showShadow) {
                     const shadowAtlas = getPlayerAtlasName('shadow');
                     if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
-                      const playerSortKey = calculateSortKey(player.y + 32, 128);
+                      const playerSortKey = getPlayerSortKey(player);
                       const shadowSprite = createPlayerShadowSprite(player.x, player.y, playerSortKey);
                       allSprites.push(shadowSprite);
                     }
@@ -1285,7 +1289,7 @@ export function WebGLMapPage() {
                   const playerSprite = createSpriteFromFrameInfo(
                     frameInfo,
                     atlasName,
-                    calculateSortKey(player.y + 32, 128), // feet Y + mid priority
+                    getPlayerSortKey(player), // feet Y + mid priority
                     clipToHalf
                   );
                   allSprites.push(playerSprite);
@@ -1324,10 +1328,10 @@ export function WebGLMapPage() {
 
             // Collect priority debug info if debug panel is enabled
             if (debugOptionsRef.current.enabled && player) {
-              const playerFeetY = player.y + 32;
-              const playerSortKeyY = player.y + 32;
-              const playerSubpriority = 128;
-              const playerSortKey = calculateSortKey(playerSortKeyY, playerSubpriority);
+              const playerFeetY = getPlayerFeetY(player);
+              const playerSortKeyY = playerFeetY;
+              const playerSubpriority = DEFAULT_SPRITE_SUBPRIORITY;
+              const playerSortKey = getPlayerSortKey(player);
 
               // Build sorted sprites list with debug info
               const sortedSpritesDebug: SpriteSortDebugInfo[] = [];
@@ -1411,7 +1415,7 @@ export function WebGLMapPage() {
                   tileY: player.tileY,
                   pixelY: player.y,
                   feetY: playerFeetY,
-                  spriteCenter: player.y + 16,
+                  spriteCenter: getPlayerCenterY(player),
                   sortKeyY: playerSortKeyY,
                   subpriority: playerSubpriority,
                   sortKey: playerSortKey,

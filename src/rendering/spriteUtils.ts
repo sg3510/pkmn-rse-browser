@@ -24,6 +24,7 @@ import {
 import { isPondBridge, isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { getNPCFrameInfo, getNPCFrameRect } from '../game/npc/NPCSpriteLoader';
 import { METATILE_SIZE } from '../utils/mapLoader';
+import { calculateSortKey } from '../game/playerCoords';
 import {
   computeFieldEffectLayer,
   getFieldEffectDimensions,
@@ -305,21 +306,9 @@ export function getFieldEffectAtlasName(spriteKey: string): string {
   return `field-${spriteKey}`;
 }
 
-/**
- * Calculate sort key for a sprite based on Y position
- *
- * Higher Y = rendered later (on top)
- * Subpriority allows fine control within same Y
- *
- * @param worldY - World Y position in pixels
- * @param subpriority - Additional priority (0-255)
- * @returns Sort key for ordering
- */
-export function calculateSortKey(worldY: number, subpriority: number = 0): number {
-  // Use bottom of sprite for Y-sorting (where feet are)
-  // Shift Y by 8 bits and add subpriority
-  return (Math.floor(worldY) << 8) | (subpriority & 0xff);
-}
+// Re-export calculateSortKey from playerCoords for backwards compatibility
+// The canonical implementation is now in playerCoords.ts
+export { calculateSortKey } from '../game/playerCoords';
 
 /**
  * Get the appropriate atlas name for a player sprite sheet
