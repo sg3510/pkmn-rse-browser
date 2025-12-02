@@ -424,11 +424,13 @@ export function getNPCAtlasName(graphicsId: string): string {
  *
  * @param npc - NPC object from ObjectEventManager
  * @param sortKey - Y-sort key for depth ordering
+ * @param clipToHalf - If true, only show top half of sprite (for long grass)
  * @returns SpriteInstance ready for rendering, or null if sprite not loaded
  */
 export function createNPCSpriteInstance(
   npc: NPCObject,
-  sortKey: number
+  sortKey: number,
+  clipToHalf: boolean = false
 ): SpriteInstance | null {
   // Get frame info based on direction
   const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
@@ -440,16 +442,20 @@ export function createNPCSpriteInstance(
   const worldX = npc.tileX * METATILE_SIZE;
   const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
 
+  // For long grass clipping, only show top half of sprite (matches player behavior)
+  const displayHeight = clipToHalf ? Math.floor(sh / 2) : sh;
+  const srcHeight = clipToHalf ? Math.floor(sh / 2) : sh;
+
   return {
     worldX,
     worldY,
     width: sw,
-    height: sh,
+    height: displayHeight,
     atlasName: getNPCAtlasName(npc.graphicsId),
     atlasX: sx,
     atlasY: sy,
     atlasWidth: sw,
-    atlasHeight: sh,
+    atlasHeight: srcHeight,
     flipX: flipHorizontal,
     flipY: false,
     alpha: 1.0,

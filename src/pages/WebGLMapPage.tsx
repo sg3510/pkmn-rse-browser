@@ -56,6 +56,7 @@ import { useFieldSprites } from '../hooks/useFieldSprites';
 import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
+import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
@@ -81,7 +82,8 @@ import {
   type PlayerDebugInfo,
   type ReflectionTileGridDebugInfo,
 } from '../components/debug';
-import { isNonAnimatedDoorBehavior } from '../utils/metatileBehaviors';
+import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
+import { isLowPriority, isHighPriority } from '../utils/elevationPriority';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
   handleDoorEntryAction,
@@ -156,6 +158,10 @@ export function WebGLMapPage() {
   // Object event manager for NPCs and items
   const objectEventManagerRef = useRef<ObjectEventManager>(new ObjectEventManager());
   const npcSpritesLoadedRef = useRef<Set<string>>(new Set());
+
+  // Track visible NPCs/items for debug panel (updated during render loop)
+  const visibleNPCsRef = useRef<NPCObject[]>([]);
+  const visibleItemsRef = useRef<ItemBallObject[]>([]);
 
   const renderableMaps = useMemo(
     () =>
@@ -240,18 +246,57 @@ export function WebGLMapPage() {
     reflectionTileGrid: reflectionTileGridDebug,
   }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, reflectionTileGridDebug]);
 
-  // Debug state for the panel (WebGL page doesn't track objects)
-  const debugState = useMemo<DebugState>(() => ({
-    player: playerDebugInfo,
-    tile: null,
-    objectsAtPlayerTile: null,
-    objectsAtFacingTile: null,
-    adjacentObjects: null,
-    allVisibleNPCs: [],
-    allVisibleItems: [],
-    totalNPCCount: 0,
-    totalItemCount: 0,
-  }), [playerDebugInfo]);
+  // Debug state for the panel - reads from refs updated during render loop
+  const debugState = useMemo<DebugState>(() => {
+    const npcs = visibleNPCsRef.current;
+    const items = visibleItemsRef.current;
+
+    // Helper to get objects at a specific tile
+    const getObjectsAtTile = (tileX: number, tileY: number) => {
+      const tileNPCs = npcs.filter(npc => npc.tileX === tileX && npc.tileY === tileY);
+      const tileItems = items.filter(item => item.tileX === tileX && item.tileY === tileY);
+      return {
+        tileX,
+        tileY,
+        npcs: tileNPCs,
+        items: tileItems,
+        hasCollision: tileNPCs.length > 0 || tileItems.length > 0,
+      };
+    };
+
+    // Get facing tile offset based on direction
+    const getFacingOffset = (dir: string): { dx: number; dy: number } => {
+      switch (dir) {
+        case 'up': return { dx: 0, dy: -1 };
+        case 'down': return { dx: 0, dy: 1 };
+        case 'left': return { dx: -1, dy: 0 };
+        case 'right': return { dx: 1, dy: 0 };
+        default: return { dx: 0, dy: 1 };
+      }
+    };
+
+    const playerTileX = playerDebugInfo?.tileX ?? 0;
+    const playerTileY = playerDebugInfo?.tileY ?? 0;
+    const playerDir = playerDebugInfo?.direction ?? 'down';
+    const facing = getFacingOffset(playerDir);
+
+    return {
+      player: playerDebugInfo,
+      tile: null,
+      objectsAtPlayerTile: getObjectsAtTile(playerTileX, playerTileY),
+      objectsAtFacingTile: getObjectsAtTile(playerTileX + facing.dx, playerTileY + facing.dy),
+      adjacentObjects: {
+        north: getObjectsAtTile(playerTileX, playerTileY - 1),
+        south: getObjectsAtTile(playerTileX, playerTileY + 1),
+        east: getObjectsAtTile(playerTileX + 1, playerTileY),
+        west: getObjectsAtTile(playerTileX - 1, playerTileY),
+      },
+      allVisibleNPCs: npcs,
+      allVisibleItems: items,
+      totalNPCCount: objectEventManagerRef.current.getAllNPCs().length,
+      totalItemCount: objectEventManagerRef.current.getAllItemBalls().length,
+    };
+  }, [playerDebugInfo]);
 
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
@@ -946,6 +991,14 @@ export function WebGLMapPage() {
         // Prune expired door animations (actual rendering happens after layer compositing)
         doorAnimations.prune(nowTime);
 
+        // Priority-based sprite batches for proper GBA layer ordering:
+        // - lowPrioritySprites (P2/P3): render before TopBelow (behind all top layer tiles)
+        // - allSprites (P1 + player): render between TopBelow and TopAbove
+        // - priority0Sprites (P0): render after TopAbove (above all BG layers)
+        let lowPrioritySprites: SpriteInstance[] = [];
+        let priority0Sprites: SpriteInstance[] = [];
+        let prioritySpriteView: WorldCameraView | null = null;
+
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
           const playerWorldY = player.y + 16; // Player feet Y position
@@ -991,6 +1044,7 @@ export function WebGLMapPage() {
 
           // === WebGL Sprite Rendering (player + field effects + reflections batched) ===
           const spriteRenderer = spriteRendererRef.current;
+
           if (spriteRenderer && spriteRenderer.isValid()) {
             const allSprites: SpriteInstance[] = [];
 
@@ -1000,6 +1054,8 @@ export function WebGLMapPage() {
               cameraWorldX: cameraX,
               cameraWorldY: cameraY,
             };
+            // Store for priority-based rendering (low priority before TopBelow, P0 after TopAbove)
+            prioritySpriteView = spriteView;
 
             // Add field effects (bottom and top layers)
             if (fieldSpritesLoadedRef.current) {
@@ -1015,10 +1071,30 @@ export function WebGLMapPage() {
             }
 
             // Add NPC sprites and reflections
+            // Priority 0 NPCs (elevation 13-14) render ABOVE TopAbove layer
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
+            const items = objectEventManagerRef.current.getVisibleItemBalls();
+            const snapshot = worldSnapshotRef.current;
+
+            // Update refs for debug panel
+            visibleNPCsRef.current = npcs;
+            visibleItemsRef.current = items;
+            // priority0Sprites is hoisted to outer scope for rendering after TopAbove
+
             for (const npc of npcs) {
               const atlasName = getNPCAtlasName(npc.graphicsId);
               if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+
+              // Get tile metadata for grass/reflection detection
+              const tileMeta = snapshot ? getReflectionMetaFromSnapshot(
+                snapshot,
+                tilesetRuntimesRef.current,
+                npc.tileX,
+                npc.tileY
+              ) : null;
+
+              // Check if NPC is on long grass (clip sprite to half height)
+              const isOnLongGrass = tileMeta ? isLongGrassBehavior(tileMeta.behavior) : false;
 
               // Calculate sort key for this NPC (feet Y + mid priority)
               const npcSortKey = calculateSortKey(
@@ -1026,13 +1102,27 @@ export function WebGLMapPage() {
                 128
               );
 
-              const npcSprite = createNPCSpriteInstance(npc, npcSortKey);
+              const npcSprite = createNPCSpriteInstance(npc, npcSortKey, isOnLongGrass);
               if (npcSprite) {
-                allSprites.push(npcSprite);
+                // Split NPCs by priority for correct GBA layer ordering
+                // Uses shared utilities from elevationPriority.ts
+                const npcIsHighPriority = isHighPriority(npc.elevation);
+                const npcIsLowPriority = isLowPriority(npc.elevation);
 
-                // Add NPC reflection if on reflective tile
-                const snapshot = worldSnapshotRef.current;
-                if (snapshot) {
+                if (npcIsHighPriority) {
+                  // P0: render after TopAbove (elevation 13-14)
+                  priority0Sprites.push(npcSprite);
+                } else if (npcIsLowPriority) {
+                  // P2/P3: render before TopBelow (behind bridges)
+                  lowPrioritySprites.push(npcSprite);
+                } else {
+                  // P1: render with player between TopBelow and TopAbove
+                  allSprites.push(npcSprite);
+                }
+
+                // Add NPC reflection if on reflective tile (only for normal priority NPCs)
+                // Priority 0 NPCs don't have reflections (they're above everything)
+                if (snapshot && !npcIsHighPriority) {
                   const npcReflectionState = computeReflectionStateFromSnapshot(
                     snapshot,
                     npc.tileX,
@@ -1049,21 +1139,26 @@ export function WebGLMapPage() {
                     npc.direction
                   );
                   if (npcReflection) {
-                    allSprites.push(npcReflection);
+                    // Reflections go to same batch as NPC sprite
+                    if (npcIsLowPriority) {
+                      lowPrioritySprites.push(npcReflection);
+                    } else {
+                      allSprites.push(npcReflection);
+                    }
                   }
 
-                  // Add grass effect if NPC is on grass tile
-                  // Grass renders OVER NPCs (shows only head/shoulders)
-                  const tileMeta = getReflectionMetaFromSnapshot(
-                    snapshot,
-                    tilesetRuntimesRef.current,
-                    npc.tileX,
-                    npc.tileY
-                  );
-                  if (tileMeta) {
+                  // Add grass effect if NPC is on tall grass (NOT long grass)
+                  // Tall grass: renders ON TOP of NPC
+                  // Long grass: NPC sprite is CLIPPED (handled above)
+                  if (tileMeta && !isOnLongGrass) {
                     const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, npcSortKey);
                     if (grassSprite) {
-                      allSprites.push(grassSprite);
+                      // Grass effects go to same batch as NPC sprite
+                      if (npcIsLowPriority) {
+                        lowPrioritySprites.push(grassSprite);
+                      } else {
+                        allSprites.push(grassSprite);
+                      }
                     }
                   }
                 }
@@ -1137,6 +1232,10 @@ export function WebGLMapPage() {
             const reflectionLayerSprites = allSprites.filter((s) => s.isReflection || s.isReflectionLayer);
             const normalSprites = allSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
 
+            // Also filter low priority sprites (P2/P3 NPCs need same treatment)
+            const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
+            const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+
             const gl = pipeline.getGL();
             const webglCanvas = webglCanvasRef.current;
 
@@ -1193,7 +1292,21 @@ export function WebGLMapPage() {
                   spriteRenderer.setWaterMask(waterMask);
                 }
 
-                spriteRenderer.renderBatch(reflectionLayerSprites, spriteView);
+                // Render all reflection sprites (including P2/P3 NPC reflections)
+                const allReflectionSprites = [...reflectionLayerSprites, ...lowPriorityReflections];
+                spriteRenderer.renderBatch(allReflectionSprites, spriteView);
+
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
+
+              // === STEP 2.5: Render low priority sprites (P2/P3) BEFORE layer 1 ===
+              // These NPCs should always appear behind bridge/shore tiles
+              if (normalLowPrioritySprites.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                spriteRenderer.renderBatch(normalLowPrioritySprites, spriteView);
 
                 ctx2d.drawImage(webglCanvas, 0, 0);
               }
@@ -1202,7 +1315,7 @@ export function WebGLMapPage() {
               // This covers reflections with shore edges, ground decorations, etc.
               pipeline.renderAndCompositeLayer1Only(ctx2d, view);
 
-              // === STEP 4: Render normal sprites ===
+              // === STEP 4: Render P1 normal sprites + player ===
               if (normalSprites.length > 0 && webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 gl.clearColor(0, 0, 0, 0);
@@ -1215,12 +1328,25 @@ export function WebGLMapPage() {
             } else {
               // No reflections - use standard compositing
               pipeline.compositeBackgroundOnly(ctx2d, view);
+
+              // Render low priority sprites (P2/P3) BEFORE TopBelow
+              // These NPCs should always appear behind bridge tiles
+              if (lowPrioritySprites.length > 0 && webglCanvas) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                spriteRenderer.renderBatch(lowPrioritySprites, spriteView);
+
+                ctx2d.drawImage(webglCanvas, 0, 0);
+              }
+
               pipeline.compositeTopBelowOnly(ctx2d, view);
 
               // Render door animations (after BG, before sprites)
               doorAnimations.render(ctx2d, view, nowTime);
 
-              // Render all sprites
+              // Render P1 sprites + player (between TopBelow and TopAbove)
               if (allSprites.length > 0 && webglCanvas) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 gl.clearColor(0, 0, 0, 0);
@@ -1260,6 +1386,23 @@ export function WebGLMapPage() {
         }
 
         pipeline.compositeTopAbove(ctx2d, view);
+
+        // Render priority 0 NPCs (elevation 13-14) ABOVE TopAbove layer
+        // These are special NPCs that render on top of all BG layers (GBA priority 0)
+        const priority0Renderer = spriteRendererRef.current;
+        if (priority0Sprites.length > 0 && priority0Renderer && prioritySpriteView) {
+          const gl = pipeline.getGL();
+          const webglCanvas = webglCanvasRef.current;
+          if (webglCanvas) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            priority0Renderer.renderBatch(priority0Sprites, prioritySpriteView);
+
+            ctx2d.drawImage(webglCanvas, 0, 0);
+          }
+        }
 
         // Render fade overlay (for warp transitions)
         const fade = fadeControllerRef.current;

@@ -40,14 +40,14 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 
 ### What's MISSING in WebGL (needs to be ported)
 
-| Feature | Canvas2D Location | Priority |
-|---------|------------------|----------|
-| Surf blob rendering | `useCompositeScene.ts:198-242` | HIGH |
-| Item ball rendering | `ObjectRenderer.renderItemBalls()` | MEDIUM |
-| NPC grass effects | `renderNPCGrassEffects()` in `src/game/npc/` | MEDIUM |
-| Long grass scissor clipping | PlayerController inLongGrass flag | LOW |
-| Debug collision/elevation overlay | `DebugRenderer.renderCollisionElevationOverlay()` | LOW |
-| Priority 0 NPC rendering | `useCompositeScene.ts:282-288` | LOW |
+| Feature | Canvas2D Location | Priority | Status |
+|---------|------------------|----------|--------|
+| Surf blob rendering | `useCompositeScene.ts:198-242` | HIGH | TODO |
+| Item ball rendering | `ObjectRenderer.renderItemBalls()` | MEDIUM | TODO |
+| ~~NPC grass effects~~ | ~~`renderNPCGrassEffects()`~~ | ~~MEDIUM~~ | ✅ DONE |
+| ~~Long grass clipping~~ | ~~PlayerController inLongGrass~~ | ~~LOW~~ | ✅ DONE (player + NPC) |
+| Debug collision/elevation overlay | `DebugRenderer.renderCollisionElevationOverlay()` | LOW | Optional |
+| ~~Priority 0 NPC rendering~~ | ~~`useCompositeScene.ts:282-288`~~ | ~~LOW~~ | ✅ DONE |
 
 ### Shared Code (Already Unified)
 
@@ -65,7 +65,8 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 | `DoorActionDispatcher` | `src/game/DoorActionDispatcher.ts` | Both |
 | `PlayerController` | `src/game/PlayerController.ts` | Both |
 | `ObjectEventManager` | `src/game/ObjectEventManager.ts` | Both |
-| `fieldEffectUtils` | `src/rendering/fieldEffectUtils.ts` | Both (NEW) |
+| `fieldEffectUtils` | `src/rendering/fieldEffectUtils.ts` | Both |
+| `spriteUtils` (shadow) | `getShadowPosition()`, `createPlayerShadowSprite()` | Both |
 
 ### Recently Deduplicated
 
@@ -75,16 +76,48 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 | Field effect Y-offsets | Duplicate logic in `ObjectRenderer.ts:170-187` and `spriteUtils.ts:273-279` | Shared `getFieldEffectYOffset()` in `fieldEffectUtils.ts` |
 | Field effect dimensions | Inline constants in both files | Shared `FIELD_EFFECT_DIMENSIONS` + `getFieldEffectDimensions()` |
 | Field effect layer filtering | Duplicate visibility/layer logic | Shared `shouldRenderInLayer()` in `fieldEffectUtils.ts` |
+| Shadow rendering | Inline in `PlayerController.render()` and `WebGLMapPage` | Shared `getShadowPosition()` + `createPlayerShadowSprite()` in `spriteUtils.ts` |
 
 ### Duplicate Code (Needs Unification)
+
+#### Rendering Logic
 
 | Feature | Canvas2D | WebGL | Unified Target |
 |---------|----------|-------|----------------|
 | Scene compositing | `useCompositeScene` hook | Inline in `WebGLMapPage.tsx:953-1201` | New `useSceneComposer` abstraction |
 | Reflection rendering | `ObjectRenderer.renderReflection()` | `createPlayerReflectionSprite()` + shader | Keep WebGL approach, deprecate Canvas2D |
 | ~~Field effect building~~ | ~~`ObjectRenderer.renderFieldEffects()`~~ | ~~`createFieldEffectSprite()`~~ | ✅ DONE - Both now use `fieldEffectUtils.ts` |
-| World state management | `MapManager` + RenderContext | `WorldManager` + WorldSnapshot | Evaluate merging |
 | NPC rendering | `renderNPCs()` in game/npc/ | Inline in WebGLMapPage | Keep separate (minimal duplication) |
+
+#### Game Logic (Non-Rendering)
+
+| Feature | Canvas2D (MapRenderer) | WebGL (WebGLMapPage) | Recommendation |
+|---------|------------------------|----------------------|----------------|
+| **Viewport constants** | `DEFAULT_VIEWPORT_CONFIG` in config | `VIEWPORT_TILES_WIDE/HIGH` inline (112-113) | WebGL should import from config |
+| **Tile change detection** | `useRunUpdate` hook | Inline (758-766) | Extract `hasTileChanged()` to `WarpHandler` |
+| **Arrow overlay constants** | Not extracted | Inline (1242-1246) | Extract to `src/field/ArrowOverlayConstants.ts` |
+| **Player sprite loading** | `initializeGame()` | Inline (550-631) | Extract to `src/game/PlayerInitializer.ts` |
+| **Object event loading** | Similar inline | Inline (278-359) | Extract to `src/game/ObjectEventLoader.ts` |
+| **Door sequence logic** | `useWarpExecution` hook | Inline (806-876) | WebGL should use hook pattern |
+| **Render loop structure** | Hook-based (`useRunUpdate`, etc) | Single 650-line inline loop | Consider extracting to hooks |
+| **World initialization** | `MapManager` + events | `WorldManager` + snapshot | Evaluate merging approaches |
+
+### Centralization Priority
+
+#### Phase 1: Quick Wins (Low Effort)
+- [ ] Move viewport constants to shared config (WebGLMapPage should import `DEFAULT_VIEWPORT_CONFIG`)
+- [ ] Extract arrow overlay constants to `src/field/ArrowOverlayConstants.ts`
+- [ ] Add `hasTileChanged(tileX, tileY, mapId)` method to `WarpHandler` class
+
+#### Phase 2: Medium Effort
+- [ ] Extract player sprite loading to `src/game/PlayerInitializer.ts`
+- [ ] Extract object event loading to `src/game/ObjectEventLoader.ts`
+- [ ] Cache reflection state (computed 3x per frame in WebGLMapPage)
+
+#### Phase 3: Major Refactoring (High Effort)
+- [ ] Unify world initialization (`MapManager` vs `WorldManager`)
+- [ ] Extract WebGLMapPage render loop to hooks (following MapRenderer pattern)
+- [ ] Create unified scene composer abstraction
 
 ## Related Documentation
 
@@ -1138,17 +1171,18 @@ These phases are implemented in `WebGLMapPage.tsx` and related files.
 - [ ] **TEST**: Player clipped at waist in long grass
 - [ ] **TEST**: No visual artifacts at grass edge
 
-#### 5.5 Add Priority 0 NPC Rendering (Elevation 13-14)
+#### 5.5 Add Priority 0 NPC Rendering (Elevation 13-14) ✅ DONE
 
 **Reference:** `src/hooks/useCompositeScene.ts:282-288`
 
-- [ ] Update NPC sprite building to track priority
-  - [ ] Get NPC priority from `getSpritePriorityForElevation(npc.elevation)`
-  - [ ] Separate NPCs into priority groups
+- [x] Update NPC sprite building to track priority
+  - [x] Get NPC priority from `getSpritePriorityForElevation(npc.elevation)`
+  - [x] Separate NPCs into priority groups (normal vs priority 0)
 
-- [ ] Render priority 0 NPCs AFTER topAbove layer
-  - [ ] These are "flying" NPCs that appear above everything
-  - [ ] Rare but important for visual correctness
+- [x] Render priority 0 NPCs AFTER topAbove layer
+  - [x] These are "flying" NPCs that appear above everything
+  - [x] Hoisted `priority0Sprites` array to outer scope for access after TopAbove
+  - [x] Separate WebGL batch render after `compositeTopAbove()`
 
 - [ ] **TEST**: High-elevation NPCs render above bridges
 

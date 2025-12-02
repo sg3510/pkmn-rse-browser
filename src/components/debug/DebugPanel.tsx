@@ -18,6 +18,7 @@ import type {
   WebGLDebugState,
 } from './types';
 import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
+import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 
 const PANEL_WIDTH = 340;
 
@@ -1153,56 +1154,73 @@ const ObjectsAtTileDisplay: React.FC<{ info: ObjectsAtTileInfo }> = ({ info }) =
   </div>
 );
 
-const NPCDetailDisplay: React.FC<{ npc: NPCObject }> = ({ npc }) => (
-  <div
-    style={{
-      backgroundColor: '#2a2a2a',
-      padding: 6,
-      borderRadius: 4,
-      marginBottom: 4,
-      fontSize: '9px',
-    }}
-  >
-    <div style={{ color: '#4a9eff', fontWeight: 'bold', marginBottom: 4 }}>
-      {npc.graphicsId.replace('OBJ_EVENT_GFX_', '')}
-    </div>
-    <InfoRow label="ID" value={npc.id} />
-    <InfoRow label="Local ID" value={npc.localId ?? 'none'} />
-    <InfoRow label="Position" value={`(${npc.tileX}, ${npc.tileY})`} />
-    <InfoRow label="Elevation" value={npc.elevation} />
-    <InfoRow label="Direction" value={npc.direction} />
-    <InfoRow label="Movement" value={npc.movementType} />
-    <InfoRow label="Script" value={npc.script.replace(/_EventScript_/g, '...')} />
-    <InfoRow label="Flag" value={npc.flag || 'none'} />
-    <InfoRow
-      label="Visible"
-      value={
-        <span style={{ color: npc.visible ? '#4f4' : '#f44' }}>
-          {npc.visible ? 'YES' : 'HIDDEN'}
-        </span>
-      }
-    />
-  </div>
-);
+const NPCDetailDisplay: React.FC<{ npc: NPCObject }> = ({ npc }) => {
+  const priority = getSpritePriorityForElevation(npc.elevation);
+  const priorityColor = priority === 0 ? '#f4a' : priority === 1 ? '#4f4' : '#888';
 
-const NPCCompactDisplay: React.FC<{ npc: NPCObject }> = ({ npc }) => (
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      padding: '3px 0',
-      borderBottom: '1px solid #333',
-      fontSize: '9px',
-    }}
-  >
-    <span style={{ color: '#4a9eff' }}>
-      {npc.graphicsId.replace('OBJ_EVENT_GFX_', '')}
-    </span>
-    <span style={{ color: '#888' }}>
-      ({npc.tileX}, {npc.tileY}) E{npc.elevation} {npc.direction[0].toUpperCase()}
-    </span>
-  </div>
-);
+  return (
+    <div
+      style={{
+        backgroundColor: '#2a2a2a',
+        padding: 6,
+        borderRadius: 4,
+        marginBottom: 4,
+        fontSize: '9px',
+      }}
+    >
+      <div style={{ color: '#4a9eff', fontWeight: 'bold', marginBottom: 4 }}>
+        {npc.graphicsId.replace('OBJ_EVENT_GFX_', '')}
+      </div>
+      <InfoRow label="ID" value={npc.id} />
+      <InfoRow label="Local ID" value={npc.localId ?? 'none'} />
+      <InfoRow label="Position" value={`(${npc.tileX}, ${npc.tileY})`} />
+      <InfoRow label="Elevation" value={npc.elevation} />
+      <InfoRow
+        label="Priority"
+        value={<span style={{ color: priorityColor }}>P{priority}</span>}
+      />
+      <InfoRow label="Direction" value={npc.direction} />
+      <InfoRow label="Movement" value={npc.movementType} />
+      <InfoRow label="Script" value={npc.script.replace(/_EventScript_/g, '...')} />
+      <InfoRow label="Flag" value={npc.flag || 'none'} />
+      <InfoRow
+        label="Visible"
+        value={
+          <span style={{ color: npc.visible ? '#4f4' : '#f44' }}>
+            {npc.visible ? 'YES' : 'HIDDEN'}
+          </span>
+        }
+      />
+    </div>
+  );
+};
+
+const NPCCompactDisplay: React.FC<{ npc: NPCObject }> = ({ npc }) => {
+  const priority = getSpritePriorityForElevation(npc.elevation);
+  // Priority 0 = above all BG layers (special), 1 = normal, 2/3 = lower
+  const priorityColor = priority === 0 ? '#f4a' : priority === 1 ? '#4f4' : '#888';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '3px 0',
+        borderBottom: '1px solid #333',
+        fontSize: '9px',
+      }}
+    >
+      <span style={{ color: '#4a9eff' }}>
+        {npc.graphicsId.replace('OBJ_EVENT_GFX_', '')}
+      </span>
+      <span style={{ color: '#888' }}>
+        ({npc.tileX}, {npc.tileY}) E{npc.elevation}{' '}
+        <span style={{ color: priorityColor }}>P{priority}</span>{' '}
+        {npc.direction[0].toUpperCase()}
+      </span>
+    </div>
+  );
+};
 
 const ItemDetailDisplay: React.FC<{ item: ItemBallObject }> = ({ item }) => (
   <div
