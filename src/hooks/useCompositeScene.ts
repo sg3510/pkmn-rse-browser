@@ -1,8 +1,11 @@
 /**
  * useCompositeScene Hook
  *
- * Provides the main scene compositing/rendering logic.
+ * Provides the main scene compositing/rendering logic for Canvas2D renderer.
  * Extracted from MapRenderer.tsx to reduce component complexity.
+ *
+ * IMPORTANT: The render order here must match WebGLMapPage.tsx.
+ * See src/rendering/CompositeOrder.ts for the canonical render order definition.
  */
 
 import { useCallback, type RefObject } from 'react';

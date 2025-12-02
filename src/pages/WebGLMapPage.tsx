@@ -1304,8 +1304,8 @@ export function WebGLMapPage() {
               // This covers reflections with shore edges, ground decorations, etc.
               pipeline.renderAndCompositeLayer1Only(ctx2d, view);
 
-              // === STEP 3.5: Render door animations AFTER layer 1 but BEFORE sprites ===
-              // Player should walk IN FRONT of the open door
+              // === STEP 3.5: Door animations (see CompositeOrder.ts) ===
+              // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
               doorAnimations.render(ctx2d, view, nowTime);
 
               // === STEP 4: Render P1 normal sprites + player ===
@@ -1336,8 +1336,8 @@ export function WebGLMapPage() {
 
               pipeline.compositeTopBelowOnly(ctx2d, view);
 
-              // Render door animations AFTER TopBelow but BEFORE sprites
-              // Player should walk IN FRONT of the open door
+              // Door animations (see CompositeOrder.ts for canonical render order)
+              // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
               doorAnimations.render(ctx2d, view, nowTime);
 
               // Render P1 sprites + player (between TopBelow and TopAbove)
