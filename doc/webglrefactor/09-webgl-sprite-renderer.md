@@ -77,6 +77,7 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 | Field effect dimensions | Inline constants in both files | Shared `FIELD_EFFECT_DIMENSIONS` + `getFieldEffectDimensions()` |
 | Field effect layer filtering | Duplicate visibility/layer logic | Shared `shouldRenderInLayer()` in `fieldEffectUtils.ts` |
 | Shadow rendering | Inline in `PlayerController.render()` and `WebGLMapPage` | Shared `getShadowPosition()` + `createPlayerShadowSprite()` in `spriteUtils.ts` |
+| NPC priority classification | Inline `npcPriority >= 2` checks | Shared `isLowPriority()`, `isHighPriority()`, `getPriorityLayer()`, `PriorityLayer` type in `elevationPriority.ts`. Used for layer separation: P2/P3 before TopBelow, P1 with player, P0 after TopAbove. |
 
 ### Duplicate Code (Needs Unification)
 
@@ -1171,19 +1172,38 @@ These phases are implemented in `WebGLMapPage.tsx` and related files.
 - [ ] **TEST**: Player clipped at waist in long grass
 - [ ] **TEST**: No visual artifacts at grass edge
 
-#### 5.5 Add Priority 0 NPC Rendering (Elevation 13-14) ✅ DONE
+#### 5.5 Add Priority-Based NPC Layer Separation ✅ DONE
 
-**Reference:** `src/hooks/useCompositeScene.ts:282-288`
+**Reference:** `src/hooks/useCompositeScene.ts:282-288`, GBA `sElevationToPriority[]`
+
+NPCs are categorized into three priority groups based on elevation:
+- **Low priority (P2/P3)** - Elevation 0-3, 5, 7, 9, 11, 15 → Render BEFORE TopBelow (behind bridges)
+- **Normal priority (P1)** - Elevation 4, 6, 8, 10, 12 → Render with player (Y-sorted)
+- **High priority (P0)** - Elevation 13, 14 → Render AFTER TopAbove (above everything)
+
+**Important:** Low priority NPCs only render in `lowPrioritySprites` batch when the PLAYER is at a higher priority (P1 - on bridge). When player is also at P2 (ground level), NPCs render normally with Y-sorting. This prevents NPCs from incorrectly appearing behind distant bridge tiles.
 
 - [x] Update NPC sprite building to track priority
   - [x] Get NPC priority from `getSpritePriorityForElevation(npc.elevation)`
-  - [x] Separate NPCs into priority groups (normal vs priority 0)
+  - [x] Compare with player priority to determine render batch
+  - [x] Only use lowPrioritySprites when `playerPriority < npcPriority`
+
+- [x] Render low priority NPCs BEFORE topBelow layer
+  - [x] These are ground-level NPCs that should appear BEHIND bridges
+  - [x] Added `lowPrioritySprites` array for P2/P3 NPCs
+  - [x] Separate WebGL batch render before `compositeTopBelowOnly()`
 
 - [x] Render priority 0 NPCs AFTER topAbove layer
   - [x] These are "flying" NPCs that appear above everything
   - [x] Hoisted `priority0Sprites` array to outer scope for access after TopAbove
   - [x] Separate WebGL batch render after `compositeTopAbove()`
 
+- [x] Handle reflections for low priority NPCs
+  - [x] Added `lowPriorityReflections` array for P2/P3 NPC reflections
+  - [x] Render reflections in reflection path before TopBelow
+
+- [x] **TEST**: Low-elevation NPCs (E0-3) render behind bridges on VICTORY_ROAD_1F
+- [x] **TEST**: Low-elevation NPCs render normally when player is also at ground level (Route 104 twins)
 - [ ] **TEST**: High-elevation NPCs render above bridges
 
 ---
@@ -1270,16 +1290,18 @@ This is OPTIONAL and can be done later. For now, two separate pages is fine:
 
 ### Phase 7: Cleanup and Optimization
 
-#### 7.1 Clean Up WebGLMapPage
+#### 7.1 Clean Up WebGLMapPage ✅ DONE
 
-- [ ] Remove Canvas2D fallback code from WebGLMapPage
-  - [ ] Delete `ObjectRenderer` import and usage
-  - [ ] Delete fallback `else` branch in sprite rendering
-  - [ ] Remove unused Canvas2D context operations
+- [x] Remove Canvas2D fallback code from WebGLMapPage
+  - [x] `ObjectRenderer` NOT imported (all sprites via WebGL)
+  - [x] No fallback `else` branch for sprite rendering
+  - [x] All field effects, reflections, NPCs rendered via WebGLSpriteRenderer
 
-- [ ] Remove hybrid `drawImage` calls for door animations
-  - [ ] Convert door animations to WebGL sprites (or keep as overlay)
-  - [ ] Decision: doors could stay as Canvas2D overlay since they're rare
+- [x] Door animations and arrow overlay kept as Canvas2D
+  - [x] **Decision:** These are rare (doors only during warp, arrows only on arrow tiles)
+  - [x] Reuses shared hooks (`useDoorAnimations`, `useArrowOverlay`)
+  - [x] Converting to WebGL sprites would add complexity for minimal benefit
+  - [x] Final composite uses `drawImage(webglCanvas, 0, 0)` to combine WebGL + Canvas2D overlays
 
 #### 7.2 Keep ObjectRenderer for Canvas2D Mode
 

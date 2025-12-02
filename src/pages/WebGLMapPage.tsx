@@ -83,7 +83,7 @@ import {
   type ReflectionTileGridDebugInfo,
 } from '../components/debug';
 import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
-import { isLowPriority, isHighPriority } from '../utils/elevationPriority';
+import { getNPCRenderLayer } from '../utils/elevationPriority';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
   handleDoorEntryAction,
@@ -319,7 +319,7 @@ export function WebGLMapPage() {
     buildTilesetRuntimesForSnapshot(snapshot, tilesetRuntimesRef.current);
   }, []);
 
-  // Load object events from map.json files for each map in snapshot
+  // Load object events from snapshot (object events are now included in LoadedMapInstance)
   const loadObjectEventsFromSnapshot = useCallback(async (snapshot: WorldSnapshot): Promise<void> => {
     const objectManager = objectEventManagerRef.current;
     const spriteRenderer = spriteRendererRef.current;
@@ -327,51 +327,16 @@ export function WebGLMapPage() {
     // Clear previous objects
     objectManager.clear();
 
-    // Load object events from each map's map.json file
-    const PROJECT_ROOT = '/pokeemerald';
+    // Parse object events for each map in the snapshot
+    // Object events are now loaded by WorldManager and included in LoadedMapInstance
     for (const mapInst of snapshot.maps) {
-      try {
-        const mapJsonPath = `${PROJECT_ROOT}/data/maps/${mapInst.entry.folder}/map.json`;
-        const response = await fetch(mapJsonPath);
-        if (!response.ok) continue;
-        const data = await response.json() as { object_events?: Array<Record<string, unknown>> };
-        const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
-
-        // Parse object events to ObjectEventData format
-        const objectEvents = objectEventsRaw
-          .map((obj) => {
-            const graphics_id = String(obj.graphics_id ?? '');
-            const x = Number(obj.x ?? 0);
-            const y = Number(obj.y ?? 0);
-            if (!graphics_id || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-
-            return {
-              local_id: typeof obj.local_id === 'string' ? obj.local_id : undefined,
-              graphics_id,
-              x,
-              y,
-              elevation: Number(obj.elevation ?? 0),
-              movement_type: String(obj.movement_type ?? ''),
-              movement_range_x: Number(obj.movement_range_x ?? 0),
-              movement_range_y: Number(obj.movement_range_y ?? 0),
-              trainer_type: String(obj.trainer_type ?? ''),
-              trainer_sight_or_berry_tree_id: String(obj.trainer_sight_or_berry_tree_id ?? '0'),
-              script: String(obj.script ?? ''),
-              flag: String(obj.flag ?? '0'),
-            };
-          })
-          .filter((obj): obj is NonNullable<typeof obj> => obj !== null);
-
-        if (objectEvents.length > 0) {
-          objectManager.parseMapObjects(
-            mapInst.entry.id,
-            objectEvents,
-            mapInst.offsetX,
-            mapInst.offsetY
-          );
-        }
-      } catch (err) {
-        console.warn(`[WebGL] Failed to load object events for ${mapInst.entry.id}:`, err);
+      if (mapInst.objectEvents.length > 0) {
+        objectManager.parseMapObjects(
+          mapInst.entry.id,
+          mapInst.objectEvents,
+          mapInst.offsetX,
+          mapInst.offsetY
+        );
       }
     }
 
@@ -482,6 +447,13 @@ export function WebGLMapPage() {
       // Set up player resolver
       const playerResolver = createSnapshotPlayerTileResolver(snapshot);
       player.setTileResolver(playerResolver);
+
+      // Set up object collision checker (uses shared hasObjectCollisionAt)
+      player.setObjectCollisionChecker((tileX, tileY) => {
+        const objectManager = objectEventManagerRef.current;
+        const playerElev = player.getCurrentElevation();
+        return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
+      });
 
       // ===== SHARED: Execute warp using WarpExecutor =====
       const destMap = snapshot.maps.find(m => m.entry.id === destMapId);
@@ -1104,25 +1076,24 @@ export function WebGLMapPage() {
 
               const npcSprite = createNPCSpriteInstance(npc, npcSortKey, isOnLongGrass);
               if (npcSprite) {
-                // Split NPCs by priority for correct GBA layer ordering
-                // Uses shared utilities from elevationPriority.ts
-                const npcIsHighPriority = isHighPriority(npc.elevation);
-                const npcIsLowPriority = isLowPriority(npc.elevation);
+                // Use shared utility to determine NPC render layer
+                // This ensures consistent behavior between Canvas2D and WebGL
+                const renderLayer = getNPCRenderLayer(npc.elevation, playerElevation);
 
-                if (npcIsHighPriority) {
+                if (renderLayer === 'aboveAll') {
                   // P0: render after TopAbove (elevation 13-14)
                   priority0Sprites.push(npcSprite);
-                } else if (npcIsLowPriority) {
-                  // P2/P3: render before TopBelow (behind bridges)
+                } else if (renderLayer === 'behindBridge') {
+                  // P2/P3 NPC when player is at P1 (on bridge): render before TopBelow
                   lowPrioritySprites.push(npcSprite);
                 } else {
-                  // P1: render with player between TopBelow and TopAbove
+                  // 'withPlayer': render with player (Y-sorted)
                   allSprites.push(npcSprite);
                 }
 
-                // Add NPC reflection if on reflective tile (only for normal priority NPCs)
+                // Add NPC reflection if on reflective tile (only for non-aboveAll NPCs)
                 // Priority 0 NPCs don't have reflections (they're above everything)
-                if (snapshot && !npcIsHighPriority) {
+                if (snapshot && renderLayer !== 'aboveAll') {
                   const npcReflectionState = computeReflectionStateFromSnapshot(
                     snapshot,
                     npc.tileX,
@@ -1140,7 +1111,7 @@ export function WebGLMapPage() {
                   );
                   if (npcReflection) {
                     // Reflections go to same batch as NPC sprite
-                    if (npcIsLowPriority) {
+                    if (renderLayer === 'behindBridge') {
                       lowPrioritySprites.push(npcReflection);
                     } else {
                       allSprites.push(npcReflection);
@@ -1154,7 +1125,7 @@ export function WebGLMapPage() {
                     const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, npcSortKey);
                     if (grassSprite) {
                       // Grass effects go to same batch as NPC sprite
-                      if (npcIsLowPriority) {
+                      if (renderLayer === 'behindBridge') {
                         lowPrioritySprites.push(grassSprite);
                       } else {
                         allSprites.push(grassSprite);
@@ -1499,6 +1470,7 @@ export function WebGLMapPage() {
             createSnapshotTileResolver,
             createSnapshotPlayerTileResolver,
             isCancelled: () => cancelled,
+            loadObjectEventsFromSnapshot,
           },
           worldManager
         );
@@ -1522,6 +1494,14 @@ export function WebGLMapPage() {
         if (player) {
           const playerResolver = createSnapshotPlayerTileResolver(snapshot);
           player.setTileResolver(playerResolver);
+
+          // Set up object collision checker for item balls, NPCs, etc.
+          // Uses shared hasObjectCollisionAt from ObjectEventManager
+          player.setObjectCollisionChecker((tileX, tileY) => {
+            const objectManager = objectEventManagerRef.current;
+            const playerElev = player.getCurrentElevation();
+            return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
+          });
 
           // Spawn player at center of anchor map (offset 0,0)
           const spawnX = Math.floor(entry.width / 2);
@@ -1551,7 +1531,7 @@ export function WebGLMapPage() {
         worldManagerRef.current = null;
       }
     };
-  }, [selectedMap, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver]);
+  }, [selectedMap, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, loadObjectEventsFromSnapshot]);
 
   if (!selectedMap) {
     return (

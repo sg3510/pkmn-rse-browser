@@ -15,6 +15,8 @@
 
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, WarpEvent } from '../types/maps';
+import type { ObjectEventData } from '../types/objectEvents';
+import { loadMapEvents } from './mapEventLoader';
 import {
   loadMapLayout,
   loadTilesetImage,
@@ -86,6 +88,7 @@ export interface LoadedMapInstance {
   tilesetPairIndex: number;  // Index into tilesetPairs array
   borderMetatiles: number[];  // Per-map border metatiles from border.bin
   warpEvents: WarpEvent[];  // Warp events from map.json
+  objectEvents: ObjectEventData[];  // Object events (NPCs, items) from map.json
 }
 
 /**
@@ -684,12 +687,12 @@ export class WorldManager {
         });
       }
 
-      // Load map layout, border metatiles, and warp events
+      // Load map layout, border metatiles, and events (warps + objects)
       const layoutPath = `${PROJECT_ROOT}/${entry.layoutPath}`;
-      const [mapData, borderMetatiles, warpEvents] = await Promise.all([
+      const [mapData, borderMetatiles, mapEvents] = await Promise.all([
         loadMapLayout(`${layoutPath}/map.bin`, entry.width, entry.height),
         loadBorderMetatiles(`${layoutPath}/border.bin`).catch(() => [] as number[]),
-        this.loadWarpEvents(entry).catch(() => [] as WarpEvent[]),
+        loadMapEvents(entry.folder),
       ]);
 
       // Check epoch after async - abort if world reinitialized
@@ -705,7 +708,8 @@ export class WorldManager {
         offsetY,
         tilesetPairIndex: pairIndex,
         borderMetatiles,
-        warpEvents,
+        warpEvents: mapEvents.warpEvents,
+        objectEvents: mapEvents.objectEvents,
       };
 
       this.maps.set(entry.id, mapInstance);
@@ -771,29 +775,6 @@ export class WorldManager {
    */
   private getTilesetPairId(primaryId: string, secondaryId: string): string {
     return `${primaryId}+${secondaryId}`;
-  }
-
-  /**
-   * Load warp events from map.json
-   */
-  private async loadWarpEvents(entry: MapIndexEntry): Promise<WarpEvent[]> {
-    try {
-      const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${entry.folder}/map.json`);
-      const data = JSON.parse(jsonText) as { warp_events?: Array<Record<string, unknown>> };
-      const warpEventsRaw = Array.isArray(data.warp_events) ? data.warp_events : [];
-      return warpEventsRaw
-        .map((warp) => {
-          const x = Number((warp as { x?: unknown }).x ?? 0);
-          const y = Number((warp as { y?: unknown }).y ?? 0);
-          const elevation = Number((warp as { elevation?: unknown }).elevation ?? 0);
-          const destMap = String((warp as { dest_map?: unknown }).dest_map ?? '');
-          const destWarpId = Number((warp as { dest_warp_id?: unknown }).dest_warp_id ?? 0);
-          return { x, y, elevation, destMap, destWarpId };
-        })
-        .filter((w) => w.destMap !== '');
-    } catch {
-      return [];
-    }
   }
 
   /**

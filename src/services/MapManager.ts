@@ -1,6 +1,7 @@
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, MapConnection, WarpEvent } from '../types/maps';
 import type { ObjectEventData } from '../types/objectEvents';
+import { loadMapEvents } from '../game/mapEventLoader';
 export type { WarpEvent, ObjectEventData };
 import {
   loadBorderMetatiles,
@@ -126,89 +127,6 @@ export class MapManager {
     return resources;
   }
 
-  private async loadWarpEvents(entry: MapIndexEntry): Promise<WarpEvent[]> {
-    try {
-      const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${entry.folder}/map.json`);
-      const data = JSON.parse(jsonText) as { warp_events?: Array<Record<string, unknown>> };
-      const warpEventsRaw = Array.isArray(data.warp_events) ? data.warp_events : [];
-      return warpEventsRaw
-        .map((warp, idx) => {
-          const x = Number((warp as { x?: unknown }).x ?? 0);
-          const y = Number((warp as { y?: unknown }).y ?? 0);
-          const elevation = Number((warp as { elevation?: unknown }).elevation ?? 0);
-          const destMap = String((warp as { dest_map?: unknown }).dest_map ?? '');
-          const destWarpId = Number((warp as { dest_warp_id?: unknown }).dest_warp_id ?? idx);
-          if (!Number.isFinite(x) || !Number.isFinite(y) || !destMap) {
-            return null;
-          }
-          return {
-            x,
-            y,
-            elevation: Number.isFinite(elevation) ? elevation : 0,
-            destMap,
-            destWarpId: Number.isFinite(destWarpId) ? destWarpId : idx,
-          } satisfies WarpEvent;
-        })
-        .filter((warp): warp is WarpEvent => !!warp);
-    } catch (err) {
-      if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
-        console.warn(`Failed to load warp events for ${entry.id}:`, err);
-      }
-      return [];
-    }
-  }
-
-  private async loadObjectEvents(entry: MapIndexEntry): Promise<ObjectEventData[]> {
-    try {
-      const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${entry.folder}/map.json`);
-      const data = JSON.parse(jsonText) as { object_events?: Array<Record<string, unknown>> };
-      const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
-      return objectEventsRaw
-        .map((obj) => {
-          const local_id = (obj as { local_id?: unknown }).local_id;
-          const graphics_id = String((obj as { graphics_id?: unknown }).graphics_id ?? '');
-          const x = Number((obj as { x?: unknown }).x ?? 0);
-          const y = Number((obj as { y?: unknown }).y ?? 0);
-          const elevation = Number((obj as { elevation?: unknown }).elevation ?? 0);
-          const movement_type = String((obj as { movement_type?: unknown }).movement_type ?? '');
-          const movement_range_x = Number((obj as { movement_range_x?: unknown }).movement_range_x ?? 0);
-          const movement_range_y = Number((obj as { movement_range_y?: unknown }).movement_range_y ?? 0);
-          const trainer_type = String((obj as { trainer_type?: unknown }).trainer_type ?? '');
-          const trainer_sight_or_berry_tree_id = String((obj as { trainer_sight_or_berry_tree_id?: unknown }).trainer_sight_or_berry_tree_id ?? '0');
-          const script = String((obj as { script?: unknown }).script ?? '');
-          const flag = String((obj as { flag?: unknown }).flag ?? '0');
-
-          if (!graphics_id || !Number.isFinite(x) || !Number.isFinite(y)) {
-            return null;
-          }
-
-          const result: ObjectEventData = {
-            graphics_id,
-            x,
-            y,
-            elevation: Number.isFinite(elevation) ? elevation : 0,
-            movement_type,
-            movement_range_x: Number.isFinite(movement_range_x) ? movement_range_x : 0,
-            movement_range_y: Number.isFinite(movement_range_y) ? movement_range_y : 0,
-            trainer_type,
-            trainer_sight_or_berry_tree_id,
-            script,
-            flag,
-          };
-          if (typeof local_id === 'string') {
-            result.local_id = local_id;
-          }
-          return result;
-        })
-        .filter((obj): obj is ObjectEventData => obj !== null);
-    } catch (err) {
-      if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
-        console.warn(`Failed to load object events for ${entry.id}:`, err);
-      }
-      return [];
-    }
-  }
-
   public async loadMap(mapId: string): Promise<LoadedMapData> {
     const cached = this.mapCache.get(mapId);
     if (cached) return cached;
@@ -218,12 +136,11 @@ export class MapManager {
       throw new Error(`Unknown map id: ${mapId}`);
     }
 
-    const [mapData, borderMetatiles, tilesets, warpEvents, objectEvents] = await Promise.all([
+    const [mapData, borderMetatiles, tilesets, mapEvents] = await Promise.all([
       loadMapLayout(`${PROJECT_ROOT}/${entry.layoutPath}/map.bin`, entry.width, entry.height),
       loadBorderMetatiles(`${PROJECT_ROOT}/${entry.layoutPath}/border.bin`),
       this.loadTilesets(entry),
-      this.loadWarpEvents(entry),
-      this.loadObjectEvents(entry),
+      loadMapEvents(entry.folder),
     ]);
 
     const loaded: LoadedMapData = {
@@ -231,8 +148,8 @@ export class MapManager {
       mapData,
       borderMetatiles,
       tilesets,
-      warpEvents,
-      objectEvents,
+      warpEvents: mapEvents.warpEvents,
+      objectEvents: mapEvents.objectEvents,
     };
 
     this.mapCache.set(mapId, loaded);

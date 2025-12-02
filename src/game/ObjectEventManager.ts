@@ -270,6 +270,31 @@ export class ObjectEventManager {
   }
 
   /**
+   * Check if there's any blocking object (NPC or item ball) at a position
+   *
+   * This is the main collision checking method used by PlayerController.
+   * It combines both NPC and item ball collision with proper elevation checks.
+   *
+   * Reference: CheckForObjectEventCollision in event_object_movement.c
+   *
+   * @param tileX Tile X coordinate to check
+   * @param tileY Tile Y coordinate to check
+   * @param playerElevation The player's current elevation
+   * @returns true if tile is blocked by an object
+   */
+  hasObjectCollisionAt(tileX: number, tileY: number, playerElevation: number): boolean {
+    // Block if there's an uncollected item ball at same elevation
+    if (this.getItemBallAtWithElevation(tileX, tileY, playerElevation) !== null) {
+      return true;
+    }
+    // Block if there's a visible NPC at same elevation
+    if (this.hasNPCAtWithElevation(tileX, tileY, playerElevation)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Refresh NPC visibility from flags
    */
   refreshNPCVisibility(): void {

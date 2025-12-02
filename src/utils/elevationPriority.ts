@@ -67,3 +67,39 @@ export function isLowPriority(elevation: number): boolean {
 export function isHighPriority(elevation: number): boolean {
   return getSpritePriorityForElevation(elevation) === 0;
 }
+
+/**
+ * NPC render layer classification.
+ * Used by both Canvas2D and WebGL renderers for consistent layer ordering.
+ */
+export type NPCRenderLayer = 'behindBridge' | 'withPlayer' | 'aboveAll';
+
+/**
+ * Determine which render layer an NPC should be in based on player and NPC elevations.
+ *
+ * This implements the GBA priority comparison:
+ * - P0 NPCs (elevation 13-14) always render above everything
+ * - P2/P3 NPCs render behind bridges ONLY when player is at higher priority (P1, on bridge)
+ * - When player and NPC are at same priority, NPC renders with player (Y-sorted)
+ *
+ * @param npcElevation NPC's elevation (0-15)
+ * @param playerElevation Player's current elevation (0-15)
+ * @returns Which layer the NPC should render in
+ */
+export function getNPCRenderLayer(
+  npcElevation: number,
+  playerElevation: number
+): NPCRenderLayer {
+  const npcPriority = getSpritePriorityForElevation(npcElevation);
+  const playerPriority = getSpritePriorityForElevation(playerElevation);
+
+  // Priority 0 NPCs always render above everything (elevation 13-14)
+  if (npcPriority === 0) return 'aboveAll';
+
+  // Low priority NPCs (P2/P3) render behind bridges only when player is at higher priority
+  // This prevents NPCs from incorrectly appearing behind distant bridge tiles
+  if (npcPriority >= 2 && playerPriority < npcPriority) return 'behindBridge';
+
+  // Otherwise, render with player (Y-sorted)
+  return 'withPlayer';
+}

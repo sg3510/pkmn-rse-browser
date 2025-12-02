@@ -81,6 +81,9 @@ export interface WorldManagerEventDeps {
 
   /** Check if operation was cancelled (for async safety) */
   isCancelled: () => boolean;
+
+  /** Optional: Reload object events (NPCs, items) when maps change */
+  loadObjectEventsFromSnapshot?: (snapshot: WorldSnapshot) => Promise<void>;
 }
 
 /**
@@ -164,7 +167,7 @@ function updateResolversFromSnapshot(
 }
 
 /**
- * Handle mapsChanged event - update snapshot, resolvers, and world bounds
+ * Handle mapsChanged event - update snapshot, resolvers, world bounds, and object events
  */
 function handleMapsChanged(
   deps: WorldManagerEventDeps,
@@ -179,6 +182,7 @@ function handleMapsChanged(
     setStitchedMapCount,
     createSnapshotTileResolver,
     createSnapshotPlayerTileResolver,
+    loadObjectEventsFromSnapshot,
   } = deps;
 
   // Update snapshot and resolvers
@@ -197,6 +201,14 @@ function handleMapsChanged(
 
   // Update world bounds (shared helper)
   updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
+
+  // Reload object events (NPCs, items) for the new set of maps
+  // This is async but we don't await - NPCs will appear once loaded
+  if (loadObjectEventsFromSnapshot) {
+    loadObjectEventsFromSnapshot(snapshot).catch((err) => {
+      console.warn('[WorldManager] Failed to reload object events:', err);
+    });
+  }
 
   // Invalidate pipeline cache
   pipeline.invalidate();

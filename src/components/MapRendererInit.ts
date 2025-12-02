@@ -349,19 +349,11 @@ export async function initializeGame({
     player.setTileResolver(resolveTileForPlayer);
 
     // Set up object collision checker for item balls, NPCs, etc.
+    // Uses shared hasObjectCollisionAt from ObjectEventManager
     player.setObjectCollisionChecker((tileX, tileY) => {
       const objectManager = refs.objectEventManagerRef.current;
       const playerElev = player.getCurrentElevation();
-
-      // Block if there's an uncollected item ball at same elevation
-      if (objectManager.getItemBallAtWithElevation(tileX, tileY, playerElev) !== null) {
-        return true;
-      }
-      // Block if there's a visible NPC at same elevation
-      if (objectManager.hasNPCAtWithElevation(tileX, tileY, playerElev)) {
-        return true;
-      }
-      return false;
+      return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
     });
 
     refs.playerControllerRef.current = player;
