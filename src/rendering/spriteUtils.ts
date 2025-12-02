@@ -13,7 +13,7 @@ import type { FrameInfo } from '../game/PlayerController';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { ReflectionState } from '../field/ReflectionRenderer';
 import type { NPCObject } from '../types/objectEvents';
-import type { DoorAnimDrawable, ArrowOverlayState, CardinalDirection } from '../field/types';
+import type { DoorAnimDrawable } from '../field/types';
 import {
   BRIDGE_OFFSETS,
   REFLECTION_VERTICAL_OFFSET,
@@ -765,75 +765,4 @@ export function createDoorAnimationSprite(
 /** Arrow overlay atlas name */
 export const ARROW_ATLAS_NAME = 'arrow-overlay';
 
-/** Arrow sprite dimensions (from GBA field effects) */
-const ARROW_FRAME_WIDTH = 16;
-const ARROW_FRAME_HEIGHT = 16;
-
-/** Arrow animation timing */
-const ARROW_FRAME_DURATION_MS = 100;
-const ARROW_FRAME_COUNT = 4;
-
-/** Direction to frame row mapping (arrow sprite has 4 directions) */
-const ARROW_DIRECTION_ROW: Record<CardinalDirection, number> = {
-  down: 0,
-  up: 1,
-  left: 2,
-  right: 3,
-};
-
-/**
- * Create a SpriteInstance from ArrowOverlayState
- *
- * Arrow overlays appear on arrow warp tiles to indicate forced movement direction.
- * The arrow animates with a pulsing/bouncing effect.
- *
- * @param state - Arrow overlay state from useArrowOverlay
- * @param now - Current timestamp for animation
- * @param atlasWidth - Width of the arrow sprite atlas
- * @param atlasHeight - Height of the arrow sprite atlas
- * @returns SpriteInstance or null if arrow is not visible
- */
-export function createArrowOverlaySprite(
-  state: ArrowOverlayState,
-  now: number,
-  _atlasWidth: number,
-  _atlasHeight: number
-): SpriteInstance | null {
-  if (!state.visible) {
-    return null;
-  }
-
-  // Calculate animation frame
-  const elapsed = now - state.startedAt;
-  const frameIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % ARROW_FRAME_COUNT;
-
-  // Get direction row
-  const dirRow = ARROW_DIRECTION_ROW[state.direction];
-
-  // World position (centered on tile)
-  const worldX = state.worldX * METATILE_SIZE;
-  const worldY = state.worldY * METATILE_SIZE;
-
-  // Arrow renders above topBelow but before sprites (like doors)
-  const sortKey = calculateSortKey(worldY, 1);
-
-  return {
-    worldX,
-    worldY,
-    width: ARROW_FRAME_WIDTH,
-    height: ARROW_FRAME_HEIGHT,
-    atlasName: ARROW_ATLAS_NAME,
-    atlasX: frameIndex * ARROW_FRAME_WIDTH,
-    atlasY: dirRow * ARROW_FRAME_HEIGHT,
-    atlasWidth: ARROW_FRAME_WIDTH,
-    atlasHeight: ARROW_FRAME_HEIGHT,
-    flipX: false,
-    flipY: false,
-    alpha: 1.0,
-    tintR: 1.0,
-    tintG: 1.0,
-    tintB: 1.0,
-    sortKey,
-    isReflection: false,
-  };
-}
+// Arrow animation logic moved to src/field/ArrowAnimationConstants.ts

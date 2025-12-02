@@ -27,6 +27,7 @@ import type { MapManager } from '../services/MapManager';
 import type { FadeController } from '../field/FadeController';
 import type { WarpHandler } from '../field/WarpHandler';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
+import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import type { DoorWarpRequest } from '../game/PlayerController';
 import { SpawnPositionFinder } from '../utils/spawnPositionFinder';
 import { isSurfableBehavior } from '../utils/metatileBehaviors';
@@ -370,13 +371,8 @@ export async function initializeGame({
     };
     player.setTileResolver(resolveTileForPlayer);
 
-    // Set up object collision checker for item balls, NPCs, etc.
-    // Uses shared hasObjectCollisionAt from ObjectEventManager
-    player.setObjectCollisionChecker((tileX, tileY) => {
-      const objectManager = refs.objectEventManagerRef.current;
-      const playerElev = player.getCurrentElevation();
-      return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
-    });
+    // Set up object collision checker (shared utility)
+    setupObjectCollisionChecker(player, refs.objectEventManagerRef.current);
 
     refs.playerControllerRef.current = player;
 

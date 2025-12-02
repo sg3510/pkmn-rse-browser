@@ -1,113 +1,528 @@
-# Architecture Parity & De-duplication (Canvas2D ⇄ WebGL)
+# 10 - Architecture Parity Map: Unifying WebGLMapPage & MapRenderer
 
-This document analyzes the architectural differences between the legacy Canvas2D renderer (`MapRenderer.tsx`) and the new WebGL renderer (`WebGLMapPage.tsx`). It identifies shared components, duplication, and a roadmap for unification.
+This document tracks the effort to merge `src/pages/WebGLMapPage.tsx` and `src/components/MapRenderer.tsx` into a unified `GameRenderer` component with pluggable WebGL/Canvas2D backends.
 
-## 1. Architecture Overview
+> **Last Updated:** 2025-12-02
+> **Status:** Planning phase - Phase 1 extraction work ready to begin
 
-| Feature | Canvas2D (`MapRenderer`) | WebGL (`WebGLMapPage`) | Shared Component (Goal) |
-| :--- | :--- | :--- | :--- |
-| **Entry Point** | `MapRenderer.tsx` (React Component) | `WebGLMapPage.tsx` (React Component) | `GameContainer.tsx` (Future) |
-| **Game Loop** | `useRunUpdate` + `useCompositeScene` | Custom `requestAnimationFrame` loop | `useUnifiedGameLoop` |
-| **World State** | `MapManager` + `RenderContext` | `WorldManager` + `WorldSnapshot` | `WorldManager` |
-| **Tile Resolution** | `MapManager.resolveTileAt` (Direct) | `TileResolverFactory` (via Snapshot) | `ITileResolver` |
-| **Rendering** | `RenderPipeline` (Canvas 2D API) | `WebGLRenderPipeline` (WebGL2 API) | `IRenderPipeline` |
-| **Sprites** | `ObjectRenderer.ts` (Canvas 2D) | Hybrid (Canvas 2D overlay) | `ISpriteRenderer` (Unified) |
-| **Animations** | `useTilesetAnimations` (Hook) | `WebGLAnimationManager` (Texture updates) | `TilesetAnimator` (Logic only) |
-| **Reflections** | `ReflectionRenderer` + `ctx` | `ReflectionRenderer` + `Snapshot` | `ReflectionRenderer` (Shared) |
-| **Warps** | `useWarpExecution` + `WarpHandler` | `executeWarp` + `WarpHandler` | `WarpSystem` (Unified) |
+## Goals
 
-## 2. Shared Components (Already Working)
+1. **Single source of truth** for game logic (movement, warps, NPCs, etc.)
+2. **Pluggable renderers** - WebGL or Canvas2D selected at runtime
+3. **Reduce maintenance burden** - changes only need to happen once
+4. **Preserve GBA accuracy** - no compromises on timing or visuals
 
-These components are successfully reused across both pipelines. **Do not duplicate logic here.**
+---
 
-*   **`src/game/PlayerController.ts`**: Handles physics, movement, input, and sprite state.
-*   **`src/game/CameraController.ts`**: Manages camera bounds and target following.
-*   **`src/field/WarpHandler.ts`**: Manages warp state (cooldowns, in-progress flags).
-*   **`src/field/ReflectionRenderer.ts`**: Core reflection math (`computeReflectionState`, `buildReflectionMask`) and GBA shimmer logic (`applyGbaAffineShimmer`).
-*   **`src/game/WarpExecutor.ts`**: Shared implementation of warp logic (`executeWarp`), handling spawn positions, facings, and door sequences.
-*   **`src/components/map/utils.ts`**: `detectWarpTrigger` is used by both to find warp events.
+## 1. Current Architecture
 
-## 3. Divergence & Refactoring Targets
+```
+┌─────────────────────────────────────┐  ┌─────────────────────────────────────┐
+│        WebGLMapPage.tsx             │  │        MapRenderer.tsx              │
+│        (1800+ lines)                │  │        (800+ lines)                 │
+├─────────────────────────────────────┤  ├─────────────────────────────────────┤
+│ - 844-line monolithic render loop   │  │ - Hook-based architecture           │
+│ - Direct ref access                 │  │ - useRunUpdate, useCompositeScene   │
+│ - WorldManager + snapshots          │  │ - MapManager + RenderContext        │
+│ - WebGLRenderPipeline               │  │ - IRenderPipeline (Canvas2D)        │
+│ - WebGLSpriteRenderer               │  │ - ObjectRenderer                    │
+│ - WebGLFadeRenderer                 │  │ - Canvas2D fade                     │
+└─────────────────────────────────────┘  └─────────────────────────────────────┘
+```
 
-### A. World Management (The "Source of Truth")
-*   **Current:** Canvas2D uses `MapManager` which loads maps on demand and builds a `RenderContext`. WebGL uses `WorldManager` which proactively manages a "stitched world" and produces `WorldSnapshot`s.
-*   **Problem:** `MapManager` logic for border handling and neighbor connection is duplicated/diverged in `WorldManager`.
-*   **Solution:** `WorldManager` should become the single source of truth. `MapRenderer` (Canvas2D) should eventually consume `WorldSnapshot`s instead of building its own context.
-    *   **Refactor:** Create `TileResolverFactory.fromSnapshot` (Done). Make Canvas2D use this resolver instead of `resolveTileAt`.
+| Feature | Canvas2D (`MapRenderer`) | WebGL (`WebGLMapPage`) | Target |
+|---------|--------------------------|------------------------|--------|
+| **Entry Point** | `MapRenderer.tsx` | `WebGLMapPage.tsx` | `GameRenderer.tsx` |
+| **Game Loop** | `useRunUpdate` + `useCompositeScene` | Custom `requestAnimationFrame` | `useGameLoop` |
+| **World State** | `MapManager` + `RenderContext` | `WorldManager` + `WorldSnapshot` | `IWorldProvider` |
+| **Tile Resolution** | `resolveTileAt` (Direct) | `TileResolverFactory` (Snapshot) | `ITileResolver` |
+| **Rendering** | `RenderPipeline` (Canvas 2D) | `WebGLRenderPipeline` (WebGL2) | `IRenderPipeline` |
+| **Sprites** | `ObjectRenderer` (Canvas 2D) | `WebGLSpriteRenderer` | `ISpriteRenderer` |
+| **Fade** | Inline Canvas2D | `WebGLFadeRenderer` | `IFadeRenderer` |
+| **Animations** | `useTilesetAnimations` | `WebGLAnimationManager` | `TilesetAnimator` |
 
-### B. Tile Resolution
-*   **Current:**
-    *   Canvas2D: `resolveTileAt` (in `src/components/map/utils.ts`) manually checks neighbors and borders.
-    *   WebGL: `TileResolverFactory` (in `src/game/TileResolverFactory.ts`) implements similar logic but optimized for GPU slots and Snapshots.
-*   **Problem:** Divergent border handling behavior.
-*   **Solution:** Consolidate around `ITileResolver` interface.
-    ```typescript
-    interface ITileResolver {
-      resolve(x: number, y: number): ResolvedTile | null;
-      getReflectionMeta(x: number, y: number): ReflectionMetaResult | null;
-    }
-    ```
-    `TileResolverFactory` becomes the implementation.
+---
 
-### C. Animation Loops
-*   **Current:**
-    *   Canvas2D: `useTilesetAnimations` hook parses configs and tracks frames.
-    *   WebGL: `WebGLAnimationManager` parses configs and tracks frames *separately*.
-*   **Problem:** Double parsing, potential timing drift.
-*   **Solution:** Extract `AnimationStateTracker`.
-    *   Input: `timestamp`.
-    *   Output: `Map<TileID, FrameID>`.
-    *   Both renderers consume this state. Canvas updates its cache; WebGL updates its textures.
+## 2. Shared Components (Already Unified)
 
-### D. Game Loop Integration
-*   **Current:** `WebGLMapPage` implements a "naked" game loop inside a `useEffect`. `MapRenderer` uses the complex `useRunUpdate` hook which mixes React state with game logic.
-*   **Solution:** `useUnifiedGameLoop`.
-    *   The loop in `WebGLMapPage` is cleaner and closer to the desired end-state (decoupled from React render cycle).
-    *   We should move the `WebGLMapPage` loop logic into `useUnifiedGameLoop` and have both renderers use it.
+These are successfully reused across both pipelines. **Do not duplicate.**
 
-## 4. Renderer-Specific Logic (Keep Separate)
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `PlayerController` | `src/game/` | Movement, animation, input |
+| `CameraController` | `src/game/` | Camera bounds, target following |
+| `ObjectEventManager` | `src/game/` | NPC/item management |
+| `useDoorAnimations` | `src/hooks/` | Door sprite loading & animation |
+| `useArrowOverlay` | `src/hooks/` | Arrow warp indicator |
+| `useDoorSequencer` | `src/hooks/` | Door entry/exit state machine |
+| `useFieldSprites` | `src/hooks/` | Grass, sand, splash, ripple sprites |
+| `WarpHandler` | `src/field/` | Warp cooldown, state tracking |
+| `FadeController` | `src/field/` | Fade timing state |
+| `WarpExecutor` | `src/game/` | Warp execution logic |
+| `DoorActionDispatcher` | `src/game/` | Door sequence orchestration |
+| `ReflectionShimmer` | `src/field/` | GBA-accurate shimmer (48-frame) |
+| `computeReflectionState()` | `src/field/` | Reflection detection |
+| `detectWarpTrigger()` | `src/components/map/utils.ts` | Warp event detection |
+| `DebugPanel` | `src/components/debug/` | Debug overlay UI |
 
-Some things *should* remain separate implementations of a shared interface.
+---
 
-*   **Resource Management:**
-    *   **WebGL:** `WebGLTextureManager` (GPU uploads, VRAM management, Texture Units).
-    *   **Canvas:** `TilesetCanvasCache` (Offscreen canvases, caching).
-*   **Drawing:**
-    *   **WebGL:** `gl.drawArraysInstanced`, Shader programs.
-    *   **Canvas:** `ctx.drawImage`, dirty rectangle tracking (`DirtyRegionTracker`).
-*   **Field Effects (Rendering):**
-    *   The *state* of field effects (grass, ash) is shared.
-    *   The *rendering* must be specific (Sprite batching for WebGL vs individual draws for Canvas).
+## 3. Divergent Imports (Need Reconciliation)
 
-## 5. Implementation Roadmap
+| WebGLMapPage Only | MapRenderer Only |
+|-------------------|------------------|
+| `WebGLRenderPipeline` | `IRenderPipeline` (Canvas2D impl) |
+| `WebGLSpriteRenderer` | `ObjectRenderer` |
+| `WebGLFadeRenderer` | (inline Canvas2D) |
+| `WorldManager` | `MapManager` |
+| `uploadTilesetsFromSnapshot` | `TilesetCanvasCache` |
+| `spriteUtils.*` | (inline in hooks) |
+| — | `useRunUpdate` |
+| — | `useCompositeScene` |
+| — | `useWarpExecution` |
+| — | `GameLoop`, `UpdateCoordinator` |
 
-### Phase 1: WebGL Sprite Renderer (In Progress)
-Implement `WebGLSpriteRenderer` to handle players, NPCs, and field effects. This removes the hybrid Canvas2D overlay from `WebGLMapPage`.
+---
 
-### Phase 2: Unified Tile Resolver
-Refactor `MapRenderer` (Canvas2D) to accept a `TileResolver` instead of a `RenderContext`. This allows us to plug in `TileResolverFactory` logic, unifying border/warp detection behavior.
+## 4. Duplicated Logic (Must Extract)
 
-### Phase 3: Shared Animation State
-Extract animation timing logic from `useTilesetAnimations` and `WebGLAnimationManager` into a shared class.
+### 4.1 Object Collision Checker Setup
 
-### Phase 4: Game Loop Unification
-Extract the robust loop from `WebGLMapPage` into `useUnifiedGameLoop`. Update `MapRenderer` to use this loop (stripping out `useRunUpdate`).
+**WebGLMapPage (lines 464-468):**
+```typescript
+player.setObjectCollisionChecker((tileX, tileY) => {
+  const objectManager = objectEventManagerRef.current;
+  const playerElev = player.getCurrentElevation();
+  return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
+});
+```
 
-## 6. Code Parity Checklist
+**MapRenderer:** Identical pattern in `initializeGame()`.
 
-| Logic | Implementation | Status |
-| :--- | :--- | :--- |
-| **Warp Detection** | `detectWarpTrigger` | ✅ Shared |
-| **Warp Execution** | `executeWarp` | ✅ Shared |
-| **Reflection Math** | `ReflectionRenderer` | ✅ Shared |
-| **Shimmer Effect** | `ReflectionShimmer` | ✅ Shared |
-| **Door Sequences** | `DoorActionDispatcher` | ✅ Shared |
-| **Tile Lookup** | `TileResolverFactory` vs `resolveTileAt` | ⚠️ Divergent |
-| **Anim Timing** | `WebGLAnimationManager` vs `useTilesetAnimations` | ⚠️ Divergent |
-| **Map Loading** | `WorldManager` vs `MapManager` | ⚠️ Divergent |
+**Extract to:** `src/game/setupObjectCollisionChecker.ts`
 
-## 7. New Module Recommendations
+---
 
-1.  **`src/game/AnimationSystem.ts`**: Pure logic class for tileset animations.
-2.  **`src/game/WorldQuery.ts`**: Unified interface for querying the world (tiles, objects, warps) regardless of backend.
-3.  **`src/rendering/ISpriteRenderer.ts`**: Strict interface for sprite rendering (Canvas2D wrapper vs WebGL implementation).
+### 4.2 Player Spawn Position Finding
+
+**WebGLMapPage (lines 1663-1685):**
+```typescript
+const spawnFinder = new SpawnPositionFinder();
+const spawnResult = spawnFinder.findSpawnPosition(
+  mapData.width, mapData.height,
+  (x, y) => {
+    const tile = mapData.layout[y * mapData.width + x];
+    if (!tile || tile.collision !== 0) return false;
+    if (isSurfableBehavior(attrs.behavior)) return false;
+    return true;
+  },
+  warpPoints
+);
+```
+
+**MapRenderer:** Similar logic in initialization.
+
+**Extract to:** `src/game/findPlayerSpawnPosition.ts`
+
+---
+
+### 4.3 Warp Trigger Detection & Processing
+
+**WebGLMapPage (lines 805-857):**
+```typescript
+const tileChanged = !lastChecked ||
+  lastChecked.tileX !== player.tileX ||
+  lastChecked.tileY !== player.tileY ||
+  lastChecked.mapId !== currentMapId;
+
+if (tileChanged && !warpHandler.isOnCooldown()) {
+  const trigger = detectWarpTrigger(renderContext, player);
+  if (trigger) {
+    if (trigger.kind === 'arrow') { /* ... */ }
+    else if (isNonAnimatedDoorBehavior(trigger.behavior)) { /* ... */ }
+    else { /* walk-over warp */ }
+  }
+}
+```
+
+**MapRenderer:** Similar logic in `useRunUpdate` hook.
+
+**Extract to:** `src/game/WarpTriggerProcessor.ts`
+
+---
+
+### 4.4 Arrow Animation Frame Calculation
+
+**WebGLMapPage (lines 1135-1147):**
+```typescript
+const ARROW_FRAME_DURATION_MS = 533;
+const ARROW_FRAME_SEQUENCES: Record<CardinalDirection, number[]> = {
+  south: [0, 1, 2, 1],
+  north: [3, 4, 5, 4],
+  west: [6, 7, 8, 7],
+  east: [9, 10, 11, 10],
+};
+const elapsed = nowTime - arrowState.startedAt;
+const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
+```
+
+**MapRenderer:** Similar logic in `useCompositeScene`.
+
+**Extract to:** `src/field/ArrowAnimationConstants.ts`
+
+---
+
+### 4.5 Viewport Constants
+
+**WebGLMapPage (lines 120-121):**
+```typescript
+const VIEWPORT_TILES_WIDE = 20;
+const VIEWPORT_TILES_HIGH = 20;
+```
+
+**MapRenderer:** Uses `VIEWPORT_CONFIG` from config.
+
+**Fix:** Standardize on `src/config/viewport.ts`
+
+---
+
+### 4.6 Camera View Building
+
+**WebGLMapPage (lines 965-976):**
+```typescript
+const view: WorldCameraView = {
+  cameraX: camView.x,
+  cameraY: camView.y,
+  startTileX: camView.startTileX,
+  // ... 10+ more fields
+};
+```
+
+**MapRenderer:** Similar view construction in hooks.
+
+**Extract to:** `src/game/buildWorldCameraView.ts`
+
+---
+
+## 5. Target Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        GameRenderer                             │
+│            (single component, ~400 lines)                       │
+├─────────────────────────────────────────────────────────────────┤
+│                      Shared Game Logic                          │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐    │
+│  │ useGameLoop  │ │ useWarpFlow  │ │ useSceneComposition  │    │
+│  └──────────────┘ └──────────────┘ └──────────────────────┘    │
+├─────────────────────────────────────────────────────────────────┤
+│                    Renderer Interfaces                          │
+│         IRenderPipeline              ISpriteRenderer            │
+│         (tiles)                      (sprites)                  │
+│                        IFadeRenderer                            │
+├────────────────────────┬────────────────────────────────────────┤
+│    WebGL Backend       │         Canvas2D Backend               │
+│  WebGLRenderPipeline   │       RenderPipeline                   │
+│  WebGLSpriteRenderer   │       Canvas2DSpriteRenderer (new)     │
+│  WebGLFadeRenderer     │       Canvas2DFadeRenderer (new)       │
+└────────────────────────┴────────────────────────────────────────┘
+```
+
+---
+
+## 6. Implementation Phases
+
+### Phase 1: Extract Shared Utilities (Low Risk)
+
+Quick wins - extract duplicated functions without changing architecture.
+
+- [x] **1.1** Create `src/game/setupObjectCollisionChecker.ts` ✅ DONE
+  - [x] Extract collision checker setup from WebGLMapPage:464-468
+  - [x] Update WebGLMapPage to use it (2 locations)
+  - [x] Update MapRendererInit to use it
+  - [x] **TEST:** Build passes, collision works in both modes
+
+- [ ] **1.2** Create `src/game/findPlayerSpawnPosition.ts`
+  - [ ] Extract spawn logic from WebGLMapPage:1663-1685
+  - [ ] Accept mapData, tilesetPair, warpPoints as params
+  - [ ] Update both files to use it
+  - [ ] **TEST:** Player spawns correctly on map load
+
+- [x] **1.3** Create `src/field/ArrowAnimationConstants.ts` ✅ DONE
+  - [x] Move `ARROW_FRAME_DURATION_MS` and `ARROW_FRAME_SEQUENCES`
+  - [x] Add `getArrowAnimationFrame(direction, elapsedMs)` function
+  - [x] Add `getArrowAtlasCoords(frameIndex, framesPerRow)` function
+  - [x] Update WebGLMapPage to use it
+  - [x] Update ObjectRenderer to use it
+  - [x] **TEST:** Build passes, arrow animation works
+
+- [ ] **1.4** Standardize viewport config
+  - [ ] Ensure `src/config/viewport.ts` has canonical values
+  - [ ] Update WebGLMapPage to import from config
+  - [ ] Remove inline `VIEWPORT_TILES_WIDE/HIGH` constants
+  - [ ] **TEST:** Viewport dimensions match in both modes
+
+- [ ] **1.5** Create `src/game/buildWorldCameraView.ts`
+  - [ ] Extract camera view construction
+  - [ ] Accept camera position, viewport config as params
+  - [ ] Update both files to use it
+  - [ ] **TEST:** Camera view correct in both modes
+
+---
+
+### Phase 2: Extract Warp Logic (Medium Risk)
+
+Warp handling is complex - extract carefully.
+
+- [ ] **2.1** Create `src/game/WarpTriggerProcessor.ts`
+  - [ ] Extract tile-change detection logic
+  - [ ] Extract warp trigger classification (arrow, door, walk-over)
+  - [ ] Return action descriptor, don't execute directly
+  - [ ] **TEST:** All warp types detected correctly
+
+- [ ] **2.2** Create `src/hooks/useWarpFlow.ts` hook
+  - [ ] Combine warp detection + execution in single hook
+  - [ ] Accept renderer-agnostic dependencies
+  - [ ] Handle fade, door sequencer, warp executor coordination
+  - [ ] **TEST:** Warps work identically in both modes
+
+- [ ] **2.3** Reconcile `useWarpExecution` with new hook
+  - [ ] Decide: merge or keep separate
+  - [ ] Ensure MapRenderer uses unified approach
+  - [ ] **TEST:** No regression in Canvas2D warps
+
+---
+
+### Phase 3: Unify World Management (Medium-High Risk)
+
+`WorldManager` vs `MapManager` is the biggest divergence.
+
+- [ ] **3.1** Document differences between WorldManager and MapManager
+  - [ ] WorldManager: snapshot-based, supports stitched worlds
+  - [ ] MapManager: event-based, single map focus
+  - [ ] Identify which features each provides
+
+- [ ] **3.2** Create unified `IWorldProvider` interface
+  ```typescript
+  interface IWorldProvider {
+    getCurrentSnapshot(): WorldSnapshot;
+    loadMap(mapId: string): Promise<WorldSnapshot>;
+    getTileAt(worldX: number, worldY: number): ResolvedTile | null;
+    getObjectsInView(view: WorldCameraView): ObjectEvent[];
+  }
+  ```
+
+- [ ] **3.3** Implement `WorldManager` adapter for interface
+  - [ ] Wrap existing WorldManager
+  - [ ] **TEST:** WebGLMapPage works with adapter
+
+- [ ] **3.4** Implement `MapManager` adapter for interface
+  - [ ] Wrap existing MapManager
+  - [ ] **TEST:** MapRenderer works with adapter
+
+- [ ] **3.5** Decide on long-term world management strategy
+  - [ ] Option A: Migrate MapRenderer to WorldManager
+  - [ ] Option B: Migrate WebGLMapPage to MapManager
+  - [ ] Option C: Keep both behind interface
+
+---
+
+### Phase 4: Create Renderer Interfaces (Medium Risk)
+
+Define clean interfaces for rendering backends.
+
+- [ ] **4.1** Finalize `ISpriteRenderer` interface
+  ```typescript
+  interface ISpriteRenderer {
+    uploadSpriteSheet(name: string, source: CanvasImageSource): void;
+    hasSpriteSheet(name: string): boolean;
+    renderBatch(sprites: SpriteInstance[], view: SpriteView): void;
+    dispose(): void;
+  }
+  ```
+
+- [ ] **4.2** Create `Canvas2DSpriteRenderer` implementing `ISpriteRenderer`
+  - [ ] Wrap `ObjectRenderer` functionality
+  - [ ] Match WebGLSpriteRenderer API
+  - [ ] **TEST:** Sprites render correctly via interface
+
+- [ ] **4.3** Create `IFadeRenderer` interface
+  ```typescript
+  interface IFadeRenderer {
+    render(alpha: number, r?: number, g?: number, b?: number): void;
+    dispose(): void;
+  }
+  ```
+
+- [ ] **4.4** Create `Canvas2DFadeRenderer` implementing `IFadeRenderer`
+  - [ ] Simple fullscreen rect with alpha
+  - [ ] **TEST:** Fade works via interface
+
+- [ ] **4.5** Verify `IRenderPipeline` is sufficient
+  - [ ] Check WebGLRenderPipeline implements it fully
+  - [ ] Check RenderPipeline implements it fully
+  - [ ] Add any missing methods to interface
+
+---
+
+### Phase 5: Create Unified Hooks (Medium Risk)
+
+Replace per-file logic with shared hooks.
+
+- [ ] **5.1** Create `src/hooks/useGameLoop.ts`
+  - [ ] GBA-accurate frame timing (59.7275 Hz)
+  - [ ] Shimmer animation updates
+  - [ ] Returns: `{ gbaFrame, deltaTime, shimmerState }`
+  - [ ] **TEST:** Frame timing matches GBA
+
+- [ ] **5.2** Create `src/hooks/usePlayerUpdate.ts`
+  - [ ] Input handling
+  - [ ] Movement updates
+  - [ ] Tile change detection
+  - [ ] Returns: `{ player, tileChanged, currentTile }`
+  - [ ] **TEST:** Player movement works
+
+- [ ] **5.3** Create `src/hooks/useSceneComposition.ts`
+  - [ ] Sprite batch building (player, NPCs, effects)
+  - [ ] Layer sorting
+  - [ ] Reflection handling
+  - [ ] Returns: `{ sprites, reflectionSprites, priority0Sprites }`
+  - [ ] **TEST:** Sprite ordering correct
+
+- [ ] **5.4** Migrate WebGLMapPage to use new hooks
+  - [ ] Replace inline logic with hook calls
+  - [ ] Verify no visual regression
+  - [ ] **TEST:** Full playthrough in WebGL mode
+
+- [ ] **5.5** Migrate MapRenderer to use new hooks
+  - [ ] Replace/merge existing hooks
+  - [ ] Verify no visual regression
+  - [ ] **TEST:** Full playthrough in Canvas2D mode
+
+---
+
+### Phase 6: Create GameRenderer Component (High Risk)
+
+Final unification step.
+
+- [ ] **6.1** Create `src/components/GameRenderer.tsx`
+  - [ ] Detect WebGL2 support on mount
+  - [ ] Instantiate appropriate pipeline + sprite renderer
+  - [ ] Use unified hooks for game logic
+  - [ ] Single render loop calling renderer interfaces
+
+- [ ] **6.2** Create renderer factory
+  ```typescript
+  function createRenderers(canvas: HTMLCanvasElement): {
+    pipeline: IRenderPipeline;
+    spriteRenderer: ISpriteRenderer;
+    fadeRenderer: IFadeRenderer;
+  }
+  ```
+
+- [ ] **6.3** Wire up routing
+  - [ ] `/#/play` → GameRenderer (auto-detect backend)
+  - [ ] `/#/play?renderer=webgl` → Force WebGL
+  - [ ] `/#/play?renderer=canvas2d` → Force Canvas2D
+
+- [ ] **6.4** Deprecate old components
+  - [ ] Mark WebGLMapPage as deprecated
+  - [ ] Mark MapRenderer as deprecated
+  - [ ] Add console warnings if accessed directly
+
+- [ ] **6.5** Final cleanup
+  - [ ] Remove duplicate code
+  - [ ] Update documentation
+  - [ ] **TEST:** Full game works in both modes via GameRenderer
+
+---
+
+## 7. Risk Assessment
+
+| Phase | Risk | Effort | Mitigation |
+|-------|------|--------|------------|
+| Phase 1 | Low | 1-2 days | Pure extraction, no behavior change |
+| Phase 2 | Medium | 2-3 days | Warp logic is complex, test thoroughly |
+| Phase 3 | Medium-High | 3-5 days | World management is fundamental |
+| Phase 4 | Medium | 2-3 days | Interface design affects flexibility |
+| Phase 5 | Medium | 3-4 days | Hook dependencies can be tricky |
+| Phase 6 | High | 3-5 days | Full integration, many moving parts |
+
+**Total estimated effort:** 2-3 weeks
+
+---
+
+## 8. File Changes Summary
+
+### New Files to Create
+
+| File | Purpose | Est. Lines |
+|------|---------|------------|
+| `src/components/GameRenderer.tsx` | Unified game component | ~400 |
+| `src/hooks/useGameLoop.ts` | Frame timing | ~80 |
+| `src/hooks/usePlayerUpdate.ts` | Player logic | ~150 |
+| `src/hooks/useWarpFlow.ts` | Warp orchestration | ~200 |
+| `src/hooks/useSceneComposition.ts` | Sprite building | ~250 |
+| `src/game/WarpTriggerProcessor.ts` | Warp detection | ~100 |
+| `src/game/setupObjectCollisionChecker.ts` | Collision setup | ~20 |
+| `src/game/findPlayerSpawnPosition.ts` | Spawn logic | ~50 |
+| `src/game/buildWorldCameraView.ts` | Camera view | ~40 |
+| `src/field/ArrowAnimationConstants.ts` | Arrow timing | ~30 |
+| `src/rendering/Canvas2DSpriteRenderer.ts` | Canvas2D sprites | ~150 |
+| `src/rendering/Canvas2DFadeRenderer.ts` | Canvas2D fade | ~30 |
+| **Total new** | | **~1500** |
+
+### Files to Deprecate/Remove
+
+| File | Current Lines | After |
+|------|---------------|-------|
+| `WebGLMapPage.tsx` | ~1800 | Deprecated |
+| `MapRenderer.tsx` | ~800 | Deprecated |
+| `useCompositeScene.ts` | ~400 | Merged |
+| `useRunUpdate.ts` | ~300 | Merged |
+| **Total removed** | **~3300** | 0 |
+
+**Net change:** ~1800 fewer lines, cleaner architecture
+
+---
+
+## 9. Code Parity Checklist
+
+| Logic | Status | Notes |
+|-------|--------|-------|
+| Warp Detection | ✅ Shared | `detectWarpTrigger` |
+| Warp Execution | ✅ Shared | `executeWarp` |
+| Reflection Math | ✅ Shared | `ReflectionRenderer` |
+| Shimmer Effect | ✅ Shared | `ReflectionShimmer` |
+| Door Sequences | ✅ Shared | `DoorActionDispatcher` |
+| Door Animations | ✅ Shared | `useDoorAnimations` hook |
+| Arrow Overlay | ✅ Shared | `useArrowOverlay` hook |
+| Field Sprites | ✅ Shared | `useFieldSprites` hook |
+| Fade Timing | ✅ Shared | `FadeController` |
+| Tile Lookup | ⚠️ Divergent | `TileResolverFactory` vs `resolveTileAt` |
+| Anim Timing | ⚠️ Divergent | `WebGLAnimationManager` vs `useTilesetAnimations` |
+| Map Loading | ⚠️ Divergent | `WorldManager` vs `MapManager` |
+| Spawn Position | ⚠️ Duplicated | Extract to utility |
+| Collision Setup | ✅ Shared | `setupObjectCollisionChecker()` |
+| Arrow Frame Calc | ✅ Shared | `ArrowAnimationConstants.ts` |
+| Camera View Build | ⚠️ Duplicated | Extract to utility |
+
+---
+
+## 10. Success Criteria
+
+1. **Single component** handles both WebGL and Canvas2D rendering
+2. **Zero visual regression** - both modes look identical
+3. **GBA timing preserved** - 59.7275 Hz frame rate, shimmer animation
+4. **Code reduction** - at least 30% fewer total lines
+5. **Maintainability** - game logic changes only need to happen once
+6. **Performance** - WebGL mode maintains 60fps, Canvas2D acceptable fallback
+
+---
+
+## 11. Related Documentation
+
+- `doc/webglrefactor/09-webgl-sprite-renderer.md` - WebGL sprite implementation
+- `src/rendering/ISpriteRenderer.ts` - Existing sprite interface
+- `src/rendering/IRenderPipeline.ts` - Existing pipeline interface
+- `src/rendering/types.ts` - Shared rendering types

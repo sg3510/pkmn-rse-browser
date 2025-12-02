@@ -15,6 +15,11 @@ import {
   getFieldEffectDimensions,
   getFieldEffectYOffset,
 } from '../../../rendering/fieldEffectUtils';
+import {
+  ARROW_FRAME_SIZE,
+  getArrowAnimationFrame,
+  getArrowAtlasCoords,
+} from '../../../field/ArrowAnimationConstants';
 
 
 export interface WorldCameraView {
@@ -58,17 +63,6 @@ export interface SpriteFrameInfo {
   tileX: number;   // Tile X position (for reflection detection)
   tileY: number;   // Tile Y position (for reflection detection)
 }
-
-// Arrow animation constants
-// GBA uses 32 ticks @ 60fps ≈ 533ms per frame
-const ARROW_FRAME_SIZE = 16;
-const ARROW_FRAME_DURATION_MS = 533;
-const ARROW_FRAME_SEQUENCES: Record<'up' | 'down' | 'left' | 'right', number[]> = {
-  down: [3, 7],
-  up: [0, 4],
-  left: [1, 5],
-  right: [2, 6],
-};
 
 /**
  * ObjectRenderer - Centralized rendering for all dynamic game objects
@@ -362,13 +356,11 @@ export class ObjectRenderer {
   ): void {
     if (!overlay.visible) return;
 
+    // Use shared arrow animation constants
     const framesPerRow = Math.max(1, Math.floor(sprite.width / ARROW_FRAME_SIZE));
-    const frameSequence = ARROW_FRAME_SEQUENCES[overlay.direction];
     const elapsed = nowMs - overlay.startedAt;
-    const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
-    const frameIndex = frameSequence[seqIndex];
-    const sx = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
-    const sy = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
+    const frameIndex = getArrowAnimationFrame(overlay.direction, elapsed);
+    const { atlasX: sx, atlasY: sy } = getArrowAtlasCoords(frameIndex, framesPerRow);
     const dx = Math.round(overlay.worldX * METATILE_SIZE - view.cameraWorldX);
     const dy = Math.round(overlay.worldY * METATILE_SIZE - view.cameraWorldY);
     ctx.drawImage(sprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);

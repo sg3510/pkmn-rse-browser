@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
+import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
 import {
   createSpriteFromFrameInfo,
@@ -54,6 +55,7 @@ import {
   updateWorldBounds,
 } from '../game/worldManagerEvents';
 import { ObjectEventManager } from '../game/ObjectEventManager';
+import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
@@ -74,6 +76,11 @@ import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
 import { FADE_TIMING, type CardinalDirection } from '../field/types';
+import {
+  ARROW_FRAME_SIZE,
+  getArrowAnimationFrame,
+  getArrowAtlasCoords,
+} from '../field/ArrowAnimationConstants';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
@@ -127,6 +134,7 @@ export function WebGLMapPage() {
   // Pipeline and state refs
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
   const spriteRendererRef = useRef<WebGLSpriteRenderer | null>(null);
+  const fadeRendererRef = useRef<WebGLFadeRenderer | null>(null);
   const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
   const worldManagerRef = useRef<WorldManager | null>(null);
   const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
@@ -458,12 +466,8 @@ export function WebGLMapPage() {
       const playerResolver = createSnapshotPlayerTileResolver(snapshot);
       player.setTileResolver(playerResolver);
 
-      // Set up object collision checker (uses shared hasObjectCollisionAt)
-      player.setObjectCollisionChecker((tileX, tileY) => {
-        const objectManager = objectEventManagerRef.current;
-        const playerElev = player.getCurrentElevation();
-        return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
-      });
+      // Set up object collision checker (shared utility)
+      setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
       // ===== SHARED: Execute warp using WarpExecutor =====
       const destMap = snapshot.maps.find(m => m.entry.id === destMapId);
@@ -562,6 +566,11 @@ export function WebGLMapPage() {
       const spriteRenderer = new WebGLSpriteRenderer(pipeline.getGL());
       spriteRenderer.initialize();
       spriteRendererRef.current = spriteRenderer;
+
+      // Initialize fade renderer (for screen fade transitions)
+      const fadeRenderer = new WebGLFadeRenderer(pipeline.getGL());
+      fadeRenderer.initialize();
+      fadeRendererRef.current = fadeRenderer;
     } catch (e) {
       // WebGL pipeline creation failed - redirect to Canvas2D mode
       console.error('Failed to create WebGL pipeline, redirecting to Canvas2D mode:', e);
@@ -1124,19 +1133,11 @@ export function WebGLMapPage() {
               if (arrowState && spriteRenderer.hasSpriteSheet(ARROW_ATLAS_NAME)) {
                 const arrowData = arrowOverlay.getSpriteForUpload();
                 if (arrowData) {
-                  // Use inline arrow animation logic (matches current Canvas2D code)
-                  const ARROW_FRAME_SIZE = 16;
-                  const ARROW_FRAME_DURATION_MS = 533;
-                  const ARROW_FRAME_SEQUENCES: Record<CardinalDirection, number[]> = {
-                    down: [3, 7], up: [0, 4], left: [1, 5], right: [2, 6],
-                  };
+                  // Use shared arrow animation constants
                   const framesPerRow = Math.max(1, Math.floor(arrowData.width / ARROW_FRAME_SIZE));
-                  const frameSequence = ARROW_FRAME_SEQUENCES[arrowState.direction];
                   const elapsed = nowTime - arrowState.startedAt;
-                  const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
-                  const frameIndex = frameSequence[seqIndex];
-                  const atlasX = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
-                  const atlasY = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
+                  const frameIndex = getArrowAnimationFrame(arrowState.direction, elapsed);
+                  const { atlasX, atlasY } = getArrowAtlasCoords(frameIndex, framesPerRow);
 
                   arrowSprite = {
                     worldX: arrowState.worldX * METATILE_SIZE,
@@ -1501,10 +1502,26 @@ export function WebGLMapPage() {
           }
         }
 
-        // Render fade overlay (for warp transitions)
+        // Render fade overlay (for warp transitions) via WebGL
         const fade = fadeControllerRef.current;
-        if (fade.isActive()) {
-          fade.render(ctx2d, viewportWidth, viewportHeight, nowTime);
+        const fadeRenderer = fadeRendererRef.current;
+        if (fade.isActive() && fadeRenderer) {
+          const fadeAlpha = fade.getAlpha(nowTime);
+          if (fadeAlpha > 0) {
+            const gl = pipeline.getGL();
+            const webglCanvas = webglCanvasRef.current;
+            if (webglCanvas) {
+              gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+              // Use canvas dimensions (includes buffer tiles), not viewport dimensions
+              gl.viewport(0, 0, webglCanvas.width, webglCanvas.height);
+              gl.clearColor(0, 0, 0, 0);
+              gl.clear(gl.COLOR_BUFFER_BIT);
+
+              fadeRenderer.render(fadeAlpha);
+
+              ctx2d.drawImage(webglCanvas, 0, 0);
+            }
+          }
         }
 
         const renderTime = performance.now() - start;
@@ -1546,6 +1563,8 @@ export function WebGLMapPage() {
       pipelineRef.current = null;
       spriteRendererRef.current?.dispose();
       spriteRendererRef.current = null;
+      fadeRendererRef.current?.dispose();
+      fadeRendererRef.current = null;
       playerRef.current?.destroy();
       playerRef.current = null;
       playerLoadedRef.current = false;
@@ -1621,13 +1640,8 @@ export function WebGLMapPage() {
           const playerResolver = createSnapshotPlayerTileResolver(snapshot);
           player.setTileResolver(playerResolver);
 
-          // Set up object collision checker for item balls, NPCs, etc.
-          // Uses shared hasObjectCollisionAt from ObjectEventManager
-          player.setObjectCollisionChecker((tileX, tileY) => {
-            const objectManager = objectEventManagerRef.current;
-            const playerElev = player.getCurrentElevation();
-            return objectManager.hasObjectCollisionAt(tileX, tileY, playerElev);
-          });
+          // Set up object collision checker (shared utility)
+          setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
           // Spawn player using smart spawn finder (finds optimal walkable position)
           const anchorMap = snapshot.maps.find(m => m.entry.id === entry.id) ?? snapshot.maps[0];

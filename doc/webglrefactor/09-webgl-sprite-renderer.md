@@ -33,10 +33,10 @@ This document outlines the plan for implementing a unified WebGL sprite renderer
 | Puddle splash clipping | ✅ Complete | Uses reflection shader |
 | Water ripple clipping | ✅ Complete | Uses reflection shader |
 | Split layer rendering | ✅ Complete | `renderAndCompositeLayer0Only()`, `renderAndCompositeLayer1Only()` |
-| Door animations | ✅ Complete | Uses shared `useDoorAnimations` hook |
-| Arrow overlay | ✅ Complete | Uses shared `useArrowOverlay` hook |
+| Door animations | ✅ Complete | WebGL sprites via `createDoorAnimationSprite()` |
+| Arrow overlay | ✅ Complete | WebGL sprites via inline sprite creation |
 | Warp system | ✅ Complete | Uses shared `WarpExecutor`, `DoorActionDispatcher` |
-| Fade transitions | ✅ Complete | Uses shared `FadeController` |
+| Fade transitions | ✅ Complete | WebGL via `WebGLFadeRenderer` fullscreen quad |
 
 ### What's MISSING in WebGL (needs to be ported)
 
@@ -557,7 +557,7 @@ Current Frame Pipeline:
 | Field effects | Canvas2D | 5-20 | Grass, sand, ripples |
 | Door animations | Canvas2D | 0-2 | Temporary overlays |
 | Arrow overlay | Canvas2D | 0-1 | Warp indicator |
-| Fade overlay | Canvas2D | 0-1 | Fullscreen rect |
+| Fade overlay | ~~Canvas2D~~ WebGL | 0-1 | WebGLFadeRenderer fullscreen quad |
 
 ---
 
@@ -1297,11 +1297,11 @@ This is OPTIONAL and can be done later. For now, two separate pages is fine:
   - [x] No fallback `else` branch for sprite rendering
   - [x] All field effects, reflections, NPCs rendered via WebGLSpriteRenderer
 
-- [x] Door animations and arrow overlay kept as Canvas2D
-  - [x] **Decision:** These are rare (doors only during warp, arrows only on arrow tiles)
-  - [x] Reuses shared hooks (`useDoorAnimations`, `useArrowOverlay`)
-  - [x] Converting to WebGL sprites would add complexity for minimal benefit
-  - [x] Final composite uses `drawImage(webglCanvas, 0, 0)` to combine WebGL + Canvas2D overlays
+- [x] Door animations and arrow overlay converted to WebGL
+  - [x] Doors use `createDoorAnimationSprite()` → WebGL sprite batch
+  - [x] Arrows use inline sprite creation → WebGL sprite batch
+  - [x] Reuses shared hooks (`useDoorAnimations`, `useArrowOverlay`) for state management
+  - [x] Fade overlay uses `WebGLFadeRenderer` fullscreen quad
 
 #### 7.2 Keep ObjectRenderer for Canvas2D Mode
 
