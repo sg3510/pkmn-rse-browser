@@ -49,7 +49,6 @@ import {
   createGpuUploadCallback,
   updateWorldBounds,
 } from '../game/worldManagerEvents';
-import { ObjectRenderer, type WorldCameraView as ObjectRendererView } from '../components/map/renderers/ObjectRenderer';
 import { ObjectEventManager } from '../game/ObjectEventManager';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { useFieldSprites } from '../hooks/useFieldSprites';
@@ -186,6 +185,7 @@ export function WebGLMapPage() {
   });
   const [loading, setLoading] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(2); // Default to 2x zoom for better visibility
   const [mapDebugInfo, setMapDebugInfo] = useState<{
     currentMap: string | null;
     anchorMap: string;
@@ -519,7 +519,9 @@ export function WebGLMapPage() {
     webglCanvasRef.current = webglCanvas;
 
     if (!isWebGL2Supported(webglCanvas)) {
-      setStats((s) => ({ ...s, webgl2Supported: false, error: 'WebGL2 not supported in this browser' }));
+      // WebGL2 not supported - redirect to Canvas2D mode
+      console.warn('WebGL2 not supported, redirecting to Canvas2D mode');
+      window.location.hash = '';
       return;
     }
 
@@ -533,7 +535,9 @@ export function WebGLMapPage() {
       spriteRenderer.initialize();
       spriteRendererRef.current = spriteRenderer;
     } catch (e) {
-      setStats((s) => ({ ...s, webgl2Supported: false, error: 'Failed to create WebGL pipeline' }));
+      // WebGL pipeline creation failed - redirect to Canvas2D mode
+      console.error('Failed to create WebGL pipeline, redirecting to Canvas2D mode:', e);
+      window.location.hash = '';
       return;
     }
 
@@ -941,14 +945,6 @@ export function WebGLMapPage() {
         // Prune expired door animations (actual rendering happens after layer compositing)
         doorAnimations.prune(nowTime);
 
-        // Create ObjectRenderer view for field effects
-        const objView: ObjectRendererView = {
-          cameraWorldX: cameraX,
-          cameraWorldY: cameraY,
-          pixelWidth: viewportWidth,
-          pixelHeight: viewportHeight,
-        };
-
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
           const playerWorldY = player.y + 16; // Player feet Y position
@@ -1080,6 +1076,36 @@ export function WebGLMapPage() {
                 const spriteKey = player.getCurrentSpriteKey();
                 const atlasName = getPlayerAtlasName(spriteKey);
                 if (spriteRenderer.hasSpriteSheet(atlasName)) {
+                  // Render shadow if player is jumping (shadow stays on ground)
+                  // Shadow sprite is 16x8, positioned at player's feet
+                  // GBA: shadow.y = player.y + (height/2) - shadowVerticalOffset = player.y + 16 - 4 = player.y + 12
+                  // Our coords: shadow.y = this.y + 28 (this.y is 16 above GBA's sprite.y)
+                  if (player.showShadow) {
+                    const shadowAtlas = getPlayerAtlasName('shadow');
+                    if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
+                      const shadowSprite: SpriteInstance = {
+                        worldX: player.x,
+                        worldY: player.y + 28, // Ground level at player's feet
+                        width: 16,
+                        height: 8,
+                        atlasName: shadowAtlas,
+                        atlasX: 0,
+                        atlasY: 0,
+                        atlasWidth: 16,
+                        atlasHeight: 8,
+                        flipX: false,
+                        flipY: false,
+                        alpha: 1.0,
+                        tintR: 1.0,
+                        tintG: 1.0,
+                        tintB: 1.0,
+                        sortKey: calculateSortKey(player.y + 32, 64), // Same Y as player but lower priority (renders first)
+                        isReflection: false,
+                      };
+                      allSprites.push(shadowSprite);
+                    }
+                  }
+
                   // Clip player to half height when on long grass (matches GBA behavior)
                   const clipToHalf = player.isOnLongGrass();
                   const playerSprite = createSpriteFromFrameInfo(
@@ -1224,63 +1250,30 @@ export function WebGLMapPage() {
                 ctx2d.drawImage(webglCanvas, 0, 0);
               }
             }
-          } else {
-            // Fallback to Canvas2D rendering
-            pipeline.compositeBackgroundOnly(ctx2d, view);
-            pipeline.compositeTopBelowOnly(ctx2d, view);
-
-            // Render door animations (after BG, before sprites)
-            doorAnimations.render(ctx2d, view, nowTime);
-
-            const fieldEffectRenderContext = currentSnapshot
-              ? getRenderContextFromSnapshot(currentSnapshot)
-              : null;
-
-            if (fieldSpritesLoadedRef.current) {
-              const effects = player.getGrassEffectManager().getEffectsForRendering();
-              ObjectRenderer.renderFieldEffects(
-                ctx2d, effects,
-                {
-                  grass: fieldSprites.sprites.grass,
-                  longGrass: fieldSprites.sprites.longGrass,
-                  sand: fieldSprites.sprites.sand,
-                  splash: fieldSprites.sprites.splash,
-                  ripple: fieldSprites.sprites.ripple,
-                  arrow: null,
-                  itemBall: fieldSprites.sprites.itemBall,
-                },
-                objView, playerWorldY, 'bottom', fieldEffectRenderContext ?? undefined
-              );
-            }
-
-            if (!playerHiddenRef.current) {
-              player.render(ctx2d, cameraX, cameraY);
-            }
-
-            if (fieldSpritesLoadedRef.current) {
-              const effects = player.getGrassEffectManager().getEffectsForRendering();
-              ObjectRenderer.renderFieldEffects(
-                ctx2d, effects,
-                {
-                  grass: fieldSprites.sprites.grass,
-                  longGrass: fieldSprites.sprites.longGrass,
-                  sand: fieldSprites.sprites.sand,
-                  splash: fieldSprites.sprites.splash,
-                  ripple: fieldSprites.sprites.ripple,
-                  arrow: null,
-                  itemBall: fieldSprites.sprites.itemBall,
-                },
-                objView, playerWorldY, 'top', fieldEffectRenderContext ?? undefined
-              );
-            }
           }
 
-          // Render arrow overlay (reuse ObjectRenderer.renderArrow from Canvas2D)
+          // Render arrow overlay (inline - no ObjectRenderer dependency)
           if (arrowOverlay.isVisible() && !doorSequencer.isActive()) {
             const arrowState = arrowOverlay.getState();
             const arrowSprite = arrowOverlay.getSprite();
-            if (arrowState && arrowSprite) {
-              ObjectRenderer.renderArrow(ctx2d, arrowState, arrowSprite, view, nowTime);
+            if (arrowState && arrowSprite && arrowState.visible) {
+              // Arrow animation constants (matches GBA: 32 ticks @ 60fps ≈ 533ms per frame)
+              const ARROW_FRAME_SIZE = 16;
+              const ARROW_FRAME_DURATION_MS = 533;
+              const ARROW_FRAME_SEQUENCES: Record<'up' | 'down' | 'left' | 'right', number[]> = {
+                down: [3, 7], up: [0, 4], left: [1, 5], right: [2, 6],
+              };
+
+              const framesPerRow = Math.max(1, Math.floor(arrowSprite.width / ARROW_FRAME_SIZE));
+              const frameSequence = ARROW_FRAME_SEQUENCES[arrowState.direction];
+              const elapsed = nowTime - arrowState.startedAt;
+              const seqIndex = Math.floor(elapsed / ARROW_FRAME_DURATION_MS) % frameSequence.length;
+              const frameIndex = frameSequence[seqIndex];
+              const sx = (frameIndex % framesPerRow) * ARROW_FRAME_SIZE;
+              const sy = Math.floor(frameIndex / framesPerRow) * ARROW_FRAME_SIZE;
+              const dx = Math.round(arrowState.worldX * METATILE_SIZE - cameraX);
+              const dy = Math.round(arrowState.worldY * METATILE_SIZE - cameraY);
+              ctx2d.drawImage(arrowSprite, sx, sy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE, dx, dy, ARROW_FRAME_SIZE, ARROW_FRAME_SIZE);
             }
           }
         }
@@ -1496,12 +1489,36 @@ export function WebGLMapPage() {
           <canvas
             ref={displayCanvasRef}
             className="webgl-map-canvas"
-            style={{ width: VIEWPORT_TILES_WIDE * METATILE_SIZE, height: VIEWPORT_TILES_HIGH * METATILE_SIZE }}
+            style={{
+              width: VIEWPORT_TILES_WIDE * METATILE_SIZE * zoom,
+              height: VIEWPORT_TILES_HIGH * METATILE_SIZE * zoom,
+              imageRendering: 'pixelated',
+            }}
           />
         </div>
         <div className="map-stats">
-          <div style={{ fontSize: 11, color: '#9fb0cc' }}>
-            Arrow Keys to move. Z to run. ` for debug panel.
+          <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>Arrow Keys to move. Z to run. ` for debug panel.</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              Zoom:
+              {[1, 2, 3].map((z) => (
+                <button
+                  key={z}
+                  onClick={() => setZoom(z)}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: 11,
+                    background: zoom === z ? '#4a90d9' : '#2a3a4a',
+                    color: zoom === z ? '#fff' : '#9fb0cc',
+                    border: 'none',
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {z}x
+                </button>
+              ))}
+            </span>
           </div>
         </div>
       </div>

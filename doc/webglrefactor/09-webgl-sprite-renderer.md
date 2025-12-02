@@ -1166,32 +1166,33 @@ WebGL2 supported?
     └── NO  → MapRenderer (full Canvas2D rendering)
 ```
 
-#### 6.1 Remove Canvas2D Fallback from WebGLMapPage
+#### 6.1 Remove Canvas2D Fallback from WebGLMapPage ✅ DONE
 
 **Goal:** WebGLMapPage is 100% WebGL - if WebGL fails, redirect to Canvas2D mode
 
-- [ ] Remove Canvas2D fallback path in WebGLMapPage render loop
-  - [ ] Delete the `else` branch at line ~1208 (Canvas2D sprite fallback)
-  - [ ] If `spriteRenderer` is invalid, show error or redirect to Canvas2D mode
+- [x] Remove Canvas2D fallback path in WebGLMapPage render loop
+  - [x] Delete the `else` branch (Canvas2D sprite fallback using ObjectRenderer)
+  - [x] If `spriteRenderer` is invalid, redirect to Canvas2D mode
 
-- [ ] Add WebGL capability check on page load
-  - [ ] If WebGL2 not supported, redirect to `/#/map` (Canvas2D)
-  - [ ] Show user-friendly message about fallback
+- [x] Add WebGL capability check on page load
+  - [x] If WebGL2 not supported, redirect to `/#/` (Canvas2D App)
+  - [x] Console warning message about fallback
 
-- [ ] Remove `ObjectRenderer` usage from WebGLMapPage
-  - [ ] All sprite rendering via `WebGLSpriteRenderer`
-  - [ ] No `drawImage` calls for sprites
+- [x] Remove `ObjectRenderer` usage from WebGLMapPage
+  - [x] All sprite rendering via `WebGLSpriteRenderer`
+  - [x] Arrow overlay inlined (no ObjectRenderer dependency)
+  - [x] Removed `objView` variable (no longer needed)
 
-#### 6.2 Keep MapRenderer as Full Canvas2D Mode
+#### 6.2 Keep MapRenderer as Full Canvas2D Mode ✅ ALREADY DONE
 
 **Goal:** MapRenderer stays as the complete Canvas2D implementation
 
-- [ ] MapRenderer continues to use:
-  - [ ] `RenderPipeline` (Canvas2D tile rendering)
-  - [ ] `ObjectRenderer` (Canvas2D sprite rendering)
-  - [ ] `useCompositeScene` (Canvas2D compositing)
+- [x] MapRenderer continues to use:
+  - [x] `RenderPipeline` (Canvas2D tile rendering)
+  - [x] `ObjectRenderer` (Canvas2D sprite rendering)
+  - [x] `useCompositeScene` (Canvas2D compositing)
 
-- [ ] No changes needed - it's already the full Canvas2D path
+- [x] No changes needed - it's already the full Canvas2D path
 
 #### 6.3 Shared Code Between Modes
 
