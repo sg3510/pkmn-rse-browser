@@ -11,7 +11,7 @@ import { ObservableState } from '../engine/GameState';
 import { UpdateCoordinator } from '../engine/UpdateCoordinator';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
-import type { CameraView } from '../utils/camera';
+import type { WorldCameraView } from '../rendering/types';
 
 import {
   type ReflectionState,
@@ -54,12 +54,8 @@ export interface MapRendererHandle {
   getPlayerPosition: () => { tileX: number; tileY: number; direction: string; mapId: string } | null;
 }
 
-export interface WorldCameraView extends CameraView {
-  worldStartTileX: number;
-  worldStartTileY: number;
-  cameraWorldX: number;
-  cameraWorldY: number;
-}
+// WorldCameraView is imported from src/rendering/types.ts (canonical definition)
+export type { WorldCameraView };
 
 const DEBUG_CELL_SCALE = 3;
 const DEBUG_CELL_SIZE = METATILE_SIZE * DEBUG_CELL_SCALE;

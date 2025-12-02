@@ -242,11 +242,11 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Update MapRendererInit to use it
   - [x] **TEST:** Build passes, collision works in both modes
 
-- [ ] **1.2** Create `src/game/findPlayerSpawnPosition.ts`
-  - [ ] Extract spawn logic from WebGLMapPage:1663-1685
-  - [ ] Accept mapData, tilesetPair, warpPoints as params
-  - [ ] Update both files to use it
-  - [ ] **TEST:** Player spawns correctly on map load
+- [x] **1.2** Create `src/game/findPlayerSpawnPosition.ts` ✅ DONE
+  - [x] Extract spawn logic with BehaviorProvider callback pattern
+  - [x] Update WebGLMapPage to use it (provides tileset-based behavior lookup)
+  - [x] Update MapRendererInit to use it (provides renderContext-based behavior lookup)
+  - [x] **TEST:** Player spawns correctly on map load
 
 - [x] **1.3** Create `src/field/ArrowAnimationConstants.ts` ✅ DONE
   - [x] Move `ARROW_FRAME_DURATION_MS` and `ARROW_FRAME_SEQUENCES`
@@ -256,17 +256,40 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Update ObjectRenderer to use it
   - [x] **TEST:** Build passes, arrow animation works
 
-- [ ] **1.4** Standardize viewport config
-  - [ ] Ensure `src/config/viewport.ts` has canonical values
-  - [ ] Update WebGLMapPage to import from config
-  - [ ] Remove inline `VIEWPORT_TILES_WIDE/HIGH` constants
-  - [ ] **TEST:** Viewport dimensions match in both modes
+- [x] **1.4** Standardize viewport config ✅ DONE
+  - [x] `src/config/viewport.ts` already has canonical values
+  - [x] Update WebGLMapPage to import `DEFAULT_VIEWPORT_CONFIG`, `getViewportPixelSize`
+  - [x] Replace inline constants with shared config references
+  - [x] Use `VIEWPORT_PIXEL_SIZE` for pixel calculations
+  - [x] **TEST:** Build passes, viewport dimensions match
 
-- [ ] **1.5** Create `src/game/buildWorldCameraView.ts`
-  - [ ] Extract camera view construction
-  - [ ] Accept camera position, viewport config as params
-  - [ ] Update both files to use it
-  - [ ] **TEST:** Camera view correct in both modes
+- [x] **1.5** Create `src/game/buildWorldCameraView.ts` ✅ DONE
+  - [x] Extract camera view construction with world offset support
+  - [x] Update WebGLMapPage to use it
+  - [x] Consolidated 5 duplicate `WorldCameraView` type definitions
+  - [x] Canonical definition now in `src/rendering/types.ts`
+  - [x] Removed unused `CameraView` imports
+  - [x] **TEST:** Build passes, camera view correct
+
+- [ ] **1.6** Canonical player coordinates (feet baseline)
+  - [ ] Add `src/game/playerCoords.ts` with helpers: `getPlayerFeetY(player)`, `getFeetAdjustedY(worldY)`
+  - [ ] Update WebGLMapPage and MapRenderer paths to use the helper before field-effect sorting
+  - [ ] **TEST:** Tall grass frame 4 sorts above player at rest; switches behind when moving down
+  - **Why:** Both renderers currently pass different Y baselines into shared field-effect logic; this caused the WebGL-only tall grass layering bug. A single helper makes the contract explicit and prevents silent drift.
+
+- [ ] **1.7** Precomputed field-effect layers + sortKeys
+  - [ ] Extend `FieldEffectManager.getEffectsForRendering(playerFeetY?)` to return `layer` + `sortKey`
+  - [ ] Wire WebGL renderer to use returned values (drop local compute)
+  - [ ] Wire Canvas renderer to optional use (keeps two-pass draw but same data)
+  - [ ] **TEST:** WebGL and Canvas show identical grass/sand/ripple ordering
+  - **Why:** Today, ordering is recomputed differently per renderer (WebGL sorts; Canvas draws in fixed passes). Centralizing the sort data in the manager guarantees parity and reduces renderer logic/bugs.
+
+- [ ] **1.8** Regression test for grass ordering
+  - [ ] Add a small headless Jest/Vitest test that builds a tall-grass effect and asserts:
+        - front layer sortKey > player sortKey when idle/facing down
+        - behind layer when `renderBehindPlayer` is true (moving down)
+  - [ ] **TEST:** CI fails if baselines drift
+  - **Why:** The 8px baseline slip would have been caught by a cheap unit test. Locking in the contract with an automated check prevents future regressions as we refactor.
 
 ---
 
@@ -502,10 +525,10 @@ Final unification step.
 | Tile Lookup | ⚠️ Divergent | `TileResolverFactory` vs `resolveTileAt` |
 | Anim Timing | ⚠️ Divergent | `WebGLAnimationManager` vs `useTilesetAnimations` |
 | Map Loading | ⚠️ Divergent | `WorldManager` vs `MapManager` |
-| Spawn Position | ⚠️ Duplicated | Extract to utility |
+| Spawn Position | ✅ Shared | `findPlayerSpawnPosition()` |
 | Collision Setup | ✅ Shared | `setupObjectCollisionChecker()` |
 | Arrow Frame Calc | ✅ Shared | `ArrowAnimationConstants.ts` |
-| Camera View Build | ⚠️ Duplicated | Extract to utility |
+| Camera View Build | ✅ Shared | `buildWorldCameraView()` |
 
 ---
 

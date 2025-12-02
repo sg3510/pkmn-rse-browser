@@ -269,6 +269,90 @@ export interface ReflectionTileGridDebugInfo {
   };
 }
 
+// =============================================================================
+// Priority/Sorting debug types
+// =============================================================================
+
+/**
+ * Debug info for a single sprite's sort key calculation
+ */
+export interface SpriteSortDebugInfo {
+  name: string;           // e.g., "Player", "NPC:PROF_BIRCH", "Grass:tall"
+  type: 'player' | 'npc' | 'fieldEffect' | 'door' | 'arrow' | 'reflection';
+
+  // Position info
+  tileX: number;
+  tileY: number;
+  worldY: number;         // Raw world Y position
+  feetY: number;          // Calculated feet Y used for sorting
+
+  // Sort key components
+  sortKeyY: number;       // Y value fed into calculateSortKey
+  subpriority: number;    // Subpriority (0-255)
+  sortKey: number;        // Final sort key value
+
+  // Additional info
+  renderLayer: string;    // 'withPlayer', 'behindBridge', 'aboveAll', 'bottom', 'top'
+  elevation?: number;
+  priority?: number;      // GBA priority (0-3)
+
+  // For field effects
+  effectType?: string;
+  effectFrame?: number;
+  effectLayer?: 'front' | 'behind';
+  isInFront?: boolean;
+  renderBehindPlayer?: boolean;
+}
+
+/**
+ * Comprehensive priority debug state
+ */
+export interface PriorityDebugInfo {
+  // Player info
+  player: {
+    tileX: number;
+    tileY: number;
+    pixelY: number;           // player.y
+    feetY: number;            // player.y + 32
+    spriteCenter: number;     // player.y + 16 (playerWorldY passed to effects)
+    sortKeyY: number;         // Y value used in sortKey
+    subpriority: number;
+    sortKey: number;
+    elevation: number;
+  } | null;
+
+  // All sprites in render order (after sorting)
+  sortedSprites: SpriteSortDebugInfo[];
+
+  // Field effects breakdown
+  fieldEffects: {
+    total: number;
+    bottom: number;           // Rendering behind player
+    top: number;              // Rendering in front of player
+    effects: SpriteSortDebugInfo[];
+  };
+
+  // NPCs breakdown
+  npcs: {
+    total: number;
+    withPlayer: number;       // Y-sorted with player
+    behindBridge: number;     // Low priority (P2/P3)
+    aboveAll: number;         // High priority (P0)
+    list: SpriteSortDebugInfo[];
+  };
+
+  // Sort key comparison helper
+  comparison: {
+    playerSortKey: number;
+    nearbySprites: Array<{
+      name: string;
+      sortKey: number;
+      diff: number;           // sortKey - playerSortKey
+      rendersAfterPlayer: boolean;
+    }>;
+  } | null;
+}
+
 /**
  * Combined WebGL debug state
  */
@@ -278,4 +362,5 @@ export interface WebGLDebugState {
   renderStats: RenderStatsDebugInfo | null;
   shimmer?: ShimmerDebugInfo | null;
   reflectionTileGrid?: ReflectionTileGridDebugInfo | null;
+  priority?: PriorityDebugInfo | null;
 }

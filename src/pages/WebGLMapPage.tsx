@@ -56,6 +56,7 @@ import {
 } from '../game/worldManagerEvents';
 import { ObjectEventManager } from '../game/ObjectEventManager';
 import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
+import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
@@ -63,8 +64,8 @@ import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import { METATILE_SIZE } from '../utils/mapLoader';
-import { SpawnPositionFinder } from '../utils/spawnPositionFinder';
-import { isSurfableBehavior } from '../utils/metatileBehaviors';
+import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
+import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
   computeReflectionState,
@@ -93,6 +94,8 @@ import {
   type WebGLDebugState,
   type PlayerDebugInfo,
   type ReflectionTileGridDebugInfo,
+  type PriorityDebugInfo,
+  type SpriteSortDebugInfo,
 } from '../components/debug';
 import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { getNPCRenderLayer } from '../utils/elevationPriority';
@@ -122,9 +125,10 @@ type RenderStats = {
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
-// Viewport configuration
-const VIEWPORT_TILES_WIDE = 20;
-const VIEWPORT_TILES_HIGH = 20;
+// Viewport configuration (shared with MapRenderer)
+const VIEWPORT_TILES_WIDE = DEFAULT_VIEWPORT_CONFIG.tilesWide;
+const VIEWPORT_TILES_HIGH = DEFAULT_VIEWPORT_CONFIG.tilesHigh;
+const VIEWPORT_PIXEL_SIZE = getViewportPixelSize();
 
 export function WebGLMapPage() {
   // Canvas refs - we use two canvases: hidden WebGL and visible 2D
@@ -239,6 +243,7 @@ export function WebGLMapPage() {
   const [debugOptions, setDebugOptions] = useState<DebugOptions>(DEFAULT_DEBUG_OPTIONS);
   const [playerDebugInfo, setPlayerDebugInfo] = useState<PlayerDebugInfo | null>(null);
   const [reflectionTileGridDebug, setReflectionTileGridDebug] = useState<ReflectionTileGridDebugInfo | null>(null);
+  const [priorityDebugInfo, setPriorityDebugInfo] = useState<PriorityDebugInfo | null>(null);
 
   // Ref for debug options so render loop can access current value
   const debugOptionsRef = useRef<DebugOptions>(debugOptions);
@@ -262,7 +267,8 @@ export function WebGLMapPage() {
     },
     shimmer: getGlobalShimmer().getDebugInfo(),
     reflectionTileGrid: reflectionTileGridDebug,
-  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, reflectionTileGridDebug]);
+    priority: priorityDebugInfo,
+  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, reflectionTileGridDebug, priorityDebugInfo]);
 
   // Debug state for the panel - reads from refs updated during render loop
   const debugState = useMemo<DebugState>(() => {
@@ -941,8 +947,8 @@ export function WebGLMapPage() {
         camera.followTarget(player);
       }
 
-      const viewportWidth = VIEWPORT_TILES_WIDE * METATILE_SIZE;
-      const viewportHeight = VIEWPORT_TILES_HIGH * METATILE_SIZE;
+      const viewportWidth = VIEWPORT_PIXEL_SIZE.width;
+      const viewportHeight = VIEWPORT_PIXEL_SIZE.height;
 
       if (width > 0 && height > 0 && camera) {
         // Ensure display canvas is sized to viewport
@@ -955,13 +961,10 @@ export function WebGLMapPage() {
 
         // Get camera view for rendering
         const camView = camera.getView(1);  // +1 tile for sub-tile scrolling
-        const cameraX = camView.x;
-        const cameraY = camView.y;
-
-        const view: WorldCameraView = {
-          // CameraView base fields
-          cameraX,
-          cameraY,
+        // Build world camera view using shared utility
+        const view = buildWorldCameraView({
+          cameraX: camView.x,
+          cameraY: camView.y,
           startTileX: camView.startTileX,
           startTileY: camView.startTileY,
           subTileOffsetX: camView.subTileOffsetX,
@@ -970,12 +973,7 @@ export function WebGLMapPage() {
           tilesHigh: camView.tilesHigh,
           pixelWidth: camView.tilesWide * METATILE_SIZE,
           pixelHeight: camView.tilesHigh * METATILE_SIZE,
-          // WorldCameraView specific fields
-          worldStartTileX: camView.startTileX,
-          worldStartTileY: camView.startTileY,
-          cameraWorldX: cameraX,
-          cameraWorldY: cameraY,
-        };
+        });
 
         // Get player elevation for layer splitting (same as useCompositeScene)
         const playerElevation = player && playerLoadedRef.current ? player.getElevation() : 0;
@@ -1014,7 +1012,7 @@ export function WebGLMapPage() {
 
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
-          const playerWorldY = player.y + 16; // Player feet Y position
+          const playerWorldY = player.y + 16; // Player sprite center Y (NOT feet - feet is player.y + 32)
           const currentSnapshot = worldSnapshotRef.current;
 
           // Render player reflection (behind player, on water/ice tiles)
@@ -1061,12 +1059,8 @@ export function WebGLMapPage() {
           if (spriteRenderer && spriteRenderer.isValid()) {
             const allSprites: SpriteInstance[] = [];
 
-            // Build WorldCameraView for sprite renderer
-            const spriteView: WorldCameraView = {
-              ...view,
-              cameraWorldX: cameraX,
-              cameraWorldY: cameraY,
-            };
+            // Use WorldCameraView for sprite renderer (already built above)
+            const spriteView = view;
             // Store for priority-based rendering (low priority before TopBelow, P0 after TopAbove)
             prioritySpriteView = spriteView;
 
@@ -1327,6 +1321,122 @@ export function WebGLMapPage() {
 
             // Sort all sprites by sortKey for proper Y-ordering
             allSprites.sort((a, b) => a.sortKey - b.sortKey);
+
+            // Collect priority debug info if debug panel is enabled
+            if (debugOptionsRef.current.enabled && player) {
+              const playerFeetY = player.y + 32;
+              const playerSortKeyY = player.y + 32;
+              const playerSubpriority = 128;
+              const playerSortKey = calculateSortKey(playerSortKeyY, playerSubpriority);
+
+              // Build sorted sprites list with debug info
+              const sortedSpritesDebug: SpriteSortDebugInfo[] = [];
+              const fieldEffectsDebug: SpriteSortDebugInfo[] = [];
+              const npcsDebug: SpriteSortDebugInfo[] = [];
+              let npcWithPlayer = 0, npcBehindBridge = 0, npcAboveAll = 0;
+              let effectsBottom = 0, effectsTop = 0;
+
+              // Process all sprites - extract actual position data from SpriteInstance
+              for (const sprite of allSprites) {
+                // Determine sprite type and name from atlas name or other properties
+                let name = sprite.atlasName || 'unknown';
+                let type: SpriteSortDebugInfo['type'] = 'npc';
+                let renderLayer = 'withPlayer';
+
+                // Use actual sprite world position
+                const spriteWorldY = sprite.worldY;
+                const spriteFeetY = sprite.worldY + sprite.height; // feet at bottom of sprite
+                const spriteTileX = Math.floor((sprite.worldX + sprite.width / 2) / 16);
+                const spriteTileY = Math.floor(spriteFeetY / 16);
+
+                // Extract info based on atlas name patterns
+                // Note: NPC atlas names use 'npc-' prefix (with hyphen)
+                if (name.includes('player_') || name.includes('player-')) {
+                  type = 'player';
+                  name = 'Player';
+                } else if (name.includes('grass') || name.includes('sand') || name.includes('ripple') || name.includes('splash')) {
+                  type = 'fieldEffect';
+                  renderLayer = sprite.sortKey < playerSortKey ? 'bottom' : 'top';
+                  if (sprite.sortKey < playerSortKey) effectsBottom++; else effectsTop++;
+                } else if (sprite.isReflection) {
+                  type = 'reflection';
+                  name = `Refl: ${name.replace(/npc[-_]/, '').replace('OBJ_EVENT_GFX_', '')}`;
+                } else if (name.startsWith('npc-') || name.startsWith('npc_')) {
+                  type = 'npc';
+                  name = name.replace(/npc[-_]/, '').replace('OBJ_EVENT_GFX_', '');
+                  npcWithPlayer++;
+                }
+
+                const debugInfo: SpriteSortDebugInfo = {
+                  name: name.length > 20 ? name.slice(0, 17) + '...' : name,
+                  type,
+                  tileX: spriteTileX,
+                  tileY: spriteTileY,
+                  worldY: spriteWorldY,
+                  feetY: spriteFeetY,
+                  sortKeyY: (sprite.sortKey >> 8), // Extract Y from sortKey
+                  subpriority: sprite.sortKey & 0xFF,
+                  sortKey: sprite.sortKey,
+                  renderLayer,
+                };
+
+                sortedSpritesDebug.push(debugInfo);
+                if (type === 'fieldEffect') fieldEffectsDebug.push(debugInfo);
+                if (type === 'npc') npcsDebug.push(debugInfo);
+              }
+
+              // Count low priority and P0 NPCs
+              for (const sprite of lowPrioritySprites) {
+                if (!sprite.isReflection) npcBehindBridge++;
+              }
+              for (const sprite of priority0Sprites) {
+                if (!sprite.isReflection) npcAboveAll++;
+              }
+
+              // Build comparison list (nearby sprites)
+              const nearbySprites = sortedSpritesDebug
+                .filter(s => s.type !== 'reflection')
+                .map(s => ({
+                  name: s.name,
+                  sortKey: s.sortKey,
+                  diff: s.sortKey - playerSortKey,
+                  rendersAfterPlayer: s.sortKey > playerSortKey,
+                }))
+                .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))
+                .slice(0, 15);
+
+              setPriorityDebugInfo({
+                player: {
+                  tileX: player.tileX,
+                  tileY: player.tileY,
+                  pixelY: player.y,
+                  feetY: playerFeetY,
+                  spriteCenter: player.y + 16,
+                  sortKeyY: playerSortKeyY,
+                  subpriority: playerSubpriority,
+                  sortKey: playerSortKey,
+                  elevation: player.getElevation(),
+                },
+                sortedSprites: sortedSpritesDebug,
+                fieldEffects: {
+                  total: fieldEffectsDebug.length,
+                  bottom: effectsBottom,
+                  top: effectsTop,
+                  effects: fieldEffectsDebug,
+                },
+                npcs: {
+                  total: npcsDebug.length + npcBehindBridge + npcAboveAll,
+                  withPlayer: npcWithPlayer,
+                  behindBridge: npcBehindBridge,
+                  aboveAll: npcAboveAll,
+                  list: npcsDebug,
+                },
+                comparison: {
+                  playerSortKey,
+                  nearbySprites,
+                },
+              });
+            }
 
             // Split sprites into reflection-layer sprites and normal sprites
             // Reflection layer includes:
@@ -1643,33 +1753,21 @@ export function WebGLMapPage() {
           // Set up object collision checker (shared utility)
           setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
-          // Spawn player using smart spawn finder (finds optimal walkable position)
+          // Spawn player using shared spawn finder utility
           const anchorMap = snapshot.maps.find(m => m.entry.id === entry.id) ?? snapshot.maps[0];
           const tilesetPairIndex = snapshot.mapTilesetPairIndex.get(anchorMap.entry.id);
           const tilesetPair = tilesetPairIndex !== undefined ? snapshot.tilesetPairs[tilesetPairIndex] : null;
-          // Extract warp points for exit reachability (important for indoor maps)
-          const warpPoints = anchorMap.warpEvents?.map(w => ({ x: w.x, y: w.y })) ?? [];
-          const spawnFinder = new SpawnPositionFinder();
-          const spawnResult = spawnFinder.findSpawnPosition(
-            anchorMap.mapData.width,
-            anchorMap.mapData.height,
-            (x, y) => {
-              const index = y * anchorMap.mapData.width + x;
-              const tile = anchorMap.mapData.layout[index];
-              if (!tile || tile.collision !== 0) return false;
-              // Also check for water tiles (require surf to traverse)
-              if (tilesetPair) {
-                const metatileId = tile.metatileId;
-                const attrs = metatileId < 512
-                  ? tilesetPair.primaryAttributes[metatileId]
-                  : tilesetPair.secondaryAttributes[metatileId - 512];
-                if (attrs && isSurfableBehavior(attrs.behavior)) {
-                  return false;
-                }
-              }
-              return true;
-            },
-            warpPoints
+
+          const spawnResult = findPlayerSpawnPosition(
+            anchorMap.mapData,
+            anchorMap.warpEvents,
+            (_x, _y, metatileId) => {
+              if (!tilesetPair) return undefined;
+              const attrs = metatileId < 512
+                ? tilesetPair.primaryAttributes[metatileId]
+                : tilesetPair.secondaryAttributes[metatileId - 512];
+              return attrs?.behavior;
+            }
           );
           player.setPosition(spawnResult.x, spawnResult.y);
         }
@@ -1759,8 +1857,8 @@ export function WebGLMapPage() {
             ref={displayCanvasRef}
             className="webgl-map-canvas"
             style={{
-              width: VIEWPORT_TILES_WIDE * METATILE_SIZE * zoom,
-              height: VIEWPORT_TILES_HIGH * METATILE_SIZE * zoom,
+              width: VIEWPORT_PIXEL_SIZE.width * zoom,
+              height: VIEWPORT_PIXEL_SIZE.height * zoom,
               imageRendering: 'pixelated',
             }}
           />

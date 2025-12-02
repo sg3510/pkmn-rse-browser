@@ -20,7 +20,6 @@ import type { TilesetRuntime, RenderContext, ReflectionState } from './map/types
 import type { DebugOptions, DebugState } from './debug';
 import type { EngineFrameResult, RunUpdateCallbacks } from '../hooks/useRunUpdate';
 import type { WarpExecutionCallbacks } from '../hooks/useWarpExecution';
-import type { CameraView } from '../utils/camera';
 import { resolveTileAt, isVerticalObject, type WarpTrigger, type ResolvedTile } from './map/utils';
 import { applyBehaviorOverrides } from '../utils/worldUtils';
 import type { MapManager } from '../services/MapManager';
@@ -29,16 +28,12 @@ import type { WarpHandler } from '../field/WarpHandler';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
 import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import type { DoorWarpRequest } from '../game/PlayerController';
-import { SpawnPositionFinder } from '../utils/spawnPositionFinder';
-import { isSurfableBehavior } from '../utils/metatileBehaviors';
+import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
 import type { CardinalDirection } from '../field/types';
+import type { WorldCameraView } from '../rendering/types';
 
-export interface WorldCameraView extends CameraView {
-  worldStartTileX: number;
-  worldStartTileY: number;
-  cameraWorldX: number;
-  cameraWorldY: number;
-}
+// WorldCameraView is imported from src/rendering/types.ts (canonical definition)
+export type { WorldCameraView };
 
 export interface InitRefs {
   renderGenerationRef: React.MutableRefObject<number>;
@@ -333,32 +328,21 @@ export async function initializeGame({
       }
     }
 
-    // Initialize player position using smart spawn finder
+    // Initialize player position using shared spawn finder utility
     const anchor = world.maps.find((m) => m.entry.id === mapId) ?? world.maps[0];
     if (!anchor) {
       throw new Error('Failed to determine anchor map for warp setup');
     }
-    const spawnFinder = new SpawnPositionFinder();
     const renderCtxForSpawn = refs.renderContextRef.current;
-    // Extract warp points for exit reachability (important for indoor maps)
-    const warpPoints = anchor.warpEvents?.map(w => ({ x: w.x, y: w.y })) ?? [];
-    const spawnResult = spawnFinder.findSpawnPosition(
-      anchor.mapData.width,
-      anchor.mapData.height,
-      (x, y) => {
-        const index = y * anchor.mapData.width + x;
-        const tile = anchor.mapData.layout[index];
-        if (!tile || tile.collision !== 0) return false;
-        // Also check for water tiles (require surf to traverse)
-        if (renderCtxForSpawn) {
-          const resolved = resolveTileAt(renderCtxForSpawn, x, y);
-          if (resolved?.attributes && isSurfableBehavior(resolved.attributes.behavior)) {
-            return false;
-          }
-        }
-        return true;
-      },
-      warpPoints
+
+    const spawnResult = findPlayerSpawnPosition(
+      anchor.mapData,
+      anchor.warpEvents,
+      (x, y, _metatileId) => {
+        if (!renderCtxForSpawn) return undefined;
+        const resolved = resolveTileAt(renderCtxForSpawn, x, y);
+        return resolved?.attributes?.behavior;
+      }
     );
     player.setPositionAndDirection(spawnResult.x, spawnResult.y, 'down');
 

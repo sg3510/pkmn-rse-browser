@@ -13,7 +13,10 @@
  */
 
 import type { SaveResult, SaveData } from '../save';
-import type { CameraView } from '../utils/camera';
+import type { WorldCameraView } from '../rendering/types';
+
+// Re-export WorldCameraView for backwards compatibility
+export type { WorldCameraView };
 
 /**
  * Props for the MapRenderer component
@@ -106,19 +109,4 @@ export interface MapDebugOptions {
   showNpcDebug?: boolean;
 }
 
-/**
- * Extended camera view with world coordinates
- *
- * Adds world-space offsets to the base CameraView for positioning
- * in the multi-map world coordinate system.
- */
-export interface WorldCameraView extends CameraView {
-  /** Starting tile X in world coordinates */
-  worldStartTileX: number;
-  /** Starting tile Y in world coordinates */
-  worldStartTileY: number;
-  /** Camera X position in world pixel coordinates */
-  cameraWorldX: number;
-  /** Camera Y position in world pixel coordinates */
-  cameraWorldY: number;
-}
+// WorldCameraView interface moved to src/rendering/types.ts

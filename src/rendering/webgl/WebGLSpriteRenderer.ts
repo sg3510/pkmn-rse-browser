@@ -255,44 +255,61 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Split sprites into normal and reflection groups by atlas
-    // We need separate passes because they use different shaders
-    const atlasGroups = this.groupByAtlas(sprites);
+    // IMPORTANT: Render sprites in INPUT ORDER to preserve Y-sorting!
+    // Previously we grouped by atlas which destroyed the sort order.
+    // Now we batch CONSECUTIVE sprites with the same atlas + shader type.
+    // This preserves Y-sort order while still batching when possible.
 
-    for (const [atlasName, atlasSprites] of atlasGroups) {
-      const sheet = this.spriteSheets.get(atlasName);
+    let batchStart = 0;
+    while (batchStart < sprites.length) {
+      const firstSprite = sprites[batchStart];
+      const firstAtlas = firstSprite.atlasName;
+      const firstIsReflectionLayer = firstSprite.isReflection || firstSprite.isReflectionLayer;
+
+      // Find the end of this batch (consecutive sprites with same atlas and shader type)
+      let batchEnd = batchStart + 1;
+      while (batchEnd < sprites.length) {
+        const sprite = sprites[batchEnd];
+        const sameAtlas = sprite.atlasName === firstAtlas;
+        const sameShader = (sprite.isReflection || sprite.isReflectionLayer) === firstIsReflectionLayer;
+        if (!sameAtlas || !sameShader) break;
+        batchEnd++;
+      }
+
+      // Get the sprite sheet for this batch
+      const sheet = this.spriteSheets.get(firstAtlas);
       if (!sheet) {
-        console.warn(`Sprite sheet not found: ${atlasName}`);
+        console.warn(`Sprite sheet not found: ${firstAtlas}`);
+        batchStart = batchEnd;
         continue;
       }
 
-      // Split into normal sprites and reflection-layer sprites
-      // Reflection layer includes:
-      // - Reflections (isReflection=true): use shimmer from shimmerScale
-      // - Water effects (isReflectionLayer=true): no shimmer (shimmerScale=undefined → 1.0)
-      // Both use the reflection shader for water mask clipping.
-      const normalSprites = atlasSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
-      const reflectionLayerSprites = atlasSprites.filter((s) => s.isReflection || s.isReflectionLayer);
+      // Extract the batch
+      const batch = sprites.slice(batchStart, batchEnd);
 
-      // Render normal sprites with standard shader
-      if (normalSprites.length > 0 && this.spriteProgram) {
-        gl.useProgram(this.spriteProgram.program);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
-        this.setUniforms(this.spriteProgram, view, sheet);
-        this.renderSpriteBatch(normalSprites, view, sheet);
+      // Render with appropriate shader
+      if (firstIsReflectionLayer) {
+        // Reflection-layer sprites (reflections + water effects) use reflection shader
+        if (this.reflectionProgram) {
+          gl.useProgram(this.reflectionProgram.program);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
+          this.setUniforms(this.reflectionProgram, view, sheet);
+          this.setReflectionUniforms(this.reflectionProgram, sheet);
+          this.renderSpriteBatch(batch, view, sheet);
+        }
+      } else {
+        // Normal sprites use standard shader
+        if (this.spriteProgram) {
+          gl.useProgram(this.spriteProgram.program);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
+          this.setUniforms(this.spriteProgram, view, sheet);
+          this.renderSpriteBatch(batch, view, sheet);
+        }
       }
 
-      // Render reflection-layer sprites with reflection shader (water mask)
-      // Shimmer is controlled per-sprite: reflections have shimmerScale, water effects don't
-      if (reflectionLayerSprites.length > 0 && this.reflectionProgram) {
-        gl.useProgram(this.reflectionProgram.program);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
-        this.setUniforms(this.reflectionProgram, view, sheet);
-        this.setReflectionUniforms(this.reflectionProgram, sheet);
-        this.renderSpriteBatch(reflectionLayerSprites, view, sheet);
-      }
+      batchStart = batchEnd;
     }
   }
 
@@ -467,24 +484,6 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     // Padding to 64 bytes (56-64 unused, reserved for future expansion)
 
     gl.bindVertexArray(null);
-  }
-
-  /**
-   * Group sprites by atlas name for efficient batching
-   */
-  private groupByAtlas(sprites: SpriteInstance[]): Map<string, SpriteInstance[]> {
-    const groups = new Map<string, SpriteInstance[]>();
-
-    for (const sprite of sprites) {
-      let group = groups.get(sprite.atlasName);
-      if (!group) {
-        group = [];
-        groups.set(sprite.atlasName, group);
-      }
-      group.push(sprite);
-    }
-
-    return groups;
   }
 
   /**

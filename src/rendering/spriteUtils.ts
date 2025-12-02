@@ -256,9 +256,20 @@ export function createFieldEffectSprite(
   const atlasY = 0;
 
   // Sort key: lower values render first (behind)
-  // Effects behind player get lower subpriority
-  const subpriority = isInFront ? 64 : 0;
-  const sortKey = calculateSortKey(effect.worldY, subpriority);
+  // Player sortKey uses player.y + 32 (feet position)
+  // playerWorldY passed here is player.y + 16 (sprite center)
+  // Effect worldY is at tile center (tileY*16+8)
+  //
+  // The Y difference shifts sortKey significantly, overwhelming subpriority.
+  // So for effects that should render IN FRONT of player, we need to use a Y
+  // that's >= player's sortKey Y to ensure proper ordering.
+  //
+  // For 'front' effects: use playerWorldY + 16 (which equals player.y + 32, same as player feet sortKey)
+  // Then use higher subpriority (192) to render AFTER player (128)
+  // For 'behind' effects: use effect.worldY with subpriority 0
+  const sortKeyY = isInFront ? (playerWorldY + 16) : effect.worldY;
+  const subpriority = isInFront ? 192 : 0;
+  const sortKey = calculateSortKey(sortKeyY, subpriority);
 
   // Water surface effects (puddle_splash, water_ripple) render in the reflection layer
   // between BG0 and BG1, just like reflections. They use water mask clipping but

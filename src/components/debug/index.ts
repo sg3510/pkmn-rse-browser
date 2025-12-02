@@ -28,6 +28,9 @@ export type {
   // Reflection tile debug types
   ReflectionTileDebugInfo,
   ReflectionTileGridDebugInfo,
+  // Priority debug types
+  SpriteSortDebugInfo,
+  PriorityDebugInfo,
 } from './types';
 export { DEFAULT_DEBUG_OPTIONS } from './types';
 

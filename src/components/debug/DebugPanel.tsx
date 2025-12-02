@@ -16,6 +16,7 @@ import type {
   ObjectsAtTileInfo,
   PlayerDebugInfo,
   WebGLDebugState,
+  PriorityDebugInfo,
 } from './types';
 import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
@@ -716,12 +717,225 @@ const TileTab: React.FC<{
   </>
 );
 
-// WebGL-specific debug tab
-const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
-  const { mapStitching, warp, renderStats, shimmer, reflectionTileGrid } = webglState;
+// Priority Debug Panel - Shows all sprite sort keys for debugging Y-sorting issues
+const PriorityDebugPanel: React.FC<{ priority: PriorityDebugInfo }> = ({ priority }) => {
+  const { player, fieldEffects, npcs, comparison, sortedSprites } = priority;
+
+  // Color code based on sort key relative to player
+  const getSortKeyColor = (sortKey: number): string => {
+    if (!player) return '#888';
+    const diff = sortKey - player.sortKey;
+    if (diff < 0) return '#4af'; // Blue = renders before player (behind)
+    if (diff > 0) return '#fa4'; // Orange = renders after player (in front)
+    return '#ff0'; // Yellow = same as player
+  };
 
   return (
     <>
+      {/* Player Sort Key Info */}
+      {player && (
+        <Section title="Player Sort Key" collapsible>
+          <div style={{
+            padding: 8,
+            backgroundColor: '#2a3a2a',
+            borderRadius: 4,
+            borderLeft: '3px solid #4f4',
+            fontSize: '10px',
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+              <span style={{ color: '#888' }}>Tile:</span>
+              <span>({player.tileX}, {player.tileY})</span>
+              <span style={{ color: '#888' }}>player.y:</span>
+              <span>{player.pixelY}</span>
+              <span style={{ color: '#888' }}>Sprite Center (y+16):</span>
+              <span>{player.spriteCenter}</span>
+              <span style={{ color: '#888' }}>Feet Y (y+32):</span>
+              <span style={{ color: '#4f4', fontWeight: 'bold' }}>{player.feetY}</span>
+              <span style={{ color: '#888' }}>SortKey Y:</span>
+              <span>{player.sortKeyY}</span>
+              <span style={{ color: '#888' }}>Subpriority:</span>
+              <span>{player.subpriority}</span>
+              <span style={{ color: '#888' }}>Sort Key:</span>
+              <span style={{ color: '#ff0', fontWeight: 'bold' }}>{player.sortKey}</span>
+              <span style={{ color: '#888' }}>Elevation:</span>
+              <span>{player.elevation}</span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: '9px', color: '#666' }}>
+              Formula: sortKey = (feetY &lt;&lt; 8) | subpriority = ({player.feetY} &lt;&lt; 8) | {player.subpriority}
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {/* Sort Key Comparison */}
+      {comparison && comparison.nearbySprites.length > 0 && (
+        <Section title={`Nearby Sprites (${comparison.nearbySprites.length})`} collapsible>
+          <div style={{ fontSize: '9px', marginBottom: 8, color: '#888' }}>
+            🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {comparison.nearbySprites.map((sprite, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '4px 6px',
+                  backgroundColor: i % 2 === 0 ? '#2a2a2a' : '#252525',
+                  fontSize: '9px',
+                  borderLeft: `3px solid ${getSortKeyColor(sprite.sortKey)}`,
+                }}
+              >
+                <span style={{ color: '#fff', flex: 1 }}>{sprite.name}</span>
+                <span style={{ color: getSortKeyColor(sprite.sortKey), marginRight: 8 }}>
+                  {sprite.sortKey}
+                </span>
+                <span style={{ color: sprite.diff >= 0 ? '#fa4' : '#4af', width: 60, textAlign: 'right' }}>
+                  {sprite.diff >= 0 ? '+' : ''}{sprite.diff}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Field Effects */}
+      {fieldEffects.effects.length > 0 && (
+        <Section title={`Field Effects (${fieldEffects.total})`} collapsible defaultCollapsed>
+          <div style={{ fontSize: '9px', marginBottom: 6 }}>
+            Bottom (behind): {fieldEffects.bottom} | Top (front): {fieldEffects.top}
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {fieldEffects.effects.map((effect, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: 6,
+                  backgroundColor: effect.isInFront ? '#2a3a2a' : '#2a2a3a',
+                  borderRadius: 4,
+                  marginBottom: 4,
+                  borderLeft: `3px solid ${effect.isInFront ? '#4f4' : '#44f'}`,
+                  fontSize: '9px',
+                }}
+              >
+                <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                  {effect.effectType} frame {effect.effectFrame}
+                  <span style={{ color: effect.isInFront ? '#4f4' : '#44f', marginLeft: 8 }}>
+                    [{effect.effectLayer}]
+                  </span>
+                  {effect.renderBehindPlayer && (
+                    <span style={{ color: '#f88', marginLeft: 4 }}>(renderBehind)</span>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', color: '#888' }}>
+                  <span>Tile:</span>
+                  <span style={{ color: '#fff' }}>({effect.tileX}, {effect.tileY})</span>
+                  <span>WorldY:</span>
+                  <span style={{ color: '#fff' }}>{effect.worldY}</span>
+                  <span>SortKeyY:</span>
+                  <span style={{ color: '#fff' }}>{effect.sortKeyY}</span>
+                  <span>Subpriority:</span>
+                  <span style={{ color: '#fff' }}>{effect.subpriority}</span>
+                  <span>SortKey:</span>
+                  <span style={{ color: getSortKeyColor(effect.sortKey) }}>{effect.sortKey}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* NPCs */}
+      {npcs.list.length > 0 && (
+        <Section title={`NPCs (${npcs.total})`} collapsible defaultCollapsed>
+          <div style={{ fontSize: '9px', marginBottom: 6 }}>
+            With Player: {npcs.withPlayer} | Behind Bridge: {npcs.behindBridge} | Above All: {npcs.aboveAll}
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {npcs.list.map((npc, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: 6,
+                  backgroundColor: '#2a2a3a',
+                  borderRadius: 4,
+                  marginBottom: 4,
+                  borderLeft: `3px solid ${npc.renderLayer === 'aboveAll' ? '#f4a' : npc.renderLayer === 'behindBridge' ? '#888' : '#4af'}`,
+                  fontSize: '9px',
+                }}
+              >
+                <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                  {npc.name}
+                  <span style={{ color: '#888', marginLeft: 8 }}>
+                    [{npc.renderLayer}] P{npc.priority}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', color: '#888' }}>
+                  <span>Tile:</span>
+                  <span style={{ color: '#fff' }}>({npc.tileX}, {npc.tileY})</span>
+                  <span>FeetY:</span>
+                  <span style={{ color: '#fff' }}>{npc.feetY}</span>
+                  <span>SortKeyY:</span>
+                  <span style={{ color: '#fff' }}>{npc.sortKeyY}</span>
+                  <span>Elevation:</span>
+                  <span style={{ color: '#fff' }}>{npc.elevation}</span>
+                  <span>SortKey:</span>
+                  <span style={{ color: getSortKeyColor(npc.sortKey) }}>{npc.sortKey}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* All Sorted Sprites (render order) */}
+      {sortedSprites.length > 0 && (
+        <Section title={`Render Order (${sortedSprites.length} sprites)`} collapsible defaultCollapsed>
+          <div style={{ fontSize: '9px', marginBottom: 6, color: '#888' }}>
+            First = renders first (behind) | Last = renders last (in front)
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {sortedSprites.map((sprite, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '3px 6px',
+                  backgroundColor: sprite.type === 'player' ? '#3a3a2a' : i % 2 === 0 ? '#2a2a2a' : '#252525',
+                  fontSize: '9px',
+                  borderLeft: sprite.type === 'player' ? '3px solid #ff0' : `3px solid ${getSortKeyColor(sprite.sortKey)}`,
+                }}
+              >
+                <span style={{ color: '#666', width: 20 }}>{i}</span>
+                <span style={{ color: sprite.type === 'player' ? '#ff0' : '#fff', flex: 1 }}>
+                  {sprite.name}
+                </span>
+                <span style={{ color: '#888', marginRight: 8 }}>{sprite.renderLayer}</span>
+                <span style={{ color: getSortKeyColor(sprite.sortKey) }}>{sprite.sortKey}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
+  );
+};
+
+// WebGL-specific debug tab
+const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
+  const { mapStitching, warp, renderStats, shimmer, reflectionTileGrid, priority } = webglState;
+
+  return (
+    <>
+      {/* Priority Debug - Most important for sorting issues */}
+      {priority && (
+        <Section title="🔢 Priority/Sorting Debug" collapsible>
+          <PriorityDebugPanel priority={priority} />
+        </Section>
+      )}
+
       {/* Reflection Tile Grid - Critical for debugging reflection bugs */}
       {reflectionTileGrid && (
         <Section title="Reflection Tile Grid (5×5)">
@@ -1047,27 +1261,44 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
   );
 };
 
-// Reusable components
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
-  title,
-  children,
-}) => (
-  <div style={{ marginBottom: 16 }}>
-    <div
-      style={{
-        fontSize: '10px',
-        fontWeight: 'bold',
-        color: '#888',
-        textTransform: 'uppercase',
-        marginBottom: 8,
-        letterSpacing: '0.5px',
-      }}
-    >
-      {title}
+// Reusable components - Collapsible Section
+const Section: React.FC<{
+  title: string;
+  children: React.ReactNode;
+  defaultCollapsed?: boolean;
+  collapsible?: boolean;
+}> = ({ title, children, defaultCollapsed = false, collapsible = false }) => {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          fontSize: '10px',
+          fontWeight: 'bold',
+          color: '#888',
+          textTransform: 'uppercase',
+          marginBottom: collapsed ? 0 : 8,
+          letterSpacing: '0.5px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          cursor: collapsible ? 'pointer' : 'default',
+          userSelect: 'none',
+        }}
+        onClick={() => collapsible && setCollapsed(!collapsed)}
+      >
+        {collapsible && (
+          <span style={{ fontSize: '8px', color: '#666' }}>
+            {collapsed ? '▶' : '▼'}
+          </span>
+        )}
+        {title}
+      </div>
+      {!collapsed && children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 const Checkbox: React.FC<{
   label: string;
