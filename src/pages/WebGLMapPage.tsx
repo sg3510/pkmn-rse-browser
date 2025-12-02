@@ -98,14 +98,13 @@ import {
   type SpriteSortDebugInfo,
 } from '../components/debug';
 import { isNonAnimatedDoorBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
-import { getNPCRenderLayer } from '../utils/elevationPriority';
 import {
   getPlayerFeetY,
   getPlayerCenterY,
   getPlayerSortKey,
-  getNPCSortKey,
   DEFAULT_SPRITE_SUBPRIORITY,
 } from '../game/playerCoords';
+import { buildSpriteBatches, type SortableSpriteInfo } from '../rendering/SpriteBatcher';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
   handleDoorEntryAction,
@@ -1163,21 +1162,8 @@ export function WebGLMapPage() {
               }
             }
 
-            // Add field effects (bottom and top layers)
-            if (fieldSpritesLoadedRef.current) {
-              const effects = player.getGrassEffectManager().getEffectsForRendering();
-              for (const effect of effects) {
-                // Try bottom layer
-                const bottomSprite = createFieldEffectSprite(effect, playerWorldY, 'bottom');
-                if (bottomSprite) allSprites.push(bottomSprite);
-                // Try top layer
-                const topSprite = createFieldEffectSprite(effect, playerWorldY, 'top');
-                if (topSprite) allSprites.push(topSprite);
-              }
-            }
-
-            // Add NPC sprites and reflections
-            // Priority 0 NPCs (elevation 13-14) render ABOVE TopAbove layer
+            // === Use SpriteBatcher for unified sprite sorting ===
+            // This ensures WebGL and Canvas2D use identical sorting logic
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
             const items = objectEventManagerRef.current.getVisibleItemBalls();
             const snapshot = worldSnapshotRef.current;
@@ -1185,11 +1171,26 @@ export function WebGLMapPage() {
             // Update refs for debug panel
             visibleNPCsRef.current = npcs;
             visibleItemsRef.current = items;
-            // priority0Sprites is hoisted to outer scope for rendering after TopAbove
 
-            for (const npc of npcs) {
+            // Get field effects for sprite batching
+            const fieldEffects = fieldSpritesLoadedRef.current
+              ? player.getGrassEffectManager().getEffectsForRendering()
+              : [];
+
+            // Build sorted sprite batches using shared utility
+            const spriteBatches = buildSpriteBatches(player, npcs, fieldEffects, {
+              includePlayerShadow: player.showShadow,
+              playerHidden: playerHiddenRef.current,
+            });
+
+            // Helper to create NPC sprite with reflections and grass effects
+            const createNPCWithExtras = (
+              info: SortableSpriteInfo,
+              targetArray: SpriteInstance[]
+            ) => {
+              const npc = info.npc!;
               const atlasName = getNPCAtlasName(npc.graphicsId);
-              if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+              if (!spriteRenderer.hasSpriteSheet(atlasName)) return;
 
               // Get tile metadata for grass/reflection detection
               const tileMeta = snapshot ? getReflectionMetaFromSnapshot(
@@ -1199,131 +1200,96 @@ export function WebGLMapPage() {
                 npc.tileY
               ) : null;
 
-              // Check if NPC is on long grass (clip sprite to half height)
               const isOnLongGrass = tileMeta ? isLongGrassBehavior(tileMeta.behavior) : false;
+              const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass);
+              if (!npcSprite) return;
 
-              // Calculate sort key for this NPC (feet Y + mid priority)
-              const npcSortKey = getNPCSortKey(npc.tileY);
+              targetArray.push(npcSprite);
 
-              const npcSprite = createNPCSpriteInstance(npc, npcSortKey, isOnLongGrass);
-              if (npcSprite) {
-                // Use shared utility to determine NPC render layer
-                // This ensures consistent behavior between Canvas2D and WebGL
-                const renderLayer = getNPCRenderLayer(npc.elevation, playerElevation);
+              // Add reflection (not for P0 sprites which are in highPriority batch)
+              if (snapshot && targetArray !== priority0Sprites) {
+                const npcReflectionState = computeReflectionStateFromSnapshot(
+                  snapshot,
+                  npc.tileX, npc.tileY,
+                  npc.tileX, npc.tileY, // NPCs don't move yet
+                  npcSprite.width, npcSprite.height
+                );
+                const npcReflection = createNPCReflectionSprite(npcSprite, npcReflectionState, npc.direction);
+                if (npcReflection) targetArray.push(npcReflection);
 
-                if (renderLayer === 'aboveAll') {
-                  // P0: render after TopAbove (elevation 13-14)
-                  priority0Sprites.push(npcSprite);
-                } else if (renderLayer === 'behindBridge') {
-                  // P2/P3 NPC when player is at P1 (on bridge): render before TopBelow
-                  lowPrioritySprites.push(npcSprite);
-                } else {
-                  // 'withPlayer': render with player (Y-sorted)
-                  allSprites.push(npcSprite);
+                // Add grass effect if on tall grass (not long grass)
+                if (tileMeta && !isOnLongGrass) {
+                  const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, info.sortKey);
+                  if (grassSprite) targetArray.push(grassSprite);
                 }
+              }
+            };
 
-                // Add NPC reflection if on reflective tile (only for non-aboveAll NPCs)
-                // Priority 0 NPCs don't have reflections (they're above everything)
-                if (snapshot && renderLayer !== 'aboveAll') {
-                  const npcReflectionState = computeReflectionStateFromSnapshot(
-                    snapshot,
-                    npc.tileX,
-                    npc.tileY,
-                    npc.tileX, // NPCs don't move yet, so prev = current
-                    npc.tileY,
-                    npcSprite.width,
-                    npcSprite.height
-                  );
-
-                  const npcReflection = createNPCReflectionSprite(
-                    npcSprite,
-                    npcReflectionState,
-                    npc.direction
-                  );
-                  if (npcReflection) {
-                    // Reflections go to same batch as NPC sprite
-                    if (renderLayer === 'behindBridge') {
-                      lowPrioritySprites.push(npcReflection);
-                    } else {
-                      allSprites.push(npcReflection);
-                    }
-                  }
-
-                  // Add grass effect if NPC is on tall grass (NOT long grass)
-                  // Tall grass: renders ON TOP of NPC
-                  // Long grass: NPC sprite is CLIPPED (handled above)
-                  if (tileMeta && !isOnLongGrass) {
-                    const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, npcSortKey);
-                    if (grassSprite) {
-                      // Grass effects go to same batch as NPC sprite
-                      if (renderLayer === 'behindBridge') {
-                        lowPrioritySprites.push(grassSprite);
-                      } else {
-                        allSprites.push(grassSprite);
-                      }
-                    }
-                  }
-                }
+            // Process low priority batch (P2/P3 NPCs when player on bridge)
+            for (const info of spriteBatches.lowPriority) {
+              if (info.type === 'npc') {
+                createNPCWithExtras(info, lowPrioritySprites);
               }
             }
 
-            // Add player sprite and reflection (unless hidden)
-            if (!playerHiddenRef.current) {
-              const frameInfo = player.getFrameInfo();
-              if (frameInfo) {
-                const spriteKey = player.getCurrentSpriteKey();
+            // Process Y-sorted batch (player, NPCs, field effects)
+            for (const info of spriteBatches.ySorted) {
+              if (info.type === 'player' && info.player) {
+                const frameInfo = info.player.getFrameInfo();
+                if (!frameInfo) continue;
+
+                const spriteKey = info.player.getCurrentSpriteKey();
                 const atlasName = getPlayerAtlasName(spriteKey);
-                if (spriteRenderer.hasSpriteSheet(atlasName)) {
-                  // Render shadow if player is jumping (shadow stays on ground)
-                  if (player.showShadow) {
-                    const shadowAtlas = getPlayerAtlasName('shadow');
-                    if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
-                      const playerSortKey = getPlayerSortKey(player);
-                      const shadowSprite = createPlayerShadowSprite(player.x, player.y, playerSortKey);
-                      allSprites.push(shadowSprite);
-                    }
-                  }
+                if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
 
-                  // Clip player to half height when on long grass (matches GBA behavior)
-                  const clipToHalf = player.isOnLongGrass();
-                  const playerSprite = createSpriteFromFrameInfo(
-                    frameInfo,
-                    atlasName,
-                    getPlayerSortKey(player), // feet Y + mid priority
-                    clipToHalf
+                const clipToHalf = info.player.isOnLongGrass();
+                const playerSprite = createSpriteFromFrameInfo(frameInfo, atlasName, info.sortKey, clipToHalf);
+                allSprites.push(playerSprite);
+
+                // Add player reflection
+                if (snapshot) {
+                  const { width: spriteWidth, height: spriteHeight } = info.player.getSpriteSize();
+                  const destTile = info.player.getDestinationTile();
+                  const reflectionState = computeReflectionStateFromSnapshot(
+                    snapshot,
+                    destTile.x, destTile.y,
+                    info.player.tileX, info.player.tileY,
+                    spriteWidth, spriteHeight
                   );
-                  allSprites.push(playerSprite);
+                  const reflectionSprite = createPlayerReflectionSprite(playerSprite, reflectionState, info.player.dir);
+                  if (reflectionSprite) allSprites.push(reflectionSprite);
+                }
 
-                  // Add reflection sprite if player has reflection (WebGL batched)
-                  // Reflection state was computed above for debug display
-                  const snapshot = worldSnapshotRef.current;
-                  if (snapshot) {
-                    const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
-                    const destTile = player.getDestinationTile();
-                    const reflectionState = computeReflectionStateFromSnapshot(
-                      snapshot,
-                      destTile.x,
-                      destTile.y,
-                      player.tileX,
-                      player.tileY,
-                      spriteWidth,
-                      spriteHeight
-                    );
+              } else if (info.type === 'playerShadow' && info.player) {
+                const shadowAtlas = getPlayerAtlasName('shadow');
+                if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
+                  const shadowSprite = createPlayerShadowSprite(info.player.x, info.player.y, info.sortKey);
+                  allSprites.push(shadowSprite);
+                }
 
-                    const reflectionSprite = createPlayerReflectionSprite(
-                      playerSprite,
-                      reflectionState,
-                      player.dir
-                    );
-                    if (reflectionSprite) {
-                      allSprites.push(reflectionSprite);
-                    }
-                  }
+              } else if (info.type === 'npc') {
+                createNPCWithExtras(info, allSprites);
+
+              } else if (info.type === 'fieldEffect' && info.fieldEffect) {
+                // Field effects already have correct sortKey from SpriteBatcher
+                const layer = info.effectLayer === 'front' ? 'top' : 'bottom';
+                const sprite = createFieldEffectSprite(info.fieldEffect, playerWorldY, layer);
+                if (sprite) {
+                  // Override sortKey with the one from SpriteBatcher for consistency
+                  sprite.sortKey = info.sortKey;
+                  allSprites.push(sprite);
                 }
               }
             }
 
-            // Sort all sprites by sortKey for proper Y-ordering
+            // Process high priority batch (P0 NPCs at elevation 13-14)
+            for (const info of spriteBatches.highPriority) {
+              if (info.type === 'npc') {
+                createNPCWithExtras(info, priority0Sprites);
+              }
+            }
+
+            // Sort all sprites by sortKey (SpriteBatcher already sorted, but reflections added inline)
             allSprites.sort((a, b) => a.sortKey - b.sortKey);
 
             // Collect priority debug info if debug panel is enabled

@@ -24,7 +24,7 @@ import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
-import { getPlayerCenterY } from '../game/playerCoords';
+import { buildSpriteBatches, getEffectsForLayer } from '../rendering/SpriteBatcher';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;
@@ -160,36 +160,46 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         ObjectRenderer.renderReflection(mainCtx, player, reflectionState, view, ctx);
       }
 
+      // Build sprite batches using shared utility (same logic as WebGLMapPage)
+      // This ensures both renderers use identical sorting/layer decisions
+      const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
+
       // Render NPC reflections (before NPCs so reflections appear underneath)
-      {
-        const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
-        renderNPCReflections(mainCtx, npcs, view, ctx);
-      }
+      renderNPCReflections(mainCtx, npcs, view, ctx);
 
-      // Use player sprite center Y for field effect layer comparison
-      // This must match WebGLMapPage.tsx for consistent rendering
-      const playerY = player ? getPlayerCenterY(player) : 0;
+      // Get field effects for sprite batching
+      const fieldEffects = player ? player.getGrassEffectManager().getEffectsForRendering() : [];
+      const spriteBatches = player
+        ? buildSpriteBatches(player, npcs, fieldEffects, {
+            playerHidden: refs.playerHiddenRef.current,
+          })
+        : null;
 
-      // Render field effects behind player
-      if (player) {
-        const effects = player.getGrassEffectManager().getEffectsForRendering();
-        const sprites = {
-          grass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-          sand: fieldSprites.sprites.sand,
-          splash: fieldSprites.sprites.splash,
-          ripple: fieldSprites.sprites.ripple,
-          arrow: arrowOverlay.getSprite(),
-          itemBall: fieldSprites.sprites.itemBall,
-        };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'bottom', ctx);
+      // Sprite cache for field effects
+      const fieldSpriteCache = {
+        grass: fieldSprites.sprites.grass,
+        longGrass: fieldSprites.sprites.longGrass,
+        sand: fieldSprites.sprites.sand,
+        splash: fieldSprites.sprites.splash,
+        ripple: fieldSprites.sprites.ripple,
+        arrow: arrowOverlay.getSprite(),
+        itemBall: fieldSprites.sprites.itemBall,
+      };
+
+      // Render field effects behind player (using SpriteBatcher for layer decision)
+      if (player && spriteBatches) {
+        const bottomEffects = getEffectsForLayer(spriteBatches.ySorted, 'bottom');
+        for (const info of bottomEffects) {
+          if (info.fieldEffect) {
+            ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
+          }
+        }
 
         // Render item balls behind player
         const itemBalls = refs.objectEventManagerRef.current.getVisibleItemBalls();
         ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'bottom');
 
         // Render NPCs at player's priority behind player (Y-sorted with player)
-        const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', playerPriority);
 
         // Render grass effects over NPCs (so grass covers their lower body)
@@ -251,26 +261,20 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
 
-      // Render field effects in front of player
-      if (player) {
-        const effects = player.getGrassEffectManager().getEffectsForRendering();
-        const sprites = {
-          grass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-          sand: fieldSprites.sprites.sand,
-          splash: fieldSprites.sprites.splash,
-          ripple: fieldSprites.sprites.ripple,
-          arrow: arrowOverlay.getSprite(),
-          itemBall: fieldSprites.sprites.itemBall,
-        };
-        ObjectRenderer.renderFieldEffects(mainCtx, effects, sprites, view, playerY, 'top', ctx);
+      // Render field effects in front of player (using SpriteBatcher for layer decision)
+      if (player && spriteBatches) {
+        const topEffects = getEffectsForLayer(spriteBatches.ySorted, 'top');
+        for (const info of topEffects) {
+          if (info.fieldEffect) {
+            ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
+          }
+        }
 
         // Render item balls in front of player
         const itemBalls = refs.objectEventManagerRef.current.getVisibleItemBalls();
         ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'top');
 
         // Render NPCs at player's priority in front of player (Y-sorted with player)
-        const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top', playerPriority);
 
         // Render grass effects over NPCs (so grass covers their lower body)

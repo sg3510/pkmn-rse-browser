@@ -3,7 +3,23 @@
 This document tracks the effort to merge `src/pages/WebGLMapPage.tsx` and `src/components/MapRenderer.tsx` into a unified `GameRenderer` component with pluggable WebGL/Canvas2D backends.
 
 > **Last Updated:** 2025-12-02
-> **Status:** Planning phase - Phase 1 extraction work ready to begin
+> **Status:** Phase 1 in progress - extracting shared utilities
+
+## OKR: Unified Renderer Architecture
+
+**Objective:** Merge `WebGLMapPage.tsx` and `MapRenderer.tsx` into a single `GameRenderer` component with pluggable backends.
+
+**Key Results:**
+1. ✅ **KR1:** Reduce combined LOC of both files by 40%+ through shared abstractions
+2. ⬜ **KR2:** Both renderers use identical game logic (sorting, warps, effects)
+3. ⬜ **KR3:** Single source file for each game system (no duplicate implementations)
+
+**Baseline Metrics (measure before each task):**
+- `WebGLMapPage.tsx`: ~1800 lines
+- `MapRenderer.tsx` + hooks: ~1200 lines (MapRenderer + useCompositeScene + useRunUpdate)
+- **Total:** ~3000 lines → **Target:** <1800 lines
+
+---
 
 ## Goals
 
@@ -236,16 +252,24 @@ const view: WorldCameraView = {
 
 Quick wins - extract duplicated functions without changing architecture.
 
+> **⚠️ IMPORTANT:** For each task, ensure the shared abstraction is integrated into BOTH:
+> - `src/pages/WebGLMapPage.tsx` (WebGL renderer)
+> - `src/components/MapRenderer.tsx` / `src/hooks/useCompositeScene.ts` (Canvas2D renderer)
+>
+> Mark the **PARITY** checkbox only when both renderers use the shared code.
+
 - [x] **1.1** Create `src/game/setupObjectCollisionChecker.ts` ✅ DONE
   - [x] Extract collision checker setup from WebGLMapPage:464-468
   - [x] Update WebGLMapPage to use it (2 locations)
   - [x] Update MapRendererInit to use it
+  - [x] **PARITY:** Both renderers use shared utility
   - [x] **TEST:** Build passes, collision works in both modes
 
 - [x] **1.2** Create `src/game/findPlayerSpawnPosition.ts` ✅ DONE
   - [x] Extract spawn logic with BehaviorProvider callback pattern
   - [x] Update WebGLMapPage to use it (provides tileset-based behavior lookup)
   - [x] Update MapRendererInit to use it (provides renderContext-based behavior lookup)
+  - [x] **PARITY:** Both renderers use shared utility
   - [x] **TEST:** Player spawns correctly on map load
 
 - [x] **1.3** Create `src/field/ArrowAnimationConstants.ts` ✅ DONE
@@ -254,6 +278,7 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Add `getArrowAtlasCoords(frameIndex, framesPerRow)` function
   - [x] Update WebGLMapPage to use it
   - [x] Update ObjectRenderer to use it
+  - [x] **PARITY:** Both renderers use shared utility
   - [x] **TEST:** Build passes, arrow animation works
 
 - [x] **1.4** Standardize viewport config ✅ DONE
@@ -261,6 +286,7 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Update WebGLMapPage to import `DEFAULT_VIEWPORT_CONFIG`, `getViewportPixelSize`
   - [x] Replace inline constants with shared config references
   - [x] Use `VIEWPORT_PIXEL_SIZE` for pixel calculations
+  - [x] **PARITY:** Both renderers use shared config
   - [x] **TEST:** Build passes, viewport dimensions match
 
 - [x] **1.5** Create `src/game/buildWorldCameraView.ts` ✅ DONE
@@ -269,6 +295,7 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Consolidated 5 duplicate `WorldCameraView` type definitions
   - [x] Canonical definition now in `src/rendering/types.ts`
   - [x] Removed unused `CameraView` imports
+  - [ ] **PARITY:** Canvas2D path should also use `buildWorldCameraView()` (TODO)
   - [x] **TEST:** Build passes, camera view correct
 
 - [x] **1.6** Fix WebGL sprite renderer Y-sort order ✅ DONE (2025-12-02)
@@ -285,12 +312,14 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Updated `useCompositeScene.ts` (Canvas2D path) to use `getPlayerCenterY()` for field effect layering
   - [x] **BUG FIXED:** Canvas2D was using `player.y` (sprite top) instead of `player.y + 16` (sprite center) for effect comparison
   - [x] `spriteUtils.ts` now re-exports `calculateSortKey` from `playerCoords.ts`
+  - [x] **PARITY:** Both renderers use shared utility
   - [x] **TEST:** Build passes, both renderers use identical Y coordinate for field effect layering
 
 - [ ] **1.8** Precomputed field-effect layers + sortKeys
   - [ ] Extend `FieldEffectManager.getEffectsForRendering(playerFeetY?)` to return `layer` + `sortKey`
   - [ ] Wire WebGL renderer to use returned values (drop local compute)
   - [ ] Wire Canvas renderer to optional use (keeps two-pass draw but same data)
+  - [ ] **PARITY:** Both renderers use same precomputed values
   - [ ] **TEST:** WebGL and Canvas show identical grass/sand/ripple ordering
   - **Why:** Today, ordering is recomputed differently per renderer (WebGL sorts; Canvas draws in fixed passes). Centralizing the sort data in the manager guarantees parity and reduces renderer logic/bugs.
 
@@ -299,8 +328,12 @@ Quick wins - extract duplicated functions without changing architecture.
   - [x] Takes: player, NPCs, field effects, options → Returns: `SpriteBatchResult` with `lowPriority`, `ySorted`, `highPriority` batches
   - [x] Returns renderer-agnostic `SortableSpriteInfo` objects (not WebGL-specific `SpriteInstance`)
   - [x] Includes utility functions: `splitAroundPlayer()`, `getEffectsForLayer()`, `getNPCsFromBatch()`
-  - [x] WebGLMapPage ready to adopt; Canvas2D can use for identical ordering
-  - [x] **TEST:** Build passes, SpriteBatcher compiles and exports correctly
+  - [x] **Integrated into WebGLMapPage.tsx** - replaced ~160 lines of manual sprite batching
+  - [x] Removed unused imports: `getNPCRenderLayer`, `getNPCSortKey` (now handled by SpriteBatcher)
+  - [x] **Integrated into useCompositeScene.ts** - uses SpriteBatcher for field effect layer decisions
+  - [x] Added `ObjectRenderer.renderSingleFieldEffect()` for rendering pre-filtered effects
+  - [x] **PARITY:** ✅ Both renderers use SpriteBatcher for field effect sorting
+  - [x] **TEST:** Build passes, both renderers use SpriteBatcher
 
 - [ ] **1.10** Regression test for grass ordering
   - [ ] Add a small headless Jest/Vitest test that builds a tall-grass effect and asserts:
@@ -319,17 +352,20 @@ Warp handling is complex - extract carefully.
   - [ ] Extract tile-change detection logic
   - [ ] Extract warp trigger classification (arrow, door, walk-over)
   - [ ] Return action descriptor, don't execute directly
+  - [ ] **PARITY:** Both renderers use shared warp detection
   - [ ] **TEST:** All warp types detected correctly
 
 - [ ] **2.2** Create `src/hooks/useWarpFlow.ts` hook
   - [ ] Combine warp detection + execution in single hook
   - [ ] Accept renderer-agnostic dependencies
   - [ ] Handle fade, door sequencer, warp executor coordination
+  - [ ] **PARITY:** Both renderers use unified hook
   - [ ] **TEST:** Warps work identically in both modes
 
 - [ ] **2.3** Reconcile `useWarpExecution` with new hook
   - [ ] Decide: merge or keep separate
   - [ ] Ensure MapRenderer uses unified approach
+  - [ ] **PARITY:** Single warp execution path for both renderers
   - [ ] **TEST:** No regression in Canvas2D warps
 
 ---
@@ -355,16 +391,19 @@ Warp handling is complex - extract carefully.
 
 - [ ] **3.3** Implement `WorldManager` adapter for interface
   - [ ] Wrap existing WorldManager
+  - [ ] **PARITY:** WebGLMapPage uses adapter
   - [ ] **TEST:** WebGLMapPage works with adapter
 
 - [ ] **3.4** Implement `MapManager` adapter for interface
   - [ ] Wrap existing MapManager
+  - [ ] **PARITY:** MapRenderer uses adapter
   - [ ] **TEST:** MapRenderer works with adapter
 
 - [ ] **3.5** Decide on long-term world management strategy
   - [ ] Option A: Migrate MapRenderer to WorldManager
   - [ ] Option B: Migrate WebGLMapPage to MapManager
   - [ ] Option C: Keep both behind interface
+  - [ ] **PARITY:** Both renderers use same world provider interface
 
 ---
 
@@ -385,6 +424,7 @@ Define clean interfaces for rendering backends.
 - [ ] **4.2** Create `Canvas2DSpriteRenderer` implementing `ISpriteRenderer`
   - [ ] Wrap `ObjectRenderer` functionality
   - [ ] Match WebGLSpriteRenderer API
+  - [ ] **PARITY:** Both renderers use ISpriteRenderer interface
   - [ ] **TEST:** Sprites render correctly via interface
 
 - [ ] **4.3** Create `IFadeRenderer` interface
@@ -397,12 +437,14 @@ Define clean interfaces for rendering backends.
 
 - [ ] **4.4** Create `Canvas2DFadeRenderer` implementing `IFadeRenderer`
   - [ ] Simple fullscreen rect with alpha
+  - [ ] **PARITY:** Both renderers use IFadeRenderer interface
   - [ ] **TEST:** Fade works via interface
 
 - [ ] **4.5** Verify `IRenderPipeline` is sufficient
   - [ ] Check WebGLRenderPipeline implements it fully
   - [ ] Check RenderPipeline implements it fully
   - [ ] Add any missing methods to interface
+  - [ ] **PARITY:** Both renderers use IRenderPipeline interface
 
 ---
 
@@ -414,6 +456,7 @@ Replace per-file logic with shared hooks.
   - [ ] GBA-accurate frame timing (59.7275 Hz)
   - [ ] Shimmer animation updates
   - [ ] Returns: `{ gbaFrame, deltaTime, shimmerState }`
+  - [ ] **PARITY:** Both renderers use shared hook
   - [ ] **TEST:** Frame timing matches GBA
 
 - [ ] **5.2** Create `src/hooks/usePlayerUpdate.ts`
@@ -421,6 +464,7 @@ Replace per-file logic with shared hooks.
   - [ ] Movement updates
   - [ ] Tile change detection
   - [ ] Returns: `{ player, tileChanged, currentTile }`
+  - [ ] **PARITY:** Both renderers use shared hook
   - [ ] **TEST:** Player movement works
 
 - [ ] **5.3** Create `src/hooks/useSceneComposition.ts`
@@ -428,29 +472,33 @@ Replace per-file logic with shared hooks.
   - [ ] Layer sorting
   - [ ] Reflection handling
   - [ ] Returns: `{ sprites, reflectionSprites, priority0Sprites }`
+  - [ ] **PARITY:** Both renderers use shared hook
   - [ ] **TEST:** Sprite ordering correct
 
 - [ ] **5.4** Migrate WebGLMapPage to use new hooks
   - [ ] Replace inline logic with hook calls
   - [ ] Verify no visual regression
+  - [ ] **PARITY:** WebGLMapPage uses unified hooks
   - [ ] **TEST:** Full playthrough in WebGL mode
 
 - [ ] **5.5** Migrate MapRenderer to use new hooks
   - [ ] Replace/merge existing hooks
   - [ ] Verify no visual regression
+  - [ ] **PARITY:** MapRenderer uses unified hooks
   - [ ] **TEST:** Full playthrough in Canvas2D mode
 
 ---
 
 ### Phase 6: Create GameRenderer Component (High Risk)
 
-Final unification step.
+Final unification step - **OKR completion checkpoint**.
 
 - [ ] **6.1** Create `src/components/GameRenderer.tsx`
   - [ ] Detect WebGL2 support on mount
   - [ ] Instantiate appropriate pipeline + sprite renderer
   - [ ] Use unified hooks for game logic
   - [ ] Single render loop calling renderer interfaces
+  - [ ] **PARITY:** Single component serves both backends
 
 - [ ] **6.2** Create renderer factory
   ```typescript
@@ -471,10 +519,12 @@ Final unification step.
   - [ ] Mark MapRenderer as deprecated
   - [ ] Add console warnings if accessed directly
 
-- [ ] **6.5** Final cleanup
+- [ ] **6.5** Final cleanup & OKR verification
   - [ ] Remove duplicate code
   - [ ] Update documentation
+  - [ ] **MEASURE:** Count final LOC - target <1800 combined (down from ~3000)
   - [ ] **TEST:** Full game works in both modes via GameRenderer
+  - [ ] **OKR CHECK:** Verify all Key Results met
 
 ---
 
@@ -552,7 +602,7 @@ Final unification step.
 | Y-Sort Key Calc | ✅ Shared | `calculateSortKey()` in `playerCoords.ts` (re-exported from `spriteUtils.ts`) |
 | Player Coords | ✅ Shared | `getPlayerCenterY()`, `getPlayerFeetY()` in `playerCoords.ts` |
 | Field Effect Layer | ✅ Shared | `computeFieldEffectLayer()` in `fieldEffectUtils.ts` |
-| Sprite Batching | ✅ Shared | `buildSpriteBatches()` in `SpriteBatcher.ts` (ready for adoption) |
+| Sprite Batching | ✅ Shared | `buildSpriteBatches()` in `SpriteBatcher.ts` - used by both renderers |
 | NPC Render Layer | ✅ Shared | `getNPCRenderLayer()` in `elevationPriority.ts` |
 | WebGL Y-Sort Order | ✅ Fixed | `WebGLSpriteRenderer.renderBatch()` now preserves order |
 

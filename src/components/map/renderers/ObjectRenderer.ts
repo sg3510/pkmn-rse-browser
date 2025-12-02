@@ -246,6 +246,107 @@ export class ObjectRenderer {
   }
 
   /**
+   * Render a single field effect (used when layer filtering is done by caller)
+   *
+   * This function is used by useCompositeScene when effects are pre-filtered
+   * by SpriteBatcher.getEffectsForLayer() to ensure both renderers use
+   * identical sorting logic.
+   */
+  static renderSingleFieldEffect(
+    ctx: CanvasRenderingContext2D,
+    effect: FieldEffectForRendering,
+    sprites: SpriteCache,
+    view: WorldCameraView,
+    renderContext?: RenderContext
+  ): void {
+    if (!effect.visible) return;
+
+    // Select sprite based on effect type
+    let sprite: HTMLCanvasElement | null = null;
+    if (effect.type === 'tall') sprite = sprites.grass;
+    else if (effect.type === 'long') sprite = sprites.longGrass;
+    else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
+    else if (effect.type === 'puddle_splash') sprite = sprites.splash;
+    else if (effect.type === 'water_ripple') sprite = sprites.ripple;
+
+    if (!sprite) return;
+
+    // Get dimensions from shared utility
+    const { width: frameWidth, height: frameHeight } = getFieldEffectDimensions(effect.type);
+
+    const sx = effect.frame * frameWidth;
+    const sy = 0;
+
+    // Calculate screen position
+    const screenX = Math.round(effect.worldX - view.cameraWorldX - frameWidth / 2);
+    const yOffset = getFieldEffectYOffset(effect.type);
+    const screenY = Math.round(effect.worldY - view.cameraWorldY + yOffset - frameHeight / 2);
+
+    ctx.imageSmoothingEnabled = false;
+
+    // Water effects need masking (same logic as renderFieldEffects)
+    if ((effect.type === 'water_ripple' || effect.type === 'puddle_splash') && renderContext) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = frameWidth;
+      tempCanvas.height = frameHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.imageSmoothingEnabled = false;
+        tempCtx.drawImage(sprite, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+
+        const imageData = tempCtx.getImageData(0, 0, frameWidth, frameHeight);
+        const data = imageData.data;
+
+        const effectWorldX = effect.worldX - frameWidth / 2;
+        const maskYOffset = effect.type === 'puddle_splash' ? 4 : 6;
+        const effectWorldY = effect.worldY + maskYOffset - frameHeight / 2;
+
+        const tileCache = new Map<string, { mask: Uint8Array | null }>();
+        const getTileMask = (tx: number, ty: number): Uint8Array | null => {
+          const key = `${tx},${ty}`;
+          if (tileCache.has(key)) return tileCache.get(key)!.mask;
+          const info = getMetatileBehavior(renderContext, tx, ty);
+          const mask = info?.meta?.pixelMask ?? null;
+          tileCache.set(key, { mask });
+          return mask;
+        };
+
+        for (let py = 0; py < frameHeight; py++) {
+          for (let px = 0; px < frameWidth; px++) {
+            const worldPx = effectWorldX + px;
+            const worldPy = effectWorldY + py;
+            const pixelTileX = Math.floor(worldPx / METATILE_SIZE);
+            const pixelTileY = Math.floor(worldPy / METATILE_SIZE);
+            const mask = getTileMask(pixelTileX, pixelTileY);
+            const tileLocalX = Math.floor(worldPx - pixelTileX * METATILE_SIZE);
+            const tileLocalY = Math.floor(worldPy - pixelTileY * METATILE_SIZE);
+
+            let isWater = false;
+            if (mask && tileLocalX >= 0 && tileLocalX < METATILE_SIZE &&
+                tileLocalY >= 0 && tileLocalY < METATILE_SIZE) {
+              isWater = mask[tileLocalY * METATILE_SIZE + tileLocalX] === 1;
+            }
+            if (!isWater) {
+              const idx = (py * frameWidth + px) * 4;
+              data[idx + 3] = 0;
+            }
+          }
+        }
+        tempCtx.putImageData(imageData, 0, 0);
+        ctx.drawImage(tempCanvas, screenX, screenY);
+      }
+    } else if (effect.flipHorizontal) {
+      ctx.save();
+      ctx.translate(screenX + frameWidth, screenY);
+      ctx.scale(-1, 1);
+      ctx.drawImage(sprite, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sprite, sx, sy, frameWidth, frameHeight, screenX, screenY, frameWidth, frameHeight);
+    }
+  }
+
+  /**
    * Render water/ice reflection for the player using shared reflection functions.
    *
    * Uses shared buildReflectionMask and renderSpriteReflection from ReflectionRenderer.
