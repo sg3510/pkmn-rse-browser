@@ -1,4 +1,4 @@
-.webgl-map-page {
+.game-page {
   padding: 1.5rem;
   color: #e6e6e6;
   background: #0f1115;
@@ -6,7 +6,7 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.webgl-map-page h1 {
+.game-page h1 {
   margin: 0 0 0.25rem 0;
 }
 
@@ -64,7 +64,7 @@
   padding: 0.5rem;
 }
 
-.webgl-map-canvas {
+.game-canvas {
   display: block;
   image-rendering: pixelated;
   background: #000;

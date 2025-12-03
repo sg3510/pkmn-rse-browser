@@ -92,6 +92,8 @@ export interface SpriteBuildResult {
   doorSprites: SpriteInstance[];
   /** Arrow overlay sprite (if visible) */
   arrowSprite: SpriteInstance | null;
+  /** Surf blob sprite (rendered behind player when surfing) */
+  surfBlobSprite: SpriteInstance | null;
   /** Player world Y for layer calculations */
   playerWorldY: number;
   /** Whether any new door sprites were uploaded */
@@ -133,6 +135,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
     const priority0Sprites: SpriteInstance[] = [];
     const doorSprites: SpriteInstance[] = [];
     let arrowSprite: SpriteInstance | null = null;
+    let surfBlobSprite: SpriteInstance | null = null;
     const newDoorSpritesUploaded: string[] = [];
     let arrowSpriteWasUploaded = false;
 
@@ -221,6 +224,82 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       }
     }
 
+    // === Build surf blob sprite (if surfing or mounting/dismounting) ===
+    if (playerLoaded && !playerHidden && spriteRenderer.hasSpriteSheet('surf-blob')) {
+      const surfCtrl = player.getSurfingController();
+      const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
+
+      if (shouldRenderBlob) {
+        const blobRenderer = surfCtrl.getBlobRenderer();
+        const bobOffset = blobRenderer.getBobOffset();
+
+        // Determine blob position based on current animation phase
+        let blobWorldX: number;
+        let blobWorldY: number;
+
+        if (surfCtrl.isJumpingOn()) {
+          // MOUNTING: Blob is at target water tile (destination)
+          const targetPos = surfCtrl.getTargetPosition();
+          if (targetPos) {
+            blobWorldX = targetPos.tileX * METATILE_SIZE - 8;
+            blobWorldY = targetPos.tileY * METATILE_SIZE - 16 + bobOffset + 8;
+          } else {
+            blobWorldX = player.x - 8;
+            blobWorldY = player.y + bobOffset + 8;
+          }
+        } else if (surfCtrl.isJumpingOff()) {
+          // DISMOUNTING: Blob stays at fixed water tile position
+          const fixedPos = surfCtrl.getBlobFixedPosition();
+          if (fixedPos) {
+            blobWorldX = fixedPos.tileX * METATILE_SIZE - 8;
+            blobWorldY = fixedPos.tileY * METATILE_SIZE - 16 + bobOffset + 8;
+          } else {
+            blobWorldX = player.x - 8;
+            blobWorldY = player.y + bobOffset + 8;
+          }
+        } else {
+          // Normal surfing: Blob follows player
+          blobWorldX = player.x - 8;
+          blobWorldY = player.y + bobOffset + 8;
+        }
+
+        // Get frame based on direction
+        // Frame 0: down/up, Frame 1: left, Frame 1 (flipped): right
+        const dir = player.dir;
+        let atlasX = 0;
+        let flipX = false;
+        if (dir === 'left') {
+          atlasX = 32;
+        } else if (dir === 'right') {
+          atlasX = 32;
+          flipX = true;
+        }
+
+        // Blob renders behind player, so use slightly lower sortKey
+        const blobSortKey = calculateSortKey(blobWorldY, 0) - 1;
+
+        surfBlobSprite = {
+          worldX: blobWorldX,
+          worldY: blobWorldY,
+          width: 32,
+          height: 32,
+          atlasName: 'surf-blob',
+          atlasX,
+          atlasY: 0,
+          atlasWidth: 32,
+          atlasHeight: 32,
+          flipX,
+          flipY: false,
+          alpha: 1.0,
+          tintR: 1.0,
+          tintG: 1.0,
+          tintB: 1.0,
+          sortKey: blobSortKey,
+          isReflection: false,
+        };
+      }
+    }
+
     // === Use SpriteBatcher for unified sprite sorting ===
     const spriteBatches = buildSpriteBatches(player, npcs, fieldEffects, {
       includePlayerShadow: player.showShadow,
@@ -291,6 +370,10 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
 
         const clipToHalf = info.player.isOnLongGrass();
         const playerSprite = createSpriteFromFrameInfo(frameInfo, atlasName, info.sortKey, clipToHalf);
+
+        // Note: Bob offset for surfing is already applied in SurfingState.getFrameInfo()
+        // (see PlayerController.ts line 304-305), so we don't apply it here
+
         allSprites.push(playerSprite);
 
         // Add player reflection
@@ -347,6 +430,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       priority0Sprites,
       doorSprites,
       arrowSprite,
+      surfBlobSprite,
       playerWorldY,
       newDoorSpritesUploaded,
       arrowSpriteWasUploaded,

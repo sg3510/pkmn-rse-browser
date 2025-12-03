@@ -287,7 +287,8 @@ class SurfingState implements PlayerState {
 
   update(controller: PlayerController, delta: number): boolean {
     // Update surfing controller (handles bob animation)
-    controller.updateSurfing();
+    // delta is in milliseconds for frame-rate independent bobbing
+    controller.updateSurfing(delta);
     return controller.processMovement(delta, this.SPEED);
   }
 
@@ -333,9 +334,10 @@ class SurfJumpingState implements PlayerState {
     controller.spriteYOffset = 0;
   }
 
-  update(controller: PlayerController, _delta: number): boolean {
+  update(controller: PlayerController, delta: number): boolean {
     const surfController = controller.getSurfingController();
-    const result = surfController.update();
+    // Pass delta for frame-rate independent bobbing
+    const result = surfController.update(delta);
 
     // Apply jump Y offset
     controller.spriteYOffset = result.jumpYOffset;
@@ -585,6 +587,38 @@ export class PlayerController {
   public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
     this.setPosition(tileX, tileY);
     this.dir = dir;
+  }
+
+  /**
+   * Reset all map-specific state when warping to a new map.
+   * Called at the start of executeWarp() before setting new position.
+   *
+   * Clears:
+   * - Player movement state (resets to walking)
+   * - Key input state (prevents held keys from carrying over)
+   * - Previous tile tracking (prevents stale data affecting new map)
+   * - Field effects (sand footprints, grass, water ripples)
+   * - Surfing controller state (if mid-animation)
+   */
+  public resetForWarp(): void {
+    // 1. Reset to walking state (GBA always walks through doors)
+    if (!(this.currentState instanceof NormalState)) {
+      this.changeState(new NormalState());
+    }
+
+    // 2. Clear key input state - prevents held keys from carrying over
+    this.keysPressed = {};
+
+    // 3. Clear previous tile tracking - prevents stale data affecting new map
+    this.prevTileX = -1;
+    this.prevTileY = -1;
+    this.prevTileBehavior = undefined;
+
+    // 4. Clear field effects (sand footprints, grass, water ripples)
+    this.grassEffectManager.clear();
+
+    // 5. Reset surfing controller if mid-animation
+    this.surfingController.reset();
   }
 
   /**
@@ -1275,11 +1309,14 @@ export class PlayerController {
     // - Only the Y-position bobs up/down with the surf blob
     // - Walk frames (1, 3, 5) are ONLY used during mount/dismount jump sequences
 
-    // Always use idle frame - movement is shown via bob offset, not frame animation
-    if (this.dir === 'down') srcIndex = 0;
-    else if (this.dir === 'up') srcIndex = 2;
-    else if (this.dir === 'left') srcIndex = 4;
-    else if (this.dir === 'right') { srcIndex = 4; flip = true; }
+    // Use walk frames during mount/dismount, idle frames during normal surfing
+    const isJumping = this.surfingController.isJumping();
+    const frameOffset = isJumping ? 1 : 0; // +1 for walk frame
+
+    if (this.dir === 'down') srcIndex = 0 + frameOffset;
+    else if (this.dir === 'up') srcIndex = 2 + frameOffset;
+    else if (this.dir === 'left') srcIndex = 4 + frameOffset;
+    else if (this.dir === 'right') { srcIndex = 4 + frameOffset; flip = true; }
 
     const srcX = srcIndex * SURF_FRAME_WIDTH;
     const srcY = 0;
@@ -1775,9 +1812,9 @@ export class PlayerController {
    * Update surfing state (bob animation, etc.)
    * Called by SurfingState.update()
    */
-  public updateSurfing(): void {
-    // Update surfing controller for bob animation
-    this.surfingController.update();
+  public updateSurfing(deltaMs?: number): void {
+    // Update surfing controller for bob animation (pass delta for frame-rate independent timing)
+    this.surfingController.update(deltaMs);
 
     // Update blob direction based on player facing
     this.surfingController.updateBlobDirection(this.dir);
@@ -1932,7 +1969,8 @@ export class PlayerController {
    * Returns 'surfing', 'running', or 'walking'.
    */
   public getCurrentSpriteKey(): string {
-    if (this.isSurfing()) return 'surfing';
+    // Check for surfing OR mount/dismount jump (which also uses surfing sprite)
+    if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';
     if (this.isRunning()) return 'running';
     return 'walking';
   }

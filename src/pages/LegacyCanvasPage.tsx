@@ -1,16 +1,25 @@
+/**
+ * Legacy Canvas Page
+ *
+ * Original Canvas 2D renderer. Kept for compatibility testing
+ * and as a fallback for browsers without WebGL2 support.
+ *
+ * Access via /#/legacy
+ */
+
 import { useMemo, useState, useRef, useCallback, type ChangeEvent } from 'react';
-import './App.css';
-import { MapRenderer, type MapRendererHandle } from './components/MapRenderer';
-import { DialogProvider } from './components/dialog';
-import type { MapIndexEntry } from './types/maps';
-import mapIndex from './data/mapIndex.json';
-import { saveManager } from './save';
+import './LegacyCanvasPage.css';
+import { MapRenderer, type MapRendererHandle } from '../components/MapRenderer';
+import { DialogProvider } from '../components/dialog';
+import type { MapIndexEntry } from '../types/maps';
+import mapIndex from '../data/mapIndex.json';
+import { saveManager } from '../save';
 
 const mapIndexData = mapIndex as MapIndexEntry[];
 
 const simplifyTilesetName = (id: string) => id.replace('gTileset_', '');
 
-function App() {
+export function LegacyCanvasPage() {
   const renderableMaps = useMemo(
     () =>
       mapIndexData.filter(
@@ -34,9 +43,9 @@ function App() {
     if (mapRendererRef.current) {
       const result = mapRendererRef.current.saveGame();
       if (result.success) {
-        console.log('[App] Game saved successfully');
+        console.log('[LegacyCanvas] Game saved successfully');
       } else {
-        console.error('[App] Save failed:', result.error);
+        console.error('[LegacyCanvas] Save failed:', result.error);
       }
     }
   }, []);
@@ -50,9 +59,9 @@ function App() {
         if (loadedMapId !== selectedMapId) {
           setSelectedMapId(loadedMapId);
         }
-        console.log('[App] Game loaded successfully');
+        console.log('[LegacyCanvas] Game loaded successfully');
       } else {
-        console.log('[App] No save data found');
+        console.log('[LegacyCanvas] No save data found');
       }
     }
   }, [selectedMapId]);
@@ -72,9 +81,9 @@ function App() {
     }
     const result = saveManager.exportToFile(0);
     if (result.success) {
-      console.log('[App] Save exported to file');
+      console.log('[LegacyCanvas] Save exported to file');
     } else {
-      console.error('[App] Export failed:', result.error);
+      console.error('[LegacyCanvas] Export failed:', result.error);
       alert('Export failed: ' + result.error);
     }
   }, []);
@@ -89,11 +98,11 @@ function App() {
 
     const result = await saveManager.importFromFile(file, 0);
     if (result.success) {
-      console.log('[App] Save loaded from file');
+      console.log('[LegacyCanvas] Save loaded from file');
       // Reload to apply imported state
       window.location.reload();
     } else {
-      console.error('[App] Import failed:', result.error);
+      console.error('[LegacyCanvas] Import failed:', result.error);
       alert('Load failed: ' + result.error);
     }
 
@@ -103,8 +112,8 @@ function App() {
 
   if (!selectedMap) {
     return (
-      <div className="App">
-        <h1>Pkmn RSE Browser</h1>
+      <div className="legacy-canvas-page">
+        <h1>Pkmn RSE Browser (Legacy)</h1>
         <p>Unable to load any maps.</p>
       </div>
     );
@@ -112,8 +121,14 @@ function App() {
 
   return (
     <DialogProvider zoom={zoom}>
-      <div className="App">
-        <h1>Pkmn RSE Browser</h1>
+      <div className="legacy-canvas-page">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <h1>Pkmn RSE Browser (Legacy)</h1>
+          <a href="#/" style={{ color: '#646cff' }}>Switch to WebGL renderer</a>
+        </div>
+        <p style={{ marginTop: 0, marginBottom: '1rem', color: '#888' }}>
+          Canvas 2D renderer. For better performance, use the WebGL renderer.
+        </p>
 
         <div className="selector">
           <label htmlFor="map-select">Choose map</label>
@@ -191,4 +206,4 @@ function App() {
   );
 }
 
-export default App;
+export default LegacyCanvasPage;

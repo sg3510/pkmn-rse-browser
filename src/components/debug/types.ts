@@ -193,6 +193,7 @@ export interface RenderStatsDebugInfo {
   cameraY: number;
   worldWidthPx: number;
   worldHeightPx: number;
+  stitchedMapCount: number;
 }
 
 /**

@@ -16,11 +16,18 @@ export class SurfBlobRenderer {
 
   // GBA-accurate discrete stepped bobbing (not smooth sine wave)
   // Reference: pokeemerald/src/field_effect_helpers.c:1107-1135
-  // - Updates every 4 frames (timer & 0x3 == 0)
+  // - Updates every 4 frames at 60fps = every 66.67ms
   // - Velocity ±1 pixel per update
-  // - Reverses direction every 16 frames (timer & 15 == 0)
+  // - Reverses direction every 16 frames at 60fps = every 266.67ms
   // - Range: -4 to +4 pixels
-  private bobTimer: number = 0;
+  //
+  // We use time-based timing for frame-rate independence
+  private readonly FRAME_DURATION_MS = 1000 / 60; // GBA frame duration ~16.67ms
+  private readonly BOB_UPDATE_INTERVAL = 4 * this.FRAME_DURATION_MS; // ~66.67ms
+  private readonly BOB_REVERSE_INTERVAL = 16 * this.FRAME_DURATION_MS; // ~266.67ms
+
+  private bobAccumulator: number = 0; // Time accumulator for bob updates
+  private reverseAccumulator: number = 0; // Time accumulator for direction reversal
   private bobVelocity: number = -1;  // Start at -1 (go down first), matches C code: sprite->sVelocity = -1
   private bobOffset: number = 0;   // Current Y offset (integer, -4 to +4)
 
@@ -33,6 +40,14 @@ export class SurfBlobRenderer {
 
   constructor() {
     this.loadSprite();
+  }
+
+  /**
+   * Wait for sprite to finish loading.
+   * Call this before attempting to upload to WebGL.
+   */
+  public waitForLoad(): Promise<void> {
+    return this.loadSprite();
   }
 
   private loadSprite(): Promise<void> {
@@ -86,29 +101,48 @@ export class SurfBlobRenderer {
    * Update bobbing animation using GBA-accurate discrete stepping.
    *
    * Reference: pokeemerald/src/field_effect_helpers.c:1107-1135
-   * - Updates bob position every 4 frames (timer & 0x3 == 0)
-   * - Reverses direction every 16 frames (timer & 15 == 0)
+   * - ONLY updates when bobState != BOB_NONE
+   * - Updates bob position every 4 frames (timer & 0x3 == 0) = every ~66.67ms
+   * - Reverses direction every 16 frames (timer & 15 == 0) = every ~266.67ms
    * - This creates a stepped sawtooth pattern, not smooth sine
+   *
+   * Uses time-based accumulation for frame-rate independent timing.
+   *
+   * @param deltaMs Time since last update in milliseconds (optional, defaults to 16.67ms)
    */
-  public update(): void {
-    this.bobTimer++;
+  public update(deltaMs: number = this.FRAME_DURATION_MS): void {
+    // GBA: if (bobState != BOB_NONE) - skip entire update when BOB_NONE
+    if (this.bobState === 'BOB_NONE') {
+      return;
+    }
 
-    // Update bob position every 4 frames (timer & 0x3 == 0)
-    if ((this.bobTimer & 0x3) === 0) {
+    // Accumulate time for bob updates
+    this.bobAccumulator += deltaMs;
+    this.reverseAccumulator += deltaMs;
+
+    // Update bob position every ~66.67ms (4 frames at 60fps)
+    while (this.bobAccumulator >= this.BOB_UPDATE_INTERVAL) {
+      this.bobAccumulator -= this.BOB_UPDATE_INTERVAL;
       this.bobOffset += this.bobVelocity;
     }
 
-    // Reverse direction every 16 frames (timer & 15 == 0)
-    if ((this.bobTimer & 15) === 0) {
+    // Reverse direction every ~266.67ms (16 frames at 60fps)
+    while (this.reverseAccumulator >= this.BOB_REVERSE_INTERVAL) {
+      this.reverseAccumulator -= this.BOB_REVERSE_INTERVAL;
       this.bobVelocity = -this.bobVelocity;
     }
   }
 
   /**
    * Get current bob offset (vertical displacement) for the BLOB.
+   * Returns 0 when BOB_NONE (no bobbing during mount).
    * Returns integer value (-4 to +4) for GBA-accurate discrete stepping.
    */
   public getBobOffset(): number {
+    // When BOB_NONE, blob doesn't visually bob
+    if (this.bobState === 'BOB_NONE') {
+      return 0;
+    }
     return this.bobOffset;
   }
 
@@ -150,7 +184,8 @@ export class SurfBlobRenderer {
    * Reset bobbing state (for new surf session)
    */
   public resetBob(): void {
-    this.bobTimer = 0;
+    this.bobAccumulator = 0;
+    this.reverseAccumulator = 0;
     this.bobVelocity = -1;  // Start at -1 (go down first), matches C code
     this.bobOffset = 0;
   }
@@ -242,5 +277,13 @@ export class SurfBlobRenderer {
    */
   public getDimensions(): { width: number; height: number } {
     return { width: this.FRAME_WIDTH, height: this.FRAME_HEIGHT };
+  }
+
+  /**
+   * Get the sprite canvas for WebGL upload
+   * Returns null if sprite not yet loaded
+   */
+  public getSpriteCanvas(): HTMLCanvasElement | null {
+    return this.sprite;
   }
 }

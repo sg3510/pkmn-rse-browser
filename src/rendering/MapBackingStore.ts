@@ -102,6 +102,13 @@ export class MapBackingStore {
   }
 
   /**
+   * Clear all cached chunks. Call when switching maps to free memory.
+   */
+  clear(): void {
+    this.chunks.clear();
+  }
+
+  /**
    * Get or render a chunk for a specific pass
    *
    * @param chunkX - Chunk X coordinate (world tile X / CHUNK_SIZE)

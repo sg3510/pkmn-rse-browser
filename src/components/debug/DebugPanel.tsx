@@ -19,6 +19,7 @@ import type {
   PriorityDebugInfo,
 } from './types';
 import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
+import type { MapIndexEntry } from '../../types/maps';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 
 const PANEL_WIDTH = 340;
@@ -41,6 +42,11 @@ interface DebugPanelProps {
   onCopyTileDebug?: () => void;
   /** WebGL-specific debug state (only shown when provided) */
   webglState?: WebGLDebugState | null;
+  /** Map selection props */
+  maps?: MapIndexEntry[];
+  selectedMapId?: string;
+  onMapChange?: (mapId: string) => void;
+  mapLoading?: boolean;
 }
 
 export const DebugPanel: React.FC<DebugPanelProps> = ({
@@ -55,9 +61,13 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   compositeLayerCanvasRef,
   onCopyTileDebug,
   webglState,
+  maps,
+  selectedMapId,
+  onMapChange,
+  mapLoading,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'objects' | 'tile' | 'webgl'>('general');
+  const [activeTab, setActiveTab] = useState<'map' | 'general' | 'objects' | 'tile' | 'webgl'>(maps ? 'map' : 'general');
 
   // Sync panel open state with debug enabled
   useEffect(() => {
@@ -176,6 +186,13 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             backgroundColor: '#222',
           }}
         >
+          {maps && (
+            <TabButton
+              label="Map"
+              active={activeTab === 'map'}
+              onClick={() => setActiveTab('map')}
+            />
+          )}
           <TabButton
             label="General"
             active={activeTab === 'general'}
@@ -208,6 +225,15 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             padding: '12px 16px',
           }}
         >
+          {activeTab === 'map' && maps && (
+            <MapTab
+              maps={maps}
+              selectedMapId={selectedMapId}
+              onMapChange={onMapChange}
+              loading={mapLoading}
+              webglState={webglState}
+            />
+          )}
           {activeTab === 'general' && (
             <GeneralTab options={options} updateOption={updateOption} state={state} />
           )}
@@ -256,6 +282,74 @@ const TabButton: React.FC<{
     {label}
   </button>
 );
+
+// Map selection tab
+const MapTab: React.FC<{
+  maps: MapIndexEntry[];
+  selectedMapId?: string;
+  onMapChange?: (mapId: string) => void;
+  loading?: boolean;
+  webglState?: WebGLDebugState | null;
+}> = ({ maps, selectedMapId, onMapChange, loading, webglState }) => {
+  const selectedMap = maps.find(m => m.id === selectedMapId);
+  const renderStats = webglState?.renderStats;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Section title="Choose Map">
+        <select
+          value={selectedMapId || ''}
+          onChange={(e) => {
+            onMapChange?.(e.target.value);
+            e.currentTarget.blur();
+          }}
+          style={{
+            width: '100%',
+            padding: '8px',
+            backgroundColor: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #333',
+            borderRadius: 4,
+            fontSize: '12px',
+            fontFamily: 'monospace',
+          }}
+        >
+          {maps.map((map) => (
+            <option key={map.id} value={map.id}>
+              {map.name} ({map.width}×{map.height})
+            </option>
+          ))}
+        </select>
+        {loading && (
+          <div style={{ marginTop: 8, color: '#4a9eff', fontSize: '11px' }}>
+            Loading map data…
+          </div>
+        )}
+      </Section>
+
+      {selectedMap && (
+        <Section title="Map Info">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <InfoRow label="Name" value={selectedMap.name} />
+            <InfoRow label="Size" value={`${selectedMap.width}×${selectedMap.height} metatiles`} />
+            <InfoRow
+              label="Tilesets"
+              value={`${selectedMap.primaryTilesetId.replace('gTileset_', '')} / ${selectedMap.secondaryTilesetId.replace('gTileset_', '')}`}
+            />
+            {renderStats && (
+              <>
+                <InfoRow label="World" value={`${renderStats.worldWidthPx}×${renderStats.worldHeightPx}px`} />
+                {renderStats.stitchedMapCount > 1 && (
+                  <InfoRow label="Stitched" value={`${renderStats.stitchedMapCount} maps`} highlight />
+                )}
+              </>
+            )}
+          </div>
+        </Section>
+      )}
+    </div>
+  );
+};
 
 // Collision legend component
 const CollisionLegend: React.FC = () => (
@@ -1100,6 +1194,9 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
           </div>
           <div style={{ marginTop: 4 }}>
             <InfoRow label="World" value={`${renderStats.worldWidthPx}×${renderStats.worldHeightPx}px`} />
+            {renderStats.stitchedMapCount > 1 && (
+              <InfoRow label="Stitched" value={`${renderStats.stitchedMapCount} maps`} highlight />
+            )}
           </div>
         </Section>
       )}
@@ -1324,13 +1421,14 @@ const Checkbox: React.FC<{
   </label>
 );
 
-const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
+const InfoRow: React.FC<{ label: string; value: React.ReactNode; highlight?: boolean }> = ({
   label,
   value,
+  highlight,
 }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
     <span style={{ color: '#888' }}>{label}:</span>
-    <span style={{ color: '#fff' }}>{value}</span>
+    <span style={{ color: highlight ? '#4fc3f7' : '#fff' }}>{value}</span>
   </div>
 );
 

@@ -1,12 +1,11 @@
 /**
- * WebGL Map Viewer
+ * Game Page (WebGL Renderer)
  *
- * Replacement for the old gameplay-heavy MapRenderer route.
- * This page mirrors the WebGL test harness but renders any map
- * from the map index using only the WebGL tile renderer (no NPCs,
- * scripts, camera, or gameplay systems).
+ * Main game page using WebGL rendering for hardware-accelerated
+ * tile and sprite rendering. Supports dynamic map loading, NPCs,
+ * warps, and all gameplay systems.
  *
- * Access via /#/webgl-map
+ * This is the default page at /
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
@@ -95,7 +94,9 @@ import {
   startDoorWarpSequence,
   type DoorWarpContext,
 } from '../game/DoorActionDispatcher';
-import './WebGLMapPage.css';
+import { DialogProvider, DialogBox, useDialog } from '../components/dialog';
+import { useActionInput } from '../hooks/useActionInput';
+import './GamePage.css';
 
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
 
@@ -117,7 +118,28 @@ const VIEWPORT_TILES_WIDE = DEFAULT_VIEWPORT_CONFIG.tilesWide;
 const VIEWPORT_TILES_HIGH = DEFAULT_VIEWPORT_CONFIG.tilesHigh;
 const VIEWPORT_PIXEL_SIZE = getViewportPixelSize();
 
-export function WebGLMapPage() {
+/**
+ * GamePage wrapper - provides DialogProvider context
+ */
+export function GamePage() {
+  const [zoom, setZoom] = useState(2); // Default to 2x zoom for better visibility
+
+  return (
+    <DialogProvider zoom={zoom}>
+      <GamePageContent zoom={zoom} onZoomChange={setZoom} />
+    </DialogProvider>
+  );
+}
+
+interface GamePageContentProps {
+  zoom: number;
+  onZoomChange: (zoom: number) => void;
+}
+
+/**
+ * GamePageContent - main game rendering and logic
+ */
+function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
   // Canvas refs - we use two canvases: hidden WebGL and visible 2D
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -175,6 +197,18 @@ export function WebGLMapPage() {
   const visibleNPCsRef = useRef<NPCObject[]>([]);
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
 
+  // Dialog system
+  const { showYesNo, showMessage, isOpen: dialogIsOpen } = useDialog();
+
+  // Action input hook (handles X key for surf/item pickup dialogs)
+  useActionInput({
+    playerControllerRef: playerRef,
+    objectEventManagerRef,
+    dialogIsOpen,
+    showMessage,
+    showYesNo,
+  });
+
   const renderableMaps = useMemo(
     () =>
       mapIndexData
@@ -204,7 +238,6 @@ export function WebGLMapPage() {
   });
   const [loading, setLoading] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(2); // Default to 2x zoom for better visibility
   const [mapDebugInfo, setMapDebugInfo] = useState<{
     currentMap: string | null;
     anchorMap: string;
@@ -254,11 +287,12 @@ export function WebGLMapPage() {
       cameraY: Math.round(cameraDisplay.y),
       worldWidthPx: worldSize.width,
       worldHeightPx: worldSize.height,
+      stitchedMapCount,
     },
     shimmer: getGlobalShimmer().getDebugInfo(),
     reflectionTileGrid: reflectionTileGridDebug,
     priority: priorityDebugInfo,
-  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, reflectionTileGridDebug, priorityDebugInfo]);
+  }), [mapDebugInfo, warpDebugInfo, stats, cameraDisplay, worldSize, stitchedMapCount, reflectionTileGridDebug, priorityDebugInfo]);
 
   // Debug state for the panel - reads from refs updated during render loop
   const debugState = useMemo<DebugState>(() => {
@@ -547,9 +581,9 @@ export function WebGLMapPage() {
     webglCanvasRef.current = webglCanvas;
 
     if (!isWebGL2Supported(webglCanvas)) {
-      // WebGL2 not supported - redirect to Canvas2D mode
-      console.warn('WebGL2 not supported, redirecting to Canvas2D mode');
-      window.location.hash = '';
+      // WebGL2 not supported - redirect to legacy Canvas2D mode
+      console.warn('WebGL2 not supported, redirecting to legacy Canvas2D mode');
+      window.location.hash = '#/legacy';
       return;
     }
 
@@ -568,9 +602,9 @@ export function WebGLMapPage() {
       fadeRenderer.initialize();
       fadeRendererRef.current = fadeRenderer;
     } catch (e) {
-      // WebGL pipeline creation failed - redirect to Canvas2D mode
-      console.error('Failed to create WebGL pipeline, redirecting to Canvas2D mode:', e);
-      window.location.hash = '';
+      // WebGL pipeline creation failed - redirect to legacy Canvas2D mode
+      console.error('Failed to create WebGL pipeline, redirecting to legacy Canvas2D mode:', e);
+      window.location.hash = '#/legacy';
       return;
     }
 
@@ -669,11 +703,33 @@ export function WebGLMapPage() {
           const spriteSheets = player.getSpriteSheets();
           for (const [key, canvas] of spriteSheets) {
             const atlasName = getPlayerAtlasName(key);
+            // Surfing uses 32x32 frames, shadow uses 16x8, others use 16x32
+            let frameWidth = 16;
+            let frameHeight = 32;
+            if (key === 'shadow') {
+              frameWidth = 16;
+              frameHeight = 8;
+            } else if (key === 'surfing') {
+              frameWidth = 32;
+              frameHeight = 32;
+            }
             spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
-              frameWidth: key === 'shadow' ? 16 : 16,
-              frameHeight: key === 'shadow' ? 8 : 32,
+              frameWidth,
+              frameHeight,
             });
-            console.log(`[WebGL] Uploaded sprite sheet: ${atlasName} (${canvas.width}x${canvas.height})`);
+            console.log(`[WebGL] Uploaded sprite sheet: ${atlasName} (${canvas.width}x${canvas.height}, frame: ${frameWidth}x${frameHeight})`);
+          }
+
+          // Upload surf blob sprite - await its loading first
+          const blobRenderer = player.getSurfingController().getBlobRenderer();
+          await blobRenderer.waitForLoad();
+          const blobCanvas = blobRenderer.getSpriteCanvas();
+          if (blobCanvas) {
+            spriteRenderer.uploadSpriteSheet('surf-blob', blobCanvas, {
+              frameWidth: 32,
+              frameHeight: 32,
+            });
+            console.log(`[WebGL] Uploaded surf blob sprite (${blobCanvas.width}x${blobCanvas.height})`);
           }
         }
 
@@ -1046,7 +1102,7 @@ export function WebGLMapPage() {
             }
 
             // Extract sprite groups from result
-            const { lowPrioritySprites: builtLowPriority, allSprites, priority0Sprites: builtP0, doorSprites, arrowSprite } = spriteBuildResult;
+            const { lowPrioritySprites: builtLowPriority, allSprites, priority0Sprites: builtP0, doorSprites, arrowSprite, surfBlobSprite } = spriteBuildResult;
             lowPrioritySprites = builtLowPriority;
             priority0Sprites = builtP0;
 
@@ -1190,6 +1246,7 @@ export function WebGLMapPage() {
                   priority0Sprites,
                   doorSprites,
                   arrowSprite,
+                  surfBlobSprite,
                 },
                 { fadeAlpha }
               );
@@ -1361,80 +1418,44 @@ export function WebGLMapPage() {
 
   if (!selectedMap) {
     return (
-      <div className="webgl-map-page">
-        <h1>WebGL Map Viewer</h1>
+      <div className="game-page">
+        <h1>Pkmn RSE Browser</h1>
         <p>No maps available.</p>
       </div>
     );
   }
 
-  const pixelWidth = worldSize.width;
-  const pixelHeight = worldSize.height;
-
   return (
-    <div className="webgl-map-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h1>WebGL Map Viewer</h1>
-        <a href="#/" style={{ color: '#88f' }}>Back to main</a>
-      </div>
-      <p style={{ marginTop: -6, color: '#ccc' }}>
-        WebGL tile rendering with player sprite. Powered by the WebGL tile renderer + palette/animation system.
-      </p>
-
-      <div className="selector">
-        <label htmlFor="map-select">Choose map</label>
-        <select
-          id="map-select"
-          value={selectedMap.id}
-          onChange={(e) => {
-            setSelectedMapId(e.target.value);
-            e.currentTarget.blur();
-          }}
-        >
-          {renderableMaps.map((map) => (
-            <option key={map.id} value={map.id}>
-              {map.name} ({map.width}x{map.height})
-            </option>
-          ))}
-        </select>
-        <div className="selector__meta">
-          <span>
-            Tilesets: {selectedMap.primaryTilesetId.replace('gTileset_', '')} / {selectedMap.secondaryTilesetId.replace('gTileset_', '')}
-          </span>
-          <span style={{ display: 'block', marginTop: 4 }}>
-            Size: {selectedMap.width}×{selectedMap.height} metatiles ({pixelWidth}×{pixelHeight}px)
-          </span>
-          {stitchedMapCount > 1 && (
-            <span style={{ display: 'block', marginTop: 4, color: '#8cf' }}>
-              Stitched: {stitchedMapCount} maps ({worldSize.width}×{worldSize.height}px world)
-            </span>
-          )}
-        </div>
-        {loading && <div style={{ marginTop: 8, color: '#88f' }}>Loading map data…</div>}
-        {stats.error && <div style={{ marginTop: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
-      </div>
+    <div className="game-page">
+      <h1>Pkmn RSE Browser</h1>
+      {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
 
       <div className="map-card">
-        <div className="map-canvas-wrapper">
+        <div className="map-canvas-wrapper" style={{ position: 'relative' }}>
           <canvas
             ref={displayCanvasRef}
-            className="webgl-map-canvas"
+            className="game-canvas"
             style={{
               width: VIEWPORT_PIXEL_SIZE.width * zoom,
               height: VIEWPORT_PIXEL_SIZE.height * zoom,
               imageRendering: 'pixelated',
             }}
           />
+          {/* Dialog box overlay - positioned within viewport */}
+          <DialogBox
+            viewportWidth={VIEWPORT_PIXEL_SIZE.width * zoom}
+            viewportHeight={VIEWPORT_PIXEL_SIZE.height * zoom}
+          />
         </div>
         <div className="map-stats">
           <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span>Arrow Keys to move. Z to run. ` for debug panel.</span>
+            <span>Arrow Keys to move. Z to run. X to interact. ` for debug panel.</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               Zoom:
               {[1, 2, 3].map((z) => (
                 <button
                   key={z}
-                  onClick={() => setZoom(z)}
+                  onClick={() => onZoomChange(z)}
                   style={{
                     padding: '2px 8px',
                     fontSize: 11,
@@ -1453,15 +1474,19 @@ export function WebGLMapPage() {
         </div>
       </div>
 
-      {/* Debug Panel - slide-out sidebar with WebGL tab */}
+      {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}
       <DebugPanel
         options={debugOptions}
         onChange={setDebugOptions}
         state={debugState}
         webglState={webglDebugState}
+        maps={renderableMaps}
+        selectedMapId={selectedMapId}
+        onMapChange={setSelectedMapId}
+        mapLoading={loading}
       />
     </div>
   );
 }
 
-export default WebGLMapPage;
+export default GamePage;

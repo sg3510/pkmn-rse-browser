@@ -56,6 +56,8 @@ export interface SpriteGroups {
   doorSprites: SpriteInstance[];
   /** Arrow overlay sprite */
   arrowSprite: SpriteInstance | null;
+  /** Surf blob sprite (rendered behind player) */
+  surfBlobSprite?: SpriteInstance | null;
 }
 
 export interface CompositeFrameOptions {
@@ -87,14 +89,19 @@ export function compositeWebGLFrame(
   options: CompositeFrameOptions
 ): void {
   const { pipeline, spriteRenderer, fadeRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
-  const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite } = sprites;
+  const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
   const { fadeAlpha } = options;
 
   const gl = pipeline.getGL();
 
+  // Add surf blob to main sprites (it will be sorted by sortKey to render behind player)
+  const allSpritesWithBlob = surfBlobSprite ? [...allSprites, surfBlobSprite] : allSprites;
+  // Re-sort to ensure surf blob is in correct position
+  allSpritesWithBlob.sort((a, b) => a.sortKey - b.sortKey);
+
   // Split sprites into reflection-layer and normal
-  const reflectionLayerSprites = allSprites.filter((s) => s.isReflection || s.isReflectionLayer);
-  const normalSprites = allSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+  const reflectionLayerSprites = allSpritesWithBlob.filter((s) => s.isReflection || s.isReflectionLayer);
+  const normalSprites = allSpritesWithBlob.filter((s) => !s.isReflection && !s.isReflectionLayer);
   const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
   const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
 

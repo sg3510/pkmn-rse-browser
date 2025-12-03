@@ -170,9 +170,10 @@ export class SurfingController {
   /**
    * Update surfing animation state machine
    * Call this every frame
+   * @param deltaMs Time since last update in milliseconds (for frame-rate independent bobbing)
    * @returns Object with state change info and jump offsets
    */
-  public update(): {
+  public update(deltaMs?: number): {
     stateChanged: boolean;
     jumpComplete: boolean;
     jumpYOffset: number;
@@ -189,7 +190,7 @@ export class SurfingController {
 
     // Always update blob bobbing during surfing or any jump animation
     if (this.state.isSurfing || this.state.animationPhase === 'JUMPING_ON' || this.state.animationPhase === 'JUMPING_OFF') {
-      this.blobRenderer.update();
+      this.blobRenderer.update(deltaMs);
     }
 
     switch (this.state.animationPhase) {

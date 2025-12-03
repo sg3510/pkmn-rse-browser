@@ -333,6 +333,10 @@ export function executeWarp(
     onClearDoorAnimations,
   } = deps;
 
+  // Reset all map-specific player state before warp
+  // This clears: movement state, key input, previous tile tracking, field effects, surfing state
+  player.resetForWarp();
+
   const destWarpId = trigger.warpEvent.destWarpId;
   const now = getCurrentTime();
 

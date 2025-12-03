@@ -1,9 +1,12 @@
 import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import { GamePage } from './pages/GamePage.tsx'
+import { LegacyCanvasPage } from './pages/LegacyCanvasPage.tsx'
 import { WebGLTestPage } from './pages/WebGLTestPage.tsx'
-import { WebGLMapPage } from './pages/WebGLMapPage.tsx'
+import { SurfingSpriteDebugPage } from './pages/SurfingSpriteDebugPage.tsx'
+import { GameRenderer } from './components/GameRenderer.tsx'
+import { DialogProvider } from './components/dialog'
 
 /**
  * Simple hash-based router for development/testing pages
@@ -21,11 +24,23 @@ function Router() {
   if (route === '#/webgl-test') {
     return <WebGLTestPage />;
   }
-  if (route === '#/webgl-map') {
-    return <WebGLMapPage />;
+  if (route === '#/legacy') {
+    return <LegacyCanvasPage />;
+  }
+  if (route === '#/surfing-sprite') {
+    return <SurfingSpriteDebugPage />;
+  }
+  // New unified GameRenderer (work in progress)
+  if (route === '#/play' || route.startsWith('#/play?')) {
+    return (
+      <DialogProvider zoom={1}>
+        <GameRenderer mapId="MAP_LITTLEROOT_TOWN" mapName="Littleroot Town" zoom={2} />
+      </DialogProvider>
+    );
   }
 
-  return <App />;
+  // WebGL game page is the default
+  return <GamePage />;
 }
 
 createRoot(document.getElementById('root')!).render(
