@@ -16,24 +16,12 @@ import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
 import {
-  createSpriteFromFrameInfo,
-  createFieldEffectSprite,
-  createPlayerReflectionSprite,
-  createPlayerShadowSprite,
-  createNPCSpriteInstance,
-  createNPCReflectionSprite,
-  createNPCGrassEffectSprite,
-  createDoorAnimationSprite,
-  calculateSortKey,
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getNPCAtlasName,
-  getDoorAtlasName,
-  ARROW_ATLAS_NAME,
-  buildWaterMaskFromView,
 } from '../rendering/spriteUtils';
 import type { SpriteInstance } from '../rendering/types';
-import type { TileResolverFn, WorldCameraView, RenderContext } from '../rendering/types';
+import type { TileResolverFn, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
 import { CameraController, createWebGLCameraController } from '../game/CameraController';
 import { TileResolverFactory } from '../game/TileResolverFactory';
@@ -79,14 +67,11 @@ import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
 import { FADE_TIMING, type CardinalDirection } from '../field/types';
-import {
-  ARROW_FRAME_SIZE,
-  getArrowAnimationFrame,
-  getArrowAtlasCoords,
-} from '../field/ArrowAnimationConstants';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
+import { useWebGLSpriteBuilder } from '../hooks/useWebGLSpriteBuilder';
+import { compositeWebGLFrame } from '../rendering/compositeWebGLFrame';
 import {
   DebugPanel,
   DEFAULT_DEBUG_OPTIONS,
@@ -99,14 +84,12 @@ import {
   type PriorityDebugInfo,
   type SpriteSortDebugInfo,
 } from '../components/debug';
-import { isLongGrassBehavior } from '../utils/metatileBehaviors';
 import {
   getPlayerFeetY,
   getPlayerCenterY,
   getPlayerSortKey,
   DEFAULT_SPRITE_SUBPRIORITY,
 } from '../game/playerCoords';
-import { buildSpriteBatches, type SortableSpriteInfo } from '../rendering/SpriteBatcher';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
 import {
   startDoorWarpSequence,
@@ -172,6 +155,9 @@ export function WebGLMapPage() {
   // Field sprites (grass, sand, etc.)
   const fieldSprites = useFieldSprites();
   const fieldSpritesLoadedRef = useRef<boolean>(false);
+
+  // Sprite building hook (extracts complex sprite batch logic)
+  const { buildSprites } = useWebGLSpriteBuilder();
 
   // Tileset runtimes for reflection detection (built from TilesetPairInfo)
   const tilesetRuntimesRef = useRef<Map<string, TilesetRuntimeType>>(new Map());
@@ -971,11 +957,9 @@ export function WebGLMapPage() {
         // - priority0Sprites (P0): render after TopAbove (above all BG layers)
         let lowPrioritySprites: SpriteInstance[] = [];
         let priority0Sprites: SpriteInstance[] = [];
-        let prioritySpriteView: WorldCameraView | null = null;
 
         // Render field effects and player with proper Y-sorting
         if (player && playerLoadedRef.current) {
-          const playerWorldY = getPlayerCenterY(player); // Player sprite center Y (NOT feet - feet is player.y + 32)
           const currentSnapshot = worldSnapshotRef.current;
 
           // Render player reflection (behind player, on water/ice tiles)
@@ -1020,112 +1004,12 @@ export function WebGLMapPage() {
           const spriteRenderer = spriteRendererRef.current;
 
           if (spriteRenderer && spriteRenderer.isValid()) {
-            const allSprites: SpriteInstance[] = [];
-
-            // Use WorldCameraView for sprite renderer (already built above)
+            // Use WorldCameraView for sprite renderer
             const spriteView = view;
-            // Store for priority-based rendering (low priority before TopBelow, P0 after TopAbove)
-            prioritySpriteView = spriteView;
 
-            // === Build door animation sprites ===
-            // Upload door sprites to WebGL and create SpriteInstances
-            const doorSprites: SpriteInstance[] = [];
-            const doorAnims = doorAnimations.getAnimations();
-            for (const anim of doorAnims) {
-              // Upload sprite to WebGL if not already uploaded
-              const atlasName = getDoorAtlasName(anim.metatileId);
-              if (!doorSpritesUploadedRef.current.has(atlasName)) {
-                const spriteData = doorAnimations.getSpriteForUpload(anim.metatileId);
-                if (spriteData) {
-                  // Create canvas from HTMLImageElement for WebGL upload
-                  const canvas = document.createElement('canvas');
-                  canvas.width = spriteData.width;
-                  canvas.height = spriteData.height;
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    ctx.drawImage(spriteData.image, 0, 0);
-                    spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
-                      frameWidth: spriteData.width,
-                      frameHeight: 32, // Door frames are 32px tall
-                    });
-                    doorSpritesUploadedRef.current.add(atlasName);
-                  }
-                }
-              }
-
-              // Create SpriteInstance for this door animation
-              if (spriteRenderer.hasSpriteSheet(atlasName)) {
-                const spriteData = doorAnimations.getSpriteForUpload(anim.metatileId);
-                if (spriteData) {
-                  const doorSprite = createDoorAnimationSprite(
-                    anim,
-                    nowTime,
-                    spriteData.width,
-                    spriteData.height
-                  );
-                  if (doorSprite) {
-                    doorSprites.push(doorSprite);
-                  }
-                }
-              }
-            }
-
-            // === Build arrow overlay sprite ===
-            let arrowSprite: SpriteInstance | null = null;
-            if (arrowOverlay.isVisible() && !doorSequencer.isActive()) {
-              // Upload arrow sprite if not already uploaded
-              if (!arrowSpriteUploadedRef.current) {
-                const arrowData = arrowOverlay.getSpriteForUpload();
-                if (arrowData) {
-                  spriteRenderer.uploadSpriteSheet(ARROW_ATLAS_NAME, arrowData.canvas, {
-                    frameWidth: 16,
-                    frameHeight: 16,
-                  });
-                  arrowSpriteUploadedRef.current = true;
-                }
-              }
-
-              // Create arrow SpriteInstance
-              const arrowState = arrowOverlay.getState();
-              if (arrowState && spriteRenderer.hasSpriteSheet(ARROW_ATLAS_NAME)) {
-                const arrowData = arrowOverlay.getSpriteForUpload();
-                if (arrowData) {
-                  // Use shared arrow animation constants
-                  const framesPerRow = Math.max(1, Math.floor(arrowData.width / ARROW_FRAME_SIZE));
-                  const elapsed = nowTime - arrowState.startedAt;
-                  const frameIndex = getArrowAnimationFrame(arrowState.direction, elapsed);
-                  const { atlasX, atlasY } = getArrowAtlasCoords(frameIndex, framesPerRow);
-
-                  arrowSprite = {
-                    worldX: arrowState.worldX * METATILE_SIZE,
-                    worldY: arrowState.worldY * METATILE_SIZE,
-                    width: ARROW_FRAME_SIZE,
-                    height: ARROW_FRAME_SIZE,
-                    atlasName: ARROW_ATLAS_NAME,
-                    atlasX,
-                    atlasY,
-                    atlasWidth: ARROW_FRAME_SIZE,
-                    atlasHeight: ARROW_FRAME_SIZE,
-                    flipX: false,
-                    flipY: false,
-                    alpha: 1.0,
-                    tintR: 1.0,
-                    tintG: 1.0,
-                    tintB: 1.0,
-                    sortKey: calculateSortKey(arrowState.worldY * METATILE_SIZE, 1),
-                    isReflection: false,
-                  };
-                }
-              }
-            }
-
-            // === Use SpriteBatcher for unified sprite sorting ===
-            // This ensures WebGL and Canvas2D use identical sorting logic
+            // Get visible NPCs and items for debug panel
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
             const items = objectEventManagerRef.current.getVisibleItemBalls();
-            const snapshot = worldSnapshotRef.current;
-
-            // Update refs for debug panel
             visibleNPCsRef.current = npcs;
             visibleItemsRef.current = items;
 
@@ -1134,120 +1018,37 @@ export function WebGLMapPage() {
               ? player.getGrassEffectManager().getEffectsForRendering()
               : [];
 
-            // Build sorted sprite batches using shared utility
-            const spriteBatches = buildSpriteBatches(player, npcs, fieldEffects, {
-              includePlayerShadow: player.showShadow,
+            // Build all sprites using extracted hook
+            const spriteBuildResult = buildSprites({
+              player,
+              playerLoaded: playerLoadedRef.current,
               playerHidden: playerHiddenRef.current,
+              snapshot: currentSnapshot,
+              tilesetRuntimes: tilesetRuntimesRef.current,
+              npcs,
+              fieldEffects,
+              spriteRenderer,
+              doorAnimations,
+              arrowOverlay,
+              doorSequencer,
+              doorSpritesUploaded: doorSpritesUploadedRef.current,
+              arrowSpriteUploaded: arrowSpriteUploadedRef.current,
+              nowTime,
+              computeReflectionState: computeReflectionStateFromSnapshot,
             });
 
-            // Helper to create NPC sprite with reflections and grass effects
-            const createNPCWithExtras = (
-              info: SortableSpriteInfo,
-              targetArray: SpriteInstance[]
-            ) => {
-              const npc = info.npc!;
-              const atlasName = getNPCAtlasName(npc.graphicsId);
-              if (!spriteRenderer.hasSpriteSheet(atlasName)) return;
-
-              // Get tile metadata for grass/reflection detection
-              const tileMeta = snapshot ? getReflectionMetaFromSnapshot(
-                snapshot,
-                tilesetRuntimesRef.current,
-                npc.tileX,
-                npc.tileY
-              ) : null;
-
-              const isOnLongGrass = tileMeta ? isLongGrassBehavior(tileMeta.behavior) : false;
-              const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass);
-              if (!npcSprite) return;
-
-              targetArray.push(npcSprite);
-
-              // Add reflection (not for P0 sprites which are in highPriority batch)
-              if (snapshot && targetArray !== priority0Sprites) {
-                const npcReflectionState = computeReflectionStateFromSnapshot(
-                  snapshot,
-                  npc.tileX, npc.tileY,
-                  npc.tileX, npc.tileY, // NPCs don't move yet
-                  npcSprite.width, npcSprite.height
-                );
-                const npcReflection = createNPCReflectionSprite(npcSprite, npcReflectionState, npc.direction);
-                if (npcReflection) targetArray.push(npcReflection);
-
-                // Add grass effect if on tall grass (not long grass)
-                if (tileMeta && !isOnLongGrass) {
-                  const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, info.sortKey);
-                  if (grassSprite) targetArray.push(grassSprite);
-                }
-              }
-            };
-
-            // Process low priority batch (P2/P3 NPCs when player on bridge)
-            for (const info of spriteBatches.lowPriority) {
-              if (info.type === 'npc') {
-                createNPCWithExtras(info, lowPrioritySprites);
-              }
+            // Track newly uploaded sprites
+            for (const atlasName of spriteBuildResult.newDoorSpritesUploaded) {
+              doorSpritesUploadedRef.current.add(atlasName);
+            }
+            if (spriteBuildResult.arrowSpriteWasUploaded) {
+              arrowSpriteUploadedRef.current = true;
             }
 
-            // Process Y-sorted batch (player, NPCs, field effects)
-            for (const info of spriteBatches.ySorted) {
-              if (info.type === 'player' && info.player) {
-                const frameInfo = info.player.getFrameInfo();
-                if (!frameInfo) continue;
-
-                const spriteKey = info.player.getCurrentSpriteKey();
-                const atlasName = getPlayerAtlasName(spriteKey);
-                if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
-
-                const clipToHalf = info.player.isOnLongGrass();
-                const playerSprite = createSpriteFromFrameInfo(frameInfo, atlasName, info.sortKey, clipToHalf);
-                allSprites.push(playerSprite);
-
-                // Add player reflection
-                if (snapshot) {
-                  const { width: spriteWidth, height: spriteHeight } = info.player.getSpriteSize();
-                  const destTile = info.player.getDestinationTile();
-                  const reflectionState = computeReflectionStateFromSnapshot(
-                    snapshot,
-                    destTile.x, destTile.y,
-                    info.player.tileX, info.player.tileY,
-                    spriteWidth, spriteHeight
-                  );
-                  const reflectionSprite = createPlayerReflectionSprite(playerSprite, reflectionState, info.player.dir);
-                  if (reflectionSprite) allSprites.push(reflectionSprite);
-                }
-
-              } else if (info.type === 'playerShadow' && info.player) {
-                const shadowAtlas = getPlayerAtlasName('shadow');
-                if (spriteRenderer.hasSpriteSheet(shadowAtlas)) {
-                  const shadowSprite = createPlayerShadowSprite(info.player.x, info.player.y, info.sortKey);
-                  allSprites.push(shadowSprite);
-                }
-
-              } else if (info.type === 'npc') {
-                createNPCWithExtras(info, allSprites);
-
-              } else if (info.type === 'fieldEffect' && info.fieldEffect) {
-                // Field effects already have correct sortKey from SpriteBatcher
-                const layer = info.effectLayer === 'front' ? 'top' : 'bottom';
-                const sprite = createFieldEffectSprite(info.fieldEffect, playerWorldY, layer);
-                if (sprite) {
-                  // Override sortKey with the one from SpriteBatcher for consistency
-                  sprite.sortKey = info.sortKey;
-                  allSprites.push(sprite);
-                }
-              }
-            }
-
-            // Process high priority batch (P0 NPCs at elevation 13-14)
-            for (const info of spriteBatches.highPriority) {
-              if (info.type === 'npc') {
-                createNPCWithExtras(info, priority0Sprites);
-              }
-            }
-
-            // Sort all sprites by sortKey (SpriteBatcher already sorted, but reflections added inline)
-            allSprites.sort((a, b) => a.sortKey - b.sortKey);
+            // Extract sprite groups from result
+            const { lowPrioritySprites: builtLowPriority, allSprites, priority0Sprites: builtP0, doorSprites, arrowSprite } = spriteBuildResult;
+            lowPrioritySprites = builtLowPriority;
+            priority0Sprites = builtP0;
 
             // Collect priority debug info if debug panel is enabled
             if (debugOptionsRef.current.enabled && player) {
@@ -1365,198 +1166,33 @@ export function WebGLMapPage() {
               });
             }
 
-            // Split sprites into reflection-layer sprites and normal sprites
-            // Reflection layer includes:
-            // - Reflections (isReflection=true): player/NPC reflections with shimmer
-            // - Water effects (isReflectionLayer=true): puddle splashes, ripples (no shimmer)
-            // Both render between layer 0 and layer 1 with water mask clipping.
-            const reflectionLayerSprites = allSprites.filter((s) => s.isReflection || s.isReflectionLayer);
-            const normalSprites = allSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
-
-            // Also filter low priority sprites (P2/P3 NPCs need same treatment)
-            const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
-            const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
-
-            const gl = pipeline.getGL();
-            const webglCanvas = webglCanvasRef.current;
-
-            // === SPLIT LAYER RENDERING FOR REFLECTION-LAYER SPRITES ===
-            // GBA renders reflections and water effects at OAM priority 3 (behind BG1).
-            // BG1's opaque pixels naturally occlude them.
-            //
-            // For tiles like 177 (water with shore edge):
-            // - Layer 0 = water (BG2)
-            // - Layer 1 = shore edge (BG1) - should cover reflections and water effects
-            //
-            // Render order:
-            // 1. Layer 0 only (water base)
-            // 2. Reflection-layer sprites (reflections + water effects, with water mask)
-            // 3. Layer 1 of ALL tiles (shore edges cover reflection-layer sprites)
-            // 4. Normal sprites
-
-            if (reflectionLayerSprites.length > 0) {
-              // === STEP 1: Render and composite ONLY layer 0 ===
-              pipeline.renderAndCompositeLayer0Only(ctx2d, view);
-
-              // === STEP 2: Render reflection-layer sprites with water mask ===
-              // Build a viewport-sized water mask from reflective tile pixels.
-              // Non-reflective tiles (like grass) don't contribute to the mask, so
-              // reflection-layer sprites are clipped away on those tiles.
-              // This applies to both reflections AND water effects (puddle, ripple).
-              if (webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-
-                // Build water mask from current view
-                const currentSnapshot = worldSnapshotRef.current;
-                if (currentSnapshot) {
-                  const waterMask = buildWaterMaskFromView(
-                    view.pixelWidth,
-                    view.pixelHeight,
-                    view.cameraWorldX,
-                    view.cameraWorldY,
-                    (tileX, tileY) => {
-                      const meta = getReflectionMetaFromSnapshot(
-                        currentSnapshot,
-                        tilesetRuntimesRef.current,
-                        tileX,
-                        tileY
-                      );
-                      return meta?.meta ? { isReflective: meta.meta.isReflective, pixelMask: meta.meta.pixelMask } : null;
-                    }
-                  );
-                  spriteRenderer.setWaterMask(waterMask);
-                }
-
-                // Render all reflection sprites (including P2/P3 NPC reflections)
-                const allReflectionSprites = [...reflectionLayerSprites, ...lowPriorityReflections];
-                spriteRenderer.renderBatch(allReflectionSprites, spriteView);
-
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-
-              // === STEP 2.5: Render low priority sprites (P2/P3) BEFORE layer 1 ===
-              // These NPCs should always appear behind bridge/shore tiles
-              if (normalLowPrioritySprites.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-
-                spriteRenderer.renderBatch(normalLowPrioritySprites, spriteView);
-
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-
-              // === STEP 3: Render and composite layer 1 of ALL tiles ===
-              // This covers reflections with shore edges, ground decorations, etc.
-              pipeline.renderAndCompositeLayer1Only(ctx2d, view);
-
-              // === STEP 3.5: Door animations + arrow via WebGL (see CompositeOrder.ts) ===
-              // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
-              const overlaySprites = [...doorSprites];
-              if (arrowSprite) overlaySprites.push(arrowSprite);
-              if (overlaySprites.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                spriteRenderer.renderBatch(overlaySprites, spriteView);
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-
-              // === STEP 4: Render P1 normal sprites + player ===
-              if (normalSprites.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-
-                spriteRenderer.renderBatch(normalSprites, spriteView);
-
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-            } else {
-              // No reflections - use standard compositing
-              pipeline.compositeBackgroundOnly(ctx2d, view);
-
-              // Render low priority sprites (P2/P3) BEFORE TopBelow
-              // These NPCs should always appear behind bridge tiles
-              if (lowPrioritySprites.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-
-                spriteRenderer.renderBatch(lowPrioritySprites, spriteView);
-
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-
-              pipeline.compositeTopBelowOnly(ctx2d, view);
-
-              // Door animations + arrow via WebGL (see CompositeOrder.ts for canonical render order)
-              // Must render AFTER topBelow but BEFORE sprites so player walks IN FRONT
-              const overlaySpritesNonReflection = [...doorSprites];
-              if (arrowSprite) overlaySpritesNonReflection.push(arrowSprite);
-              if (overlaySpritesNonReflection.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                spriteRenderer.renderBatch(overlaySpritesNonReflection, spriteView);
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-
-              // Render P1 sprites + player (between TopBelow and TopAbove)
-              if (allSprites.length > 0 && webglCanvas) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-
-                spriteRenderer.renderBatch(allSprites, spriteView);
-
-                ctx2d.drawImage(webglCanvas, 0, 0);
-              }
-            }
-          }
-
-          // Arrow overlay is now rendered via WebGL in the overlay sprites batch above
-        }
-
-        pipeline.compositeTopAbove(ctx2d, view);
-
-        // Render priority 0 NPCs (elevation 13-14) ABOVE TopAbove layer
-        // These are special NPCs that render on top of all BG layers (GBA priority 0)
-        const priority0Renderer = spriteRendererRef.current;
-        if (priority0Sprites.length > 0 && priority0Renderer && prioritySpriteView) {
-          const gl = pipeline.getGL();
-          const webglCanvas = webglCanvasRef.current;
-          if (webglCanvas) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            gl.clearColor(0, 0, 0, 0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-
-            priority0Renderer.renderBatch(priority0Sprites, prioritySpriteView);
-
-            ctx2d.drawImage(webglCanvas, 0, 0);
-          }
-        }
-
-        // Render fade overlay (for warp transitions) via WebGL
-        const fade = fadeControllerRef.current;
-        const fadeRenderer = fadeRendererRef.current;
-        if (fade.isActive() && fadeRenderer) {
-          const fadeAlpha = fade.getAlpha(nowTime);
-          if (fadeAlpha > 0) {
-            const gl = pipeline.getGL();
+            // Use extracted compositing function for GBA-accurate layer ordering
             const webglCanvas = webglCanvasRef.current;
             if (webglCanvas) {
-              gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-              // Use canvas dimensions (includes buffer tiles), not viewport dimensions
-              gl.viewport(0, 0, webglCanvas.width, webglCanvas.height);
-              gl.clearColor(0, 0, 0, 0);
-              gl.clear(gl.COLOR_BUFFER_BIT);
+              const fadeAlpha = fadeControllerRef.current.isActive()
+                ? fadeControllerRef.current.getAlpha(nowTime)
+                : 0;
 
-              fadeRenderer.render(fadeAlpha);
-
-              ctx2d.drawImage(webglCanvas, 0, 0);
+              compositeWebGLFrame(
+                {
+                  pipeline,
+                  spriteRenderer,
+                  fadeRenderer: fadeRendererRef.current,
+                  ctx2d,
+                  webglCanvas,
+                  view: spriteView,
+                  snapshot: currentSnapshot,
+                  tilesetRuntimes: tilesetRuntimesRef.current,
+                },
+                {
+                  lowPrioritySprites,
+                  allSprites,
+                  priority0Sprites,
+                  doorSprites,
+                  arrowSprite,
+                },
+                { fadeAlpha }
+              );
             }
           }
         }

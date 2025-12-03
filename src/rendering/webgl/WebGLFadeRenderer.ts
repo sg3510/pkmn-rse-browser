@@ -7,6 +7,8 @@
 
 import { WebGLShaders } from './WebGLShaders';
 import type { ShaderProgram } from './types';
+import type { IFadeRenderer } from '../IFadeRenderer';
+import type { RendererType } from '../IRenderPipeline';
 
 // Simple fullscreen quad vertex shader using gl_VertexID
 const FADE_VERTEX_SHADER = `#version 300 es
@@ -34,7 +36,8 @@ void main() {
 }
 `;
 
-export class WebGLFadeRenderer {
+export class WebGLFadeRenderer implements IFadeRenderer {
+  readonly rendererType: RendererType = 'webgl';
   private gl: WebGL2RenderingContext;
   private shaders: WebGLShaders;
   private program: ShaderProgram | null = null;
@@ -107,6 +110,13 @@ export class WebGLFadeRenderer {
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
+  }
+
+  /**
+   * Check if WebGL context is valid
+   */
+  isValid(): boolean {
+    return !this.gl.isContextLost();
   }
 
   /**

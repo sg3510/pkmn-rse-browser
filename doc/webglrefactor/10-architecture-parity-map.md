@@ -380,36 +380,110 @@ Warp handling is complex - extract carefully.
 
 `WorldManager` vs `MapManager` is the biggest divergence.
 
-- [ ] **3.1** Document differences between WorldManager and MapManager
-  - [ ] WorldManager: snapshot-based, supports stitched worlds
-  - [ ] MapManager: event-based, single map focus
-  - [ ] Identify which features each provides
+- [x] **3.1** Document differences between WorldManager and MapManager ✅ DONE (2025-12-02)
+  - [x] WorldManager: snapshot-based, dynamic loading, GPU scheduling
+  - [x] MapManager: one-shot BFS loading, simpler types
+  - [x] See detailed comparison below
 
-- [ ] **3.2** Create unified `IWorldProvider` interface
-  ```typescript
-  interface IWorldProvider {
-    getCurrentSnapshot(): WorldSnapshot;
-    loadMap(mapId: string): Promise<WorldSnapshot>;
-    getTileAt(worldX: number, worldY: number): ResolvedTile | null;
-    getObjectsInView(view: WorldCameraView): ObjectEvent[];
-  }
-  ```
+#### 3.1.1 WorldManager vs MapManager Comparison
 
-- [ ] **3.3** Implement `WorldManager` adapter for interface
-  - [ ] Wrap existing WorldManager
-  - [ ] **PARITY:** WebGLMapPage uses adapter
-  - [ ] **TEST:** WebGLMapPage works with adapter
+| Feature | WorldManager (WebGL) | MapManager (Canvas2D) |
+|---------|---------------------|----------------------|
+| **Lines** | ~1000 | ~240 |
+| **Location** | `src/game/WorldManager.ts` | `src/services/MapManager.ts` |
+| **Loading** | Dynamic incremental (BFS each frame) | One-shot BFS (`buildWorld`) |
+| **Tileset Format** | `TilesetPairInfo` (indexed PNG for GPU) | `TilesetResources` (Uint8Array) |
+| **GPU Scheduling** | `TilesetPairScheduler` (max 2 pairs in GPU) | None (no GPU limits) |
+| **Re-anchoring** | Yes (prevents coordinate overflow) | No (coordinates stay small) |
+| **Events** | `mapsChanged`, `tilesetsChanged`, `reanchored`, `gpuSlotsSwapped` | None (sync return) |
+| **Epoch Tracking** | Yes (invalidates stale async ops during warps) | No |
+| **Animations** | Loaded with tilesets (`LoadedAnimation[]`) | Empty array (handled elsewhere) |
+| **Output Type** | `WorldSnapshot` | `WorldState` |
 
-- [ ] **3.4** Implement `MapManager` adapter for interface
-  - [ ] Wrap existing MapManager
-  - [ ] **PARITY:** MapRenderer uses adapter
-  - [ ] **TEST:** MapRenderer works with adapter
+**Key Type Differences:**
 
-- [ ] **3.5** Decide on long-term world management strategy
-  - [ ] Option A: Migrate MapRenderer to WorldManager
-  - [ ] Option B: Migrate WebGLMapPage to MapManager
-  - [ ] Option C: Keep both behind interface
-  - [ ] **PARITY:** Both renderers use same world provider interface
+```typescript
+// WorldManager output
+interface WorldSnapshot {
+  maps: LoadedMapInstance[];
+  tilesetPairs: TilesetPairInfo[];
+  mapTilesetPairIndex: Map<string, number>;
+  anchorBorderMetatiles: number[];
+  pairIdToGpuSlot: Map<string, 0 | 1>;  // GPU-specific
+  anchorMapId: string;
+  worldBounds: { minX, minY, maxX, maxY, width, height };
+}
+
+// MapManager output
+interface WorldState {
+  anchorId: string;
+  maps: WorldMapInstance[];
+  bounds: { minX, minY, maxX, maxY };  // No width/height
+}
+```
+
+**Shared Logic (90% overlap):**
+- Map loading from JSON index
+- Tileset loading (palettes, metatiles, attributes)
+- Connection offset computation (`computeOffset`/`computeConnectionOffset`)
+- BFS world building
+- Bounds calculation
+
+**Unification Strategy:**
+1. Create `IWorldProvider` interface both can implement
+2. Extract shared loading into `MapLoaderService`
+3. Keep GPU-specific logic in WorldManager
+4. Canvas2D can use WorldManager in "simple mode" OR keep MapManager behind interface
+
+- [x] **3.2** Create unified `IWorldProvider` interface ✅ DONE (2025-12-02)
+  - [x] Created `src/services/IWorldProvider.ts`
+  - [x] Unified types: `WorldMapData`, `WorldTilesetData`, `WorldBounds`, `WorldStateSnapshot`
+  - [x] Interface methods: `initialize`, `getSnapshot`, `findMapAtPosition`, `getTilesetForMap`
+  - [x] Optional methods: `update` (for dynamic loading), `onStateChange` (for events)
+  - [x] Helper functions: `computeWorldBounds`, `getTilesetPairId`
+  - [x] **TEST:** Build passes
+
+- [x] **3.3** Implement `WorldManager` adapter for interface ✅ DONE (2025-12-02)
+  - [x] Created `src/services/WorldManagerAdapter.ts`
+  - [x] Wraps WorldManager, converts types to IWorldProvider format
+  - [x] Forwards state change events from WorldManager
+  - [x] Provides `getWorldManager()` for WebGL-specific access (GPU slots, animations)
+  - [x] **TEST:** Build passes
+
+- [x] **3.4** Implement `MapManager` adapter for interface ✅ DONE (2025-12-02)
+  - [x] Created `src/services/MapManagerAdapter.ts`
+  - [x] Wraps MapManager, converts types to IWorldProvider format
+  - [x] Static loading (update() is no-op, onStateChange returns no-op)
+  - [x] Provides `getMapManager()` for direct access
+  - [x] **TEST:** Build passes
+
+**Note:** Adapters are created but not yet integrated into renderers. Integration
+will happen in Phase 4/5 when we migrate renderers to use IWorldProvider.
+
+- [x] **3.5** Decide on long-term world management strategy ✅ DONE (2025-12-02)
+  - [x] **Decision: Option C - Keep both behind interface (for now)**
+
+  **Analysis:**
+  - Option A (Canvas2D → WorldManager): Requires making GPU scheduling optional,
+    adds complexity Canvas2D doesn't need, but gains dynamic loading
+  - Option B (WebGL → MapManager): Loses dynamic loading, re-anchoring, GPU
+    scheduling - significant downgrade for WebGL
+  - Option C (Keep both): Both work independently, minimal risk, allows
+    gradual consolidation
+
+  **Rationale:**
+  - WorldManager has WebGL-specific optimizations (TilesetPairScheduler, GPU
+    slots) that Canvas2D doesn't benefit from
+  - MapManager's simpler one-shot loading is sufficient for Canvas2D
+  - IWorldProvider interface provides the abstraction layer for unified code
+  - Future consolidation can happen when GameRenderer unification is complete
+
+  **Path forward:**
+  1. Use adapters in Phase 4/5 when migrating to unified hooks
+  2. Shared game logic uses IWorldProvider, not specific managers
+  3. Renderer-specific code can access underlying managers via adapter methods
+  4. Consider Option A (Canvas2D → WorldManager) once interface stabilizes
+  - [x] **PARITY:** Both renderers can use IWorldProvider interface
 
 ---
 
@@ -417,46 +491,54 @@ Warp handling is complex - extract carefully.
 
 Define clean interfaces for rendering backends.
 
-- [ ] **4.1** Finalize `ISpriteRenderer` interface
-  ```typescript
-  interface ISpriteRenderer {
-    uploadSpriteSheet(name: string, source: CanvasImageSource): void;
-    hasSpriteSheet(name: string): boolean;
-    renderBatch(sprites: SpriteInstance[], view: SpriteView): void;
-    dispose(): void;
-  }
-  ```
+- [x] **4.1** Finalize `ISpriteRenderer` interface ✅ Already complete
+  - [x] Interface at `src/rendering/ISpriteRenderer.ts`
+  - [x] `WebGLSpriteRenderer` implements it
+  - [x] Full API: uploadSpriteSheet, hasSpriteSheet, renderBatch, setWaterMask, dispose
 
-- [ ] **4.2** Create `Canvas2DSpriteRenderer` implementing `ISpriteRenderer`
-  - [ ] Wrap `ObjectRenderer` functionality
-  - [ ] Match WebGLSpriteRenderer API
-  - [ ] **PARITY:** Both renderers use ISpriteRenderer interface
-  - [ ] **TEST:** Sprites render correctly via interface
+- [x] **4.2** Create `Canvas2DSpriteRenderer` implementing `ISpriteRenderer` ✅ DONE (2025-12-02)
+  - [x] Created `src/rendering/Canvas2DSpriteRenderer.ts`
+  - [x] Implements full ISpriteRenderer API
+  - [x] Handles flips, alpha, and per-pixel tinting for reflections
+  - [x] Note: Water mask clipping not yet implemented (stored for future)
+  - [x] **TEST:** Build passes
 
-- [ ] **4.3** Create `IFadeRenderer` interface
-  ```typescript
-  interface IFadeRenderer {
-    render(alpha: number, r?: number, g?: number, b?: number): void;
-    dispose(): void;
-  }
-  ```
+- [x] **4.3** Create `IFadeRenderer` interface ✅ DONE (2025-12-02)
+  - [x] Created `src/rendering/IFadeRenderer.ts`
+  - [x] Methods: render(alpha, r?, g?, b?), isValid(), dispose()
+  - [x] Both fade renderers implement it
 
-- [ ] **4.4** Create `Canvas2DFadeRenderer` implementing `IFadeRenderer`
-  - [ ] Simple fullscreen rect with alpha
-  - [ ] **PARITY:** Both renderers use IFadeRenderer interface
-  - [ ] **TEST:** Fade works via interface
+- [x] **4.4** Create `Canvas2DFadeRenderer` implementing `IFadeRenderer` ✅ DONE (2025-12-02)
+  - [x] Created `src/rendering/Canvas2DFadeRenderer.ts`
+  - [x] Simple fullscreen rect with rgba fill
+  - [x] Updated `WebGLFadeRenderer` to also implement IFadeRenderer
+  - [x] **TEST:** Build passes
 
-- [ ] **4.5** Verify `IRenderPipeline` is sufficient
-  - [ ] Check WebGLRenderPipeline implements it fully
-  - [ ] Check RenderPipeline implements it fully
-  - [ ] Add any missing methods to interface
-  - [ ] **PARITY:** Both renderers use IRenderPipeline interface
+- [x] **4.5** Verify `IRenderPipeline` is sufficient ✅ Already complete
+  - [x] `CanvasRenderPipelineAdapter` in RenderPipelineFactory.ts
+  - [x] `WebGLRenderPipelineAdapter` in RenderPipelineFactory.ts
+  - [x] Both implement full IRenderPipeline interface
+  - [x] **PARITY:** Both renderers use IRenderPipeline via adapters
 
 ---
 
 ### Phase 5: Create Unified Hooks (Medium Risk)
 
 Replace per-file logic with shared hooks.
+
+- [~] **5.0** Extract WebGL render loop to reduce WebGLMapPage.tsx size ⏳ IN PROGRESS
+  - [x] Created `src/hooks/useWebGLSpriteBuilder.ts` (~320 lines)
+    - Extracts sprite building: player, NPCs, field effects, doors, arrows
+    - Returns sorted sprite batches ready for compositing
+  - [x] Created `src/rendering/compositeWebGLFrame.ts` (~230 lines)
+    - Extracts layer compositing logic
+    - Handles reflection layer splitting, water masks, priority batches
+  - [ ] Integrate extracted code into WebGLMapPage.tsx
+    - Replace inline sprite building with useWebGLSpriteBuilder
+    - Replace inline compositing with compositeWebGLFrame
+  - [ ] Keep WebGLMapPage as thin orchestrator (~500-600 lines)
+  - [ ] **TARGET:** Reduce WebGLMapPage from 1831 to ~600 lines
+  - [ ] **TEST:** No visual regression in WebGL mode
 
 - [ ] **5.1** Create `src/hooks/useGameLoop.ts`
   - [ ] GBA-accurate frame timing (59.7275 Hz)
@@ -562,6 +644,14 @@ Final unification step - **OKR completion checkpoint**.
 | `src/hooks/useSceneComposition.ts` | Sprite building | ~250 |
 | `src/game/WarpTriggerProcessor.ts` | Unified warp detection | ~250 |
 | `src/game/DoorSequenceRunner.ts` | Unified door update loops | ~140 |
+| `src/services/IWorldProvider.ts` | Unified world provider interface | ~175 |
+| `src/services/WorldManagerAdapter.ts` | WorldManager → IWorldProvider | ~170 |
+| `src/services/MapManagerAdapter.ts` | MapManager → IWorldProvider | ~175 |
+| `src/rendering/IFadeRenderer.ts` | Fade renderer interface | ~55 |
+| `src/rendering/Canvas2DFadeRenderer.ts` | Canvas2D fade implementation | ~60 |
+| `src/rendering/Canvas2DSpriteRenderer.ts` | Canvas2D sprite implementation | ~260 |
+| `src/hooks/useWebGLSpriteBuilder.ts` | WebGL sprite batch building | ~320 |
+| `src/rendering/compositeWebGLFrame.ts` | WebGL layer compositing | ~230 |
 | `src/game/setupObjectCollisionChecker.ts` | Collision setup | ~20 |
 | `src/game/findPlayerSpawnPosition.ts` | Spawn logic | ~50 |
 | `src/game/buildWorldCameraView.ts` | Camera view | ~40 |
@@ -603,7 +693,7 @@ Final unification step - **OKR completion checkpoint**.
 | Fade Timing | ✅ Shared | `FadeController` |
 | Tile Lookup | ⚠️ Divergent | `TileResolverFactory` vs `resolveTileAt` |
 | Anim Timing | ⚠️ Divergent | `WebGLAnimationManager` vs `useTilesetAnimations` |
-| Map Loading | ⚠️ Divergent | `WorldManager` vs `MapManager` |
+| Map Loading | ✅ Interface | `IWorldProvider` interface with adapters for both managers |
 | Spawn Position | ✅ Shared | `findPlayerSpawnPosition()` |
 | Collision Setup | ✅ Shared | `setupObjectCollisionChecker()` |
 | Arrow Frame Calc | ✅ Shared | `ArrowAnimationConstants.ts` |
