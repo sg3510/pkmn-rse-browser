@@ -106,6 +106,38 @@ type RenderStats = {
   renderTimeMs: number;
   fps: number;
   error: string | null;
+  pipelineDebug?: {
+    tilesetVersion: number;
+    lastRenderedTilesetVersion: number;
+    needsFullRender: boolean;
+    needsWarmupRender: boolean;
+    lastViewHash: string;
+    hasCachedInstances: boolean;
+    tilesetsUploaded: boolean;
+    cachedInstances: { background: number; topBelow: number; topAbove: number };
+    lastRenderInfo: {
+      timestamp: number;
+      reason: string;
+      animationOnly: boolean;
+      tilesetVersion: number;
+      viewHash: string;
+      updatedAnimations: boolean;
+      hadCaches: boolean;
+    } | null;
+    renderHistory: Array<{
+      timestamp: number;
+      reason: string;
+      animationOnly: boolean;
+      tilesetVersion: number;
+      viewHash: string;
+      updatedAnimations: boolean;
+      hadCaches: boolean;
+    }>;
+    samples?: {
+      background?: Uint8Array | null;
+      topBelow?: Uint8Array | null;
+    };
+  };
 };
 
 // CameraState type replaced by CameraController from '../game/CameraController'
@@ -157,6 +189,11 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
   const gbaFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(performance.now());
   const gbaAccumRef = useRef<number>(0);
+
+  // Animation frame tracking for dirty tracking optimization
+  // Animation updates every 10 GBA frames (~167ms) to match GBA behavior
+  const ANIMATION_FRAME_TICKS = 10;
+  const lastAnimationFrameRef = useRef<number>(0);
 
   // Player controller ref
   const playerRef = useRef<PlayerController | null>(null);
@@ -236,6 +273,8 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
     fps: 0,
     error: null,
   });
+  // Sampling cooldown ref (unused when debug disabled)
+  const sampleCooldownRef = useRef<number>(0);
   const [loading, setLoading] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [mapDebugInfo, setMapDebugInfo] = useState<{
@@ -281,6 +320,7 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
       fps: stats.fps,
       renderTimeMs: stats.renderTimeMs,
       webgl2Supported: stats.webgl2Supported,
+      pipelineDebug: stats.pipelineDebug,
       viewportTilesWide: VIEWPORT_TILES_WIDE,
       viewportTilesHigh: VIEWPORT_TILES_HIGH,
       cameraX: Math.round(cameraDisplay.x),
@@ -832,9 +872,14 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
               pixelY: player.y,
               direction: player.getFacingDirection(),
               elevation: player.getElevation(),
+              currentElevation: player.getCurrentElevation(),
+              previousElevation: player.getPreviousElevation(),
               isMoving: player.isMoving,
               isSurfing: player.isSurfing(),
+              isJumping: player.getSurfingController().isJumping(),
               mapId: debugInfo?.currentMap ?? selectedMap.id,
+              stateName: player.getStateName(),
+              hasCollisionChecker: player.hasObjectCollisionChecker(),
             });
           }
 
@@ -879,7 +924,6 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
                 // Just update arrow overlay, don't auto-warp
               } else if (action.type === 'autoDoorWarp') {
                 // Non-animated doors (stairs, ladders): auto-warp with fade
-                console.log('[WARP] Non-animated door warp:', action.trigger.kind, 'to', action.trigger.warpEvent.destMap);
                 arrowOverlay.hide();
                 doorSequencer.startAutoWarp({
                   targetX: player.tileX,
@@ -892,7 +936,6 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
                 player.lockInput();
               } else if (action.type === 'walkOverWarp') {
                 // Other walk-over warps: simple warp
-                console.log('[WARP] Walk-over warp:', action.trigger.kind, 'to', action.trigger.warpEvent.destMap);
                 warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
                 pendingWarpRef.current = action.trigger;
                 warpingRef.current = true;
@@ -983,14 +1026,21 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
         // Get player elevation for layer splitting (same as useCompositeScene)
         const playerElevation = player && playerLoadedRef.current ? player.getElevation() : 0;
 
-        // Render using pipeline (this does viewport culling!)
-        // Force full render each frame to avoid dirty tracking issues during testing
-        // animationChanged triggers texture updates for animated tiles
+        // Calculate animation frame and whether it changed
+        // Animation updates every 10 GBA frames (~167ms) to match GBA water/flower animations
+        const currentAnimationFrame = Math.floor(gbaFrameRef.current / ANIMATION_FRAME_TICKS);
+        const animationChanged = currentAnimationFrame !== lastAnimationFrameRef.current;
+        lastAnimationFrameRef.current = currentAnimationFrame;
+
+        // Render using pipeline with proper dirty tracking
+        // The pipeline internally tracks view changes and elevation changes
+        // needsFullRender: false allows the pipeline to use its internal dirty tracking
+        // animationChanged: only true when animation frame ticks (every ~167ms)
         pipeline.render(
           null as any, // RenderContext not used by WebGL pipeline
           view,
           playerElevation,
-          { gameFrame: gbaFrameRef.current, needsFullRender: true, animationChanged: true }
+          { gameFrame: gbaFrameRef.current, needsFullRender: false, animationChanged }
         );
 
         // Composite with sprite rendering between layers (hybrid rendering test)
@@ -1222,42 +1272,43 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
               });
             }
 
-            // Use extracted compositing function for GBA-accurate layer ordering
-            const webglCanvas = webglCanvasRef.current;
-            if (webglCanvas) {
-              const fadeAlpha = fadeControllerRef.current.isActive()
-                ? fadeControllerRef.current.getAlpha(nowTime)
-                : 0;
+        // Use extracted compositing function for GBA-accurate layer ordering
+        const webglCanvas = webglCanvasRef.current;
+        if (webglCanvas) {
+          const fadeAlpha = fadeControllerRef.current.isActive()
+            ? fadeControllerRef.current.getAlpha(nowTime)
+            : 0;
 
-              compositeWebGLFrame(
-                {
-                  pipeline,
-                  spriteRenderer,
-                  fadeRenderer: fadeRendererRef.current,
-                  ctx2d,
-                  webglCanvas,
-                  view: spriteView,
-                  snapshot: currentSnapshot,
-                  tilesetRuntimes: tilesetRuntimesRef.current,
-                },
-                {
-                  lowPrioritySprites,
-                  allSprites,
-                  priority0Sprites,
-                  doorSprites,
-                  arrowSprite,
-                  surfBlobSprite,
-                },
-                { fadeAlpha }
-              );
-            }
-          }
+          compositeWebGLFrame(
+            {
+              pipeline,
+              spriteRenderer,
+              fadeRenderer: fadeRendererRef.current,
+              ctx2d,
+              webglCanvas,
+              view: spriteView,
+              snapshot: currentSnapshot,
+              tilesetRuntimes: tilesetRuntimesRef.current,
+            },
+            {
+              lowPrioritySprites,
+              allSprites,
+              priority0Sprites,
+              doorSprites,
+              arrowSprite,
+              surfBlobSprite,
+            },
+            { fadeAlpha }
+          );
+        }
+      }
         }
 
         const renderTime = performance.now() - start;
 
         // Get tile count from pipeline stats
         const pipelineStats = pipeline.getStats();
+        const samples = debugOptionsRef.current.enabled ? pipeline.getPassSamples() : undefined;
         const tileCount = pipelineStats.passTileCounts.background +
                           pipelineStats.passTileCounts.topBelow +
                           pipelineStats.passTileCounts.topAbove;
@@ -1271,6 +1322,20 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
             tileCount,
             renderTimeMs: renderTime,
             fps,
+            pipelineDebug: {
+              tilesetVersion: pipelineStats.tilesetVersion,
+              lastRenderedTilesetVersion: pipelineStats.lastRenderedTilesetVersion,
+              needsFullRender: pipelineStats.needsFullRender,
+              needsWarmupRender: pipelineStats.needsWarmupRender,
+              lastViewHash: pipelineStats.lastViewHash,
+              hasCachedInstances: pipelineStats.hasCachedInstances,
+              tilesetsUploaded: pipelineStats.tilesetsUploaded,
+              cachedInstances: pipelineStats.passTileCounts,
+              lastRenderInfo: pipelineStats.lastRenderInfo,
+              renderHistory: pipelineStats.renderHistory,
+              renderMeta: pipelineStats.renderMeta,
+              samples,
+            },
           }));
           if (cameraRef.current) {
             const pos = cameraRef.current.getPosition();

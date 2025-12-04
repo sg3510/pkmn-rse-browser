@@ -36,6 +36,10 @@ export class WebGLPassRenderer {
 
   // Cached instances to avoid re-building when only compositing
   private cachedInstances: Map<PassName, TileInstance[]> = new Map();
+  private lastRenderMeta: Map<PassName, { instances: number; width: number; height: number; timestamp: number }> = new Map();
+
+  // Diagnostic state - only logs on change to avoid console pollution
+  private lastDiagnosticState: string = '';
 
   constructor(
     _gl: WebGL2RenderingContext,
@@ -171,6 +175,9 @@ export class WebGLPassRenderer {
     this.cachedInstances.set('topAbove', instances);
 
     this.renderPassToFramebuffer('topAbove', instances, width, height);
+
+    // P1 Diagnostic: Check for array reference sharing bug (only log on change)
+    this.checkArrayReferenceBug();
   }
 
   /**
@@ -178,6 +185,16 @@ export class WebGLPassRenderer {
    */
   getPassTexture(pass: PassName): WebGLTexture {
     return this.framebufferManager.getPassTexture(pass);
+  }
+
+  /**
+   * Check whether cached instances exist for animation-only rerenders.
+   * We require at least the background pass to have instances; top passes
+   * may legitimately be empty on some views.
+   */
+  hasCachedInstances(): boolean {
+    const bg = this.cachedInstances.get('background');
+    return !!bg && bg.length > 0;
   }
 
   /**
@@ -253,6 +270,13 @@ export class WebGLPassRenderer {
 
     // Unbind
     this.framebufferManager.unbindFramebuffer();
+
+    this.lastRenderMeta.set(pass, {
+      instances: instances.length,
+      width,
+      height,
+      timestamp: performance.now(),
+    });
   }
 
   /**
@@ -262,11 +286,68 @@ export class WebGLPassRenderer {
     background: number;
     topBelow: number;
     topAbove: number;
+    renderMeta: {
+      background?: { instances: number; width: number; height: number; timestamp: number };
+      topBelow?: { instances: number; width: number; height: number; timestamp: number };
+      topAbove?: { instances: number; width: number; height: number; timestamp: number };
+    };
   } {
     return {
       background: this.cachedInstances.get('background')?.length ?? 0,
       topBelow: this.cachedInstances.get('topBelow')?.length ?? 0,
       topAbove: this.cachedInstances.get('topAbove')?.length ?? 0,
+      renderMeta: {
+        background: this.lastRenderMeta.get('background'),
+        topBelow: this.lastRenderMeta.get('topBelow'),
+        topAbove: this.lastRenderMeta.get('topAbove'),
+      },
     };
+  }
+
+  /**
+   * Get raw cached instances array for a pass (for diagnostics)
+   */
+  getCachedInstancesRaw(pass: PassName): TileInstance[] | undefined {
+    return this.cachedInstances.get(pass);
+  }
+
+  /**
+   * Sample a pixel from a pass framebuffer (for diagnostics)
+   */
+  sampleFBOPixel(pass: PassName, x: number, y: number): Uint8Array | null {
+    return this.framebufferManager.readPixel(pass, x, y);
+  }
+
+  /**
+   * P1 Diagnostic: Check if cached instance arrays are the same reference
+   * Only logs when state changes to avoid console pollution
+   */
+  private checkArrayReferenceBug(): void {
+    const bg = this.cachedInstances.get('background');
+    const tb = this.cachedInstances.get('topBelow');
+    const ta = this.cachedInstances.get('topAbove');
+
+    const bgTbSame = bg === tb;
+    const tbTaSame = tb === ta;
+    const bgTaSame = bg === ta;
+    const hasBug = bgTbSame || tbTaSame || bgTaSame;
+
+    const state = hasBug
+      ? `BUG:bg===tb:${bgTbSame},tb===ta:${tbTaSame},bg===ta:${bgTaSame}`
+      : 'OK';
+
+    if (state !== this.lastDiagnosticState) {
+      if (hasBug) {
+        console.error('[P1-ARRAY-REF] Cached instances are SAME REFERENCE!', {
+          'bg===tb': bgTbSame,
+          'tb===ta': tbTaSame,
+          'bg===ta': bgTaSame,
+          bgLen: bg?.length,
+          tbLen: tb?.length,
+          taLen: ta?.length,
+        });
+      }
+      this.lastDiagnosticState = state;
+    }
   }
 }

@@ -203,7 +203,9 @@ function handleMapsChanged(
   updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
 
   // Reload object events (NPCs, items) for the new set of maps
-  // This is async but we don't await - NPCs will appear once loaded
+  // Note: This is async - NPCs will appear once loaded
+  // The collision checker references the same ObjectEventManager so it will
+  // see the new NPCs once this completes
   if (loadObjectEventsFromSnapshot) {
     loadObjectEventsFromSnapshot(snapshot).catch((err) => {
       console.warn('[WorldManager] Failed to reload object events:', err);

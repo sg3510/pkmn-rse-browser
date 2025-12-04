@@ -414,20 +414,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
     const snapshot = worldSnapshotRef.current;
 
     if (!canvas || !renderers || !player || !snapshot || !playerLoadedRef.current) {
-      if (state.gbaFrame % 60 === 0) {
-        console.log('[RENDER] Skipping - missing:', {
-          canvas: !!canvas,
-          renderers: !!renderers,
-          player: !!player,
-          snapshot: !!snapshot,
-          playerLoaded: playerLoadedRef.current,
-        });
-      }
       return;
-    }
-
-    if (state.gbaFrame % 60 === 0) {
-      console.log('[RENDER] Frame', state.gbaFrame, 'type:', renderers.type, 'player:', player.tileX, player.tileY);
     }
 
     const ctx2d = canvas.getContext('2d');
@@ -463,14 +450,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
       const webglCanvas = renderers.webglCanvas;
 
       if (!webglCanvas || !tilesetsUploadedRef.current) {
-        if (state.gbaFrame % 60 === 0) {
-          console.log('[RENDER] WebGL skip - webglCanvas:', !!webglCanvas, 'tilesetsUploaded:', tilesetsUploadedRef.current);
-        }
         return;
-      }
-
-      if (state.gbaFrame % 60 === 0) {
-        console.log('[RENDER] WebGL rendering, view:', view.startTileX, view.startTileY, 'to', view.startTileX + view.tilesWide, view.startTileY + view.tilesHigh);
       }
 
       // Ensure display canvas is sized to viewport
@@ -479,12 +459,15 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
         canvas.height = VIEWPORT_PIXEL_SIZE.height;
       }
 
-      // Render tiles using pipeline
+      // Render tiles using pipeline with proper dirty tracking
+      // The pipeline internally tracks view changes and elevation changes
+      // needsFullRender: false allows the pipeline to use its internal dirty tracking
+      // animationChanged: provided by useGameLoop, true every 10 GBA frames (~167ms)
       pipeline.render(
         null as any, // RenderContext not used by WebGL pipeline
         view,
         playerElevation,
-        { gameFrame: state.gbaFrame, needsFullRender: true, animationChanged: state.animationFrameChanged }
+        { gameFrame: state.gbaFrame, needsFullRender: false, animationChanged: state.animationFrameChanged }
       );
 
       // Get NPCs and field effects

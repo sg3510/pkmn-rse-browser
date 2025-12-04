@@ -1147,7 +1147,17 @@ export class PlayerController {
 
     // === NORMAL WALKING COLLISION LOGIC ===
 
-    // Special case: MB_SAND and MB_DEEP_SAND should be walkable
+    // CRITICAL: Check for object events FIRST, before any terrain checks
+    // NPCs/items block movement regardless of what terrain they're standing on
+    // (This was a bug where NPCs on sand tiles could be walked through)
+    if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
+      if (isDebugMode()) {
+        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
+      }
+      return true;
+    }
+
+    // Special case: MB_SAND and MB_DEEP_SAND should be walkable (if no object blocking)
     const isSand = behavior === MB_SAND || behavior === MB_DEEP_SAND;
     if (isSand) {
       if (isDebugMode()) {
@@ -1194,14 +1204,6 @@ export class PlayerController {
     if (behavior >= 48 && behavior <= 55) {
       if (isDebugMode()) {
         console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
-      }
-      return true;
-    }
-
-    // Check for object events (item balls, NPCs, etc.) blocking this tile
-    if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
-      if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
       }
       return true;
     }
@@ -1980,5 +1982,26 @@ export class PlayerController {
    */
   public getTileResolver(): TileResolver | null {
     return this.tileResolver;
+  }
+
+  /**
+   * Get the current state name for debugging.
+   */
+  public getStateName(): string {
+    return this.currentState.constructor.name;
+  }
+
+  /**
+   * Check if object collision checker is set up (for debugging).
+   */
+  public hasObjectCollisionChecker(): boolean {
+    return this.objectCollisionChecker !== null;
+  }
+
+  /**
+   * Get the previous elevation (used for rendering priority).
+   */
+  public getPreviousElevation(): number {
+    return this.previousElevation;
   }
 }

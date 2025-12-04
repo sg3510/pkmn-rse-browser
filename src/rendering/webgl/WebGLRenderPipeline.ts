@@ -50,13 +50,30 @@ export class WebGLRenderPipeline {
   private lastPlayerElevation: number = -1;
   private lastViewHash: string = '';
   private needsFullRender: boolean = true;
+  private needsWarmupRender: boolean = true;
 
   // Track if tilesets have been uploaded
   private tilesetsUploaded: boolean = false;
+  // Monotonic version for tileset content; included in view hash
+  private tilesetVersion: number = 0;
+  private lastRenderedTilesetVersion: number = -1;
+  private lastRenderInfo: {
+    timestamp: number;
+    reason: string;
+    animationOnly: boolean;
+    tilesetVersion: number;
+    viewHash: string;
+    updatedAnimations: boolean;
+    hadCaches: boolean;
+  } | null = null;
+  private renderHistory: Array<NonNullable<typeof this.lastRenderInfo>> = [];
 
   // External callbacks for context events
   private onContextLostCallback: (() => void) | null = null;
   private onContextRestoredCallback: (() => void) | null = null;
+
+  // P2 Diagnostic: Track FBO empty state to only log on change
+  private lastFBODiagnosticState: string = '';
 
   // Cache latest tileset buffers for animation updates
   // (kept in animationManager)
@@ -114,6 +131,7 @@ export class WebGLRenderPipeline {
   setTileResolver(fn: TileResolverFn): void {
     this.resolveTile = fn;
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
   }
 
   /**
@@ -123,6 +141,7 @@ export class WebGLRenderPipeline {
     this.isVerticalObject = fn;
     this.elevationFilter.setVerticalObjectChecker(fn);
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
   }
 
   /**
@@ -157,6 +176,8 @@ export class WebGLRenderPipeline {
 
     this.tilesetsUploaded = true;
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
+    this.tilesetVersion++;
   }
 
   /**
@@ -196,6 +217,8 @@ export class WebGLRenderPipeline {
     }
 
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
+    this.tilesetVersion++;
   }
 
   /**
@@ -236,8 +259,8 @@ export class WebGLRenderPipeline {
     }
 
     const {
-      needsFullRender: forceFullRender,
-      animationChanged,
+      needsFullRender: forceFullRender = false,
+      animationChanged = false,
       elevationChanged: optionElevationChanged,
       gameFrame = 0,
     } = options;
@@ -246,8 +269,8 @@ export class WebGLRenderPipeline {
     const elevationChanged = optionElevationChanged || playerElevation !== this.lastPlayerElevation;
     this.lastPlayerElevation = playerElevation;
 
-    // Check if view changed
-    const viewHash = `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`;
+    // Check if view changed (include tilesetVersion so tileset updates force a render)
+    const viewHash = `${this.tilesetVersion}:${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`;
     const viewChanged = viewHash !== this.lastViewHash;
     this.lastViewHash = viewHash;
 
@@ -260,14 +283,28 @@ export class WebGLRenderPipeline {
       !forceFullRender &&
       !viewChanged &&
       !elevationChanged &&
-      !this.needsFullRender;
+      !this.needsFullRender &&
+      !this.needsWarmupRender &&
+      this.passRenderer.hasCachedInstances() &&
+      this.lastRenderedTilesetVersion === this.tilesetVersion;
 
     if (animationOnly) {
       const updated = this.animationManager.updateAnimations(gameFrame);
-      const dims = this.passRenderer.getCurrentDimensions();
-      if (updated && dims) {
+      if (updated) {
         this.passRenderer.rerenderCached();
       }
+
+      // P2 Diagnostic: Check if FBOs are empty despite having caches
+      this.checkFBOEmptyBug('animationOnly', updated);
+
+      this.recordRenderEvent({
+        reason: 'animationOnly',
+        animationOnly: true,
+        tilesetVersion: this.tilesetVersion,
+        viewHash,
+        updatedAnimations: updated,
+        hadCaches: this.passRenderer.hasCachedInstances(),
+      });
       return;
     }
 
@@ -277,13 +314,25 @@ export class WebGLRenderPipeline {
     }
 
     // Determine if we need to re-render
-    const shouldRender = this.needsFullRender ||
+    const shouldRender = this.needsWarmupRender ||
+                         this.needsFullRender ||
                          forceFullRender ||
                          viewChanged ||
                          elevationChanged ||
                          animationChanged;
 
     if (!shouldRender) {
+      // P2 Diagnostic: Check if FBOs are empty despite having caches
+      this.checkFBOEmptyBug('skipped-nochange', false);
+
+      this.recordRenderEvent({
+        reason: 'skipped-nochange',
+        animationOnly: false,
+        tilesetVersion: this.tilesetVersion,
+        viewHash,
+        updatedAnimations: animationChanged,
+        hadCaches: this.passRenderer.hasCachedInstances(),
+      });
       return;
     }
 
@@ -318,7 +367,27 @@ export class WebGLRenderPipeline {
       renderHeight
     );
 
+    // P3 Diagnostic: Check if full render produced pixels
+    this.checkFullRenderProducedPixels();
+
     this.needsFullRender = false;
+    this.needsWarmupRender = false;
+    this.lastRenderedTilesetVersion = this.tilesetVersion;
+
+    this.recordRenderEvent({
+      reason: this.composeRenderReason({
+        warmup: this.needsWarmupRender,
+        forceFullRender,
+        viewChanged,
+        elevationChanged,
+        animationChanged,
+      }),
+      animationOnly: false,
+      tilesetVersion: this.tilesetVersion,
+      viewHash,
+      updatedAnimations: animationChanged,
+      hadCaches: this.passRenderer.hasCachedInstances(),
+    });
   }
 
   /**
@@ -399,7 +468,9 @@ export class WebGLRenderPipeline {
    */
   invalidate(): void {
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
     this.lastViewHash = '';
+    this.lastRenderedTilesetVersion = -1;
     this.passRenderer.invalidate();
   }
 
@@ -411,12 +482,55 @@ export class WebGLRenderPipeline {
     contextValid: boolean;
     tilesetsUploaded: boolean;
     passTileCounts: { background: number; topBelow: number; topAbove: number };
+    tilesetVersion: number;
+    lastRenderedTilesetVersion: number;
+    needsFullRender: boolean;
+    needsWarmupRender: boolean;
+    lastViewHash: string;
+    hasCachedInstances: boolean;
+    lastRenderInfo: typeof this.lastRenderInfo;
+    renderHistory: Array<NonNullable<typeof this.lastRenderInfo>>;
+    renderMeta: {
+      background?: { instances: number; width: number; height: number; timestamp: number };
+      topBelow?: { instances: number; width: number; height: number; timestamp: number };
+      topAbove?: { instances: number; width: number; height: number; timestamp: number };
+    };
+    samples?: { background?: Uint8Array | null; topBelow?: Uint8Array | null };
   } {
     return {
       webglSupported: true,
       contextValid: this.glContext.isValid(),
       tilesetsUploaded: this.tilesetsUploaded,
       passTileCounts: this.passRenderer.getStats(),
+      tilesetVersion: this.tilesetVersion,
+      lastRenderedTilesetVersion: this.lastRenderedTilesetVersion,
+      needsFullRender: this.needsFullRender,
+      needsWarmupRender: this.needsWarmupRender,
+      lastViewHash: this.lastViewHash,
+      hasCachedInstances: this.passRenderer.hasCachedInstances(),
+      lastRenderInfo: this.lastRenderInfo,
+      renderHistory: this.renderHistory,
+      renderMeta: this.passRenderer.getStats().renderMeta,
+      samples: undefined,
+    };
+  }
+
+  /**
+   * Sample center pixels from background/topBelow for debugging.
+   * Avoids permanent cost; call only when needed (e.g., debug panel open).
+   */
+  getPassSamples(): { background?: Uint8Array | null; topBelow?: Uint8Array | null } {
+    const dimsBg = this.framebufferManager.getDimensions('background');
+    const dimsTb = this.framebufferManager.getDimensions('topBelow');
+
+    const cxBg = dimsBg ? Math.floor(dimsBg.width / 2) : 0;
+    const cyBg = dimsBg ? Math.floor(dimsBg.height / 2) : 0;
+    const cxTb = dimsTb ? Math.floor(dimsTb.width / 2) : 0;
+    const cyTb = dimsTb ? Math.floor(dimsTb.height / 2) : 0;
+
+    return {
+      background: dimsBg ? this.framebufferManager.readPixel('background', cxBg, cyBg) : null,
+      topBelow: dimsTb ? this.framebufferManager.readPixel('topBelow', cxTb, cyTb) : null,
     };
   }
 
@@ -512,6 +626,16 @@ export class WebGLRenderPipeline {
     console.warn('WebGL context lost');
     this.tilesetsUploaded = false;
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
+    this.lastRenderedTilesetVersion = -1;
+    this.recordRenderEvent({
+      reason: 'contextLost',
+      animationOnly: false,
+      tilesetVersion: this.tilesetVersion,
+      viewHash: this.lastViewHash,
+      updatedAnimations: false,
+      hadCaches: false,
+    });
 
     // Notify external callback
     if (this.onContextLostCallback) {
@@ -532,10 +656,131 @@ export class WebGLRenderPipeline {
     // Tilesets need to be re-uploaded by the application
     this.tilesetsUploaded = false;
     this.needsFullRender = true;
+    this.needsWarmupRender = true;
+    this.lastRenderedTilesetVersion = -1;
+    this.recordRenderEvent({
+      reason: 'contextRestored',
+      animationOnly: false,
+      tilesetVersion: this.tilesetVersion,
+      viewHash: this.lastViewHash,
+      updatedAnimations: false,
+      hadCaches: false,
+    });
 
     // Notify external callback
     if (this.onContextRestoredCallback) {
       this.onContextRestoredCallback();
+    }
+  }
+
+  /**
+   * Helper to record a render event into a small ring buffer (max 12)
+   */
+  private recordRenderEvent(info: {
+    reason: string;
+    animationOnly: boolean;
+    tilesetVersion: number;
+    viewHash: string;
+    updatedAnimations: boolean;
+    hadCaches: boolean;
+  }): void {
+    const entry = {
+      timestamp: performance.now(),
+      ...info,
+    };
+    this.lastRenderInfo = entry;
+    this.renderHistory.push(entry);
+    const MAX_HISTORY = 12;
+    if (this.renderHistory.length > MAX_HISTORY) {
+      this.renderHistory.splice(0, this.renderHistory.length - MAX_HISTORY);
+    }
+  }
+
+  /**
+   * Compose a human-readable render reason from flags
+   */
+  private composeRenderReason(flags: {
+    warmup: boolean;
+    forceFullRender: boolean;
+    viewChanged: boolean;
+    elevationChanged: boolean;
+    animationChanged: boolean;
+  }): string {
+    const parts: string[] = [];
+    if (flags.warmup) parts.push('warmup');
+    if (flags.forceFullRender) parts.push('force');
+    if (flags.viewChanged) parts.push('view');
+    if (flags.elevationChanged) parts.push('elev');
+    if (flags.animationChanged) parts.push('anim');
+    if (parts.length === 0) return 'full';
+    return parts.join('+');
+  }
+
+  /**
+   * P3 Diagnostic: Check if full render actually produced pixels in FBOs
+   * Only warns if instances exist but pixels don't (empty FBOs with 0 instances are normal)
+   */
+  private checkFullRenderProducedPixels(): void {
+    const bgPixel = this.passRenderer.sampleFBOPixel('background', 168, 168);
+    const tbPixel = this.passRenderer.sampleFBOPixel('topBelow', 168, 168);
+
+    const bgInstances = this.passRenderer.getInstanceCount('background');
+    const tbInstances = this.passRenderer.getInstanceCount('topBelow');
+
+    const bgEmpty = bgPixel ? bgPixel[3] === 0 : true;
+    const tbEmpty = tbPixel ? tbPixel[3] === 0 : true;
+
+    // Only warn if instances exist but pixels don't - empty with 0 instances is normal
+    const bgBug = bgEmpty && bgInstances > 0;
+    const tbBug = tbEmpty && tbInstances > 0;
+
+    if (bgBug || tbBug) {
+      console.error('[P3-FULL-RENDER-EMPTY] Full render completed but FBO(s) empty despite instances!', {
+        bgEmpty,
+        tbEmpty,
+        bgInstances,
+        tbInstances,
+        taInstances: this.passRenderer.getInstanceCount('topAbove'),
+        bgPixel: bgPixel ? Array.from(bgPixel) : null,
+        tbPixel: tbPixel ? Array.from(tbPixel) : null,
+        tilesetVersion: this.tilesetVersion,
+      });
+    }
+  }
+
+  /**
+   * P2 Diagnostic: Check if FBOs are empty despite having cached instances
+   * Only logs ONCE when bug is first detected (ignores path changes)
+   */
+  private checkFBOEmptyBug(path: string, updated: boolean): void {
+    // Sample center pixel from each FBO
+    const bgPixel = this.passRenderer.sampleFBOPixel('background', 168, 168);
+    const tbPixel = this.passRenderer.sampleFBOPixel('topBelow', 168, 168);
+
+    const bgEmpty = bgPixel ? bgPixel[3] === 0 : true;
+    const tbEmpty = tbPixel ? tbPixel[3] === 0 : true;
+    const hasCaches = this.passRenderer.hasCachedInstances();
+
+    // Only report if we have caches but FBOs are empty
+    const hasBug = hasCaches && bgEmpty && tbEmpty;
+
+    // State ignores path - just tracks BUG vs OK
+    const state = hasBug ? 'BUG' : 'OK';
+
+    if (state !== this.lastFBODiagnosticState) {
+      if (hasBug) {
+        console.error('[P2-EMPTY-FBO] FBOs are empty despite having caches!', {
+          path,
+          updated,
+          bgPixel: bgPixel ? Array.from(bgPixel) : null,
+          tbPixel: tbPixel ? Array.from(tbPixel) : null,
+          bgInstances: this.passRenderer.getInstanceCount('background'),
+          tbInstances: this.passRenderer.getInstanceCount('topBelow'),
+          tilesetVersion: this.tilesetVersion,
+          lastRenderedVersion: this.lastRenderedTilesetVersion,
+        });
+      }
+      this.lastFBODiagnosticState = state;
     }
   }
 }

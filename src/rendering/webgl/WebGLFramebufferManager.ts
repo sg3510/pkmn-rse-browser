@@ -105,6 +105,22 @@ export class WebGLFramebufferManager {
   }
 
   /**
+   * Read a single pixel from a pass framebuffer (for debugging).
+   * Returns Uint8Array [r,g,b,a] or null if framebuffer not found.
+   * Note: Binds the framebuffer; caller should not rely on previous binding.
+   */
+  readPixel(pass: PassName, x: number, y: number): Uint8Array | null {
+    const entry = this.framebuffers.get(pass);
+    if (!entry) return null;
+
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, entry.framebuffer);
+    const out = new Uint8Array(4);
+    this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, out);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    return out;
+  }
+
+  /**
    * Clean up all framebuffers
    */
   dispose(): void {

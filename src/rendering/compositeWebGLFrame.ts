@@ -94,14 +94,21 @@ export function compositeWebGLFrame(
 
   const gl = pipeline.getGL();
 
-  // Add surf blob to main sprites (it will be sorted by sortKey to render behind player)
-  const allSpritesWithBlob = surfBlobSprite ? [...allSprites, surfBlobSprite] : allSprites;
-  // Re-sort to ensure surf blob is in correct position
-  allSpritesWithBlob.sort((a, b) => a.sortKey - b.sortKey);
+  // Add surf blob to main sprites in sorted position without mutating the original array
+  // The original array is reused by debug/split layers; mutation caused disappearing sprites on sand
+  let spritesWithBlob = allSprites;
+  if (surfBlobSprite) {
+    const insertIndex = findSortedInsertIndex(allSprites, surfBlobSprite.sortKey);
+    spritesWithBlob = [
+      ...allSprites.slice(0, insertIndex),
+      surfBlobSprite,
+      ...allSprites.slice(insertIndex),
+    ];
+  }
 
   // Split sprites into reflection-layer and normal
-  const reflectionLayerSprites = allSpritesWithBlob.filter((s) => s.isReflection || s.isReflectionLayer);
-  const normalSprites = allSpritesWithBlob.filter((s) => !s.isReflection && !s.isReflectionLayer);
+  const reflectionLayerSprites = spritesWithBlob.filter((s) => s.isReflection || s.isReflectionLayer);
+  const normalSprites = spritesWithBlob.filter((s) => !s.isReflection && !s.isReflectionLayer);
   const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
   const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
 
@@ -124,7 +131,7 @@ export function compositeWebGLFrame(
     );
   } else {
     // === Standard compositing (no reflections) ===
-    compositeStandard(ctx, lowPrioritySprites, allSprites, overlaySprites, gl);
+    compositeStandard(ctx, lowPrioritySprites, spritesWithBlob, overlaySprites, gl);
   }
 
   // TopAbove layer (renders on both paths)
@@ -165,8 +172,8 @@ function compositeWithReflections(
 ): void {
   const { pipeline, spriteRenderer, ctx2d, webglCanvas, view } = ctx;
 
-  // Step 1: Render layer 0 only (water base)
-  pipeline.renderAndCompositeLayer0Only(ctx2d, view);
+  // Step 1: Background layer (layer 0 + COVERED layer 1)
+  pipeline.compositeBackgroundOnly(ctx2d, view);
 
   // Step 2: Render reflection-layer sprites with water mask
   clearAndBindFramebuffer(gl);
@@ -187,15 +194,15 @@ function compositeWithReflections(
   spriteRenderer.renderBatch(allReflectionSprites, view);
   ctx2d.drawImage(webglCanvas, 0, 0);
 
-  // Step 2.5: Render low priority sprites before layer 1
+  // Step 2.5: Render low priority sprites before topBelow
   if (normalLowPrioritySprites.length > 0) {
     clearAndBindFramebuffer(gl);
     spriteRenderer.renderBatch(normalLowPrioritySprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 
-  // Step 3: Render layer 1 (shore edges cover reflections)
-  pipeline.renderAndCompositeLayer1Only(ctx2d, view);
+  // Step 3: TopBelow layer (BG1 tiles that render behind player)
+  pipeline.compositeTopBelowOnly(ctx2d, view);
 
   // Step 3.5: Door + arrow overlays
   if (overlaySprites.length > 0) {
@@ -256,4 +263,25 @@ function clearAndBindFramebuffer(gl: WebGL2RenderingContext): void {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
+/**
+ * Find insertion index for a sorted array (binary search)
+ * Returns the index where an element with the given sortKey should be inserted
+ * to maintain sorted order.
+ */
+function findSortedInsertIndex(sprites: SpriteInstance[], sortKey: number): number {
+  let low = 0;
+  let high = sprites.length;
+
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (sprites[mid].sortKey < sortKey) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
 }

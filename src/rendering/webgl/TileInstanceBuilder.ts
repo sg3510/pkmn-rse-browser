@@ -67,7 +67,9 @@ export class TileInstanceBuilder {
       }
     });
 
-    return this.instanceBuffer;
+    // Return a copy - the buffer is reused across builds, so returning the
+    // reference would cause all cached passes to share the same array
+    return this.instanceBuffer.slice();
   }
 
   /**
@@ -98,7 +100,7 @@ export class TileInstanceBuilder {
       this.addMetatileLayer(resolved.metatile, screenX, screenY, 0, tilesetPairIndex);
     });
 
-    return this.instanceBuffer;
+    return this.instanceBuffer.slice();
   }
 
   /**
@@ -129,7 +131,7 @@ export class TileInstanceBuilder {
       this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
     });
 
-    return this.instanceBuffer;
+    return this.instanceBuffer.slice();
   }
 
   /**
@@ -173,7 +175,7 @@ export class TileInstanceBuilder {
       }
     });
 
-    return this.instanceBuffer;
+    return this.instanceBuffer.slice();
   }
 
   /**
@@ -202,7 +204,7 @@ export class TileInstanceBuilder {
       this.addMetatileLayer(resolved.metatile, screenX, screenY, 1, tilesetPairIndex);
     });
 
-    return this.instanceBuffer;
+    return this.instanceBuffer.slice();
   }
 
   /**

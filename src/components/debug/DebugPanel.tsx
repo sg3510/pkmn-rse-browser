@@ -159,6 +159,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
           fontFamily: 'monospace',
           fontSize: '11px',
           boxShadow: isOpen ? '-4px 0 20px rgba(0,0,0,0.5)' : 'none',
+          userSelect: 'text',
         }}
       >
         {/* Header */}
@@ -1030,6 +1031,103 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
         </Section>
       )}
 
+      {/* Pipeline debug - helps diagnose black-layer issues without spamming console */}
+      {renderStats?.pipelineDebug && (
+        <Section title="🧪 Pipeline Cache Debug" collapsible>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '10px' }}>
+            <span style={{ color: '#888' }}>tilesetVersion:</span>
+            <span>{renderStats.pipelineDebug.tilesetVersion}</span>
+            <span style={{ color: '#888' }}>lastRendered:</span>
+            <span>{renderStats.pipelineDebug.lastRenderedTilesetVersion}</span>
+            <span style={{ color: '#888' }}>needsFullRender:</span>
+            <span style={{ color: renderStats.pipelineDebug.needsFullRender ? '#f66' : '#6f6' }}>
+              {renderStats.pipelineDebug.needsFullRender ? 'YES' : 'NO'}
+            </span>
+            <span style={{ color: '#888' }}>needsWarmup:</span>
+            <span style={{ color: renderStats.pipelineDebug.needsWarmupRender ? '#f66' : '#6f6' }}>
+              {renderStats.pipelineDebug.needsWarmupRender ? 'YES' : 'NO'}
+            </span>
+            <span style={{ color: '#888' }}>hasCachedInstances:</span>
+            <span style={{ color: renderStats.pipelineDebug.hasCachedInstances ? '#6f6' : '#f66' }}>
+              {renderStats.pipelineDebug.hasCachedInstances ? 'YES' : 'NO'}
+            </span>
+            <span style={{ color: '#888' }}>tilesetsUploaded:</span>
+            <span style={{ color: renderStats.pipelineDebug.tilesetsUploaded ? '#6f6' : '#f66' }}>
+              {renderStats.pipelineDebug.tilesetsUploaded ? 'YES' : 'NO'}
+            </span>
+            <span style={{ color: '#888' }}>cached bg/tb/ta:</span>
+            <span>{renderStats.pipelineDebug.cachedInstances.background}/{renderStats.pipelineDebug.cachedInstances.topBelow}/{renderStats.pipelineDebug.cachedInstances.topAbove}</span>
+            <span style={{ color: '#888' }}>lastViewHash:</span>
+            <span style={{ color: '#aaa', fontSize: '9px', wordBreak: 'break-all' }}>{renderStats.pipelineDebug.lastViewHash}</span>
+          </div>
+          <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+            <button
+              style={{ padding: '4px 8px', fontSize: '10px', background: '#2f2f2f', color: '#ddd', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
+              onClick={() => {
+                const text = JSON.stringify(renderStats.pipelineDebug, null, 2);
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(text).catch(() => {
+                    // noop
+                  });
+                }
+              }}
+            >
+              Copy pipeline debug
+            </button>
+          </div>
+          {renderStats.pipelineDebug.samples && (
+            <div style={{ marginTop: 8, fontSize: '10px', color: '#ccc' }}>
+              <div style={{ color: '#888', marginBottom: 4 }}>Center pixel samples (RGBA):</div>
+              <div>BG: {renderStats.pipelineDebug.samples.background ? Array.from(renderStats.pipelineDebug.samples.background).join(',') : 'n/a'}</div>
+              <div>TopBelow: {renderStats.pipelineDebug.samples.topBelow ? Array.from(renderStats.pipelineDebug.samples.topBelow).join(',') : 'n/a'}</div>
+            </div>
+          )}
+          {renderStats.pipelineDebug.renderHistory && renderStats.pipelineDebug.renderHistory.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ color: '#888', fontSize: '10px', marginBottom: 4 }}>Recent renders (most recent last):</div>
+              <div style={{ maxHeight: 180, overflowY: 'auto', fontSize: '10px' }}>
+                {renderStats.pipelineDebug.renderHistory.map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '1px 6px',
+                      padding: '4px 6px',
+                      backgroundColor: idx % 2 === 0 ? '#242424' : '#1e1e1e',
+                      borderLeft: h.animationOnly ? '3px solid #4af' : '3px solid #4f4',
+                    }}
+                  >
+                    <span style={{ color: '#888' }}>ts:</span><span>{h.timestamp.toFixed(1)} ms</span>
+                    <span style={{ color: '#888' }}>reason:</span><span>{h.reason}</span>
+                    <span style={{ color: '#888' }}>animOnly:</span><span>{h.animationOnly ? 'yes' : 'no'}</span>
+                    <span style={{ color: '#888' }}>updatedAnim:</span><span>{h.updatedAnimations ? 'yes' : 'no'}</span>
+                    <span style={{ color: '#888' }}>tilesetVer:</span><span>{h.tilesetVersion}</span>
+                    <span style={{ color: '#888' }}>hadCaches:</span><span>{h.hadCaches ? 'yes' : 'no'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {renderStats.pipelineDebug.renderMeta && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ color: '#888', fontSize: '10px', marginBottom: 4 }}>Last pass renders:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px', fontSize: '10px' }}>
+                {(['background', 'topBelow', 'topAbove'] as const).map((pass) => {
+                  const meta = (renderStats.pipelineDebug.renderMeta as any)[pass];
+                  return meta ? (
+                    <React.Fragment key={pass}>
+                      <span style={{ color: '#888' }}>{pass}:</span>
+                      <span>{meta.instances} inst · {meta.width}x{meta.height} · {meta.timestamp.toFixed(1)}ms</span>
+                    </React.Fragment>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Reflection Tile Grid - Critical for debugging reflection bugs */}
       {reflectionTileGrid && (
         <Section title="Reflection Tile Grid (5×5)">
@@ -1437,7 +1535,6 @@ const PlayerInfoDisplay: React.FC<{ info: PlayerDebugInfo }> = ({ info }) => (
     <InfoRow label="Tile" value={`(${info.tileX}, ${info.tileY})`} />
     <InfoRow label="Pixel" value={`(${info.pixelX.toFixed(1)}, ${info.pixelY.toFixed(1)})`} />
     <InfoRow label="Direction" value={info.direction} />
-    <InfoRow label="Elevation" value={info.elevation} />
     <InfoRow label="Map" value={info.mapId.replace('MAP_', '')} />
     <InfoRow
       label="Moving"
@@ -1447,6 +1544,29 @@ const PlayerInfoDisplay: React.FC<{ info: PlayerDebugInfo }> = ({ info }) => (
       label="Surfing"
       value={<span style={{ color: info.isSurfing ? '#4af' : '#666' }}>{info.isSurfing ? 'YES' : 'NO'}</span>}
     />
+    {info.isJumping && (
+      <InfoRow
+        label="Jumping"
+        value={<span style={{ color: '#fa0' }}>YES</span>}
+      />
+    )}
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+      <div style={{ color: '#888', marginBottom: 4, fontSize: '9px' }}>ELEVATION</div>
+      <InfoRow label="Render (prev)" value={info.previousElevation} />
+      <InfoRow label="Collision (cur)" value={info.currentElevation} />
+    </div>
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #333' }}>
+      <div style={{ color: '#888', marginBottom: 4, fontSize: '9px' }}>STATE</div>
+      <InfoRow label="State" value={info.stateName.replace('State', '')} />
+      <InfoRow
+        label="Collision Check"
+        value={
+          <span style={{ color: info.hasCollisionChecker ? '#4f4' : '#f44' }}>
+            {info.hasCollisionChecker ? 'ENABLED' : 'DISABLED'}
+          </span>
+        }
+      />
+    </div>
   </div>
 );
 

@@ -50,9 +50,18 @@ export interface PlayerDebugInfo {
   pixelY: number;
   direction: string;
   elevation: number;
+  /** Current elevation used for collision checks */
+  currentElevation: number;
+  /** Previous elevation used for rendering priority */
+  previousElevation: number;
   isMoving: boolean;
   isSurfing: boolean;
+  isJumping: boolean;
   mapId: string;
+  /** Current player state name (e.g., "NormalState", "SurfingState") */
+  stateName: string;
+  /** Whether object collision checker is set up */
+  hasCollisionChecker: boolean;
 }
 
 /**
@@ -194,6 +203,43 @@ export interface RenderStatsDebugInfo {
   worldWidthPx: number;
   worldHeightPx: number;
   stitchedMapCount: number;
+  pipelineDebug?: {
+    tilesetVersion: number;
+    lastRenderedTilesetVersion: number;
+    needsFullRender: boolean;
+    needsWarmupRender: boolean;
+    lastViewHash: string;
+    hasCachedInstances: boolean;
+    tilesetsUploaded: boolean;
+    cachedInstances: { background: number; topBelow: number; topAbove: number };
+    lastRenderInfo: {
+      timestamp: number;
+      reason: string;
+      animationOnly: boolean;
+      tilesetVersion: number;
+      viewHash: string;
+      updatedAnimations: boolean;
+      hadCaches: boolean;
+    } | null;
+    renderHistory: Array<{
+      timestamp: number;
+      reason: string;
+      animationOnly: boolean;
+      tilesetVersion: number;
+      viewHash: string;
+      updatedAnimations: boolean;
+      hadCaches: boolean;
+    }>;
+    renderMeta: {
+      background?: { instances: number; width: number; height: number; timestamp: number };
+      topBelow?: { instances: number; width: number; height: number; timestamp: number };
+      topAbove?: { instances: number; width: number; height: number; timestamp: number };
+    };
+    samples?: {
+      background?: Uint8Array | null;
+      topBelow?: Uint8Array | null;
+    };
+  };
 }
 
 /**
