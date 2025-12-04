@@ -8,6 +8,7 @@ import { SurfingSpriteDebugPage } from './pages/SurfingSpriteDebugPage.tsx'
 import { GameRenderer } from './components/GameRenderer.tsx'
 import { DialogProvider } from './components/dialog'
 import { DialogDebugPage } from './pages/DialogDebugPage.tsx'
+import Rayquaza3DDebugPage from './pages/Rayquaza3DDebugPage.tsx'
 
 /**
  * Simple hash-based router for development/testing pages
@@ -33,6 +34,9 @@ function Router() {
   }
   if (route === '#/dialog-debug') {
     return <DialogDebugPage />;
+  }
+  if (route === '#/rayquaza-debug') {
+    return <Rayquaza3DDebugPage />;
   }
   // New unified GameRenderer (work in progress)
   if (route === '#/play' || route.startsWith('#/play?')) {

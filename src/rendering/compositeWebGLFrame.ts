@@ -139,17 +139,14 @@ export function compositeWebGLFrame(
 
   // Priority 0 sprites (above all BG layers)
   if (priority0Sprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(priority0Sprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 
   // Fade overlay
   if (fadeAlpha > 0 && fadeRenderer) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, webglCanvas.width, webglCanvas.height);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     fadeRenderer.render(fadeAlpha);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
@@ -176,7 +173,7 @@ function compositeWithReflections(
   pipeline.compositeBackgroundOnly(ctx2d, view);
 
   // Step 2: Render reflection-layer sprites with water mask
-  clearAndBindFramebuffer(gl);
+  clearAndBindFramebuffer(gl, webglCanvas, view);
 
   const waterMask = buildWaterMaskFromView(
     view.pixelWidth,
@@ -196,7 +193,7 @@ function compositeWithReflections(
 
   // Step 2.5: Render low priority sprites before topBelow
   if (normalLowPrioritySprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(normalLowPrioritySprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
@@ -206,14 +203,14 @@ function compositeWithReflections(
 
   // Step 3.5: Door + arrow overlays
   if (overlaySprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(overlaySprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 
   // Step 4: Render P1 normal sprites + player
   if (normalSprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(normalSprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
@@ -233,7 +230,7 @@ function compositeStandard(
 
   // Low priority sprites before TopBelow
   if (lowPrioritySprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(lowPrioritySprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
@@ -243,24 +240,35 @@ function compositeStandard(
 
   // Door + arrow overlays
   if (overlaySprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(overlaySprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 
   // P1 sprites + player
   if (allSprites.length > 0) {
-    clearAndBindFramebuffer(gl);
+    clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(allSprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 }
 
 /**
- * Clear framebuffer and bind to default
+ * Clear framebuffer, resize canvas to match view, and set viewport
  */
-function clearAndBindFramebuffer(gl: WebGL2RenderingContext): void {
+function clearAndBindFramebuffer(
+  gl: WebGL2RenderingContext,
+  canvas: HTMLCanvasElement,
+  view: WorldCameraView
+): void {
+  // Ensure canvas matches the view dimensions for proper 1:1 pixel rendering
+  if (canvas.width !== view.pixelWidth || canvas.height !== view.pixelHeight) {
+    canvas.width = view.pixelWidth;
+    canvas.height = view.pixelHeight;
+  }
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, view.pixelWidth, view.pixelHeight);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
 }

@@ -5,10 +5,14 @@
  * tile and sprite rendering. Supports dynamic map loading, NPCs,
  * warps, and all gameplay systems.
  *
+ * Now includes a state machine for Title Screen → Main Menu → Overworld flow.
+ *
  * This is the default page at /
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { GameState, GameStateManager } from '../core';
+import { createTitleScreenState, createMainMenuState, createOverworldState } from '../states';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
@@ -18,6 +22,7 @@ import {
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getNPCAtlasName,
+  ITEM_BALL_ATLAS_NAME,
 } from '../rendering/spriteUtils';
 import type { SpriteInstance } from '../rendering/types';
 import type { TileResolverFn, RenderContext } from '../rendering/types';
@@ -51,7 +56,7 @@ import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import { METATILE_SIZE } from '../utils/mapLoader';
-import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
+import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
 import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
@@ -145,20 +150,63 @@ type RenderStats = {
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
-// Viewport configuration (shared with MapRenderer)
-const VIEWPORT_TILES_WIDE = DEFAULT_VIEWPORT_CONFIG.tilesWide;
-const VIEWPORT_TILES_HIGH = DEFAULT_VIEWPORT_CONFIG.tilesHigh;
-const VIEWPORT_PIXEL_SIZE = getViewportPixelSize();
-
 /**
- * GamePage wrapper - provides DialogProvider context
+ * GamePage wrapper - provides DialogProvider context and state machine
  */
 export function GamePage() {
   const [zoom, setZoom] = useState(2); // Default to 2x zoom for better visibility
+  const [currentState, setCurrentState] = useState<GameState>(GameState.TITLE_SCREEN);
+  // Viewport configuration - can be changed via debug panel
+  const [viewportConfig, setViewportConfig] = useState<ViewportConfig>(DEFAULT_VIEWPORT_CONFIG);
+  // Use state instead of ref so child re-renders when manager is ready
+  const [stateManager, setStateManager] = useState<GameStateManager | null>(null);
+
+  // Initialize state manager once
+  useEffect(() => {
+    const manager = new GameStateManager({
+      initialState: GameState.TITLE_SCREEN,
+      viewport: viewportConfig,
+      onStateChange: (_from, to) => {
+        console.log('[GamePage] State changed to:', to);
+        setCurrentState(to);
+      },
+    });
+
+    // Register all states
+    manager.registerState(GameState.TITLE_SCREEN, createTitleScreenState);
+    manager.registerState(GameState.MAIN_MENU, createMainMenuState);
+    manager.registerState(GameState.OVERWORLD, createOverworldState);
+
+    // Set state to trigger child re-render
+    setStateManager(manager);
+
+    // Initialize to title screen
+    void manager.initialize(GameState.TITLE_SCREEN);
+
+    return () => {
+      manager.dispose();
+      setStateManager(null);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only initialize once - viewport changes handled separately
+
+  // Update state manager when viewport changes (without resetting state)
+  useEffect(() => {
+    if (stateManager) {
+      stateManager.setViewport(viewportConfig);
+    }
+  }, [stateManager, viewportConfig]);
 
   return (
     <DialogProvider zoom={zoom}>
-      <GamePageContent zoom={zoom} onZoomChange={setZoom} />
+      <GamePageContent
+        zoom={zoom}
+        onZoomChange={setZoom}
+        currentState={currentState}
+        stateManager={stateManager}
+        viewportConfig={viewportConfig}
+        onViewportChange={setViewportConfig}
+      />
     </DialogProvider>
   );
 }
@@ -166,14 +214,29 @@ export function GamePage() {
 interface GamePageContentProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  currentState: GameState;
+  stateManager: GameStateManager | null;
+  viewportConfig: ViewportConfig;
+  onViewportChange: (config: ViewportConfig) => void;
 }
 
 /**
  * GamePageContent - main game rendering and logic
  */
-function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
+function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewportConfig, onViewportChange }: GamePageContentProps) {
+  // Compute viewport dimensions from config
+  const viewportTilesWide = viewportConfig.tilesWide;
+  const viewportTilesHigh = viewportConfig.tilesHigh;
+  const viewportPixelSize = useMemo(() => getViewportPixelSize(viewportConfig), [viewportConfig]);
+
+  // Ref to store current viewport size for render loop (avoids stale closure)
+  const viewportPixelSizeRef = useRef(viewportPixelSize);
+  viewportPixelSizeRef.current = viewportPixelSize;
+
   // Canvas refs - we use two canvases: hidden WebGL and visible 2D
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
+  // State overlay canvas - used for title screen and menus (2D rendering)
+  const stateCanvasRef = useRef<HTMLCanvasElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Pipeline and state refs
@@ -321,8 +384,8 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
       renderTimeMs: stats.renderTimeMs,
       webgl2Supported: stats.webgl2Supported,
       pipelineDebug: stats.pipelineDebug,
-      viewportTilesWide: VIEWPORT_TILES_WIDE,
-      viewportTilesHigh: VIEWPORT_TILES_HIGH,
+      viewportTilesWide: viewportTilesWide,
+      viewportTilesHigh: viewportTilesHigh,
       cameraX: Math.round(cameraDisplay.x),
       cameraY: Math.round(cameraDisplay.y),
       worldWidthPx: worldSize.width,
@@ -805,6 +868,16 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
               console.log(`[WebGL] Uploaded field sprite: ${atlasName} (${canvas.width}x${canvas.height})`);
             }
           }
+
+          // Upload item ball sprite
+          const itemBallCanvas = fieldSprites.sprites.itemBall;
+          if (itemBallCanvas) {
+            spriteRenderer.uploadSpriteSheet(ITEM_BALL_ATLAS_NAME, itemBallCanvas, {
+              frameWidth: 16,
+              frameHeight: 16,
+            });
+            console.log(`[WebGL] Uploaded item ball sprite: ${ITEM_BALL_ATLAS_NAME} (${itemBallCanvas.width}x${itemBallCanvas.height})`);
+          }
         }
 
         fieldSpritesLoadedRef.current = true;
@@ -1003,8 +1076,9 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
         camera.followTarget(player);
       }
 
-      const viewportWidth = VIEWPORT_PIXEL_SIZE.width;
-      const viewportHeight = VIEWPORT_PIXEL_SIZE.height;
+      // Read current viewport size from ref (avoids stale closure)
+      const viewportWidth = viewportPixelSizeRef.current.width;
+      const viewportHeight = viewportPixelSizeRef.current.height;
 
       if (width > 0 && height > 0 && camera) {
         // Ensure display canvas is sized to viewport
@@ -1140,6 +1214,7 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
               snapshot: currentSnapshot,
               tilesetRuntimes: tilesetRuntimesRef.current,
               npcs,
+              items,
               fieldEffects,
               spriteRenderer,
               doorAnimations,
@@ -1376,8 +1451,101 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
     };
   }, []);
 
-  // Load selected map assets and configure pipeline using WorldManager
+  // State machine render loop (for TITLE_SCREEN and MAIN_MENU)
   useEffect(() => {
+    // Skip if in overworld or no state manager yet
+    if (currentState === GameState.OVERWORLD) {
+      console.log('[StateRenderLoop] Skipping - in OVERWORLD state');
+      return;
+    }
+    if (!stateManager) {
+      console.log('[StateRenderLoop] Skipping - no stateManager yet');
+      return;
+    }
+
+    const stateCanvas = stateCanvasRef.current;
+    if (!stateCanvas) {
+      console.log('[StateRenderLoop] Skipping - no canvas ref');
+      return;
+    }
+
+    console.log('[StateRenderLoop] Starting render loop for state:', currentState);
+
+    const resizeCanvas = () => {
+      // Read current viewport size from ref (avoids stale closure)
+      const logicalWidth = viewportPixelSizeRef.current.width;
+      const logicalHeight = viewportPixelSizeRef.current.height;
+
+      const dpr = window.devicePixelRatio || 1;
+      const scale = dpr * zoom;
+      const targetWidth = Math.round(logicalWidth * scale);
+      const targetHeight = Math.round(logicalHeight * scale);
+
+      if (stateCanvas.width !== targetWidth || stateCanvas.height !== targetHeight) {
+        stateCanvas.width = targetWidth;
+        stateCanvas.height = targetHeight;
+      }
+
+      // Keep CSS size in logical pixels times zoom (React style prop may run before this effect)
+      stateCanvas.style.width = `${logicalWidth * zoom}px`;
+      stateCanvas.style.height = `${logicalHeight * zoom}px`;
+
+      return { scale, logicalWidth, logicalHeight };
+    };
+
+    let { scale, logicalWidth, logicalHeight } = resizeCanvas();
+
+    const ctx = stateCanvas.getContext('2d');
+    if (!ctx) {
+      console.log('[StateRenderLoop] Failed to get 2d context');
+      return;
+    }
+
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let animationId: number;
+
+    const stateRenderLoop = () => {
+      const now = performance.now();
+      const dt = now - lastTime;
+      lastTime = now;
+      frameCount++;
+
+      ({ scale, logicalWidth, logicalHeight } = resizeCanvas());
+
+      // Reset transform and default smoothing every frame (resize resets state)
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
+      // Update state manager (handles input + logic)
+      stateManager.update(dt, frameCount);
+
+      // Render current state in logical pixels
+      ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+      stateManager.render(ctx);
+
+      // Debug: draw a red rectangle to confirm rendering works
+      if (frameCount === 1) {
+        console.log('[StateRenderLoop] First frame rendered');
+      }
+
+      animationId = requestAnimationFrame(stateRenderLoop);
+    };
+
+    animationId = requestAnimationFrame(stateRenderLoop);
+
+    return () => {
+      console.log('[StateRenderLoop] Cleanup');
+      cancelAnimationFrame(animationId);
+    };
+  }, [currentState, stateManager, zoom]);
+
+  // Load selected map assets and configure pipeline using WorldManager
+  // Only runs when in OVERWORLD state
+  useEffect(() => {
+    // Skip map loading if not in overworld
+    if (currentState !== GameState.OVERWORLD) return;
+
     const entry = selectedMap;
     const pipeline = pipelineRef.current;
     if (!entry || !pipeline) return;
@@ -1389,7 +1557,7 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
     if (cameraRef.current) {
       cameraRef.current.reset();
     } else {
-      cameraRef.current = createWebGLCameraController(VIEWPORT_TILES_WIDE, VIEWPORT_TILES_HIGH);
+      cameraRef.current = createWebGLCameraController(viewportTilesWide, viewportTilesHigh);
     }
     setCameraDisplay({ x: 0, y: 0 });
 
@@ -1493,7 +1661,18 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
         worldManagerRef.current = null;
       }
     };
-  }, [selectedMap, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, loadObjectEventsFromSnapshot]);
+  }, [selectedMap, currentState, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, loadObjectEventsFromSnapshot]);
+
+  // Update camera controller when viewport config changes
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (camera) {
+      camera.updateConfig({
+        viewportTilesWide: viewportConfig.tilesWide,
+        viewportTilesHigh: viewportConfig.tilesHigh,
+      });
+    }
+  }, [viewportConfig]);
 
   if (!selectedMap) {
     return (
@@ -1511,19 +1690,34 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
 
       <div className="map-card">
         <div className="map-canvas-wrapper" style={{ position: 'relative' }}>
+          {/* WebGL canvas for overworld rendering */}
           <canvas
             ref={displayCanvasRef}
             className="game-canvas"
             style={{
-              width: VIEWPORT_PIXEL_SIZE.width * zoom,
-              height: VIEWPORT_PIXEL_SIZE.height * zoom,
+              width: viewportPixelSize.width * zoom,
+              height: viewportPixelSize.height * zoom,
               imageRendering: 'pixelated',
+              display: currentState === GameState.OVERWORLD ? 'block' : 'none',
+            }}
+          />
+          {/* 2D canvas for state machine rendering (title screen, menus) */}
+          <canvas
+            ref={stateCanvasRef}
+            className="game-canvas"
+            width={viewportPixelSize.width}
+            height={viewportPixelSize.height}
+            style={{
+              width: viewportPixelSize.width * zoom,
+              height: viewportPixelSize.height * zoom,
+              imageRendering: 'pixelated',
+              display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
             }}
           />
           {/* Dialog box overlay - positioned within viewport */}
           <DialogBox
-            viewportWidth={VIEWPORT_PIXEL_SIZE.width * zoom}
-            viewportHeight={VIEWPORT_PIXEL_SIZE.height * zoom}
+            viewportWidth={viewportPixelSize.width * zoom}
+            viewportHeight={viewportPixelSize.height * zoom}
           />
         </div>
         <div className="map-stats">
@@ -1563,6 +1757,8 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
         selectedMapId={selectedMapId}
         onMapChange={setSelectedMapId}
         mapLoading={loading}
+        viewportConfig={viewportConfig}
+        onViewportChange={onViewportChange}
       />
     </div>
   );

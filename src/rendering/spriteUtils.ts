@@ -12,7 +12,7 @@ import type { SpriteInstance } from './types';
 import type { FrameInfo } from '../game/PlayerController';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { ReflectionState } from '../field/ReflectionRenderer';
-import type { NPCObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import type { DoorAnimDrawable } from '../field/types';
 import {
   BRIDGE_OFFSETS,
@@ -468,6 +468,50 @@ export function createNPCSpriteInstance(
   };
 }
 
+/** Atlas name for item ball sprites */
+export const ITEM_BALL_ATLAS_NAME = 'item-ball';
+
+/** Item ball sprite dimensions (16x16 single frame) */
+export const ITEM_BALL_SIZE = 16;
+
+/**
+ * Create a SpriteInstance from an ItemBallObject
+ *
+ * Item balls are 16x16 single-frame sprites positioned at their tile.
+ *
+ * @param item - Item ball object from ObjectEventManager
+ * @param sortKey - Y-sort key for depth ordering
+ * @returns SpriteInstance ready for rendering
+ */
+export function createItemBallSpriteInstance(
+  item: ItemBallObject,
+  sortKey: number
+): SpriteInstance {
+  // Item balls are positioned at tile top-left
+  const worldX = item.tileX * METATILE_SIZE;
+  const worldY = item.tileY * METATILE_SIZE;
+
+  return {
+    worldX,
+    worldY,
+    width: ITEM_BALL_SIZE,
+    height: ITEM_BALL_SIZE,
+    atlasName: ITEM_BALL_ATLAS_NAME,
+    atlasX: 0,
+    atlasY: 0,
+    atlasWidth: ITEM_BALL_SIZE,
+    atlasHeight: ITEM_BALL_SIZE,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey,
+    isReflection: false,
+  };
+}
+
 /**
  * Create a reflection SpriteInstance for an NPC
  *
@@ -549,10 +593,11 @@ export function createNPCGrassEffectSprite(
     return null; // NPC not on grass
   }
 
-  // Calculate grass position (centered on tile, like field effects)
+  // Calculate grass position (convert from center to top-left, like field effects)
   // Grass covers the NPC's lower body
-  const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2;
-  const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2;
+  // WebGL renderer expects top-left coordinates, so subtract half the sprite size
+  const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
+  const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
 
   // Grass renders ON TOP of NPC, so add small offset to sortKey
   // This ensures grass is drawn after the NPC sprite

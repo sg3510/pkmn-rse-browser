@@ -20,7 +20,7 @@ import type { WorldSnapshot } from '../game/WorldManager';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { UseDoorSequencerReturn } from './useDoorSequencer';
-import type { NPCObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { SortableSpriteInfo } from '../rendering/SpriteBatcher';
@@ -35,10 +35,12 @@ import {
   createNPCReflectionSprite,
   createNPCGrassEffectSprite,
   createDoorAnimationSprite,
+  createItemBallSpriteInstance,
   calculateSortKey,
   getPlayerAtlasName,
   getDoorAtlasName,
   ARROW_ATLAS_NAME,
+  ITEM_BALL_ATLAS_NAME,
 } from '../rendering/spriteUtils';
 import {
   ARROW_FRAME_SIZE,
@@ -62,6 +64,7 @@ export interface SpriteBuildContext {
   snapshot: WorldSnapshot | null;
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
   npcs: NPCObject[];
+  items: ItemBallObject[];
   fieldEffects: FieldEffectForRendering[];
   spriteRenderer: WebGLSpriteRenderer;
   doorAnimations: UseDoorAnimationsReturn;
@@ -119,6 +122,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       snapshot,
       tilesetRuntimes,
       npcs,
+      items,
       fieldEffects,
       spriteRenderer,
       doorAnimations,
@@ -304,7 +308,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
     const spriteBatches = buildSpriteBatches(player, npcs, fieldEffects, {
       includePlayerShadow: player.showShadow,
       playerHidden,
-    });
+    }, items);
 
     // Helper to create NPC sprite with reflections and grass effects
     const createNPCWithExtras = (
@@ -410,6 +414,12 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         if (sprite) {
           sprite.sortKey = info.sortKey;
           allSprites.push(sprite);
+        }
+      } else if (info.type === 'itemBall' && info.itemBall) {
+        // Item balls only render if sprite is uploaded
+        if (spriteRenderer.hasSpriteSheet(ITEM_BALL_ATLAS_NAME)) {
+          const itemSprite = createItemBallSpriteInstance(info.itemBall, info.sortKey);
+          allSprites.push(itemSprite);
         }
       }
     }

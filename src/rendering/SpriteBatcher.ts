@@ -15,7 +15,7 @@
  */
 
 import type { PlayerController } from '../game/PlayerController';
-import type { NPCObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject } from '../types/objectEvents';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 // Note: SpriteInstance is the WebGL sprite format. This module returns
 // SortableSpriteInfo which is renderer-agnostic. Renderers convert to their format.
@@ -47,7 +47,7 @@ export interface SortableSpriteInfo {
   id: string;
 
   /** Type of sprite for renderer-specific handling */
-  type: 'player' | 'npc' | 'fieldEffect' | 'playerShadow' | 'reflection';
+  type: 'player' | 'npc' | 'fieldEffect' | 'playerShadow' | 'reflection' | 'itemBall';
 
   /** Sort key for Y-ordering (higher = renders later = in front) */
   sortKey: number;
@@ -60,6 +60,9 @@ export interface SortableSpriteInfo {
 
   /** For NPCs: the NPC object */
   npc?: NPCObject;
+
+  /** For item balls: the item ball object */
+  itemBall?: ItemBallObject;
 
   /** For field effects: the effect data */
   fieldEffect?: FieldEffectForRendering;
@@ -140,13 +143,15 @@ export interface SpriteBatchOptions {
  * @param npcs - Visible NPCs to render
  * @param fieldEffects - Active field effects (grass, water, sand, etc.)
  * @param options - Optional configuration
+ * @param itemBalls - Visible item balls to render
  * @returns Sorted sprite batches ready for rendering
  */
 export function buildSpriteBatches(
   player: PlayerController,
   npcs: NPCObject[],
   fieldEffects: FieldEffectForRendering[],
-  options: SpriteBatchOptions = {}
+  options: SpriteBatchOptions = {},
+  itemBalls: ItemBallObject[] = []
 ): SpriteBatchResult {
   const playerFeetY = getPlayerFeetY(player);
   const playerCenterY = getPlayerCenterY(player);
@@ -239,6 +244,25 @@ export function buildSpriteBatches(
       tileY: Math.floor(effect.worldY / METATILE_SIZE),
       fieldEffect: effect,
       effectLayer,
+    });
+  }
+
+  // --- Add item balls ---
+  // Item balls are Y-sorted with player like NPCs
+  // They use the same feet Y calculation as NPCs (tile bottom)
+  for (const item of itemBalls) {
+    // Item balls are 16x16, positioned at tile top-left
+    // Feet Y is at tile bottom (tileY * 16 + 16 = (tileY + 1) * 16)
+    const itemFeetY = (item.tileY + 1) * METATILE_SIZE;
+    const itemSortKey = calculateSortKey(itemFeetY, DEFAULT_SPRITE_SUBPRIORITY);
+
+    ySorted.push({
+      id: `item-${item.id}`,
+      type: 'itemBall',
+      sortKey: itemSortKey,
+      tileX: item.tileX,
+      tileY: item.tileY,
+      itemBall: item,
     });
   }
 
