@@ -536,6 +536,14 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
       const playerResolver = createSnapshotPlayerTileResolver(snapshot);
       player.setTileResolver(playerResolver);
 
+      // Set tile elevation resolver for NPC collision checks
+      // This allows ObjectEventManager to check the actual tile elevation
+      // NPCs are standing on, rather than their spawn elevation from map data
+      objectEventManagerRef.current.setTileElevationResolver((tileX, tileY) => {
+        const resolved = playerResolver(tileX, tileY);
+        return resolved?.mapTile.elevation ?? null;
+      });
+
       // Set up object collision checker (shared utility)
       setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
@@ -1156,8 +1164,8 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
             lowPrioritySprites = builtLowPriority;
             priority0Sprites = builtP0;
 
-            // Collect priority debug info if debug panel is enabled
-            if (debugOptionsRef.current.enabled && player) {
+            // Collect priority debug info if debug panel is enabled (throttled to ~10fps)
+            if (debugOptionsRef.current.enabled && player && gbaFrameRef.current % 6 === 0) {
               const playerFeetY = getPlayerFeetY(player);
               const playerSortKeyY = playerFeetY;
               const playerSubpriority = DEFAULT_SPRITE_SUBPRIORITY;
@@ -1434,6 +1442,12 @@ function GamePageContent({ zoom, onZoomChange }: GamePageContentProps) {
         if (player) {
           const playerResolver = createSnapshotPlayerTileResolver(snapshot);
           player.setTileResolver(playerResolver);
+
+          // Set tile elevation resolver for NPC collision checks
+          objectEventManagerRef.current.setTileElevationResolver((tileX, tileY) => {
+            const resolved = playerResolver(tileX, tileY);
+            return resolved?.mapTile.elevation ?? null;
+          });
 
           // Set up object collision checker (shared utility)
           setupObjectCollisionChecker(player, objectEventManagerRef.current);

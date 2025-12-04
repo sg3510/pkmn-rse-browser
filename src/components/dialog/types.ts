@@ -78,6 +78,8 @@ export interface DialogConfig {
   textColor: string;
   /** Shadow color (default: light gray) */
   shadowColor: string;
+  /** Font family (default: "Pokemon Emerald") */
+  fontFamily: string;
   /** Keys to advance/confirm (default: Space, Enter, X) */
   advanceKeys: string[];
   /** Keys to cancel (default: Escape, Z) */
@@ -93,6 +95,7 @@ export const DEFAULT_CONFIG: DialogConfig = {
   frameStyle: 1,
   textColor: '#303030',
   shadowColor: '#a8a8a8',
+  fontFamily: '"Pokemon Emerald", "Pokemon RS", monospace',
   advanceKeys: ['Space', 'Enter', 'KeyX'],
   cancelKeys: ['Escape', 'KeyZ'],
   allowSkip: true,

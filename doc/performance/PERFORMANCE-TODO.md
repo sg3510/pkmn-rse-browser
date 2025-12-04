@@ -108,15 +108,15 @@ These are easy fixes with good impact-to-effort ratio.
 
 | # | Task | File | Status | Impact | Effort |
 |---|------|------|--------|--------|--------|
-| 1.1 | **Fix door canvas creation** | `useWebGLSpriteBuilder.ts` | ❌ TODO | **5-10%** | 30 min |
-| 1.2 | **Gate debug computations** | `GamePage.tsx` | ⚠️ PARTIAL | **5-15%** | 15 min |
-| 1.3 | **Remove redundant sprite sort** | `useWebGLSpriteBuilder.ts` | ❌ TODO | **2-3%** | 10 min |
+| 1.1 | **Fix door canvas creation** | `useWebGLSpriteBuilder.ts` | ✅ DONE | **5-10%** | 30 min |
+| 1.2 | **Gate debug computations** | `GamePage.tsx` | ✅ DONE | **5-15%** | 15 min |
+| 1.3 | **Remove redundant sprite sort** | `useWebGLSpriteBuilder.ts` | ❌ NOT SAFE | **2-3%** | 10 min |
 | 1.4 | **Throttle scheduler.update** | `GamePage.tsx` | N/A | **1-2%** | 5 min |
 
 ### Status Notes:
-- **1.1**: Still creating canvas every frame at line 151-154 of useWebGLSpriteBuilder.ts
-- **1.2**: Debug gated with `debugOptionsRef.current.enabled` but still runs every frame (no 10-frame throttle)
-- **1.3**: SpriteBatcher.ts sorts at line 246, useWebGLSpriteBuilder.ts ALSO sorts at line 425 - redundant!
+- **1.1**: ✅ Canvas only created on first upload per door type (guarded by `doorSpritesUploaded.has()`)
+- **1.2**: ✅ Added throttling with `gbaFrameRef.current % 6 === 0` at line 1160
+- **1.3**: ❌ NOT SAFE - The sort at line 425 IS needed because reflections/grass effects added during iteration have different sortKeys
 - **1.4**: scheduler.update no longer exists in codebase - this optimization is N/A
 
 ### Detailed Fix Instructions
@@ -470,16 +470,17 @@ useEffect(() => {
 | Phase | Status | Cumulative Impact | Effort |
 |-------|--------|-------------------|--------|
 | **Phase 0** | ✅ 4/4 done | 25-55% faster | 30 min |
-| **Phase 1** | ⚠️ ~1/4 done | 35-75% faster | 1-2 hr |
+| **Phase 1** | ✅ 3/4 done | 35-75% faster | 1-2 hr |
 | **Phase 2** | ❌ 0/4 done | 45-90% faster | 4-6 hr |
 | **Phase 3** | ❌ 0/3 done | 70-150%+ faster | 1-2 weeks |
 
-### Overall Progress: ~35% complete
+### Overall Progress: ~50% complete
 
-**Quick Wins Remaining:**
-- Remove redundant sort in useWebGLSpriteBuilder.ts:425 (1.3)
-- Fix door canvas creation (1.1)
-- Add debug computation throttling (1.2)
+**Phase 1 Status:**
+- ✅ 1.1: Door canvas creation already guarded (was not an issue)
+- ✅ 1.2: Debug computation throttling added
+- ❌ 1.3: NOT SAFE to remove sort (reflections/grass need it)
+- N/A 1.4: scheduler.update doesn't exist
 
 **Recommendation:** Complete Phases 0 and 1 first. They take minimal time and should restore performance to pre-commit levels. Phase 2 provides diminishing returns but reduces stutter. Phase 3 is the long-term architectural fix for truly smooth 60fps on all devices.
 

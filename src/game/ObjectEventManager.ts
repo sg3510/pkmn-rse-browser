@@ -22,9 +22,28 @@ import { getItemIdFromScript } from '../data/itemScripts';
 import { getItemName } from '../data/items';
 import { gameFlags } from './GameFlags';
 
+/**
+ * Simple tile resolver type for getting tile elevation
+ * Returns the tile's elevation at given world coordinates
+ */
+export type TileElevationResolver = (tileX: number, tileY: number) => number | null;
+
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
   private npcs: Map<string, NPCObject> = new Map();
+  private tileElevationResolver: TileElevationResolver | null = null;
+
+  /**
+   * Set the tile elevation resolver
+   *
+   * This is used to get the actual tile elevation for NPC collision checks.
+   * In pokeemerald, NPC currentElevation is updated to match the tile they're
+   * standing on (ObjectEventUpdateElevation), so we need to check the tile's
+   * elevation, not the NPC's spawn elevation from map data.
+   */
+  setTileElevationResolver(resolver: TileElevationResolver | null): void {
+    this.tileElevationResolver = resolver;
+  }
 
   /**
    * Clear all object events (called when changing maps)
@@ -235,7 +254,12 @@ export class ObjectEventManager {
    * Check if there's a blocking NPC at a position with elevation check
    *
    * Reference: CheckForObjectEventCollision in event_object_movement.c
-   * NPCs only block if they're at the same elevation OR either is at elevation 0/15
+   * Reference: AreElevationsCompatible in event_object_movement.c:7791
+   *
+   * IMPORTANT: In pokeemerald, NPC currentElevation is updated to match the tile
+   * they're standing on (ObjectEventUpdateElevation), NOT their spawn elevation
+   * from map data. This matters for NPCs like swimmers who have spawn elevation 3
+   * but stand on water tiles with elevation 1.
    *
    * @param playerElevation The player's current elevation
    */
@@ -243,12 +267,24 @@ export class ObjectEventManager {
     const npc = this.getNPCAt(tileX, tileY);
     if (!npc) return false;
 
+    // Get the NPC's actual elevation from the tile they're standing on
+    // This mirrors pokeemerald's ObjectEventUpdateElevation behavior
+    let npcElevation = npc.elevation;
+    if (this.tileElevationResolver) {
+      const tileElev = this.tileElevationResolver(npc.tileX, npc.tileY);
+      if (tileElev !== null && tileElev !== 15) {
+        // Update to tile elevation (15 is special - preserves previous)
+        npcElevation = tileElev;
+      }
+    }
+
     // Ground level (0) or universal (15) can interact with any elevation
+    // Reference: AreElevationsCompatible - "if (a == 0 || b == 0) return TRUE;"
     if (playerElevation === 0 || playerElevation === 15) return true;
-    if (npc.elevation === 0 || npc.elevation === 15) return true;
+    if (npcElevation === 0 || npcElevation === 15) return true;
 
     // Same elevation = collision
-    return npc.elevation === playerElevation;
+    return npcElevation === playerElevation;
   }
 
   /**

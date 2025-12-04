@@ -7,6 +7,7 @@ import { WebGLTestPage } from './pages/WebGLTestPage.tsx'
 import { SurfingSpriteDebugPage } from './pages/SurfingSpriteDebugPage.tsx'
 import { GameRenderer } from './components/GameRenderer.tsx'
 import { DialogProvider } from './components/dialog'
+import { DialogDebugPage } from './pages/DialogDebugPage.tsx'
 
 /**
  * Simple hash-based router for development/testing pages
@@ -29,6 +30,9 @@ function Router() {
   }
   if (route === '#/surfing-sprite') {
     return <SurfingSpriteDebugPage />;
+  }
+  if (route === '#/dialog-debug') {
+    return <DialogDebugPage />;
   }
   // New unified GameRenderer (work in progress)
   if (route === '#/play' || route.startsWith('#/play?')) {

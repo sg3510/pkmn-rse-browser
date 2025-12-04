@@ -44,7 +44,7 @@ export function useActionInput({
 
         try {
           const wantsToSurf = await showYesNo(
-            "The water is dyed a deep blue…\nWould you like to SURF?"
+            "The water is dyed a deep blue...\nWould you like to SURF?"
           );
 
           if (wantsToSurf) {

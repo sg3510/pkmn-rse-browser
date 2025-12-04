@@ -22,6 +22,8 @@ interface DialogTextProps {
   color?: string;
   /** Shadow color */
   shadowColor?: string;
+  /** Font family */
+  fontFamily?: string;
   /** Maximum width in pixels (for line wrapping calculation) */
   maxWidth?: number;
 }
@@ -32,6 +34,7 @@ export const DialogText: React.FC<DialogTextProps> = ({
   zoom = 1,
   color = '#303030',
   shadowColor = '#a8a8a8',
+  fontFamily = '"Pokemon Emerald", "Pokemon RS", monospace',
   maxWidth,
 }) => {
   // Calculate font size (base 8px scaled by zoom)
@@ -56,7 +59,7 @@ export const DialogText: React.FC<DialogTextProps> = ({
   return (
     <div
       style={{
-        fontFamily: '"Pokemon Emerald", "Pokemon RS", monospace',
+        fontFamily: fontFamily,
         fontSize: `${fontSize}px`,
         lineHeight: `${lineHeight}px`,
         color: color,
@@ -144,6 +147,14 @@ const dialogCSS = `
 @font-face {
   font-family: 'Pokemon RS';
   src: url('/fonts/pokemon-rs.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PKMN RSEU';
+  src: url('/fonts/PKMNRSEU.FON') format('truetype'); 
   font-weight: normal;
   font-style: normal;
   font-display: swap;

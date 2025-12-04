@@ -98,6 +98,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             zoom={zoom}
             color={config.textColor}
             shadowColor={config.shadowColor}
+            fontFamily={config.fontFamily}
           />
           <DialogArrow visible={showArrow} zoom={zoom} />
         </DialogFrame>
