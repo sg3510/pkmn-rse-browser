@@ -11,7 +11,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:items": "node scripts/generate-item-descriptions.cjs"
+    "generate:items": "node scripts/generate-item-descriptions.cjs",
+    "generate:species": "node scripts/generate-species-data.cjs",
+    "generate:species-info": "node scripts/generate-species-info.cjs",
+    "generate:moves": "node scripts/generate-moves.cjs",
+    "generate:abilities": "node scripts/generate-abilities.cjs",
+    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities"
   },
   "dependencies": {
     "@types/three": "^0.181.0",
