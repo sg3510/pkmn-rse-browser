@@ -83,6 +83,13 @@ export class GameStateManager {
   }
 
   /**
+   * Get current state renderer (for accessing state-specific methods)
+   */
+  getCurrentRenderer(): StateRenderer | null {
+    return this.currentState;
+  }
+
+  /**
    * Request a state transition
    */
   async transitionTo(state: GameState, data?: Record<string, unknown>): Promise<void> {

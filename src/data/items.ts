@@ -3,6 +3,9 @@
  * Generated from public/pokeemerald/include/constants/items.h
  */
 
+// Re-export item descriptions from auto-generated file
+export { ITEM_DESCRIPTIONS, getItemDescription } from './itemDescriptions';
+
 // Item ID constants
 export const ITEMS: Record<string, number> = {
   ITEM_NONE: 0,
@@ -553,4 +556,235 @@ export function getItemName(itemId: number): string {
  */
 export function getItemId(constantName: string): number | null {
   return ITEMS[constantName] ?? null;
+}
+
+/**
+ * Item ID to icon filename mapping
+ * Icons are located at /pokeemerald/graphics/items/icons/
+ */
+const ITEM_ICONS: Record<number, string> = {
+  // Balls
+  1: 'master_ball.png',
+  2: 'ultra_ball.png',
+  3: 'great_ball.png',
+  4: 'poke_ball.png',
+  5: 'safari_ball.png',
+  6: 'net_ball.png',
+  7: 'dive_ball.png',
+  8: 'nest_ball.png',
+  9: 'repeat_ball.png',
+  10: 'timer_ball.png',
+  11: 'luxury_ball.png',
+  12: 'premier_ball.png',
+  // Healing items
+  13: 'potion.png',
+  14: 'antidote.png',
+  15: 'status_heal.png', // Burn Heal
+  16: 'status_heal.png', // Ice Heal
+  17: 'status_heal.png', // Awakening
+  18: 'status_heal.png', // Parlyz Heal
+  19: 'large_potion.png', // Full Restore
+  20: 'large_potion.png', // Max Potion
+  21: 'large_potion.png', // Hyper Potion
+  22: 'large_potion.png', // Super Potion
+  23: 'full_heal.png',
+  24: 'revive.png',
+  25: 'max_revive.png',
+  26: 'fresh_water.png',
+  27: 'soda_pop.png',
+  28: 'lemonade.png',
+  29: 'moomoo_milk.png',
+  30: 'powder.png', // Energy Powder
+  31: 'energy_root.png',
+  32: 'powder.png', // Heal Powder
+  33: 'revival_herb.png',
+  34: 'ether.png',
+  35: 'ether.png', // Max Ether
+  36: 'ether.png', // Elixir
+  37: 'ether.png', // Max Elixir
+  38: 'lava_cookie.png',
+  39: 'flute.png', // Blue Flute
+  40: 'flute.png', // Yellow Flute
+  41: 'flute.png', // Red Flute
+  42: 'flute.png', // Black Flute
+  43: 'flute.png', // White Flute
+  44: 'berry_juice.png',
+  45: 'sacred_ash.png',
+  46: 'shoal_shell.png', // Shoal Salt
+  47: 'shoal_shell.png',
+  48: 'shard.png', // Red Shard
+  49: 'shard.png', // Blue Shard
+  50: 'shard.png', // Yellow Shard
+  51: 'shard.png', // Green Shard
+  // Vitamins
+  63: 'hp_up.png',
+  64: 'vitamin.png', // Protein
+  65: 'vitamin.png', // Iron
+  66: 'vitamin.png', // Carbos
+  67: 'vitamin.png', // Calcium
+  68: 'rare_candy.png',
+  69: 'pp_up.png',
+  70: 'vitamin.png', // Zinc
+  71: 'pp_max.png',
+  // Battle items
+  73: 'battle_stat_item.png', // Guard Spec.
+  74: 'battle_stat_item.png', // Dire Hit
+  75: 'battle_stat_item.png', // X Attack
+  76: 'battle_stat_item.png', // X Defend
+  77: 'battle_stat_item.png', // X Speed
+  78: 'battle_stat_item.png', // X Accuracy
+  79: 'battle_stat_item.png', // X Special
+  80: 'poke_doll.png',
+  81: 'fluffy_tail.png',
+  83: 'repel.png', // Super Repel
+  84: 'repel.png', // Max Repel
+  85: 'escape_rope.png',
+  86: 'repel.png',
+  // Evolution stones
+  93: 'sun_stone.png',
+  94: 'moon_stone.png',
+  95: 'fire_stone.png',
+  96: 'thunder_stone.png',
+  97: 'water_stone.png',
+  98: 'leaf_stone.png',
+  // Sellable items
+  103: 'tiny_mushroom.png',
+  104: 'big_mushroom.png',
+  106: 'pearl.png',
+  107: 'big_pearl.png',
+  108: 'stardust.png',
+  109: 'star_piece.png',
+  110: 'nugget.png',
+  111: 'heart_scale.png',
+  // Mails
+  121: 'orange_mail.png',
+  122: 'harbor_mail.png',
+  123: 'glitter_mail.png',
+  124: 'mech_mail.png',
+  125: 'wood_mail.png',
+  126: 'wave_mail.png',
+  127: 'bead_mail.png',
+  128: 'shadow_mail.png',
+  129: 'tropic_mail.png',
+  130: 'dream_mail.png',
+  131: 'fab_mail.png',
+  132: 'retro_mail.png',
+  // Berries
+  133: 'cheri_berry.png',
+  134: 'chesto_berry.png',
+  135: 'pecha_berry.png',
+  136: 'rawst_berry.png',
+  137: 'aspear_berry.png',
+  138: 'leppa_berry.png',
+  139: 'oran_berry.png',
+  140: 'persim_berry.png',
+  141: 'lum_berry.png',
+  142: 'sitrus_berry.png',
+  // Held items
+  179: 'bright_powder.png',
+  180: 'in_battle_herb.png', // White Herb
+  181: 'macho_brace.png',
+  182: 'exp_share.png',
+  183: 'quick_claw.png',
+  184: 'soothe_bell.png',
+  185: 'in_battle_herb.png', // Mental Herb
+  186: 'choice_band.png',
+  187: 'kings_rock.png',
+  188: 'silver_powder.png',
+  189: 'amulet_coin.png',
+  190: 'cleanse_tag.png',
+  191: 'soul_dew.png',
+  192: 'deep_sea_tooth.png',
+  193: 'deep_sea_scale.png',
+  194: 'smoke_ball.png',
+  195: 'everstone.png',
+  196: 'focus_band.png',
+  197: 'lucky_egg.png',
+  198: 'scope_lens.png',
+  199: 'metal_coat.png',
+  200: 'leftovers.png',
+  201: 'dragon_scale.png',
+  202: 'light_ball.png',
+  203: 'soft_sand.png',
+  204: 'hard_stone.png',
+  205: 'miracle_seed.png',
+  206: 'black_glasses.png',
+  207: 'black_belt.png',
+  208: 'magnet.png',
+  209: 'mystic_water.png',
+  210: 'sharp_beak.png',
+  211: 'poison_barb.png',
+  212: 'never_melt_ice.png',
+  213: 'spell_tag.png',
+  214: 'twisted_spoon.png',
+  215: 'charcoal.png',
+  216: 'dragon_fang.png',
+  217: 'silk_scarf.png',
+  218: 'up_grade.png',
+  219: 'shell_bell.png',
+  220: 'sea_incense.png',
+  221: 'lax_incense.png',
+  222: 'lucky_punch.png',
+  223: 'metal_powder.png',
+  224: 'thick_club.png',
+  225: 'stick.png',
+  // Contest scarves
+  254: 'scarf.png', // Red Scarf
+  255: 'scarf.png', // Blue Scarf
+  256: 'scarf.png', // Pink Scarf
+  257: 'scarf.png', // Green Scarf
+  258: 'scarf.png', // Yellow Scarf
+  // Key Items
+  259: 'mach_bike.png',
+  260: 'coin_case.png',
+  261: 'itemfinder.png',
+  262: 'old_rod.png',
+  263: 'good_rod.png',
+  264: 'super_rod.png',
+  265: 'ss_ticket.png',
+  266: 'contest_pass.png',
+  268: 'wailmer_pail.png',
+  269: 'devon_goods.png',
+  270: 'soot_sack.png',
+  271: 'basement_key.png',
+  272: 'acro_bike.png',
+  273: 'pokeblock_case.png',
+  274: 'letter.png',
+  275: 'eon_ticket.png',
+  276: 'orb.png', // Red Orb
+  277: 'orb.png', // Blue Orb
+  278: 'scanner.png',
+  279: 'go_goggles.png',
+  280: 'meteorite.png',
+  281: 'room1_key.png',
+  282: 'room2_key.png',
+  283: 'room4_key.png',
+  284: 'room6_key.png',
+  285: 'storage_key.png',
+  286: 'root_fossil.png',
+  287: 'claw_fossil.png',
+  288: 'devon_scope.png',
+  // Emerald items
+  375: 'magma_emblem.png',
+  376: 'old_sea_map.png',
+};
+
+// TMs use shared icon (289-338)
+for (let i = 289; i <= 338; i++) {
+  ITEM_ICONS[i] = 'tm.png';
+}
+
+// HMs use shared icon (339-346)
+for (let i = 339; i <= 346; i++) {
+  ITEM_ICONS[i] = 'hm.png';
+}
+
+/**
+ * Get icon path for an item
+ * @returns Path relative to public folder, or null if no icon
+ */
+export function getItemIconPath(itemId: number): string | null {
+  const iconFile = ITEM_ICONS[itemId];
+  if (!iconFile) return null;
+  return `/pokeemerald/graphics/items/icons/${iconFile}`;
 }

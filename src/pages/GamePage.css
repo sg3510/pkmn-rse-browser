@@ -7,7 +7,41 @@
 }
 
 .game-page h1 {
-  margin: 0 0 0.25rem 0;
+  margin: 0;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu-button {
+  background: #3890f8;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 150ms ease, opacity 150ms ease;
+}
+
+.menu-button:hover:not(:disabled) {
+  background: #2070d8;
+}
+
+.menu-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .selector {

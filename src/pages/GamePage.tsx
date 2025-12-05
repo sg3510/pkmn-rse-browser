@@ -101,6 +101,9 @@ import {
 } from '../game/DoorActionDispatcher';
 import { DialogProvider, DialogBox, useDialog } from '../components/dialog';
 import { useActionInput } from '../hooks/useActionInput';
+import { SaveLoadButtons } from '../components/SaveLoadButtons';
+import { MenuOverlay, menuStateManager } from '../menu';
+import type { LocationState } from '../save/types';
 import './GamePage.css';
 
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
@@ -309,6 +312,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     showYesNo,
   });
 
+  // Menu open handler (Enter key)
+  useEffect(() => {
+    const handleMenuKey = (e: KeyboardEvent) => {
+      // Only open menu in OVERWORLD state
+      if (currentState !== GameState.OVERWORLD) return;
+      // Don't open if dialog is open
+      if (dialogIsOpen) return;
+      // Don't open if player is moving
+      const player = playerRef.current;
+      if (player?.isMoving) return;
+      // Don't open if menu is already open
+      if (menuStateManager.isMenuOpen()) return;
+
+      // Enter key opens menu
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        menuStateManager.open('start');
+      }
+    };
+
+    window.addEventListener('keydown', handleMenuKey);
+    return () => window.removeEventListener('keydown', handleMenuKey);
+  }, [currentState, dialogIsOpen]);
+
   const renderableMaps = useMemo(
     () =>
       mapIndexData
@@ -373,6 +400,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Ref for debug options so render loop can access current value
   const debugOptionsRef = useRef<DebugOptions>(debugOptions);
   debugOptionsRef.current = debugOptions;
+
+  // Ref for pending saved location (set when Continue is selected, consumed on map load)
+  const pendingSavedLocationRef = useRef<LocationState | null>(null);
 
   // Create WebGL debug state from existing debug info
   const webglDebugState = useMemo<WebGLDebugState>(() => ({
@@ -930,7 +960,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpHandlerRef.current.update(dt);
 
       // Update player if loaded (handles its own input via keyboard events)
-      if (player && playerLoadedRef.current && !warpingRef.current) {
+      // Skip player update when menu is open to prevent movement
+      const menuOpen = menuStateManager.isMenuOpen();
+      if (player && playerLoadedRef.current && !warpingRef.current && !menuOpen) {
         player.update(dt);
 
         // Update world manager with player position and direction (triggers dynamic map loading)
@@ -1540,6 +1572,37 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     };
   }, [currentState, stateManager, zoom]);
 
+  // Handle saved location when entering OVERWORLD from Continue
+  useEffect(() => {
+    if (currentState !== GameState.OVERWORLD || !stateManager) return;
+
+    // Get the current OverworldState to check for saved location
+    const overworldState = stateManager.getCurrentRenderer();
+    if (!overworldState || overworldState.id !== GameState.OVERWORLD) return;
+
+    // Check if this is a typed OverworldState with consumeSavedLocation
+    const state = overworldState as { consumeSavedLocation?: () => LocationState | null };
+    if (typeof state.consumeSavedLocation !== 'function') return;
+
+    const savedLocation = state.consumeSavedLocation();
+    if (savedLocation) {
+      console.log('[GamePage] Got saved location from Continue:', {
+        mapId: savedLocation.location.mapId,
+        pos: savedLocation.pos,
+      });
+
+      // Store the saved location to be consumed when map loads
+      pendingSavedLocationRef.current = savedLocation;
+
+      // Check if we need to change the map
+      const savedMapId = savedLocation.location.mapId;
+      if (savedMapId && savedMapId !== selectedMapId) {
+        console.log('[GamePage] Changing map to saved location:', savedMapId);
+        setSelectedMapId(savedMapId);
+      }
+    }
+  }, [currentState, stateManager, selectedMapId, setSelectedMapId]);
+
   // Load selected map assets and configure pipeline using WorldManager
   // Only runs when in OVERWORLD state
   useEffect(() => {
@@ -1620,23 +1683,37 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           // Set up object collision checker (shared utility)
           setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
-          // Spawn player using shared spawn finder utility
-          const anchorMap = snapshot.maps.find(m => m.entry.id === entry.id) ?? snapshot.maps[0];
-          const tilesetPairIndex = snapshot.mapTilesetPairIndex.get(anchorMap.entry.id);
-          const tilesetPair = tilesetPairIndex !== undefined ? snapshot.tilesetPairs[tilesetPairIndex] : null;
+          // Check for pending saved location (from Continue)
+          const savedLocation = pendingSavedLocationRef.current;
+          pendingSavedLocationRef.current = null; // Consume it
 
-          const spawnResult = findPlayerSpawnPosition(
-            anchorMap.mapData,
-            anchorMap.warpEvents,
-            (_x, _y, metatileId) => {
-              if (!tilesetPair) return undefined;
-              const attrs = metatileId < 512
-                ? tilesetPair.primaryAttributes[metatileId]
-                : tilesetPair.secondaryAttributes[metatileId - 512];
-              return attrs?.behavior;
+          if (savedLocation) {
+            // Use saved position
+            console.log('[GamePage] Spawning player at saved position:', savedLocation.pos);
+            player.setPosition(savedLocation.pos.x, savedLocation.pos.y);
+            // Set direction if available
+            if (savedLocation.direction) {
+              player.dir = savedLocation.direction;
             }
-          );
-          player.setPosition(spawnResult.x, spawnResult.y);
+          } else {
+            // Default spawn: use spawn finder utility
+            const anchorMap = snapshot.maps.find(m => m.entry.id === entry.id) ?? snapshot.maps[0];
+            const tilesetPairIndex = snapshot.mapTilesetPairIndex.get(anchorMap.entry.id);
+            const tilesetPair = tilesetPairIndex !== undefined ? snapshot.tilesetPairs[tilesetPairIndex] : null;
+
+            const spawnResult = findPlayerSpawnPosition(
+              anchorMap.mapData,
+              anchorMap.warpEvents,
+              (_x, _y, metatileId) => {
+                if (!tilesetPair) return undefined;
+                const attrs = metatileId < 512
+                  ? tilesetPair.primaryAttributes[metatileId]
+                  : tilesetPair.secondaryAttributes[metatileId - 512];
+                return attrs?.behavior;
+              }
+            );
+            player.setPosition(spawnResult.x, spawnResult.y);
+          }
         }
 
         setStats((s) => ({ ...s, error: null }));
@@ -1683,9 +1760,68 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     );
   }
 
+  // Get current location state for saving
+  const getLocationState = useCallback((): LocationState | null => {
+    const player = playerRef.current;
+    if (!player || !playerLoadedRef.current) return null;
+
+    const mapId = mapDebugInfo?.currentMap ?? selectedMap.id;
+
+    return {
+      pos: { x: player.tileX, y: player.tileY },
+      location: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      continueGameWarp: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      direction: player.getFacingDirection(),
+      elevation: player.getElevation(),
+      isSurfing: player.isSurfing(),
+    };
+  }, [mapDebugInfo?.currentMap, selectedMap.id]);
+
+  // Handle save completion - show feedback
+  const handleSaveComplete = useCallback(() => {
+    console.log('[GamePage] Save completed');
+  }, []);
+
+  // Handle load completion - reload the game state
+  const handleLoadComplete = useCallback(() => {
+    console.log('[GamePage] Load completed - game state will update');
+    // The game will pick up the new save on next Continue
+  }, []);
+
+  // Handle save/load errors
+  const handleSaveError = useCallback((error: string) => {
+    console.error('[GamePage] Save/Load error:', error);
+    // Could show a toast notification here
+  }, []);
+
   return (
     <div className="game-page">
-      <h1>Pkmn RSE Browser</h1>
+      <div className="game-header">
+        <h1>Pkmn RSE Browser</h1>
+        <div className="header-buttons">
+          <button
+            className="menu-button"
+            onClick={() => {
+              if (currentState === GameState.OVERWORLD && !dialogIsOpen) {
+                menuStateManager.open('start');
+              }
+            }}
+            disabled={currentState !== GameState.OVERWORLD || dialogIsOpen}
+            title="Open Menu (Enter)"
+          >
+            Menu
+          </button>
+          <SaveLoadButtons
+            canSave={currentState === GameState.OVERWORLD && playerLoadedRef.current}
+            getLocationState={getLocationState}
+            onSave={handleSaveComplete}
+            onLoad={handleLoadComplete}
+            onError={handleSaveError}
+          />
+        </div>
+      </div>
       {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
 
       <div className="map-card">
@@ -1719,6 +1855,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             viewportWidth={viewportPixelSize.width * zoom}
             viewportHeight={viewportPixelSize.height * zoom}
           />
+          {/* Menu overlay */}
+          <MenuOverlay />
         </div>
         <div className="map-stats">
           <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>

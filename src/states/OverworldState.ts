@@ -17,6 +17,7 @@ import {
   type RenderContext,
 } from '../core/GameState';
 import type { ViewportConfig } from '../config/viewport';
+import type { LocationState } from '../save/types';
 
 export class OverworldState implements StateRenderer {
   readonly id = GameState.OVERWORLD;
@@ -28,13 +29,21 @@ export class OverworldState implements StateRenderer {
   readonly usesExternalRendering = true;
 
   private fromNewGame = false;
+  private fromContinue = false;
+  private savedLocation: LocationState | null = null;
 
   async enter(_viewport: ViewportConfig, data?: Record<string, unknown>): Promise<void> {
     console.log('[OverworldState] Entered', data);
     this.fromNewGame = data?.fromNewGame === true;
+    this.fromContinue = data?.fromContinue === true;
+    this.savedLocation = (data?.savedLocation as LocationState) ?? null;
 
-    // TODO: If fromNewGame, initialize fresh game state
-    // TODO: If not fromNewGame (Continue), load saved state
+    if (this.fromContinue && this.savedLocation) {
+      console.log('[OverworldState] Continuing from saved location:', {
+        mapId: this.savedLocation.location.mapId,
+        pos: this.savedLocation.pos,
+      });
+    }
   }
 
   async exit(): Promise<void> {
@@ -74,6 +83,31 @@ export class OverworldState implements StateRenderer {
    */
   isNewGame(): boolean {
     return this.fromNewGame;
+  }
+
+  /**
+   * Check if this is a continue from saved game
+   */
+  isContinue(): boolean {
+    return this.fromContinue;
+  }
+
+  /**
+   * Get the saved location (returns null after first call - one-time use)
+   * This allows GamePage to consume the location once for initial spawn
+   */
+  consumeSavedLocation(): LocationState | null {
+    const location = this.savedLocation;
+    this.savedLocation = null;
+    this.fromContinue = false;
+    return location;
+  }
+
+  /**
+   * Peek at saved location without consuming it
+   */
+  getSavedLocation(): LocationState | null {
+    return this.savedLocation;
   }
 }
 

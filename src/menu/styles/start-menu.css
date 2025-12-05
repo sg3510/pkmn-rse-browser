@@ -1,0 +1,270 @@
+/**
+ * Start Menu Styles
+ *
+ * 2x3 grid overlay with GBA-authentic styling
+ */
+
+/* CSS Variables for theming */
+:root {
+  --menu-window-bg: #3890f8;
+  --menu-window-border: #f8f8f8;
+  --menu-tile-bg: #f8f8f8;
+  --menu-tile-border: #a8a8a8;
+  --menu-tile-hover: #e0e8f8;
+  --menu-tile-selected: #c8e0ff;
+  --menu-accent-color: #f83800;
+  --menu-accent-faded: rgba(248, 56, 0, 0.3);
+  --menu-text-color: #383838;
+  --menu-text-disabled: #a0a0a0;
+  --menu-shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* Overlay backdrop - positioned within game viewport */
+.start-menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Semi-transparent backdrop */
+  background: rgba(0, 0, 0, 0.4);
+
+  /* Open animation */
+  animation: menu-fade-in 150ms ease-out;
+}
+
+@keyframes menu-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Grid container */
+.start-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 12px;
+
+  /* GBA-style window */
+  background: var(--menu-window-bg);
+  border: 3px solid var(--menu-window-border);
+  border-radius: 6px;
+  box-shadow:
+    0 4px 16px var(--menu-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  /* Scale from center for zoom */
+  transform-origin: center;
+
+  /* Open animation */
+  animation: menu-scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes menu-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Individual menu tile */
+.menu-tile {
+  /* Square tiles - compact for zoom */
+  aspect-ratio: 1;
+  width: 52px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  /* Reset button styles */
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+
+  /* GBA style */
+  background: var(--menu-tile-bg);
+  border: 2px solid var(--menu-tile-border);
+  border-radius: 4px;
+  cursor: pointer;
+
+  /* Font */
+  font-family: 'Pokemon Emerald', 'Courier New', monospace;
+  font-size: 8px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--menu-text-color);
+  letter-spacing: 0.5px;
+
+  /* Smooth transitions */
+  transition:
+    transform 100ms ease-out,
+    background 100ms ease-out,
+    border-color 100ms ease-out,
+    box-shadow 100ms ease-out;
+}
+
+/* Hover state */
+.menu-tile:hover:not(.disabled) {
+  background: var(--menu-tile-hover);
+  transform: scale(1.02);
+}
+
+/* Selected/focused state */
+.menu-tile.selected {
+  background: var(--menu-tile-selected);
+  border-color: var(--menu-accent-color);
+  box-shadow: 0 0 0 2px var(--menu-accent-color);
+  animation: menu-pulse 1s ease-in-out infinite;
+}
+
+@keyframes menu-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--menu-accent-color);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--menu-accent-faded);
+  }
+}
+
+/* Disabled state */
+.menu-tile.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.menu-tile.disabled:hover {
+  transform: none;
+  background: var(--menu-tile-bg);
+}
+
+/* Icon - uses menu-icons.png sprite sheet */
+/* Sprite: 50×250px (2 cols × 10 rows, 25×25px each) scaled to 24px display */
+/* Column 0 = unselected, Column 1 = selected/hovered */
+/*
+ * Rows:
+ *   0: Pokedex
+ *   1: Pokemon
+ *   2: Bag
+ *   3: Trainer Card
+ *   4: Save
+ *   5: Nintendo DS
+ *   6: Rewind
+ *   7: Options/Text
+ *   8: White Flag
+ *   9: White Bag
+ */
+.menu-tile-icon {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  background-image: url('/img/menu-icons.png');
+  background-repeat: no-repeat;
+  background-size: 48px 240px; /* Scale 50×250 to 48×240 (24px per icon) */
+  background-position-x: 0; /* Column 0 = unselected */
+}
+
+/* Selected state - shift to column 1 */
+.menu-tile.selected .menu-tile-icon {
+  background-position-x: -24px;
+}
+
+.menu-tile-icon.icon-pokedex {
+  background-position-y: 0; /* row 0 */
+}
+
+.menu-tile-icon.icon-pokemon {
+  background-position-y: -24px; /* row 1 */
+}
+
+.menu-tile-icon.icon-bag {
+  background-position-y: -48px; /* row 2 */
+}
+
+.menu-tile-icon.icon-trainerCard {
+  background-position-y: -72px; /* row 3 */
+}
+
+.menu-tile-icon.icon-save {
+  background-position-y: -96px; /* row 4 */
+}
+
+.menu-tile-icon.icon-option {
+  background-position-y: -168px; /* row 7 - options/text */
+}
+
+/* Label */
+.menu-tile-label {
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Close animation */
+.start-menu-overlay.closing {
+  animation: menu-fade-out 100ms ease-in forwards;
+}
+
+.start-menu-overlay.closing .start-menu-grid {
+  animation: menu-scale-out 100ms ease-in forwards;
+}
+
+@keyframes menu-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes menu-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 320px) {
+  .start-menu-grid {
+    gap: 6px;
+    padding: 12px;
+  }
+
+  .menu-tile {
+    width: 60px;
+    gap: 4px;
+  }
+
+  .menu-tile-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .menu-tile-label {
+    font-size: 8px;
+  }
+}

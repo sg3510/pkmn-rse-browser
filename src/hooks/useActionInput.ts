@@ -2,6 +2,8 @@ import { useCallback, useRef } from 'react';
 import { useInput } from './useInput';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
+import { saveManager } from '../save/SaveManager';
+import { bagManager } from '../game/BagManager';
 
 export interface ActionInputDeps {
   playerControllerRef: React.RefObject<PlayerController | null>;
@@ -80,8 +82,11 @@ export function useActionInput({
 
     try {
       objectEventManager.collectItem(itemBall.id);
+      // Add item to bag inventory
+      bagManager.addItem(itemBall.itemId, 1);
       const itemName = itemBall.itemName;
-      await showMessage(`BRENDAN found one ${itemName}!`);
+      const playerName = saveManager.getPlayerName();
+      await showMessage(`${playerName} found one ${itemName}!`);
     } finally {
       itemPickupInProgressRef.current = false;
       player.unlockInput();

@@ -37,6 +37,8 @@ import {
   DEFAULT_PLAY_TIME,
 } from './types';
 import { gameFlags } from '../game/GameFlags';
+import { bagManager } from '../game/BagManager';
+import { parseGen3Save, isValidGen3Save } from './native';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -173,6 +175,13 @@ class SaveManagerClass {
       // Load flags into GameFlags system
       gameFlags.loadFromArray(data.flags);
 
+      // Load bag state if present
+      if (data.bag) {
+        bagManager.loadBagState(data.bag);
+      } else {
+        bagManager.reset();
+      }
+
       this.activeSlot = slot;
       this.profile = data.profile;
       this.playTime = data.playTime;
@@ -204,7 +213,7 @@ class SaveManagerClass {
       playTime: this.playTime,
       location: locationState,
       flags: gameFlags.getAllFlags(),
-      // Future: Add more state here (party, bag, etc.)
+      bag: bagManager.getBagState(),
     };
 
     try {
@@ -268,6 +277,9 @@ class SaveManagerClass {
 
     // Reset game flags
     gameFlags.reset();
+
+    // Reset bag
+    bagManager.reset();
 
     // Reset play timer
     this.playTimeStartMs = Date.now();
@@ -529,15 +541,90 @@ class SaveManagerClass {
 
   /**
    * Import save data from a File object (from file input)
+   * Automatically detects .sav vs .json format
    */
   async importFromFile(file: File, slot: number = 0): Promise<SaveResult> {
     try {
-      const text = await file.text();
-      return this.importFromJson(text, slot);
+      // Check file extension and content to determine format
+      const fileName = file.name.toLowerCase();
+      const isSavFile = fileName.endsWith('.sav');
+
+      if (isSavFile) {
+        // Native .sav file
+        const buffer = await file.arrayBuffer();
+        return this.importFromNativeSave(buffer, slot, file.name);
+      } else {
+        // JSON file
+        const text = await file.text();
+        return this.importFromJson(text, slot);
+      }
     } catch (err) {
       console.error(`[SaveManager] Failed to read file:`, err);
       return { success: false, error: `Failed to read file: ${err}` };
     }
+  }
+
+  /**
+   * Import save data from a native .sav file (GBA format)
+   */
+  importFromNativeSave(buffer: ArrayBuffer, slot: number = 0, filename?: string): SaveResult {
+    if (slot < 0 || slot >= NUM_SAVE_SLOTS) {
+      return { success: false, error: `Invalid slot: ${slot}` };
+    }
+
+    // Validate file
+    if (!isValidGen3Save(buffer)) {
+      return { success: false, error: 'Invalid .sav file: no valid GBA save signature found' };
+    }
+
+    // Parse the native save
+    const result = parseGen3Save(buffer, filename);
+
+    if (!result.success || !result.saveData) {
+      return { success: false, error: result.error ?? 'Failed to parse .sav file' };
+    }
+
+    // Log what we parsed for debugging
+    console.log(`[SaveManager] Parsed native save:`, {
+      name: result.saveData.profile.name,
+      gender: result.saveData.profile.gender === 0 ? 'male' : 'female',
+      trainerId: result.saveData.profile.trainerId,
+      playTime: `${result.saveData.playTime.hours}:${result.saveData.playTime.minutes}:${result.saveData.playTime.seconds}`,
+      mapId: result.saveData.location.location.mapId,
+      money: result.saveData.money?.money,
+      game: result.nativeMetadata?.game,
+    });
+
+    // Update version and timestamp
+    result.saveData.version = SAVE_VERSION;
+    result.saveData.timestamp = Date.now();
+
+    // Ensure flags array exists
+    if (!result.saveData.flags) {
+      result.saveData.flags = [];
+    }
+
+    // Save to localStorage
+    try {
+      const key = getSlotKey(slot);
+      localStorage.setItem(key, JSON.stringify(result.saveData));
+
+      // Load the imported save
+      this.load(slot);
+
+      console.log(`[SaveManager] Imported native save to slot ${slot}`);
+      return { success: true };
+    } catch (err) {
+      console.error(`[SaveManager] Failed to save imported data:`, err);
+      return { success: false, error: String(err) };
+    }
+  }
+
+  /**
+   * Check if a buffer contains a valid Gen3 save
+   */
+  isValidNativeSave(buffer: ArrayBuffer): boolean {
+    return isValidGen3Save(buffer);
   }
 }
 
