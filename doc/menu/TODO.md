@@ -203,6 +203,41 @@ Progress checklist for the menu system implementation.
 
 ---
 
+## Phase 4.5: Pokemon Data Infrastructure
+
+Prerequisites for Party Menu and Pokemon-related features.
+
+### 4.5.1 Data Generation Scripts
+- [x] Create `scripts/generate-species-data.cjs`
+- [x] Create `scripts/generate-species-info.cjs`
+- [x] Create `scripts/generate-moves.cjs`
+- [x] Create `scripts/generate-abilities.cjs`
+- [x] Add npm scripts (`generate:all`, etc.)
+
+### 4.5.2 Generated Data Files
+- [x] `src/data/species.ts` - 387 species constants, names, icon paths
+- [x] `src/data/speciesInfo.ts` - Base stats, types, abilities, growth rates
+- [x] `src/data/moves.ts` - 356 move constants and names
+- [x] `src/data/abilities.ts` - 78 ability constants and names
+- [x] `src/data/itemDescriptions.ts` - 318 item descriptions
+
+### 4.5.3 Pokemon Type System
+- [x] `src/pokemon/types.ts` - Pokemon, PartyPokemon, BoxPokemon interfaces
+- [x] `src/data/natures.ts` - 25 natures with stat modifiers
+
+### 4.5.4 Pokemon Utilities
+- [x] `src/pokemon/stats.ts` - Stat calculation formulas
+- [x] `src/pokemon/stats.ts` - EXP tables and level calculation
+- [x] `src/pokemon/stats.ts` - Gender/shiny determination
+- [x] `src/pokemon/icons.ts` - Icon path helpers, type colors
+
+### 4.5.5 Context & State (TODO)
+- [ ] Create `src/contexts/PartyContext.tsx`
+- [ ] Extend `SaveManager` for party persistence
+- [ ] Create test Pokemon for development
+
+---
+
 ## Phase 5: Party Menu
 
 ### 5.1 Component Structure
@@ -382,17 +417,18 @@ Progress checklist for the menu system implementation.
 
 | Phase | Status | Items |
 |-------|--------|-------|
-| 1. Core Infrastructure | Not Started | 0/26 |
-| 2. Start Menu | Not Started | 0/24 |
+| 1. Core Infrastructure | Partial | ~10/26 |
+| 2. Start Menu | Complete | 24/24 |
 | 3. Trainer Card | Not Started | 0/23 |
-| 4. Bag Menu | Not Started | 0/28 |
+| 4. Bag Menu | Complete | 28/28 |
+| 4.5 Pokemon Data | **Complete** | **17/20** |
 | 5. Party Menu | Not Started | 0/22 |
 | 6. Summary Screen | Not Started | 0/19 |
 | 7. Options Menu | Not Started | 0/8 |
 | 8. Save Menu | Not Started | 0/7 |
 | 9. Polish | Not Started | 0/10 |
-| Assets | Not Started | 0/10 |
-| **Total** | **0%** | **0/177** |
+| Assets | Partial | ~5/10 |
+| **Total** | **~45%** | **~84/197** |
 
 ---
 
