@@ -225,6 +225,8 @@ export interface DialogContextValue {
   options: DialogOptions | null;
   config: DialogConfig;
   zoom: number;
+  /** Viewport dimensions in pixels (for responsive menus) */
+  viewport: { width: number; height: number };
   dispatch: (action: DialogAction) => void;
   setResolve: (fn: ((value: unknown) => void) | null) => void;
   getResolve: () => ((value: unknown) => void) | null;

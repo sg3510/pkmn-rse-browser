@@ -39,6 +39,8 @@ import {
 import { gameFlags } from '../game/GameFlags';
 import { bagManager } from '../game/BagManager';
 import { parseGen3Save, isValidGen3Save } from './native';
+import type { PartyPokemon } from '../pokemon/types';
+import { createEmptyParty } from '../pokemon/types';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -72,6 +74,9 @@ class SaveManagerClass {
   /** Play time tracking */
   private playTimeStartMs: number = 0;
   private isPlayTimerRunning: boolean = false;
+
+  /** Current party Pokemon (full data) */
+  private party: (PartyPokemon | null)[] = createEmptyParty().pokemon;
 
   constructor() {
     // Try to auto-load most recent save on construction
@@ -182,6 +187,16 @@ class SaveManagerClass {
         bagManager.reset();
       }
 
+      // Load party data if present (from _fullParty for native saves)
+      const saveDataWithParty = data as SaveData & { _fullParty?: PartyPokemon[] };
+      if (saveDataWithParty._fullParty && saveDataWithParty._fullParty.length > 0) {
+        this.party = [...saveDataWithParty._fullParty];
+        while (this.party.length < 6) {
+          this.party.push(null);
+        }
+        console.log(`[SaveManager] Loaded ${saveDataWithParty._fullParty.length} Pokemon from party`);
+      }
+
       this.activeSlot = slot;
       this.profile = data.profile;
       this.playTime = data.playTime;
@@ -280,6 +295,9 @@ class SaveManagerClass {
 
     // Reset bag
     bagManager.reset();
+
+    // Reset party
+    this.party = createEmptyParty().pokemon;
 
     // Reset play timer
     this.playTimeStartMs = Date.now();
@@ -400,6 +418,39 @@ class SaveManagerClass {
    */
   hasAnySave(): boolean {
     return this.getSaveSlots().some((s) => s.exists);
+  }
+
+  // === Party Management ===
+
+  /**
+   * Get current party Pokemon
+   */
+  getParty(): (PartyPokemon | null)[] {
+    return [...this.party];
+  }
+
+  /**
+   * Set party Pokemon
+   */
+  setParty(party: (PartyPokemon | null)[]): void {
+    this.party = party.slice(0, 6);
+    while (this.party.length < 6) {
+      this.party.push(null);
+    }
+  }
+
+  /**
+   * Get party count (non-null Pokemon)
+   */
+  getPartyCount(): number {
+    return this.party.filter(p => p !== null).length;
+  }
+
+  /**
+   * Check if party has any Pokemon
+   */
+  hasParty(): boolean {
+    return this.party.some(p => p !== null);
   }
 
   // === Quick Save/Load (for development) ===
@@ -584,6 +635,17 @@ class SaveManagerClass {
       return { success: false, error: result.error ?? 'Failed to parse .sav file' };
     }
 
+    // Extract full party data if available
+    const fullParty = (result.saveData as SaveData & { _fullParty?: PartyPokemon[] })._fullParty;
+    if (fullParty && fullParty.length > 0) {
+      // Store full party data
+      this.party = [...fullParty];
+      while (this.party.length < 6) {
+        this.party.push(null);
+      }
+      console.log(`[SaveManager] Loaded ${fullParty.length} Pokemon from .sav file`);
+    }
+
     // Log what we parsed for debugging
     console.log(`[SaveManager] Parsed native save:`, {
       name: result.saveData.profile.name,
@@ -593,15 +655,27 @@ class SaveManagerClass {
       mapId: result.saveData.location.location.mapId,
       money: result.saveData.money?.money,
       game: result.nativeMetadata?.game,
+      partyCount: fullParty?.length ?? 0,
     });
 
     // Update version and timestamp
     result.saveData.version = SAVE_VERSION;
     result.saveData.timestamp = Date.now();
 
-    // Ensure flags array exists
+    // Ensure flags array exists and add system flags if party has Pokemon
     if (!result.saveData.flags) {
       result.saveData.flags = [];
+    }
+
+    // If we have Pokemon, add the system flags to the save data
+    if (fullParty && fullParty.length > 0) {
+      if (!result.saveData.flags.includes('FLAG_SYS_POKEMON_GET')) {
+        result.saveData.flags.push('FLAG_SYS_POKEMON_GET');
+      }
+      if (!result.saveData.flags.includes('FLAG_SYS_POKEDEX_GET')) {
+        result.saveData.flags.push('FLAG_SYS_POKEDEX_GET');
+      }
+      console.log('[SaveManager] Added FLAG_SYS_POKEMON_GET and FLAG_SYS_POKEDEX_GET to save flags');
     }
 
     // Save to localStorage

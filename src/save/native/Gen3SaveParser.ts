@@ -26,6 +26,7 @@ import {
 } from './Gen3Constants';
 import { decodeGen3String } from './Gen3Charset';
 import { mapGroupNumToMapId } from './mapResolver';
+import { parseParty } from './Gen3Pokemon';
 import type {
   SaveData,
   PlayerProfile,
@@ -37,6 +38,7 @@ import type {
   PCItemsState,
   ItemSlot,
 } from '../types';
+import type { PartyPokemon } from '../../pokemon/types';
 
 /**
  * Native save metadata (preserved for round-trip export)
@@ -403,6 +405,10 @@ export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3Parse
   const tmHm = readItemSlots(data, SAVEBLOCK1.BAG_TM_HM, SAVEBLOCK1.BAG_TM_HM_COUNT, activeSectionMap, encryptionKey);
   const berries = readItemSlots(data, SAVEBLOCK1.BAG_BERRIES, SAVEBLOCK1.BAG_BERRIES_COUNT, activeSectionMap, encryptionKey);
 
+  // === Parse Pokemon Party ===
+  const partyPokemon: PartyPokemon[] = parseParty(data, activeSectionMap);
+  console.log(`[Gen3SaveParser] Parsed ${partyPokemon.length} Pokemon in party`);
+
   // === Build SaveData ===
 
   const profile: PlayerProfile = {
@@ -454,6 +460,19 @@ export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3Parse
     items: pcItems,
   };
 
+  // Build party state for SaveData
+  const partyState = {
+    pokemon: partyPokemon.map(p => ({
+      species: p.species,
+      nickname: p.nickname,
+      otName: p.otName,
+      otId: p.otId,
+      level: p.level,
+      experience: p.experience,
+    })),
+    count: partyPokemon.length,
+  };
+
   const saveData: SaveData = {
     version: 1,
     timestamp: Date.now(),
@@ -463,8 +482,11 @@ export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3Parse
     money: moneyState,
     bag,
     pcItems: pcItemsState,
+    party: partyState,
     flags: [], // TODO: Parse flags
-  };
+    // Store full party data in a custom field for our use
+    _fullParty: partyPokemon,
+  } as SaveData & { _fullParty: PartyPokemon[] };
 
   const nativeMetadata: NativeMetadata = {
     game: isEmerald ? 'E' : 'RS',

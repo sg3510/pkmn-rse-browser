@@ -17,6 +17,7 @@ import type { SpriteInstance, WorldCameraView } from './types';
 import type { WebGLRenderPipeline } from './webgl/WebGLRenderPipeline';
 import type { WebGLSpriteRenderer } from './webgl/WebGLSpriteRenderer';
 import type { WebGLFadeRenderer } from './webgl/WebGLFadeRenderer';
+import type { WebGLScanlineRenderer } from './webgl/WebGLScanlineRenderer';
 import type { WorldSnapshot } from '../game/WorldManager';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import { buildWaterMaskFromView } from './spriteUtils';
@@ -33,6 +34,8 @@ export interface CompositeFrameContext {
   spriteRenderer: WebGLSpriteRenderer;
   /** Fade renderer for screen transitions */
   fadeRenderer: WebGLFadeRenderer | null;
+  /** Scanline renderer for CRT effect */
+  scanlineRenderer: WebGLScanlineRenderer | null;
   /** 2D context for final compositing */
   ctx2d: CanvasRenderingContext2D;
   /** WebGL canvas for sprite rendering */
@@ -63,6 +66,10 @@ export interface SpriteGroups {
 export interface CompositeFrameOptions {
   /** Current fade alpha (0-1) */
   fadeAlpha: number;
+  /** Scanline intensity (0 = off, 1 = full CRT effect) */
+  scanlineIntensity?: number;
+  /** Display zoom level for scanline scaling */
+  zoom?: number;
 }
 
 // =============================================================================
@@ -88,9 +95,9 @@ export function compositeWebGLFrame(
   sprites: SpriteGroups,
   options: CompositeFrameOptions
 ): void {
-  const { pipeline, spriteRenderer, fadeRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
+  const { pipeline, spriteRenderer, fadeRenderer, scanlineRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
   const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
-  const { fadeAlpha } = options;
+  const { fadeAlpha, scanlineIntensity = 0, zoom = 1 } = options;
 
   const gl = pipeline.getGL();
 
@@ -141,6 +148,13 @@ export function compositeWebGLFrame(
   if (priority0Sprites.length > 0) {
     clearAndBindFramebuffer(gl, webglCanvas, view);
     spriteRenderer.renderBatch(priority0Sprites, view);
+    ctx2d.drawImage(webglCanvas, 0, 0);
+  }
+
+  // Scanline overlay (CRT effect when menu is open)
+  if (scanlineIntensity > 0 && scanlineRenderer) {
+    clearAndBindFramebuffer(gl, webglCanvas, view);
+    scanlineRenderer.render(scanlineIntensity, view.pixelWidth, view.pixelHeight, zoom);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
 

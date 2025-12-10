@@ -164,3 +164,15 @@ export function getNatureStatEffects(natureId: number): {
 
   return { increased, decreased };
 }
+
+/**
+ * Get the nature effect for a specific stat
+ * @param natureId Nature ID (0-24)
+ * @param statIndex 0=Attack, 1=Defense, 2=Speed, 3=SpAtk, 4=SpDef
+ * @returns 1 for boost, -1 for reduction, 0 for neutral
+ */
+export function getNatureStatEffect(natureId: number, statIndex: number): number {
+  const modifiers = NATURE_STAT_MODIFIERS[natureId];
+  if (!modifiers || statIndex < 0 || statIndex > 4) return 0;
+  return modifiers[statIndex];
+}

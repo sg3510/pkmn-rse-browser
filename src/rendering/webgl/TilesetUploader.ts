@@ -102,6 +102,9 @@ export function uploadTilesetsFromSnapshot(
     } else if (gpuSlot === 1) {
       console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 1`);
       uploadToSlot1(pipeline, pair);
+    } else if (gpuSlot === 2) {
+      console.log(`[TILESET_UPLOAD] Uploading ${pair.id} to GPU SLOT 2`);
+      uploadToSlot2(pipeline, pair);
     } else {
       console.log(`[TILESET_UPLOAD] Pair ${pair.id} NOT in GPU (slot=${gpuSlot})`);
     }
@@ -139,4 +142,20 @@ function uploadToSlot1(pipeline: WebGLRenderPipeline, pair: TilesetPairInfo): vo
     pair.animations
   );
   pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+}
+
+/**
+ * Upload a tileset pair to GPU slot 2 (tertiary slot)
+ */
+function uploadToSlot2(pipeline: WebGLRenderPipeline, pair: TilesetPairInfo): void {
+  pipeline.uploadTilesetsPair2(
+    pair.primaryImage.data,
+    pair.primaryImage.width,
+    pair.primaryImage.height,
+    pair.secondaryImage.data,
+    pair.secondaryImage.width,
+    pair.secondaryImage.height,
+    pair.animations
+  );
+  pipeline.uploadPalettesPair2(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
 }

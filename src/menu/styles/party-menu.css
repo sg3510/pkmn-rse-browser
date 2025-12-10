@@ -1,0 +1,141 @@
+/**
+ * Party Menu Styles
+ *
+ * 2x3 grid of Pokemon slots with GBA-authentic styling.
+ */
+
+/* Overlay backdrop */
+.party-menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  animation: party-fade-in 150ms ease-out;
+}
+
+@keyframes party-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Main container */
+.party-menu-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: linear-gradient(180deg, #406080 0%, #304860 100%);
+  border: 3px solid #f8f8f8;
+  border-radius: 6px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform-origin: center;
+  animation: party-scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 220px;
+}
+
+@keyframes party-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Header */
+.party-menu-header {
+  text-align: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.party-menu-title {
+  margin: 0;
+  font-family: 'Pokemon GB', 'Pokemon Emerald', monospace;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Grid layout - 2 columns, 3 rows */
+.party-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, auto);
+  gap: 3px;
+}
+
+/* Footer hint */
+.party-menu-footer {
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.party-menu-hint {
+  font-family: 'Pokemon GB', 'Pokemon Emerald', monospace;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* Cancel button */
+.party-menu-cancel-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #f8f8f8;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #f85888 0%, #c03050 100%);
+  color: #fff;
+  font-size: 9px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+  line-height: 1;
+}
+
+.party-menu-cancel-btn:hover {
+  background: linear-gradient(180deg, #ff6898 0%, #d04060 100%);
+  transform: scale(1.1);
+}
+
+.party-menu-cancel-btn:active {
+  transform: scale(0.95);
+}
+
+/* Animation for swap mode */
+@keyframes swap-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(246, 173, 85, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(246, 173, 85, 0.8);
+  }
+}
+
+/* Slot transitions */
+.party-slot {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.party-slot:active {
+  transform: scale(0.98);
+}

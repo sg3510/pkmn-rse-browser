@@ -1,0 +1,157 @@
+/**
+ * Menu Design System
+ *
+ * Central CSS variables for all menu components.
+ * See doc/menu/design-system.md for full documentation.
+ *
+ * SCALING APPROACH:
+ * - All sizes in NATIVE GBA pixels (8px subtile, 16px metatile base)
+ * - Container uses transform: scale(var(--zoom)) for uniform scaling
+ * - This matches exactly how the game canvas scales tiles
+ * - At zoom=2, a 16px element displays as 32px (same as metatiles)
+ */
+
+:root {
+  /* =========================================
+     TYPOGRAPHY - 3 sizes (GBA native pixels)
+     8px = 1 subtile height
+     ========================================= */
+  --font-xs: 6px;   /* Fine print, hints */
+  --font-sm: 8px;   /* Standard text */
+  --font-md: 10px;  /* Headers, labels */
+  --font-lg: 12px;  /* Titles */
+
+  --line-xs: 8px;
+  --line-sm: 12px;
+  --line-md: 14px;
+  --line-lg: 16px;
+
+  /* =========================================
+     ICONS (GBA native pixels)
+     32x32 = 2 metatiles = Pokemon icon size
+     ========================================= */
+  --icon-pokemon: 32px;   /* Party Pokemon icons (2 metatiles) */
+  --icon-item: 24px;      /* Bag items, pocket tabs (1.5 metatiles) */
+  --icon-small: 16px;     /* Back button = 1 metatile */
+  --icon-tiny: 8px;       /* Held item dot = 1 subtile */
+
+  /* =========================================
+     BARS (GBA native pixels)
+     ========================================= */
+  --bar-width: 48px;      /* 3 metatiles */
+  --bar-height: 4px;      /* HP bar height */
+  --bar-height-lg: 6px;   /* Larger bars */
+
+  /* =========================================
+     SPACING (GBA native pixels)
+     ========================================= */
+  --space-0: 2px;   /* Minimal gap */
+  --space-1: 4px;   /* Half subtile */
+  --space-2: 8px;   /* 1 subtile */
+  --space-3: 12px;  /* 1.5 subtiles */
+  --space-4: 16px;  /* 1 metatile */
+
+  /* Header padding (minimal, back button is now corner triangle) */
+  --header-padding: 4px;
+
+  /* =========================================
+     BORDER RADIUS (standardized)
+     ========================================= */
+  --radius-sm: 2px;   /* Items, small elements */
+  --radius-md: 4px;   /* Containers, panels */
+  --radius-lg: 6px;   /* Outer containers (deprecated, use --radius-md) */
+
+  /* =========================================
+     BORDERS (standardized)
+     ========================================= */
+  --border-thin: 1px;     /* Inner elements */
+  --border-medium: 2px;   /* Standard container border */
+
+  /* =========================================
+     COLORS
+     ========================================= */
+
+  /* Overlay & Container */
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --menu-bg: linear-gradient(180deg, #3890f8 0%, #2060b8 100%);
+  --menu-bg-solid: #2868c0;
+  --menu-border-color: #f8f8f8;
+
+  /* Section backgrounds */
+  --section-bg: rgba(0, 0, 0, 0.2);       /* Headers, panels */
+  --section-bg-dark: rgba(0, 0, 0, 0.25); /* Lists, content areas */
+  --section-bg-darker: rgba(0, 0, 0, 0.4); /* Footers, descriptions */
+  --section-bg-accent: rgba(0, 40, 80, 0.8); /* Highlighted labels */
+
+  /* Interactive states */
+  --bg-hover: rgba(255, 255, 255, 0.1);
+  --bg-selected: rgba(255, 255, 255, 0.2);
+  --bg-active: rgba(255, 255, 255, 0.3);
+  --border-selected: rgba(255, 255, 255, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.2);
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-highlight: #f8d030;
+  --text-shadow: 1px 1px 0 #000;
+
+  /* HP Bar */
+  --hp-green: #10d010;
+  --hp-yellow: #f8c000;
+  --hp-red: #f85888;
+
+  /* Gender */
+  --gender-male: #6890f0;
+  --gender-female: #f85888;
+
+  /* Status colors */
+  --status-psn: #a040a0;
+  --status-brn: #f08030;
+  --status-frz: #98d8d8;
+  --status-par: #f8d030;
+  --status-slp: #a0a0a0;
+
+  /* =========================================
+     SPRITE SHEETS (from public/img/)
+     These use NATIVE sizes, scaled via transform
+     ========================================= */
+
+  /* bag-icon-pockets.png: 472×61, 8 frames × 59px */
+  --bag-frame-width: 59px;
+  --bag-frame-height: 61px;
+
+  /* bag-icons.png: 208×52, 8 cols × 2 rows × 26px */
+  --pocket-icon-size: 26px;
+  --pocket-icon-cols: 8;
+
+  /* menu-icons.png: 50×250, 2 cols × 10 rows × 25px */
+  --menu-icon-width: 25px;
+  --menu-icon-height: 25px;
+  --menu-icon-rows: 10;
+
+  /* =========================================
+     FONT FAMILY
+     ========================================= */
+  --font-family: 'Pokemon GB', 'Pokemon Emerald', monospace;
+}
+
+/* =========================================
+   UTILITY CLASSES
+   ========================================= */
+
+.font-xs { font-size: var(--font-xs); line-height: var(--line-xs); }
+.font-sm { font-size: var(--font-sm); line-height: var(--line-sm); }
+.font-md { font-size: var(--font-md); line-height: var(--line-md); }
+.font-lg { font-size: var(--font-lg); line-height: var(--line-lg); }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-highlight { color: var(--text-highlight); }
+
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

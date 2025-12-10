@@ -34,15 +34,19 @@ uniform vec2 u_primaryTilesetSize;   // Primary tileset dimensions in tiles (pai
 uniform vec2 u_secondaryTilesetSize; // Secondary tileset dimensions in tiles (pair 0)
 uniform vec2 u_primaryTilesetSize1;  // Primary tileset dimensions in tiles (pair 1)
 uniform vec2 u_secondaryTilesetSize1; // Secondary tileset dimensions in tiles (pair 1)
+uniform vec2 u_primaryTilesetSize2;  // Primary tileset dimensions in tiles (pair 2)
+uniform vec2 u_secondaryTilesetSize2; // Secondary tileset dimensions in tiles (pair 2)
 
 // Outputs to fragment shader
 out vec2 v_texCoord;           // UV for pair 0 primary
 out vec2 v_texCoordSecondary;  // UV for pair 0 secondary
 out vec2 v_texCoord1;          // UV for pair 1 primary
 out vec2 v_texCoordSecondary1; // UV for pair 1 secondary
+out vec2 v_texCoord2;          // UV for pair 2 primary
+out vec2 v_texCoordSecondary2; // UV for pair 2 secondary
 out float v_paletteIndex;  // Using float to avoid flat int issues on some GPUs
 out float v_tilesetIndex;
-out float v_tilesetPairIndex;  // Which tileset pair (0 or 1) for multi-tileset worlds
+out float v_tilesetPairIndex;  // Which tileset pair (0, 1, or 2) for multi-tileset worlds
 
 // Constants
 const float TILE_SIZE = 8.0;
@@ -55,13 +59,13 @@ void main() {
   float flags = a_instanceData.w;
 
   // Decode flags (using float math to avoid integer issues)
-  // Flags layout: bit 0: yflip, bit 1: xflip, bit 2: tilesetIndex, bits 3-6: paletteId, bit 7: tilesetPairIndex
+  // Flags layout: bit 0: yflip, bit 1: xflip, bit 2: tilesetIndex, bits 3-6: paletteId, bits 7-8: tilesetPairIndex (0-3)
   float flagsVal = floor(flags);
   float yflipVal = mod(flagsVal, 2.0);
   float xflipVal = mod(floor(flagsVal / 2.0), 2.0);
   v_tilesetIndex = mod(floor(flagsVal / 4.0), 2.0);
   v_paletteIndex = mod(floor(flagsVal / 8.0), 16.0);  // 4 bits for paletteId (0-15)
-  v_tilesetPairIndex = mod(floor(flagsVal / 128.0), 2.0);  // bit 7 for tilesetPairIndex
+  v_tilesetPairIndex = mod(floor(flagsVal / 128.0), 4.0);  // bits 7-8 for tilesetPairIndex (0-3)
 
   bool yflip = yflipVal > 0.5;
   bool xflip = xflipVal > 0.5;
@@ -116,6 +120,24 @@ void main() {
   vec2 secondaryTexelSize1 = vec2(1.0) / (u_secondaryTilesetSize1 * TILE_SIZE);
   vec2 secondaryOffset1 = (localCoord * (TILE_SIZE - 1.0) + 0.5) * secondaryTexelSize1;
   v_texCoordSecondary1 = secondaryTileOrigin1 + secondaryOffset1;
+
+  // Calculate texture coordinates for PRIMARY tileset pair 2
+  float primaryTilesPerRow2 = u_primaryTilesetSize2.x;
+  float primaryTileX2 = mod(tileId, primaryTilesPerRow2);
+  float primaryTileY2 = floor(tileId / primaryTilesPerRow2);
+  vec2 primaryTileOrigin2 = vec2(primaryTileX2, primaryTileY2) / u_primaryTilesetSize2;
+  vec2 primaryTexelSize2 = vec2(1.0) / (u_primaryTilesetSize2 * TILE_SIZE);
+  vec2 primaryOffset2 = (localCoord * (TILE_SIZE - 1.0) + 0.5) * primaryTexelSize2;
+  v_texCoord2 = primaryTileOrigin2 + primaryOffset2;
+
+  // Calculate texture coordinates for SECONDARY tileset pair 2
+  float secondaryTilesPerRow2 = u_secondaryTilesetSize2.x;
+  float secondaryTileX2 = mod(tileId, secondaryTilesPerRow2);
+  float secondaryTileY2 = floor(tileId / secondaryTilesPerRow2);
+  vec2 secondaryTileOrigin2 = vec2(secondaryTileX2, secondaryTileY2) / u_secondaryTilesetSize2;
+  vec2 secondaryTexelSize2 = vec2(1.0) / (u_secondaryTilesetSize2 * TILE_SIZE);
+  vec2 secondaryOffset2 = (localCoord * (TILE_SIZE - 1.0) + 0.5) * secondaryTexelSize2;
+  v_texCoordSecondary2 = secondaryTileOrigin2 + secondaryOffset2;
 }
 `;
 
@@ -137,9 +159,11 @@ in vec2 v_texCoord;           // UV for pair 0 primary
 in vec2 v_texCoordSecondary;  // UV for pair 0 secondary
 in vec2 v_texCoord1;          // UV for pair 1 primary
 in vec2 v_texCoordSecondary1; // UV for pair 1 secondary
+in vec2 v_texCoord2;          // UV for pair 2 primary
+in vec2 v_texCoordSecondary2; // UV for pair 2 secondary
 in float v_paletteIndex;
 in float v_tilesetIndex;
-in float v_tilesetPairIndex;  // Which tileset pair (0 or 1)
+in float v_tilesetPairIndex;  // Which tileset pair (0, 1, or 2)
 
 // Tileset pair 0 textures
 uniform sampler2D u_primaryTileset;    // Indexed color (R = palette index)
@@ -150,6 +174,11 @@ uniform sampler2D u_palette;           // 16x16 RGBA (16 palettes x 16 colors)
 uniform sampler2D u_primaryTileset1;
 uniform sampler2D u_secondaryTileset1;
 uniform sampler2D u_palette1;
+
+// Tileset pair 2 textures (for multi-tileset worlds)
+uniform sampler2D u_primaryTileset2;
+uniform sampler2D u_secondaryTileset2;
+uniform sampler2D u_palette2;
 
 // Output
 out vec4 fragColor;
@@ -166,12 +195,19 @@ void main() {
     } else {
       paletteColorIndex = texture(u_secondaryTileset, v_texCoordSecondary).r * 255.0;
     }
-  } else {
+  } else if (v_tilesetPairIndex < 1.5) {
     // Tileset pair 1 - use v_texCoord1 and v_texCoordSecondary1
     if (v_tilesetIndex < 0.5) {
       paletteColorIndex = texture(u_primaryTileset1, v_texCoord1).r * 255.0;
     } else {
       paletteColorIndex = texture(u_secondaryTileset1, v_texCoordSecondary1).r * 255.0;
+    }
+  } else {
+    // Tileset pair 2 - use v_texCoord2 and v_texCoordSecondary2
+    if (v_tilesetIndex < 0.5) {
+      paletteColorIndex = texture(u_primaryTileset2, v_texCoord2).r * 255.0;
+    } else {
+      paletteColorIndex = texture(u_secondaryTileset2, v_texCoordSecondary2).r * 255.0;
     }
   }
 
@@ -189,8 +225,10 @@ void main() {
 
   if (v_tilesetPairIndex < 0.5) {
     fragColor = texture(u_palette, paletteCoord);
-  } else {
+  } else if (v_tilesetPairIndex < 1.5) {
     fragColor = texture(u_palette1, paletteCoord);
+  } else {
+    fragColor = texture(u_palette2, paletteCoord);
   }
 }
 `;

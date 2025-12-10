@@ -17,6 +17,7 @@ import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
+import { WebGLScanlineRenderer } from '../rendering/webgl/WebGLScanlineRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
 import {
   getPlayerAtlasName,
@@ -200,8 +201,11 @@ export function GamePage() {
     }
   }, [stateManager, viewportConfig]);
 
+  // Compute viewport pixel size for responsive menus
+  const viewportPixelSize = getViewportPixelSize(viewportConfig);
+
   return (
-    <DialogProvider zoom={zoom}>
+    <DialogProvider zoom={zoom} viewport={viewportPixelSize}>
       <GamePageContent
         zoom={zoom}
         onZoomChange={setZoom}
@@ -236,6 +240,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const viewportPixelSizeRef = useRef(viewportPixelSize);
   viewportPixelSizeRef.current = viewportPixelSize;
 
+  // Ref to store current zoom for render loop (avoids stale closure)
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
   // Canvas refs - we use two canvases: hidden WebGL and visible 2D
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   // State overlay canvas - used for title screen and menus (2D rendering)
@@ -246,6 +254,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
   const spriteRendererRef = useRef<WebGLSpriteRenderer | null>(null);
   const fadeRendererRef = useRef<WebGLFadeRenderer | null>(null);
+  const scanlineRendererRef = useRef<WebGLScanlineRenderer | null>(null);
   const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
   const worldManagerRef = useRef<WorldManager | null>(null);
   const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
@@ -742,6 +751,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const fadeRenderer = new WebGLFadeRenderer(pipeline.getGL());
       fadeRenderer.initialize();
       fadeRendererRef.current = fadeRenderer;
+
+      // Initialize scanline renderer (for CRT effect when menus open)
+      const scanlineRenderer = new WebGLScanlineRenderer(pipeline.getGL());
+      scanlineRenderer.initialize();
+      scanlineRendererRef.current = scanlineRenderer;
     } catch (e) {
       // WebGL pipeline creation failed - redirect to legacy Canvas2D mode
       console.error('Failed to create WebGL pipeline, redirecting to legacy Canvas2D mode:', e);
@@ -1394,11 +1408,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             ? fadeControllerRef.current.getAlpha(nowTime)
             : 0;
 
+          // Scanline intensity: 1.0 when menu is open, 0.0 otherwise
+          const scanlineIntensity = menuStateManager.isMenuOpen() ? 1.0 : 0.0;
+
           compositeWebGLFrame(
             {
               pipeline,
               spriteRenderer,
               fadeRenderer: fadeRendererRef.current,
+              scanlineRenderer: scanlineRendererRef.current,
               ctx2d,
               webglCanvas,
               view: spriteView,
@@ -1413,7 +1431,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               arrowSprite,
               surfBlobSprite,
             },
-            { fadeAlpha }
+            { fadeAlpha, scanlineIntensity, zoom: zoomRef.current }
           );
         }
       }
@@ -1475,6 +1493,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       spriteRendererRef.current = null;
       fadeRendererRef.current?.dispose();
       fadeRendererRef.current = null;
+      scanlineRendererRef.current?.dispose();
+      scanlineRendererRef.current = null;
       playerRef.current?.destroy();
       playerRef.current = null;
       playerLoadedRef.current = false;
@@ -1784,11 +1804,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     console.log('[GamePage] Save completed');
   }, []);
 
-  // Handle load completion - reload the game state
+  // Handle load completion - redirect to main menu
   const handleLoadComplete = useCallback(() => {
-    console.log('[GamePage] Load completed - game state will update');
-    // The game will pick up the new save on next Continue
-  }, []);
+    console.log('[GamePage] Load completed - redirecting to main menu');
+    // Close any open menus
+    menuStateManager.close();
+    // Transition back to main menu so user can press Continue
+    // This avoids being in a weird overworld state after loading a .sav
+    if (stateManager) {
+      stateManager.transitionTo(GameState.MAIN_MENU);
+    }
+  }, [stateManager]);
 
   // Handle save/load errors
   const handleSaveError = useCallback((error: string) => {

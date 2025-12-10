@@ -22,9 +22,10 @@ const PALETTES_COUNT = 16;
 /**
  * Texture manager for WebGL tile rendering
  *
- * Manages textures for up to 2 tileset pairs:
+ * Manages textures for up to 3 tileset pairs:
  * - Pair 0: Primary/Secondary tileset + Palette (indexed color, R8)
  * - Pair 1: Primary/Secondary tileset + Palette (for multi-tileset worlds)
+ * - Pair 2: Primary/Secondary tileset + Palette (for viewing 3+ tilesets)
  */
 export class WebGLTextureManager {
   private gl: WebGL2RenderingContext;
@@ -39,11 +40,18 @@ export class WebGLTextureManager {
   private secondaryTexture1: WebGLTexture | null = null;
   private paletteTexture1: WebGLTexture | null = null;
 
+  // Tileset pair 2 (for viewing 3+ tilesets simultaneously)
+  private primaryTexture2: WebGLTexture | null = null;
+  private secondaryTexture2: WebGLTexture | null = null;
+  private paletteTexture2: WebGLTexture | null = null;
+
   // Track texture dimensions for shader uniforms
   private primarySize: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
   private secondarySize: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
   private primarySize1: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
   private secondarySize1: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
+  private primarySize2: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
+  private secondarySize2: { width: number; height: number; tilesWide: number; tilesHigh: number } | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -63,20 +71,28 @@ export class WebGLTextureManager {
     this.secondaryTexture1 = this.createTexture();
     this.paletteTexture1 = this.createTexture();
 
-    // Initialize pair 1 with 1x1 placeholder textures
+    // Pair 2 textures (with placeholder data to avoid shader errors)
+    this.primaryTexture2 = this.createTexture();
+    this.secondaryTexture2 = this.createTexture();
+    this.paletteTexture2 = this.createTexture();
+
+    // Initialize pair 1 and pair 2 with 1x1 placeholder textures
     this.initializePlaceholderTextures();
   }
 
   /**
-   * Initialize pair 1 textures with 1x1 placeholders
-   * This prevents shader errors when pair 1 is not yet loaded
+   * Initialize pair 1 and pair 2 textures with 1x1 placeholders
+   * This prevents shader errors when pairs are not yet loaded
    */
   private initializePlaceholderTextures(): void {
     const { gl } = this;
     const placeholder = new Uint8Array([0]); // 1x1 transparent pixel
 
-    // Initialize tileset textures as 1x1 R8
-    for (const texture of [this.primaryTexture1, this.secondaryTexture1]) {
+    // Initialize tileset textures as 1x1 R8 (pair 1 and pair 2)
+    for (const texture of [
+      this.primaryTexture1, this.secondaryTexture1,
+      this.primaryTexture2, this.secondaryTexture2,
+    ]) {
       if (!texture) continue;
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -87,17 +103,17 @@ export class WebGLTextureManager {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
 
-    // Initialize palette texture as 1x1 RGBA (transparent black)
-    if (this.paletteTexture1) {
-      const palettePlaceholder = new Uint8Array([0, 0, 0, 0]);
-      gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture1);
+    // Initialize palette textures as 1x1 RGBA (transparent black)
+    const palettePlaceholder = new Uint8Array([0, 0, 0, 0]);
+    for (const paletteTexture of [this.paletteTexture1, this.paletteTexture2]) {
+      if (!paletteTexture) continue;
+      gl.bindTexture(gl.TEXTURE_2D, paletteTexture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, palettePlaceholder);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
-
   }
 
   /**
@@ -259,6 +275,105 @@ export class WebGLTextureManager {
   }
 
   /**
+   * Upload tileset data for pair 2 (for viewing 3+ tilesets)
+   *
+   * @param tileset - Which tileset ('primary' or 'secondary')
+   * @param data - Indexed color data (1 byte per pixel)
+   * @param width - Width in pixels
+   * @param height - Height in pixels
+   */
+  uploadTilesetPair2(
+    tileset: 'primary' | 'secondary',
+    data: Uint8Array,
+    width: number,
+    height: number
+  ): void {
+    const { gl } = this;
+    const texture = tileset === 'primary' ? this.primaryTexture2 : this.secondaryTexture2;
+
+    if (!texture) {
+      throw new Error('Pair 2 texture not initialized');
+    }
+
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8,
+      width,
+      height,
+      0,
+      gl.RED,
+      gl.UNSIGNED_BYTE,
+      data
+    );
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // Store dimensions (tiles are 8x8 pixels)
+    const tilesWide = Math.floor(width / 8);
+    const tilesHigh = Math.floor(height / 8);
+
+    if (tileset === 'primary') {
+      this.primarySize2 = { width, height, tilesWide, tilesHigh };
+    } else {
+      this.secondarySize2 = { width, height, tilesWide, tilesHigh };
+    }
+  }
+
+  /**
+   * Upload palettes for pair 2 (for viewing 3+ tilesets)
+   */
+  uploadPalettesPair2(palettes: Palette[]): void {
+    const { gl } = this;
+
+    if (!this.paletteTexture2) {
+      throw new Error('Pair 2 palette texture not initialized');
+    }
+
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+    const data = new Uint8Array(PALETTES_COUNT * COLORS_PER_PALETTE * 4);
+
+    for (let paletteIdx = 0; paletteIdx < palettes.length && paletteIdx < PALETTES_COUNT; paletteIdx++) {
+      const palette = palettes[paletteIdx];
+
+      for (let colorIdx = 0; colorIdx < COLORS_PER_PALETTE; colorIdx++) {
+        const offset = (paletteIdx * COLORS_PER_PALETTE + colorIdx) * 4;
+        const hex = palette.colors[colorIdx] || '#000000';
+
+        data[offset + 0] = parseInt(hex.slice(1, 3), 16);
+        data[offset + 1] = parseInt(hex.slice(3, 5), 16);
+        data[offset + 2] = parseInt(hex.slice(5, 7), 16);
+        data[offset + 3] = colorIdx === 0 ? 0 : 255;
+      }
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture2);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      COLORS_PER_PALETTE,
+      PALETTES_COUNT,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      data
+    );
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  /**
    * Update a region of the tileset (for animations)
    *
    * This is the key to efficient animation: instead of re-uploading
@@ -389,7 +504,7 @@ export class WebGLTextureManager {
   }
 
   /**
-   * Bind textures for rendering (both tileset pairs)
+   * Bind textures for rendering (all 3 tileset pairs)
    *
    * Texture units layout:
    * - 0: Primary tileset (pair 0)
@@ -398,6 +513,9 @@ export class WebGLTextureManager {
    * - 3: Primary tileset (pair 1)
    * - 4: Secondary tileset (pair 1)
    * - 5: Palette (pair 1)
+   * - 6: Primary tileset (pair 2)
+   * - 7: Secondary tileset (pair 2)
+   * - 8: Palette (pair 2)
    *
    * @param primaryUnit - Texture unit for primary tileset (pair 0)
    * @param secondaryUnit - Texture unit for secondary tileset (pair 0)
@@ -425,6 +543,16 @@ export class WebGLTextureManager {
 
     gl.activeTexture(gl.TEXTURE0 + 5);
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture1);
+
+    // Bind pair 2 textures (units 6, 7, 8)
+    gl.activeTexture(gl.TEXTURE0 + 6);
+    gl.bindTexture(gl.TEXTURE_2D, this.primaryTexture2);
+
+    gl.activeTexture(gl.TEXTURE0 + 7);
+    gl.bindTexture(gl.TEXTURE_2D, this.secondaryTexture2);
+
+    gl.activeTexture(gl.TEXTURE0 + 8);
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture2);
   }
 
   /**
@@ -443,6 +571,17 @@ export class WebGLTextureManager {
    */
   getTilesetSizePair1(tileset: 'primary' | 'secondary'): { tilesWide: number; tilesHigh: number } {
     const size = tileset === 'primary' ? this.primarySize1 : this.secondarySize1;
+    if (!size) {
+      return { tilesWide: 16, tilesHigh: 64 }; // Default fallback
+    }
+    return { tilesWide: size.tilesWide, tilesHigh: size.tilesHigh };
+  }
+
+  /**
+   * Get tileset size in tiles for shader uniforms (pair 2)
+   */
+  getTilesetSizePair2(tileset: 'primary' | 'secondary'): { tilesWide: number; tilesHigh: number } {
+    const size = tileset === 'primary' ? this.primarySize2 : this.secondarySize2;
     if (!size) {
       return { tilesWide: 16, tilesHigh: 64 }; // Default fallback
     }
@@ -499,7 +638,27 @@ export class WebGLTextureManager {
       this.paletteTexture1 = null;
     }
 
+    // Dispose pair 2 textures
+    if (this.primaryTexture2) {
+      gl.deleteTexture(this.primaryTexture2);
+      this.primaryTexture2 = null;
+    }
+
+    if (this.secondaryTexture2) {
+      gl.deleteTexture(this.secondaryTexture2);
+      this.secondaryTexture2 = null;
+    }
+
+    if (this.paletteTexture2) {
+      gl.deleteTexture(this.paletteTexture2);
+      this.paletteTexture2 = null;
+    }
+
     this.primarySize = null;
     this.secondarySize = null;
+    this.primarySize1 = null;
+    this.secondarySize1 = null;
+    this.primarySize2 = null;
+    this.secondarySize2 = null;
   }
 }

@@ -230,6 +230,37 @@ export class WebGLRenderPipeline {
   }
 
   /**
+   * Upload third tileset pair to GPU (for viewing 3+ tilesets)
+   */
+  uploadTilesetsPair2(
+    primaryTileset: Uint8Array,
+    primaryWidth: number,
+    primaryHeight: number,
+    secondaryTileset: Uint8Array,
+    secondaryWidth: number,
+    secondaryHeight: number,
+    _animations?: LoadedAnimation[]
+  ): void {
+    this.tileRenderer.uploadTilesetPair2('primary', primaryTileset, primaryWidth, primaryHeight);
+    this.tileRenderer.uploadTilesetPair2('secondary', secondaryTileset, secondaryWidth, secondaryHeight);
+
+    // Note: Animation support for pair 2 can be added if needed
+    // For now, pair 2 is primarily for static adjacent tilesets
+
+    this.needsFullRender = true;
+    this.needsWarmupRender = true;
+    this.tilesetVersion++;
+  }
+
+  /**
+   * Upload palettes for third tileset pair (for viewing 3+ tilesets)
+   */
+  uploadPalettesPair2(palettes: Palette[]): void {
+    this.tileRenderer.uploadPalettesPair2(palettes);
+    this.needsFullRender = true;
+  }
+
+  /**
    * Render all three passes for the current frame
    *
    * @param ctx - Render context with world and tileset data

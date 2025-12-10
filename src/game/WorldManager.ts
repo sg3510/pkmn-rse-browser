@@ -100,8 +100,8 @@ export interface WorldSnapshot {
   mapTilesetPairIndex: Map<string, number>;
   /** Border metatiles from the ANCHOR map - used for all out-of-bounds tiles */
   anchorBorderMetatiles: number[];
-  /** Maps tileset pair ID to GPU slot (0 or 1). Pairs not in GPU are not in this map. */
-  pairIdToGpuSlot: Map<string, 0 | 1>;
+  /** Maps tileset pair ID to GPU slot (0, 1, or 2). Pairs not in GPU are not in this map. */
+  pairIdToGpuSlot: Map<string, 0 | 1 | 2>;
   anchorMapId: string;
   worldBounds: {
     minX: number;
@@ -228,12 +228,15 @@ export class WorldManager {
       this.scheduler.addToCache(pair);
     }
 
-    // Set initial GPU slots
+    // Set initial GPU slots (up to 3 pairs)
     if (this.tilesetPairs[0]) {
       this.scheduler.setGpuSlot(this.tilesetPairs[0].id, 0);
     }
     if (this.tilesetPairs[1]) {
       this.scheduler.setGpuSlot(this.tilesetPairs[1].id, 1);
+    }
+    if (this.tilesetPairs[2]) {
+      this.scheduler.setGpuSlot(this.tilesetPairs[2].id, 2);
     }
 
     return this.getSnapshot();
@@ -333,9 +336,10 @@ export class WorldManager {
 
     // Build pairIdToGpuSlot mapping from scheduler
     const gpuSlots = this.scheduler.getGpuSlots();
-    const pairIdToGpuSlot = new Map<string, 0 | 1>();
+    const pairIdToGpuSlot = new Map<string, 0 | 1 | 2>();
     if (gpuSlots.slot0) pairIdToGpuSlot.set(gpuSlots.slot0, 0);
     if (gpuSlots.slot1) pairIdToGpuSlot.set(gpuSlots.slot1, 1);
+    if (gpuSlots.slot2) pairIdToGpuSlot.set(gpuSlots.slot2, 2);
 
     // Get anchor map's border metatiles
     const anchorMap = this.maps.get(this.anchorMapId);
@@ -538,10 +542,13 @@ export class WorldManager {
           return;
         }
 
-        // Load the map
+        // Load the map - pass sourceInfo so offset can be recalculated if reanchor happens during load
         try {
           console.log(`[LOAD_CONNECTED] Loading ${neighborEntry.id} via ${connection.direction} from ${currentMap.entry.id} at depth ${depth} (epoch ${startEpoch})`);
-          await this.loadMap(neighborEntry, offsetX, offsetY, startEpoch);
+          await this.loadMap(neighborEntry, offsetX, offsetY, startEpoch, {
+            sourceMapId: currentMap.entry.id,
+            connection: { direction: connection.direction, offset: connection.offset },
+          });
 
           // Check epoch after async operation
           if (this.worldEpoch !== startEpoch) {
@@ -584,7 +591,16 @@ export class WorldManager {
     anchorOffsetY: number,
     maxDepth: number
   ): Promise<void> {
-    const queue: Array<{ entry: MapIndexEntry; offsetX: number; offsetY: number; depth: number }> = [
+    // Queue includes optional source info for offset recalculation
+    interface QueueItem {
+      entry: MapIndexEntry;
+      offsetX: number;
+      offsetY: number;
+      depth: number;
+      sourceInfo?: { sourceMapId: string; connection: { direction: string; offset: number } };
+    }
+
+    const queue: QueueItem[] = [
       { entry: anchorEntry, offsetX: anchorOffsetX, offsetY: anchorOffsetY, depth: 0 },
     ];
 
@@ -598,8 +614,14 @@ export class WorldManager {
         continue;
       }
 
-      // Load the map
-      await this.loadMap(current.entry, current.offsetX, current.offsetY);
+      // Load the map (anchor has no sourceInfo, connected maps do)
+      await this.loadMap(
+        current.entry,
+        current.offsetX,
+        current.offsetY,
+        undefined, // no epoch check during initialize
+        current.sourceInfo
+      );
 
       // Queue connected maps if not at max depth
       if (current.depth < maxDepth) {
@@ -615,7 +637,16 @@ export class WorldManager {
             current.offsetY
           );
 
-          queue.push({ entry: neighborEntry, offsetX, offsetY, depth: current.depth + 1 });
+          queue.push({
+            entry: neighborEntry,
+            offsetX,
+            offsetY,
+            depth: current.depth + 1,
+            sourceInfo: {
+              sourceMapId: current.entry.id,
+              connection: { direction: connection.direction, offset: connection.offset },
+            },
+          });
         }
       }
     }
@@ -624,8 +655,16 @@ export class WorldManager {
   /**
    * Load a single map
    * @param expectedEpoch - If provided, abort loading if epoch has changed (stale operation)
+   * @param sourceInfo - If provided, recalculate offset at end using source map's CURRENT position
+   *                     This fixes race conditions where reanchor shifts source map during async load
    */
-  private async loadMap(entry: MapIndexEntry, offsetX: number, offsetY: number, expectedEpoch?: number): Promise<void> {
+  private async loadMap(
+    entry: MapIndexEntry,
+    offsetX: number,
+    offsetY: number,
+    expectedEpoch?: number,
+    sourceInfo?: { sourceMapId: string; connection: { direction: string; offset: number } }
+  ): Promise<void> {
     // Check epoch if provided - abort if world was reinitialized
     if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
       console.log(`[LOAD_MAP] Skipping ${entry.id} - epoch mismatch (expected ${expectedEpoch}, current ${this.worldEpoch})`);
@@ -667,14 +706,16 @@ export class WorldManager {
         this.scheduler.addToCache(pair);
 
         // CRITICAL: Assign GPU slot for the new pair!
-        // The first pair goes to slot 0, second to slot 1
+        // First 3 pairs go to slots 0, 1, 2
         // This ensures pairIdToGpuSlot is correct in the snapshot
         if (pairIndex === 0) {
           this.scheduler.setGpuSlot(pair.id, 0);
         } else if (pairIndex === 1) {
           this.scheduler.setGpuSlot(pair.id, 1);
+        } else if (pairIndex === 2) {
+          this.scheduler.setGpuSlot(pair.id, 2);
         }
-        // Note: pairs beyond index 1 stay in CPU cache only until
+        // Note: pairs beyond index 2 stay in CPU cache only until
         // the scheduler swaps them into GPU based on player position
 
         // Emit tileset change
@@ -701,11 +742,39 @@ export class WorldManager {
         return;
       }
 
+      // CRITICAL FIX: If sourceInfo provided, recalculate offset using source map's CURRENT position
+      // This fixes race condition where reanchor can shift source map during async load
+      let finalOffsetX = offsetX;
+      let finalOffsetY = offsetY;
+
+      if (sourceInfo) {
+        const sourceMap = this.maps.get(sourceInfo.sourceMapId);
+        if (sourceMap) {
+          const recalculated = this.computeConnectionOffset(
+            sourceMap.entry,
+            entry,
+            sourceInfo.connection,
+            sourceMap.offsetX,
+            sourceMap.offsetY
+          );
+
+          // Check if offset changed (indicates reanchor happened during load)
+          if (recalculated.offsetX !== offsetX || recalculated.offsetY !== offsetY) {
+            console.log(`[LOAD_MAP] Offset recalculated for ${entry.id}: (${offsetX},${offsetY}) -> (${recalculated.offsetX},${recalculated.offsetY}) due to reanchor during load`);
+            finalOffsetX = recalculated.offsetX;
+            finalOffsetY = recalculated.offsetY;
+          }
+        } else {
+          // Source map was unloaded during load - this map's offset may be stale
+          console.warn(`[LOAD_MAP] Source map ${sourceInfo.sourceMapId} no longer exists - ${entry.id} may have wrong offset`);
+        }
+      }
+
       const mapInstance: LoadedMapInstance = {
         entry,
         mapData,
-        offsetX,
-        offsetY,
+        offsetX: finalOffsetX,
+        offsetY: finalOffsetY,
         tilesetPairIndex: pairIndex,
         borderMetatiles,
         warpEvents: mapEvents.warpEvents,

@@ -4,9 +4,10 @@
  *
  * Parses:
  *   - public/pokeemerald/include/constants/moves.h (MOVE_* constants)
+ *   - public/pokeemerald/src/data/battle_moves.h (move power/type/accuracy/pp)
  *
  * Outputs:
- *   - src/data/moves.ts (move constants and names)
+ *   - src/data/moves.ts (move constants, names, and battle info)
  *
  * Usage: node scripts/generate-moves.cjs
  */
@@ -16,6 +17,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const MOVES_FILE = path.join(ROOT, 'public/pokeemerald/include/constants/moves.h');
+const BATTLE_MOVES_FILE = path.join(ROOT, 'public/pokeemerald/src/data/battle_moves.h');
 const OUTPUT_FILE = path.join(ROOT, 'src/data/moves.ts');
 
 /**
@@ -24,7 +26,8 @@ const OUTPUT_FILE = path.join(ROOT, 'src/data/moves.ts');
  */
 function parseMoves(content) {
   const moves = [];
-  const regex = /#define\s+(MOVE_\w+)\s+(\d+)/g;
+  // Match decimal numbers only (not hex like 0xFFFF)
+  const regex = /#define\s+(MOVE_\w+)\s+(\d+)\s*$/gm;
   let match;
 
   while ((match = regex.exec(content)) !== null) {
@@ -33,6 +36,11 @@ function parseMoves(content) {
 
     // Skip internal constants
     if (name === 'MOVES_COUNT' || name === 'MOVES_COUNT_GEN3') {
+      continue;
+    }
+
+    // Skip MOVE_UNAVAILABLE (0xFFFF would be parsed incorrectly)
+    if (name === 'MOVE_UNAVAILABLE') {
       continue;
     }
 
@@ -53,19 +61,100 @@ function moveKeyToDisplayName(key) {
     .join(' ');
 }
 
+// Type mapping from pokeemerald TYPE_* to our type strings
+const TYPE_MAP = {
+  TYPE_NORMAL: 'NORMAL',
+  TYPE_FIGHTING: 'FIGHTING',
+  TYPE_FLYING: 'FLYING',
+  TYPE_POISON: 'POISON',
+  TYPE_GROUND: 'GROUND',
+  TYPE_ROCK: 'ROCK',
+  TYPE_BUG: 'BUG',
+  TYPE_GHOST: 'GHOST',
+  TYPE_STEEL: 'STEEL',
+  TYPE_FIRE: 'FIRE',
+  TYPE_WATER: 'WATER',
+  TYPE_GRASS: 'GRASS',
+  TYPE_ELECTRIC: 'ELECTRIC',
+  TYPE_PSYCHIC: 'PSYCHIC',
+  TYPE_ICE: 'ICE',
+  TYPE_DRAGON: 'DRAGON',
+  TYPE_DARK: 'DARK',
+  TYPE_MYSTERY: 'NORMAL', // ??? type fallback
+};
+
+/**
+ * Parse battle_moves.h to extract move data
+ * Returns: { [MOVE_NAME]: { power, type, accuracy, pp } }
+ */
+function parseBattleMoves(content) {
+  const moveData = {};
+
+  // Split into move blocks
+  const blocks = content.split(/\[MOVE_/);
+
+  for (const block of blocks) {
+    const nameMatch = block.match(/^(\w+)\]\s*=/);
+    if (!nameMatch) continue;
+
+    const moveName = 'MOVE_' + nameMatch[1];
+
+    // Extract .power = X
+    const powerMatch = block.match(/\.power\s*=\s*(\d+)/);
+    const power = powerMatch ? parseInt(powerMatch[1], 10) : 0;
+
+    // Extract .type = TYPE_X
+    const typeMatch = block.match(/\.type\s*=\s*(TYPE_\w+)/);
+    const typeRaw = typeMatch ? typeMatch[1] : 'TYPE_NORMAL';
+    const type = TYPE_MAP[typeRaw] || 'NORMAL';
+
+    // Extract .accuracy = X
+    const accMatch = block.match(/\.accuracy\s*=\s*(\d+)/);
+    const accuracy = accMatch ? parseInt(accMatch[1], 10) : 0;
+
+    // Extract .pp = X
+    const ppMatch = block.match(/\.pp\s*=\s*(\d+)/);
+    const pp = ppMatch ? parseInt(ppMatch[1], 10) : 0;
+
+    moveData[moveName] = { power, type, accuracy, pp };
+  }
+
+  return moveData;
+}
+
 function generate() {
   console.log('Generating moves data from pokeemerald source...\n');
 
-  const content = fs.readFileSync(MOVES_FILE, 'utf8');
-  const moves = parseMoves(content);
+  const movesContent = fs.readFileSync(MOVES_FILE, 'utf8');
+  const moves = parseMoves(movesContent);
+  console.log(`Parsed ${moves.length} move constants`);
 
-  console.log(`Parsed ${moves.length} moves`);
+  const battleContent = fs.readFileSync(BATTLE_MOVES_FILE, 'utf8');
+  const battleData = parseBattleMoves(battleContent);
+  console.log(`Parsed ${Object.keys(battleData).length} move battle data entries`);
+
+  // Merge battle data into moves
+  for (const move of moves) {
+    const data = battleData[move.key];
+    if (data) {
+      move.power = data.power;
+      move.type = data.type;
+      move.accuracy = data.accuracy;
+      move.pp = data.pp;
+    } else {
+      move.power = 0;
+      move.type = 'NORMAL';
+      move.accuracy = 0;
+      move.pp = 0;
+    }
+  }
 
   const output = `/**
  * Moves Data
  *
  * Auto-generated from pokeemerald source:
  *   - public/pokeemerald/include/constants/moves.h
+ *   - public/pokeemerald/src/data/battle_moves.h
  *
  * DO NOT EDIT MANUALLY - regenerate with: npm run generate:moves
  *
@@ -87,11 +176,30 @@ export const MOVE_NAMES: Record<number, string> = {
 ${moves.map(m => `  ${m.id}: ${JSON.stringify(moveKeyToDisplayName(m.key))},`).join('\n')}
 };
 
+// Move battle info (power, type, accuracy, pp)
+export interface MoveInfo {
+  power: number;
+  type: string;
+  accuracy: number;
+  pp: number;
+}
+
+export const MOVE_INFO: Record<number, MoveInfo> = {
+${moves.map(m => `  ${m.id}: { power: ${m.power}, type: ${JSON.stringify(m.type)}, accuracy: ${m.accuracy}, pp: ${m.pp} },`).join('\n')}
+};
+
 /**
  * Get move display name
  */
 export function getMoveName(moveId: number): string {
   return MOVE_NAMES[moveId] ?? '---';
+}
+
+/**
+ * Get move battle info
+ */
+export function getMoveInfo(moveId: number): MoveInfo | null {
+  return MOVE_INFO[moveId] ?? null;
 }
 `;
 

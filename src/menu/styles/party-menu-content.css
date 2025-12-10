@@ -1,0 +1,271 @@
+/**
+ * Party Menu Content Styles
+ *
+ * 2×3 grid layout for Pokemon party.
+ * Uses design system variables for consistency.
+ */
+
+@import './design-system.css';
+
+/* =========================================
+   PARTY CONTENT WRAPPER
+   ========================================= */
+
+.party-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-1);
+  padding-top: var(--header-padding);
+}
+
+/* =========================================
+   PARTY GRID - 2 columns × 3 rows
+   ========================================= */
+
+.party-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--space-0);
+  flex: 1;
+  min-height: 0;
+}
+
+/* =========================================
+   PARTY SLOT
+   Each slot: icon (32×32) + info
+   ========================================= */
+
+.party-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0);
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+  border: var(--border-thin) solid #1a202c;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.party-slot:hover {
+  background: linear-gradient(180deg, #5a6678 0%, #3d4758 100%);
+  border-color: #4a5568;
+}
+
+.party-slot.selected {
+  background: linear-gradient(180deg, #3182ce 0%, #2b6cb0 100%);
+  border-color: #63b3ed;
+  box-shadow: 0 0 4px rgba(99, 179, 237, 0.5);
+}
+
+.party-slot.selected:hover {
+  background: linear-gradient(180deg, #4299e1 0%, #3182ce 100%);
+}
+
+.party-slot.swap-target {
+  animation: party-slot-pulse 0.8s ease-in-out infinite;
+  border-color: #f6ad55;
+}
+
+@keyframes party-slot-pulse {
+  0%, 100% { box-shadow: 0 0 3px rgba(246, 173, 85, 0.4); }
+  50% { box-shadow: 0 0 6px rgba(246, 173, 85, 0.8); }
+}
+
+.party-slot.fainted {
+  opacity: 0.7;
+}
+
+/* Empty slot */
+.party-slot.empty {
+  justify-content: center;
+  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+  border-style: dashed;
+  cursor: default;
+}
+
+.party-slot.empty:hover {
+  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+}
+
+.party-slot-empty-text {
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  color: #4a5568;
+  text-transform: uppercase;
+}
+
+/* =========================================
+   POKEMON ICON - 32×32 (native)
+   ========================================= */
+
+.party-slot-icon-container {
+  position: relative;
+  width: var(--icon-pokemon);
+  height: var(--icon-pokemon);
+  flex-shrink: 0;
+}
+
+.party-slot-icon {
+  width: var(--icon-pokemon);
+  height: var(--icon-pokemon);
+  /* Sprite is 32×64 (2 frames stacked) */
+  background-size: 32px 64px;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  animation: pokemon-icon-bounce 0.6s step-end infinite;
+}
+
+.party-slot-icon.fainted {
+  filter: grayscale(1) brightness(0.7);
+  animation: none;
+}
+
+@keyframes pokemon-icon-bounce {
+  0%, 85% { background-position-y: 0; }
+  85.01%, 100% { background-position-y: -32px; }
+}
+
+/* Held item indicator */
+.party-slot-item-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: var(--font-xs);
+  color: var(--text-highlight);
+  text-shadow: 0 0 1px #000;
+  line-height: 1;
+}
+
+/* =========================================
+   POKEMON INFO
+   ========================================= */
+
+.party-slot-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Name row */
+.party-slot-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0);
+}
+
+.party-slot-name {
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  text-shadow: var(--text-shadow);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.party-slot-gender {
+  font-size: var(--font-sm);
+  font-weight: bold;
+  text-shadow: var(--text-shadow);
+}
+
+.party-slot-gender.male { color: var(--gender-male); }
+.party-slot-gender.female { color: var(--gender-female); }
+
+/* Level row */
+.party-slot-level-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0);
+}
+
+.party-slot-level {
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  text-shadow: var(--text-shadow);
+}
+
+/* Status badge */
+.party-slot-status {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  padding: 0 var(--space-0);
+  border-radius: 1px;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* HP bar area */
+.party-slot-hp {
+  margin-top: var(--space-0);
+}
+
+/* =========================================
+   HP BAR
+   ========================================= */
+
+.hp-bar-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0);
+}
+
+.hp-bar-label {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-highlight);
+  font-weight: bold;
+}
+
+.hp-bar-wrapper {
+  flex: 1;
+  height: var(--bar-height);
+  background: #1a202c;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+.hp-bar-fill.hp-green { background: var(--hp-green); }
+.hp-bar-fill.hp-yellow { background: var(--hp-yellow); }
+.hp-bar-fill.hp-red { background: var(--hp-red); }
+
+.hp-bar-text {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  text-shadow: var(--text-shadow);
+  white-space: nowrap;
+}
+
+/* =========================================
+   FOOTER
+   ========================================= */
+
+.party-footer {
+  text-align: center;
+  padding-top: var(--space-0);
+  flex-shrink: 0;
+}
+
+.party-hint {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}

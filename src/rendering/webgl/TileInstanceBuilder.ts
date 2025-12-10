@@ -319,7 +319,7 @@ export function packTileInstances(tiles: TileInstance[]): Float32Array {
     const tile = tiles[i];
     const offset = i * 4;
 
-    // Pack flags: yflip(1) | xflip(1) | tilesetIndex(1) | paletteId(4) | tilesetPairIndex(1)
+    // Pack flags: yflip(1) | xflip(1) | tilesetIndex(1) | paletteId(4) | tilesetPairIndex(2)
     const flags =
       (tile.yflip ? 1 : 0) |
       (tile.xflip ? 2 : 0) |

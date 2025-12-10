@@ -1,126 +1,133 @@
 /**
  * Menu Overlay Component
  *
- * Renders the appropriate menu based on current menu state.
- * Respects zoom level from DialogContext for consistent scaling.
+ * Unified container for all menus. Renders ONE menu at a time,
+ * switching content based on MenuStateManager. No stacking overlays.
+ *
+ * Design principles:
+ * - Single overlay container that persists while any menu is open
+ * - Content switches based on currentMenu, no nested overlays
+ * - RESPONSIVE sizing: GBA viewport = fullscreen, larger = up to 21×16 tiles with padding
+ * - Content scales with zoom via --zoom CSS variable
+ * - Switching menus does NOT change container size
  */
 
 import { useMenuState } from '../hooks/useMenuState';
 import { menuStateManager } from '../MenuStateManager';
 import { useDialogContext } from '../../components/dialog/DialogContext';
+import { useMenuLayout } from '../hooks/useMenuLayout';
 import { StartMenu } from './StartMenu';
 import { BagMenu } from './BagMenu';
-// Future imports:
-// import { PartyMenu } from './PartyMenu';
-// import { TrainerCard } from './TrainerCard';
-// import { SaveMenu } from './SaveMenu';
-// import { OptionsMenu } from './OptionsMenu';
+import { PartyMenuContent } from './PartyMenuContent';
+import { PokemonSummaryContent } from './PokemonSummaryContent';
+import type { PartyPokemon } from '../../pokemon/types';
+import '../styles/menu-overlay.css';
 
-interface MenuProps {
-  zoom: number;
-}
+export function MenuOverlay() {
+  const { isOpen, currentMenu, data } = useMenuState();
+  const dialogContext = useDialogContext();
+  const zoom = dialogContext?.zoom ?? 1;
+  const viewport = dialogContext?.viewport ?? { width: 240, height: 160 };
 
-function PlaceholderMenu({ title, zoom }: { title: string; zoom: number }) {
+  // Calculate responsive menu layout based on viewport
+  const layout = useMenuLayout({ viewport, zoom });
+
+  if (!isOpen || !currentMenu) {
+    return null;
+  }
+
+  // Start menu is a small popup, not fullscreen
+  if (currentMenu === 'start') {
+    return <StartMenu zoom={zoom} viewport={viewport} />;
+  }
+
+  // Set CSS variables for responsive sizing
+  // --zoom: scale factor for transform
+  // --menu-width/height: native pixel dimensions (before zoom)
+  const containerStyle = {
+    '--zoom': zoom,
+    '--menu-width': `${layout.menuWidth}px`,
+    '--menu-height': `${layout.menuHeight}px`,
+  } as React.CSSProperties;
+
+  // Container classes
+  const containerClasses = [
+    'menu-container',
+    layout.isFullscreen ? 'menu-container--fullscreen' : '',
+  ].filter(Boolean).join(' ');
+
+  // All other menus use the unified fullscreen container
   return (
     <div className="menu-overlay" onClick={() => menuStateManager.back()}>
       <div
-        className="placeholder-menu"
-        style={{ transform: `scale(${zoom})` }}
+        className={containerClasses}
+        style={containerStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>{title}</h2>
-        <p>Coming soon...</p>
-        <button onClick={() => menuStateManager.back()}>Back</button>
+        {/* Back button - corner triangle, consistent across all menus */}
+        <button
+          className="menu-back-btn"
+          onClick={() => menuStateManager.back()}
+          title="Back (B)"
+          aria-label="Back"
+        />
+
+        {/* Menu content - switches based on currentMenu */}
+        <MenuContent
+          currentMenu={currentMenu}
+          data={data}
+        />
       </div>
     </div>
   );
 }
 
-export function MenuOverlay() {
-  const { isOpen, currentMenu } = useMenuState();
-  const dialogContext = useDialogContext();
-  const zoom = dialogContext?.zoom ?? 1;
+interface MenuContentProps {
+  currentMenu: string;
+  data: Record<string, unknown>;
+}
 
-  if (!isOpen) {
-    return null;
-  }
-
-  // Render the appropriate menu component
+function MenuContent({ currentMenu, data }: MenuContentProps) {
   switch (currentMenu) {
-    case 'start':
-      return <StartMenu zoom={zoom} />;
-
     case 'bag':
-      return <BagMenu zoom={zoom} />;
+      return <BagMenu />;
 
     case 'party':
-      return <PlaceholderMenu title="POKéMON" zoom={zoom} />;
+      return <PartyMenuContent />;
+
+    case 'pokemonSummary': {
+      const pokemon = data.pokemon as PartyPokemon | undefined;
+      const partyIndex = data.partyIndex as number | undefined;
+      if (!pokemon) {
+        return <div className="menu-placeholder">No Pokemon selected</div>;
+      }
+      return <PokemonSummaryContent pokemon={pokemon} partyIndex={partyIndex} />;
+    }
 
     case 'trainerCard':
-      return <PlaceholderMenu title="TRAINER CARD" zoom={zoom} />;
+      return <PlaceholderContent title="TRAINER CARD" />;
 
     case 'save':
-      return <PlaceholderMenu title="SAVE" zoom={zoom} />;
+      return <PlaceholderContent title="SAVE" />;
 
     case 'options':
-      return <PlaceholderMenu title="OPTIONS" zoom={zoom} />;
+      return <PlaceholderContent title="OPTIONS" />;
+
+    case 'pokedex':
+      return <PlaceholderContent title="POKéDEX" />;
 
     default:
-      return null;
+      return <PlaceholderContent title={currentMenu.toUpperCase()} />;
   }
 }
 
-// Placeholder styles
-const placeholderStyle = `
-.menu-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+function PlaceholderContent({ title }: { title: string }) {
+  return (
+    <div className="menu-placeholder">
+      <h2>{title}</h2>
+      <p>Coming soon...</p>
+    </div>
+  );
 }
 
-.placeholder-menu {
-  background: var(--menu-window-bg, #3890f8);
-  border: 4px solid var(--menu-window-border, #f8f8f8);
-  border-radius: 8px;
-  padding: 32px;
-  text-align: center;
-  color: white;
-  font-family: 'Pokemon Emerald', monospace;
-  transform-origin: center;
-}
-
-.placeholder-menu h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
-}
-
-.placeholder-menu p {
-  margin: 0 0 16px;
-  opacity: 0.8;
-}
-
-.placeholder-menu button {
-  background: white;
-  border: none;
-  padding: 8px 24px;
-  border-radius: 4px;
-  font-family: inherit;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.placeholder-menu button:hover {
-  background: #e8e8e8;
-}
-`;
-
-// Inject placeholder styles
-if (typeof document !== 'undefined') {
-  const styleEl = document.createElement('style');
-  styleEl.textContent = placeholderStyle;
-  document.head.appendChild(styleEl);
-}
+export default MenuOverlay;

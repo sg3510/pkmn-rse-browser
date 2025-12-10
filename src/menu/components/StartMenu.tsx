@@ -1,7 +1,9 @@
 /**
  * Start Menu Component
  *
- * 2x3 grid overlay menu that appears over the game map.
+ * Adaptive grid overlay menu that appears over the game map.
+ * - Landscape viewports (e.g., GBA 240×160): 3 cols × 2 rows
+ * - Portrait/square viewports: 2 cols × 3 rows
  * Accessible via Enter key or Menu button when in OVERWORLD.
  */
 
@@ -15,6 +17,7 @@ import '../styles/start-menu.css';
 
 interface StartMenuProps {
   zoom?: number;
+  viewport?: { width: number; height: number };
 }
 
 interface MenuTileData {
@@ -26,8 +29,14 @@ interface MenuTileData {
   onSelect: () => void;
 }
 
-export function StartMenu({ zoom = 1 }: StartMenuProps) {
+export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: StartMenuProps) {
   const { cursorIndex, isOpen, currentMenu } = useMenuState();
+
+  // Determine grid layout based on viewport aspect ratio
+  // Landscape (wider than tall): 3 cols × 2 rows
+  // Portrait/square: 2 cols × 3 rows
+  const isLandscape = viewport.width > viewport.height;
+  const gridCols = isLandscape ? 3 : 2;
 
   // Build menu tiles based on game flags
   const tiles = useMemo((): MenuTileData[] => {
@@ -117,24 +126,24 @@ export function StartMenu({ zoom = 1 }: StartMenuProps) {
   }, []);
 
   const handleUp = useCallback(() => {
-    const newIndex = navigateGrid(cursorIndex, 'up', 2, visibleTiles.length);
+    const newIndex = navigateGrid(cursorIndex, 'up', gridCols, visibleTiles.length);
     menuStateManager.setCursor(newIndex);
-  }, [cursorIndex, visibleTiles.length]);
+  }, [cursorIndex, gridCols, visibleTiles.length]);
 
   const handleDown = useCallback(() => {
-    const newIndex = navigateGrid(cursorIndex, 'down', 2, visibleTiles.length);
+    const newIndex = navigateGrid(cursorIndex, 'down', gridCols, visibleTiles.length);
     menuStateManager.setCursor(newIndex);
-  }, [cursorIndex, visibleTiles.length]);
+  }, [cursorIndex, gridCols, visibleTiles.length]);
 
   const handleLeft = useCallback(() => {
-    const newIndex = navigateGrid(cursorIndex, 'left', 2, visibleTiles.length);
+    const newIndex = navigateGrid(cursorIndex, 'left', gridCols, visibleTiles.length);
     menuStateManager.setCursor(newIndex);
-  }, [cursorIndex, visibleTiles.length]);
+  }, [cursorIndex, gridCols, visibleTiles.length]);
 
   const handleRight = useCallback(() => {
-    const newIndex = navigateGrid(cursorIndex, 'right', 2, visibleTiles.length);
+    const newIndex = navigateGrid(cursorIndex, 'right', gridCols, visibleTiles.length);
     menuStateManager.setCursor(newIndex);
-  }, [cursorIndex, visibleTiles.length]);
+  }, [cursorIndex, gridCols, visibleTiles.length]);
 
   // Input handling
   useMenuInput({
@@ -151,11 +160,17 @@ export function StartMenu({ zoom = 1 }: StartMenuProps) {
     return null;
   }
 
+  // Grid class for CSS styling
+  const gridClass = isLandscape ? 'start-menu-grid landscape' : 'start-menu-grid portrait';
+
   return (
     <div className="start-menu-overlay" onClick={handleCancel}>
       <div
-        className="start-menu-grid"
-        style={{ transform: `scale(${zoom})` }}
+        className={gridClass}
+        style={{
+          '--zoom': zoom,
+          '--grid-cols': gridCols,
+        } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
         {visibleTiles.map((tile, index) => (

@@ -1,17 +1,18 @@
 /**
  * TilesetPairScheduler - Smart tileset pair loading/unloading for infinite walking
  *
- * The GPU can only hold 2 tileset pairs at once (6 textures total).
+ * The GPU can hold 3 tileset pairs at once (9 textures total).
  * This scheduler manages which pairs are loaded based on player position,
  * with smart boundary detection and predictive preloading.
  *
  * Architecture:
- * - GPU Slots: 2 slots (0 and 1) for active tileset pairs
+ * - GPU Slots: 3 slots (0, 1, and 2) for active tileset pairs
  * - CPU Cache: LRU cache of recently used pairs (avoids disk reloads)
  * - Preload Queue: Pairs to load when player approaches boundary
  *
  * The "active" pair is always in slot 0 (the area the player is standing in).
- * Slot 1 holds the adjacent tileset pair (if any).
+ * Slot 1 holds the adjacent tileset pair the player is approaching (if any).
+ * Slot 2 holds any other visible tileset pair for large viewports.
  */
 
 import type { TilesetPairInfo, LoadedMapInstance } from './WorldManager';
@@ -50,14 +51,14 @@ interface CachedPair {
   id: string;
   data: TilesetPairInfo;
   lastAccessFrame: number;
-  gpuSlot: 0 | 1 | null;
+  gpuSlot: 0 | 1 | 2 | null;
 }
 
 /**
  * Events emitted by the scheduler
  */
 export type SchedulerEvent =
-  | { type: 'gpuSlotsChanged'; slot0: string | null; slot1: string | null }
+  | { type: 'gpuSlotsChanged'; slot0: string | null; slot1: string | null; slot2: string | null }
   | { type: 'preloadStarted'; pairId: string }
   | { type: 'preloadCompleted'; pairId: string }
   | { type: 'pairEvicted'; pairId: string };
@@ -74,6 +75,7 @@ export class TilesetPairScheduler {
   /** Currently active GPU slot assignments */
   private gpuSlot0: string | null = null;
   private gpuSlot1: string | null = null;
+  private gpuSlot2: string | null = null;
 
   /** Detected tileset boundaries in the current world */
   private boundaries: TilesetBoundary[] = [];
@@ -139,7 +141,7 @@ export class TilesetPairScheduler {
   /**
    * Set which pair is in a GPU slot (called after upload)
    */
-  setGpuSlot(pairId: string, slot: 0 | 1): void {
+  setGpuSlot(pairId: string, slot: 0 | 1 | 2): void {
     // Clear old slot assignment
     for (const cached of this.cache.values()) {
       if (cached.gpuSlot === slot) {
@@ -156,18 +158,20 @@ export class TilesetPairScheduler {
 
     if (slot === 0) {
       this.gpuSlot0 = pairId;
-    } else {
+    } else if (slot === 1) {
       this.gpuSlot1 = pairId;
+    } else {
+      this.gpuSlot2 = pairId;
     }
 
-    this.emit({ type: 'gpuSlotsChanged', slot0: this.gpuSlot0, slot1: this.gpuSlot1 });
+    this.emit({ type: 'gpuSlotsChanged', slot0: this.gpuSlot0, slot1: this.gpuSlot1, slot2: this.gpuSlot2 });
   }
 
   /**
    * Get current GPU slot assignments
    */
-  getGpuSlots(): { slot0: string | null; slot1: string | null } {
-    return { slot0: this.gpuSlot0, slot1: this.gpuSlot1 };
+  getGpuSlots(): { slot0: string | null; slot1: string | null; slot2: string | null } {
+    return { slot0: this.gpuSlot0, slot1: this.gpuSlot1, slot2: this.gpuSlot2 };
   }
 
   /**
@@ -186,15 +190,16 @@ export class TilesetPairScheduler {
    * Check if a pair is currently in GPU
    */
   isPairInGpu(pairId: string): boolean {
-    return this.gpuSlot0 === pairId || this.gpuSlot1 === pairId;
+    return this.gpuSlot0 === pairId || this.gpuSlot1 === pairId || this.gpuSlot2 === pairId;
   }
 
   /**
    * Get which GPU slot a pair is in (or null)
    */
-  getGpuSlotForPair(pairId: string): 0 | 1 | null {
+  getGpuSlotForPair(pairId: string): 0 | 1 | 2 | null {
     if (this.gpuSlot0 === pairId) return 0;
     if (this.gpuSlot1 === pairId) return 1;
+    if (this.gpuSlot2 === pairId) return 2;
     return null;
   }
 
@@ -382,7 +387,7 @@ export class TilesetPairScheduler {
     playerTileY: number,
     currentMapPairId: string,
     playerDirection: 'up' | 'down' | 'left' | 'right' | null = null
-  ): Promise<{ needsRebuild: boolean; newSlot0: string | null; newSlot1: string | null }> {
+  ): Promise<{ needsRebuild: boolean; newSlot0: string | null; newSlot1: string | null; newSlot2: string | null }> {
     this.currentFrame++;
 
     let needsRebuild = false;
@@ -446,6 +451,7 @@ export class TilesetPairScheduler {
       needsRebuild,
       newSlot0: this.gpuSlot0,
       newSlot1: this.gpuSlot1,
+      newSlot2: this.gpuSlot2,
     };
   }
 
@@ -500,8 +506,8 @@ export class TilesetPairScheduler {
   /**
    * Clear a GPU slot (when pair is no longer needed)
    */
-  clearGpuSlot(slot: 0 | 1): void {
-    const pairId = slot === 0 ? this.gpuSlot0 : this.gpuSlot1;
+  clearGpuSlot(slot: 0 | 1 | 2): void {
+    const pairId = slot === 0 ? this.gpuSlot0 : slot === 1 ? this.gpuSlot1 : this.gpuSlot2;
     if (pairId) {
       const cached = this.cache.get(pairId);
       if (cached) {
@@ -511,8 +517,10 @@ export class TilesetPairScheduler {
 
     if (slot === 0) {
       this.gpuSlot0 = null;
-    } else {
+    } else if (slot === 1) {
       this.gpuSlot1 = null;
+    } else {
+      this.gpuSlot2 = null;
     }
   }
 
@@ -530,6 +538,7 @@ export class TilesetPairScheduler {
     cacheSize: number;
     gpuSlot0: string | null;
     gpuSlot1: string | null;
+    gpuSlot2: string | null;
     boundaryCount: number;
     loadingCount: number;
   } {
@@ -537,6 +546,7 @@ export class TilesetPairScheduler {
       cacheSize: this.cache.size,
       gpuSlot0: this.gpuSlot0,
       gpuSlot1: this.gpuSlot1,
+      gpuSlot2: this.gpuSlot2,
       boundaryCount: this.boundaries.length,
       loadingCount: this.loadingPairs.size,
     };
@@ -562,6 +572,7 @@ export class TilesetPairScheduler {
     this.boundaries = [];
     this.gpuSlot0 = null;
     this.gpuSlot1 = null;
+    this.gpuSlot2 = null;
     this.loadingPairs.clear();
     this.currentFrame = 0;
     // Note: Keep callbacks and event handlers intact
@@ -575,6 +586,7 @@ export class TilesetPairScheduler {
     this.boundaries = [];
     this.gpuSlot0 = null;
     this.gpuSlot1 = null;
+    this.gpuSlot2 = null;
     this.loadingPairs.clear();
     this.eventHandlers = [];
   }

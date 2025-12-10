@@ -132,8 +132,8 @@ export interface IWebGLMapInstance extends ILoadedMapInstance {
  */
 export interface IWebGLWorldState extends IWorldState {
   maps: IWebGLMapInstance[];
-  /** Maps tileset pair ID to GPU slot (0 or 1) */
-  pairIdToGpuSlot: Map<string, 0 | 1>;
+  /** Maps tileset pair ID to GPU slot (0, 1, or 2) */
+  pairIdToGpuSlot: Map<string, 0 | 1 | 2>;
   /** Border metatiles from the anchor map (used for all out-of-bounds tiles) */
   anchorBorderMetatiles: number[];
 }

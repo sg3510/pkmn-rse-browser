@@ -60,6 +60,12 @@ export class WebGLTileRenderer {
     primaryTileset1: WebGLUniformLocation | null;
     secondaryTileset1: WebGLUniformLocation | null;
     palette1: WebGLUniformLocation | null;
+    // Third tileset pair (for viewing 3+ tilesets)
+    primaryTilesetSize2: WebGLUniformLocation | null;
+    secondaryTilesetSize2: WebGLUniformLocation | null;
+    primaryTileset2: WebGLUniformLocation | null;
+    secondaryTileset2: WebGLUniformLocation | null;
+    palette2: WebGLUniformLocation | null;
   } | null = null;
 
   // Cached attribute locations
@@ -126,6 +132,12 @@ export class WebGLTileRenderer {
       primaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTileset1'),
       secondaryTileset1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset1'),
       palette1: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette1'),
+      // Third tileset pair uniforms
+      primaryTilesetSize2: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTilesetSize2'),
+      secondaryTilesetSize2: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTilesetSize2'),
+      primaryTileset2: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_primaryTileset2'),
+      secondaryTileset2: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_secondaryTileset2'),
+      palette2: this.shaders.getUniformLocation(gl, this.shaderProgram, 'u_palette2'),
     };
   }
 
@@ -175,6 +187,25 @@ export class WebGLTileRenderer {
   }
 
   /**
+   * Upload tileset data for pair 2 (viewing 3+ tilesets)
+   */
+  uploadTilesetPair2(
+    tileset: 'primary' | 'secondary',
+    data: Uint8Array,
+    width: number,
+    height: number
+  ): void {
+    this.textureManager.uploadTilesetPair2(tileset, data, width, height);
+  }
+
+  /**
+   * Upload palette data for pair 2 (viewing 3+ tilesets)
+   */
+  uploadPalettesPair2(palettes: { colors: string[] }[]): void {
+    this.textureManager.uploadPalettesPair2(palettes);
+  }
+
+  /**
    * Render tiles in a single instanced draw call
    *
    * This is the core rendering function. It takes an array of tile instances
@@ -220,7 +251,13 @@ export class WebGLTileRenderer {
     gl.uniform2f(this.uniforms.primaryTilesetSize1, primarySize1.tilesWide, primarySize1.tilesHigh);
     gl.uniform2f(this.uniforms.secondaryTilesetSize1, secondarySize1.tilesWide, secondarySize1.tilesHigh);
 
-    // Bind textures and set texture uniforms (both pairs)
+    // Set pair 2 tileset sizes
+    const primarySize2 = this.textureManager.getTilesetSizePair2('primary');
+    const secondarySize2 = this.textureManager.getTilesetSizePair2('secondary');
+    gl.uniform2f(this.uniforms.primaryTilesetSize2, primarySize2.tilesWide, primarySize2.tilesHigh);
+    gl.uniform2f(this.uniforms.secondaryTilesetSize2, secondarySize2.tilesWide, secondarySize2.tilesHigh);
+
+    // Bind textures and set texture uniforms (all 3 pairs)
     this.textureManager.bindTextures(0, 1, 2);
 
     // Pair 0 texture uniforms
@@ -232,6 +269,11 @@ export class WebGLTileRenderer {
     gl.uniform1i(this.uniforms.primaryTileset1, 3);
     gl.uniform1i(this.uniforms.secondaryTileset1, 4);
     gl.uniform1i(this.uniforms.palette1, 5);
+
+    // Pair 2 texture uniforms (units 6, 7, 8)
+    gl.uniform1i(this.uniforms.primaryTileset2, 6);
+    gl.uniform1i(this.uniforms.secondaryTileset2, 7);
+    gl.uniform1i(this.uniforms.palette2, 8);
 
     // Update instance buffer with tile data
     this.bufferManager.updateInstanceBuffer(tiles);

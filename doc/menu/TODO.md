@@ -231,46 +231,46 @@ Prerequisites for Party Menu and Pokemon-related features.
 - [x] `src/pokemon/stats.ts` - Gender/shiny determination
 - [x] `src/pokemon/icons.ts` - Icon path helpers, type colors
 
-### 4.5.5 Context & State (TODO)
-- [ ] Create `src/contexts/PartyContext.tsx`
+### 4.5.5 Context & State
+- [x] Create `src/contexts/PartyContext.tsx`
 - [ ] Extend `SaveManager` for party persistence
-- [ ] Create test Pokemon for development
+- [x] Create test Pokemon for development (`src/pokemon/testFactory.ts`)
 
 ---
 
 ## Phase 5: Party Menu
 
 ### 5.1 Component Structure
-- [ ] Create `src/menu/components/PartyMenu.tsx`
-- [ ] Create `src/menu/styles/party-menu.css`
-- [ ] 2-column, 3-row grid layout
+- [x] Create `src/menu/components/PartyMenu.tsx`
+- [x] Create `src/menu/styles/party-menu.css`
+- [x] 2-column, 3-row grid layout
 
 ### 5.2 Pokemon Slot Display
-- [ ] Pokemon icon sprite (32x32, animated)
-- [ ] Nickname or species name
-- [ ] Level display "Lv.XX"
-- [ ] Gender symbol (♂/♀)
-- [ ] HP bar with color (green/yellow/red)
-- [ ] HP numbers "XXX/XXX"
-- [ ] Held item icon (if any)
-- [ ] Status condition icon (if any)
+- [x] Pokemon icon sprite (32x32, animated)
+- [x] Nickname or species name
+- [x] Level display "Lv.XX"
+- [x] Gender symbol (♂/♀)
+- [x] HP bar with color (green/yellow/red)
+- [x] HP numbers "XXX/XXX"
+- [x] Held item icon (if any)
+- [x] Status condition icon (if any)
 
 ### 5.3 HP Bar Component
-- [ ] Create reusable `HPBar.tsx`
-- [ ] Animated width transition
-- [ ] Color based on HP %:
-  - [ ] Green: > 50%
-  - [ ] Yellow: 20-50%
-  - [ ] Red: < 20%
+- [x] Create reusable `HPBar.tsx`
+- [x] Animated width transition
+- [x] Color based on HP %:
+  - [x] Green: > 50%
+  - [x] Yellow: 20-50%
+  - [x] Red: < 20%
 
 ### 5.4 Empty Slots
-- [ ] Show empty slot placeholder
-- [ ] Non-selectable
+- [x] Show empty slot placeholder
+- [x] Non-selectable
 
 ### 5.5 Slot Selection
-- [ ] Grid navigation (2x3)
-- [ ] Selection highlight/animation
-- [ ] Click to select
+- [x] Grid navigation (2x3)
+- [x] Selection highlight/animation
+- [x] Click to select
 - [ ] Enter to open Pokemon submenu
 
 ### 5.6 Pokemon Submenu
@@ -280,10 +280,10 @@ Prerequisites for Party Menu and Pokemon-related features.
 - [ ] CANCEL option
 
 ### 5.7 Swap Mode
-- [ ] Select first Pokemon
-- [ ] Visual indicator "swap target"
-- [ ] Select second to swap
-- [ ] Cancel with B
+- [x] Select first Pokemon
+- [x] Visual indicator "swap target"
+- [x] Select second to swap
+- [x] Cancel with B
 
 ---
 
@@ -421,14 +421,14 @@ Prerequisites for Party Menu and Pokemon-related features.
 | 2. Start Menu | Complete | 24/24 |
 | 3. Trainer Card | Not Started | 0/23 |
 | 4. Bag Menu | Complete | 28/28 |
-| 4.5 Pokemon Data | **Complete** | **17/20** |
-| 5. Party Menu | Not Started | 0/22 |
+| 4.5 Pokemon Data | **Complete** | **19/20** |
+| 5. Party Menu | **In Progress** | **18/22** |
 | 6. Summary Screen | Not Started | 0/19 |
 | 7. Options Menu | Not Started | 0/8 |
 | 8. Save Menu | Not Started | 0/7 |
 | 9. Polish | Not Started | 0/10 |
 | Assets | Partial | ~5/10 |
-| **Total** | **~45%** | **~84/197** |
+| **Total** | **~52%** | **~104/197** |
 
 ---
 

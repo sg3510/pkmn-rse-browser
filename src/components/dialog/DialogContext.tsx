@@ -116,12 +116,15 @@ interface DialogProviderProps {
   children: React.ReactNode;
   config?: Partial<DialogConfig>;
   zoom?: number;
+  /** Viewport dimensions in pixels (for responsive menus) */
+  viewport?: { width: number; height: number };
 }
 
 export const DialogProvider: React.FC<DialogProviderProps> = ({
   children,
   config: configOverrides,
   zoom = 1,
+  viewport = { width: 240, height: 160 },
 }) => {
   const config: DialogConfig = { ...DEFAULT_CONFIG, ...configOverrides };
 
@@ -222,6 +225,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     options: optionsRef.current,
     config,
     zoom,
+    viewport,
     dispatch,
     setResolve,
     getResolve,

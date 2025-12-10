@@ -514,6 +514,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
           pipeline,
           spriteRenderer,
           fadeRenderer: renderers.fadeRenderer as any,
+          scanlineRenderer: null, // Scanlines only used in GamePage when menu is open
           ctx2d,
           webglCanvas,
           view,

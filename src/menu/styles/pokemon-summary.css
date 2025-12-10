@@ -1,0 +1,414 @@
+/**
+ * Pokemon Summary Screen Styles
+ */
+
+.summary-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  animation: summary-fade-in 150ms ease-out;
+}
+
+@keyframes summary-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.summary-container {
+  position: relative;
+  width: 200px;
+  background: linear-gradient(180deg, #386890 0%, #284860 100%);
+  border: 3px solid #f8f8f8;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transform-origin: center;
+  animation: summary-scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes summary-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Header */
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.summary-tab {
+  padding: 2px 6px;
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.summary-tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.summary-tab.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.summary-close {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  font-size: 9px;
+  color: #fff;
+  background: rgba(248, 88, 136, 0.8);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.summary-close:hover {
+  background: #f85888;
+  transform: scale(1.1);
+}
+
+/* Identity bar */
+.summary-identity {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-name {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  text-transform: uppercase;
+}
+
+.summary-gender {
+  font-size: 9px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.summary-level {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 7px;
+  color: #f8d030;
+  text-shadow: 1px 1px 0 #000;
+  margin-left: auto;
+}
+
+.summary-types {
+  display: flex;
+  gap: 2px;
+}
+
+.summary-type-badge {
+  padding: 1px 3px;
+  font-family: 'Pokemon GB', monospace;
+  font-size: 5px;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* Content area */
+.summary-content {
+  padding: 6px;
+  min-height: 100px;
+}
+
+/* Page dots */
+.summary-page-dots {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+}
+
+.summary-dot {
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.summary-dot.active {
+  background: #fff;
+  transform: scale(1.2);
+}
+
+/* Navigation hint */
+.summary-hint {
+  padding: 3px 6px;
+  font-family: 'Pokemon GB', monospace;
+  font-size: 5px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   INFO Page
+   ============================================ */
+
+.summary-info-page {
+  display: flex;
+  gap: 8px;
+}
+
+.summary-sprite-container {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.summary-sprite {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.summary-info-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1px 0;
+}
+
+.summary-label {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.summary-value {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ============================================
+   STATS Page
+   ============================================ */
+
+.summary-stats-page {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.summary-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.summary-stat-name {
+  width: 32px;
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.summary-stat-name.nature-plus {
+  color: #f85888;
+}
+
+.summary-stat-name.nature-minus {
+  color: #6890f0;
+}
+
+.summary-stat-bar-container {
+  flex: 1;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.summary-stat-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #48d048 0%, #78f878 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.summary-stat-value {
+  width: 22px;
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: #fff;
+  text-align: right;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* EXP section */
+.summary-exp-section {
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.summary-exp-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.summary-exp-bar-container {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+.summary-exp-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #58a8f8 0%, #88c8ff 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ============================================
+   MOVES Page
+   ============================================ */
+
+.summary-moves-page {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-moves-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-move-slot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.summary-move-slot:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.summary-move-slot.selected {
+  background: rgba(99, 179, 237, 0.3);
+  border-color: #63b3ed;
+}
+
+.summary-move-slot.empty {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.summary-move-name {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  text-transform: uppercase;
+}
+
+.summary-move-pp {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.summary-move-empty {
+  font-family: 'Pokemon GB', monospace;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Move details panel */
+.summary-move-details {
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.summary-move-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.summary-move-description {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: 'Pokemon GB', monospace;
+  font-size: 5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+}
