@@ -3,10 +3,11 @@
  *
  * Auto-generated from pokeemerald source:
  *   - public/pokeemerald/include/constants/abilities.h
+ *   - public/pokeemerald/src/data/text/abilities.h
  *
  * DO NOT EDIT MANUALLY - regenerate with: npm run generate:abilities
  *
- * Generated: 2025-12-05T17:23:51.285Z
+ * Generated: 2025-12-10T14:51:25.600Z
  */
 
 // Ability ID constants
@@ -178,9 +179,98 @@ export const ABILITY_NAMES: Record<number, string> = {
   77: "Air Lock",
 };
 
+// Ability descriptions (index by ability ID)
+export const ABILITY_DESCRIPTIONS: Record<number, string> = {
+  0: "No special ability.",
+  1: "Helps repel wild POKéMON.",
+  2: "Summons rain in battle.",
+  3: "Gradually boosts SPEED.",
+  4: "Blocks critical hits.",
+  5: "Negates 1-hit KO attacks.",
+  6: "Prevents self-destruction.",
+  7: "Prevents paralysis.",
+  8: "Ups evasion in a sandstorm.",
+  9: "Paralyzes on contact.",
+  10: "Turns electricity into HP.",
+  11: "Changes water into HP.",
+  12: "Prevents attraction.",
+  13: "Negates weather effects.",
+  14: "Raises accuracy.",
+  15: "Prevents sleep.",
+  16: "Changes type to foe's move.",
+  17: "Prevents poisoning.",
+  18: "Powers up if hit by fire.",
+  19: "Prevents added effects.",
+  20: "Prevents confusion.",
+  21: "Firmly anchors the body.",
+  22: "Lowers the foe's ATTACK.",
+  23: "Prevents the foe's escape.",
+  24: "Hurts to touch.",
+  25: "“Super effective” hits.",
+  26: "Not hit by GROUND attacks.",
+  27: "Leaves spores on contact.",
+  28: "Passes on status problems.",
+  29: "Prevents ability reduction.",
+  30: "Heals upon switching out.",
+  31: "Draws electrical moves.",
+  32: "Promotes added effects.",
+  33: "Raises SPEED in rain.",
+  34: "Raises SPEED in sunshine.",
+  35: "Encounter rate increases.",
+  36: "Copies special ability.",
+  37: "Raises ATTACK.",
+  38: "Poisons foe on contact.",
+  39: "Prevents flinching.",
+  40: "Prevents freezing.",
+  41: "Prevents burns.",
+  42: "Traps STEEL-type POKéMON.",
+  43: "Avoids sound-based moves.",
+  44: "Slight HP recovery in rain.",
+  45: "Summons a sandstorm.",
+  46: "Raises foe's PP usage.",
+  47: "Heat-and-cold protection.",
+  48: "Awakens quickly from sleep.",
+  49: "Burns the foe on contact.",
+  50: "Makes escaping easier.",
+  51: "Prevents loss of accuracy.",
+  52: "Prevents ATTACK reduction.",
+  53: "May pick up items.",
+  54: "Moves only every two turns.",
+  55: "Trades accuracy for power.",
+  56: "Infatuates on contact.",
+  57: "Powers up with MINUS.",
+  58: "Powers up with PLUS.",
+  59: "Changes with the weather.",
+  60: "Prevents item theft.",
+  61: "Heals the body by shedding.",
+  62: "Ups ATTACK if suffering.",
+  63: "Ups DEFENSE if suffering.",
+  64: "Draining causes injury.",
+  65: "Ups GRASS moves in a pinch.",
+  66: "Ups FIRE moves in a pinch.",
+  67: "Ups WATER moves in a pinch.",
+  68: "Ups BUG moves in a pinch.",
+  69: "Prevents recoil damage.",
+  70: "Summons sunlight in battle.",
+  71: "Prevents fleeing.",
+  72: "Prevents sleep.",
+  73: "Prevents ability reduction.",
+  74: "Raises ATTACK.",
+  75: "Blocks critical hits.",
+  76: "Avoids sound-based moves.",
+  77: "Negates weather effects.",
+};
+
 /**
  * Get ability display name
  */
 export function getAbilityName(abilityId: number): string {
   return ABILITY_NAMES[abilityId] ?? '---';
+}
+
+/**
+ * Get ability description
+ */
+export function getAbilityDescription(abilityId: number): string {
+  return ABILITY_DESCRIPTIONS[abilityId] ?? '';
 }

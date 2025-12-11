@@ -6,7 +6,7 @@
  *
  * DO NOT EDIT MANUALLY - regenerate with: npm run generate:species-info
  *
- * Generated: 2025-12-05T17:25:57.912Z
+ * Generated: 2025-12-10T15:19:14.692Z
  */
 
 export interface SpeciesInfo {
@@ -31,7 +31,7 @@ export interface SpeciesInfo {
   eggCycles: number;
   friendship: number;
   growthRate: string;
-  abilities: [string, string];
+  abilities: [number, number];  // Ability IDs (not names)
 }
 
 export const SPECIES_INFO: Record<number, SpeciesInfo> = {
@@ -50,7 +50,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   2: {
     baseHP: 60,
@@ -67,7 +67,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   3: {
     baseHP: 80,
@@ -84,7 +84,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   4: {
     baseHP: 39,
@@ -101,7 +101,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   5: {
     baseHP: 58,
@@ -118,7 +118,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   6: {
     baseHP: 78,
@@ -135,7 +135,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   7: {
     baseHP: 44,
@@ -152,7 +152,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   8: {
     baseHP: 59,
@@ -169,7 +169,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   9: {
     baseHP: 79,
@@ -186,7 +186,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   10: {
     baseHP: 45,
@@ -203,7 +203,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHIELD_DUST", "NONE"],
+    abilities: [19, 0],
   },
   11: {
     baseHP: 50,
@@ -220,7 +220,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   12: {
     baseHP: 60,
@@ -237,7 +237,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["COMPOUND_EYES", "NONE"],
+    abilities: [14, 0],
   },
   13: {
     baseHP: 40,
@@ -254,7 +254,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHIELD_DUST", "NONE"],
+    abilities: [19, 0],
   },
   14: {
     baseHP: 45,
@@ -271,7 +271,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   15: {
     baseHP: 65,
@@ -288,7 +288,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWARM", "NONE"],
+    abilities: [68, 0],
   },
   16: {
     baseHP: 40,
@@ -305,7 +305,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   17: {
     baseHP: 63,
@@ -322,7 +322,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   18: {
     baseHP: 83,
@@ -339,7 +339,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   19: {
     baseHP: 30,
@@ -356,7 +356,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "GUTS"],
+    abilities: [50, 62],
   },
   20: {
     baseHP: 55,
@@ -373,7 +373,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "GUTS"],
+    abilities: [50, 62],
   },
   21: {
     baseHP: 40,
@@ -390,7 +390,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   22: {
     baseHP: 65,
@@ -407,7 +407,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   23: {
     baseHP: 35,
@@ -424,7 +424,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INTIMIDATE", "SHED_SKIN"],
+    abilities: [22, 61],
   },
   24: {
     baseHP: 60,
@@ -441,7 +441,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INTIMIDATE", "SHED_SKIN"],
+    abilities: [22, 61],
   },
   25: {
     baseHP: 35,
@@ -458,7 +458,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   26: {
     baseHP: 60,
@@ -475,7 +475,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   27: {
     baseHP: 50,
@@ -492,7 +492,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SAND_VEIL", "NONE"],
+    abilities: [8, 0],
   },
   28: {
     baseHP: 75,
@@ -509,7 +509,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SAND_VEIL", "NONE"],
+    abilities: [8, 0],
   },
   29: {
     baseHP: 55,
@@ -526,7 +526,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   30: {
     baseHP: 70,
@@ -543,7 +543,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   31: {
     baseHP: 90,
@@ -560,7 +560,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   32: {
     baseHP: 46,
@@ -577,7 +577,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   33: {
     baseHP: 61,
@@ -594,7 +594,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   34: {
     baseHP: 81,
@@ -611,7 +611,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   35: {
     baseHP: 70,
@@ -628,7 +628,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 140,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   36: {
     baseHP: 95,
@@ -645,7 +645,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 140,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   37: {
     baseHP: 38,
@@ -662,7 +662,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FLASH_FIRE", "NONE"],
+    abilities: [18, 0],
   },
   38: {
     baseHP: 73,
@@ -679,7 +679,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FLASH_FIRE", "NONE"],
+    abilities: [18, 0],
   },
   39: {
     baseHP: 115,
@@ -696,7 +696,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   40: {
     baseHP: 140,
@@ -713,7 +713,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   41: {
     baseHP: 40,
@@ -730,7 +730,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   42: {
     baseHP: 75,
@@ -747,7 +747,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   43: {
     baseHP: 45,
@@ -764,7 +764,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   44: {
     baseHP: 60,
@@ -781,7 +781,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   45: {
     baseHP: 75,
@@ -798,7 +798,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   46: {
     baseHP: 35,
@@ -815,7 +815,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["EFFECT_SPORE", "NONE"],
+    abilities: [27, 0],
   },
   47: {
     baseHP: 60,
@@ -832,7 +832,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["EFFECT_SPORE", "NONE"],
+    abilities: [27, 0],
   },
   48: {
     baseHP: 60,
@@ -849,7 +849,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["COMPOUND_EYES", "NONE"],
+    abilities: [14, 0],
   },
   49: {
     baseHP: 70,
@@ -866,7 +866,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHIELD_DUST", "NONE"],
+    abilities: [19, 0],
   },
   50: {
     baseHP: 10,
@@ -883,7 +883,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SAND_VEIL", "ARENA_TRAP"],
+    abilities: [8, 71],
   },
   51: {
     baseHP: 35,
@@ -900,7 +900,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SAND_VEIL", "ARENA_TRAP"],
+    abilities: [8, 71],
   },
   52: {
     baseHP: 40,
@@ -917,7 +917,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PICKUP", "NONE"],
+    abilities: [53, 0],
   },
   53: {
     baseHP: 65,
@@ -934,7 +934,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LIMBER", "NONE"],
+    abilities: [7, 0],
   },
   54: {
     baseHP: 50,
@@ -951,7 +951,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["DAMP", "CLOUD_NINE"],
+    abilities: [6, 13],
   },
   55: {
     baseHP: 80,
@@ -968,7 +968,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["DAMP", "CLOUD_NINE"],
+    abilities: [6, 13],
   },
   56: {
     baseHP: 40,
@@ -985,7 +985,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["VITAL_SPIRIT", "NONE"],
+    abilities: [72, 0],
   },
   57: {
     baseHP: 65,
@@ -1002,7 +1002,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["VITAL_SPIRIT", "NONE"],
+    abilities: [72, 0],
   },
   58: {
     baseHP: 55,
@@ -1019,7 +1019,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "FLASH_FIRE"],
+    abilities: [22, 18],
   },
   59: {
     baseHP: 90,
@@ -1036,7 +1036,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "FLASH_FIRE"],
+    abilities: [22, 18],
   },
   60: {
     baseHP: 40,
@@ -1053,7 +1053,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["WATER_ABSORB", "DAMP"],
+    abilities: [11, 6],
   },
   61: {
     baseHP: 65,
@@ -1070,7 +1070,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["WATER_ABSORB", "DAMP"],
+    abilities: [11, 6],
   },
   62: {
     baseHP: 90,
@@ -1087,7 +1087,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["WATER_ABSORB", "DAMP"],
+    abilities: [11, 6],
   },
   63: {
     baseHP: 25,
@@ -1104,7 +1104,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SYNCHRONIZE", "INNER_FOCUS"],
+    abilities: [28, 39],
   },
   64: {
     baseHP: 40,
@@ -1121,7 +1121,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SYNCHRONIZE", "INNER_FOCUS"],
+    abilities: [28, 39],
   },
   65: {
     baseHP: 55,
@@ -1138,7 +1138,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SYNCHRONIZE", "INNER_FOCUS"],
+    abilities: [28, 39],
   },
   66: {
     baseHP: 70,
@@ -1155,7 +1155,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   67: {
     baseHP: 80,
@@ -1172,7 +1172,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   68: {
     baseHP: 90,
@@ -1189,7 +1189,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   69: {
     baseHP: 50,
@@ -1206,7 +1206,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   70: {
     baseHP: 65,
@@ -1223,7 +1223,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   71: {
     baseHP: 80,
@@ -1240,7 +1240,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   72: {
     baseHP: 40,
@@ -1257,7 +1257,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "LIQUID_OOZE"],
+    abilities: [29, 64],
   },
   73: {
     baseHP: 80,
@@ -1274,7 +1274,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "LIQUID_OOZE"],
+    abilities: [29, 64],
   },
   74: {
     baseHP: 40,
@@ -1291,7 +1291,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["ROCK_HEAD", "STURDY"],
+    abilities: [69, 5],
   },
   75: {
     baseHP: 55,
@@ -1308,7 +1308,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["ROCK_HEAD", "STURDY"],
+    abilities: [69, 5],
   },
   76: {
     baseHP: 80,
@@ -1325,7 +1325,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["ROCK_HEAD", "STURDY"],
+    abilities: [69, 5],
   },
   77: {
     baseHP: 50,
@@ -1342,7 +1342,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "FLASH_FIRE"],
+    abilities: [50, 18],
   },
   78: {
     baseHP: 65,
@@ -1359,7 +1359,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "FLASH_FIRE"],
+    abilities: [50, 18],
   },
   79: {
     baseHP: 90,
@@ -1376,7 +1376,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "OWN_TEMPO"],
+    abilities: [12, 20],
   },
   80: {
     baseHP: 95,
@@ -1393,7 +1393,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "OWN_TEMPO"],
+    abilities: [12, 20],
   },
   81: {
     baseHP: 25,
@@ -1410,7 +1410,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MAGNET_PULL", "STURDY"],
+    abilities: [42, 5],
   },
   82: {
     baseHP: 50,
@@ -1427,7 +1427,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MAGNET_PULL", "STURDY"],
+    abilities: [42, 5],
   },
   83: {
     baseHP: 52,
@@ -1444,7 +1444,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "INNER_FOCUS"],
+    abilities: [51, 39],
   },
   84: {
     baseHP: 35,
@@ -1461,7 +1461,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "EARLY_BIRD"],
+    abilities: [50, 48],
   },
   85: {
     baseHP: 60,
@@ -1478,7 +1478,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "EARLY_BIRD"],
+    abilities: [50, 48],
   },
   86: {
     baseHP: 65,
@@ -1495,7 +1495,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   87: {
     baseHP: 90,
@@ -1512,7 +1512,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   88: {
     baseHP: 80,
@@ -1529,7 +1529,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STENCH", "STICKY_HOLD"],
+    abilities: [1, 60],
   },
   89: {
     baseHP: 105,
@@ -1546,7 +1546,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STENCH", "STICKY_HOLD"],
+    abilities: [1, 60],
   },
   90: {
     baseHP: 30,
@@ -1563,7 +1563,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SHELL_ARMOR", "NONE"],
+    abilities: [75, 0],
   },
   91: {
     baseHP: 50,
@@ -1580,7 +1580,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SHELL_ARMOR", "NONE"],
+    abilities: [75, 0],
   },
   92: {
     baseHP: 30,
@@ -1597,7 +1597,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   93: {
     baseHP: 45,
@@ -1614,7 +1614,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   94: {
     baseHP: 60,
@@ -1631,7 +1631,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   95: {
     baseHP: 35,
@@ -1648,7 +1648,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["ROCK_HEAD", "STURDY"],
+    abilities: [69, 5],
   },
   96: {
     baseHP: 60,
@@ -1665,7 +1665,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INSOMNIA", "NONE"],
+    abilities: [15, 0],
   },
   97: {
     baseHP: 85,
@@ -1682,7 +1682,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INSOMNIA", "NONE"],
+    abilities: [15, 0],
   },
   98: {
     baseHP: 30,
@@ -1699,7 +1699,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["HYPER_CUTTER", "SHELL_ARMOR"],
+    abilities: [52, 75],
   },
   99: {
     baseHP: 55,
@@ -1716,7 +1716,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["HYPER_CUTTER", "SHELL_ARMOR"],
+    abilities: [52, 75],
   },
   100: {
     baseHP: 40,
@@ -1733,7 +1733,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SOUNDPROOF", "STATIC"],
+    abilities: [43, 9],
   },
   101: {
     baseHP: 60,
@@ -1750,7 +1750,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SOUNDPROOF", "STATIC"],
+    abilities: [43, 9],
   },
   102: {
     baseHP: 60,
@@ -1767,7 +1767,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   103: {
     baseHP: 95,
@@ -1784,7 +1784,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   104: {
     baseHP: 50,
@@ -1801,7 +1801,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["ROCK_HEAD", "LIGHTNING_ROD"],
+    abilities: [69, 31],
   },
   105: {
     baseHP: 60,
@@ -1818,7 +1818,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["ROCK_HEAD", "LIGHTNING_ROD"],
+    abilities: [69, 31],
   },
   106: {
     baseHP: 50,
@@ -1835,7 +1835,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LIMBER", "NONE"],
+    abilities: [7, 0],
   },
   107: {
     baseHP: 50,
@@ -1852,7 +1852,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   108: {
     baseHP: 90,
@@ -1869,7 +1869,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OWN_TEMPO", "OBLIVIOUS"],
+    abilities: [20, 12],
   },
   109: {
     baseHP: 40,
@@ -1886,7 +1886,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   110: {
     baseHP: 65,
@@ -1903,7 +1903,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   111: {
     baseHP: 80,
@@ -1920,7 +1920,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["LIGHTNING_ROD", "ROCK_HEAD"],
+    abilities: [31, 69],
   },
   112: {
     baseHP: 105,
@@ -1937,7 +1937,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["LIGHTNING_ROD", "ROCK_HEAD"],
+    abilities: [31, 69],
   },
   113: {
     baseHP: 250,
@@ -1954,7 +1954,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 140,
     growthRate: "FAST",
-    abilities: ["NATURAL_CURE", "SERENE_GRACE"],
+    abilities: [30, 32],
   },
   114: {
     baseHP: 65,
@@ -1971,7 +1971,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   115: {
     baseHP: 105,
@@ -1988,7 +1988,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["EARLY_BIRD", "NONE"],
+    abilities: [48, 0],
   },
   116: {
     baseHP: 30,
@@ -2005,7 +2005,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   117: {
     baseHP: 55,
@@ -2022,7 +2022,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["POISON_POINT", "NONE"],
+    abilities: [38, 0],
   },
   118: {
     baseHP: 45,
@@ -2039,7 +2039,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "WATER_VEIL"],
+    abilities: [33, 41],
   },
   119: {
     baseHP: 80,
@@ -2056,7 +2056,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "WATER_VEIL"],
+    abilities: [33, 41],
   },
   120: {
     baseHP: 30,
@@ -2073,7 +2073,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["ILLUMINATE", "NATURAL_CURE"],
+    abilities: [35, 30],
   },
   121: {
     baseHP: 60,
@@ -2090,7 +2090,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["ILLUMINATE", "NATURAL_CURE"],
+    abilities: [35, 30],
   },
   122: {
     baseHP: 40,
@@ -2107,7 +2107,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SOUNDPROOF", "NONE"],
+    abilities: [43, 0],
   },
   123: {
     baseHP: 70,
@@ -2124,7 +2124,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWARM", "NONE"],
+    abilities: [68, 0],
   },
   124: {
     baseHP: 65,
@@ -2141,7 +2141,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   125: {
     baseHP: 65,
@@ -2158,7 +2158,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   126: {
     baseHP: 65,
@@ -2175,7 +2175,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FLAME_BODY", "NONE"],
+    abilities: [49, 0],
   },
   127: {
     baseHP: 65,
@@ -2192,7 +2192,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["HYPER_CUTTER", "NONE"],
+    abilities: [52, 0],
   },
   128: {
     baseHP: 75,
@@ -2209,7 +2209,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   129: {
     baseHP: 20,
@@ -2226,7 +2226,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 5,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   130: {
     baseHP: 95,
@@ -2243,7 +2243,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 5,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   131: {
     baseHP: 130,
@@ -2260,7 +2260,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["WATER_ABSORB", "SHELL_ARMOR"],
+    abilities: [11, 75],
   },
   132: {
     baseHP: 48,
@@ -2277,7 +2277,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LIMBER", "NONE"],
+    abilities: [7, 0],
   },
   133: {
     baseHP: 55,
@@ -2294,7 +2294,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "NONE"],
+    abilities: [50, 0],
   },
   134: {
     baseHP: 130,
@@ -2311,7 +2311,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["WATER_ABSORB", "NONE"],
+    abilities: [11, 0],
   },
   135: {
     baseHP: 65,
@@ -2328,7 +2328,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["VOLT_ABSORB", "NONE"],
+    abilities: [10, 0],
   },
   136: {
     baseHP: 65,
@@ -2345,7 +2345,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FLASH_FIRE", "NONE"],
+    abilities: [18, 0],
   },
   137: {
     baseHP: 65,
@@ -2362,7 +2362,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["TRACE", "NONE"],
+    abilities: [36, 0],
   },
   138: {
     baseHP: 35,
@@ -2379,7 +2379,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "SHELL_ARMOR"],
+    abilities: [33, 75],
   },
   139: {
     baseHP: 70,
@@ -2396,7 +2396,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "SHELL_ARMOR"],
+    abilities: [33, 75],
   },
   140: {
     baseHP: 30,
@@ -2413,7 +2413,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "BATTLE_ARMOR"],
+    abilities: [33, 4],
   },
   141: {
     baseHP: 60,
@@ -2430,7 +2430,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "BATTLE_ARMOR"],
+    abilities: [33, 4],
   },
   142: {
     baseHP: 80,
@@ -2447,7 +2447,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["ROCK_HEAD", "PRESSURE"],
+    abilities: [69, 46],
   },
   143: {
     baseHP: 160,
@@ -2464,7 +2464,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["IMMUNITY", "THICK_FAT"],
+    abilities: [17, 47],
   },
   144: {
     baseHP: 90,
@@ -2481,7 +2481,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   145: {
     baseHP: 90,
@@ -2498,7 +2498,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   146: {
     baseHP: 90,
@@ -2515,7 +2515,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   147: {
     baseHP: 41,
@@ -2532,7 +2532,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   148: {
     baseHP: 61,
@@ -2549,7 +2549,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   149: {
     baseHP: 91,
@@ -2566,7 +2566,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   150: {
     baseHP: 106,
@@ -2583,7 +2583,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   151: {
     baseHP: 100,
@@ -2600,7 +2600,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 100,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SYNCHRONIZE", "NONE"],
+    abilities: [28, 0],
   },
   152: {
     baseHP: 45,
@@ -2617,7 +2617,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   153: {
     baseHP: 60,
@@ -2634,7 +2634,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   154: {
     baseHP: 80,
@@ -2651,7 +2651,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   155: {
     baseHP: 39,
@@ -2668,7 +2668,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   156: {
     baseHP: 58,
@@ -2685,7 +2685,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   157: {
     baseHP: 78,
@@ -2702,7 +2702,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   158: {
     baseHP: 50,
@@ -2719,7 +2719,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   159: {
     baseHP: 65,
@@ -2736,7 +2736,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   160: {
     baseHP: 85,
@@ -2753,7 +2753,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   161: {
     baseHP: 35,
@@ -2770,7 +2770,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "KEEN_EYE"],
+    abilities: [50, 51],
   },
   162: {
     baseHP: 85,
@@ -2787,7 +2787,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "KEEN_EYE"],
+    abilities: [50, 51],
   },
   163: {
     baseHP: 60,
@@ -2804,7 +2804,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INSOMNIA", "KEEN_EYE"],
+    abilities: [15, 51],
   },
   164: {
     baseHP: 100,
@@ -2821,7 +2821,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INSOMNIA", "KEEN_EYE"],
+    abilities: [15, 51],
   },
   165: {
     baseHP: 40,
@@ -2838,7 +2838,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["SWARM", "EARLY_BIRD"],
+    abilities: [68, 48],
   },
   166: {
     baseHP: 55,
@@ -2855,7 +2855,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["SWARM", "EARLY_BIRD"],
+    abilities: [68, 48],
   },
   167: {
     baseHP: 40,
@@ -2872,7 +2872,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["SWARM", "INSOMNIA"],
+    abilities: [68, 15],
   },
   168: {
     baseHP: 70,
@@ -2889,7 +2889,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["SWARM", "INSOMNIA"],
+    abilities: [68, 15],
   },
   169: {
     baseHP: 85,
@@ -2906,7 +2906,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   170: {
     baseHP: 75,
@@ -2923,7 +2923,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["VOLT_ABSORB", "ILLUMINATE"],
+    abilities: [10, 35],
   },
   171: {
     baseHP: 125,
@@ -2940,7 +2940,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["VOLT_ABSORB", "ILLUMINATE"],
+    abilities: [10, 35],
   },
   172: {
     baseHP: 20,
@@ -2957,7 +2957,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   173: {
     baseHP: 50,
@@ -2974,7 +2974,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 140,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   174: {
     baseHP: 90,
@@ -2991,7 +2991,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   175: {
     baseHP: 35,
@@ -3008,7 +3008,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["HUSTLE", "SERENE_GRACE"],
+    abilities: [55, 32],
   },
   176: {
     baseHP: 55,
@@ -3025,7 +3025,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["HUSTLE", "SERENE_GRACE"],
+    abilities: [55, 32],
   },
   177: {
     baseHP: 40,
@@ -3042,7 +3042,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SYNCHRONIZE", "EARLY_BIRD"],
+    abilities: [28, 48],
   },
   178: {
     baseHP: 65,
@@ -3059,7 +3059,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SYNCHRONIZE", "EARLY_BIRD"],
+    abilities: [28, 48],
   },
   179: {
     baseHP: 55,
@@ -3076,7 +3076,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   180: {
     baseHP: 70,
@@ -3093,7 +3093,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   181: {
     baseHP: 90,
@@ -3110,7 +3110,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   182: {
     baseHP: 75,
@@ -3127,7 +3127,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   183: {
     baseHP: 70,
@@ -3144,7 +3144,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["THICK_FAT", "HUGE_POWER"],
+    abilities: [47, 37],
   },
   184: {
     baseHP: 100,
@@ -3161,7 +3161,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["THICK_FAT", "HUGE_POWER"],
+    abilities: [47, 37],
   },
   185: {
     baseHP: 70,
@@ -3178,7 +3178,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STURDY", "ROCK_HEAD"],
+    abilities: [5, 69],
   },
   186: {
     baseHP: 90,
@@ -3195,7 +3195,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["WATER_ABSORB", "DAMP"],
+    abilities: [11, 6],
   },
   187: {
     baseHP: 35,
@@ -3212,7 +3212,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   188: {
     baseHP: 55,
@@ -3229,7 +3229,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   189: {
     baseHP: 75,
@@ -3246,7 +3246,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   190: {
     baseHP: 55,
@@ -3263,7 +3263,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["RUN_AWAY", "PICKUP"],
+    abilities: [50, 53],
   },
   191: {
     baseHP: 30,
@@ -3280,7 +3280,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   192: {
     baseHP: 75,
@@ -3297,7 +3297,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   193: {
     baseHP: 65,
@@ -3314,7 +3314,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SPEED_BOOST", "COMPOUND_EYES"],
+    abilities: [3, 14],
   },
   194: {
     baseHP: 55,
@@ -3331,7 +3331,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["DAMP", "WATER_ABSORB"],
+    abilities: [6, 11],
   },
   195: {
     baseHP: 95,
@@ -3348,7 +3348,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["DAMP", "WATER_ABSORB"],
+    abilities: [6, 11],
   },
   196: {
     baseHP: 65,
@@ -3365,7 +3365,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SYNCHRONIZE", "NONE"],
+    abilities: [28, 0],
   },
   197: {
     baseHP: 95,
@@ -3382,7 +3382,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 35,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SYNCHRONIZE", "NONE"],
+    abilities: [28, 0],
   },
   198: {
     baseHP: 60,
@@ -3399,7 +3399,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["INSOMNIA", "NONE"],
+    abilities: [15, 0],
   },
   199: {
     baseHP: 95,
@@ -3416,7 +3416,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "OWN_TEMPO"],
+    abilities: [12, 20],
   },
   200: {
     baseHP: 60,
@@ -3433,7 +3433,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   201: {
     baseHP: 48,
@@ -3450,7 +3450,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   202: {
     baseHP: 190,
@@ -3467,7 +3467,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHADOW_TAG", "NONE"],
+    abilities: [23, 0],
   },
   203: {
     baseHP: 70,
@@ -3484,7 +3484,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "EARLY_BIRD"],
+    abilities: [39, 48],
   },
   204: {
     baseHP: 50,
@@ -3501,7 +3501,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STURDY", "NONE"],
+    abilities: [5, 0],
   },
   205: {
     baseHP: 75,
@@ -3518,7 +3518,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STURDY", "NONE"],
+    abilities: [5, 0],
   },
   206: {
     baseHP: 100,
@@ -3535,7 +3535,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SERENE_GRACE", "RUN_AWAY"],
+    abilities: [32, 50],
   },
   207: {
     baseHP: 65,
@@ -3552,7 +3552,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["HYPER_CUTTER", "SAND_VEIL"],
+    abilities: [52, 8],
   },
   208: {
     baseHP: 75,
@@ -3569,7 +3569,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["ROCK_HEAD", "STURDY"],
+    abilities: [69, 5],
   },
   209: {
     baseHP: 60,
@@ -3586,7 +3586,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["INTIMIDATE", "RUN_AWAY"],
+    abilities: [22, 50],
   },
   210: {
     baseHP: 90,
@@ -3603,7 +3603,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["INTIMIDATE", "INTIMIDATE"],
+    abilities: [22, 22],
   },
   211: {
     baseHP: 65,
@@ -3620,7 +3620,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["POISON_POINT", "SWIFT_SWIM"],
+    abilities: [38, 33],
   },
   212: {
     baseHP: 70,
@@ -3637,7 +3637,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWARM", "NONE"],
+    abilities: [68, 0],
   },
   213: {
     baseHP: 20,
@@ -3654,7 +3654,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["STURDY", "NONE"],
+    abilities: [5, 0],
   },
   214: {
     baseHP: 80,
@@ -3671,7 +3671,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SWARM", "GUTS"],
+    abilities: [68, 62],
   },
   215: {
     baseHP: 55,
@@ -3688,7 +3688,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["INNER_FOCUS", "KEEN_EYE"],
+    abilities: [39, 51],
   },
   216: {
     baseHP: 60,
@@ -3705,7 +3705,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PICKUP", "NONE"],
+    abilities: [53, 0],
   },
   217: {
     baseHP: 90,
@@ -3722,7 +3722,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   218: {
     baseHP: 40,
@@ -3739,7 +3739,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MAGMA_ARMOR", "FLAME_BODY"],
+    abilities: [40, 49],
   },
   219: {
     baseHP: 50,
@@ -3756,7 +3756,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MAGMA_ARMOR", "FLAME_BODY"],
+    abilities: [40, 49],
   },
   220: {
     baseHP: 50,
@@ -3773,7 +3773,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   221: {
     baseHP: 100,
@@ -3790,7 +3790,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   222: {
     baseHP: 55,
@@ -3807,7 +3807,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["HUSTLE", "NATURAL_CURE"],
+    abilities: [55, 30],
   },
   223: {
     baseHP: 35,
@@ -3824,7 +3824,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["HUSTLE", "NONE"],
+    abilities: [55, 0],
   },
   224: {
     baseHP: 75,
@@ -3841,7 +3841,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SUCTION_CUPS", "NONE"],
+    abilities: [21, 0],
   },
   225: {
     baseHP: 45,
@@ -3858,7 +3858,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["VITAL_SPIRIT", "HUSTLE"],
+    abilities: [72, 55],
   },
   226: {
     baseHP: 65,
@@ -3875,7 +3875,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SWIFT_SWIM", "WATER_ABSORB"],
+    abilities: [33, 11],
   },
   227: {
     baseHP: 65,
@@ -3892,7 +3892,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["KEEN_EYE", "STURDY"],
+    abilities: [51, 5],
   },
   228: {
     baseHP: 45,
@@ -3909,7 +3909,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["EARLY_BIRD", "FLASH_FIRE"],
+    abilities: [48, 18],
   },
   229: {
     baseHP: 75,
@@ -3926,7 +3926,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["EARLY_BIRD", "FLASH_FIRE"],
+    abilities: [48, 18],
   },
   230: {
     baseHP: 75,
@@ -3943,7 +3943,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   231: {
     baseHP: 90,
@@ -3960,7 +3960,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PICKUP", "NONE"],
+    abilities: [53, 0],
   },
   232: {
     baseHP: 90,
@@ -3977,7 +3977,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STURDY", "NONE"],
+    abilities: [5, 0],
   },
   233: {
     baseHP: 85,
@@ -3994,7 +3994,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["TRACE", "NONE"],
+    abilities: [36, 0],
   },
   234: {
     baseHP: 73,
@@ -4011,7 +4011,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   235: {
     baseHP: 55,
@@ -4028,7 +4028,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["OWN_TEMPO", "NONE"],
+    abilities: [20, 0],
   },
   236: {
     baseHP: 35,
@@ -4045,7 +4045,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   237: {
     baseHP: 50,
@@ -4062,7 +4062,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   238: {
     baseHP: 45,
@@ -4079,7 +4079,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   239: {
     baseHP: 45,
@@ -4096,7 +4096,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STATIC", "NONE"],
+    abilities: [9, 0],
   },
   240: {
     baseHP: 45,
@@ -4113,7 +4113,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FLAME_BODY", "NONE"],
+    abilities: [49, 0],
   },
   241: {
     baseHP: 95,
@@ -4130,7 +4130,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   242: {
     baseHP: 255,
@@ -4147,7 +4147,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 140,
     growthRate: "FAST",
-    abilities: ["NATURAL_CURE", "SERENE_GRACE"],
+    abilities: [30, 32],
   },
   243: {
     baseHP: 90,
@@ -4164,7 +4164,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   244: {
     baseHP: 115,
@@ -4181,7 +4181,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   245: {
     baseHP: 100,
@@ -4198,7 +4198,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   246: {
     baseHP: 50,
@@ -4215,7 +4215,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   247: {
     baseHP: 70,
@@ -4232,7 +4232,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   248: {
     baseHP: 100,
@@ -4249,7 +4249,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SAND_STREAM", "NONE"],
+    abilities: [45, 0],
   },
   249: {
     baseHP: 106,
@@ -4266,7 +4266,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   250: {
     baseHP: 106,
@@ -4283,7 +4283,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   251: {
     baseHP: 100,
@@ -4300,7 +4300,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 100,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["NATURAL_CURE", "NONE"],
+    abilities: [30, 0],
   },
   277: {
     baseHP: 40,
@@ -4317,7 +4317,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   278: {
     baseHP: 50,
@@ -4334,7 +4334,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   279: {
     baseHP: 70,
@@ -4351,7 +4351,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["OVERGROW", "NONE"],
+    abilities: [65, 0],
   },
   280: {
     baseHP: 45,
@@ -4368,7 +4368,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   281: {
     baseHP: 60,
@@ -4385,7 +4385,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   282: {
     baseHP: 80,
@@ -4402,7 +4402,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["BLAZE", "NONE"],
+    abilities: [66, 0],
   },
   283: {
     baseHP: 50,
@@ -4419,7 +4419,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   284: {
     baseHP: 70,
@@ -4436,7 +4436,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   285: {
     baseHP: 100,
@@ -4453,7 +4453,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["TORRENT", "NONE"],
+    abilities: [67, 0],
   },
   286: {
     baseHP: 35,
@@ -4470,7 +4470,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["RUN_AWAY", "NONE"],
+    abilities: [50, 0],
   },
   287: {
     baseHP: 70,
@@ -4487,7 +4487,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   288: {
     baseHP: 38,
@@ -4504,7 +4504,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PICKUP", "NONE"],
+    abilities: [53, 0],
   },
   289: {
     baseHP: 78,
@@ -4521,7 +4521,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PICKUP", "NONE"],
+    abilities: [53, 0],
   },
   290: {
     baseHP: 45,
@@ -4538,7 +4538,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHIELD_DUST", "NONE"],
+    abilities: [19, 0],
   },
   291: {
     baseHP: 50,
@@ -4555,7 +4555,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   292: {
     baseHP: 60,
@@ -4572,7 +4572,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWARM", "NONE"],
+    abilities: [68, 0],
   },
   293: {
     baseHP: 50,
@@ -4589,7 +4589,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   294: {
     baseHP: 60,
@@ -4606,7 +4606,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHIELD_DUST", "NONE"],
+    abilities: [19, 0],
   },
   295: {
     baseHP: 40,
@@ -4623,7 +4623,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SWIFT_SWIM", "RAIN_DISH"],
+    abilities: [33, 44],
   },
   296: {
     baseHP: 60,
@@ -4640,7 +4640,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SWIFT_SWIM", "RAIN_DISH"],
+    abilities: [33, 44],
   },
   297: {
     baseHP: 80,
@@ -4657,7 +4657,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SWIFT_SWIM", "RAIN_DISH"],
+    abilities: [33, 44],
   },
   298: {
     baseHP: 40,
@@ -4674,7 +4674,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "EARLY_BIRD"],
+    abilities: [34, 48],
   },
   299: {
     baseHP: 70,
@@ -4691,7 +4691,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "EARLY_BIRD"],
+    abilities: [34, 48],
   },
   300: {
     baseHP: 90,
@@ -4708,7 +4708,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["CHLOROPHYLL", "EARLY_BIRD"],
+    abilities: [34, 48],
   },
   301: {
     baseHP: 31,
@@ -4725,7 +4725,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["COMPOUND_EYES", "NONE"],
+    abilities: [14, 0],
   },
   302: {
     baseHP: 61,
@@ -4742,7 +4742,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SPEED_BOOST", "NONE"],
+    abilities: [3, 0],
   },
   303: {
     baseHP: 1,
@@ -4759,7 +4759,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["WONDER_GUARD", "NONE"],
+    abilities: [25, 0],
   },
   304: {
     baseHP: 40,
@@ -4776,7 +4776,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   305: {
     baseHP: 60,
@@ -4793,7 +4793,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["GUTS", "NONE"],
+    abilities: [62, 0],
   },
   306: {
     baseHP: 60,
@@ -4810,7 +4810,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["EFFECT_SPORE", "NONE"],
+    abilities: [27, 0],
   },
   307: {
     baseHP: 60,
@@ -4827,7 +4827,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["EFFECT_SPORE", "NONE"],
+    abilities: [27, 0],
   },
   308: {
     baseHP: 60,
@@ -4844,7 +4844,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["OWN_TEMPO", "NONE"],
+    abilities: [20, 0],
   },
   309: {
     baseHP: 40,
@@ -4861,7 +4861,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   310: {
     baseHP: 60,
@@ -4878,7 +4878,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   311: {
     baseHP: 40,
@@ -4895,7 +4895,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   312: {
     baseHP: 70,
@@ -4912,7 +4912,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   313: {
     baseHP: 130,
@@ -4929,7 +4929,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["WATER_VEIL", "OBLIVIOUS"],
+    abilities: [41, 12],
   },
   314: {
     baseHP: 170,
@@ -4946,7 +4946,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["WATER_VEIL", "OBLIVIOUS"],
+    abilities: [41, 12],
   },
   315: {
     baseHP: 50,
@@ -4963,7 +4963,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   316: {
     baseHP: 70,
@@ -4980,7 +4980,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["CUTE_CHARM", "NONE"],
+    abilities: [56, 0],
   },
   317: {
     baseHP: 60,
@@ -4997,7 +4997,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["COLOR_CHANGE", "NONE"],
+    abilities: [16, 0],
   },
   318: {
     baseHP: 40,
@@ -5014,7 +5014,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   319: {
     baseHP: 60,
@@ -5031,7 +5031,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   320: {
     baseHP: 30,
@@ -5048,7 +5048,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["STURDY", "MAGNET_PULL"],
+    abilities: [5, 42],
   },
   321: {
     baseHP: 70,
@@ -5065,7 +5065,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["WHITE_SMOKE", "NONE"],
+    abilities: [73, 0],
   },
   322: {
     baseHP: 50,
@@ -5082,7 +5082,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["KEEN_EYE", "NONE"],
+    abilities: [51, 0],
   },
   323: {
     baseHP: 50,
@@ -5099,7 +5099,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   324: {
     baseHP: 110,
@@ -5116,7 +5116,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   325: {
     baseHP: 43,
@@ -5133,7 +5133,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   326: {
     baseHP: 43,
@@ -5150,7 +5150,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["HYPER_CUTTER", "SHELL_ARMOR"],
+    abilities: [52, 75],
   },
   327: {
     baseHP: 63,
@@ -5167,7 +5167,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["HYPER_CUTTER", "SHELL_ARMOR"],
+    abilities: [52, 75],
   },
   328: {
     baseHP: 20,
@@ -5184,7 +5184,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   329: {
     baseHP: 95,
@@ -5201,7 +5201,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["MARVEL_SCALE", "NONE"],
+    abilities: [63, 0],
   },
   330: {
     baseHP: 45,
@@ -5218,7 +5218,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["ROUGH_SKIN", "NONE"],
+    abilities: [24, 0],
   },
   331: {
     baseHP: 70,
@@ -5235,7 +5235,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["ROUGH_SKIN", "NONE"],
+    abilities: [24, 0],
   },
   332: {
     baseHP: 45,
@@ -5252,7 +5252,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["HYPER_CUTTER", "ARENA_TRAP"],
+    abilities: [52, 71],
   },
   333: {
     baseHP: 50,
@@ -5269,7 +5269,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["LEVITATE", "LEVITATE"],
+    abilities: [26, 26],
   },
   334: {
     baseHP: 80,
@@ -5286,7 +5286,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["LEVITATE", "LEVITATE"],
+    abilities: [26, 26],
   },
   335: {
     baseHP: 72,
@@ -5303,7 +5303,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["THICK_FAT", "GUTS"],
+    abilities: [47, 62],
   },
   336: {
     baseHP: 144,
@@ -5320,7 +5320,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["THICK_FAT", "GUTS"],
+    abilities: [47, 62],
   },
   337: {
     baseHP: 40,
@@ -5337,7 +5337,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["STATIC", "LIGHTNING_ROD"],
+    abilities: [9, 31],
   },
   338: {
     baseHP: 70,
@@ -5354,7 +5354,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["STATIC", "LIGHTNING_ROD"],
+    abilities: [9, 31],
   },
   339: {
     baseHP: 60,
@@ -5371,7 +5371,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   340: {
     baseHP: 70,
@@ -5388,7 +5388,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MAGMA_ARMOR", "NONE"],
+    abilities: [40, 0],
   },
   341: {
     baseHP: 70,
@@ -5405,7 +5405,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   342: {
     baseHP: 90,
@@ -5422,7 +5422,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   343: {
     baseHP: 110,
@@ -5439,7 +5439,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["THICK_FAT", "NONE"],
+    abilities: [47, 0],
   },
   344: {
     baseHP: 50,
@@ -5456,7 +5456,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SAND_VEIL", "NONE"],
+    abilities: [8, 0],
   },
   345: {
     baseHP: 70,
@@ -5473,7 +5473,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SAND_VEIL", "NONE"],
+    abilities: [8, 0],
   },
   346: {
     baseHP: 50,
@@ -5490,7 +5490,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   347: {
     baseHP: 80,
@@ -5507,7 +5507,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["INNER_FOCUS", "NONE"],
+    abilities: [39, 0],
   },
   348: {
     baseHP: 70,
@@ -5524,7 +5524,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   349: {
     baseHP: 70,
@@ -5541,7 +5541,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   350: {
     baseHP: 50,
@@ -5558,7 +5558,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 10,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["THICK_FAT", "HUGE_POWER"],
+    abilities: [47, 37],
   },
   351: {
     baseHP: 60,
@@ -5575,7 +5575,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["THICK_FAT", "OWN_TEMPO"],
+    abilities: [47, 20],
   },
   352: {
     baseHP: 80,
@@ -5592,7 +5592,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["THICK_FAT", "OWN_TEMPO"],
+    abilities: [47, 20],
   },
   353: {
     baseHP: 60,
@@ -5609,7 +5609,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PLUS", "NONE"],
+    abilities: [57, 0],
   },
   354: {
     baseHP: 60,
@@ -5626,7 +5626,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["MINUS", "NONE"],
+    abilities: [58, 0],
   },
   355: {
     baseHP: 50,
@@ -5643,7 +5643,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["HYPER_CUTTER", "INTIMIDATE"],
+    abilities: [52, 22],
   },
   356: {
     baseHP: 30,
@@ -5660,7 +5660,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PURE_POWER", "NONE"],
+    abilities: [74, 0],
   },
   357: {
     baseHP: 60,
@@ -5677,7 +5677,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["PURE_POWER", "NONE"],
+    abilities: [74, 0],
   },
   358: {
     baseHP: 45,
@@ -5694,7 +5694,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["NATURAL_CURE", "NONE"],
+    abilities: [30, 0],
   },
   359: {
     baseHP: 75,
@@ -5711,7 +5711,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["NATURAL_CURE", "NONE"],
+    abilities: [30, 0],
   },
   360: {
     baseHP: 95,
@@ -5728,7 +5728,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["SHADOW_TAG", "NONE"],
+    abilities: [23, 0],
   },
   361: {
     baseHP: 20,
@@ -5745,7 +5745,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   362: {
     baseHP: 40,
@@ -5762,7 +5762,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "FAST",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   363: {
     baseHP: 50,
@@ -5779,7 +5779,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["NATURAL_CURE", "POISON_POINT"],
+    abilities: [30, 38],
   },
   364: {
     baseHP: 60,
@@ -5796,7 +5796,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["TRUANT", "NONE"],
+    abilities: [54, 0],
   },
   365: {
     baseHP: 80,
@@ -5813,7 +5813,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["VITAL_SPIRIT", "NONE"],
+    abilities: [72, 0],
   },
   366: {
     baseHP: 150,
@@ -5830,7 +5830,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["TRUANT", "NONE"],
+    abilities: [54, 0],
   },
   367: {
     baseHP: 70,
@@ -5847,7 +5847,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["LIQUID_OOZE", "STICKY_HOLD"],
+    abilities: [64, 60],
   },
   368: {
     baseHP: 100,
@@ -5864,7 +5864,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["LIQUID_OOZE", "STICKY_HOLD"],
+    abilities: [64, 60],
   },
   369: {
     baseHP: 99,
@@ -5881,7 +5881,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["CHLOROPHYLL", "NONE"],
+    abilities: [34, 0],
   },
   370: {
     baseHP: 64,
@@ -5898,7 +5898,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SOUNDPROOF", "NONE"],
+    abilities: [43, 0],
   },
   371: {
     baseHP: 84,
@@ -5915,7 +5915,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SOUNDPROOF", "NONE"],
+    abilities: [43, 0],
   },
   372: {
     baseHP: 104,
@@ -5932,7 +5932,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["SOUNDPROOF", "NONE"],
+    abilities: [43, 0],
   },
   373: {
     baseHP: 35,
@@ -5949,7 +5949,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SHELL_ARMOR", "NONE"],
+    abilities: [75, 0],
   },
   374: {
     baseHP: 55,
@@ -5966,7 +5966,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   375: {
     baseHP: 55,
@@ -5983,7 +5983,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SWIFT_SWIM", "NONE"],
+    abilities: [33, 0],
   },
   376: {
     baseHP: 65,
@@ -6000,7 +6000,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "MEDIUM_SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   377: {
     baseHP: 44,
@@ -6017,7 +6017,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "FAST",
-    abilities: ["INSOMNIA", "NONE"],
+    abilities: [15, 0],
   },
   378: {
     baseHP: 64,
@@ -6034,7 +6034,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 35,
     growthRate: "FAST",
-    abilities: ["INSOMNIA", "NONE"],
+    abilities: [15, 0],
   },
   379: {
     baseHP: 73,
@@ -6051,7 +6051,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["SHED_SKIN", "NONE"],
+    abilities: [61, 0],
   },
   380: {
     baseHP: 73,
@@ -6068,7 +6068,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["IMMUNITY", "NONE"],
+    abilities: [17, 0],
   },
   381: {
     baseHP: 100,
@@ -6085,7 +6085,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["SWIFT_SWIM", "ROCK_HEAD"],
+    abilities: [33, 69],
   },
   382: {
     baseHP: 50,
@@ -6102,7 +6102,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["STURDY", "ROCK_HEAD"],
+    abilities: [5, 69],
   },
   383: {
     baseHP: 60,
@@ -6119,7 +6119,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["STURDY", "ROCK_HEAD"],
+    abilities: [5, 69],
   },
   384: {
     baseHP: 70,
@@ -6136,7 +6136,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 35,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["STURDY", "ROCK_HEAD"],
+    abilities: [5, 69],
   },
   385: {
     baseHP: 70,
@@ -6153,7 +6153,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "MEDIUM_FAST",
-    abilities: ["FORECAST", "NONE"],
+    abilities: [59, 0],
   },
   386: {
     baseHP: 65,
@@ -6170,7 +6170,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["ILLUMINATE", "SWARM"],
+    abilities: [35, 68],
   },
   387: {
     baseHP: 65,
@@ -6187,7 +6187,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 15,
     friendship: 70,
     growthRate: "FLUCTUATING",
-    abilities: ["OBLIVIOUS", "NONE"],
+    abilities: [12, 0],
   },
   388: {
     baseHP: 66,
@@ -6204,7 +6204,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SUCTION_CUPS", "NONE"],
+    abilities: [21, 0],
   },
   389: {
     baseHP: 86,
@@ -6221,7 +6221,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["SUCTION_CUPS", "NONE"],
+    abilities: [21, 0],
   },
   390: {
     baseHP: 45,
@@ -6238,7 +6238,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["BATTLE_ARMOR", "NONE"],
+    abilities: [4, 0],
   },
   391: {
     baseHP: 75,
@@ -6255,7 +6255,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 30,
     friendship: 70,
     growthRate: "ERRATIC",
-    abilities: ["BATTLE_ARMOR", "NONE"],
+    abilities: [4, 0],
   },
   392: {
     baseHP: 28,
@@ -6272,7 +6272,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SYNCHRONIZE", "TRACE"],
+    abilities: [28, 36],
   },
   393: {
     baseHP: 38,
@@ -6289,7 +6289,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SYNCHRONIZE", "TRACE"],
+    abilities: [28, 36],
   },
   394: {
     baseHP: 68,
@@ -6306,7 +6306,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 20,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["SYNCHRONIZE", "TRACE"],
+    abilities: [28, 36],
   },
   395: {
     baseHP: 45,
@@ -6323,7 +6323,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["ROCK_HEAD", "NONE"],
+    abilities: [69, 0],
   },
   396: {
     baseHP: 65,
@@ -6340,7 +6340,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["ROCK_HEAD", "NONE"],
+    abilities: [69, 0],
   },
   397: {
     baseHP: 95,
@@ -6357,7 +6357,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["INTIMIDATE", "NONE"],
+    abilities: [22, 0],
   },
   398: {
     baseHP: 40,
@@ -6374,7 +6374,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   399: {
     baseHP: 60,
@@ -6391,7 +6391,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   400: {
     baseHP: 80,
@@ -6408,7 +6408,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 40,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   401: {
     baseHP: 80,
@@ -6425,7 +6425,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   402: {
     baseHP: 80,
@@ -6442,7 +6442,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   403: {
     baseHP: 80,
@@ -6459,7 +6459,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 80,
     friendship: 35,
     growthRate: "SLOW",
-    abilities: ["CLEAR_BODY", "NONE"],
+    abilities: [29, 0],
   },
   404: {
     baseHP: 100,
@@ -6476,7 +6476,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["DRIZZLE", "NONE"],
+    abilities: [2, 0],
   },
   405: {
     baseHP: 100,
@@ -6493,7 +6493,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["DROUGHT", "NONE"],
+    abilities: [70, 0],
   },
   406: {
     baseHP: 105,
@@ -6510,7 +6510,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["AIR_LOCK", "NONE"],
+    abilities: [77, 0],
   },
   407: {
     baseHP: 80,
@@ -6527,7 +6527,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 90,
     growthRate: "SLOW",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   408: {
     baseHP: 80,
@@ -6544,7 +6544,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 90,
     growthRate: "SLOW",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
   409: {
     baseHP: 100,
@@ -6561,7 +6561,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 100,
     growthRate: "SLOW",
-    abilities: ["SERENE_GRACE", "NONE"],
+    abilities: [32, 0],
   },
   410: {
     baseHP: 50,
@@ -6578,7 +6578,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 120,
     friendship: 70,
     growthRate: "SLOW",
-    abilities: ["PRESSURE", "NONE"],
+    abilities: [46, 0],
   },
   411: {
     baseHP: 65,
@@ -6595,7 +6595,7 @@ export const SPECIES_INFO: Record<number, SpeciesInfo> = {
     eggCycles: 25,
     friendship: 70,
     growthRate: "FAST",
-    abilities: ["LEVITATE", "NONE"],
+    abilities: [26, 0],
   },
 };
 

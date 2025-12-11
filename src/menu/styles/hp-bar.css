@@ -27,7 +27,8 @@
 
 .hp-bar-wrapper {
   position: relative;
-  width: var(--bar-width);
+  flex: 1;
+  min-width: 24px;
   height: var(--bar-height);
   border-radius: 2px;
   overflow: hidden;
@@ -68,12 +69,11 @@
 /* HP Numbers */
 .hp-bar-numbers {
   font-family: var(--font-family);
-  font-size: var(--font-md);
+  font-size: var(--font-xs);
   color: var(--text-primary);
   text-shadow: var(--text-shadow);
   white-space: nowrap;
-  min-width: calc(var(--font-md) * 6);
-  text-align: right;
+  flex-shrink: 0;
 }
 
 /* =========================================

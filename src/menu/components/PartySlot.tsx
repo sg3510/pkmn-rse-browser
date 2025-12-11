@@ -12,7 +12,6 @@ import { getSpeciesName, getPokemonIconPath } from '../../data/species';
 import { getSpeciesInfo } from '../../data/speciesInfo';
 import { getGenderFromPersonality } from '../../pokemon/stats';
 import { formatLevel } from '../../pokemon/icons';
-import { HPBar } from './HPBar';
 
 export interface PartySlotProps {
   pokemon: PartyPokemon | null;
@@ -110,8 +109,8 @@ export function PartySlot({
 
       {/* Pokemon Info */}
       <div className="party-slot-info">
-        {/* Name row */}
-        <div className="party-slot-name-row">
+        {/* Row 1: Name + Gender */}
+        <div className="party-slot-row">
           <span className="party-slot-name">{displayName}</span>
           {genderSymbol && (
             <span className={`party-slot-gender ${gender}`}>
@@ -120,22 +119,22 @@ export function PartySlot({
           )}
         </div>
 
-        {/* Level and Status */}
-        <div className="party-slot-level-row">
-          <span className="party-slot-level">{formatLevel(pokemon.level)}</span>
-          {statusName && (
-            <span className={`party-slot-status ${statusClass}`}>
-              {statusName}
-            </span>
-          )}
+        {/* Row 2: HP Bar (thin, full width) */}
+        <div className="party-slot-hp-bar">
+          <div className="party-slot-hp-fill" style={{
+            width: `${(pokemon.stats.hp / pokemon.stats.maxHp) * 100}%`,
+            backgroundColor: pokemon.stats.hp / pokemon.stats.maxHp > 0.5 ? '#48d048' :
+                            pokemon.stats.hp / pokemon.stats.maxHp > 0.2 ? '#f8d030' : '#f85858'
+          }} />
         </div>
 
-        {/* HP Bar */}
-        <div className="party-slot-hp">
-          <HPBar
-            currentHP={pokemon.stats.hp}
-            maxHP={pokemon.stats.maxHp}
-          />
+        {/* Row 3: HP values + Level */}
+        <div className="party-slot-row">
+          <span className="party-slot-hp-text">
+            {pokemon.stats.hp}/{pokemon.stats.maxHp}
+            {statusName && <span className={`party-slot-status ${statusClass}`}> {statusName}</span>}
+          </span>
+          <span className="party-slot-level">{formatLevel(pokemon.level)}</span>
         </div>
       </div>
     </div>

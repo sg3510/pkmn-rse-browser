@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emerald Dex Summary</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+      /* Custom utility for pixel art rendering */
+      .font-gba-header {
+        font-family: 'Press Start 2P', cursive;
+      }
+      .font-gba-body {
+        font-family: 'VT323', monospace;
+      }
+      .pixelated {
+        image-rendering: pixelated;
+      }
+      .text-shadow-hard {
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+      }
+      .text-shadow-sm {
+        text-shadow: 1px 1px 0px rgba(0,0,0,0.3);
+      }
+      .text-shadow-white {
+        text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+      }
+      /* Stroke effect for header text to make it chunky */
+      .text-stroke-sm {
+        -webkit-text-stroke: 1px rgba(0,0,0,0.2);
+      }
+      
+      /* Scrollbar hiding for cleaner look */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      
+      body {
+        background-color: #202020;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              gba: {
+                dark: '#285068',
+                teal: '#48a088', 
+                tealLight: '#70c0a8',
+                panel: '#f0f8f0',
+                panelDark: '#d0e0d8',
+                blue: '#5088a8',
+                blueDark: '#386078',
+                red: '#d85030',
+                text: '#404040',
+                shadow: '#305048'
+              },
+              emerald: {
+                header: '#c858c0',       // Main header pink/purple
+                headerBorder: '#702870', // Dark purple border
+                pill: '#e080d8',         // Light pill background for dots
+                dotInactive: '#683060',  // Dark purple inactive dot
+              }
+            },
+            backgroundImage: {
+              'stripes-teal': 'repeating-linear-gradient(0deg, #60b098, #60b098 2px, #48a088 2px, #48a088 4px)',
+              'stripes-white': 'repeating-linear-gradient(0deg, #ffffff, #ffffff 2px, #f0f8f0 2px, #f0f8f0 4px)',
+              'stripes-blue': 'repeating-linear-gradient(0deg, #5890b0, #5890b0 2px, #5088a8 2px, #5088a8 4px)',
+              'gradient-header-purple': 'linear-gradient(to right, #a050f8, #c888f8)',
+              'gradient-header-blue': 'linear-gradient(to right, #5090b0, #80c0d8)',
+              'gradient-header-yellow': 'linear-gradient(to right, #d8d030, #f0e850, #d8d030)',
+              'gradient-header-darkpurple': 'linear-gradient(to right, #7038f8, #a050f8)',
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
+    "react/": "https://esm.sh/react@^19.2.1/",
+    "react": "https://esm.sh/react@^19.2.1",
+    "@google/genai": "https://esm.sh/@google/genai@^1.32.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

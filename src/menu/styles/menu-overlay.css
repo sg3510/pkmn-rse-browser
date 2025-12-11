@@ -71,35 +71,28 @@
 }
 
 /* =========================================
-   BACK BUTTON - Corner Triangle
-   Semi-transparent triangle in top-left corner
-
-   Shape:
-   |\
-   | \
-   |  \
-   ----
+   BACK BUTTON - Triangle with arrow icon
+   Top-right corner, semi-transparent
    ========================================= */
 
 .menu-back-btn {
   position: absolute;
   top: 0;
-  left: 0;
-  z-index: 10;
+  right: 0;
+  z-index: 100; /* Must be above all menu content */
 
   /* Triangle size */
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   padding: 0;
 
-  /* Reset button styles - explicitly no rounding */
+  /* Reset button styles */
   border: none;
   border-radius: 0;
-  background: transparent;
   cursor: pointer;
 
-  /* Triangle shape via clip-path: top-left corner */
-  clip-path: polygon(0 0, 100% 0, 0 100%);
+  /* Triangle shape via clip-path: top-right corner */
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
   background: rgba(255, 255, 255, 0.25);
 
   /* Smooth transitions */
@@ -108,14 +101,30 @@
     transform 0.1s ease;
 }
 
+/* Arrow icon inside triangle */
+.menu-back-btn::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  background: url('/img/back-button.png') center/contain no-repeat;
+  opacity: 0.7;
+}
+
 .menu-back-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.menu-back-btn:hover::after {
+  opacity: 1;
 }
 
 .menu-back-btn:active {
-  background: rgba(255, 255, 255, 0.7);
-  transform: scale(0.92);
-  transform-origin: top left;
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(0.94);
+  transform-origin: top right;
 }
 
 /* =========================================

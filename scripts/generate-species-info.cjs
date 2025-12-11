@@ -203,6 +203,24 @@ function getSpeciesIds() {
   return ids;
 }
 
+/**
+ * Get ability name to ID mapping from abilities.ts
+ */
+function getAbilityIds() {
+  const abilitiesFile = path.join(ROOT, 'src/data/abilities.ts');
+  const content = fs.readFileSync(abilitiesFile, 'utf8');
+
+  const ids = new Map();
+  const regex = /(\w+):\s*(\d+),/g;
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+    ids.set(match[1], parseInt(match[2], 10));
+  }
+
+  return ids;
+}
+
 function generate() {
   console.log('Generating species info from pokeemerald source...\n');
 
@@ -215,6 +233,10 @@ function generate() {
   const speciesIds = getSpeciesIds();
   console.log(`Found ${speciesIds.size} species IDs`);
 
+  // Get ability IDs
+  const abilityIds = getAbilityIds();
+  console.log(`Found ${abilityIds.size} ability IDs`);
+
   // Build output
   const entries = [];
   let matched = 0;
@@ -222,7 +244,10 @@ function generate() {
   for (const [speciesKey, info] of speciesInfo) {
     const id = speciesIds.get(speciesKey);
     if (id !== undefined) {
-      entries.push({ id, ...info });
+      // Convert ability names to IDs
+      const ability1Id = abilityIds.get(info.abilities[0]) ?? 0;
+      const ability2Id = abilityIds.get(info.abilities[1]) ?? 0;
+      entries.push({ id, ...info, abilityIds: [ability1Id, ability2Id] });
       matched++;
     }
   }
@@ -266,7 +291,7 @@ export interface SpeciesInfo {
   eggCycles: number;
   friendship: number;
   growthRate: string;
-  abilities: [string, string];
+  abilities: [number, number];  // Ability IDs (not names)
 }
 
 export const SPECIES_INFO: Record<number, SpeciesInfo> = {
@@ -285,7 +310,7 @@ ${entries.map(e => `  ${e.id}: {
     eggCycles: ${e.eggCycles},
     friendship: ${e.friendship},
     growthRate: ${JSON.stringify(e.growthRate)},
-    abilities: [${JSON.stringify(e.abilities[0])}, ${JSON.stringify(e.abilities[1])}],
+    abilities: [${e.abilityIds[0]}, ${e.abilityIds[1]}],
   },`).join('\n')}
 };
 

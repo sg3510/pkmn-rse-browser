@@ -15,8 +15,27 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--space-1);
-  padding-top: var(--header-padding);
+  padding: 4px;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/* =========================================
+   PARTY HEADER - Minimal spacing
+   ========================================= */
+
+.party-header {
+  flex-shrink: 0;
+}
+
+.party-title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  text-shadow: var(--text-shadow);
+  text-transform: uppercase;
+  text-align: center;
 }
 
 /* =========================================
@@ -27,9 +46,10 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: var(--space-0);
+  gap: 4px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* =========================================
@@ -41,15 +61,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-0);
+  padding: 2px 6px;
   background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
   border: var(--border-thin) solid #1a202c;
-  border-radius: var(--radius-sm);
+  border-radius: 20px;
   cursor: pointer;
-  height: 100%;
-  min-height: 0;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
+  min-height: 0;
+  min-width: 0;
 }
 
 .party-slot:hover {
@@ -152,14 +173,15 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 1px;
   overflow: hidden;
 }
 
-/* Name row */
-.party-slot-name-row {
+/* Generic row - space-between */
+.party-slot-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-0);
 }
 
@@ -168,7 +190,6 @@
   font-size: var(--font-sm);
   color: var(--text-primary);
   text-shadow: var(--text-shadow);
-  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -178,80 +199,48 @@
   font-size: var(--font-sm);
   font-weight: bold;
   text-shadow: var(--text-shadow);
+  flex-shrink: 0;
 }
 
 .party-slot-gender.male { color: var(--gender-male); }
 .party-slot-gender.female { color: var(--gender-female); }
 
-/* Level row */
-.party-slot-level-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-0);
+/* HP Bar - thin, full width */
+.party-slot-hp-bar {
+  height: 4px;
+  background: #1a202c;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.party-slot-hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+/* Bottom row: HP text + Level */
+.party-slot-hp-text {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  text-shadow: var(--text-shadow);
 }
 
 .party-slot-level {
   font-family: var(--font-family);
-  font-size: var(--font-sm);
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   text-shadow: var(--text-shadow);
+  flex-shrink: 0;
 }
 
-/* Status badge */
+/* Status badge (inline with HP) */
 .party-slot-status {
   font-family: var(--font-family);
   font-size: var(--font-xs);
-  color: var(--text-primary);
-  padding: 0 var(--space-0);
-  border-radius: 1px;
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
-}
-
-/* HP bar area */
-.party-slot-hp {
-  margin-top: var(--space-0);
-}
-
-/* =========================================
-   HP BAR
-   ========================================= */
-
-.hp-bar-container {
-  display: flex;
-  align-items: center;
-  gap: var(--space-0);
-}
-
-.hp-bar-label {
-  font-family: var(--font-family);
-  font-size: var(--font-xs);
   color: var(--text-highlight);
-  font-weight: bold;
-}
-
-.hp-bar-wrapper {
-  flex: 1;
-  height: var(--bar-height);
-  background: #1a202c;
-  border-radius: 1px;
-  overflow: hidden;
-}
-
-.hp-bar-fill {
-  height: 100%;
-  transition: width 0.2s ease;
-}
-
-.hp-bar-fill.hp-green { background: var(--hp-green); }
-.hp-bar-fill.hp-yellow { background: var(--hp-yellow); }
-.hp-bar-fill.hp-red { background: var(--hp-red); }
-
-.hp-bar-text {
-  font-family: var(--font-family);
-  font-size: var(--font-xs);
-  color: var(--text-primary);
-  text-shadow: var(--text-shadow);
-  white-space: nowrap;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 /* =========================================

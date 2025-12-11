@@ -5,9 +5,10 @@
  * Parses:
  *   - public/pokeemerald/include/constants/moves.h (MOVE_* constants)
  *   - public/pokeemerald/src/data/battle_moves.h (move power/type/accuracy/pp)
+ *   - public/pokeemerald/src/data/text/move_descriptions.h (descriptions)
  *
  * Outputs:
- *   - src/data/moves.ts (move constants, names, and battle info)
+ *   - src/data/moves.ts (move constants, names, battle info, and descriptions)
  *
  * Usage: node scripts/generate-moves.cjs
  */
@@ -18,6 +19,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const MOVES_FILE = path.join(ROOT, 'public/pokeemerald/include/constants/moves.h');
 const BATTLE_MOVES_FILE = path.join(ROOT, 'public/pokeemerald/src/data/battle_moves.h');
+const DESCRIPTIONS_FILE = path.join(ROOT, 'public/pokeemerald/src/data/text/move_descriptions.h');
 const OUTPUT_FILE = path.join(ROOT, 'src/data/moves.ts');
 
 /**
@@ -84,6 +86,53 @@ const TYPE_MAP = {
 };
 
 /**
+ * Parse move_descriptions.h to extract move descriptions
+ * Format: static const u8 sPoundDescription[] = _("...");
+ * Returns: { "Pound": "description text" }
+ */
+function parseMoveDescriptions(content) {
+  const descriptions = {};
+
+  // Match pattern: s[MoveName]Description[] = _("text");
+  // The description may span multiple lines with \n concatenation
+  const regex = /static const u8 s(\w+)Description\[\]\s*=\s*_\(\s*([\s\S]*?)\);/g;
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+    const varName = match[1]; // e.g., "Pound", "KarateChop"
+    const rawText = match[2];
+
+    // Parse the description text - handle multi-line strings
+    // Format: "line1\n" "line2" or just "single line"
+    const textParts = rawText.match(/"([^"]*)"/g);
+    if (textParts) {
+      const description = textParts
+        .map(part => part.slice(1, -1)) // Remove quotes
+        .join(' ')
+        .replace(/\\n/g, ' ')  // Replace \n with space
+        .replace(/\s+/g, ' ')  // Collapse whitespace
+        .trim();
+
+      descriptions[varName] = description;
+    }
+  }
+
+  return descriptions;
+}
+
+/**
+ * Convert variable name to move key
+ * e.g., "KarateChop" -> "KARATE_CHOP"
+ */
+function descNameToMoveKey(name) {
+  // Insert underscore before capitals and convert to uppercase
+  return 'MOVE_' + name
+    .replace(/([A-Z])/g, '_$1')
+    .toUpperCase()
+    .replace(/^_/, ''); // Remove leading underscore
+}
+
+/**
  * Parse battle_moves.h to extract move data
  * Returns: { [MOVE_NAME]: { power, type, accuracy, pp } }
  */
@@ -133,7 +182,11 @@ function generate() {
   const battleData = parseBattleMoves(battleContent);
   console.log(`Parsed ${Object.keys(battleData).length} move battle data entries`);
 
-  // Merge battle data into moves
+  const descContent = fs.readFileSync(DESCRIPTIONS_FILE, 'utf8');
+  const descData = parseMoveDescriptions(descContent);
+  console.log(`Parsed ${Object.keys(descData).length} move descriptions`);
+
+  // Merge battle data and descriptions into moves
   for (const move of moves) {
     const data = battleData[move.key];
     if (data) {
@@ -147,6 +200,14 @@ function generate() {
       move.accuracy = 0;
       move.pp = 0;
     }
+
+    // Match description by converting MOVE_FIRE_PUNCH -> FirePunch
+    const descKey = move.key
+      .replace('MOVE_', '')
+      .split('_')
+      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+      .join('');
+    move.description = descData[descKey] || '';
   }
 
   const output = `/**
@@ -155,6 +216,7 @@ function generate() {
  * Auto-generated from pokeemerald source:
  *   - public/pokeemerald/include/constants/moves.h
  *   - public/pokeemerald/src/data/battle_moves.h
+ *   - public/pokeemerald/src/data/text/move_descriptions.h
  *
  * DO NOT EDIT MANUALLY - regenerate with: npm run generate:moves
  *
@@ -176,16 +238,22 @@ export const MOVE_NAMES: Record<number, string> = {
 ${moves.map(m => `  ${m.id}: ${JSON.stringify(moveKeyToDisplayName(m.key))},`).join('\n')}
 };
 
+// Move descriptions (index by move ID)
+export const MOVE_DESCRIPTIONS: Record<number, string> = {
+${moves.map(m => `  ${m.id}: ${JSON.stringify(m.description)},`).join('\n')}
+};
+
 // Move battle info (power, type, accuracy, pp)
 export interface MoveInfo {
   power: number;
   type: string;
   accuracy: number;
   pp: number;
+  description: string;
 }
 
 export const MOVE_INFO: Record<number, MoveInfo> = {
-${moves.map(m => `  ${m.id}: { power: ${m.power}, type: ${JSON.stringify(m.type)}, accuracy: ${m.accuracy}, pp: ${m.pp} },`).join('\n')}
+${moves.map(m => `  ${m.id}: { power: ${m.power}, type: ${JSON.stringify(m.type)}, accuracy: ${m.accuracy}, pp: ${m.pp}, description: ${JSON.stringify(m.description)} },`).join('\n')}
 };
 
 /**
@@ -193,6 +261,13 @@ ${moves.map(m => `  ${m.id}: { power: ${m.power}, type: ${JSON.stringify(m.type)
  */
 export function getMoveName(moveId: number): string {
   return MOVE_NAMES[moveId] ?? '---';
+}
+
+/**
+ * Get move description
+ */
+export function getMoveDescription(moveId: number): string {
+  return MOVE_DESCRIPTIONS[moveId] ?? '';
 }
 
 /**

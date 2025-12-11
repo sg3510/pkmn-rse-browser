@@ -212,6 +212,15 @@
   white-space: nowrap;
 }
 
+.info-description {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
 /* =========================================
    STATS PAGE
    ========================================= */
@@ -408,4 +417,13 @@
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
   border-radius: 2px;
   text-transform: uppercase;
+}
+
+.move-description {
+  font-family: var(--font-family);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: var(--space-1);
+  line-height: 1.3;
 }

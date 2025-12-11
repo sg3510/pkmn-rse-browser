@@ -4,9 +4,10 @@
  *
  * Parses:
  *   - public/pokeemerald/include/constants/abilities.h (ABILITY_* constants)
+ *   - public/pokeemerald/src/data/text/abilities.h (descriptions)
  *
  * Outputs:
- *   - src/data/abilities.ts (ability constants and names)
+ *   - src/data/abilities.ts (ability constants, names, and descriptions)
  *
  * Usage: node scripts/generate-abilities.cjs
  */
@@ -16,6 +17,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const ABILITIES_FILE = path.join(ROOT, 'public/pokeemerald/include/constants/abilities.h');
+const DESCRIPTIONS_FILE = path.join(ROOT, 'public/pokeemerald/src/data/text/abilities.h');
 const OUTPUT_FILE = path.join(ROOT, 'src/data/abilities.ts');
 
 /**
@@ -53,19 +55,59 @@ function abilityKeyToDisplayName(key) {
     .join(' ');
 }
 
+/**
+ * Parse abilities.h (text) to extract descriptions
+ * Format: static const u8 sSpeedBoostDescription[] = _("...");
+ * Returns: { "SpeedBoost": "description" }
+ */
+function parseAbilityDescriptions(content) {
+  const descriptions = {};
+
+  // Match pattern: s[AbilityName]Description[] = _("text");
+  const regex = /static const u8 s(\w+)Description\[\]\s*=\s*_\("([^"]*)"\);/g;
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+    const varName = match[1]; // e.g., "SpeedBoost"
+    const description = match[2]
+      .replace(/\\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    descriptions[varName] = description;
+  }
+
+  return descriptions;
+}
+
 function generate() {
   console.log('Generating abilities data from pokeemerald source...\n');
 
   const content = fs.readFileSync(ABILITIES_FILE, 'utf8');
   const abilities = parseAbilities(content);
-
   console.log(`Parsed ${abilities.length} abilities`);
+
+  const descContent = fs.readFileSync(DESCRIPTIONS_FILE, 'utf8');
+  const descData = parseAbilityDescriptions(descContent);
+  console.log(`Parsed ${Object.keys(descData).length} ability descriptions`);
+
+  // Add descriptions to abilities
+  for (const ability of abilities) {
+    // Convert ABILITY_SPEED_BOOST -> SpeedBoost
+    const descKey = ability.key
+      .replace('ABILITY_', '')
+      .split('_')
+      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+      .join('');
+    ability.description = descData[descKey] || '';
+  }
 
   const output = `/**
  * Abilities Data
  *
  * Auto-generated from pokeemerald source:
  *   - public/pokeemerald/include/constants/abilities.h
+ *   - public/pokeemerald/src/data/text/abilities.h
  *
  * DO NOT EDIT MANUALLY - regenerate with: npm run generate:abilities
  *
@@ -87,11 +129,23 @@ export const ABILITY_NAMES: Record<number, string> = {
 ${abilities.map(a => `  ${a.id}: ${JSON.stringify(abilityKeyToDisplayName(a.key))},`).join('\n')}
 };
 
+// Ability descriptions (index by ability ID)
+export const ABILITY_DESCRIPTIONS: Record<number, string> = {
+${abilities.map(a => `  ${a.id}: ${JSON.stringify(a.description)},`).join('\n')}
+};
+
 /**
  * Get ability display name
  */
 export function getAbilityName(abilityId: number): string {
   return ABILITY_NAMES[abilityId] ?? '---';
+}
+
+/**
+ * Get ability description
+ */
+export function getAbilityDescription(abilityId: number): string {
+  return ABILITY_DESCRIPTIONS[abilityId] ?? '';
 }
 `;
 

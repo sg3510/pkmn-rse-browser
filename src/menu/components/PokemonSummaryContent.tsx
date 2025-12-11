@@ -1,13 +1,10 @@
 /**
- * Pokemon Summary Content
+ * Pokemon Summary Content - Emerald Style
  *
- * Multi-page display showing Pokemon details.
- * Embedded component without its own overlay - rendered inside MenuOverlay.
+ * Authentic GBA Pokemon Emerald summary screen.
+ * Three pages: INFO (Profile), SKILLS (Stats), MOVES
  *
- * Pages:
- * - INFO: Sprite, species, nature, ability, OT
- * - STATS: Stat bars, EXP progress
- * - MOVES: 4 moves with type, PP, power, accuracy
+ * Based on reference: public/emerald-dex-summary
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -17,13 +14,14 @@ import type { PartyPokemon } from '../../pokemon/types';
 import { getSpeciesName } from '../../data/species';
 import { getSpeciesInfo } from '../../data/speciesInfo';
 import { getNatureName, getNatureStatEffect } from '../../data/natures';
-import { ABILITY_NAMES } from '../../data/abilities';
-import { MOVE_NAMES, getMoveInfo } from '../../data/moves';
+import { ABILITY_NAMES, getAbilityDescription } from '../../data/abilities';
+import { MOVE_NAMES, getMoveInfo, getMoveDescription } from '../../data/moves';
 import { getGenderFromPersonality, getExpProgress, getExpToNextLevel } from '../../pokemon/stats';
-import { getTypeColor, getGenderColor } from '../../pokemon/icons';
-import '../styles/pokemon-summary-content.css';
+import { loadTransparentSprite } from '../../utils/transparentSprite';
+// Type images loaded via transparentSprite utility (keys out black background)
+import '../styles/pokemon-summary-emerald.css';
 
-type SummaryPage = 'info' | 'stats' | 'moves';
+type SummaryPage = 'info' | 'skills' | 'moves';
 
 interface PokemonSummaryContentProps {
   pokemon: PartyPokemon;
@@ -37,7 +35,7 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
   const [currentPage, setCurrentPage] = useState<SummaryPage>('info');
   const [selectedMoveIndex, setSelectedMoveIndex] = useState(0);
 
-  const pages: SummaryPage[] = ['info', 'stats', 'moves'];
+  const pages: SummaryPage[] = ['info', 'skills', 'moves'];
   const pageIndex = pages.indexOf(currentPage);
 
   // Navigation handlers
@@ -92,9 +90,9 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
   const genderSymbol = gender === 'male' ? '♂' : gender === 'female' ? '♀' : '';
   const natureId = pokemon.personality % 25;
   const natureName = getNatureName(natureId);
-  const abilityIndexRaw = speciesInfo?.abilities[pokemon.abilityNum as 0 | 1] ?? 0;
-  const abilityIndex = typeof abilityIndexRaw === 'string' ? parseInt(abilityIndexRaw, 10) : abilityIndexRaw;
-  const abilityName = ABILITY_NAMES[abilityIndex as keyof typeof ABILITY_NAMES] || 'Unknown';
+  const abilityIndex = speciesInfo?.abilities[pokemon.abilityNum as 0 | 1] ?? 0;
+  const abilityName = ABILITY_NAMES[abilityIndex] || 'Unknown';
+  const abilityDesc = getAbilityDescription(abilityIndex);
   const types = speciesInfo?.types || ['NORMAL', 'NORMAL'];
   const uniqueTypes = types[0] === types[1] ? [types[0]] : types;
 
@@ -102,207 +100,330 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
   const iconFolder = speciesName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
   const spritePath = `/pokeemerald/graphics/pokemon/${iconFolder}/front.png`;
 
-  return (
-    <div className="summary-content-wrapper">
-      {/* Page tabs */}
-      <div className="summary-tabs-bar">
-        {pages.map((page) => (
-          <button
-            key={page}
-            className={`summary-tab-btn ${currentPage === page ? 'active' : ''}`}
-            onClick={() => setCurrentPage(page)}
-          >
-            {page.toUpperCase()}
-          </button>
-        ))}
-      </div>
+  // Get header title based on current page
+  const getHeaderTitle = () => {
+    switch (currentPage) {
+      case 'info': return 'POKéMON INFO';
+      case 'skills': return 'POKéMON SKILLS';
+      case 'moves': return 'BATTLE MOVES';
+      default: return 'POKéMON INFO';
+    }
+  };
 
-      {/* Pokemon identity bar */}
-      <div className="summary-identity-bar">
-        <span className="summary-poke-name">{displayName}</span>
-        {genderSymbol && (
-          <span className="summary-poke-gender" style={{ color: getGenderColor(gender) }}>
-            {genderSymbol}
-          </span>
-        )}
-        <span className="summary-poke-level">Lv.{pokemon.level}</span>
-        <div className="summary-type-list">
-          {uniqueTypes.map(type => (
-            <span
-              key={type}
-              className="summary-type-tag"
-              style={{ backgroundColor: getTypeColor(type) }}
-            >
-              {type}
-            </span>
-          ))}
+  // Get Pokedex number
+  const dexNumber = pokemon.species.toString().padStart(3, '0');
+
+  // Get selected move for left panel (moves page)
+  const selectedMove = pokemon.moves[selectedMoveIndex];
+  const selectedMoveInfo = getMoveInfo(selectedMove);
+
+  return (
+    <div className="summary-emerald">
+      {/* Header */}
+      <div className="summary-emerald-header">
+        <div className="summary-header-title-bg" />
+        <div className="summary-header-title">{getHeaderTitle()}</div>
+        <div className="summary-header-controls">
+          <div className="summary-dots-container">
+            {pages.map((page) => (
+              <button
+                key={page}
+                className={`summary-dot ${currentPage === page ? 'active' : ''}`}
+                onClick={() => setCurrentPage(page)}
+              />
+            ))}
+          </div>
+          {/* Back button handled by MenuOverlay triangle */}
         </div>
       </div>
 
-      {/* Page content */}
-      <div className="summary-page-content">
-        {currentPage === 'info' && (
-          <InfoPage
-            pokemon={pokemon}
-            speciesName={speciesName}
-            natureName={natureName}
-            abilityName={abilityName}
-            spritePath={spritePath}
-          />
-        )}
-        {currentPage === 'stats' && (
-          <StatsPage
-            pokemon={pokemon}
-            speciesInfo={speciesInfo}
-            natureId={natureId}
-          />
-        )}
-        {currentPage === 'moves' && (
-          <MovesPage
-            pokemon={pokemon}
-            selectedIndex={selectedMoveIndex}
-            onSelectMove={setSelectedMoveIndex}
-          />
-        )}
-      </div>
+      {/* Content Area */}
+      <div className="summary-emerald-content">
+        {/* Left Panel */}
+        <div className="summary-left-panel">
+          {/* Header: No. and Markings */}
+          <div className="summary-left-header">
+            <div className="summary-poke-number">
+              <span className="summary-poke-number-label">No</span>{dexNumber}
+            </div>
+            <div className="summary-markings">
+              <span className={`summary-marking ${pokemon.markings.circle ? 'active' : ''}`}>●</span>
+              <span className={`summary-marking ${pokemon.markings.square ? 'active' : ''}`}>■</span>
+              <span className={`summary-marking ${pokemon.markings.triangle ? 'active' : ''}`}>▲</span>
+              <span className={`summary-marking ${pokemon.markings.heart ? 'active' : ''}`}>♥</span>
+            </div>
+          </div>
 
-      {/* Page indicator dots */}
-      <div className="summary-dots">
-        {pages.map((page) => (
-          <span
-            key={page}
-            className={`summary-dot-item ${currentPage === page ? 'active' : ''}`}
-          />
-        ))}
-      </div>
+          {/* Sprite */}
+          <div className="summary-sprite-container">
+            <img
+              src={spritePath}
+              alt={speciesName}
+              className="summary-sprite-img"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `/pokeemerald/graphics/pokemon/egg/front.png`;
+              }}
+            />
+          </div>
 
-      {/* Navigation hint */}
-      <div className="summary-nav-hint">
-        ◄ ► Page | B: Back
+          {/* Info section - changes based on page */}
+          {currentPage === 'moves' ? (
+            /* Moves view: Show name at top, EFFECT box at bottom (full width) */
+            <>
+              <div className="summary-left-info">
+                <div className="summary-poke-name-display">{displayName}</div>
+              </div>
+              <div className="summary-left-effect">
+                <div className="summary-effect-header">
+                  <span className="summary-effect-header-text">EFFECT</span>
+                </div>
+                <div className="summary-effect-table">
+                  <div className="summary-effect-row">
+                    <span className="summary-effect-label">POWER</span>
+                    <span className="summary-effect-value">
+                      {selectedMoveInfo?.power && selectedMoveInfo.power > 0 ? selectedMoveInfo.power : '---'}
+                    </span>
+                  </div>
+                  <div className="summary-effect-row">
+                    <span className="summary-effect-label">ACCURACY</span>
+                    <span className="summary-effect-value">
+                      {selectedMoveInfo?.accuracy && selectedMoveInfo.accuracy > 0 ? selectedMoveInfo.accuracy : '---'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Normal view: Name, nickname, level, gender */
+            <div className="summary-left-info">
+              <div className="summary-poke-name-display">{speciesName}</div>
+              {pokemon.nickname && (
+                <div className="summary-poke-nickname">/{displayName}</div>
+              )}
+              <div className="summary-level-row">
+                <div className="summary-level-info">
+                  <div className="summary-pokeball-icon" />
+                  <span className="summary-level-text">
+                    L<span className="summary-level-v">v</span>{pokemon.level}
+                  </span>
+                </div>
+                {genderSymbol && (
+                  <span className={`summary-gender-symbol ${gender}`}>
+                    {genderSymbol}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Panel */}
+        <div className="summary-right-panel">
+          <div className="summary-right-content">
+            {currentPage === 'info' && (
+              <ProfilePage
+                pokemon={pokemon}
+                speciesName={speciesName}
+                natureName={natureName}
+                abilityName={abilityName}
+                abilityDesc={abilityDesc}
+                uniqueTypes={uniqueTypes}
+              />
+            )}
+            {currentPage === 'skills' && (
+              <SkillsPage
+                pokemon={pokemon}
+                speciesInfo={speciesInfo}
+                natureId={natureId}
+              />
+            )}
+            {currentPage === 'moves' && (
+              <MovesPage
+                pokemon={pokemon}
+                selectedIndex={selectedMoveIndex}
+                onSelectMove={setSelectedMoveIndex}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// INFO Page
+// PROFILE Page (Tab 0: INFO)
 // ============================================================================
 
-interface InfoPageProps {
+interface ProfilePageProps {
   pokemon: PartyPokemon;
   speciesName: string;
   natureName: string;
   abilityName: string;
-  spritePath: string;
+  abilityDesc: string;
+  uniqueTypes: string[];
 }
 
-function InfoPage({ pokemon, speciesName, natureName, abilityName, spritePath }: InfoPageProps) {
+function ProfilePage({ pokemon, natureName, abilityName, abilityDesc, uniqueTypes }: ProfilePageProps) {
   return (
-    <div className="info-page">
-      {/* Pokemon sprite */}
-      <div className="info-sprite-box">
-        <img
-          src={spritePath}
-          alt={speciesName}
-          className="info-sprite-img"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = `/pokeemerald/graphics/pokemon/egg/front.png`;
-          }}
-        />
+    <div className="summary-profile">
+      {/* Profile Section */}
+      <div className="summary-section-header blue">
+        <span className="summary-section-title">PROFILE</span>
       </div>
 
-      {/* Info details */}
-      <div className="info-details">
-        <div className="info-row">
-          <span className="info-label">Species</span>
-          <span className="info-value">{speciesName}</span>
+      <div className="summary-profile-ot-row">
+        <span className="summary-profile-ot-label">OT/</span>
+        <span className="summary-profile-ot-name">{pokemon.otName}</span>
+        <span className="summary-profile-id">
+          <span className="summary-profile-id-label">IDNo.</span>
+          {String(pokemon.otId & 0xFFFF).padStart(5, '0')}
+        </span>
+      </div>
+
+      <div className="summary-type-row">
+        <span className="summary-type-label">TYPE/</span>
+        <div className="summary-type-tags">
+          {uniqueTypes.map(type => (
+            <TypeBadge key={type} type={type} className="summary-type-img" />
+          ))}
         </div>
-        <div className="info-row">
-          <span className="info-label">Nature</span>
-          <span className="info-value">{natureName}</span>
+      </div>
+
+      {/* Ability Section */}
+      <div className="summary-section-header blue">
+        <span className="summary-section-title">ABILITY</span>
+      </div>
+
+      <div className="summary-ability-section">
+        <div className="summary-ability-name">{abilityName}</div>
+        {abilityDesc && (
+          <div className="summary-ability-desc-box">
+            <div className="summary-ability-desc">{abilityDesc}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Trainer Memo Section */}
+      <div className="summary-section-header blue">
+        <span className="summary-section-title">TRAINER MEMO</span>
+      </div>
+
+      <div className="summary-memo-section">
+        <div className="summary-memo-text">
+          <span className="summary-memo-nature">{natureName}</span>
+          {' '}nature,
+          <br />
+          met at L<span className="summary-level-v">v</span>{pokemon.metLevel},
+          <br />
+          <span className="summary-memo-location">
+            {getLocationName(pokemon.metLocation)}.
+          </span>
         </div>
-        <div className="info-row">
-          <span className="info-label">Ability</span>
-          <span className="info-value">{abilityName}</span>
-        </div>
-        <div className="info-row">
-          <span className="info-label">OT</span>
-          <span className="info-value">{pokemon.otName}</span>
-        </div>
-        <div className="info-row">
-          <span className="info-label">ID No.</span>
-          <span className="info-value">{String(pokemon.otId & 0xFFFF).padStart(5, '0')}</span>
-        </div>
-        <div className="info-row">
-          <span className="info-label">Item</span>
-          <span className="info-value">{pokemon.heldItem > 0 ? `Item #${pokemon.heldItem}` : 'None'}</span>
-        </div>
+        {/* Flavor text removed - would need generator for pokedex_text.h */}
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// STATS Page
+// SKILLS Page (Tab 1: Stats)
 // ============================================================================
 
-interface StatsPageProps {
+interface SkillsPageProps {
   pokemon: PartyPokemon;
   speciesInfo: ReturnType<typeof getSpeciesInfo>;
   natureId: number;
 }
 
-function StatsPage({ pokemon, speciesInfo, natureId }: StatsPageProps) {
+function SkillsPage({ pokemon, speciesInfo, natureId }: SkillsPageProps) {
   const stats = [
-    { name: 'HP', value: pokemon.stats.maxHp, index: -1 },
-    { name: 'ATK', value: pokemon.stats.attack, index: 0 },
-    { name: 'DEF', value: pokemon.stats.defense, index: 1 },
-    { name: 'SPA', value: pokemon.stats.spAttack, index: 3 },
-    { name: 'SPD', value: pokemon.stats.spDefense, index: 4 },
-    { name: 'SPE', value: pokemon.stats.speed, index: 2 },
+    { name: 'ATTACK', value: pokemon.stats.attack, index: 0 },
+    { name: 'DEFENSE', value: pokemon.stats.defense, index: 1 },
+    { name: 'SP. ATK', value: pokemon.stats.spAttack, index: 3 },
+    { name: 'SP. DEF', value: pokemon.stats.spDefense, index: 4 },
+    { name: 'SPEED', value: pokemon.stats.speed, index: 2 },
   ];
 
   const growthRate = speciesInfo?.growthRate || 'MEDIUM_FAST';
   const expProgress = getExpProgress(growthRate, pokemon.level, pokemon.experience);
   const expToNext = getExpToNextLevel(growthRate, pokemon.level, pokemon.experience);
 
-  return (
-    <div className="stats-page">
-      {/* Stat bars */}
-      <div className="stats-list">
-        {stats.map(stat => {
-          const natureEffect = stat.index >= 0 ? getNatureStatEffect(natureId, stat.index) : 0;
-          const maxStat = 400;
-          const barWidth = Math.min(100, (stat.value / maxStat) * 100);
+  // Get item name (placeholder - would need items data)
+  const itemName = pokemon.heldItem > 0 ? `Item #${pokemon.heldItem}` : 'NONE';
 
+  // Count ribbons
+  const ribbonCount = countRibbons(pokemon.ribbons);
+
+  return (
+    <div className="summary-skills">
+      {/* Item/Ribbon row */}
+      <div className="summary-skills-top-row">
+        <div className="summary-skills-top-item">
+          <div className="summary-section-header yellow">
+            <span className="summary-section-title">ITEM</span>
+          </div>
+          <div className="summary-skills-item-value">{itemName}</div>
+        </div>
+        <div className="summary-skills-top-item">
+          <div className="summary-section-header yellow">
+            <span className="summary-section-title">RIBBON</span>
+          </div>
+          <div className="summary-skills-item-value">
+            {ribbonCount > 0 ? `${ribbonCount}` : 'NONE'}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="summary-section-header yellow">
+        <span className="summary-section-title">STATS</span>
+      </div>
+
+      <div className="summary-stats-list">
+        {/* HP special row */}
+        <div className="summary-stat-row">
+          <span className="summary-stat-name">HP</span>
+          <div className="summary-hp-values">
+            <span>{pokemon.stats.hp}/</span>
+            <span>{pokemon.stats.maxHp}</span>
+          </div>
+        </div>
+
+        {/* Other stats */}
+        {stats.map(stat => {
+          const natureEffect = getNatureStatEffect(natureId, stat.index);
           return (
-            <div key={stat.name} className="stat-row">
-              <span className={`stat-name ${
+            <div key={stat.name} className="summary-stat-row">
+              <span className={`summary-stat-name ${
                 natureEffect > 0 ? 'nature-up' : natureEffect < 0 ? 'nature-down' : ''
               }`}>
                 {stat.name}
               </span>
-              <div className="stat-bar-bg">
-                <div className="stat-bar-fill" style={{ width: `${barWidth}%` }} />
-              </div>
-              <span className="stat-val">{stat.value}</span>
+              <span className="summary-stat-value">{stat.value}</span>
             </div>
           );
         })}
       </div>
 
-      {/* EXP bar */}
-      <div className="exp-section">
-        <div className="exp-row">
-          <span className="exp-label">EXP</span>
-          <span className="exp-value">{pokemon.experience.toLocaleString()}</span>
+      {/* EXP Section */}
+      <div className="summary-exp-section">
+        <div className="summary-section-header yellow">
+          <span className="summary-section-title">EXP.</span>
         </div>
-        <div className="exp-row">
-          <span className="exp-label">Next</span>
-          <span className="exp-value">{expToNext.toLocaleString()}</span>
+        <div className="summary-exp-row">
+          <span className="summary-exp-label">EXP. POINTS</span>
+          <span className="summary-exp-value">{pokemon.experience.toLocaleString()}</span>
         </div>
-        <div className="exp-bar-bg">
-          <div className="exp-bar-fill" style={{ width: `${expProgress}%` }} />
+        <div className="summary-exp-row">
+          <span className="summary-exp-label">NEXT LV.</span>
+          <span className="summary-exp-value">{expToNext.toLocaleString()}</span>
+        </div>
+        <div className="summary-exp-bar-container">
+          <span className="summary-exp-bar-label">EXP</span>
+          <div className="summary-exp-bar">
+            <div className="summary-exp-bar-fill" style={{ width: `${expProgress}%` }} />
+          </div>
         </div>
       </div>
     </div>
@@ -310,7 +431,7 @@ function StatsPage({ pokemon, speciesInfo, natureId }: StatsPageProps) {
 }
 
 // ============================================================================
-// MOVES Page
+// MOVES Page (Tab 2)
 // ============================================================================
 
 interface MovesPageProps {
@@ -328,69 +449,167 @@ function MovesPage({ pokemon, selectedIndex, onSelectMove }: MovesPageProps) {
       pp: pokemon.pp[i],
       maxPp: info?.pp ?? 0,
       type: info?.type ?? 'NORMAL',
-      power: info?.power ?? 0,
-      accuracy: info?.accuracy ?? 0,
+      description: getMoveDescription(moveId) || 'No description available.',
     };
   });
 
-  const selectedMove = moves[selectedIndex];
+  const selectedMoveDesc = moves[selectedIndex]?.description || 'Select a move to see details.';
 
   return (
-    <div className="moves-page">
-      <div className="moves-list">
-        {moves.map((move, i) => {
-          const ppPercent = move.maxPp > 0 ? move.pp / move.maxPp : 1;
-          const ppColor = ppPercent > 0.5 ? '#fff' : ppPercent > 0.25 ? '#f8d030' : '#f85888';
-
-          return (
-            <div
-              key={i}
-              className={`move-row ${selectedIndex === i ? 'selected' : ''} ${move.id === 0 ? 'empty' : ''}`}
-              onClick={() => onSelectMove(i)}
-            >
-              {move.id !== 0 ? (
-                <>
-                  <span className="move-name">{move.name}</span>
-                  <span className="move-pp" style={{ color: ppColor }}>
-                    {move.pp}/{move.maxPp}
-                  </span>
-                </>
-              ) : (
-                <span className="move-empty">—</span>
-              )}
-            </div>
-          );
-        })}
+    <div className="summary-moves">
+      {/* Moves Header */}
+      <div className="summary-section-header purple">
+        <span className="summary-section-title">MOVES</span>
       </div>
 
-      {/* Move details */}
-      {selectedMove?.id !== 0 && (
-        <div className="move-details">
-          <div className="move-detail-row">
-            <span className="move-detail-label">Type</span>
-            <span
-              className="move-type-tag"
-              style={{ backgroundColor: getTypeColor(selectedMove.type) }}
-            >
-              {selectedMove.type}
-            </span>
+      {/* Moves List */}
+      <div className="summary-moves-list">
+        {moves.map((move, i) => (
+          <div
+            key={i}
+            className={`summary-move-row ${selectedIndex === i ? 'selected' : ''} ${move.id === 0 ? 'empty' : ''}`}
+            onClick={() => move.id !== 0 && onSelectMove(i)}
+          >
+            {move.id !== 0 ? (
+              <>
+                <TypeBadge type={move.type} className="summary-move-type-img" />
+                <span className="summary-move-name">{move.name}</span>
+                <span className="summary-move-pp">
+                  <span className="summary-move-pp-label">PP</span>
+                  {move.pp}/{move.maxPp}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="summary-move-empty-type" />
+                <div className="summary-move-empty-name" />
+                <div className="summary-move-empty-pp" />
+              </>
+            )}
           </div>
-          <div className="move-detail-row">
-            <span className="move-detail-label">Power</span>
-            <span className="move-detail-value">
-              {selectedMove.power > 0 ? selectedMove.power : '—'}
-            </span>
+        ))}
+
+        {/* Fill empty slots if less than 4 moves */}
+        {[...Array(4 - moves.length)].map((_, i) => (
+          <div key={`empty-${i}`} className="summary-move-row empty">
+            <div className="summary-move-empty-type" />
+            <div className="summary-move-empty-name" />
+            <div className="summary-move-empty-pp" />
           </div>
-          <div className="move-detail-row">
-            <span className="move-detail-label">Acc</span>
-            <span className="move-detail-value">
-              {selectedMove.accuracy > 0 ? `${selectedMove.accuracy}%` : '—'}
-            </span>
-          </div>
+        ))}
+      </div>
+
+      {/* Description Section */}
+      <div className="summary-move-desc-section">
+        <div className="summary-section-header purple">
+          <span className="summary-section-title">DESCRIPTION</span>
         </div>
-      )}
+        <div className="summary-move-desc-box">
+          <p className="summary-move-desc-text">{selectedMoveDesc}</p>
+        </div>
+      </div>
     </div>
   );
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Get location name from location ID (placeholder)
+ */
+function getLocationName(locationId: number): string {
+  // TODO: Import location data from pokeemerald
+  // For now, return a generic name
+  const locationNames: Record<number, string> = {
+    0: 'Unknown',
+    // Add more as needed
+  };
+  return locationNames[locationId] || `Route ${locationId}`;
+}
+
+
+/**
+ * Count total ribbons
+ */
+function countRibbons(ribbons: PartyPokemon['ribbons']): number {
+  let count = 0;
+  // Contest ribbons (each rank counts as 1)
+  count += ribbons.coolRank;
+  count += ribbons.beautyRank;
+  count += ribbons.cuteRank;
+  count += ribbons.smartRank;
+  count += ribbons.toughRank;
+  // Achievement ribbons
+  if (ribbons.champion) count++;
+  if (ribbons.winning) count++;
+  if (ribbons.victory) count++;
+  if (ribbons.artist) count++;
+  if (ribbons.effort) count++;
+  if (ribbons.marine) count++;
+  if (ribbons.land) count++;
+  if (ribbons.sky) count++;
+  if (ribbons.country) count++;
+  if (ribbons.national) count++;
+  if (ribbons.earth) count++;
+  if (ribbons.world) count++;
+  return count;
+}
+
+/**
+ * Hook to load a transparent type image
+ */
+function useTransparentTypeImage(type: string): string | undefined {
+  const [src, setSrc] = useState<string>();
+
+  useEffect(() => {
+    const typeLower = type.toLowerCase();
+    const path = `/pokeemerald/graphics/types/${typeLower}.png`;
+    loadTransparentSprite(path).then(setSrc).catch(() => {
+      // Fallback: don't set src, component will use colored badge
+    });
+  }, [type]);
+
+  return src;
+}
+
+/**
+ * Type badge component - uses transparent PNG if available, falls back to colored badge
+ */
+function TypeBadge({ type, className }: { type: string; className?: string }) {
+  const transparentSrc = useTransparentTypeImage(type);
+
+  if (transparentSrc) {
+    return (
+      <img
+        src={transparentSrc}
+        alt={type}
+        className={className || 'summary-type-img'}
+      />
+    );
+  }
+
+  // Fallback to colored text badge (shouldn't happen if PNGs exist)
+  return (
+    <span className={className || 'summary-type-tag'} style={{ backgroundColor: getTypeColorFallback(type) }}>
+      {type}
+    </span>
+  );
+}
+
+/**
+ * Fallback type colors (used if PNG doesn't load)
+ */
+function getTypeColorFallback(type: string): string {
+  const colors: Record<string, string> = {
+    NORMAL: '#A8A878', FIRE: '#F08030', WATER: '#6890F0', GRASS: '#78C850',
+    ELECTRIC: '#F8D030', ICE: '#98D8D8', FIGHTING: '#C03028', POISON: '#A040A0',
+    GROUND: '#E0C068', FLYING: '#A890F0', PSYCHIC: '#F85888', BUG: '#A8B820',
+    ROCK: '#B8A038', GHOST: '#705898', DRAGON: '#7038F8', STEEL: '#B8B8D0',
+    DARK: '#705848', FAIRY: '#EE99AC',
+  };
+  return colors[type.toUpperCase()] || '#A8A878';
 }
 
 export default PokemonSummaryContent;

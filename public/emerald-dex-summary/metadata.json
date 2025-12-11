@@ -1,0 +1,5 @@
+{
+  "name": "Emerald Dex Summary",
+  "description": "A pixel-perfect interactive recreation of the Gen 3 Pokémon summary screen with real-time data fetching and Gemini AI analysis.",
+  "requestFramePermissions": []
+}
