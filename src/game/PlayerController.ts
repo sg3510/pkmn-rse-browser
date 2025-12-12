@@ -781,6 +781,12 @@ export class PlayerController {
       isMoving: this.isMoving,
       isJumping,
     });
+
+    // Include NPC positions for grass effect cleanup
+    for (const [id, pos] of this.additionalOwnerPositions) {
+      ownerPositions.set(id, pos);
+    }
+
     this.grassEffectManager.cleanup(ownerPositions);
 
     return this.currentState.update(this, delta);
@@ -1792,6 +1798,37 @@ export class PlayerController {
    */
   public getGrassEffectManager(): FieldEffectManager {
     return this.grassEffectManager;
+  }
+
+  /** Additional owner positions (from NPCs) for grass effect cleanup */
+  private additionalOwnerPositions: Map<string, {
+    tileX: number;
+    tileY: number;
+    destTileX: number;
+    destTileY: number;
+    prevTileX: number;
+    prevTileY: number;
+    direction: 'up' | 'down' | 'left' | 'right';
+    isMoving: boolean;
+    isJumping: boolean;
+  }> = new Map();
+
+  /**
+   * Set additional owner positions for grass effect cleanup.
+   * Call this before player.update() with NPC positions.
+   */
+  public setAdditionalOwnerPositions(positions: Map<string, {
+    tileX: number;
+    tileY: number;
+    destTileX: number;
+    destTileY: number;
+    prevTileX: number;
+    prevTileY: number;
+    direction: 'up' | 'down' | 'left' | 'right';
+    isMoving: boolean;
+    isJumping: boolean;
+  }>): void {
+    this.additionalOwnerPositions = positions;
   }
 
   /**

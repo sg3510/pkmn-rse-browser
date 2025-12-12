@@ -11,6 +11,20 @@
 
 import spriteData from './sprite-metadata.json';
 
+/**
+ * Normalize a graphics ID to match the format in sprite-metadata.json
+ * Map data may use formats like "OBJ_EVENT_GFX_BOY_1" but metadata uses "OBJ_EVENT_GFX_BOY1"
+ *
+ * Common patterns:
+ * - BOY_1 -> BOY1, GIRL_1 -> GIRL1, MAN_1 -> MAN1, etc.
+ * - WOMAN_1 -> WOMAN1, SCIENTIST_1 -> SCIENTIST1, etc.
+ */
+export function normalizeGraphicsId(graphicsId: string): string {
+  // Pattern: _N at the end (where N is a single digit) should become just N
+  // e.g., OBJ_EVENT_GFX_BOY_1 -> OBJ_EVENT_GFX_BOY1
+  return graphicsId.replace(/_(\d)$/, '$1');
+}
+
 // Types
 export interface AnimFrame {
   frameIndex: number;
@@ -96,9 +110,11 @@ const metadata = spriteData as {
 
 /**
  * Get sprite info for a graphics ID
+ * Normalizes the ID to handle naming variations (e.g., BOY_1 vs BOY1)
  */
 export function getSpriteInfo(graphicsId: string): SpriteInfo | null {
-  return metadata.sprites[graphicsId] ?? null;
+  // Try original first, then normalized
+  return metadata.sprites[graphicsId] ?? metadata.sprites[normalizeGraphicsId(graphicsId)] ?? null;
 }
 
 /**
@@ -113,7 +129,7 @@ export function getAllSpriteInfos(): Record<string, SpriteInfo> {
  * Falls back to 16x32 if not found
  */
 export function getSpriteDimensions(graphicsId: string): { width: number; height: number } {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   if (info) {
     return { width: info.width, height: info.height };
   }
@@ -124,7 +140,7 @@ export function getSpriteDimensions(graphicsId: string): { width: number; height
  * Get sprite path for a graphics ID
  */
 export function getSpritePath(graphicsId: string): string | null {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   return info?.spritePath ?? null;
 }
 
@@ -132,7 +148,7 @@ export function getSpritePath(graphicsId: string): string | null {
  * Get frame count for a graphics ID
  */
 export function getFrameCount(graphicsId: string): number {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   return info?.frameCount ?? 9; // Default to 9 frames
 }
 
@@ -147,7 +163,7 @@ export function getAnimationFrames(animName: string): AnimFrame[] {
  * Get the animation name for a graphics ID and animation index
  */
 export function getAnimationNameForSprite(graphicsId: string, animIndex: number): string | null {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   if (!info) return null;
 
   const table = metadata.animationTables[info.animationTable];
@@ -172,7 +188,7 @@ export function getAnimationNameForSprite(graphicsId: string, animIndex: number)
  * The frameMap (from pic tables) provides this remapping.
  */
 export function mapLogicalToPhysicalFrame(graphicsId: string, logicalFrame: number): number {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   if (info?.frameMap && logicalFrame < info.frameMap.length) {
     return info.frameMap[logicalFrame];
   }
@@ -205,7 +221,7 @@ export function getSpriteAnimationFrames(graphicsId: string, animIndex: number):
  * Check if sprite is inanimate (no walking animation)
  */
 export function isInanimate(graphicsId: string): boolean {
-  const info = metadata.sprites[graphicsId];
+  const info = getSpriteInfo(graphicsId);
   return info?.inanimate ?? false;
 }
 

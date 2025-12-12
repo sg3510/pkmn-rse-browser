@@ -36,6 +36,11 @@ export interface NPCAnimationState {
 
   // Timing
   lastUpdateTime: number;    // Last update timestamp (ms)
+
+  // Current state tracking (for detecting changes)
+  currentDirection: 'up' | 'down' | 'left' | 'right';
+  currentIsMoving: boolean;
+  graphicsId: string;
 }
 
 /**
@@ -57,6 +62,9 @@ export function createAnimationState(
     animBeginning: true,
     currentFrames: frames,
     lastUpdateTime: performance.now(),
+    currentDirection: direction,
+    currentIsMoving: isMoving,
+    graphicsId,
   };
 }
 
@@ -68,7 +76,9 @@ export function setAnimation(
   state: NPCAnimationState,
   graphicsId: string,
   animNum: number,
-  paused: boolean = false
+  paused: boolean = false,
+  direction?: 'up' | 'down' | 'left' | 'right',
+  isMoving?: boolean
 ): void {
   const frames = getSpriteAnimationFrames(graphicsId, animNum);
 
@@ -78,6 +88,9 @@ export function setAnimation(
   state.animPaused = paused;
   state.animBeginning = true;
   state.currentFrames = frames;
+  state.graphicsId = graphicsId;
+  if (direction !== undefined) state.currentDirection = direction;
+  if (isMoving !== undefined) state.currentIsMoving = isMoving;
 }
 
 /**
@@ -93,7 +106,7 @@ export function setAnimationForMovement(
   const animNum = getAnimIndexForDirection(direction, isMoving, speed);
   // When standing still, pause on the idle frame
   // When moving, let the animation play
-  setAnimation(state, graphicsId, animNum, !isMoving);
+  setAnimation(state, graphicsId, animNum, !isMoving, direction, isMoving);
 }
 
 /**
@@ -186,6 +199,7 @@ export class NPCAnimationManager {
 
   /**
    * Get or create animation state for an NPC
+   * Also updates the animation if direction or movement state has changed
    */
   getState(
     npcId: string,
@@ -198,6 +212,14 @@ export class NPCAnimationManager {
     if (!state) {
       state = createAnimationState(graphicsId, direction, isMoving);
       this.states.set(npcId, state);
+    } else {
+      // Check if direction or movement state changed - update animation if so
+      const directionChanged = state.currentDirection !== direction;
+      const movementChanged = state.currentIsMoving !== isMoving;
+
+      if (directionChanged || movementChanged) {
+        setAnimationForMovement(state, graphicsId, direction, isMoving);
+      }
     }
 
     return state;

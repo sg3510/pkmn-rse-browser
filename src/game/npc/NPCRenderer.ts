@@ -89,15 +89,19 @@ export function renderNPCs(
     let frameIndex: number;
     let flipHorizontal: boolean;
 
+    // Check if NPC is walking (has sub-tile offset = mid-movement)
+    const isNpcMoving = npc.isWalking ?? false;
+
     if (shouldAnimate(npc.graphicsId)) {
       // Get animation state for this NPC (creates if doesn't exist)
-      const npcId = `npc_${npc.localId}_${npc.tileX}_${npc.tileY}`;
+      // Use stable ID (localId + initial position) so animation state persists during movement
+      const npcId = `npc_${npc.localId}_${npc.initialTileX ?? npc.tileX}_${npc.initialTileY ?? npc.tileY}`;
       // Ensure animation state exists (creates if needed)
       npcAnimationManager.getState(
         npcId,
         npc.graphicsId,
         npc.direction,
-        false // isMoving - NPCs are currently static
+        isNpcMoving // Use actual walking state for walk animation
       );
       const frameInfo = npcAnimationManager.getFrameInfo(npcId);
       if (frameInfo) {
@@ -105,24 +109,26 @@ export function renderNPCs(
         flipHorizontal = frameInfo.hFlip;
       } else {
         // Fallback to static frame (with frame mapping)
-        const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+        const staticInfo = getNPCFrameInfo(npc.direction, isNpcMoving, 0, npc.graphicsId);
         frameIndex = staticInfo.frameIndex;
         flipHorizontal = staticInfo.flipHorizontal;
       }
     } else {
       // Static/inanimate sprite - use simple frame lookup (with frame mapping)
-      const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+      const staticInfo = getNPCFrameInfo(npc.direction, isNpcMoving, 0, npc.graphicsId);
       frameIndex = staticInfo.frameIndex;
       flipHorizontal = staticInfo.flipHorizontal;
     }
 
     const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
-    // Calculate world position
+    // Calculate world position with sub-tile offset for smooth movement
     // NPCs are positioned at tile center, but sprite is drawn from top-left
     // Standard 16x32 sprite: center horizontally on tile, feet at bottom of tile
-    const worldX = npc.tileX * METATILE_SIZE;
-    const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+    const subTileX = npc.subTileX ?? 0;
+    const subTileY = npc.subTileY ?? 0;
+    const worldX = npc.tileX * METATILE_SIZE + subTileX;
+    const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE);
 
     // Calculate screen position
     const screenX = Math.round(worldX - view.cameraWorldX);
@@ -216,19 +222,21 @@ export function renderNPCReflections(
     let frameIndex: number;
     let flipHorizontal: boolean;
 
+    const isNpcMoving = npc.isWalking ?? false;
+
     if (shouldAnimate(npc.graphicsId)) {
-      const npcId = `npc_${npc.localId}_${npc.tileX}_${npc.tileY}`;
+      const npcId = `npc_${npc.localId}_${npc.initialTileX ?? npc.tileX}_${npc.initialTileY ?? npc.tileY}`;
       const frameInfo = npcAnimationManager.getFrameInfo(npcId);
       if (frameInfo) {
         frameIndex = frameInfo.frameIndex;
         flipHorizontal = frameInfo.hFlip;
       } else {
-        const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+        const staticInfo = getNPCFrameInfo(npc.direction, isNpcMoving, 0, npc.graphicsId);
         frameIndex = staticInfo.frameIndex;
         flipHorizontal = staticInfo.flipHorizontal;
       }
     } else {
-      const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+      const staticInfo = getNPCFrameInfo(npc.direction, isNpcMoving, 0, npc.graphicsId);
       frameIndex = staticInfo.frameIndex;
       flipHorizontal = staticInfo.flipHorizontal;
     }
@@ -236,13 +244,13 @@ export function renderNPCReflections(
     const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
     // Compute reflection state for this NPC
-    // NPCs don't move yet, so previous position equals current position
+    // Use initial tile position for reflection detection (not sub-tile)
     const reflectionState = computeObjectReflectionState(
       renderContext,
       npc.tileX,
       npc.tileY,
-      npc.tileX,  // prevTileX - same as current for static NPCs
-      npc.tileY,  // prevTileY - same as current for static NPCs
+      npc.initialTileX ?? npc.tileX,  // prevTileX
+      npc.initialTileY ?? npc.tileY,  // prevTileY
       sw,
       sh
     );
@@ -250,9 +258,11 @@ export function renderNPCReflections(
     // Skip if no reflection
     if (!reflectionState.hasReflection) continue;
 
-    // Calculate world position (same as renderNPCs)
-    const worldX = npc.tileX * METATILE_SIZE;
-    const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+    // Calculate world position with sub-tile offset (same as renderNPCs)
+    const subTileX = npc.subTileX ?? 0;
+    const subTileY = npc.subTileY ?? 0;
+    const worldX = npc.tileX * METATILE_SIZE + subTileX;
+    const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE);
 
     // Viewport culling for reflection
     // Reflection appears below sprite, so check slightly larger area
@@ -329,8 +339,29 @@ export function renderNPCGrassEffects(
     // Skip invisible NPCs
     if (!npc.visible) continue;
 
-    // Check if NPC is on a grass tile
-    const tileInfo = getMetatileBehavior(renderContext, npc.tileX, npc.tileY);
+    // Calculate the tile where the NPC visually appears
+    // During walking: tileX/tileY is DESTINATION, but visual position is SOURCE
+    // subTileX/Y goes from -16 to 0, so if non-zero, NPC is visually on previous tile
+    let visualTileX = npc.tileX;
+    let visualTileY = npc.tileY;
+
+    if (npc.isWalking) {
+      // NPC is walking - calculate source tile from subTile offset
+      // subTileX/Y is negative during walk (e.g., -16 to 0)
+      // If subTileX < 0, NPC came from the tile to the left (or right if positive direction)
+      const subTileX = npc.subTileX ?? 0;
+      const subTileY = npc.subTileY ?? 0;
+
+      // Determine source tile based on sub-tile offset direction
+      if (subTileX < -8) visualTileX = npc.tileX - 1;
+      else if (subTileX > 8) visualTileX = npc.tileX + 1;
+
+      if (subTileY < -8) visualTileY = npc.tileY - 1;
+      else if (subTileY > 8) visualTileY = npc.tileY + 1;
+    }
+
+    // Check if NPC's visual position is on a grass tile
+    const tileInfo = getMetatileBehavior(renderContext, visualTileX, visualTileY);
     if (!tileInfo) continue;
 
     const behavior = tileInfo.behavior;
@@ -344,10 +375,9 @@ export function renderNPCGrassEffects(
 
     if (!grassSprite) continue;
 
-    // Calculate grass position (centered on tile, like field effects)
-    // Grass effect is positioned at tile center
-    const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2;
-    const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2;
+    // Grass effect is positioned at tile center (FIXED position, doesn't move with NPC)
+    const worldX = visualTileX * METATILE_SIZE + METATILE_SIZE / 2;
+    const worldY = visualTileY * METATILE_SIZE + METATILE_SIZE / 2;
 
     // Convert to screen coordinates (top-left corner of grass sprite)
     const screenX = Math.round(worldX - view.cameraWorldX - GRASS_FRAME_SIZE / 2);

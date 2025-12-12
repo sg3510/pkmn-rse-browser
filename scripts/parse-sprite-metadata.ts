@@ -260,19 +260,35 @@ function parsePicTables(content: string): Record<string, {
 
 /**
  * Convert CamelCase to SNAKE_CASE
+ *
+ * Also handles trailing numbers: Woman5 → WOMAN_5
  */
 function camelToSnake(str: string): string {
-  return str.replace(/([a-z])([A-Z])/g, '$1_$2').replace(/([A-Z])([A-Z][a-z])/g, '$1_$2');
+  let result = str
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2');
+
+  // Add underscore before trailing numbers: Woman5 → Woman_5
+  result = result.replace(/([a-zA-Z])(\d+)$/, '$1_$2');
+
+  return result;
 }
 
 /**
  * Convert name to likely sprite path
+ *
+ * Handles the conversion from CamelCase struct names to actual file paths.
+ * Key insight: pokeemerald files use underscores before numbers (woman_5.png, not woman5.png)
  */
 function nameToSpritePath(name: string): string {
-  const snakeName = name
+  let snakeName = name
     .replace(/([a-z])([A-Z])/g, '$1_$2')
     .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
     .toLowerCase();
+
+  // CRITICAL: Add underscore before trailing numbers
+  // CamelCase "Woman5" becomes "woman5" but the actual file is "woman_5.png"
+  snakeName = snakeName.replace(/([a-z])(\d+)$/, '$1_$2');
 
   // Handle special cases
   if (snakeName.includes('brendan')) return `/people/brendan/${snakeName.replace('brendan_', '')}.png`;

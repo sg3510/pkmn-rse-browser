@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-12-12T17:29:33.038Z",
+  "generatedAt": "2025-12-12T22:16:55.292Z",
   "sourceFiles": [
     "object_event_graphics_info.h",
     "object_event_pic_tables.h",
@@ -2382,8 +2382,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/twin.png"
     },
-    "OBJ_EVENT_GFX_BOY1": {
-      "graphicsId": "OBJ_EVENT_GFX_BOY1",
+    "OBJ_EVENT_GFX_BOY_1": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY_1",
       "name": "Boy1",
       "width": 16,
       "height": 32,
@@ -2391,10 +2391,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/boy1.png"
+      "spritePath": "/people/boy_1.png"
     },
-    "OBJ_EVENT_GFX_GIRL1": {
-      "graphicsId": "OBJ_EVENT_GFX_GIRL1",
+    "OBJ_EVENT_GFX_GIRL_1": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL_1",
       "name": "Girl1",
       "width": 16,
       "height": 32,
@@ -2402,10 +2402,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/girl1.png"
+      "spritePath": "/people/girl_1.png"
     },
-    "OBJ_EVENT_GFX_BOY2": {
-      "graphicsId": "OBJ_EVENT_GFX_BOY2",
+    "OBJ_EVENT_GFX_BOY_2": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY_2",
       "name": "Boy2",
       "width": 16,
       "height": 32,
@@ -2413,10 +2413,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/boy2.png"
+      "spritePath": "/people/boy_2.png"
     },
-    "OBJ_EVENT_GFX_GIRL2": {
-      "graphicsId": "OBJ_EVENT_GFX_GIRL2",
+    "OBJ_EVENT_GFX_GIRL_2": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL_2",
       "name": "Girl2",
       "width": 16,
       "height": 32,
@@ -2424,7 +2424,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/girl2.png"
+      "spritePath": "/people/girl_2.png"
     },
     "OBJ_EVENT_GFX_LITTLE_BOY": {
       "graphicsId": "OBJ_EVENT_GFX_LITTLE_BOY",
@@ -2448,8 +2448,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/little_girl.png"
     },
-    "OBJ_EVENT_GFX_BOY3": {
-      "graphicsId": "OBJ_EVENT_GFX_BOY3",
+    "OBJ_EVENT_GFX_BOY_3": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY_3",
       "name": "Boy3",
       "width": 16,
       "height": 32,
@@ -2457,10 +2457,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/boy3.png"
+      "spritePath": "/people/boy_3.png"
     },
-    "OBJ_EVENT_GFX_GIRL3": {
-      "graphicsId": "OBJ_EVENT_GFX_GIRL3",
+    "OBJ_EVENT_GFX_GIRL_3": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL_3",
       "name": "Girl3",
       "width": 16,
       "height": 32,
@@ -2468,7 +2468,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/girl3.png"
+      "spritePath": "/people/girl_3.png"
     },
     "OBJ_EVENT_GFX_RICH_BOY": {
       "graphicsId": "OBJ_EVENT_GFX_RICH_BOY",
@@ -2481,8 +2481,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/rich_boy.png"
     },
-    "OBJ_EVENT_GFX_WOMAN1": {
-      "graphicsId": "OBJ_EVENT_GFX_WOMAN1",
+    "OBJ_EVENT_GFX_WOMAN_1": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN_1",
       "name": "Woman1",
       "width": 16,
       "height": 32,
@@ -2490,7 +2490,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/woman1.png"
+      "spritePath": "/people/woman_1.png"
     },
     "OBJ_EVENT_GFX_FAT_MAN": {
       "graphicsId": "OBJ_EVENT_GFX_FAT_MAN",
@@ -2514,8 +2514,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/pokefan_f.png"
     },
-    "OBJ_EVENT_GFX_MAN1": {
-      "graphicsId": "OBJ_EVENT_GFX_MAN1",
+    "OBJ_EVENT_GFX_MAN_1": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN_1",
       "name": "Man1",
       "width": 16,
       "height": 32,
@@ -2523,10 +2523,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/man1.png"
+      "spritePath": "/people/man_1.png"
     },
-    "OBJ_EVENT_GFX_WOMAN2": {
-      "graphicsId": "OBJ_EVENT_GFX_WOMAN2",
+    "OBJ_EVENT_GFX_WOMAN_2": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN_2",
       "name": "Woman2",
       "width": 16,
       "height": 32,
@@ -2534,7 +2534,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/woman2.png"
+      "spritePath": "/people/woman_2.png"
     },
     "OBJ_EVENT_GFX_EXPERT_M": {
       "graphicsId": "OBJ_EVENT_GFX_EXPERT_M",
@@ -2558,8 +2558,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/expert_f.png"
     },
-    "OBJ_EVENT_GFX_MAN2": {
-      "graphicsId": "OBJ_EVENT_GFX_MAN2",
+    "OBJ_EVENT_GFX_MAN_2": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN_2",
       "name": "Man2",
       "width": 16,
       "height": 32,
@@ -2567,10 +2567,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/man2.png"
+      "spritePath": "/people/man_2.png"
     },
-    "OBJ_EVENT_GFX_WOMAN3": {
-      "graphicsId": "OBJ_EVENT_GFX_WOMAN3",
+    "OBJ_EVENT_GFX_WOMAN_3": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN_3",
       "name": "Woman3",
       "width": 16,
       "height": 32,
@@ -2578,7 +2578,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/woman3.png"
+      "spritePath": "/people/woman_3.png"
     },
     "OBJ_EVENT_GFX_POKEFAN_M": {
       "graphicsId": "OBJ_EVENT_GFX_POKEFAN_M",
@@ -2591,8 +2591,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/pokefan_m.png"
     },
-    "OBJ_EVENT_GFX_WOMAN4": {
-      "graphicsId": "OBJ_EVENT_GFX_WOMAN4",
+    "OBJ_EVENT_GFX_WOMAN_4": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN_4",
       "name": "Woman4",
       "width": 16,
       "height": 32,
@@ -2600,7 +2600,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/woman4.png"
+      "spritePath": "/people/woman_4.png"
     },
     "OBJ_EVENT_GFX_COOK": {
       "graphicsId": "OBJ_EVENT_GFX_COOK",
@@ -2690,8 +2690,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/picnicker.png"
     },
-    "OBJ_EVENT_GFX_MAN3": {
-      "graphicsId": "OBJ_EVENT_GFX_MAN3",
+    "OBJ_EVENT_GFX_MAN_3": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN_3",
       "name": "Man3",
       "width": 16,
       "height": 32,
@@ -2699,10 +2699,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/man3.png"
+      "spritePath": "/people/man_3.png"
     },
-    "OBJ_EVENT_GFX_WOMAN5": {
-      "graphicsId": "OBJ_EVENT_GFX_WOMAN5",
+    "OBJ_EVENT_GFX_WOMAN_5": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN_5",
       "name": "Woman5",
       "width": 16,
       "height": 32,
@@ -2710,7 +2710,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/woman5.png"
+      "spritePath": "/people/woman_5.png"
     },
     "OBJ_EVENT_GFX_YOUNGSTER": {
       "graphicsId": "OBJ_EVENT_GFX_YOUNGSTER",
@@ -2833,8 +2833,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/beauty.png"
     },
-    "OBJ_EVENT_GFX_SCIENTIST1": {
-      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST1",
+    "OBJ_EVENT_GFX_SCIENTIST_1": {
+      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST_1",
       "name": "Scientist1",
       "width": 16,
       "height": 32,
@@ -2842,7 +2842,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/scientist1.png"
+      "spritePath": "/people/scientist_1.png"
     },
     "OBJ_EVENT_GFX_LASS": {
       "graphicsId": "OBJ_EVENT_GFX_LASS",
@@ -3043,8 +3043,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/prof_birch.png"
     },
-    "OBJ_EVENT_GFX_MAN4": {
-      "graphicsId": "OBJ_EVENT_GFX_MAN4",
+    "OBJ_EVENT_GFX_MAN_4": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN_4",
       "name": "Man4",
       "width": 16,
       "height": 32,
@@ -3052,10 +3052,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/man4.png"
+      "spritePath": "/people/man_4.png"
     },
-    "OBJ_EVENT_GFX_MAN5": {
-      "graphicsId": "OBJ_EVENT_GFX_MAN5",
+    "OBJ_EVENT_GFX_MAN_5": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN_5",
       "name": "Man5",
       "width": 16,
       "height": 32,
@@ -3063,7 +3063,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/man5.png"
+      "spritePath": "/people/man_5.png"
     },
     "OBJ_EVENT_GFX_REPORTER_M": {
       "graphicsId": "OBJ_EVENT_GFX_REPORTER_M",
@@ -3142,8 +3142,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/giddy.png"
     },
-    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN1": {
-      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN1",
+    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_1": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_1",
       "name": "UnusedMauvilleOldMan1",
       "width": 16,
       "height": 32,
@@ -3151,10 +3151,10 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/unused_mauville_old_man1.png"
+      "spritePath": "/people/unused_mauville_old_man_1.png"
     },
-    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN2": {
-      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN2",
+    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_2": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_2",
       "name": "UnusedMauvilleOldMan2",
       "width": 16,
       "height": 32,
@@ -3162,7 +3162,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/unused_mauville_old_man2.png"
+      "spritePath": "/people/unused_mauville_old_man_2.png"
     },
     "OBJ_EVENT_GFX_UNUSED_NATU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_NATU_DOLL",
@@ -3693,8 +3693,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/cable_car.png"
     },
-    "OBJ_EVENT_GFX_SCIENTIST2": {
-      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST2",
+    "OBJ_EVENT_GFX_SCIENTIST_2": {
+      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST_2",
       "name": "Scientist2",
       "width": 16,
       "height": 32,
@@ -3702,7 +3702,7 @@
       "animationTable": "sAnimTable_Standard",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/scientist2.png"
+      "spritePath": "/people/scientist_2.png"
     },
     "OBJ_EVENT_GFX_DEVON_EMPLOYEE": {
       "graphicsId": "OBJ_EVENT_GFX_DEVON_EMPLOYEE",

@@ -52,6 +52,7 @@ import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker
 import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { useFieldSprites } from '../hooks/useFieldSprites';
+import { useNPCMovement } from '../hooks/useNPCMovement';
 import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
@@ -308,6 +309,50 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Track visible NPCs/items for debug panel (updated during render loop)
   const visibleNPCsRef = useRef<NPCObject[]>([]);
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
+
+  // NPC movement hook - provides collision-aware movement updates
+  // The providers object uses closure over refs so it always has fresh data
+  const npcMovementProviders = useMemo(() => ({
+    isTileWalkable: (x: number, y: number): boolean => {
+      // Use player's tile resolver to check walkability
+      const player = playerRef.current;
+      const resolver = player?.getTileResolver();
+      const resolved = resolver?.(x, y);
+      if (!resolved) return false;
+      // Check behavior - 0 is usually walkable
+      const behavior = resolved.attributes?.behavior ?? 0;
+      // Impassable behaviors (simplified check)
+      return behavior < 0x80; // Most behaviors < 0x80 are walkable
+    },
+    getTileElevation: (x: number, y: number): number => {
+      const player = playerRef.current;
+      const resolver = player?.getTileResolver();
+      const resolved = resolver?.(x, y);
+      return resolved?.mapTile?.elevation ?? 0;
+    },
+    getAllNPCs: (): NPCObject[] => {
+      return objectEventManagerRef.current.getVisibleNPCs();
+    },
+    hasPlayerAt: (x: number, y: number): boolean => {
+      // Check if player is at this tile position
+      const player = playerRef.current;
+      if (!player) return false;
+      return player.tileX === x && player.tileY === y;
+    },
+    getTileBehavior: (x: number, y: number): number | undefined => {
+      // Get tile behavior for grass effect detection
+      const player = playerRef.current;
+      const resolver = player?.getTileResolver();
+      const resolved = resolver?.(x, y);
+      return resolved?.attributes?.behavior;
+    },
+    get fieldEffectManager() {
+      // Use player's grass effect manager for NPC grass effects too
+      return playerRef.current?.getGrassEffectManager();
+    },
+  }), []); // Empty deps - functions use refs internally
+
+  const npcMovement = useNPCMovement(npcMovementProviders);
 
   // Dialog system
   const { showYesNo, showMessage, isOpen: dialogIsOpen } = useDialog();
@@ -693,6 +738,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // ===== WebGL-SPECIFIC: Post-warp updates =====
       pipeline.invalidate();
 
+      // Reset NPC movement engine (clear state from old map)
+      npcMovement.reset();
+
       console.log('[WARP] Warp complete');
       console.log('[WARP] World bounds:', snapshot.worldBounds);
       console.log('[WARP] Loaded maps:', snapshot.maps.map(m => m.entry.id));
@@ -972,6 +1020,22 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       // Update warp handler cooldown
       warpHandlerRef.current.update(dt);
+
+      // Update NPC movement (GBA-accurate wandering behavior)
+      // Only update when not warping and game is active
+      if (!warpingRef.current && !menuStateManager.isMenuOpen()) {
+        // Get visible NPCs and update their movement
+        const npcs = objectEventManagerRef.current.getVisibleNPCs();
+        if (npcs.length > 0) {
+          npcMovement.update(dt, npcs);
+
+          // Set NPC positions for grass effect cleanup
+          if (player) {
+            const npcPositions = npcMovement.getNPCOwnerPositions(npcs);
+            player.setAdditionalOwnerPositions(npcPositions);
+          }
+        }
+      }
 
       // Update player if loaded (handles its own input via keyboard events)
       // Skip player update when menu is open to prevent movement

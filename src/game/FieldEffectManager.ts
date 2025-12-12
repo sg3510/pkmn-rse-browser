@@ -44,6 +44,7 @@ export interface FieldEffectForRendering {
   direction?: 'up' | 'down' | 'left' | 'right';  // Direction for sand footprints
   flipHorizontal?: boolean;  // For East-facing sand footprints
   renderBehindPlayer?: boolean;  // True when player is moving DOWN from this grass tile
+  ownerObjectId: string;   // ID of the player/NPC that triggered this effect
 }
 
 /**
@@ -419,6 +420,7 @@ export class FieldEffectManager {
         direction: effect.direction,
         flipHorizontal,
         renderBehindPlayer: effect.renderBehindPlayer,
+        ownerObjectId: effect.ownerObjectId,
       });
     }
 

@@ -32,3 +32,6 @@ export {
 // Map hooks
 export { useMapAssets, type TilesetRuntime, type LoadedAnimation, type ReflectionMeta } from './map/useMapAssets';
 export { useMapLogic, resolveTileAt, type ResolvedTile, type RenderContext } from './map/useMapLogic';
+
+// NPC movement
+export { useNPCMovement, type NPCMovementContextProviders, type UseNPCMovementReturn } from './useNPCMovement';

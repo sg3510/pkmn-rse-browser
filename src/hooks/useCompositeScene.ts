@@ -22,9 +22,9 @@ import type { UseFieldSpritesReturn } from './useFieldSprites';
 import { ObjectRenderer } from '../components/map/renderers/ObjectRenderer';
 import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
-import { renderNPCs, renderNPCReflections, renderNPCGrassEffects, npcAnimationManager } from '../game/npc';
+import { renderNPCs, renderNPCReflections, npcAnimationManager } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
-import { buildSpriteBatches, getEffectsForLayer } from '../rendering/SpriteBatcher';
+import { buildSpriteBatches, getEffectsForLayer, getEffectsForNPC, getPlayerEffectsForLayer } from '../rendering/SpriteBatcher';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;
@@ -189,10 +189,14 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         itemBall: fieldSprites.sprites.itemBall,
       };
 
-      // Render field effects behind player (using SpriteBatcher for layer decision)
+      // Build set of NPC IDs for separating player vs NPC effects
+      const npcIds = new Set(npcs.filter(n => n.visible).map(n => n.id));
+
+      // Render PLAYER field effects behind player (using SpriteBatcher for layer decision)
+      // NPC effects are rendered separately right after each NPC
       if (player && spriteBatches) {
-        const bottomEffects = getEffectsForLayer(spriteBatches.ySorted, 'bottom');
-        for (const info of bottomEffects) {
+        const bottomPlayerEffects = getPlayerEffectsForLayer(spriteBatches.ySorted, 'bottom', npcIds);
+        for (const info of bottomPlayerEffects) {
           if (info.fieldEffect) {
             ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
           }
@@ -205,11 +209,19 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         // Render NPCs at player's priority behind player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', playerPriority);
 
-        // Render grass effects over NPCs (so grass covers their lower body)
-        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-        });
+        // Render NPC grass effects for NPCs behind player (grass ON TOP of each NPC)
+        for (const npc of npcs) {
+          if (!npc.visible) continue;
+          // Only for NPCs in bottom layer (Y < player)
+          if (npc.tileY >= player.tileY) continue;
+          // Render grass effects for this NPC
+          const npcEffects = getEffectsForNPC(spriteBatches.ySorted, npc.id);
+          for (const info of npcEffects) {
+            if (info.fieldEffect && info.effectLayer === 'front') {
+              ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
+            }
+          }
+        }
       }
 
       // Render surf blob (if surfing or mounting/dismounting)
@@ -264,10 +276,11 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         player.render(mainCtx, view.cameraWorldX, view.cameraWorldY);
       }
 
-      // Render field effects in front of player (using SpriteBatcher for layer decision)
+      // Render PLAYER field effects in front of player (using SpriteBatcher for layer decision)
+      // NPC effects are rendered separately right after each NPC
       if (player && spriteBatches) {
-        const topEffects = getEffectsForLayer(spriteBatches.ySorted, 'top');
-        for (const info of topEffects) {
+        const topPlayerEffects = getPlayerEffectsForLayer(spriteBatches.ySorted, 'top', npcIds);
+        for (const info of topPlayerEffects) {
           if (info.fieldEffect) {
             ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
           }
@@ -280,11 +293,19 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         // Render NPCs at player's priority in front of player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top', playerPriority);
 
-        // Render grass effects over NPCs (so grass covers their lower body)
-        renderNPCGrassEffects(mainCtx, npcs, view, ctx, {
-          tallGrass: fieldSprites.sprites.grass,
-          longGrass: fieldSprites.sprites.longGrass,
-        });
+        // Render NPC grass effects for NPCs in front of player (grass ON TOP of each NPC)
+        for (const npc of npcs) {
+          if (!npc.visible) continue;
+          // Only for NPCs in top layer (Y >= player)
+          if (npc.tileY < player.tileY) continue;
+          // Render grass effects for this NPC
+          const npcEffects = getEffectsForNPC(spriteBatches.ySorted, npc.id);
+          for (const info of npcEffects) {
+            if (info.fieldEffect && info.effectLayer === 'front') {
+              ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
+            }
+          }
+        }
       }
 
       // Draw Top Layer (Above Player)

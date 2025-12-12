@@ -221,14 +221,16 @@ const FIELD_EFFECT_ATLAS_NAMES: Record<string, string> = {
  * Create a SpriteInstance from a FieldEffectForRendering
  *
  * @param effect - Field effect data from FieldEffectManager
- * @param playerWorldY - Player's Y position for sorting
- * @param layer - 'bottom' or 'top' layer
+ * @param playerWorldY - Player's Y position for sorting (unused if preComputedLayer provided)
+ * @param layer - 'bottom' or 'top' layer (used for filtering when preComputedLayer not provided)
+ * @param preComputedLayer - Optional pre-computed layer from SpriteBatcher (skips filtering and re-computation)
  * @returns SpriteInstance or null if effect should not render in this layer
  */
 export function createFieldEffectSprite(
   effect: FieldEffectForRendering,
   playerWorldY: number,
-  layer: 'bottom' | 'top'
+  layer: 'bottom' | 'top',
+  preComputedLayer?: 'front' | 'behind'
 ): SpriteInstance | null {
   if (!effect.visible) return null;
 
@@ -236,13 +238,17 @@ export function createFieldEffectSprite(
   const atlasName = FIELD_EFFECT_ATLAS_NAMES[effect.type];
   if (!atlasName) return null;
 
-  // Use shared utility for Y-sorting logic
-  const effectLayer = computeFieldEffectLayer(effect, playerWorldY);
+  // Use pre-computed layer from SpriteBatcher if provided (handles NPC effects correctly)
+  // Otherwise compute based on player position (legacy behavior)
+  const effectLayer = preComputedLayer ?? computeFieldEffectLayer(effect, playerWorldY);
   const isInFront = effectLayer === 'front';
 
-  // Filter by layer
-  if (layer === 'bottom' && isInFront) return null;
-  if (layer === 'top' && !isInFront) return null;
+  // Only filter by layer if preComputedLayer not provided (legacy mode)
+  // When preComputedLayer is provided, SpriteBatcher already handled layer assignment
+  if (!preComputedLayer) {
+    if (layer === 'bottom' && isInFront) return null;
+    if (layer === 'top' && !isInFront) return null;
+  }
 
   // Calculate world position (convert from center to top-left)
   // FieldEffectManager returns center coordinates (tile*16 + 8)
@@ -257,17 +263,8 @@ export function createFieldEffectSprite(
   const atlasY = 0;
 
   // Sort key: lower values render first (behind)
-  // Player sortKey uses player.y + 32 (feet position)
-  // playerWorldY passed here is player.y + 16 (sprite center)
-  // Effect worldY is at tile center (tileY*16+8)
-  //
-  // The Y difference shifts sortKey significantly, overwhelming subpriority.
-  // So for effects that should render IN FRONT of player, we need to use a Y
-  // that's >= player's sortKey Y to ensure proper ordering.
-  //
-  // For 'front' effects: use playerWorldY + 16 (which equals player.y + 32, same as player feet sortKey)
-  // Then use higher subpriority (192) to render AFTER player (128)
-  // For 'behind' effects: use effect.worldY with subpriority 0
+  // NOTE: When preComputedLayer is provided, the sort key will be overwritten
+  // by SpriteBatcher's pre-computed sortKey. This calculation is just a fallback.
   const sortKeyY = isInFront ? (playerWorldY + 16) : effect.worldY;
   const subpriority = isInFront ? 192 : 0;
   const sortKey = calculateSortKey(sortKeyY, subpriority);
@@ -433,15 +430,19 @@ export function createNPCSpriteInstance(
   sortKey: number,
   clipToHalf: boolean = false
 ): SpriteInstance | null {
-  // Get frame info based on direction (with frame mapping for non-standard sprite layouts)
-  const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+  // Get frame info based on direction and walking state (with frame mapping for non-standard sprite layouts)
+  const isWalking = npc.isWalking ?? false;
+  const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, isWalking, 0, npc.graphicsId);
   const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
-  // Calculate world position
+  // Calculate world position with sub-tile offset for smooth movement
   // NPCs are positioned at tile center, sprite is drawn from top-left
   // Standard 16x32 sprite: center horizontally on tile, feet at bottom of tile
-  const worldX = npc.tileX * METATILE_SIZE;
-  const worldY = npc.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+  // subTileX/subTileY provide pixel-perfect movement during walks
+  const subTileX = npc.subTileX ?? 0;
+  const subTileY = npc.subTileY ?? 0;
+  const worldX = npc.tileX * METATILE_SIZE + subTileX;
+  const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE);
 
   // For long grass clipping, only show top half of sprite (matches player behavior)
   const displayHeight = clipToHalf ? Math.floor(sh / 2) : sh;
@@ -581,7 +582,9 @@ const GRASS_RESTING_FRAME = 0; // Frame 0 = grass at full coverage (resting stat
 export function createNPCGrassEffectSprite(
   npc: NPCObject,
   behavior: number,
-  npcSortKey: number
+  npcSortKey: number,
+  visualTileX?: number,
+  visualTileY?: number
 ): SpriteInstance | null {
   // Determine grass type from behavior
   let atlasName: string;
@@ -593,11 +596,29 @@ export function createNPCGrassEffectSprite(
     return null; // NPC not on grass
   }
 
-  // Calculate grass position (convert from center to top-left, like field effects)
-  // Grass covers the NPC's lower body
+  // Use visual tile position if provided, otherwise calculate from NPC state
+  // During walking: tileX/tileY is DESTINATION, but grass should stay at SOURCE
+  let grassTileX = visualTileX ?? npc.tileX;
+  let grassTileY = visualTileY ?? npc.tileY;
+
+  // If visual tile not provided and NPC is walking, calculate it from subTile offset
+  if (visualTileX === undefined && visualTileY === undefined && npc.isWalking) {
+    const subTileX = npc.subTileX ?? 0;
+    const subTileY = npc.subTileY ?? 0;
+
+    // subTile is negative during walk (e.g., -16 to 0)
+    // Determine source tile based on sub-tile offset direction
+    if (subTileX < -8) grassTileX = npc.tileX - 1;
+    else if (subTileX > 8) grassTileX = npc.tileX + 1;
+
+    if (subTileY < -8) grassTileY = npc.tileY - 1;
+    else if (subTileY > 8) grassTileY = npc.tileY + 1;
+  }
+
+  // Grass effect is positioned at tile center (FIXED position, doesn't move with NPC)
   // WebGL renderer expects top-left coordinates, so subtract half the sprite size
-  const worldX = npc.tileX * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
-  const worldY = npc.tileY * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
+  const worldX = grassTileX * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
+  const worldY = grassTileY * METATILE_SIZE + METATILE_SIZE / 2 - GRASS_FRAME_SIZE / 2;
 
   // Grass renders ON TOP of NPC, so add small offset to sortKey
   // This ensures grass is drawn after the NPC sprite

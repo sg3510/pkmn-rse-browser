@@ -63,6 +63,16 @@ export type NPCMovementType =
   | 'face_down'
   | 'face_left'
   | 'face_right'
+  | 'face_down_and_up'
+  | 'face_left_and_right'
+  | 'face_up_and_left'
+  | 'face_up_and_right'
+  | 'face_down_and_left'
+  | 'face_down_and_right'
+  | 'face_down_up_and_left'
+  | 'face_down_up_and_right'
+  | 'face_up_left_and_right'
+  | 'face_down_left_and_right'
   | 'walk_in_place'
   | 'invisible'
   | 'copy_player'
@@ -93,6 +103,8 @@ export interface NPCObject {
   direction: NPCDirection;
   /** Movement behavior type */
   movementType: NPCMovementType;
+  /** Raw movement type string from map data (for initial direction lookup) */
+  movementTypeRaw: string;
   /** Movement range X (tiles) */
   movementRangeX: number;
   /** Movement range Y (tiles) */
@@ -107,6 +119,19 @@ export interface NPCObject {
   flag: string;
   /** Whether this NPC is currently visible (derived from flag state) */
   visible: boolean;
+
+  // Movement state fields (updated by NPCMovementEngine)
+
+  /** Sub-tile X offset for smooth movement (0-15 pixels) */
+  subTileX: number;
+  /** Sub-tile Y offset for smooth movement (0-15 pixels) */
+  subTileY: number;
+  /** Whether NPC is currently walking between tiles */
+  isWalking: boolean;
+  /** Initial spawn X position (for movement range checking) */
+  initialTileX: number;
+  /** Initial spawn Y position (for movement range checking) */
+  initialTileY: number;
 }
 
 /**
@@ -203,6 +228,28 @@ export function parseMovementType(movementType: string): NPCMovementType {
       return 'face_left';
     case 'MOVEMENT_TYPE_FACE_RIGHT':
       return 'face_right';
+    // 2-direction face types
+    case 'MOVEMENT_TYPE_FACE_DOWN_AND_UP':
+      return 'face_down_and_up';
+    case 'MOVEMENT_TYPE_FACE_LEFT_AND_RIGHT':
+      return 'face_left_and_right';
+    case 'MOVEMENT_TYPE_FACE_UP_AND_LEFT':
+      return 'face_up_and_left';
+    case 'MOVEMENT_TYPE_FACE_UP_AND_RIGHT':
+      return 'face_up_and_right';
+    case 'MOVEMENT_TYPE_FACE_DOWN_AND_LEFT':
+      return 'face_down_and_left';
+    case 'MOVEMENT_TYPE_FACE_DOWN_AND_RIGHT':
+      return 'face_down_and_right';
+    // 3-direction face types
+    case 'MOVEMENT_TYPE_FACE_DOWN_UP_AND_LEFT':
+      return 'face_down_up_and_left';
+    case 'MOVEMENT_TYPE_FACE_DOWN_UP_AND_RIGHT':
+      return 'face_down_up_and_right';
+    case 'MOVEMENT_TYPE_FACE_UP_LEFT_AND_RIGHT':
+      return 'face_up_left_and_right';
+    case 'MOVEMENT_TYPE_FACE_DOWN_LEFT_AND_RIGHT':
+      return 'face_down_left_and_right';
     case 'MOVEMENT_TYPE_WALK_IN_PLACE_DOWN':
     case 'MOVEMENT_TYPE_WALK_IN_PLACE_UP':
     case 'MOVEMENT_TYPE_WALK_IN_PLACE_LEFT':

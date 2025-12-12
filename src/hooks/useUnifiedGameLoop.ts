@@ -78,6 +78,9 @@ export interface GameLoopCallbacks {
 
   /** Called when debug info should be updated (every ~500ms) */
   onDebugUpdate?: (player: PlayerController, gbaFrame: number) => void;
+
+  /** Called every frame to update NPC movement (deltaMs in milliseconds) */
+  onNPCUpdate?: (deltaMs: number) => void;
 }
 
 /**
@@ -382,6 +385,9 @@ export function useUnifiedGameLoop(
 
     // Update warp handler cooldown
     warpHandler.update(dt);
+
+    // Update NPC movement
+    callbacksRef.current.onNPCUpdate?.(dt);
 
     // Update player if loaded and not warping
     if (player && configRef.current.playerLoaded && !warpingRef.current) {

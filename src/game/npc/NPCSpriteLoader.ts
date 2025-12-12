@@ -223,6 +223,8 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_WOMAN_1: '/people/woman_1.png',
   OBJ_EVENT_GFX_WOMAN_2: '/people/woman_2.png',
   OBJ_EVENT_GFX_WOMAN_3: '/people/woman_3.png',
+  OBJ_EVENT_GFX_WOMAN_4: '/people/woman_4.png',
+  OBJ_EVENT_GFX_WOMAN_5: '/people/woman_5.png',
   OBJ_EVENT_GFX_OLD_MAN: '/people/old_man.png',
   OBJ_EVENT_GFX_OLD_WOMAN: '/people/old_woman.png',
   OBJ_EVENT_GFX_MAN_1: '/people/man_1.png',
@@ -608,20 +610,25 @@ export function getNPCFrameInfo(
   let flipHorizontal = false;
 
   if (isWalking) {
-    // Walking animation (simplified - just 2 frames)
+    // Walking animation - alternate between walk frames
+    // Standard 9-frame layout:
+    //   0: down idle, 1: up idle, 2: left idle
+    //   3: down walk 1, 4: down walk 2
+    //   5: up walk 1, 6: up walk 2
+    //   7: left walk 1, 8: left walk 2
     const walkFrameIdx = walkFrame % 2;
     switch (direction) {
       case 'down':
-        logicalFrameIndex = walkFrameIdx === 0 ? 3 : 0; // Alternate walk1/stand
+        logicalFrameIndex = walkFrameIdx === 0 ? 3 : 4; // down walk frames
         break;
       case 'up':
-        logicalFrameIndex = walkFrameIdx === 0 ? 4 : 1;
+        logicalFrameIndex = walkFrameIdx === 0 ? 5 : 6; // up walk frames
         break;
       case 'left':
-        logicalFrameIndex = walkFrameIdx === 0 ? 5 : 2;
+        logicalFrameIndex = walkFrameIdx === 0 ? 7 : 8; // left walk frames
         break;
       case 'right':
-        logicalFrameIndex = walkFrameIdx === 0 ? 5 : 2;
+        logicalFrameIndex = walkFrameIdx === 0 ? 7 : 8; // left walk frames (flipped)
         flipHorizontal = true;
         break;
     }

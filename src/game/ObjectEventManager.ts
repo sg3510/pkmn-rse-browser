@@ -123,6 +123,7 @@ export class ObjectEventManager {
           graphicsId: obj.graphics_id,
           direction: getInitialDirection(obj.movement_type),
           movementType: parseMovementType(obj.movement_type),
+          movementTypeRaw: obj.movement_type,
           movementRangeX: obj.movement_range_x,
           movementRangeY: obj.movement_range_y,
           trainerType: parseTrainerType(obj.trainer_type),
@@ -130,6 +131,12 @@ export class ObjectEventManager {
           script: obj.script,
           flag: obj.flag,
           visible: !isHidden,
+          // Movement state fields
+          subTileX: 0,
+          subTileY: 0,
+          isWalking: false,
+          initialTileX: worldX,
+          initialTileY: worldY,
         });
       }
       // Future: handle other object types (berry trees, etc.)

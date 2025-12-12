@@ -6,6 +6,7 @@
  * - Rendering with direction-based frames
  * - Frame info utilities
  * - Animation engine
+ * - Movement engine
  */
 
 // Sprite loading
@@ -22,3 +23,25 @@ export { renderNPCs, renderSingleNPC, renderNPCReflections, renderNPCGrassEffect
 
 // Animation
 export { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';
+
+// Movement engine
+export {
+  npcMovementEngine,
+  type NPCMovementState,
+  type MovementContext,
+  type NPCPositionUpdate,
+  type CollisionResult,
+  gbaToDirection,
+  directionToGBA,
+} from './NPCMovementEngine';
+
+// Collision detection
+export {
+  getCollisionInDirection,
+  isOutsideMovementRange,
+  createCollisionContext,
+  type CollisionContext,
+} from './NPCCollision';
+
+// Movement type handlers
+export { registerMovementHandlers } from './movementTypes';

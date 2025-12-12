@@ -33,7 +33,6 @@ import {
   createPlayerShadowSprite,
   createNPCSpriteInstance,
   createNPCReflectionSprite,
-  createNPCGrassEffectSprite,
   createDoorAnimationSprite,
   createItemBallSpriteInstance,
   calculateSortKey,
@@ -319,11 +318,35 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       const atlasName = `npc-${npc.graphicsId}`;
       if (!spriteRenderer.hasSpriteSheet(atlasName)) return;
 
-      const tileMeta = snapshot
+      // Calculate visual tile position for grass effects
+      // During walking: tileX/tileY is DESTINATION, but grass should be at SOURCE
+      let visualTileX = npc.tileX;
+      let visualTileY = npc.tileY;
+
+      if (npc.isWalking) {
+        const subTileX = npc.subTileX ?? 0;
+        const subTileY = npc.subTileY ?? 0;
+
+        // subTile is negative during walk (e.g., -16 to 0)
+        // Determine source tile based on sub-tile offset direction
+        if (subTileX < -8) visualTileX = npc.tileX - 1;
+        else if (subTileX > 8) visualTileX = npc.tileX + 1;
+
+        if (subTileY < -8) visualTileY = npc.tileY - 1;
+        else if (subTileY > 8) visualTileY = npc.tileY + 1;
+      }
+
+      // Get tile meta at visual position (for grass checks)
+      const visualTileMeta = snapshot
+        ? getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, visualTileX, visualTileY)
+        : null;
+
+      // Get tile meta at destination (for reflection checks)
+      const destTileMeta = snapshot
         ? getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, npc.tileX, npc.tileY)
         : null;
 
-      const isOnLongGrass = tileMeta ? isLongGrassBehavior(tileMeta.behavior) : false;
+      const isOnLongGrass = visualTileMeta ? isLongGrassBehavior(visualTileMeta.behavior) : false;
       const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass);
       if (!npcSprite) return;
 
@@ -347,11 +370,8 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         );
         if (npcReflection) targetArray.push(npcReflection);
 
-        // Add grass effect if on tall grass (not long grass)
-        if (tileMeta && !isOnLongGrass) {
-          const grassSprite = createNPCGrassEffectSprite(npc, tileMeta.behavior, info.sortKey);
-          if (grassSprite) targetArray.push(grassSprite);
-        }
+        // NPC grass effects are now handled by the shared FieldEffectManager
+        // (same system as player grass effects - animates properly and uses correct priority)
       }
     };
 
@@ -410,7 +430,8 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         createNPCWithExtras(info, allSprites);
       } else if (info.type === 'fieldEffect' && info.fieldEffect) {
         const layer = info.effectLayer === 'front' ? 'top' : 'bottom';
-        const sprite = createFieldEffectSprite(info.fieldEffect, playerWorldY, layer);
+        // Pass pre-computed effectLayer to skip re-computation (important for NPC grass effects)
+        const sprite = createFieldEffectSprite(info.fieldEffect, playerWorldY, layer, info.effectLayer);
         if (sprite) {
           sprite.sortKey = info.sortKey;
           allSprites.push(sprite);
