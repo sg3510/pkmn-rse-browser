@@ -9,6 +9,7 @@ import { GameRenderer } from './components/GameRenderer.tsx'
 import { DialogProvider } from './components/dialog'
 import { DialogDebugPage } from './pages/DialogDebugPage.tsx'
 import Rayquaza3DDebugPage from './pages/Rayquaza3DDebugPage.tsx'
+import Birch3DDebugPage from './pages/Birch3DDebugPage.tsx'
 
 /**
  * Simple hash-based router for development/testing pages
@@ -37,6 +38,9 @@ function Router() {
   }
   if (route === '#/rayquaza-debug') {
     return <Rayquaza3DDebugPage />;
+  }
+  if (route === '#/birch-debug') {
+    return <Birch3DDebugPage />;
   }
   // New unified GameRenderer (work in progress)
   if (route === '#/play' || route.startsWith('#/play?')) {

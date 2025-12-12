@@ -1,0 +1,545 @@
+<html lang="en" style=""><head style=""><script async="" id="IKOzVPjtHv3tevs-RDaJOMdtkBI" src="//cdn.confiant-integrations.net/video/202510211058/wrap.js" style=""></script><script src="https://cdn.hadronid.net/hadron.js?url=https%3A%2F%2Fmodels.spriters-resource.com%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F&amp;ref=https%3A%2F%2Fwww.google.com%2F&amp;_it=amazon&amp;partner_id=720" style=""></script><script id="IKOzVPjtHv3tevs-RDaJOMdtkBI" async="" src="//cdn.confiant-integrations.net/IKOzVPjtHv3tevs-RDaJOMdtkBI/video/config.js" style=""></script><script async="" src="//cdn.confiant-integrations.net/gptprebidnative/202510201106/wrap.js" style=""></script><script type="text/javascript" async="" src="https://cdn.id5-sync.com/api/1.0/id5PrebidModule.js" style=""></script>
+    <link rel="stylesheet" href="/includes/css/styles.css?v=1764691651" style="">
+    <link rel="stylesheet" href="/includes/css/themes/christmas.css?v=1760829971" style="">
+    <link rel="stylesheet" href="/includes/css/sites/light/models.css?v=1732123905" style="">
+    <link rel="manifest" href="/manifest.json" style="">
+    <link rel="icon" href="/images/icons/models.png" style="">
+    <link rel="apple-touch-icon" href="/images/icons/models.png" style="">
+    <link rel="preconnect" href="https://fonts.googleapis.com" style="">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" style="">
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" style="">
+    <meta name="description" content="Professor Birch - Pokémon Omega Ruby / Alpha Sapphire - 3DS - Archiving and preserving video game media since 2003!" style="">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" style="">
+    <meta name="theme-color" content="#2068b4" style="">
+    <meta property="og:title" content="Professor Birch - Pokémon Omega Ruby / Alpha Sapphire - 3DS" style="">
+    <meta property="og:url" content="https://models.spriters-resource.com/3ds/pokemonomegarubyalphasapphire/asset/296314/" style="">
+    <meta property="og:image" content="/media/asset_icons/293/296314.png" style="">
+    <meta property="og:site_name" content="The Models Resource" style="">
+    <title style="">Professor Birch - Pokémon Omega Ruby / Alpha Sapphire - 3DS - The Models Resource</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js" style=""></script>
+        <script type="importmap" style="">
+      {
+          "imports": {
+              "three": "/includes/js/three/build/three.module.min.js?v=1754095848",
+              "three/addons/": "/includes/js/three/jsm/"
+          }
+      }
+    </script>
+    <script type="module" src="/includes/js/three.js?v=1760071334" style=""></script>
+        <script src="/includes/js/scripts.js?v=1764691714" style=""></script>
+        <script src="/includes/js/christmas.js?v=1765307592" style=""></script>
+        <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-QHE6R14E7M" style=""></script>
+    <script style="">
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-QHE6R14E7M');
+    </script>
+    <script data-cfasync="false" style="">window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};</script>
+<script data-cfasync="false" async="" src="https://s.nitropay.com/ads-69.js" style=""></script>
+  <script async="" type="text/javascript" src="https://btloader.com/tag?o=6278260873756672&amp;upapi=true" id="nitroads-bt" style=""></script><script async="" id="nitro-confiant" src="https://cdn.confiant-integrations.net/QwN0KdjTe-a-6y-70Vps9qMqCzM/gpt_and_prebid/config.js" style=""></script><script class="nitro-comscore" async="" src="https://sb.scorecardresearch.com/cs/20631572/beacon.js" style=""></script><script async="" type="text/javascript" src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" id="nitro-gpt" style=""></script><style style="">div[id^="google_ads_iframe_"] { display: inline-block; }</style><link charset="utf-8" rel="prefetch" as="script" href="https://s.nitropay.com/ads-video.c740523671257b19988c.js" style=""><link charset="utf-8" rel="prefetch" as="script" href="https://s.nitropay.com/ads-standalone.3b313a8b36833b85aa35.js" style=""><script async="" defer="" type="text/javascript" src="https://ats-wrapper.privacymanager.io/ats-modules/438cb908-ed61-41e9-b716-05d5f4122a64/ats.js" id="nitro-lr" style=""></script><script async="" type="text/javascript" src="//s.nitropay.com/gpp-61d490e.min.js" style=""></script><script async="" type="text/javascript" src="//c.amazon-adsystem.com/aax2/apstag.js" style=""></script><meta http-equiv="origin-trial" content="AlK2UR5SkAlj8jjdEc9p3F3xuFYlF6LYjAML3EOqw1g26eCwWPjdmecULvBH5MVPoqKYrOfPhYVL71xAXI1IBQoAAAB8eyJvcmlnaW4iOiJodHRwczovL2RvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiV2ViVmlld1hSZXF1ZXN0ZWRXaXRoRGVwcmVjYXRpb24iLCJleHBpcnkiOjE3NTgwNjcxOTksImlzU3ViZG9tYWluIjp0cnVlfQ==" style=""><meta http-equiv="origin-trial" content="Amm8/NmvvQfhwCib6I7ZsmUxiSCfOxWxHayJwyU1r3gRIItzr7bNQid6O8ZYaE1GSQTa69WwhPC9flq/oYkRBwsAAACCeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXN5bmRpY2F0aW9uLmNvbTo0NDMiLCJmZWF0dXJlIjoiV2ViVmlld1hSZXF1ZXN0ZWRXaXRoRGVwcmVjYXRpb24iLCJleHBpcnkiOjE3NTgwNjcxOTksImlzU3ViZG9tYWluIjp0cnVlfQ==" style=""><meta http-equiv="origin-trial" content="A9nrunKdU5m96PSN1XsSGr3qOP0lvPFUB2AiAylCDlN5DTl17uDFkpQuHj1AFtgWLxpLaiBZuhrtb2WOu7ofHwEAAACKeyJvcmlnaW4iOiJodHRwczovL2RvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9" style=""><meta http-equiv="origin-trial" content="A93bovR+QVXNx2/38qDbmeYYf1wdte9EO37K9eMq3r+541qo0byhYU899BhPB7Cv9QqD7wIbR1B6OAc9kEfYCA4AAACQeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXN5bmRpY2F0aW9uLmNvbTo0NDMiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9" style=""><meta http-equiv="origin-trial" content="A1S5fojrAunSDrFbD8OfGmFHdRFZymSM/1ss3G+NEttCLfHkXvlcF6LGLH8Mo5PakLO1sCASXU1/gQf6XGuTBgwAAACQeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXRhZ3NlcnZpY2VzLmNvbTo0NDMiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9" style=""><script src="https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202512040101/pubads_impl.js" async="" style=""></script><link href="https://securepubads.g.doubleclick.net/pagead/managed/dict/m202512040101/gpt" rel="compression-dictionary" style=""><script type="text/javascript" async="" src="https://btloader.com/recovery?w=5157055715606528&amp;upapi=true" crossorigin="anonymous" style=""></script><style type="text/css" style="">.ncmp__normalise{line-height:1.15;-webkit-text-size-adjust:100%;margin:0}.ncmp__normalise main{display:block}.ncmp__normalise h1{font-size:2em;margin:.67em 0}.ncmp__normalise h1,.ncmp__normalise h2,.ncmp__normalise h3,.ncmp__normalise h4,.ncmp__normalise h5,.ncmp__normalise h6{color:#000;font-family:"Roboto",Arial,Helvetica,sans-serif;text-transform:none !important}.ncmp__normalise span{color:#444}.ncmp__normalise p{color:#444}.ncmp__normalise ul{color:#444;font-size:14px}.ncmp__normalise ul li{color:#444}.ncmp__normalise hr{box-sizing:content-box;height:0;overflow:visible}.ncmp__normalise pre{font-family:monospace,monospace;font-size:1em}.ncmp__normalise a{background-color:transparent}.ncmp__normalise abbr[title]{border-bottom:none;text-decoration:underline;-webkit-text-decoration:underline dotted;text-decoration:underline dotted}.ncmp__normalise b,.ncmp__normalise strong{color:#000;font-weight:bolder}.ncmp__normalise code,.ncmp__normalise kbd,.ncmp__normalise samp{font-family:monospace,monospace;font-size:1em}.ncmp__normalise small{font-size:80%}.ncmp__normalise sub,.ncmp__normalise sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}.ncmp__normalise sub{bottom:-0.25em}.ncmp__normalise sup{top:-0.5em}.ncmp__normalise img{margin:0;border-style:none}.ncmp__normalise button,.ncmp__normalise input,.ncmp__normalise optgroup,.ncmp__normalise select,.ncmp__normalise textarea{font-family:inherit;font-size:100%;line-height:1.15;margin:0;box-shadow:none;text-shadow:none}.ncmp__normalise button,.ncmp__normalise input{overflow:visible}.ncmp__normalise button,.ncmp__normalise select{text-transform:none}.ncmp__normalise button,.ncmp__normalise [type=button],.ncmp__normalise [type=reset],.ncmp__normalise [type=submit]{-webkit-appearance:button}.ncmp__normalise button::-moz-focus-inner,.ncmp__normalise [type=button]::-moz-focus-inner,.ncmp__normalise [type=reset]::-moz-focus-inner,.ncmp__normalise [type=submit]::-moz-focus-inner{border-style:none;padding:0}.ncmp__normalise button:-moz-focusring,.ncmp__normalise [type=button]:-moz-focusring,.ncmp__normalise [type=reset]:-moz-focusring,.ncmp__normalise [type=submit]:-moz-focusring{outline:1px dotted ButtonText}.ncmp__normalise fieldset{padding:.35em .75em .625em}.ncmp__normalise legend{box-sizing:border-box;color:inherit;display:table;max-width:100%;padding:0;white-space:normal}.ncmp__normalise progress{vertical-align:baseline}.ncmp__normalise textarea{overflow:auto}.ncmp__normalise [type=checkbox],.ncmp__normalise [type=radio]{box-sizing:border-box;padding:0}.ncmp__normalise [type=number]::-webkit-inner-spin-button,.ncmp__normalise [type=number]::-webkit-outer-spin-button{height:auto}.ncmp__normalise [type=search]{-webkit-appearance:textfield;outline-offset:-2px}.ncmp__normalise [type=search]::-webkit-search-decoration{-webkit-appearance:none}.ncmp__normalise ::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}.ncmp__normalise details{display:block}.ncmp__normalise summary{display:list-item}.ncmp__normalise template{display:none}.ncmp__normalise [hidden]{display:none}#ncmp__tool,#ncmp__modal{font-family:"Roboto",Arial,Helvetica,sans-serif;font-weight:400;font-size:14px;line-height:22px;position:relative;z-index:2147483647}@media(max-width: 1024px){#ncmp__tool,#ncmp__modal{padding:10px;box-sizing:border-box}}#ncmp__tool a,#ncmp__modal a{color:#0061b1;text-decoration:none}#ncmp__tool a:hover,#ncmp__modal a:hover{color:#004680}#ncmp__tool button.ncmp__btn,#ncmp__tool a.ncmp__btn,#ncmp__modal button.ncmp__btn,#ncmp__modal a.ncmp__btn{cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:inline-block;background-image:none;outline:0;outline-offset:0;border:0;border-radius:2px;transition:all .15s ease-in-out;min-width:88px;padding:0 14px;-webkit-appearance:button;background-color:#0061b1;font-weight:400;letter-spacing:inherit;color:rgba(255,255,255,.87);margin-bottom:0;text-align:center;white-space:nowrap;vertical-align:middle;line-height:32px;height:32px}#ncmp__tool button.ncmp__btn:hover,#ncmp__tool a.ncmp__btn:hover,#ncmp__modal button.ncmp__btn:hover,#ncmp__modal a.ncmp__btn:hover{background-color:#0061b1;color:#fff;text-decoration:none}#ncmp__tool button.ncmp__btn.ncmp__btn-danger,#ncmp__tool a.ncmp__btn.ncmp__btn-danger,#ncmp__modal button.ncmp__btn.ncmp__btn-danger,#ncmp__modal a.ncmp__btn.ncmp__btn-danger{background-color:#fff;border:1px solid #0061b1;color:#0061b1}#ncmp__tool button.ncmp__btn.ncmp__btn-border,#ncmp__tool a.ncmp__btn.ncmp__btn-border,#ncmp__modal button.ncmp__btn.ncmp__btn-border,#ncmp__modal a.ncmp__btn.ncmp__btn-border{border:1px solid #0061b1;background-color:#fff;color:#0061b1}#ncmp__tool button.ncmp__btn.ncmp__btn-border:hover,#ncmp__tool a.ncmp__btn.ncmp__btn-border:hover,#ncmp__modal button.ncmp__btn.ncmp__btn-border:hover,#ncmp__modal a.ncmp__btn.ncmp__btn-border:hover{background-color:#fff;color:#0061b1}.ncmp__active{opacity:1 !important;pointer-events:all !important}.ncmp__language>a{position:absolute;z-index:44;top:15px;right:15px;font-size:12px;font-weight:500}.ncmp__language>a img{vertical-align:middle;width:16px;margin-right:8px}@media(max-width: 1023px){.ncmp__language>a{top:10px;font-size:10px}.ncmp__language>a img{width:14px}}.ncmp__language .ncmp__language-close{display:block;position:absolute;top:8px;right:8px}.ncmp__language .ncmp__language-close img{width:18px}.ncmp__language .ncmp__language-list{display:block;position:absolute;z-index:44;top:15px;right:15px;padding:10px;background:#083f6b;width:300px;box-shadow:-2px 4px 10px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:all .2s ease-in}.ncmp__language .ncmp__language-list a{color:#fff !important;font-weight:300}@media(max-width: 1023px){.ncmp__language .ncmp__language-list{width:auto;top:10px;right:10px;left:10px}}.ncmp__language .ncmp__language-list.active{pointer-events:all;opacity:.95}.ncmp__language .ncmp__language-list ul{list-style-type:none;display:grid;grid-template-columns:1fr 1fr 1fr;font-size:12px;margin:0;padding:0;grid-gap:3px}@media(max-width: 1023px){.ncmp__language .ncmp__language-list ul{grid-template-columns:1fr 1fr 1fr}}.ncmp__language .ncmp__language-list ul li{margin:0;padding:0;list-style-image:none}.ncmp__language.ncmp__language-modal>a{top:22px;right:30px}@media(max-width: 1023px){.ncmp__language.ncmp__language-modal>a{right:15px}.ncmp__language.ncmp__language-modal>a span{display:none}}.ncmp__language.ncmp__language-modal .ncmp__language-list{top:22px;right:30px}@media(max-width: 1023px){.ncmp__language.ncmp__language-modal .ncmp__language-list{width:auto;top:10px;right:10px;left:10px}}#nitropay-ccpa-shadow{margin:0;padding:0;border:0;font-size:100%;font:inherit;vertical-align:baseline;display:block;font-size:1em;position:fixed;top:0;left:0;bottom:0;right:0;pointer-events:none;background:rgba(0,0,0,0);opacity:0;z-index:-5;display:flex;align-items:center;justify-content:center}#nitropay-ccpa-shadow html,#nitropay-ccpa-shadow body,#nitropay-ccpa-shadow div,#nitropay-ccpa-shadow span,#nitropay-ccpa-shadow applet,#nitropay-ccpa-shadow object,#nitropay-ccpa-shadow iframe,#nitropay-ccpa-shadow h1,#nitropay-ccpa-shadow h2,#nitropay-ccpa-shadow h3,#nitropay-ccpa-shadow h4,#nitropay-ccpa-shadow h5,#nitropay-ccpa-shadow h6,#nitropay-ccpa-shadow p,#nitropay-ccpa-shadow blockquote,#nitropay-ccpa-shadow pre,#nitropay-ccpa-shadow a,#nitropay-ccpa-shadow abbr,#nitropay-ccpa-shadow acronym,#nitropay-ccpa-shadow address,#nitropay-ccpa-shadow big,#nitropay-ccpa-shadow cite,#nitropay-ccpa-shadow code,#nitropay-ccpa-shadow del,#nitropay-ccpa-shadow dfn,#nitropay-ccpa-shadow em,#nitropay-ccpa-shadow img,#nitropay-ccpa-shadow ins,#nitropay-ccpa-shadow kbd,#nitropay-ccpa-shadow q,#nitropay-ccpa-shadow s,#nitropay-ccpa-shadow samp,#nitropay-ccpa-shadow small,#nitropay-ccpa-shadow strike,#nitropay-ccpa-shadow strong,#nitropay-ccpa-shadow sub,#nitropay-ccpa-shadow sup,#nitropay-ccpa-shadow tt,#nitropay-ccpa-shadow var,#nitropay-ccpa-shadow b,#nitropay-ccpa-shadow u,#nitropay-ccpa-shadow i,#nitropay-ccpa-shadow center,#nitropay-ccpa-shadow dl,#nitropay-ccpa-shadow dt,#nitropay-ccpa-shadow dd,#nitropay-ccpa-shadow ol,#nitropay-ccpa-shadow ul,#nitropay-ccpa-shadow li,#nitropay-ccpa-shadow fieldset,#nitropay-ccpa-shadow form,#nitropay-ccpa-shadow label,#nitropay-ccpa-shadow legend,#nitropay-ccpa-shadow table,#nitropay-ccpa-shadow caption,#nitropay-ccpa-shadow tbody,#nitropay-ccpa-shadow tfoot,#nitropay-ccpa-shadow thead,#nitropay-ccpa-shadow tr,#nitropay-ccpa-shadow th,#nitropay-ccpa-shadow td,#nitropay-ccpa-shadow article,#nitropay-ccpa-shadow aside,#nitropay-ccpa-shadow canvas,#nitropay-ccpa-shadow details,#nitropay-ccpa-shadow embed,#nitropay-ccpa-shadow figure,#nitropay-ccpa-shadow figcaption,#nitropay-ccpa-shadow footer,#nitropay-ccpa-shadow header,#nitropay-ccpa-shadow hgroup,#nitropay-ccpa-shadow menu,#nitropay-ccpa-shadow nav,#nitropay-ccpa-shadow output,#nitropay-ccpa-shadow ruby,#nitropay-ccpa-shadow section,#nitropay-ccpa-shadow summary,#nitropay-ccpa-shadow time,#nitropay-ccpa-shadow mark,#nitropay-ccpa-shadow audio,#nitropay-ccpa-shadow video{margin:0;padding:0;border:0;font-size:100%;font:inherit;vertical-align:baseline}#nitropay-ccpa-shadow :focus{outline:0}#nitropay-ccpa-shadow article,#nitropay-ccpa-shadow aside,#nitropay-ccpa-shadow details,#nitropay-ccpa-shadow figcaption,#nitropay-ccpa-shadow figure,#nitropay-ccpa-shadow footer,#nitropay-ccpa-shadow header,#nitropay-ccpa-shadow hgroup,#nitropay-ccpa-shadow menu,#nitropay-ccpa-shadow nav,#nitropay-ccpa-shadow section{display:block}#nitropay-ccpa-shadow body{line-height:1}#nitropay-ccpa-shadow ol,#nitropay-ccpa-shadow ul{list-style:none}#nitropay-ccpa-shadow blockquote,#nitropay-ccpa-shadow q{quotes:none}#nitropay-ccpa-shadow blockquote:before,#nitropay-ccpa-shadow blockquote:after,#nitropay-ccpa-shadow q:before,#nitropay-ccpa-shadow q:after{content:"";content:none}#nitropay-ccpa-shadow table{border-collapse:collapse;border-spacing:0}#nitropay-ccpa-shadow input[type=search]::-webkit-search-cancel-button,#nitropay-ccpa-shadow input[type=search]::-webkit-search-decoration,#nitropay-ccpa-shadow input[type=search]::-webkit-search-results-button,#nitropay-ccpa-shadow input[type=search]::-webkit-search-results-decoration{-webkit-appearance:none;-moz-appearance:none}#nitropay-ccpa-shadow input[type=search]{-webkit-appearance:none;-moz-appearance:none;box-sizing:content-box}#nitropay-ccpa-shadow textarea{overflow:auto;vertical-align:top;resize:vertical}#nitropay-ccpa-shadow audio,#nitropay-ccpa-shadow canvas,#nitropay-ccpa-shadow video{display:inline-block;*display:inline;*zoom:1;max-width:100%}#nitropay-ccpa-shadow audio:not([controls]){display:none;height:0}#nitropay-ccpa-shadow [hidden]{display:none}#nitropay-ccpa-shadow html{font-size:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}#nitropay-ccpa-shadow a:focus{outline:thin dotted}#nitropay-ccpa-shadow a:active,#nitropay-ccpa-shadow a:hover{outline:0}#nitropay-ccpa-shadow img{border:0;-ms-interpolation-mode:bicubic}#nitropay-ccpa-shadow figure{margin:0}#nitropay-ccpa-shadow form{margin:0}#nitropay-ccpa-shadow fieldset{border:1px solid silver;margin:0 2px;padding:.35em .625em .75em}#nitropay-ccpa-shadow legend{border:0;padding:0;white-space:normal;*margin-left:-7px}#nitropay-ccpa-shadow button,#nitropay-ccpa-shadow input,#nitropay-ccpa-shadow select,#nitropay-ccpa-shadow textarea{font-size:100%;margin:0;vertical-align:baseline;*vertical-align:middle}#nitropay-ccpa-shadow button,#nitropay-ccpa-shadow input{line-height:normal}#nitropay-ccpa-shadow button,#nitropay-ccpa-shadow select{text-transform:none}#nitropay-ccpa-shadow button,#nitropay-ccpa-shadow html input[type=button],#nitropay-ccpa-shadow input[type=reset],#nitropay-ccpa-shadow input[type=submit]{-webkit-appearance:button;cursor:pointer;*overflow:visible}#nitropay-ccpa-shadow button[disabled],#nitropay-ccpa-shadow html input[disabled]{cursor:default}#nitropay-ccpa-shadow input[type=checkbox],#nitropay-ccpa-shadow input[type=radio]{box-sizing:border-box;padding:0;*height:13px;*width:13px}#nitropay-ccpa-shadow input[type=search]{-webkit-appearance:textfield;box-sizing:content-box}#nitropay-ccpa-shadow input[type=search]::-webkit-search-cancel-button,#nitropay-ccpa-shadow input[type=search]::-webkit-search-decoration{-webkit-appearance:none}#nitropay-ccpa-shadow button::-moz-focus-inner,#nitropay-ccpa-shadow input::-moz-focus-inner{border:0;padding:0}#nitropay-ccpa-shadow textarea{overflow:auto;vertical-align:top}#nitropay-ccpa-shadow table{border-collapse:collapse;border-spacing:0}#nitropay-ccpa-shadow html,#nitropay-ccpa-shadow button,#nitropay-ccpa-shadow input,#nitropay-ccpa-shadow select,#nitropay-ccpa-shadow textarea{color:#222}#nitropay-ccpa-shadow ::-moz-selection{background:#b3d4fc;text-shadow:none}#nitropay-ccpa-shadow ::selection{background:#b3d4fc;text-shadow:none}#nitropay-ccpa-shadow img{vertical-align:middle}#nitropay-ccpa-shadow fieldset{border:0;margin:0;padding:0}#nitropay-ccpa-shadow textarea{resize:vertical}#nitropay-ccpa-shadow .chromeframe{margin:.2em 0;background:#ccc;color:#000;padding:.2em 0}#nitropay-ccpa-shadow.nitropay-ccpa-shadow-active{background:rgba(0,0,0,.25);pointer-events:all;opacity:1;z-index:999998}#nitropay-ccpa-shadow #nitropay-ccpa-modal{background:#fff;width:100%;max-width:570px;max-height:800px;overflow:auto;box-shadow:0px 0px 15px rgba(0,0,0,.1);border:1px solid #f1f1f1;padding:30px;font-family:Roboto,Arial,Helvetica,sans-serif;color:#000}@media(max-width: 767px){#nitropay-ccpa-shadow #nitropay-ccpa-modal{height:100%;width:100%;box-sizing:border-box;max-width:100%;max-height:100%}}#nitropay-ccpa-shadow #nitropay-ccpa-modal #nitropay-ccpa-close-btn{float:right;width:24px;height:24px;cursor:pointer;opacity:.7}#nitropay-ccpa-shadow #nitropay-ccpa-modal #nitropay-ccpa-close-btn:hover{opacity:.85}#nitropay-ccpa-shadow #nitropay-ccpa-modal h1{color:#000;font-size:22px;font-weight:600;margin-bottom:15px}#nitropay-ccpa-shadow #nitropay-ccpa-modal h2{color:#000;font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:1px}#nitropay-ccpa-shadow #nitropay-ccpa-modal p{color:#000;margin-bottom:15px;font-size:14px;font-weight:300}#nitropay-ccpa-shadow #nitropay-ccpa-modal p a{color:#000;font-weight:500}#nitropay-ccpa-shadow #nitropay-ccpa-modal form{display:block;margin-top:20px;font-size:14px;border-top:1px solid #efefef;padding-top:20px}#nitropay-ccpa-shadow #nitropay-ccpa-modal form div{margin-bottom:5px}#nitropay-ccpa-shadow #nitropay-ccpa-modal label{color:#000;cursor:pointer}#nitropay-ccpa-shadow #nitropay-ccpa-modal #nitropay-ccpa-form-status{font-weight:500;color:green;margin:20px 0 0 0;display:none}#nitropay-ccpa-shadow #nitropay-ccpa-modal #nitropay-ccpa-form-status a{color:green}</style><style type="text/css" style="">.ncmp__banner{position:fixed;bottom:20px;right:20px;max-width:750px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.2);transition:opacity .25s ease-in;overflow:auto;max-height:100%;box-sizing:border-box;opacity:0;pointer-events:none;display:flex}@media(max-width: 1023px)and (min-height: 600px){.ncmp__banner{margin-top:10px;max-height:100vh;box-sizing:border-box;left:8px;bottom:8px;right:8px;max-width:100%;overflow:initial;background:#fff}}@media(max-width: 1023px)and (max-height: 599px){.ncmp__banner{top:20px;left:20px;max-width:100%}}.ncmp__banner.ncmp__banner-app{left:20px;top:20px;right:20px;bottom:20px;max-width:100%;margin-top:0;box-shadow:2px 2px 20px rgba(0,0,0,.45);padding:15px}.ncmp__banner.ncmp__banner-app h2{font-size:20px !important;margin-bottom:15px !important}.ncmp__banner.ncmp__banner-app p{font-size:14px !important;line-height:24px !important}.ncmp__banner.ncmp__banner-app .ncmp__banner-inner{display:flex;flex-direction:column}.ncmp__banner .ncmp__banner-updated{padding:5px 10px;background:#ffdda9;color:#af3800;margin-bottom:15px;font-size:13px}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-updated{font-size:12px;font-weight:500;line-height:16px;margin-bottom:10px}}.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-1{margin-bottom:8px}.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-1 p{margin:0;font-size:13px;line-height:20px;color:#595959}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-1 p{font-size:12px;line-height:16px}}.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-2 p.ncmp__banner-emphasis,.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-3 p.ncmp__banner-emphasis{margin:0 0 5px 0;font-weight:500;font-size:13px;line-height:20px;color:#111}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-2 p.ncmp__banner-emphasis,.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-3 p.ncmp__banner-emphasis{font-size:12px;line-height:16px}}.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-2 p.ncmp__banner-emphasis strong,.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-3 p.ncmp__banner-emphasis strong{font-weight:500}.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-2 p,.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-3 p{margin:0;font-size:13px;line-height:20px;color:#595959}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-2 p,.ncmp__banner .ncmp__banner-sections .ncmp__banner-section-3 p{font-size:12px;line-height:16px}}.ncmp__banner .ncmp__banner-inner{padding:20px;flex:1 1 auto;min-width:1px}@media(max-width: 1023px)and (min-height: 580px){.ncmp__banner .ncmp__banner-inner{padding:0;box-sizing:border-box}}@media(max-width: 1023px)and (max-height: 579px){.ncmp__banner .ncmp__banner-inner{padding:0;display:flex;flex-direction:column;height:100%;box-sizing:border-box}}.ncmp__banner .ncmp__banner-info{flex:1;display:flex}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-info{flex:1 1 auto;overflow:auto;box-sizing:border-box;padding:12px 12px 0 12px;display:block;margin-bottom:12px}}.ncmp__banner .ncmp__banner-info h2{font-weight:600;font-size:16px;margin:0 0 10px 0;line-height:22px}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-info h2{font-size:14px;margin-bottom:6px}}.ncmp__banner .ncmp__banner-info a.ncmp__toggle{font-weight:500}.ncmp__banner .ncmp__banner-info a.ncmp__toggle svg{vertical-align:middle;margin-right:5px;position:relative;top:-1px;-webkit-transform:rotate(-90deg);transform:rotate(-90deg);transition:.5s ease;fill:#2196f3}.ncmp__banner .ncmp__banner-info .ncmp__expand{max-height:0;transition:all .15s linear;overflow:hidden}.ncmp__banner .ncmp__banner-info h3{margin-left:25px;font-size:14px;font-weight:500;margin:10px 0 10px 25px;line-height:22px}.ncmp__banner .ncmp__banner-info ul{margin:0;margin-bottom:0;color:#595959}.ncmp__banner .ncmp__banner-info #ncmp__banner-features.ncmp__active a.ncmp__toggle,.ncmp__banner .ncmp__banner-info #ncmp__banner-information.ncmp__active a.ncmp__toggle,.ncmp__banner .ncmp__banner-info #ncmp__banner-purposes.ncmp__active a.ncmp__toggle{display:inline-block;margin-bottom:5px}.ncmp__banner .ncmp__banner-info #ncmp__banner-features.ncmp__active a.ncmp__toggle svg,.ncmp__banner .ncmp__banner-info #ncmp__banner-information.ncmp__active a.ncmp__toggle svg,.ncmp__banner .ncmp__banner-info #ncmp__banner-purposes.ncmp__active a.ncmp__toggle svg{-webkit-transform:rotate(0deg);transform:rotate(0deg)}.ncmp__banner .ncmp__banner-info #ncmp__banner-features.ncmp__active .ncmp__expand,.ncmp__banner .ncmp__banner-info #ncmp__banner-information.ncmp__active .ncmp__expand,.ncmp__banner .ncmp__banner-info #ncmp__banner-purposes.ncmp__active .ncmp__expand{max-height:370px}.ncmp__banner .ncmp__banner-info #ncmp__banner-features{margin-bottom:10px}.ncmp__banner .ncmp__banner-info #ncmp__banner-information,.ncmp__banner .ncmp__banner-info #ncmp__banner-purposes{margin-bottom:5px}.ncmp__banner .ncmp__banner-info #ncmp__banner-information.ncmp__active,.ncmp__banner .ncmp__banner-info #ncmp__banner-purposes.ncmp__active{margin-bottom:20px}.ncmp__banner .ncmp__banner-actions{margin-top:20px;box-sizing:border-box;text-align:right}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-actions{text-align:left;margin-top:-6px;padding:0 12px 8px 12px}}.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns{display:flex;margin:-2px}.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns a{text-align:center;display:block;font-size:12px;text-decoration:underline !important}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns a{font-size:12px}}.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns button{margin:5px;font-size:12px;font-weight:500 !important;line-height:20px;flex:1 1 40%}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns button{font-size:12px;margin:2px;height:28px !important;line-height:28px !important}}.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns.ncmp__banner-btns-f{display:block;margin:20px auto 0 auto !important;max-width:400px}.ncmp__banner .ncmp__banner-actions .ncmp__banner-btns.ncmp__banner-btns-f button{display:block !important;width:100% !important;margin-bottom:4px !important}@media(max-width: 1023px)and (min-height: 380px){.ncmp__banner .ncmp__banner-actions{width:100%}}.ncmp__banner .ncmp__banner-consent{display:flex;align-items:center;margin-top:10px}.ncmp__banner .ncmp__banner-consent .ncmp__banner-branding-btn{display:flex;flex:0 0 26px;font-size:0;margin:0 2px 0 0;align-items:center}.ncmp__banner .ncmp__banner-consent .ncmp__banner-branding-btn a{display:flex;align-items:center;height:26px}.ncmp__banner .ncmp__banner-consent .ncmp__banner-branding-btn img{height:14px;margin:0;position:relative;vertical-align:middle}.ncmp__banner .ncmp__banner-consent p{font-size:13px;line-height:16px;color:#595959;font-weight:400;margin:0}@media(max-width: 1023px){.ncmp__banner .ncmp__banner-consent p{display:inline-block;font-size:11px;line-height:12px}}</style><style type="text/css" style="">#ncmp__modal{position:fixed;top:0;left:0;right:0;bottom:0;opacity:0;pointer-events:none;transition:opacity .25s ease-in;display:flex;justify-content:center;align-items:center}#ncmp__modal .ncmp__shadow{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.2);z-index:1}#ncmp__modal .ncmp__modal{width:1100px;height:85vh;z-index:2;background:#fff;box-shadow:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14),0 9px 46px 8px rgba(0,0,0,.12);display:flex;flex-direction:column;position:relative;overflow:hidden}@media(max-width: 1150px){#ncmp__modal .ncmp__modal{width:900px}}@media(max-width: 1024px){#ncmp__modal .ncmp__modal{width:100%;height:100%;box-sizing:border-box}}#ncmp__modal .ncmp__modal.ncmp__modal-app{position:fixed;top:20px;left:20px;right:20px;bottom:20px;box-shadow:2px 2px 20px rgba(0,0,0,.45);width:auto;height:auto}#ncmp__modal .ncmp__modal .ncmp__modal-content{display:flex;flex:1 1 auto;height:0}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__modal-content{flex-direction:column-reverse}}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav-hamburger{display:none}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav-hamburger{position:absolute;top:20px;left:15px;z-index:40;display:block;cursor:pointer}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav-hamburger svg{width:24px;height:24px}}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav{flex:0 0 240px;background:#0061b1;color:#fff;overflow:auto}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav{position:absolute;top:0;left:-240px;bottom:0;width:240px;z-index:50;transition:all .15s ease-in;overflow:auto}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav.ncmp__nav-active{left:0}}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav .ncmp__nav-top{height:66px;background:#1e83d4}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul{margin:0;padding:0;list-style:none}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li{border-bottom:1px solid #1673bf}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-header{color:#fff;height:42px;line-height:42px;padding:0 20px;font-size:15px;font-weight:500;background:#00569c}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-item.ncmp__nav-item-active a{cursor:default;background:#004279 !important}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-item a{display:flex;font-size:13px;font-weight:300;text-decoration:none;color:#fff;padding:6px 20px;line-height:18px;align-items:center}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-item a:hover{background:#004279}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-item a .ncmp__purpose-status{display:block;flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#2787d6;margin-right:10px}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-item a .ncmp__purpose-status.ncmp__purpose-status-on{background:#6fff34}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__nav ul li.ncmp__nav-purpose a em{font-style:normal}#ncmp__modal .ncmp__modal .ncmp__modal-content .ncmp__router{flex:1 1 auto}#ncmp__modal .ncmp__modal h2{display:flex;align-items:center;position:-webkit-sticky;position:sticky;top:0;margin:0;padding:0 120px 0 30px;background:#fff;color:#000;font-weight:500;font-size:20px;z-index:10;height:66px;line-height:22px;text-transform:none}@media(max-width: 1023px){#ncmp__modal .ncmp__modal h2{font-size:16px;padding:0 15px 0 50px}}#ncmp__modal .ncmp__modal .ncmp__back{border:none;background:#fff;border-radius:50%;cursor:pointer;width:26px;height:26px;align-items:center;justify-content:center;display:flex;vertical-align:middle;font-size:0 !important;margin-right:10px;transition:all .1s ease-in}#ncmp__modal .ncmp__modal .ncmp__back svg{width:16px;height:16px;fill:#0061b1;transition:all .1s ease-in}#ncmp__modal .ncmp__modal .ncmp__back:hover{background:#0061b1}#ncmp__modal .ncmp__modal .ncmp__back:hover svg{fill:#fff}#ncmp__modal .ncmp__modal .ncmp__vendor-info{position:absolute;top:0;bottom:66px;right:-40%;z-index:30;background:#ececec;box-sizing:border-box;width:40%;transition:all .15s ease-in;overflow:auto}#ncmp__modal .ncmp__modal .ncmp__vendor-info.ncmp__vendor-active{right:0}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__vendor-info{width:100%;right:-100%}#ncmp__modal .ncmp__modal .ncmp__vendor-info.ncmp__vendor-active{right:0}}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body{padding:30px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body{padding:15px}}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body h3{margin:0 0 10px 0;font-size:16px;font-weight:500;line-height:22px}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section{margin-bottom:30px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section{margin-bottom:15px}}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section a{word-break:break-all}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section table{width:100%;border-collapse:collapse;box-sizing:border-box}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section table tr td{border-bottom:1px solid #ccc;padding:10px;background:#f8f8f8;font-size:13px;color:#444}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section table tr td strong{display:block;font-weight:500;font-size:14px}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section table tr td em{display:block;font-weight:500;font-size:13px;font-style:normal;margin:5px 0}#ncmp__modal .ncmp__modal .ncmp__vendor-info .ncmp__vendor-body .ncmp__vendor-section table tr:last-child td{border:none}#ncmp__modal .ncmp__modal .ncmp__nav-shadow{position:absolute;top:0;left:0;bottom:0;right:0;z-index:45;pointer-events:none;background:rgba(0,0,0,0);transition:all .15s ease-in}#ncmp__modal .ncmp__modal .ncmp__nav-shadow.ncmp__nav-shadow-active{pointer-events:all;background:rgba(0,0,0,.2)}#ncmp__modal .ncmp__modal .ncmp__vendor-shadow{position:absolute;top:0;left:0;bottom:66px;right:0;z-index:25;pointer-events:none;background:rgba(0,0,0,0);transition:all .15s ease-in}#ncmp__modal .ncmp__modal .ncmp__vendor-shadow.ncmp__vendor-active{pointer-events:all;background:rgba(0,0,0,.2)}#ncmp__modal .ncmp__modal .ncmp__router{flex:1 1 auto;overflow:auto;position:relative}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__col-toggle{width:74px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__col-name{text-align:left}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__col-type{width:20%}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__icon-yes{display:inline-block}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__icon-yes svg{fill:#dc4100}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__icon-no{display:inline-block}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__icon-no svg{fill:#d0d0d0}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__cookie-expire{display:inline-block;margin-left:10px;line-height:16px}@media(max-width: 767px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__cookie-expire{display:none}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__cookie-expire strong{display:block;font-weight:600;font-size:11px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features{text-align:right;margin-top:10px;margin-bottom:-10px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features{text-align:left;margin-top:15px;margin-bottom:10px}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a{text-decoration:underline;color:#222}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a:hover,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a:hover,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a:hover{color:#222}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a.ncmp__toggle-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a.ncmp__toggle-vendors-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a.ncmp__toggle-legint-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-purposes a.ncmp__toggle-legint-vendors-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a.ncmp__toggle-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a.ncmp__toggle-vendors-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a.ncmp__toggle-legint-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table a.ncmp__toggle-legint-vendors-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a.ncmp__toggle-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a.ncmp__toggle-vendors-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a.ncmp__toggle-legint-purposes-off,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-features a.ncmp__toggle-legint-vendors-off{color:#555;font-weight:400}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__reject-table{text-align:left;margin-bottom:10px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__information .ncmp__information-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__information .ncmp__object-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__object .ncmp__information-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__object .ncmp__object-body{padding:30px;background:#efefef;position:relative}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__information .ncmp__information-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__information .ncmp__object-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__object .ncmp__information-body,#ncmp__modal .ncmp__modal .ncmp__router .ncmp__object .ncmp__object-body{padding:15px}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__illustrations{padding:15px;background:#ffebbd;border-left:8px solid #efc667;margin-bottom:30px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__illustrations ul{margin:0 0 0 20px;padding:0;list-style-type:square}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__illustrations ul li{margin-bottom:30px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__illustrations ul li:last-child{margin:0}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__description-legal{margin-bottom:30px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__description-legal{margin-bottom:15px}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__description-legal strong{margin-bottom:5px;display:block;font-weight:500}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__description-legal h3{margin:0 0 5px 0;font-size:14px;font-weight:500;line-height:22px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__description-legal p{margin:0;white-space:pre-wrap;font-size:14px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__section-body{padding:30px;background:#efefef;position:relative}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section .ncmp__section-body{padding:15px}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section table{width:100%;border-collapse:collapse;box-sizing:border-box}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section table tr td{border-bottom:1px solid #ccc;padding:5px 10px;font-size:13px;color:#444}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section table tr td p{margin:0;font-size:13px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section table tr th{position:-webkit-sticky;position:sticky;top:66px;z-index:9;padding:5px;font-weight:400;font-size:13px;background:#2d2d2d;color:#fff;border:none}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__section table tr:nth-child(even) td{background:#e4e4e4}#ncmp__modal .ncmp__modal .ncmp__router section{margin-bottom:30px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router section{margin-bottom:15px}}#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-title{margin-bottom:15px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-title{margin-bottom:5px}}#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-title h3{font-weight:500;font-size:15px;margin:0;line-height:22px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-title h3{font-size:16px}}#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-details p{margin-top:0;font-size:14px}#ncmp__modal .ncmp__modal .ncmp__router section .ncmp__section-details p:last-child{margin:0}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list{display:grid;grid-template-columns:1fr;grid-gap:20px;flex-wrap:wrap}@media(max-width: 1024px){#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list{grid-template-columns:1fr}}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item{flex:1 0 30%;background:#fbfbfb;padding:15px;display:flex;flex-direction:column}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__toggle{flex:0 0 72px;float:right;margin-left:15px;margin-bottom:15px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-info{flex:1 1 auto}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-info strong{display:block;font-weight:500;font-size:15px;margin-bottom:5px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-info p{margin:0;color:#444;font-weight:400;font-size:13px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-info .ncmp__vendor-consent{margin-bottom:5px;font-weight:500}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-action{flex:0 0 auto;font-size:13px;padding-top:5px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-action a{color:#595959;border-bottom:1px solid #ccc;font-weight:400}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__list .ncmp__list-item .ncmp__list-action a:hover{color:#222}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle{width:56px;height:24px;position:relative;display:inline-block;vertical-align:middle}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle label{width:56px;height:24px;display:block;border-radius:34px;background-color:#cecece;transition:background-color .4s;cursor:pointer}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle label:before{content:"";display:block;background-color:#fff;bottom:3px;height:18px;left:3px;position:absolute;transition:.4s;width:18px;z-index:5;border-radius:100%}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle label span{position:absolute;top:0;left:0;right:0;bottom:0;display:block;line-height:24px;text-transform:uppercase;font-size:12px;font-weight:bold;color:#484848;padding-left:26px;transition:all .4s}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle label span.ncmp__toggle-on{opacity:0}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input{position:absolute;opacity:0}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input:checked+label{background-color:#0061b1}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input:checked+label:before{-webkit-transform:translateX(32px);transform:translateX(32px)}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input:checked+label span{color:#fff;padding-left:8px}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input:checked+label span.ncmp__toggle-on{opacity:1}#ncmp__modal .ncmp__modal .ncmp__router .ncmp__toggle input:checked+label span.ncmp__toggle-off{opacity:0}#ncmp__modal .ncmp__modal .ncmp__modal-actions{flex:0 0 auto;padding:4px 15px;min-height:66px;display:flex;align-items:center;width:100%;box-sizing:border-box}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding{flex:1 1 auto;display:flex;align-items:center;color:#8e8e8e}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-logo{flex:0 0 auto;margin-right:10px;display:flex;align-items:center}@media(max-width: 320px){#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-logo{display:none}}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-logo a{display:flex;align-items:center}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-logo a img{width:26px;height:20px}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-version{flex:1 1 auto;font-size:11px;line-height:14px}@media(max-width: 1023px){#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-version{display:none}}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-version span{display:block}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-version span a{border-bottom:1px solid #dedede;color:#777}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__branding .ncmp__branding-version span a:hover{color:#666}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__buttons{display:flex;flex-wrap:wrap;row-gap:4px;justify-content:flex-end}#ncmp__modal .ncmp__modal .ncmp__modal-actions .ncmp__buttons button{margin-left:5px}</style><script src="https://config.aps.amazon-adsystem.com/configs/da657530-03e5-4306-95bc-d4eb370426c9" type="text/javascript" async="async" style=""></script><link id="nitro-floating-styles" rel="stylesheet" href="https://s.nitropay.com/ads-floating.d67d22508ef41ecbe965.css" style=""><script src="//secure.cdn.fastclick.net/js/pubcid/latest/pubcid.min.js" style=""></script><script src="https://tags.crwdcntrl.net/lt/c/16576/sync.min.js" style=""></script><script src="https://cdn-ima.33across.com/ima.js" style=""></script><script src="//cdn.id5-sync.com/api/1.0/id5-api.js" style=""></script><style style="">
+.report-link {
+  top: 0px !important;
+  position: relative !important;
+  width: 100px !important;
+}</style><style id="bt-render-styles" type="text/css" style="">.up-hide { display: none !important; }.ahover + [id^="google_ads_iframe_"] { width: 1px !important; height:1px !important; display: grid !important; }</style></head>
+
+  <body style="overflow: hidden;">
+    <script style="">
+window['nitroAds'].createAd('nitro-anchor', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "format": "anchor-v2",
+  "anchor": "bottom",
+  "anchorClose": true,
+  "anchorPersistClose": true,
+  "anchorBgColor": "rgba(255, 255, 255, 0.2)",
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+window['nitroAds'].createAd('nitro-outstream', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "format": "floating",
+  "reduceMobileSize": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-left"
+  }
+});
+</script>
+    <div id="header" style="">
+      <div class="wrap" style="">
+        <div id="navigation" style="">
+          <div id="mobile-menu-container" style=""><div id="mobile-menu-button" class="material-symbols-outlined text-shadow" style="">menu</div></div>
+          <a href="/" class="logo" style=""></a>
+          <div id="nav-links" style="">
+            <div class="nav-search" style="">
+              <form id="simple-searchform" method="get" action="/browse/" style="">
+                <input type="text" name="name" class="header-search formElement" placeholder="Search Assets" title="Searches assets by default. Prefix with &quot;g:&quot; to search for games directly." style="">
+                <div class="random-asset" style=""><a href="/random/" title="Random Asset" style=""><span class="material-symbols-outlined" style="">shuffle</span></a></div>
+                <button type="submit" class="search-submit" style=""><span class="material-symbols-outlined thin-stroke" style="">search</span></button>
+              </form>
+            </div>
+            <a href="/browse/" class="text-shadow" style="">Browse</a>
+                        <a href="/stats/" class="text-shadow" style="">Stats</a>
+            <a href="/page/help/" class="text-shadow" style="">Help</a>
+            <a href="https://discord.gg/tsr" target="_blank" class="text-shadow" style="">Discord</a>
+          </div>
+          <div id="nav-right" style="">
+            <div id="nav-toggles" style="">
+              <a href="/process/seticons/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" id="icon-toggle" style=""><span class="material-symbols-outlined text-shadow" title="Switch to Text Mode" style="">imagesmode</span></a>
+              <a href="/process/setnsfw/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" id="nsfw-toggle" style=""><span class="material-symbols-outlined text-shadow" title="Show NSFW Assets" style="">warning_off</span></a>
+              <a href="/process/setwidth/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" id="width-toggle" style=""><span class="material-symbols-outlined text-shadow" title="Switch to Full Width" style="">width_normal</span></a>
+                            <a href="/process/setholiday/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style=""><span class="material-symbols-outlined text-shadow" title="Disable Holiday Theme" style="font-variation-settings: &quot;FILL&quot; 0;">check_circle</span></a>
+                          </div>
+                        <a href="/user_login/" class="login" style="">Log In</a>
+                      </div>
+        </div>
+              </div>
+    </div>
+        <div id="wrapper" style="">
+      <div id="content-container" class="wrap" style="">
+        <div id="sidebar-left" style="display: none;">
+          <div id="nav-mobile-links" style="">
+            <div class="nav-search" style="">
+              <form id="simple-searchform-mobile" method="get" action="/browse/" style="">
+                <input type="text" name="name" class="header-search formElement" placeholder="Search Assets (Prefix g: for Games)" title="Searches assets by default. Prefix with &quot;g:&quot; to search for games directly." style="">
+                <div class="random-asset" style=""><a href="/random/" title="Random Asset" style=""><span class="material-symbols-outlined" style="">shuffle</span></a></div>
+                <button type="submit" class="search-submit" style=""><span class="material-symbols-outlined thin-stroke" style="">search</span></button>
+              </form>
+            </div>
+            <a href="/browse/" class="text-shadow" style="">Browse</a>
+            <a href="/page/help/" class="text-shadow" style="">Help</a>
+            <a href="https://discord.gg/tsr" target="_blank" class="text-shadow" style="">Discord</a>
+            <div id="nav-mobile-toggles" style="">
+              <a href="/process/seticons/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style=""><span class="material-symbols-outlined text-shadow" title="Switch to Text Mode" style="">imagesmode</span></a>
+              <a href="/process/setnsfw/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style=""><span class="material-symbols-outlined text-shadow" title="Show NSFW Assets" style="">warning_off</span></a>
+                            <a href="/process/setholiday/?return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style=""><span class="material-symbols-outlined text-shadow" title="Disable Holiday Theme" style="font-variation-settings: &quot;FILL&quot; 0;">check_circle</span></a>
+                          </div>
+          </div>
+          <div class="nav-header border text-shadow" style="">Consoles</div>
+          <a href="/custom_edited/" style="">Custom / Edited</a>
+<a href="/3ds/" class="active" style="">3DS</a>
+<a href="/arcade/" style="">Arcade</a>
+<a href="/browser_games/" style="">Browser Games</a>
+<a href="/dreamcast/" style="">Dreamcast</a>
+<a href="/ds_dsi/" style="">DS / DSi</a>
+<a href="/game_boy_advance/" style="">Game Boy Advance</a>
+<a href="/gamecube/" style="">GameCube</a>
+<a href="/mobile/" style="">Mobile</a>
+<a href="/ms_dos/" style="">MS-DOS</a>
+<a href="/nintendo_64/" style="">Nintendo 64</a>
+<a href="/nintendo_switch/" style="">Nintendo Switch</a>
+<a href="/pc_computer/" style="">PC / Computer</a>
+<a href="/playstation/" style="">PlayStation</a>
+<a href="/playstation_2/" style="">PlayStation 2</a>
+<a href="/playstation_3/" style="">PlayStation 3</a>
+<a href="/playstation_4/" style="">PlayStation 4</a>
+<a href="/playstation_vita/" style="">PlayStation Vita</a>
+<a href="/psp/" style="">PSP</a>
+<a href="/saturn/" style="">Saturn</a>
+<a href="/snes/" style="">SNES</a>
+<a href="/wii/" style="">Wii</a>
+<a href="/wii_u/" style="">Wii U</a>
+<a href="/xbox/" style="">Xbox</a>
+<a href="/xbox_360/" style="">Xbox 360</a>
+<a href="/other_systems/" style="">Other Systems<span class="material-symbols-outlined arrow" id="toggle-other" style="">arrow_right</span></a>
+<div id="other-systems" style="display: none;">
+<a href="/atari_jaguar/" style="">Atari Jaguar</a>
+<a href="/leapfrog/" style="">LeapFrog</a>
+<a href="/meta_quest/" style="">Meta Quest</a>
+<a href="/n_gage/" style="">N-Gage</a>
+<a href="/playstation_5/" style="">PlayStation 5</a>
+<a href="/sega_32x/" style="">Sega 32X</a>
+<a href="/zeebo/" style="">Zeebo</a>
+</div>
+<div class="nav-header border text-shadow ad-header" style="">Ad</div>
+<div class="ad-sidebar" style=""><div id="nitro-sidebar-left-middle" style=""></div>
+<script style="">
+window['nitroAds'].createAd('nitro-sidebar-left-middle', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+          <div class="nav-header border text-shadow" style="">Network</div>
+          <div class="navlist" style="">
+            <a href="https://www.spriters-resource.com/" style="background-color: var(--tsr);">The Spriters Resource</a>
+            <a href="https://models.spriters-resource.com/" style="background-color: var(--tmr);">The Models Resource</a>
+            <a href="https://textures.spriters-resource.com/" style="background-color: var(--ttr);">The Textures Resource</a>
+            <a href="https://sounds.spriters-resource.com/" style="background-color: var(--tsor);">The Sounds Resource</a>
+            <a href="https://www.vg-resource.com/" target="_blank" style="background-color: var(--vgr);">The VG Resource Wiki</a>
+            <a href="https://www.vgfacts.com/" target="_blank" style="background-color: var(--vgfacts);">VGFacts</a>
+          </div>
+          <div class="nav-header border text-shadow" style="">Social</div>
+          <div class="navlist" style="">
+            <a href="https://discord.gg/tsr" target="_blank" class="discord" style="">Discord</a>
+            <a href="https://www.twitch.tv/thespritersresource" target="_blank" class="twitch" style="">Twitch</a>
+            <a href="https://bsky.app/profile/spriters-resource.com" target="_blank" class="bluesky" style="">Bluesky</a>
+            <a href="https://www.youtube.com/@Spriters-Resource" target="_blank" class="youtube" style="">YouTube</a>
+          </div>
+          <div class="sticky-sidebar" style=""><div class="nav-header border text-shadow ad-header" style="">Ad</div>
+<div class="ad-sidebar" style=""><div id="nitro-sidebar-left-bottom" style=""></div>
+<script style="">
+window['nitroAds'].createAd('nitro-sidebar-left-bottom', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+</div>
+        </div>
+        <div id="sidebar-right" style="">
+          <div class="nav-header border text-shadow" style="">Ad</div>
+<div class="ad-sidebar" style=""><div id="nitro-sidebar-right-top" style=""></div>
+<script style="">
+window['nitroAds'].createAd('nitro-sidebar-right-top', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+          <div class="nav-header border text-shadow" style="">Latest Assets</div>
+                    <a href="/wii/supermariogalaxy2/asset/483043/" style="">Spin Drill - Super Mario Galaxy 2</a>
+          <a href="/wii/supermariogalaxy2/asset/483031/" style="">The Chimp - Super Mario Galaxy 2</a>
+          <a href="/wii/supermariogalaxy2/asset/482979/" style="">Big Sign Board - Super Mario Galaxy 2</a>
+          <a href="/wii/supermariogalaxy2/asset/482967/" style="">Lucky Cube - Super Mario Galaxy 2</a>
+          <a href="/wii_u/yoshiswoollyworld/asset/466248/" style="">Smiley Flower - Yoshi's Woolly World</a>
+          <a href="/wii_u/yoshiswoollyworld/asset/466247/" style="">Human - Yoshi's Woolly World</a>
+          <a href="/wii_u/mariotennisultrasmash/asset/488774/" style="">Medal Board - Mario Tennis: Ultra Smash</a>
+          <a href="/wii_u/mariotennisultrasmash/asset/488743/" style="">Donkey Kong - Mario Tennis: Ultra Smash</a>
+          <a href="/mobile/coindozer/asset/462773/" style="">Gold Coin - Coin Dozer</a>
+          <a href="/mobile/crashbandicootnitrokart2/asset/463465/" style="">Crash - Crash Bandicoot Nitro Kart 2</a>
+          <a href="/browse/?sortby=3&amp;dir=1" class="right-nav" style="">View more!</a>
+          <div class="nav-header border text-shadow" style="">Latest Comments</div>
+                    <a href="/gamecube/jimmyneutronjetfusion/asset/291553/#comment_279774" title="Dec 11, 2025, 12:31 AM" style="">SmashBrosFan97 on Sheen Estevez</a>
+          <a href="/nintendo_switch/supersmashbrosultimate/asset/316303/#comment_279769" title="Dec 10, 2025, 11:45 PM" style="">PGE on Sans Outfit</a>
+          <a href="/gamecube/jimmyneutronattackofthetwonkies/asset/289108/#comment_279767" title="Dec 10, 2025, 11:21 PM" style="">R7CrazyCanucks on Sheen Estevez</a>
+          <a href="/gamecube/marioparty6/asset/290713/#comment_279766" title="Dec 10, 2025, 11:05 PM" style="">Ton on Insectiride Vehicles</a>
+          <a href="/xbox_360/banjokazooienutsbolts/#comment_279763" title="Dec 10, 2025, 10:55 PM" style="">Nefnoj on Banjo-Kazooie: Nuts &amp; Bolts</a>
+          <a href="/nintendo_64/supermario64/asset/353302/#comment_279760" title="Dec 10, 2025, 10:30 PM" style="">Mjtheflareon on Snowman's Land: Igloo</a>
+          <a href="/nintendo_switch/littlekittybigcity/asset/473911/#comment_279759" title="Dec 10, 2025, 10:29 PM" style="">MattplayzOfficialYT on Little Kitty</a>
+          <a href="/pc_computer/finalfantasyxivarealmreborn/asset/344476/#comment_279755" title="Dec 10, 2025, 10:25 PM" style="">Ton on Typhon</a>
+          <a href="/xbox/timesplitters2/asset/353224/#comment_279754" title="Dec 10, 2025, 10:11 PM" style="">Ton on Stone Golem</a>
+          <a href="/gamecube/jimmyneutronattackofthetwonkies/asset/289108/#comment_279753" title="Dec 10, 2025, 9:49 PM" style="">BillyTGAoBaM on Sheen Estevez</a>
+          <a href="/comments/" class="right-nav" style="">View more!</a>
+<div class="nav-header border text-shadow" style="">Ad</div>
+<div class="ad-sidebar" style=""><div id="nitro-sidebar-right-middle" style=""></div>
+<script style="">
+window['nitroAds'].createAd('nitro-sidebar-right-middle', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+          <div class="nav-header border text-shadow" style="">Popular Assets</div>
+                    <a href="/nintendo_switch/pokemonlegendsza/asset/490282/" style="">Emma - Pokémon Legends: Z-A</a>
+          <a href="/nintendo_64/supermario64/asset/284432/" style="">Mario - Super Mario 64</a>
+          <a href="/custom_edited/undertalecustoms/asset/494386/" style="">Mew Mew - Undertale Customs</a>
+          <a href="/browser_games/glitchkarts/asset/494675/" style="">Pomni - GLITCH KARTS</a>
+          <a href="/custom_edited/thelegendofzeldacustoms/asset/487427/" style="">Zelda (A Link to the Past Concept Art) - The Legend of Zelda Customs</a>
+          <a href="/browser_games/macysthanksgivingdayparade/asset/499094/" style="">Buzz Lightyear - Macy's 2025 Thanksgiving Day Parade</a>
+          <a href="/nintendo_switch/xenobladechronicles2/asset/479771/" style="">Poppi α - Xenoblade Chronicles 2</a>
+          <a href="/pc_computer/theeminenceinshadowmasterofgarden/asset/488995/" style="">Hatsune Miku - The Eminence in Shadow: Master of Garden</a>
+          <a href="/nintendo_switch/yokaiwatch4/asset/464524/" style="">Hailey Thomas - Yo-kai Watch 4++ (JPN)</a>
+          <a href="/nintendo_switch/pokemonlegendsza/asset/490279/" style="">Lida - Pokémon Legends: Z-A</a>
+          <a href="/browse/?sortby=1&amp;dir=1" class="right-nav" style="">View more!</a>
+          <div class="nav-header border text-shadow" style="">Popular Games</div>
+                    <a href="/custom_edited/sonicthehedgehogcustoms/" style="">Sonic the Hedgehog Customs - Custom / Edited</a>
+          <a href="/custom_edited/mariocustoms/" style="">Mario Customs - Custom / Edited</a>
+          <a href="/nintendo_switch/supersmashbrosultimate/" style="">Super Smash Bros. Ultimate - Nintendo Switch</a>
+          <a href="/pc_computer/roblox/" style="">Roblox - PC / Computer</a>
+          <a href="/wii/ssbb/" style="">Super Smash Bros. Brawl - Wii</a>
+          <a href="/ds_dsi/pokemonblackwhite/" style="">Pokémon Black / White - DS / DSi</a>
+          <a href="/custom_edited/kirbycustoms/" style="">Kirby Customs - Custom / Edited</a>
+          <a href="/nintendo_64/supermario64/" style="">Super Mario 64 - Nintendo 64</a>
+          <a href="/custom_edited/megamancustoms/" style="">Mega Man Customs - Custom / Edited</a>
+          <a href="/3ds/pokemonxy/" style="">Pokémon X / Y - 3DS</a>
+          <a href="/browse/games/?sortby=1&amp;dir=1" class="right-nav" style="">View more!</a>
+          <div class="sticky-sidebar" style=""><div class="nav-header border text-shadow" style="">Ad</div>
+<div class="ad-sidebar" style=""><div id="nitro-sidebar-right-bottom" style=""></div>
+<script style="">
+window['nitroAds'].createAd('nitro-sidebar-right-bottom', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+</div>
+        </div>
+        <div id="content" style="">
+          <div id="nav-letters" style="">
+  <a href="/3ds/0/" class="border" style="">#</a>
+  <a href="/3ds/A/" class="border" style="">A</a>
+  <a href="/3ds/B/" class="border" style="">B</a>
+  <a href="/3ds/C/" class="border" style="">C</a>
+  <a href="/3ds/D/" class="border" style="">D</a>
+  <a href="/3ds/E/" class="border" style="">E</a>
+  <a href="/3ds/F/" class="border" style="">F</a>
+  <a href="/3ds/G/" class="border" style="">G</a>
+  <a href="/3ds/H/" class="border" style="">H</a>
+  <a href="/3ds/I/" class="border" style="">I</a>
+  <a href="/3ds/J/" class="border" style="">J</a>
+  <a href="/3ds/K/" class="border" style="">K</a>
+  <a href="/3ds/L/" class="border" style="">L</a>
+  <a href="/3ds/M/" class="border" style="">M</a>
+  <a href="/3ds/N/" class="border" style="">N</a>
+  <a href="/3ds/O/" class="border" style="">O</a>
+  <a href="/3ds/P/" class="border active" style="">P</a>
+  <span class="border" style="">Q</span>
+  <a href="/3ds/R/" class="border" style="">R</a>
+  <a href="/3ds/S/" class="border" style="">S</a>
+  <a href="/3ds/T/" class="border" style="">T</a>
+  <span class="border" style="">U</span>
+  <a href="/3ds/V/" class="border" style="">V</a>
+  <a href="/3ds/W/" class="border" style="">W</a>
+  <span class="border" style="">X</span>
+  <a href="/3ds/Y/" class="border" style="">Y</a>
+  <span class="border" style="">Z</span>
+</div>
+<h1 style="">Professor Birch</h1>
+<hr class="header" style="">
+<div id="asset-subtitle" class="title bold-text-shadow" style=""><a href="/3ds/pokemonomegarubyalphasapphire/" style="">Pokémon Omega Ruby / Alpha Sapphire</a></div>
+<div class="ad-banner" style=""><div id="nitro-banner-top" style="min-height: 90px; position: relative;" data-request-id="019b0bc0-57d8-7879-8399-e1998b238999" data-report="{&quot;enabled&quot;:true,&quot;icon&quot;:true,&quot;wording&quot;:&quot;Report Ad&quot;,&quot;position&quot;:&quot;top-right&quot;}" class="up-show" data-bidder="ttd" data-creative-id="gjgbupu2"><div class="ahover" style="width: max-content !important; height: 90px; position: relative; z-index: 0; margin: 0px auto; display: block;"><iframe src="https://static.btloader.com/safeFrame.html?upapi=true" marginwidth="0" marginheight="0" scrolling="no" style="width: 728px; height: 90px; border: 0px;"></iframe><div class="upo-label" style="text-align: left; padding: 0px; margin: 0px; position: absolute; top: 0px; left: 0px; z-index: 9000; transition: opacity 1s ease-out; opacity: 1; cursor: pointer; transform: none;"><span style="display: block; background: rgba(255, 255, 255, 0.7); height: fit-content; width: fit-content; top: 0px; left: 0px; color: rgb(68, 68, 68); font-size: 10px; font-weight: bold; font-family: sans-serif; line-height: normal; text-decoration: none; margin: 0px; padding: 6px; border-radius: 0px 0px 5px;">AD</span></div></div><div class="report-link" style="width: 728px; height: 20px; left: 50%; transform: translateX(-50%); z-index: auto; text-align: right; top: -20px; position: absolute;"><a href="javascript:;" style="display: inline-block;"><svg aria-hidden="true" width="15" height="20" viewBox="0 0 40 40" style="margin-right: 2px; margin-top: -3px;"><path fill="#666" opacity="0.8" d="M10.415 23.4599C17.0544 30.1405 23.4056 36.6698 30.4756 43.124L39.3502 9.37402L30.4756 -0.000976562L24.8111 20.624C26.3632 23.2927 28.2875 28.1986 28.5926 31.2812C22.4048 24.836 16.2821 19.3787 9.70546 13.124L0.264465 47.999L13.633 31.7727C12.2273 29.4555 10.6423 26.4115 10.418 23.4599H10.415Z" style=""></path></svg><div style="width: 150px; padding: 0px 15px; border-radius: 2px; background: rgb(255, 255, 255); box-shadow: rgb(0, 0, 0) 1px 1px 3px; text-align: left; display: none; position: absolute; z-index: 9999; right: -4px; top: 18px;"><a href="https://nitropay.com/?utm_source=nitropay&amp;utm_campaign=n&amp;utm_medium=ad" target="_blank" style="font-size: 14px; font-family: Roboto, Arial, sans-serif; color: rgb(0, 0, 0); text-decoration: none; display: block; border-bottom: 1px solid rgb(204, 204, 204); padding: 10px 0px 5px;">About these ads</a><a href="javascript:;" style="font-size: 14px; font-family: Roboto, Arial, sans-serif; color: rgb(0, 0, 0); text-decoration: none; display: block; padding: 5px 0px 10px;">⚠ Report Ad</a></div></a></div></div>
+<script style="">
+window['nitroAds'].createAd('nitro-banner-top', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+<div class="add-button-container zoomed" id="zoom-controls" style="">
+  <div id="zoom-info" class="bold-text-shadow extra no-zoom" title="Reset View (Keyboard: Backspace or Tab)" style=""><span id="mag" style=""></span>x</div>
+  <div id="zoom-controls-buttons" style="">
+        <a href="/3ds/pokemonomegarubyalphasapphire/asset/296685/" class="button thin-stroke main" title="Previous Asset" style=""><span class="material-symbols-outlined" style="">arrow_back</span></a>
+        <button id="zoom-out" class="button thin-stroke extra no-zoom" title="Zoom Out (Mouse: Scroll Down, Keyboard: Down Arrow)" style=""><span class="material-symbols-outlined" style="">zoom_out</span></button>
+    <button id="zoom-in" class="button thin-stroke no-zoom" title="Zoom In" style=""><span class="material-symbols-outlined" style="">zoom_in</span></button>
+    <button id="zoom-3d" class="button thin-stroke main" data-path="293/296314.glb?updated=1755499331" data-tf="false" title="Show 3D Preview" style=""><span class="material-symbols-outlined" style="">view_in_ar</span></button>
+    <button id="zoom-rotate" class="button thin-stroke extra no-zoom" title="Rotate (Keyboard: R)" style=""><span class="material-symbols-outlined" style="">rotate_right</span></button>
+    <button id="zoom-flip" class="button thin-stroke extra off no-zoom" title="Flip Horizontal (Keyboard: F)" style=""><span class="material-symbols-outlined" style="">flip</span></button>
+    <button id="zoom-grid" class="button thin-stroke extra off no-zoom" title="Pixel Grid (Keyboard: G, LMB: Black Grid, RMB: White Grid)" style=""><span class="material-symbols-outlined" style="">grid_4x4</span></button>
+    <button id="zoom-tf" class="button thin-stroke extra" title="Texture Filtering (Keyboard: F)" style=""><span class="material-symbols-outlined" style="">texture</span></button>
+    <button id="zoom-turn" class="button thin-stroke extra off" title="Turntable Mode (Keyboard: R)" style=""><span class="material-symbols-outlined" style="">360</span></button>
+    <button id="zoom-wire" class="button thin-stroke extra off" title="Wireframe Mode (Keyboard: T)" style=""><span class="material-symbols-outlined" style="">grid_4x4</span></button>
+    <button id="zoom-bg" class="button thin-stroke extra off" title="Change Background Color (Keyboard: G, LMB: Green, RMB: Blue, MMB: Magenta)" style=""><span class="material-symbols-outlined" style="">background_replace</span></button>
+    <a href="/media/assets/293/296314.zip?updated=1755499331" id="download" class="button thin-stroke" title="Download Asset" download="3DS - Pokemon Omega Ruby / Alpha Sapphire - Unique NPCs (Overworld) - Professor Birch.zip" data-file="/media/assets/293/296314.zip?updated=1755499331" data-download="3DS - Pokemon Omega Ruby / Alpha Sapphire - Unique NPCs (Overworld) - Professor Birch.zip" style=""><span class="material-symbols-outlined" style="">download</span></a>
+    <button id="zoom-cam" class="button thin-stroke extra" title="Reset Camera (Keyboard: Backspace or Tab)" style=""><span class="material-symbols-outlined" style="">reset_focus</span></button>
+    <button id="zoom-reset" class="button thin-stroke extra" title="Close (Keyboard: Esc)" style=""><span class="material-symbols-outlined" style="">close</span></button>
+    <a href="#comment_list" class="button thin-stroke main" title="Comments (1)" style=""><span class="material-symbols-outlined" style="">comment</span></a>
+        <a href="/3ds/pokemonomegarubyalphasapphire/" class="button thin-stroke main" title="Return to Game" style=""><span class="material-symbols-outlined" style="">undo</span></a>
+    <a href="/3ds/pokemonomegarubyalphasapphire/asset/296327/" class="button thin-stroke main" title="Next Asset" style=""><span class="material-symbols-outlined" style="">arrow_forward</span></a>      </div>
+</div>
+<div id="nottoscale" style="">(Current scale is below 100% - zoom in to view full detail)</div>
+<div id="zoomdisplay" class="zoomed" style="background-size: var(--preview-bg-size); background-position: var(--preview-bg-position); background-image: var(--preview-bg-pattern); background-color: var(--bg-icon-base);"><canvas data-engine="three.js r179" width="352" height="1792" style="display: block; width: 176px; height: 896px; touch-action: none;"></canvas></div>
+<div id="assetdisplay" class="margins" style="">
+  <a href="/media/assets/293/296314.zip?updated=1755499331" class="iconlink" download="3DS - Pokemon Omega Ruby / Alpha Sapphire - Unique NPCs (Overworld) - Professor Birch.zip" style="">
+  <div class="iconcontainer preview" style="">
+    <div class="iconheader" title="Preview in Browser" style="">Preview in Browser</div>
+    <div class="iconbody bold-text-shadow" style=""><img src="/media/preview_icons/293/296314.png?updated=1755499331" alt="Preview in Browser - Pokémon Omega Ruby / Alpha Sapphire" loading="lazy" decoding="async" style=""></div>
+  </div>
+</a>
+</div>
+<table class="display altrow" id="stats" style="">
+  <colgroup style="">
+    <col style="width: 30%;">
+    <col style="">
+  </colgroup>
+  <tbody style=""><tr class="rowheader end-border" style="">
+    <th colspan="2" style="">
+      Asset Info
+            <span id="favorite" class="material-symbols-outlined thin-stroke disabled" title="Favorited 0 times!" data-type="asset" data-id="296314" data-reason="logged-out" style="">favorite</span>
+          </th>
+  </tr>
+    <tr style="">
+    <td style="">Name</td>
+    <td style="">Professor Birch</td>
+  </tr>
+  <tr style="">
+    <td style="">Category</td>
+    <td style=""><a href="/3ds/" style="">3DS</a></td>
+  </tr>
+  <tr style="">
+    <td style="">Game</td>
+    <td style=""><a href="/3ds/pokemonomegarubyalphasapphire/" style="">Pokémon Omega Ruby / Alpha Sapphire</a></td>
+  </tr>
+  <tr style="">
+    <td style="">Section</td>
+    <td style=""><a href="/3ds/pokemonomegarubyalphasapphire/#section-45492" style="">Unique NPCs (Overworld)</a></td>
+  </tr>
+  <tr style="">
+    <td style="">Submitted</td>
+    <td style="">March 13, 2016</td>
+  </tr>
+    <tr style="">
+    <td style="">Uploaded By</td>
+    <td style=""><a href="/profile/hallow/" style="">Hallow</a></td>
+  </tr>
+    <tr style="">
+    <td style="vertical-align: top;">Size</td>
+    <td style="">
+      76.11 KB <span title="(including folders)" style="">(5 items)</span>      <span class="collapse-toggle material-symbols-outlined arrow thin-stroke" title="Toggle Zip Contents" style="">arrow_right</span>
+        <div class="collapse zip-list" style="">
+          <ul style="">
+            <li style="">Professor Birch/rstr0009_00_fi.dae</li>
+            <li style="">Professor Birch/rstr0009_00_fi_body.png</li>
+            <li style="">Professor Birch/rstr0009_00_fi_face.png</li>
+            <li style="">Professor Birch/rstr0009_00_fi_head.png</li>
+          </ul>
+        </div>
+    </td>
+  </tr>
+  <tr style="">
+    <td style="vertical-align: top;">Format</td>
+    <td style="">
+      ZIP (application/zip)<div style="">dae</div>    </td>
+  </tr>
+  <tr style="">
+    <td style="">Hits</td>
+    <td style="">7,746</td>
+  </tr>
+    <tr style="">
+    <td colspan="2" style="font-size: 12px;">
+      Tags (4):
+            <div class="tagdisplay" style="">
+                <a href="/browse/?tags%5B3%5D%5B0%5D=27810" title="Character: Professor Bitch (Pokémon)" style=""><span class="browse-tag-catname" style="">Character</span> Professor Bitch (Pokémon)</a>
+        <a href="/browse/?tags%5B2%5D%5B0%5D=220" title="Series: Pokémon" style=""><span class="browse-tag-catname" style="">Series</span> Pokémon</a>
+        <a href="/browse/?tags%5B0%5D%5B0%5D=14905" title="Occupation: Pokémon Professor" style=""><span class="browse-tag-catname" style="">Occupation</span> Pokémon Professor</a>
+        <a href="/browse/?tags%5B0%5D%5B0%5D=12411" title="Occupation: Teacher / Professor" style=""><span class="browse-tag-catname" style="">Occupation</span> Teacher / Professor</a>
+              </div>
+    </td>
+  </tr>
+  </tbody></table>
+<div class="margins" style="">
+<h1 id="comment_list" style="">Comments (1)</h1>
+<hr class="header" style="">
+<div class="cperror" style="margin-bottom: 10px;">You must be <a href="/user_login/?return=3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314" style="">logged in</a> to post comments.</div>
+<div class="commentcontainer" id="comment_186205" style="">
+  <div class="commentavatar" style=""><img src="/images/misc/default-avatar.png?updated=1739056586" alt="Avatar" style="width: auto; height: auto; vertical-align: middle;"></div>
+  <div class="commentbox speechbubble" style="">
+    <div class="commentcontent" style="">      JonTron is that you?
+    </div>
+    <div class="comment-meta" style=""><a href="/profile/dcv060604/" style="">dcv060604</a> <span class="commentposted" style="">Jan 18, 2020 5:08 PM</span></div>
+  </div>
+</div>
+<div class="ad-banner" style=""><div id="nitro-banner-bottom" style="min-height: 90px; position: relative;" data-request-id="019b0dc9-b11d-7aa4-8aa2-abc91e70da2f" data-report="{&quot;enabled&quot;:true,&quot;icon&quot;:true,&quot;wording&quot;:&quot;Report Ad&quot;,&quot;position&quot;:&quot;top-right&quot;}" class="up-show" data-bidder="ttd" data-creative-id="gjgbupu2"><div class="ahover" style="width: max-content !important; height: 90px; position: relative; z-index: 0; margin: 0px auto; display: block;"><iframe src="https://static.btloader.com/safeFrame.html?upapi=true" marginwidth="0" marginheight="0" scrolling="no" style="width: 728px; height: 90px; border: 0px;"></iframe><div class="upo-label" style="text-align: left; padding: 0px; margin: 0px; position: absolute; top: 0px; left: 0px; z-index: 9000; transition: opacity 1s ease-out; opacity: 1; cursor: pointer; transform: none;"><span style="display: block; background: rgba(255, 255, 255, 0.7); height: fit-content; width: fit-content; top: 0px; left: 0px; color: rgb(68, 68, 68); font-size: 10px; font-weight: bold; font-family: sans-serif; line-height: normal; text-decoration: none; margin: 0px; padding: 6px; border-radius: 0px 0px 5px;">AD</span></div></div><div class="report-link" style="width: 728px; height: 20px; left: 50%; transform: translateX(-50%); z-index: auto; text-align: right; top: -20px; position: absolute;"><a href="javascript:;" style="display: inline-block;"><svg aria-hidden="true" width="15" height="20" viewBox="0 0 40 40" style="margin-right: 2px; margin-top: -3px;"><path fill="#666" opacity="0.8" d="M10.415 23.4599C17.0544 30.1405 23.4056 36.6698 30.4756 43.124L39.3502 9.37402L30.4756 -0.000976562L24.8111 20.624C26.3632 23.2927 28.2875 28.1986 28.5926 31.2812C22.4048 24.836 16.2821 19.3787 9.70546 13.124L0.264465 47.999L13.633 31.7727C12.2273 29.4555 10.6423 26.4115 10.418 23.4599H10.415Z" style=""></path></svg><div style="width: 150px; padding: 0px 15px; border-radius: 2px; background: rgb(255, 255, 255); box-shadow: rgb(0, 0, 0) 1px 1px 3px; text-align: left; display: none; position: absolute; z-index: 9999; right: -4px; top: 18px;"><a href="https://nitropay.com/?utm_source=nitropay&amp;utm_campaign=n&amp;utm_medium=ad" target="_blank" style="font-size: 14px; font-family: Roboto, Arial, sans-serif; color: rgb(0, 0, 0); text-decoration: none; display: block; border-bottom: 1px solid rgb(204, 204, 204); padding: 10px 0px 5px;">About these ads</a><a href="javascript:;" style="font-size: 14px; font-family: Roboto, Arial, sans-serif; color: rgb(0, 0, 0); text-decoration: none; display: block; padding: 5px 0px 10px;">⚠ Report Ad</a></div></a></div></div>
+<script style="">
+window['nitroAds'].createAd('nitro-banner-bottom', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "renderVisibleOnly": true,
+  "refreshVisibleOnly": true,
+  "delayLoading": true,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+</div>
+</div>
+        </div>
+      </div>
+      <div id="footer" style="display: none;">
+        <div id="footer-content" class="wrap" style="">
+          <div id="footer-copyright" style="">© <a href="https://www.vg-resource.com/" style="">The Spriters Resource</a> 2003-2025</div>
+          <div id="footer-theme" style="">
+            Theme:
+            <a href="/process/settheme/?theme=light&amp;return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style="">Light</a> |
+            <a href="/process/settheme/?theme=dark&amp;return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style="">Dark</a> |
+            <a href="/process/settheme/?theme=classic&amp;return=%2F3ds%2Fpokemonomegarubyalphasapphire%2Fasset%2F296314%2F" style="">Classic</a>          </div>
+          <div id="footer-links" style="">
+            <a href="/contact/" style="">Contact</a> |
+            <a href="/page/about/" style="">About</a> |
+            <a href="/stats/" style="">Stats</a> |
+            <a href="/page/privacy/" style="">Privacy</a> |
+            <a href="/page/tou/" style="">Terms</a> |
+            <a href="/page/rules/" style="">Rules</a> |
+            <a href="/user_staff/" style="">Staff</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script style="">
+window['nitroAds'].createAd('asset-display', {
+  "refreshLimit": 0,
+  "refreshTime": 30,
+  "format": "article",
+  "pageInterval": $(window).outerWidth() <= 1067 ? 2 : 1,
+  "report": {
+    "enabled": true,
+    "icon": true,
+    "wording": "Report Ad",
+    "position": "top-right"
+  }
+});
+</script>
+<span data-ccpa-link="1" style=""></span>
+<div id="ncmp-consent-link" style=""></div>
+    <script defer="" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon="{&quot;token&quot;: &quot;e77134723f444122850e83d97f88bd68&quot;}" style=""></script>
+  
+
+
+<iframe marginwidth="0" marginheight="0" scrolling="no" frameborder="0" id="12a55d61b8a63" width="0" height="0" src="about:blank" name="__pb_locator__" style="display: none; height: 0px; width: 0px; border: 0px;"></iframe><iframe name="__uspapiLocator" style="display: none;"></iframe><div id="nitro-outstream" class="nitro-floating-container nitro-floating-hidden nitro-floating-right nitro-floating-bottom" style="width: 300px; height: 169px; right: 0px; bottom: 3px;" data-request-id="019b0bc0-583b-7bc3-8f3e-c5398d405bc6" data-report="{&quot;enabled&quot;:true,&quot;icon&quot;:true,&quot;wording&quot;:&quot;Report Ad&quot;,&quot;position&quot;:&quot;top-left&quot;}"></div><iframe style="width: 0px; height: 0px; display: none; position: fixed; left: -999px; top: -999px;"></iframe><iframe style="width: 0px; height: 0px; display: none; position: fixed; left: -999px; top: -999px;"></iframe><iframe name="cnftComm" style="width: 0px; height: 0px; display: none; position: fixed; left: -999px; top: -999px;"></iframe><div id="confiant_tag_holder" style="display: none;"></div><iframe src="https://static.btloader.com/safeFrame.html?upapi=true" style="width: 0px; height: 0px; display: none !important;"></iframe><iframe src="https://static.btloader.com/safeFrame.html?upapi=true" style="width: 0px; height: 0px; display: none;"></iframe></body></html>

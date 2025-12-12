@@ -4,6 +4,9 @@
  * Maps graphics IDs (OBJ_EVENT_GFX_*) to sprite sheet paths and handles
  * loading/caching of sprite images.
  *
+ * Uses auto-generated metadata from pokeemerald C source files.
+ * To regenerate: npx tsx scripts/parse-sprite-metadata.ts
+ *
  * Sprite layouts vary by character:
  * - Standard NPCs: 144x32 (9 frames of 16x32) or 48x32 (3 frames of 16x32)
  * - Small characters: 144x16 (9 frames of 16x16) or 48x16 (3 frames of 16x16)
@@ -24,6 +27,14 @@
  *   Frame 1: Face up
  *   Frame 2: Face left/right
  */
+
+import {
+  getSpriteDimensions as getMetadataSpriteDimensions,
+  getSpritePath as getMetadataSpritePath,
+  getFrameCount as getMetadataFrameCount,
+  getSpriteInfo,
+  getStaticFrameIndex,
+} from '../../data/spriteMetadata';
 
 /** Base path for object event graphics */
 const SPRITE_BASE_PATH = '/pokeemerald/graphics/object_events/pics';
@@ -111,6 +122,33 @@ const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number 
   OBJ_EVENT_GFX_AQUA_MEMBER_F: { width: 16, height: 32 },
   OBJ_EVENT_GFX_MAGMA_MEMBER_M: { width: 16, height: 32 },
   OBJ_EVENT_GFX_MAGMA_MEMBER_F: { width: 16, height: 32 },
+
+  // Gym Leaders
+  OBJ_EVENT_GFX_ROXANNE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BRAWLY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WATTSON: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_FLANNERY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_NORMAN: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_WINONA: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_TATE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LIZA: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_JUAN: { width: 16, height: 32 },
+
+  // Elite Four
+  OBJ_EVENT_GFX_SIDNEY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_PHOEBE: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GLACIA: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_DRAKE: { width: 16, height: 32 },
+
+  // Frontier Brains
+  OBJ_EVENT_GFX_ANABEL: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_BRANDON: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_GRETA: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_LUCY: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_NOLAND: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_SPENSER: { width: 16, height: 32 },
+  OBJ_EVENT_GFX_TUCKER: { width: 16, height: 32 },
+
   OBJ_EVENT_GFX_BRENDAN_NORMAL: { width: 16, height: 32 },
   OBJ_EVENT_GFX_MAY_NORMAL: { width: 16, height: 32 },
   OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL: { width: 16, height: 32 },
@@ -153,10 +191,18 @@ const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number 
 
 /**
  * Get the expected frame dimensions for a graphics ID
- * Falls back to 16x32 (most common) if not found
+ * Uses auto-generated metadata, falls back to hardcoded then 16x32 default
  */
 function getExpectedFrameDimensions(graphicsId: string): { width: number; height: number } {
-  return GRAPHICS_FRAME_DIMENSIONS[graphicsId] ?? { width: 16, height: 32 };
+  // First try auto-generated metadata
+  const metaDims = getMetadataSpriteDimensions(graphicsId);
+  if (metaDims.width !== 16 || metaDims.height !== 32) {
+    // Non-default value found in metadata
+    return metaDims;
+  }
+
+  // Fall back to hardcoded dimensions (for any edge cases)
+  return GRAPHICS_FRAME_DIMENSIONS[graphicsId] ?? metaDims;
 }
 
 /**
@@ -231,11 +277,41 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_DEVON_EMPLOYEE: '/people/devon_employee.png',
   OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN: '/people/hot_springs_old_woman.png',
 
-  // Teams
-  OBJ_EVENT_GFX_AQUA_MEMBER_M: '/people/aqua_member_m.png',
-  OBJ_EVENT_GFX_AQUA_MEMBER_F: '/people/aqua_member_f.png',
-  OBJ_EVENT_GFX_MAGMA_MEMBER_M: '/people/magma_member_m.png',
-  OBJ_EVENT_GFX_MAGMA_MEMBER_F: '/people/magma_member_f.png',
+  // Team Aqua
+  OBJ_EVENT_GFX_AQUA_MEMBER_M: '/people/team_aqua/aqua_member_m.png',
+  OBJ_EVENT_GFX_AQUA_MEMBER_F: '/people/team_aqua/aqua_member_f.png',
+  OBJ_EVENT_GFX_ARCHIE: '/people/team_aqua/archie.png',
+
+  // Team Magma
+  OBJ_EVENT_GFX_MAGMA_MEMBER_M: '/people/team_magma/magma_member_m.png',
+  OBJ_EVENT_GFX_MAGMA_MEMBER_F: '/people/team_magma/magma_member_f.png',
+  OBJ_EVENT_GFX_MAXIE: '/people/team_magma/maxie.png',
+
+  // Gym Leaders
+  OBJ_EVENT_GFX_ROXANNE: '/people/gym_leaders/roxanne.png',
+  OBJ_EVENT_GFX_BRAWLY: '/people/gym_leaders/brawly.png',
+  OBJ_EVENT_GFX_WATTSON: '/people/gym_leaders/wattson.png',
+  OBJ_EVENT_GFX_FLANNERY: '/people/gym_leaders/flannery.png',
+  OBJ_EVENT_GFX_NORMAN: '/people/gym_leaders/norman.png',
+  OBJ_EVENT_GFX_WINONA: '/people/gym_leaders/winona.png',
+  OBJ_EVENT_GFX_TATE: '/people/gym_leaders/tate.png',
+  OBJ_EVENT_GFX_LIZA: '/people/gym_leaders/liza.png',
+  OBJ_EVENT_GFX_JUAN: '/people/gym_leaders/juan.png',
+
+  // Elite Four
+  OBJ_EVENT_GFX_SIDNEY: '/people/elite_four/sidney.png',
+  OBJ_EVENT_GFX_PHOEBE: '/people/elite_four/phoebe.png',
+  OBJ_EVENT_GFX_GLACIA: '/people/elite_four/glacia.png',
+  OBJ_EVENT_GFX_DRAKE: '/people/elite_four/drake.png',
+
+  // Frontier Brains
+  OBJ_EVENT_GFX_ANABEL: '/people/frontier_brains/anabel.png',
+  OBJ_EVENT_GFX_BRANDON: '/people/frontier_brains/brandon.png',
+  OBJ_EVENT_GFX_GRETA: '/people/frontier_brains/greta.png',
+  OBJ_EVENT_GFX_LUCY: '/people/frontier_brains/lucy.png',
+  OBJ_EVENT_GFX_NOLAND: '/people/frontier_brains/noland.png',
+  OBJ_EVENT_GFX_SPENSER: '/people/frontier_brains/spenser.png',
+  OBJ_EVENT_GFX_TUCKER: '/people/frontier_brains/tucker.png',
 
   // Story characters
   OBJ_EVENT_GFX_MOM: '/people/mom.png',
@@ -247,8 +323,6 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_MR_BRINEY: '/people/mr_briney.png',
   OBJ_EVENT_GFX_SCOTT: '/people/scott.png',
   OBJ_EVENT_GFX_WALLY: '/people/wally.png',
-  OBJ_EVENT_GFX_ARCHIE: '/people/archie.png',
-  OBJ_EVENT_GFX_MAXIE: '/people/maxie.png',
   OBJ_EVENT_GFX_STEVEN: '/people/steven.png',
   OBJ_EVENT_GFX_LANETTE: '/people/lanette.png',
   OBJ_EVENT_GFX_RYDEL: '/people/rydel.png',
@@ -267,11 +341,11 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_AZURILL: '/pokemon/azurill.png',
   OBJ_EVENT_GFX_SKITTY: '/pokemon/skitty.png',
   OBJ_EVENT_GFX_KECLEON: '/pokemon/kecleon.png',
-  OBJ_EVENT_GFX_KYOGRE: '/pokemon/kyogre/normal.png',
-  OBJ_EVENT_GFX_GROUDON: '/pokemon/groudon/normal.png',
-  OBJ_EVENT_GFX_RAYQUAZA: '/pokemon/rayquaza/normal.png',
-  OBJ_EVENT_GFX_LATIAS: '/pokemon/latias.png',
-  OBJ_EVENT_GFX_LATIOS: '/pokemon/latios.png',
+  OBJ_EVENT_GFX_KYOGRE: '/pokemon/kyogre.png',
+  OBJ_EVENT_GFX_GROUDON: '/pokemon/groudon.png',
+  OBJ_EVENT_GFX_RAYQUAZA: '/pokemon/rayquaza.png',
+  OBJ_EVENT_GFX_LATIAS: '/pokemon/latias_latios.png',
+  OBJ_EVENT_GFX_LATIOS: '/pokemon/latias_latios.png',
   OBJ_EVENT_GFX_DEOXYS: '/pokemon/deoxys.png',
   OBJ_EVENT_GFX_MEW: '/pokemon/mew.png',
   OBJ_EVENT_GFX_HO_OH: '/pokemon/ho_oh.png',
@@ -303,8 +377,16 @@ function guessSpritePath(graphicsId: string): string | null {
 
 /**
  * Get the sprite path for a graphics ID
+ * Uses auto-generated metadata first, then hardcoded paths, then guesses
  */
 export function getNPCSpritePath(graphicsId: string): string | null {
+  // First try auto-generated metadata
+  const metaPath = getMetadataSpritePath(graphicsId);
+  if (metaPath) {
+    return SPRITE_BASE_PATH + metaPath;
+  }
+
+  // Fall back to hardcoded paths
   const path = GRAPHICS_ID_TO_PATH[graphicsId];
   if (path) {
     return SPRITE_BASE_PATH + path;
@@ -510,13 +592,19 @@ export const npcSpriteCache = new NPCSpriteCache();
 
 /**
  * Get frame info for rendering an NPC
+ *
+ * @param direction The direction the NPC is facing
+ * @param isWalking Whether the NPC is walking (for animation)
+ * @param walkFrame The current walk animation frame
+ * @param graphicsId Optional graphics ID for frame mapping (sprites with non-standard layouts)
  */
 export function getNPCFrameInfo(
   direction: 'down' | 'up' | 'left' | 'right',
   isWalking: boolean = false,
-  walkFrame: number = 0
+  walkFrame: number = 0,
+  graphicsId?: string
 ): { frameIndex: number; flipHorizontal: boolean } {
-  let frameIndex: number;
+  let logicalFrameIndex: number;
   let flipHorizontal = false;
 
   if (isWalking) {
@@ -524,16 +612,16 @@ export function getNPCFrameInfo(
     const walkFrameIdx = walkFrame % 2;
     switch (direction) {
       case 'down':
-        frameIndex = walkFrameIdx === 0 ? 3 : 0; // Alternate walk1/stand
+        logicalFrameIndex = walkFrameIdx === 0 ? 3 : 0; // Alternate walk1/stand
         break;
       case 'up':
-        frameIndex = walkFrameIdx === 0 ? 4 : 1;
+        logicalFrameIndex = walkFrameIdx === 0 ? 4 : 1;
         break;
       case 'left':
-        frameIndex = walkFrameIdx === 0 ? 5 : 2;
+        logicalFrameIndex = walkFrameIdx === 0 ? 5 : 2;
         break;
       case 'right':
-        frameIndex = walkFrameIdx === 0 ? 5 : 2;
+        logicalFrameIndex = walkFrameIdx === 0 ? 5 : 2;
         flipHorizontal = true;
         break;
     }
@@ -541,23 +629,59 @@ export function getNPCFrameInfo(
     // Standing still
     switch (direction) {
       case 'down':
-        frameIndex = 0;
+        logicalFrameIndex = 0;
         break;
       case 'up':
-        frameIndex = 1;
+        logicalFrameIndex = 1;
         break;
       case 'left':
-        frameIndex = 2;
+        logicalFrameIndex = 2;
         break;
       case 'right':
-        frameIndex = 2;
+        logicalFrameIndex = 2;
         flipHorizontal = true;
         break;
     }
   }
 
+  // Apply frame mapping if graphicsId provided (for sprites with non-standard layouts)
+  let frameIndex = logicalFrameIndex;
+  if (graphicsId) {
+    const info = getSpriteInfo(graphicsId);
+    if (info?.frameMap && logicalFrameIndex < info.frameMap.length) {
+      frameIndex = info.frameMap[logicalFrameIndex];
+    }
+  }
+
   return { frameIndex, flipHorizontal };
 }
+
+/**
+ * Get NPC frame info using auto-generated metadata
+ * This is the preferred method when you have the graphics ID
+ */
+export function getNPCFrameInfoFromMetadata(
+  graphicsId: string,
+  direction: 'down' | 'up' | 'left' | 'right'
+): { frameIndex: number; flipHorizontal: boolean } {
+  const result = getStaticFrameIndex(graphicsId, direction);
+  return {
+    frameIndex: result.frameIndex,
+    flipHorizontal: result.hFlip,
+  };
+}
+
+/**
+ * Get the expected frame count for a graphics ID
+ */
+export function getExpectedFrameCount(graphicsId: string): number {
+  return getMetadataFrameCount(graphicsId);
+}
+
+/**
+ * Get sprite metadata info
+ */
+export { getSpriteInfo };
 
 /**
  * Calculate source rectangle for a frame in the sprite sheet

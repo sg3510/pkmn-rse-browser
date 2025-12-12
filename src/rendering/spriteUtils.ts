@@ -433,8 +433,8 @@ export function createNPCSpriteInstance(
   sortKey: number,
   clipToHalf: boolean = false
 ): SpriteInstance | null {
-  // Get frame info based on direction
-  const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
+  // Get frame info based on direction (with frame mapping for non-standard sprite layouts)
+  const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
   const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
   // Calculate world position

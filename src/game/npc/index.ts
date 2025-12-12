@@ -5,6 +5,7 @@
  * - Sprite loading and caching
  * - Rendering with direction-based frames
  * - Frame info utilities
+ * - Animation engine
  */
 
 // Sprite loading
@@ -18,3 +19,6 @@ export {
 
 // Rendering
 export { renderNPCs, renderSingleNPC, renderNPCReflections, renderNPCGrassEffects, type NPCRenderView } from './NPCRenderer';
+
+// Animation
+export { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';

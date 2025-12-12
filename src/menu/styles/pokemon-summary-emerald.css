@@ -93,7 +93,7 @@
   white-space: nowrap;
 }
 
-/* Right side controls - just dots, back button handled by MenuOverlay */
+/* Right side controls - just dots, back button handled by MenuOverlay triangle */
 .summary-header-controls {
   position: relative;
   z-index: 20;

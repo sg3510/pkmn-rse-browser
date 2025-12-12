@@ -86,6 +86,12 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
   const speciesInfo = getSpeciesInfo(pokemon.species);
   const speciesName = getSpeciesName(pokemon.species);
   const displayName = pokemon.nickname || speciesName;
+
+  // Determine primary and secondary names based on game logic
+  const hasDistinctNickname = pokemon.nickname && pokemon.nickname !== speciesName;
+  const primaryName = hasDistinctNickname ? pokemon.nickname! : speciesName;
+  // Secondary name is /SpeciesName if any nickname exists (even if same as species, per RALTS /RALTS screenshot)
+  const secondaryName = pokemon.nickname ? `/${speciesName}` : '';
   const gender = speciesInfo ? getGenderFromPersonality(pokemon.personality, speciesInfo.genderRatio) : 'genderless';
   const genderSymbol = gender === 'male' ? '♂' : gender === 'female' ? '♀' : '';
   const natureId = pokemon.personality % 25;
@@ -105,7 +111,7 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
     switch (currentPage) {
       case 'info': return 'POKéMON INFO';
       case 'skills': return 'POKéMON SKILLS';
-      case 'moves': return 'BATTLE MOVES';
+      case 'moves': return 'KNOWN MOVES';
       default: return 'POKéMON INFO';
     }
   };
@@ -196,9 +202,10 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
           ) : (
             /* Normal view: Name, nickname, level, gender */
             <div className="summary-left-info">
-              <div className="summary-poke-name-display">{speciesName}</div>
-              {pokemon.nickname && (
-                <div className="summary-poke-nickname">/{displayName}</div>
+              {/* Name Display: Primary name, and secondary if applicable */}
+              <div className="summary-poke-name-display">{primaryName}</div>
+              {secondaryName && (
+                <div className="summary-poke-nickname">{secondaryName}</div>
               )}
               <div className="summary-level-row">
                 <div className="summary-level-info">

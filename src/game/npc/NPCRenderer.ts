@@ -17,6 +17,7 @@ import { computeObjectReflectionState, getMetatileBehavior } from '../../compone
 import type { RenderContext } from '../../components/map/types';
 import { isTallGrassBehavior, isLongGrassBehavior } from '../../utils/metatileBehaviors';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
+import { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';
 
 export interface NPCRenderView {
   cameraWorldX: number;
@@ -84,8 +85,37 @@ export function renderNPCs(
     const sprite = npcSpriteCache.get(npc.graphicsId);
     if (!sprite) continue;
 
-    // Get frame info based on direction
-    const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
+    // Get frame info - use animation system for animated NPCs
+    let frameIndex: number;
+    let flipHorizontal: boolean;
+
+    if (shouldAnimate(npc.graphicsId)) {
+      // Get animation state for this NPC (creates if doesn't exist)
+      const npcId = `npc_${npc.localId}_${npc.tileX}_${npc.tileY}`;
+      // Ensure animation state exists (creates if needed)
+      npcAnimationManager.getState(
+        npcId,
+        npc.graphicsId,
+        npc.direction,
+        false // isMoving - NPCs are currently static
+      );
+      const frameInfo = npcAnimationManager.getFrameInfo(npcId);
+      if (frameInfo) {
+        frameIndex = frameInfo.frameIndex;
+        flipHorizontal = frameInfo.hFlip;
+      } else {
+        // Fallback to static frame (with frame mapping)
+        const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+        frameIndex = staticInfo.frameIndex;
+        flipHorizontal = staticInfo.flipHorizontal;
+      }
+    } else {
+      // Static/inanimate sprite - use simple frame lookup (with frame mapping)
+      const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+      frameIndex = staticInfo.frameIndex;
+      flipHorizontal = staticInfo.flipHorizontal;
+    }
+
     const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
     // Calculate world position
@@ -135,7 +165,7 @@ export function renderSingleNPC(
   if (!sprite) return;
 
   const dir = direction ?? npc.direction;
-  const { frameIndex, flipHorizontal } = getNPCFrameInfo(dir, false, 0);
+  const { frameIndex, flipHorizontal } = getNPCFrameInfo(dir, false, 0, npc.graphicsId);
   const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
   ctx.imageSmoothingEnabled = false;
@@ -182,8 +212,27 @@ export function renderNPCReflections(
     const sprite = npcSpriteCache.get(npc.graphicsId);
     if (!sprite) continue;
 
-    // Get frame info based on direction
-    const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, false, 0);
+    // Get frame info - use animation system for animated NPCs
+    let frameIndex: number;
+    let flipHorizontal: boolean;
+
+    if (shouldAnimate(npc.graphicsId)) {
+      const npcId = `npc_${npc.localId}_${npc.tileX}_${npc.tileY}`;
+      const frameInfo = npcAnimationManager.getFrameInfo(npcId);
+      if (frameInfo) {
+        frameIndex = frameInfo.frameIndex;
+        flipHorizontal = frameInfo.hFlip;
+      } else {
+        const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+        frameIndex = staticInfo.frameIndex;
+        flipHorizontal = staticInfo.flipHorizontal;
+      }
+    } else {
+      const staticInfo = getNPCFrameInfo(npc.direction, false, 0, npc.graphicsId);
+      frameIndex = staticInfo.frameIndex;
+      flipHorizontal = staticInfo.flipHorizontal;
+    }
+
     const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
     // Compute reflection state for this NPC

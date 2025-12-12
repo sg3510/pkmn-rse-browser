@@ -1,0 +1,5457 @@
+{
+  "generatedAt": "2025-12-12T17:29:33.038Z",
+  "sourceFiles": [
+    "object_event_graphics_info.h",
+    "object_event_pic_tables.h",
+    "object_event_anims.h"
+  ],
+  "animationIndices": {
+    "ANIM_STD_FACE_SOUTH": 0,
+    "ANIM_STD_FACE_NORTH": 1,
+    "ANIM_STD_FACE_WEST": 2,
+    "ANIM_STD_FACE_EAST": 3,
+    "ANIM_STD_GO_SOUTH": 4,
+    "ANIM_STD_GO_NORTH": 5,
+    "ANIM_STD_GO_WEST": 6,
+    "ANIM_STD_GO_EAST": 7,
+    "ANIM_STD_GO_FAST_SOUTH": 8,
+    "ANIM_STD_GO_FAST_NORTH": 9,
+    "ANIM_STD_GO_FAST_WEST": 10,
+    "ANIM_STD_GO_FAST_EAST": 11,
+    "ANIM_STD_GO_FASTER_SOUTH": 12,
+    "ANIM_STD_GO_FASTER_NORTH": 13,
+    "ANIM_STD_GO_FASTER_WEST": 14,
+    "ANIM_STD_GO_FASTER_EAST": 15,
+    "ANIM_STD_GO_FASTEST_SOUTH": 16,
+    "ANIM_STD_GO_FASTEST_NORTH": 17,
+    "ANIM_STD_GO_FASTEST_WEST": 18,
+    "ANIM_STD_GO_FASTEST_EAST": 19
+  },
+  "animations": {
+    "sAnim_StayStill": [
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpFaceSouth": [
+      {
+        "frameIndex": 0,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpFaceNorth": [
+      {
+        "frameIndex": 1,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpFaceWest": [
+      {
+        "frameIndex": 2,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpFaceEast": [
+      {
+        "frameIndex": 2,
+        "duration": 16,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoNorth": [
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoWest": [
+      {
+        "frameIndex": 5,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoEast": [
+      {
+        "frameIndex": 5,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastNorth": [
+      {
+        "frameIndex": 4,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastWest": [
+      {
+        "frameIndex": 5,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastEast": [
+      {
+        "frameIndex": 5,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFasterSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFasterNorth": [
+      {
+        "frameIndex": 4,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFasterWest": [
+      {
+        "frameIndex": 5,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFasterEast": [
+      {
+        "frameIndex": 5,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastestSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastestNorth": [
+      {
+        "frameIndex": 4,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastestWest": [
+      {
+        "frameIndex": 5,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_QuintyPlumpGoFastestEast": [
+      {
+        "frameIndex": 5,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_FaceSouth": [
+      {
+        "frameIndex": 0,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_FaceNorth": [
+      {
+        "frameIndex": 1,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_FaceWest": [
+      {
+        "frameIndex": 2,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_FaceEast": [
+      {
+        "frameIndex": 2,
+        "duration": 16,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoNorth": [
+      {
+        "frameIndex": 5,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoWest": [
+      {
+        "frameIndex": 7,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoEast": [
+      {
+        "frameIndex": 7,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastNorth": [
+      {
+        "frameIndex": 5,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastWest": [
+      {
+        "frameIndex": 7,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastEast": [
+      {
+        "frameIndex": 7,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFasterSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFasterNorth": [
+      {
+        "frameIndex": 5,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFasterWest": [
+      {
+        "frameIndex": 7,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFasterEast": [
+      {
+        "frameIndex": 7,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 2,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastestSouth": [
+      {
+        "frameIndex": 3,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastestNorth": [
+      {
+        "frameIndex": 5,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastestWest": [
+      {
+        "frameIndex": 7,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GoFastestEast": [
+      {
+        "frameIndex": 7,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RunSouth": [
+      {
+        "frameIndex": 12,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 9,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 13,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 9,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RunNorth": [
+      {
+        "frameIndex": 14,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 15,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RunWest": [
+      {
+        "frameIndex": 16,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 17,
+        "duration": 5,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 3,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RunEast": [
+      {
+        "frameIndex": 16,
+        "duration": 5,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 3,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 17,
+        "duration": 5,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 3,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_FieldMove": [
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GetOnOffSurfBlobSouth": [
+      {
+        "frameIndex": 9,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GetOnOffSurfBlobNorth": [
+      {
+        "frameIndex": 10,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GetOnOffSurfBlobWest": [
+      {
+        "frameIndex": 11,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_GetOnOffSurfBlobEast": [
+      {
+        "frameIndex": 11,
+        "duration": 32,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopBackWheelSouth": [
+      {
+        "frameIndex": 9,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopBackWheelNorth": [
+      {
+        "frameIndex": 13,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 14,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopBackWheelWest": [
+      {
+        "frameIndex": 17,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopBackWheelEast": [
+      {
+        "frameIndex": 17,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopFrontWheelSouth": [
+      {
+        "frameIndex": 11,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 12,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopFrontWheelNorth": [
+      {
+        "frameIndex": 15,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 16,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopFrontWheelWest": [
+      {
+        "frameIndex": 19,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 20,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BunnyHopFrontWheelEast": [
+      {
+        "frameIndex": 19,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 20,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieBackWheelSouth": [
+      {
+        "frameIndex": 9,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieBackWheelNorth": [
+      {
+        "frameIndex": 13,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieBackWheelWest": [
+      {
+        "frameIndex": 17,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieBackWheelEast": [
+      {
+        "frameIndex": 17,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieFrontWheelSouth": [
+      {
+        "frameIndex": 11,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieFrontWheelNorth": [
+      {
+        "frameIndex": 15,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieFrontWheelWest": [
+      {
+        "frameIndex": 19,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_StandingWheelieFrontWheelEast": [
+      {
+        "frameIndex": 19,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_MovingWheelieSouth": [
+      {
+        "frameIndex": 21,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 22,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_MovingWheelieNorth": [
+      {
+        "frameIndex": 23,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 14,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 24,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 14,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_MovingWheelieWest": [
+      {
+        "frameIndex": 25,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 26,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_MovingWheelieEast": [
+      {
+        "frameIndex": 25,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 26,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 18,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BerryTreeStage0": [
+      {
+        "frameIndex": 0,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BerryTreeStage1": [
+      {
+        "frameIndex": 1,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BerryTreeStage2": [
+      {
+        "frameIndex": 3,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BerryTreeStage3": [
+      {
+        "frameIndex": 5,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 5,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_BerryTreeStage4": [
+      {
+        "frameIndex": 7,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 7,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 48,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_NurseBow": [
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 9,
+        "duration": 32,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RockBreak": [
+      {
+        "frameIndex": 0,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_TreeCut": [
+      {
+        "frameIndex": 0,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_TakeOutRodSouth": [
+      {
+        "frameIndex": 8,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 9,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_TakeOutRodNorth": [
+      {
+        "frameIndex": 4,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 5,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 7,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_TakeOutRodWest": [
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_TakeOutRodEast": [
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_PutAwayRodSouth": [
+      {
+        "frameIndex": 11,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 10,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 9,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 8,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_PutAwayRodNorth": [
+      {
+        "frameIndex": 7,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 6,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 5,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_PutAwayRodWest": [
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_PutAwayRodEast": [
+      {
+        "frameIndex": 3,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 2,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 1,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 0,
+        "duration": 4,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HookedPokemonSouth": [
+      {
+        "frameIndex": 10,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 11,
+        "duration": 30,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HookedPokemonNorth": [
+      {
+        "frameIndex": 6,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 7,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 7,
+        "duration": 30,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HookedPokemonWest": [
+      {
+        "frameIndex": 2,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 6,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 30,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HookedPokemonEast": [
+      {
+        "frameIndex": 2,
+        "duration": 6,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 6,
+        "hFlip": true,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 30,
+        "hFlip": true,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HoOhFlapWings": [
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 3,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      },
+      {
+        "frameIndex": 4,
+        "duration": 8,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_HoOhStayStill": [
+      {
+        "frameIndex": 3,
+        "duration": 16,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaCoiledAwake": [
+      {
+        "frameIndex": 1,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaFlyUp": [
+      {
+        "frameIndex": 4,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaCoiledAsleep": [
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaCoiledMouthOpen": [
+      {
+        "frameIndex": 2,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaNormal": [
+      {
+        "frameIndex": 3,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaFaceSouth": [
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaFaceNorth": [
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaFaceWest": [
+      {
+        "frameIndex": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ],
+    "sAnim_RayquazaFaceEast": [
+      {
+        "frameIndex": 3,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "animationTables": {
+    "sAnimTable_Inanimate": {
+      "ANIM_STAY_STILL": "sAnim_StayStill"
+    },
+    "sAnimTable_QuintyPlump": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_QuintyPlumpFaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_QuintyPlumpFaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_QuintyPlumpFaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_QuintyPlumpFaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_QuintyPlumpGoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_QuintyPlumpGoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_QuintyPlumpGoWest",
+      "ANIM_STD_GO_EAST": "sAnim_QuintyPlumpGoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_QuintyPlumpGoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_QuintyPlumpGoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_QuintyPlumpGoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_QuintyPlumpGoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_QuintyPlumpGoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_QuintyPlumpGoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_QuintyPlumpGoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_QuintyPlumpGoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_QuintyPlumpGoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_QuintyPlumpGoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_QuintyPlumpGoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_QuintyPlumpGoFastestEast"
+    },
+    "sAnimTable_Standard": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast"
+    },
+    "sAnimTable_HoOh": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_HoOhFlapWings",
+      "ANIM_STD_GO_NORTH": "sAnim_HoOhStayStill",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast"
+    },
+    "sAnimTable_GroudonSide": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoEast",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestEast",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast"
+    },
+    "sAnimTable_Rayquaza": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_RayquazaFaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_RayquazaFaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_RayquazaFaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_RayquazaFaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_RayquazaCoiledAsleep",
+      "ANIM_STD_GO_NORTH": "sAnim_RayquazaFlyUp",
+      "ANIM_STD_GO_WEST": "sAnim_RayquazaCoiledMouthOpen",
+      "ANIM_STD_GO_EAST": "sAnim_RayquazaNormal",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_RayquazaCoiledAsleep",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_RayquazaFlyUp",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_RayquazaCoiledAwake",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_RayquazaNormal",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_RayquazaCoiledAsleep",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_RayquazaFlyUp",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_RayquazaCoiledMouthOpen",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_RayquazaNormal",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_RayquazaCoiledAsleep",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_RayquazaFlyUp",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_RayquazaCoiledMouthOpen",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_RayquazaNormal"
+    },
+    "sAnimTable_BrendanMayNormal": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast",
+      "ANIM_RUN_SOUTH": "sAnim_RunSouth",
+      "ANIM_RUN_NORTH": "sAnim_RunNorth",
+      "ANIM_RUN_WEST": "sAnim_RunWest",
+      "ANIM_RUN_EAST": "sAnim_RunEast"
+    },
+    "sAnimTable_AcroBike": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast",
+      "ANIM_BUNNY_HOP_BACK_WHEEL_SOUTH": "sAnim_BunnyHopBackWheelSouth",
+      "ANIM_BUNNY_HOP_BACK_WHEEL_NORTH": "sAnim_BunnyHopBackWheelNorth",
+      "ANIM_BUNNY_HOP_BACK_WHEEL_WEST": "sAnim_BunnyHopBackWheelWest",
+      "ANIM_BUNNY_HOP_BACK_WHEEL_EAST": "sAnim_BunnyHopBackWheelEast",
+      "ANIM_BUNNY_HOP_FRONT_WHEEL_SOUTH": "sAnim_BunnyHopFrontWheelSouth",
+      "ANIM_BUNNY_HOP_FRONT_WHEEL_NORTH": "sAnim_BunnyHopFrontWheelNorth",
+      "ANIM_BUNNY_HOP_FRONT_WHEEL_WEST": "sAnim_BunnyHopFrontWheelWest",
+      "ANIM_BUNNY_HOP_FRONT_WHEEL_EAST": "sAnim_BunnyHopFrontWheelEast",
+      "ANIM_STANDING_WHEELIE_BACK_WHEEL_SOUTH": "sAnim_StandingWheelieBackWheelSouth",
+      "ANIM_STANDING_WHEELIE_BACK_WHEEL_NORTH": "sAnim_StandingWheelieBackWheelNorth",
+      "ANIM_STANDING_WHEELIE_BACK_WHEEL_WEST": "sAnim_StandingWheelieBackWheelWest",
+      "ANIM_STANDING_WHEELIE_BACK_WHEEL_EAST": "sAnim_StandingWheelieBackWheelEast",
+      "ANIM_STANDING_WHEELIE_FRONT_WHEEL_SOUTH": "sAnim_StandingWheelieFrontWheelSouth",
+      "ANIM_STANDING_WHEELIE_FRONT_WHEEL_NORTH": "sAnim_StandingWheelieFrontWheelNorth",
+      "ANIM_STANDING_WHEELIE_FRONT_WHEEL_WEST": "sAnim_StandingWheelieFrontWheelWest",
+      "ANIM_STANDING_WHEELIE_FRONT_WHEEL_EAST": "sAnim_StandingWheelieFrontWheelEast",
+      "ANIM_MOVING_WHEELIE_SOUTH": "sAnim_MovingWheelieSouth",
+      "ANIM_MOVING_WHEELIE_NORTH": "sAnim_MovingWheelieNorth",
+      "ANIM_MOVING_WHEELIE_WEST": "sAnim_MovingWheelieWest",
+      "ANIM_MOVING_WHEELIE_EAST": "sAnim_MovingWheelieEast"
+    },
+    "sAnimTable_Surfing": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast",
+      "ANIM_GET_ON_OFF_POKEMON_SOUTH": "sAnim_GetOnOffSurfBlobSouth",
+      "ANIM_GET_ON_OFF_POKEMON_NORTH": "sAnim_GetOnOffSurfBlobNorth",
+      "ANIM_GET_ON_OFF_POKEMON_WEST": "sAnim_GetOnOffSurfBlobWest",
+      "ANIM_GET_ON_OFF_POKEMON_EAST": "sAnim_GetOnOffSurfBlobEast"
+    },
+    "sAnimTable_Nurse": {
+      "ANIM_STD_FACE_SOUTH": "sAnim_FaceSouth",
+      "ANIM_STD_FACE_NORTH": "sAnim_FaceNorth",
+      "ANIM_STD_FACE_WEST": "sAnim_FaceWest",
+      "ANIM_STD_FACE_EAST": "sAnim_FaceEast",
+      "ANIM_STD_GO_SOUTH": "sAnim_GoSouth",
+      "ANIM_STD_GO_NORTH": "sAnim_GoNorth",
+      "ANIM_STD_GO_WEST": "sAnim_GoWest",
+      "ANIM_STD_GO_EAST": "sAnim_GoEast",
+      "ANIM_STD_GO_FAST_SOUTH": "sAnim_GoFastSouth",
+      "ANIM_STD_GO_FAST_NORTH": "sAnim_GoFastNorth",
+      "ANIM_STD_GO_FAST_WEST": "sAnim_GoFastWest",
+      "ANIM_STD_GO_FAST_EAST": "sAnim_GoFastEast",
+      "ANIM_STD_GO_FASTER_SOUTH": "sAnim_GoFasterSouth",
+      "ANIM_STD_GO_FASTER_NORTH": "sAnim_GoFasterNorth",
+      "ANIM_STD_GO_FASTER_WEST": "sAnim_GoFasterWest",
+      "ANIM_STD_GO_FASTER_EAST": "sAnim_GoFasterEast",
+      "ANIM_STD_GO_FASTEST_SOUTH": "sAnim_GoFastestSouth",
+      "ANIM_STD_GO_FASTEST_NORTH": "sAnim_GoFastestNorth",
+      "ANIM_STD_GO_FASTEST_WEST": "sAnim_GoFastestWest",
+      "ANIM_STD_GO_FASTEST_EAST": "sAnim_GoFastestEast",
+      "ANIM_NURSE_BOW": "sAnim_NurseBow"
+    },
+    "sAnimTable_FieldMove": {
+      "ANIM_FIELD_MOVE": "sAnim_FieldMove"
+    },
+    "sAnimTable_BerryTree": {},
+    "sAnimTable_BreakableRock": {
+      "ANIM_STAY_STILL": "sAnim_StayStill",
+      "ANIM_REMOVE_OBSTACLE": "sAnim_RockBreak"
+    },
+    "sAnimTable_CuttableTree": {
+      "ANIM_STAY_STILL": "sAnim_StayStill",
+      "ANIM_REMOVE_OBSTACLE": "sAnim_TreeCut"
+    },
+    "sAnimTable_Fishing": {
+      "ANIM_TAKE_OUT_ROD_SOUTH": "sAnim_TakeOutRodSouth",
+      "ANIM_TAKE_OUT_ROD_NORTH": "sAnim_TakeOutRodNorth",
+      "ANIM_TAKE_OUT_ROD_WEST": "sAnim_TakeOutRodWest",
+      "ANIM_TAKE_OUT_ROD_EAST": "sAnim_TakeOutRodEast",
+      "ANIM_PUT_AWAY_ROD_SOUTH": "sAnim_PutAwayRodSouth",
+      "ANIM_PUT_AWAY_ROD_NORTH": "sAnim_PutAwayRodNorth",
+      "ANIM_PUT_AWAY_ROD_WEST": "sAnim_PutAwayRodWest",
+      "ANIM_PUT_AWAY_ROD_EAST": "sAnim_PutAwayRodEast",
+      "ANIM_HOOKED_POKEMON_SOUTH": "sAnim_HookedPokemonSouth",
+      "ANIM_HOOKED_POKEMON_NORTH": "sAnim_HookedPokemonNorth",
+      "ANIM_HOOKED_POKEMON_WEST": "sAnim_HookedPokemonWest",
+      "ANIM_HOOKED_POKEMON_EAST": "sAnim_HookedPokemonEast"
+    }
+  },
+  "sprites": {
+    "OBJ_EVENT_GFX_BRENDAN_NORMAL": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_NORMAL",
+      "name": "BrendanNormal",
+      "width": 16,
+      "height": 32,
+      "frameCount": 18,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/brendan/normal.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_MACH_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_MACH_BIKE",
+      "name": "BrendanMachBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/mach_bike.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE",
+      "name": "BrendanAcroBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 27,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/acro_bike.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_SURFING": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_SURFING",
+      "name": "BrendanSurfing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 12,
+      "animationTable": "sAnimTable_Surfing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        2,
+        4,
+        0,
+        0,
+        2,
+        2,
+        4,
+        4,
+        1,
+        3,
+        5
+      ],
+      "spritePath": "/people/brendan/surfing.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_FIELD_MOVE": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_FIELD_MOVE",
+      "name": "BrendanFieldMove",
+      "width": 32,
+      "height": 32,
+      "frameCount": 5,
+      "animationTable": "sAnimTable_FieldMove",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/field_move.png"
+    },
+    "OBJ_EVENT_GFX_QUINTY_PLUMP": {
+      "graphicsId": "OBJ_EVENT_GFX_QUINTY_PLUMP",
+      "name": "QuintyPlump",
+      "width": 32,
+      "height": 32,
+      "frameCount": 7,
+      "animationTable": "sAnimTable_QuintyPlump",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_L",
+      "spritePath": "/people/quinty_plump.png"
+    },
+    "OBJ_EVENT_GFX_NINJA_BOY": {
+      "graphicsId": "OBJ_EVENT_GFX_NINJA_BOY",
+      "name": "NinjaBoy",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/ninja_boy.png"
+    },
+    "OBJ_EVENT_GFX_TWIN": {
+      "graphicsId": "OBJ_EVENT_GFX_TWIN",
+      "name": "Twin",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/twin.png"
+    },
+    "OBJ_EVENT_GFX_BOY1": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY1",
+      "name": "Boy1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/boy1.png"
+    },
+    "OBJ_EVENT_GFX_GIRL1": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL1",
+      "name": "Girl1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/girl1.png"
+    },
+    "OBJ_EVENT_GFX_BOY2": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY2",
+      "name": "Boy2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/boy2.png"
+    },
+    "OBJ_EVENT_GFX_GIRL2": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL2",
+      "name": "Girl2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/girl2.png"
+    },
+    "OBJ_EVENT_GFX_LITTLE_BOY": {
+      "graphicsId": "OBJ_EVENT_GFX_LITTLE_BOY",
+      "name": "LittleBoy",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/little_boy.png"
+    },
+    "OBJ_EVENT_GFX_LITTLE_GIRL": {
+      "graphicsId": "OBJ_EVENT_GFX_LITTLE_GIRL",
+      "name": "LittleGirl",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/little_girl.png"
+    },
+    "OBJ_EVENT_GFX_BOY3": {
+      "graphicsId": "OBJ_EVENT_GFX_BOY3",
+      "name": "Boy3",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/boy3.png"
+    },
+    "OBJ_EVENT_GFX_GIRL3": {
+      "graphicsId": "OBJ_EVENT_GFX_GIRL3",
+      "name": "Girl3",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/girl3.png"
+    },
+    "OBJ_EVENT_GFX_RICH_BOY": {
+      "graphicsId": "OBJ_EVENT_GFX_RICH_BOY",
+      "name": "RichBoy",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/rich_boy.png"
+    },
+    "OBJ_EVENT_GFX_WOMAN1": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN1",
+      "name": "Woman1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/woman1.png"
+    },
+    "OBJ_EVENT_GFX_FAT_MAN": {
+      "graphicsId": "OBJ_EVENT_GFX_FAT_MAN",
+      "name": "FatMan",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/fat_man.png"
+    },
+    "OBJ_EVENT_GFX_POKEFAN_F": {
+      "graphicsId": "OBJ_EVENT_GFX_POKEFAN_F",
+      "name": "PokefanF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/pokefan_f.png"
+    },
+    "OBJ_EVENT_GFX_MAN1": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN1",
+      "name": "Man1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/man1.png"
+    },
+    "OBJ_EVENT_GFX_WOMAN2": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN2",
+      "name": "Woman2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/woman2.png"
+    },
+    "OBJ_EVENT_GFX_EXPERT_M": {
+      "graphicsId": "OBJ_EVENT_GFX_EXPERT_M",
+      "name": "ExpertM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/expert_m.png"
+    },
+    "OBJ_EVENT_GFX_EXPERT_F": {
+      "graphicsId": "OBJ_EVENT_GFX_EXPERT_F",
+      "name": "ExpertF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/expert_f.png"
+    },
+    "OBJ_EVENT_GFX_MAN2": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN2",
+      "name": "Man2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/man2.png"
+    },
+    "OBJ_EVENT_GFX_WOMAN3": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN3",
+      "name": "Woman3",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/woman3.png"
+    },
+    "OBJ_EVENT_GFX_POKEFAN_M": {
+      "graphicsId": "OBJ_EVENT_GFX_POKEFAN_M",
+      "name": "PokefanM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/pokefan_m.png"
+    },
+    "OBJ_EVENT_GFX_WOMAN4": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN4",
+      "name": "Woman4",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/woman4.png"
+    },
+    "OBJ_EVENT_GFX_COOK": {
+      "graphicsId": "OBJ_EVENT_GFX_COOK",
+      "name": "Cook",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/cook.png"
+    },
+    "OBJ_EVENT_GFX_LINK_RECEPTIONIST": {
+      "graphicsId": "OBJ_EVENT_GFX_LINK_RECEPTIONIST",
+      "name": "LinkReceptionist",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/link_receptionist.png"
+    },
+    "OBJ_EVENT_GFX_OLD_MAN": {
+      "graphicsId": "OBJ_EVENT_GFX_OLD_MAN",
+      "name": "OldMan",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/old_man.png"
+    },
+    "OBJ_EVENT_GFX_OLD_WOMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_OLD_WOMAN",
+      "name": "OldWoman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/old_woman.png"
+    },
+    "OBJ_EVENT_GFX_CAMPER": {
+      "graphicsId": "OBJ_EVENT_GFX_CAMPER",
+      "name": "Camper",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/camper.png"
+    },
+    "OBJ_EVENT_GFX_PICNICKER": {
+      "graphicsId": "OBJ_EVENT_GFX_PICNICKER",
+      "name": "Picnicker",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/picnicker.png"
+    },
+    "OBJ_EVENT_GFX_MAN3": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN3",
+      "name": "Man3",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/man3.png"
+    },
+    "OBJ_EVENT_GFX_WOMAN5": {
+      "graphicsId": "OBJ_EVENT_GFX_WOMAN5",
+      "name": "Woman5",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/woman5.png"
+    },
+    "OBJ_EVENT_GFX_YOUNGSTER": {
+      "graphicsId": "OBJ_EVENT_GFX_YOUNGSTER",
+      "name": "Youngster",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/youngster.png"
+    },
+    "OBJ_EVENT_GFX_BUG_CATCHER": {
+      "graphicsId": "OBJ_EVENT_GFX_BUG_CATCHER",
+      "name": "BugCatcher",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/bug_catcher.png"
+    },
+    "OBJ_EVENT_GFX_PSYCHIC_M": {
+      "graphicsId": "OBJ_EVENT_GFX_PSYCHIC_M",
+      "name": "PsychicM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/psychic_m.png"
+    },
+    "OBJ_EVENT_GFX_SCHOOL_KID_M": {
+      "graphicsId": "OBJ_EVENT_GFX_SCHOOL_KID_M",
+      "name": "SchoolKidM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/school_kid_m.png"
+    },
+    "OBJ_EVENT_GFX_MANIAC": {
+      "graphicsId": "OBJ_EVENT_GFX_MANIAC",
+      "name": "Maniac",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/maniac.png"
+    },
+    "OBJ_EVENT_GFX_HEX_MANIAC": {
+      "graphicsId": "OBJ_EVENT_GFX_HEX_MANIAC",
+      "name": "HexManiac",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/hex_maniac.png"
+    },
+    "OBJ_EVENT_GFX_RAYQUAZA_STILL": {
+      "graphicsId": "OBJ_EVENT_GFX_RAYQUAZA_STILL",
+      "name": "RayquazaStill",
+      "width": 64,
+      "height": 64,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/rayquaza.png"
+    },
+    "OBJ_EVENT_GFX_SWIMMER_M": {
+      "graphicsId": "OBJ_EVENT_GFX_SWIMMER_M",
+      "name": "SwimmerM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/swimmer_m.png"
+    },
+    "OBJ_EVENT_GFX_SWIMMER_F": {
+      "graphicsId": "OBJ_EVENT_GFX_SWIMMER_F",
+      "name": "SwimmerF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/swimmer_f.png"
+    },
+    "OBJ_EVENT_GFX_BLACK_BELT": {
+      "graphicsId": "OBJ_EVENT_GFX_BLACK_BELT",
+      "name": "BlackBelt",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/black_belt.png"
+    },
+    "OBJ_EVENT_GFX_BEAUTY": {
+      "graphicsId": "OBJ_EVENT_GFX_BEAUTY",
+      "name": "Beauty",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/beauty.png"
+    },
+    "OBJ_EVENT_GFX_SCIENTIST1": {
+      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST1",
+      "name": "Scientist1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/scientist1.png"
+    },
+    "OBJ_EVENT_GFX_LASS": {
+      "graphicsId": "OBJ_EVENT_GFX_LASS",
+      "name": "Lass",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/lass.png"
+    },
+    "OBJ_EVENT_GFX_GENTLEMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_GENTLEMAN",
+      "name": "Gentleman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/gentleman.png"
+    },
+    "OBJ_EVENT_GFX_SAILOR": {
+      "graphicsId": "OBJ_EVENT_GFX_SAILOR",
+      "name": "Sailor",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/sailor.png"
+    },
+    "OBJ_EVENT_GFX_FISHERMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_FISHERMAN",
+      "name": "Fisherman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/fisherman.png"
+    },
+    "OBJ_EVENT_GFX_RUNNING_TRIATHLETE_M": {
+      "graphicsId": "OBJ_EVENT_GFX_RUNNING_TRIATHLETE_M",
+      "name": "RunningTriathleteM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/running_triathlete_m.png"
+    },
+    "OBJ_EVENT_GFX_RUNNING_TRIATHLETE_F": {
+      "graphicsId": "OBJ_EVENT_GFX_RUNNING_TRIATHLETE_F",
+      "name": "RunningTriathleteF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/running_triathlete_f.png"
+    },
+    "OBJ_EVENT_GFX_TUBER_F": {
+      "graphicsId": "OBJ_EVENT_GFX_TUBER_F",
+      "name": "TuberF",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/tuber_f.png"
+    },
+    "OBJ_EVENT_GFX_TUBER_M": {
+      "graphicsId": "OBJ_EVENT_GFX_TUBER_M",
+      "name": "TuberM",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/tuber_m.png"
+    },
+    "OBJ_EVENT_GFX_HIKER": {
+      "graphicsId": "OBJ_EVENT_GFX_HIKER",
+      "name": "Hiker",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/hiker.png"
+    },
+    "OBJ_EVENT_GFX_CYCLING_TRIATHLETE_M": {
+      "graphicsId": "OBJ_EVENT_GFX_CYCLING_TRIATHLETE_M",
+      "name": "CyclingTriathleteM",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/cycling_triathlete_m.png"
+    },
+    "OBJ_EVENT_GFX_CYCLING_TRIATHLETE_F": {
+      "graphicsId": "OBJ_EVENT_GFX_CYCLING_TRIATHLETE_F",
+      "name": "CyclingTriathleteF",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/cycling_triathlete_f.png"
+    },
+    "OBJ_EVENT_GFX_NURSE": {
+      "graphicsId": "OBJ_EVENT_GFX_NURSE",
+      "name": "Nurse",
+      "width": 16,
+      "height": 32,
+      "frameCount": 10,
+      "animationTable": "sAnimTable_Nurse",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        3
+      ],
+      "spritePath": "/people/nurse.png"
+    },
+    "OBJ_EVENT_GFX_ITEM_BALL": {
+      "graphicsId": "OBJ_EVENT_GFX_ITEM_BALL",
+      "name": "ItemBall",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/item_ball.png"
+    },
+    "OBJ_EVENT_GFX_BERRY_TREE": {
+      "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE",
+      "name": "BerryTree",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BerryTree",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/berry_tree.png"
+    },
+    "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES": {
+      "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES",
+      "name": "BerryTreeEarlyStages",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BerryTree",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/berry_tree_early_stages.png"
+    },
+    "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES": {
+      "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES",
+      "name": "BerryTreeLateStages",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BerryTree",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/berry_tree_late_stages.png"
+    },
+    "OBJ_EVENT_GFX_PROF_BIRCH": {
+      "graphicsId": "OBJ_EVENT_GFX_PROF_BIRCH",
+      "name": "ProfBirch",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/prof_birch.png"
+    },
+    "OBJ_EVENT_GFX_MAN4": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN4",
+      "name": "Man4",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/man4.png"
+    },
+    "OBJ_EVENT_GFX_MAN5": {
+      "graphicsId": "OBJ_EVENT_GFX_MAN5",
+      "name": "Man5",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/man5.png"
+    },
+    "OBJ_EVENT_GFX_REPORTER_M": {
+      "graphicsId": "OBJ_EVENT_GFX_REPORTER_M",
+      "name": "ReporterM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/reporter_m.png"
+    },
+    "OBJ_EVENT_GFX_REPORTER_F": {
+      "graphicsId": "OBJ_EVENT_GFX_REPORTER_F",
+      "name": "ReporterF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/reporter_f.png"
+    },
+    "OBJ_EVENT_GFX_BARD": {
+      "graphicsId": "OBJ_EVENT_GFX_BARD",
+      "name": "Bard",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/bard.png"
+    },
+    "OBJ_EVENT_GFX_HIPSTER": {
+      "graphicsId": "OBJ_EVENT_GFX_HIPSTER",
+      "name": "Hipster",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/hipster.png"
+    },
+    "OBJ_EVENT_GFX_TRADER": {
+      "graphicsId": "OBJ_EVENT_GFX_TRADER",
+      "name": "Trader",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/trader.png"
+    },
+    "OBJ_EVENT_GFX_STORYTELLER": {
+      "graphicsId": "OBJ_EVENT_GFX_STORYTELLER",
+      "name": "Storyteller",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/storyteller.png"
+    },
+    "OBJ_EVENT_GFX_GIDDY": {
+      "graphicsId": "OBJ_EVENT_GFX_GIDDY",
+      "name": "Giddy",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/giddy.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN1": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN1",
+      "name": "UnusedMauvilleOldMan1",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/unused_mauville_old_man1.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN2": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN2",
+      "name": "UnusedMauvilleOldMan2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/unused_mauville_old_man2.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_NATU_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_NATU_DOLL",
+      "name": "UnusedNatuDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/unused_natu_doll.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_MAGNEMITE_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAGNEMITE_DOLL",
+      "name": "UnusedMagnemiteDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/unused_magnemite_doll.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_SQUIRTLE_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_SQUIRTLE_DOLL",
+      "name": "UnusedSquirtleDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/unused_squirtle_doll.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_WOOPER_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_WOOPER_DOLL",
+      "name": "UnusedWooperDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/unused_wooper_doll.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_PIKACHU_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_PIKACHU_DOLL",
+      "name": "UnusedPikachuDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/pikachu.png"
+    },
+    "OBJ_EVENT_GFX_UNUSED_PORYGON2DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_PORYGON2DOLL",
+      "name": "UnusedPorygon2Doll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/unused_porygon2doll.png"
+    },
+    "OBJ_EVENT_GFX_CUTTABLE_TREE": {
+      "graphicsId": "OBJ_EVENT_GFX_CUTTABLE_TREE",
+      "name": "CuttableTree",
+      "width": 16,
+      "height": 16,
+      "frameCount": 4,
+      "animationTable": "sAnimTable_CuttableTree",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/cuttable_tree.png"
+    },
+    "OBJ_EVENT_GFX_MART_EMPLOYEE": {
+      "graphicsId": "OBJ_EVENT_GFX_MART_EMPLOYEE",
+      "name": "MartEmployee",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/mart_employee.png"
+    },
+    "OBJ_EVENT_GFX_ROOFTOP_SALE_WOMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_ROOFTOP_SALE_WOMAN",
+      "name": "RooftopSaleWoman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/rooftop_sale_woman.png"
+    },
+    "OBJ_EVENT_GFX_TEALA": {
+      "graphicsId": "OBJ_EVENT_GFX_TEALA",
+      "name": "Teala",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/teala.png"
+    },
+    "OBJ_EVENT_GFX_BREAKABLE_ROCK": {
+      "graphicsId": "OBJ_EVENT_GFX_BREAKABLE_ROCK",
+      "name": "BreakableRock",
+      "width": 16,
+      "height": 16,
+      "frameCount": 4,
+      "animationTable": "sAnimTable_BreakableRock",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/breakable_rock.png"
+    },
+    "OBJ_EVENT_GFX_PUSHABLE_BOULDER": {
+      "graphicsId": "OBJ_EVENT_GFX_PUSHABLE_BOULDER",
+      "name": "PushableBoulder",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/pushable_boulder.png"
+    },
+    "OBJ_EVENT_GFX_MR_BRINEYS_BOAT": {
+      "graphicsId": "OBJ_EVENT_GFX_MR_BRINEYS_BOAT",
+      "name": "MrBrineysBoat",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/mr_brineys_boat.png"
+    },
+    "OBJ_EVENT_GFX_MAY_NORMAL": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_NORMAL",
+      "name": "MayNormal",
+      "width": 16,
+      "height": 32,
+      "frameCount": 18,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/may/normal.png"
+    },
+    "OBJ_EVENT_GFX_MAY_MACH_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_MACH_BIKE",
+      "name": "MayMachBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/mach_bike.png"
+    },
+    "OBJ_EVENT_GFX_MAY_ACRO_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_ACRO_BIKE",
+      "name": "MayAcroBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 27,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/acro_bike.png"
+    },
+    "OBJ_EVENT_GFX_MAY_SURFING": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_SURFING",
+      "name": "MaySurfing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 12,
+      "animationTable": "sAnimTable_Surfing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        2,
+        4,
+        0,
+        0,
+        2,
+        2,
+        4,
+        4,
+        1,
+        3,
+        5
+      ],
+      "spritePath": "/people/may/surfing.png"
+    },
+    "OBJ_EVENT_GFX_MAY_FIELD_MOVE": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_FIELD_MOVE",
+      "name": "MayFieldMove",
+      "width": 32,
+      "height": 32,
+      "frameCount": 5,
+      "animationTable": "sAnimTable_FieldMove",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/field_move.png"
+    },
+    "OBJ_EVENT_GFX_TRUCK": {
+      "graphicsId": "OBJ_EVENT_GFX_TRUCK",
+      "name": "Truck",
+      "width": 48,
+      "height": 48,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/truck.png"
+    },
+    "OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX": {
+      "graphicsId": "OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX",
+      "name": "VigorothCarryingBox",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        2,
+        1,
+        2,
+        1,
+        2
+      ],
+      "spritePath": "/pokemon/vigoroth.png"
+    },
+    "OBJ_EVENT_GFX_VIGOROTH_FACING_AWAY": {
+      "graphicsId": "OBJ_EVENT_GFX_VIGOROTH_FACING_AWAY",
+      "name": "VigorothFacingAway",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "spritePath": "/pokemon/vigoroth.png"
+    },
+    "OBJ_EVENT_GFX_BIRCHS_BAG": {
+      "graphicsId": "OBJ_EVENT_GFX_BIRCHS_BAG",
+      "name": "BirchsBag",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/birchs_bag.png"
+    },
+    "OBJ_EVENT_GFX_ENEMY_ZIGZAGOON": {
+      "graphicsId": "OBJ_EVENT_GFX_ENEMY_ZIGZAGOON",
+      "name": "EnemyZigzagoon",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/zigzagoon.png"
+    },
+    "OBJ_EVENT_GFX_POOCHYENA": {
+      "graphicsId": "OBJ_EVENT_GFX_POOCHYENA",
+      "name": "Poochyena",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/poochyena.png"
+    },
+    "OBJ_EVENT_GFX_ARTIST": {
+      "graphicsId": "OBJ_EVENT_GFX_ARTIST",
+      "name": "Artist",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/artist.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL",
+      "name": "RivalBrendanNormal",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/rival_normal.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_BRENDAN_MACH_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_MACH_BIKE",
+      "name": "RivalBrendanMachBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/rival_mach_bike.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_BRENDAN_ACRO_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_ACRO_BIKE",
+      "name": "RivalBrendanAcroBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/rival_acro_bike.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_BRENDAN_SURFING": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_SURFING",
+      "name": "RivalBrendanSurfing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Surfing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/rival_surfing.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_BRENDAN_FIELD_MOVE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_FIELD_MOVE",
+      "name": "RivalBrendanFieldMove",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_FieldMove",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/rival_field_move.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_MAY_NORMAL": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_NORMAL",
+      "name": "RivalMayNormal",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/rival_normal.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_MAY_MACH_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_MACH_BIKE",
+      "name": "RivalMayMachBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/rival_mach_bike.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_MAY_ACRO_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_ACRO_BIKE",
+      "name": "RivalMayAcroBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_AcroBike",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/rival_acro_bike.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_MAY_SURFING": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_SURFING",
+      "name": "RivalMaySurfing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Surfing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/rival_surfing.png"
+    },
+    "OBJ_EVENT_GFX_RIVAL_MAY_FIELD_MOVE": {
+      "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_FIELD_MOVE",
+      "name": "RivalMayFieldMove",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_FieldMove",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/rival_field_move.png"
+    },
+    "OBJ_EVENT_GFX_CAMERAMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_CAMERAMAN",
+      "name": "Cameraman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/cameraman.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_UNDERWATER": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_UNDERWATER",
+      "name": "BrendanUnderwater",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/brendan/underwater.png"
+    },
+    "OBJ_EVENT_GFX_MAY_UNDERWATER": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_UNDERWATER",
+      "name": "MayUnderwater",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/may/underwater.png"
+    },
+    "OBJ_EVENT_GFX_MOVING_BOX": {
+      "graphicsId": "OBJ_EVENT_GFX_MOVING_BOX",
+      "name": "MovingBox",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/moving_box.png"
+    },
+    "OBJ_EVENT_GFX_CABLE_CAR": {
+      "graphicsId": "OBJ_EVENT_GFX_CABLE_CAR",
+      "name": "CableCar",
+      "width": 64,
+      "height": 64,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/cable_car.png"
+    },
+    "OBJ_EVENT_GFX_SCIENTIST2": {
+      "graphicsId": "OBJ_EVENT_GFX_SCIENTIST2",
+      "name": "Scientist2",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/scientist2.png"
+    },
+    "OBJ_EVENT_GFX_DEVON_EMPLOYEE": {
+      "graphicsId": "OBJ_EVENT_GFX_DEVON_EMPLOYEE",
+      "name": "DevonEmployee",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/devon_employee.png"
+    },
+    "OBJ_EVENT_GFX_AQUA_MEMBER_M": {
+      "graphicsId": "OBJ_EVENT_GFX_AQUA_MEMBER_M",
+      "name": "AquaMemberM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_aqua/aqua_member_m.png"
+    },
+    "OBJ_EVENT_GFX_AQUA_MEMBER_F": {
+      "graphicsId": "OBJ_EVENT_GFX_AQUA_MEMBER_F",
+      "name": "AquaMemberF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_aqua/aqua_member_f.png"
+    },
+    "OBJ_EVENT_GFX_MAGMA_MEMBER_M": {
+      "graphicsId": "OBJ_EVENT_GFX_MAGMA_MEMBER_M",
+      "name": "MagmaMemberM",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_magma/magma_member_m.png"
+    },
+    "OBJ_EVENT_GFX_MAGMA_MEMBER_F": {
+      "graphicsId": "OBJ_EVENT_GFX_MAGMA_MEMBER_F",
+      "name": "MagmaMemberF",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_magma/magma_member_f.png"
+    },
+    "OBJ_EVENT_GFX_SIDNEY": {
+      "graphicsId": "OBJ_EVENT_GFX_SIDNEY",
+      "name": "Sidney",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/elite_four/sidney.png"
+    },
+    "OBJ_EVENT_GFX_PHOEBE": {
+      "graphicsId": "OBJ_EVENT_GFX_PHOEBE",
+      "name": "Phoebe",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/elite_four/phoebe.png"
+    },
+    "OBJ_EVENT_GFX_GLACIA": {
+      "graphicsId": "OBJ_EVENT_GFX_GLACIA",
+      "name": "Glacia",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/elite_four/glacia.png"
+    },
+    "OBJ_EVENT_GFX_DRAKE": {
+      "graphicsId": "OBJ_EVENT_GFX_DRAKE",
+      "name": "Drake",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/elite_four/drake.png"
+    },
+    "OBJ_EVENT_GFX_ROXANNE": {
+      "graphicsId": "OBJ_EVENT_GFX_ROXANNE",
+      "name": "Roxanne",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/roxanne.png"
+    },
+    "OBJ_EVENT_GFX_BRAWLY": {
+      "graphicsId": "OBJ_EVENT_GFX_BRAWLY",
+      "name": "Brawly",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/brawly.png"
+    },
+    "OBJ_EVENT_GFX_WATTSON": {
+      "graphicsId": "OBJ_EVENT_GFX_WATTSON",
+      "name": "Wattson",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/wattson.png"
+    },
+    "OBJ_EVENT_GFX_FLANNERY": {
+      "graphicsId": "OBJ_EVENT_GFX_FLANNERY",
+      "name": "Flannery",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/flannery.png"
+    },
+    "OBJ_EVENT_GFX_NORMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_NORMAN",
+      "name": "Norman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/gym_leaders/norman.png"
+    },
+    "OBJ_EVENT_GFX_WINONA": {
+      "graphicsId": "OBJ_EVENT_GFX_WINONA",
+      "name": "Winona",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/winona.png"
+    },
+    "OBJ_EVENT_GFX_LIZA": {
+      "graphicsId": "OBJ_EVENT_GFX_LIZA",
+      "name": "Liza",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/liza.png"
+    },
+    "OBJ_EVENT_GFX_TATE": {
+      "graphicsId": "OBJ_EVENT_GFX_TATE",
+      "name": "Tate",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gym_leaders/tate.png"
+    },
+    "OBJ_EVENT_GFX_WALLACE": {
+      "graphicsId": "OBJ_EVENT_GFX_WALLACE",
+      "name": "Wallace",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/gym_leaders/wallace.png"
+    },
+    "OBJ_EVENT_GFX_STEVEN": {
+      "graphicsId": "OBJ_EVENT_GFX_STEVEN",
+      "name": "Steven",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/steven.png"
+    },
+    "OBJ_EVENT_GFX_WALLY": {
+      "graphicsId": "OBJ_EVENT_GFX_WALLY",
+      "name": "Wally",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/wally.png"
+    },
+    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_LITTLE_BOY": {
+      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_LITTLE_BOY",
+      "name": "RubySapphireLittleBoy",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/ruby_sapphire_little_boy.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_FISHING": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_FISHING",
+      "name": "BrendanFishing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 12,
+      "animationTable": "sAnimTable_Fishing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/fishing.png"
+    },
+    "OBJ_EVENT_GFX_MAY_FISHING": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_FISHING",
+      "name": "MayFishing",
+      "width": 32,
+      "height": 32,
+      "frameCount": 12,
+      "animationTable": "sAnimTable_Fishing",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/fishing.png"
+    },
+    "OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN",
+      "name": "HotSpringsOldWoman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/hot_springs_old_woman.png"
+    },
+    "OBJ_EVENT_GFX_SS_TIDAL": {
+      "graphicsId": "OBJ_EVENT_GFX_SS_TIDAL",
+      "name": "SSTidal",
+      "width": 96,
+      "height": 40,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/ss_tidal.png"
+    },
+    "OBJ_EVENT_GFX_SUBMARINE_SHADOW": {
+      "graphicsId": "OBJ_EVENT_GFX_SUBMARINE_SHADOW",
+      "name": "SubmarineShadow",
+      "width": 88,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/submarine_shadow.png"
+    },
+    "OBJ_EVENT_GFX_PICHU_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_PICHU_DOLL",
+      "name": "PichuDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/pichu_doll.png"
+    },
+    "OBJ_EVENT_GFX_PIKACHU_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_PIKACHU_DOLL",
+      "name": "PikachuDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/pikachu.png"
+    },
+    "OBJ_EVENT_GFX_MARILL_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_MARILL_DOLL",
+      "name": "MarillDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/marill_doll.png"
+    },
+    "OBJ_EVENT_GFX_TOGEPI_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_TOGEPI_DOLL",
+      "name": "TogepiDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/togepi_doll.png"
+    },
+    "OBJ_EVENT_GFX_CYNDAQUIL_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_CYNDAQUIL_DOLL",
+      "name": "CyndaquilDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/cyndaquil_doll.png"
+    },
+    "OBJ_EVENT_GFX_CHIKORITA_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_CHIKORITA_DOLL",
+      "name": "ChikoritaDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/chikorita_doll.png"
+    },
+    "OBJ_EVENT_GFX_TOTODILE_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_TOTODILE_DOLL",
+      "name": "TotodileDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/totodile_doll.png"
+    },
+    "OBJ_EVENT_GFX_JIGGLYPUFF_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_JIGGLYPUFF_DOLL",
+      "name": "JigglypuffDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/jigglypuff_doll.png"
+    },
+    "OBJ_EVENT_GFX_MEOWTH_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_MEOWTH_DOLL",
+      "name": "MeowthDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/meowth_doll.png"
+    },
+    "OBJ_EVENT_GFX_CLEFAIRY_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_CLEFAIRY_DOLL",
+      "name": "ClefairyDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/clefairy_doll.png"
+    },
+    "OBJ_EVENT_GFX_DITTO_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_DITTO_DOLL",
+      "name": "DittoDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/ditto_doll.png"
+    },
+    "OBJ_EVENT_GFX_SMOOCHUM_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_SMOOCHUM_DOLL",
+      "name": "SmoochumDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/smoochum_doll.png"
+    },
+    "OBJ_EVENT_GFX_TREECKO_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_TREECKO_DOLL",
+      "name": "TreeckoDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/treecko_doll.png"
+    },
+    "OBJ_EVENT_GFX_TORCHIC_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_TORCHIC_DOLL",
+      "name": "TorchicDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/torchic_doll.png"
+    },
+    "OBJ_EVENT_GFX_MUDKIP_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_MUDKIP_DOLL",
+      "name": "MudkipDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/mudkip_doll.png"
+    },
+    "OBJ_EVENT_GFX_DUSKULL_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_DUSKULL_DOLL",
+      "name": "DuskullDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/duskull_doll.png"
+    },
+    "OBJ_EVENT_GFX_WYNAUT_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_WYNAUT_DOLL",
+      "name": "WynautDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/wynaut_doll.png"
+    },
+    "OBJ_EVENT_GFX_BALTOY_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BALTOY_DOLL",
+      "name": "BaltoyDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/baltoy_doll.png"
+    },
+    "OBJ_EVENT_GFX_KECLEON_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_KECLEON_DOLL",
+      "name": "KecleonDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/kecleon.png"
+    },
+    "OBJ_EVENT_GFX_AZURILL_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_AZURILL_DOLL",
+      "name": "AzurillDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/azurill.png"
+    },
+    "OBJ_EVENT_GFX_SKITTY_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_SKITTY_DOLL",
+      "name": "SkittyDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/skitty.png"
+    },
+    "OBJ_EVENT_GFX_SWABLU_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_SWABLU_DOLL",
+      "name": "SwabluDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/swablu_doll.png"
+    },
+    "OBJ_EVENT_GFX_GULPIN_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_GULPIN_DOLL",
+      "name": "GulpinDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/gulpin_doll.png"
+    },
+    "OBJ_EVENT_GFX_LOTAD_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_LOTAD_DOLL",
+      "name": "LotadDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/lotad_doll.png"
+    },
+    "OBJ_EVENT_GFX_SEEDOT_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_SEEDOT_DOLL",
+      "name": "SeedotDoll",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/seedot_doll.png"
+    },
+    "OBJ_EVENT_GFX_PIKA_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_PIKA_CUSHION",
+      "name": "PikaCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/pika_cushion.png"
+    },
+    "OBJ_EVENT_GFX_ROUND_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_ROUND_CUSHION",
+      "name": "RoundCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/round_cushion.png"
+    },
+    "OBJ_EVENT_GFX_KISS_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_KISS_CUSHION",
+      "name": "KissCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/kiss_cushion.png"
+    },
+    "OBJ_EVENT_GFX_ZIGZAG_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_ZIGZAG_CUSHION",
+      "name": "ZigzagCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/zigzag_cushion.png"
+    },
+    "OBJ_EVENT_GFX_SPIN_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_SPIN_CUSHION",
+      "name": "SpinCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/spin_cushion.png"
+    },
+    "OBJ_EVENT_GFX_DIAMOND_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_DIAMOND_CUSHION",
+      "name": "DiamondCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/diamond_cushion.png"
+    },
+    "OBJ_EVENT_GFX_BALL_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_BALL_CUSHION",
+      "name": "BallCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/ball_cushion.png"
+    },
+    "OBJ_EVENT_GFX_GRASS_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_GRASS_CUSHION",
+      "name": "GrassCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/grass_cushion.png"
+    },
+    "OBJ_EVENT_GFX_FIRE_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_FIRE_CUSHION",
+      "name": "FireCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/fire_cushion.png"
+    },
+    "OBJ_EVENT_GFX_WATER_CUSHION": {
+      "graphicsId": "OBJ_EVENT_GFX_WATER_CUSHION",
+      "name": "WaterCushion",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/water_cushion.png"
+    },
+    "OBJ_EVENT_GFX_BIG_SNORLAX_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_SNORLAX_DOLL",
+      "name": "BigSnorlaxDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_snorlax_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_RHYDON_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_RHYDON_DOLL",
+      "name": "BigRhydonDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_rhydon_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_LAPRAS_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_LAPRAS_DOLL",
+      "name": "BigLaprasDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_lapras_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_VENUSAUR_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_VENUSAUR_DOLL",
+      "name": "BigVenusaurDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_venusaur_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_CHARIZARD_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_CHARIZARD_DOLL",
+      "name": "BigCharizardDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_charizard_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_BLASTOISE_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_BLASTOISE_DOLL",
+      "name": "BigBlastoiseDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_blastoise_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_WAILMER_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_WAILMER_DOLL",
+      "name": "BigWailmerDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_wailmer_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_REGIROCK_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_REGIROCK_DOLL",
+      "name": "BigRegirockDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_regirock_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_REGICE_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_REGICE_DOLL",
+      "name": "BigRegiceDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_regice_doll.png"
+    },
+    "OBJ_EVENT_GFX_BIG_REGISTEEL_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_BIG_REGISTEEL_DOLL",
+      "name": "BigRegisteelDoll",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/big_registeel_doll.png"
+    },
+    "OBJ_EVENT_GFX_LATIAS": {
+      "graphicsId": "OBJ_EVENT_GFX_LATIAS",
+      "name": "Latias",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/latias.png"
+    },
+    "OBJ_EVENT_GFX_LATIOS": {
+      "graphicsId": "OBJ_EVENT_GFX_LATIOS",
+      "name": "Latios",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/latios.png"
+    },
+    "OBJ_EVENT_GFX_GAMEBOY_KID": {
+      "graphicsId": "OBJ_EVENT_GFX_GAMEBOY_KID",
+      "name": "GameboyKid",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/gameboy_kid.png"
+    },
+    "OBJ_EVENT_GFX_CONTEST_JUDGE": {
+      "graphicsId": "OBJ_EVENT_GFX_CONTEST_JUDGE",
+      "name": "ContestJudge",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/contest_judge.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_WATERING": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_WATERING",
+      "name": "BrendanWatering",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        2,
+        4,
+        1,
+        1,
+        3,
+        3,
+        5,
+        5
+      ],
+      "spritePath": "/people/brendan/watering.png"
+    },
+    "OBJ_EVENT_GFX_MAY_WATERING": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_WATERING",
+      "name": "MayWatering",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        2,
+        4,
+        1,
+        1,
+        3,
+        3,
+        5,
+        5
+      ],
+      "spritePath": "/people/may/watering.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_DECORATING": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_DECORATING",
+      "name": "BrendanDecorating",
+      "width": 16,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/decorating.png"
+    },
+    "OBJ_EVENT_GFX_MAY_DECORATING": {
+      "graphicsId": "OBJ_EVENT_GFX_MAY_DECORATING",
+      "name": "MayDecorating",
+      "width": 16,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/decorating.png"
+    },
+    "OBJ_EVENT_GFX_ARCHIE": {
+      "graphicsId": "OBJ_EVENT_GFX_ARCHIE",
+      "name": "Archie",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_aqua/archie.png"
+    },
+    "OBJ_EVENT_GFX_MAXIE": {
+      "graphicsId": "OBJ_EVENT_GFX_MAXIE",
+      "name": "Maxie",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/team_magma/maxie.png"
+    },
+    "OBJ_EVENT_GFX_KYOGRE_FRONT": {
+      "graphicsId": "OBJ_EVENT_GFX_KYOGRE_FRONT",
+      "name": "KyogreFront",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "spritePath": "/pokemon/kyogre.png"
+    },
+    "OBJ_EVENT_GFX_GROUDON_FRONT": {
+      "graphicsId": "OBJ_EVENT_GFX_GROUDON_FRONT",
+      "name": "GroudonFront",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "spritePath": "/pokemon/groudon.png"
+    },
+    "OBJ_EVENT_GFX_KYOGRE_SIDE": {
+      "graphicsId": "OBJ_EVENT_GFX_KYOGRE_SIDE",
+      "name": "KyogreSide",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "spritePath": "/pokemon/kyogre.png"
+    },
+    "OBJ_EVENT_GFX_GROUDON_SIDE": {
+      "graphicsId": "OBJ_EVENT_GFX_GROUDON_SIDE",
+      "name": "GroudonSide",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_GroudonSide",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "spritePath": "/pokemon/groudon.png"
+    },
+    "OBJ_EVENT_GFX_FOSSIL": {
+      "graphicsId": "OBJ_EVENT_GFX_FOSSIL",
+      "name": "Fossil",
+      "width": 16,
+      "height": 16,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/people/fossil.png"
+    },
+    "OBJ_EVENT_GFX_REGIROCK": {
+      "graphicsId": "OBJ_EVENT_GFX_REGIROCK",
+      "name": "Regirock",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/regirock.png"
+    },
+    "OBJ_EVENT_GFX_REGICE": {
+      "graphicsId": "OBJ_EVENT_GFX_REGICE",
+      "name": "Regice",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/regice.png"
+    },
+    "OBJ_EVENT_GFX_REGISTEEL": {
+      "graphicsId": "OBJ_EVENT_GFX_REGISTEEL",
+      "name": "Registeel",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/registeel.png"
+    },
+    "OBJ_EVENT_GFX_SKITTY": {
+      "graphicsId": "OBJ_EVENT_GFX_SKITTY",
+      "name": "Skitty",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/skitty.png"
+    },
+    "OBJ_EVENT_GFX_KECLEON": {
+      "graphicsId": "OBJ_EVENT_GFX_KECLEON",
+      "name": "Kecleon",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/kecleon.png"
+    },
+    "OBJ_EVENT_GFX_KYOGRE_ASLEEP": {
+      "graphicsId": "OBJ_EVENT_GFX_KYOGRE_ASLEEP",
+      "name": "KyogreAsleep",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/kyogre.png"
+    },
+    "OBJ_EVENT_GFX_GROUDON_ASLEEP": {
+      "graphicsId": "OBJ_EVENT_GFX_GROUDON_ASLEEP",
+      "name": "GroudonAsleep",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/groudon.png"
+    },
+    "OBJ_EVENT_GFX_RAYQUAZA": {
+      "graphicsId": "OBJ_EVENT_GFX_RAYQUAZA",
+      "name": "Rayquaza",
+      "width": 64,
+      "height": 64,
+      "frameCount": 5,
+      "animationTable": "sAnimTable_Rayquaza",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/rayquaza.png"
+    },
+    "OBJ_EVENT_GFX_ZIGZAGOON": {
+      "graphicsId": "OBJ_EVENT_GFX_ZIGZAGOON",
+      "name": "Zigzagoon",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/zigzagoon.png"
+    },
+    "OBJ_EVENT_GFX_PIKACHU": {
+      "graphicsId": "OBJ_EVENT_GFX_PIKACHU",
+      "name": "Pikachu",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/pikachu.png"
+    },
+    "OBJ_EVENT_GFX_AZUMARILL": {
+      "graphicsId": "OBJ_EVENT_GFX_AZUMARILL",
+      "name": "Azumarill",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/azumarill.png"
+    },
+    "OBJ_EVENT_GFX_WINGULL": {
+      "graphicsId": "OBJ_EVENT_GFX_WINGULL",
+      "name": "Wingull",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        2,
+        4,
+        1,
+        1,
+        3,
+        3,
+        5,
+        5
+      ],
+      "spritePath": "/pokemon/wingull.png"
+    },
+    "OBJ_EVENT_GFX_KECLEON_BRIDGE_SHADOW": {
+      "graphicsId": "OBJ_EVENT_GFX_KECLEON_BRIDGE_SHADOW",
+      "name": "KecleonBridgeShadow",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/kecleon.png"
+    },
+    "OBJ_EVENT_GFX_TUBER_M_SWIMMING": {
+      "graphicsId": "OBJ_EVENT_GFX_TUBER_M_SWIMMING",
+      "name": "TuberMSwimming",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/tuber_m_swimming.png"
+    },
+    "OBJ_EVENT_GFX_AZURILL": {
+      "graphicsId": "OBJ_EVENT_GFX_AZURILL",
+      "name": "Azurill",
+      "width": 16,
+      "height": 16,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/pokemon/azurill.png"
+    },
+    "OBJ_EVENT_GFX_MOM": {
+      "graphicsId": "OBJ_EVENT_GFX_MOM",
+      "name": "Mom",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/mom.png"
+    },
+    "OBJ_EVENT_GFX_LINK_BRENDAN": {
+      "graphicsId": "OBJ_EVENT_GFX_LINK_BRENDAN",
+      "name": "LinkBrendan",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/link_brendan.png"
+    },
+    "OBJ_EVENT_GFX_LINK_MAY": {
+      "graphicsId": "OBJ_EVENT_GFX_LINK_MAY",
+      "name": "LinkMay",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_BrendanMayNormal",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/link_may.png"
+    },
+    "OBJ_EVENT_GFX_JUAN": {
+      "graphicsId": "OBJ_EVENT_GFX_JUAN",
+      "name": "Juan",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/gym_leaders/juan.png"
+    },
+    "OBJ_EVENT_GFX_SCOTT": {
+      "graphicsId": "OBJ_EVENT_GFX_SCOTT",
+      "name": "Scott",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/scott.png"
+    },
+    "OBJ_EVENT_GFX_MYSTERY_EVENT_DELIVERYMAN": {
+      "graphicsId": "OBJ_EVENT_GFX_MYSTERY_EVENT_DELIVERYMAN",
+      "name": "MysteryEventDeliveryman",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/mystery_event_deliveryman.png"
+    },
+    "OBJ_EVENT_GFX_STATUE": {
+      "graphicsId": "OBJ_EVENT_GFX_STATUE",
+      "name": "Statue",
+      "width": 16,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/statue.png"
+    },
+    "OBJ_EVENT_GFX_KIRLIA": {
+      "graphicsId": "OBJ_EVENT_GFX_KIRLIA",
+      "name": "Kirlia",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_S",
+      "spritePath": "/pokemon/kirlia.png"
+    },
+    "OBJ_EVENT_GFX_DUSCLOPS": {
+      "graphicsId": "OBJ_EVENT_GFX_DUSCLOPS",
+      "name": "Dusclops",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/dusclops.png"
+    },
+    "OBJ_EVENT_GFX_UNION_ROOM_ATTENDANT": {
+      "graphicsId": "OBJ_EVENT_GFX_UNION_ROOM_ATTENDANT",
+      "name": "UnionRoomAttendant",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
+      "spritePath": "/people/union_room_attendant.png"
+    },
+    "OBJ_EVENT_GFX_RED": {
+      "graphicsId": "OBJ_EVENT_GFX_RED",
+      "name": "Red",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/red.png"
+    },
+    "OBJ_EVENT_GFX_LEAF": {
+      "graphicsId": "OBJ_EVENT_GFX_LEAF",
+      "name": "Leaf",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/leaf.png"
+    },
+    "OBJ_EVENT_GFX_SUDOWOODO": {
+      "graphicsId": "OBJ_EVENT_GFX_SUDOWOODO",
+      "name": "Sudowoodo",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        2
+      ],
+      "spritePath": "/pokemon/sudowoodo.png"
+    },
+    "OBJ_EVENT_GFX_MEW": {
+      "graphicsId": "OBJ_EVENT_GFX_MEW",
+      "name": "Mew",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/mew.png"
+    },
+    "OBJ_EVENT_GFX_DEOXYS": {
+      "graphicsId": "OBJ_EVENT_GFX_DEOXYS",
+      "name": "Deoxys",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "spritePath": "/pokemon/deoxys.png"
+    },
+    "OBJ_EVENT_GFX_BIRTH_ISLAND_STONE": {
+      "graphicsId": "OBJ_EVENT_GFX_BIRTH_ISLAND_STONE",
+      "name": "BirthIslandStone",
+      "width": 32,
+      "height": 32,
+      "frameCount": 0,
+      "animationTable": "sAnimTable_Inanimate",
+      "inanimate": true,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/birth_island_stone.png"
+    },
+    "OBJ_EVENT_GFX_ANABEL": {
+      "graphicsId": "OBJ_EVENT_GFX_ANABEL",
+      "name": "Anabel",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/anabel.png"
+    },
+    "OBJ_EVENT_GFX_TUCKER": {
+      "graphicsId": "OBJ_EVENT_GFX_TUCKER",
+      "name": "Tucker",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/tucker.png"
+    },
+    "OBJ_EVENT_GFX_GRETA": {
+      "graphicsId": "OBJ_EVENT_GFX_GRETA",
+      "name": "Greta",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/greta.png"
+    },
+    "OBJ_EVENT_GFX_SPENSER": {
+      "graphicsId": "OBJ_EVENT_GFX_SPENSER",
+      "name": "Spenser",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/spenser.png"
+    },
+    "OBJ_EVENT_GFX_NOLAND": {
+      "graphicsId": "OBJ_EVENT_GFX_NOLAND",
+      "name": "Noland",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/noland.png"
+    },
+    "OBJ_EVENT_GFX_LUCY": {
+      "graphicsId": "OBJ_EVENT_GFX_LUCY",
+      "name": "Lucy",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/lucy.png"
+    },
+    "OBJ_EVENT_GFX_BRANDON": {
+      "graphicsId": "OBJ_EVENT_GFX_BRANDON",
+      "name": "Brandon",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/frontier_brains/brandon.png"
+    },
+    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_BRENDAN": {
+      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_BRENDAN",
+      "name": "RubySapphireBrendan",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/ruby_sapphire_brendan.png"
+    },
+    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_MAY": {
+      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_MAY",
+      "name": "RubySapphireMay",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/may/ruby_sapphire_may.png"
+    },
+    "OBJ_EVENT_GFX_LUGIA": {
+      "graphicsId": "OBJ_EVENT_GFX_LUGIA",
+      "name": "Lugia",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "spritePath": "/pokemon/lugia.png"
+    },
+    "OBJ_EVENT_GFX_HO_OH": {
+      "graphicsId": "OBJ_EVENT_GFX_HO_OH",
+      "name": "HoOh",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_HoOh",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "spritePath": "/pokemon/ho_oh.png"
+    }
+  }
+}

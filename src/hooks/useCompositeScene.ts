@@ -22,7 +22,7 @@ import type { UseFieldSpritesReturn } from './useFieldSprites';
 import { ObjectRenderer } from '../components/map/renderers/ObjectRenderer';
 import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
-import { renderNPCs, renderNPCReflections, renderNPCGrassEffects } from '../game/npc';
+import { renderNPCs, renderNPCReflections, renderNPCGrassEffects, npcAnimationManager } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
 import { buildSpriteBatches, getEffectsForLayer } from '../rendering/SpriteBatcher';
 
@@ -94,6 +94,9 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
     ) => {
       // Update shimmer animation (GBA-accurate reflection distortion)
       getGlobalShimmer().update(nowMs);
+
+      // Update NPC animations (frame advancement based on delta time)
+      npcAnimationManager.update();
 
       const ctx = refs.renderContextRef.current;
       if (!ctx) return;
