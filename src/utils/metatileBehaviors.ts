@@ -1,7 +1,23 @@
 // Behavior constants derived from public/pokeemerald/include/constants/metatile_behaviors.h
-import { MB_TALL_GRASS, MB_LONG_GRASS } from './metatileBehaviors.generated';
+import {
+  MB_TALL_GRASS,
+  MB_LONG_GRASS,
+  MB_SECRET_BASE_WALL,
+  MB_IMPASSABLE_EAST,
+  MB_IMPASSABLE_SOUTH_AND_NORTH,
+  MB_IMPASSABLE_WEST_AND_EAST,
+  MB_JUMP_SOUTHWEST,
+} from './metatileBehaviors.generated';
 
-export { MB_TALL_GRASS, MB_LONG_GRASS };
+export {
+  MB_TALL_GRASS,
+  MB_LONG_GRASS,
+  MB_SECRET_BASE_WALL,
+  MB_IMPASSABLE_EAST,
+  MB_IMPASSABLE_SOUTH_AND_NORTH,
+  MB_IMPASSABLE_WEST_AND_EAST,
+  MB_JUMP_SOUTHWEST,
+};
 
 export const MB_DEEP_SAND = 6;
 export const MB_SAND = 33;  // 0x21 - Regular sand (footprints behavior)

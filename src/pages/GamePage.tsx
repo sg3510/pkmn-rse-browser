@@ -57,7 +57,7 @@ import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import type { NPCObject, ItemBallObject } from '../types/objectEvents';
-import { METATILE_SIZE } from '../utils/mapLoader';
+import { METATILE_SIZE, isCollisionPassable } from '../utils/mapLoader';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
 import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
@@ -97,6 +97,17 @@ import {
   DEFAULT_SPRITE_SUBPRIORITY,
 } from '../game/playerCoords';
 import { getMetatileIdFromMapTile } from '../utils/mapLoader';
+import {
+  MB_DEEP_SAND,
+  MB_SAND,
+  MB_SECRET_BASE_WALL,
+  MB_IMPASSABLE_EAST,
+  MB_IMPASSABLE_SOUTH_AND_NORTH,
+  MB_IMPASSABLE_WEST_AND_EAST,
+  MB_JUMP_SOUTHWEST,
+  isDoorBehavior,
+  isSurfableBehavior,
+} from '../utils/metatileBehaviors';
 import {
   startDoorWarpSequence,
   type DoorWarpContext,
@@ -319,10 +330,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const resolver = player?.getTileResolver();
       const resolved = resolver?.(x, y);
       if (!resolved) return false;
-      // Check behavior - 0 is usually walkable
-      const behavior = resolved.attributes?.behavior ?? 0;
-      // Impassable behaviors (simplified check)
-      return behavior < 0x80; // Most behaviors < 0x80 are walkable
+
+      const { attributes, mapTile } = resolved;
+      if (!attributes) return true;
+
+      const behavior = attributes.behavior;
+      const collision = mapTile.collision;
+
+      // Sand tiles are always walkable (if no object collision, which NPCs handle separately).
+      if (behavior === MB_SAND || behavior === MB_DEEP_SAND) return true;
+
+      // Block tiles with impassable collision bits (doors are handled separately for player, but still walkable).
+      if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) return false;
+
+      // Hard-blocked behaviors.
+      if (behavior === MB_SECRET_BASE_WALL) return false;
+
+      // NPCs can't surf, so block surfable water tiles.
+      if (isSurfableBehavior(behavior)) return false;
+
+      // Directionally impassable + ledge/jump tiles are blocked for NPCs.
+      if (behavior >= MB_IMPASSABLE_EAST && behavior <= MB_JUMP_SOUTHWEST) return false;
+      if (behavior === MB_IMPASSABLE_SOUTH_AND_NORTH || behavior === MB_IMPASSABLE_WEST_AND_EAST) return false;
+
+      return true;
     },
     getTileElevation: (x: number, y: number): number => {
       const player = playerRef.current;

@@ -437,11 +437,20 @@ export function createNPCSpriteInstance(
 
   // Calculate world position with sub-tile offset for smooth movement
   // NPCs are positioned at tile center, sprite is drawn from top-left
-  // Standard 16x32 sprite: center horizontally on tile, feet at bottom of tile
+  // Center sprite horizontally on tile, feet at bottom of tile
   // subTileX/subTileY provide pixel-perfect movement during walks
+  //
+  // pokeemerald uses centerToCornerVec to center sprites:
+  //   centerToCornerVecX = -(width >> 1)  → shifts left by half width
+  //   centerToCornerVecY = -(height >> 1) → shifts up by half height
+  //
+  // For horizontal centering: tileX*16 + 8 (tile center) - sw/2 (sprite center)
+  //   = tileX*16 + (16 - sw)/2
+  // For vertical: feet at tile bottom, so top = tileY*16 + 16 - height
+  //   = tileY*16 - (height - 16)
   const subTileX = npc.subTileX ?? 0;
   const subTileY = npc.subTileY ?? 0;
-  const worldX = npc.tileX * METATILE_SIZE + subTileX;
+  const worldX = npc.tileX * METATILE_SIZE + subTileX + Math.floor((METATILE_SIZE - sw) / 2);
   const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE);
 
   // For long grass clipping, only show top half of sprite (matches player behavior)

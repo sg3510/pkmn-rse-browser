@@ -1124,6 +1124,14 @@ export class PlayerController {
     if (currentlySurfing) {
       // While surfing: check if target is surfable water
       if (isSurfableBehavior(behavior)) {
+        // Respect collision bits even on water (matches MapGridGetCollisionAt)
+        if (!isCollisionPassable(collision)) {
+          if (isDebugMode()) {
+            console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water but collision bit=${collision} - BLOCKED`);
+          }
+          return true;
+        }
+
         // CRITICAL: Still need to check for NPC/object collision even on water!
         // Reference: CheckForObjectEventCollision in event_object_movement.c
         if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {

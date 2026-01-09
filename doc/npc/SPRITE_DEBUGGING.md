@@ -130,6 +130,24 @@ npcAnimationManager.getFrameInfo('npc_1_10_5')
 | Walking shows idle | isMoving not true | Check NPC movement state |
 | Wrong walk frame | frameMap not applied | Check mapLogicalToPhysicalFrame() |
 | Walking left shows up anim | Wrong frame indices | Fixed in getNPCFrameInfo |
+| Large sprite positioned wrong | Missing X centering | Fixed with (16-sw)/2 offset |
+
+## Sprite Positioning (pokeemerald formula)
+
+For all sprite sizes, centering uses the pokeemerald `centerToCornerVec` formula:
+
+```typescript
+// Horizontal: center sprite on tile
+worldX = tileX * 16 + subTileX + Math.floor((16 - spriteWidth) / 2)
+
+// Vertical: feet at bottom of tile
+worldY = tileY * 16 + subTileY - (spriteHeight - 16)
+```
+
+Examples:
+- **16x32 sprite** (standard NPC): X offset = (16-16)/2 = 0
+- **64x64 sprite** (Rayquaza): X offset = (16-64)/2 = -24 (centered)
+- **32x32 sprite**: X offset = (16-32)/2 = -8 (centered)
 
 ## Two Animation Code Paths
 
