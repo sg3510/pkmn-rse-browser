@@ -36,6 +36,7 @@ export class WebGLAnimationManager {
   private textureManager: WebGLTextureManager;
   private animations: Map<string, AnimationState> = new Map();
   private animationsPair1: Map<string, AnimationState> = new Map();
+  private animationsPair2: Map<string, AnimationState> = new Map();
 
   // Cached tileset buffers for patching (pair 0)
   private primaryBuffer: Uint8Array | null = null;
@@ -52,6 +53,14 @@ export class WebGLAnimationManager {
   private primaryHeightPair1: number = 0;
   private secondaryWidthPair1: number = 0;
   private secondaryHeightPair1: number = 0;
+
+  // Cached tileset buffers for patching (pair 2)
+  private primaryBufferPair2: Uint8Array | null = null;
+  private secondaryBufferPair2: Uint8Array | null = null;
+  private primaryWidthPair2: number = 0;
+  private primaryHeightPair2: number = 0;
+  private secondaryWidthPair2: number = 0;
+  private secondaryHeightPair2: number = 0;
 
   constructor(_gl: WebGL2RenderingContext, textureManager: WebGLTextureManager) {
     this.textureManager = textureManager;
@@ -100,6 +109,27 @@ export class WebGLAnimationManager {
   }
 
   /**
+   * Set the tileset buffers for animation patching (pair 2)
+   * Must be called after uploading pair 2 tilesets
+   */
+  setTilesetBuffersPair2(
+    primary: Uint8Array,
+    primaryWidth: number,
+    primaryHeight: number,
+    secondary: Uint8Array,
+    secondaryWidth: number,
+    secondaryHeight: number
+  ): void {
+    // Make copies so we can patch them
+    this.primaryBufferPair2 = new Uint8Array(primary);
+    this.secondaryBufferPair2 = new Uint8Array(secondary);
+    this.primaryWidthPair2 = primaryWidth;
+    this.primaryHeightPair2 = primaryHeight;
+    this.secondaryWidthPair2 = secondaryWidth;
+    this.secondaryHeightPair2 = secondaryHeight;
+  }
+
+  /**
    * Register animations for the current map's tilesets (pair 0)
    */
   registerAnimations(animations: LoadedAnimation[]): void {
@@ -128,6 +158,20 @@ export class WebGLAnimationManager {
   }
 
   /**
+   * Register animations for pair 2 tilesets
+   */
+  registerAnimationsPair2(animations: LoadedAnimation[]): void {
+    this.animationsPair2.clear();
+
+    for (const anim of animations) {
+      this.animationsPair2.set(anim.id, {
+        animation: anim,
+        lastCyclePerDest: anim.destinations.map(() => -999),
+      });
+    }
+  }
+
+  /**
    * Update all animations for the current game frame
    */
   updateAnimations(gameFrame: number): boolean {
@@ -144,7 +188,7 @@ export class WebGLAnimationManager {
         this.primaryHeight,
         this.secondaryWidth,
         this.secondaryHeight,
-        false // pair 0
+        0 // pair 0
       );
       if (updated) anyUpdated = true;
     }
@@ -160,7 +204,23 @@ export class WebGLAnimationManager {
         this.primaryHeightPair1,
         this.secondaryWidthPair1,
         this.secondaryHeightPair1,
-        true // pair 1
+        1 // pair 1
+      );
+      if (updated) anyUpdated = true;
+    }
+
+    // Update pair 2 animations
+    if (this.primaryBufferPair2 && this.secondaryBufferPair2) {
+      const updated = this.updateAnimationsForPair(
+        gameFrame,
+        this.animationsPair2,
+        this.primaryBufferPair2,
+        this.secondaryBufferPair2,
+        this.primaryWidthPair2,
+        this.primaryHeightPair2,
+        this.secondaryWidthPair2,
+        this.secondaryHeightPair2,
+        2 // pair 2
       );
       if (updated) anyUpdated = true;
     }
@@ -180,7 +240,7 @@ export class WebGLAnimationManager {
     primaryHeight: number,
     secondaryWidth: number,
     secondaryHeight: number,
-    isPair1: boolean
+    pairIndex: 0 | 1 | 2
   ): boolean {
     let primaryDirty = false;
     let secondaryDirty = false;
@@ -254,17 +314,21 @@ export class WebGLAnimationManager {
 
     // Re-upload dirty tilesets
     if (primaryDirty) {
-      if (isPair1) {
+      if (pairIndex === 0) {
+        this.textureManager.uploadTileset('primary', primaryBuffer, primaryWidth, primaryHeight);
+      } else if (pairIndex === 1) {
         this.textureManager.uploadTilesetPair1('primary', primaryBuffer, primaryWidth, primaryHeight);
       } else {
-        this.textureManager.uploadTileset('primary', primaryBuffer, primaryWidth, primaryHeight);
+        this.textureManager.uploadTilesetPair2('primary', primaryBuffer, primaryWidth, primaryHeight);
       }
     }
     if (secondaryDirty) {
-      if (isPair1) {
+      if (pairIndex === 0) {
+        this.textureManager.uploadTileset('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
+      } else if (pairIndex === 1) {
         this.textureManager.uploadTilesetPair1('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
       } else {
-        this.textureManager.uploadTileset('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
+        this.textureManager.uploadTilesetPair2('secondary', secondaryBuffer, secondaryWidth, secondaryHeight);
       }
     }
 
@@ -327,7 +391,7 @@ export class WebGLAnimationManager {
    * Check if any animations are registered
    */
   hasAnimations(): boolean {
-    return this.animations.size > 0 || this.animationsPair1.size > 0;
+    return this.animations.size > 0 || this.animationsPair1.size > 0 || this.animationsPair2.size > 0;
   }
 
   /**
@@ -336,13 +400,14 @@ export class WebGLAnimationManager {
   clear(): void {
     this.animations.clear();
     this.animationsPair1.clear();
+    this.animationsPair2.clear();
   }
 
   /**
    * Get animation count for debugging
    */
   getAnimationCount(): number {
-    return this.animations.size + this.animationsPair1.size;
+    return this.animations.size + this.animationsPair1.size + this.animationsPair2.size;
   }
 
   /**
@@ -354,6 +419,9 @@ export class WebGLAnimationManager {
       count += state.animation.destinations.length;
     }
     for (const state of this.animationsPair1.values()) {
+      count += state.animation.destinations.length;
+    }
+    for (const state of this.animationsPair2.values()) {
       count += state.animation.destinations.length;
     }
     return count;

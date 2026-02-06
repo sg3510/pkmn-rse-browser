@@ -2,7 +2,7 @@
  * Pokemon Type Definitions
  *
  * Based on Gen 3 (Pokemon Emerald) data structures.
- * See doc/save/pokemon-party-storage-system.md for details.
+ * See docs/systems/save/pokemon-party-storage-system.md for details.
  */
 
 // Constants

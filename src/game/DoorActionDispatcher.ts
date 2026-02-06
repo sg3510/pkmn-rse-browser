@@ -9,7 +9,7 @@
  * lives in DoorSequencer, and renderer-specific code (world init, tileset
  * uploads) stays in each renderer's performWarp.
  *
- * Reference: doc/warp/warp-behavior.md
+ * Reference: docs/features/warp/warp-behavior.md
  * GBA Source: public/pokeemerald/src/field_screen_effect.c
  */
 

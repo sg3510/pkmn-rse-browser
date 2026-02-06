@@ -461,6 +461,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     playerPos: { x: number; y: number };
     gpuSlot0: string | null;
     gpuSlot1: string | null;
+    tilesetAnimations: Array<{
+      slot: 0 | 1 | 2;
+      pairId: string;
+      animationCount: number;
+      animationIds: string[];
+      destinationCount: number;
+      frameCount: number;
+    }>;
     boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
     nearbyBoundaryCount: number;
   } | null>(null);

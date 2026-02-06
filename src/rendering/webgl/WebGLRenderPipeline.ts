@@ -239,13 +239,23 @@ export class WebGLRenderPipeline {
     secondaryTileset: Uint8Array,
     secondaryWidth: number,
     secondaryHeight: number,
-    _animations?: LoadedAnimation[]
+    animations?: LoadedAnimation[]
   ): void {
     this.tileRenderer.uploadTilesetPair2('primary', primaryTileset, primaryWidth, primaryHeight);
     this.tileRenderer.uploadTilesetPair2('secondary', secondaryTileset, secondaryWidth, secondaryHeight);
 
-    // Note: Animation support for pair 2 can be added if needed
-    // For now, pair 2 is primarily for static adjacent tilesets
+    // Configure animation manager for pair 2
+    this.animationManager.setTilesetBuffersPair2(
+      primaryTileset,
+      primaryWidth,
+      primaryHeight,
+      secondaryTileset,
+      secondaryWidth,
+      secondaryHeight
+    );
+    if (animations) {
+      this.animationManager.registerAnimationsPair2(animations);
+    }
 
     this.needsFullRender = true;
     this.needsWarmupRender = true;

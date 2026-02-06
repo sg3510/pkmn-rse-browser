@@ -4,7 +4,7 @@
  * GBA-style bag menu with animated bag image, pocket tabs, and item list.
  * Uses design system CSS variables for sizing.
  *
- * SPRITE REFERENCE (see doc/menu/assets-reference.md):
+ * SPRITE REFERENCE (see docs/features/menu/assets-reference.md):
  * - bag-icon-pockets.png: 472×61, 8 frames × 59px (positions: frame * 59)
  * - bag-icons.png: 208×52, 8 cols × 2 rows × 26px (positions: col * 26)
  */

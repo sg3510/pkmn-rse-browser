@@ -171,6 +171,14 @@ export interface MapStitchingDebugInfo {
   playerPos: { x: number; y: number };
   gpuSlot0: string | null;
   gpuSlot1: string | null;
+  tilesetAnimations?: Array<{
+    slot: 0 | 1 | 2;
+    pairId: string;
+    animationCount: number;
+    animationIds: string[];
+    destinationCount: number;
+    frameCount: number;
+  }>;
   boundaries: TilesetBoundaryDebugInfo[];
   nearbyBoundaryCount: number;
 }

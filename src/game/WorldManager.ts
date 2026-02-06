@@ -154,7 +154,7 @@ export class WorldManager {
    * Set the callback for uploading tileset pairs to GPU
    * This must be called before initialize() for proper scheduler setup
    */
-  setGpuUploadCallback(callback: (pair: TilesetPairInfo, slot: 0 | 1) => void): void {
+  setGpuUploadCallback(callback: (pair: TilesetPairInfo, slot: 0 | 1 | 2) => void): void {
     // Set up scheduler callbacks
     this.scheduler.setCallbacks(
       callback,
@@ -993,6 +993,14 @@ export class WorldManager {
     playerPos: { x: number; y: number };
     gpuSlot0: string | null;
     gpuSlot1: string | null;
+    tilesetAnimations: Array<{
+      slot: 0 | 1 | 2;
+      pairId: string;
+      animationCount: number;
+      animationIds: string[];
+      destinationCount: number;
+      frameCount: number;
+    }>;
     boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
     nearbyBoundaryCount: number;
   } {
@@ -1016,6 +1024,38 @@ export class WorldManager {
         borderTileCount: m.borderMetatiles.length,
       };
     });
+
+    const tilesetAnimations: Array<{
+      slot: 0 | 1 | 2;
+      pairId: string;
+      animationCount: number;
+      animationIds: string[];
+      destinationCount: number;
+      frameCount: number;
+    }> = [];
+
+    const slotPairs: Array<[0 | 1 | 2, string | null]> = [
+      [0, gpuSlots.slot0],
+      [1, gpuSlots.slot1],
+      [2, gpuSlots.slot2],
+    ];
+
+    for (const [slot, pairId] of slotPairs) {
+      if (!pairId) continue;
+      const pair = this.tilesetPairs.find(p => p.id === pairId);
+      if (!pair) continue;
+      const animationIds = (pair.animations ?? []).map(anim => anim.id);
+      const destinationCount = (pair.animations ?? []).reduce((sum, anim) => sum + (anim.destinations?.length ?? 0), 0);
+      const frameCount = (pair.animations ?? []).reduce((sum, anim) => sum + (anim.frames?.length ?? 0), 0);
+      tilesetAnimations.push({
+        slot,
+        pairId,
+        animationCount: animationIds.length,
+        animationIds,
+        destinationCount,
+        frameCount,
+      });
+    }
 
     // Get expected connections from current map
     const expectedConnections: Array<{ from: string; direction: string; to: string; loaded: boolean }> = [];
@@ -1052,6 +1092,7 @@ export class WorldManager {
       playerPos: { x: playerTileX, y: playerTileY },
       gpuSlot0: gpuSlots.slot0,
       gpuSlot1: gpuSlots.slot1,
+      tilesetAnimations,
       boundaries,
       nearbyBoundaryCount: nearbyBoundaries.length,
     };

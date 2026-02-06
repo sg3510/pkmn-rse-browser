@@ -1444,6 +1444,39 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
         </Section>
       )}
 
+      {/* Tileset Animation Debug */}
+      {mapStitching?.tilesetAnimations && mapStitching.tilesetAnimations.length > 0 && (
+        <Section title="Tileset Animations">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {mapStitching.tilesetAnimations.map((info) => (
+              <div
+                key={`${info.slot}:${info.pairId}`}
+                style={{
+                  padding: 6,
+                  backgroundColor: '#25252f',
+                  borderRadius: 4,
+                  borderLeft: info.slot === 0 ? '3px solid #88f' : info.slot === 1 ? '3px solid #f88' : '3px solid #8f8',
+                }}
+              >
+                <div style={{ fontSize: '9px', color: '#888', marginBottom: 2 }}>
+                  Slot {info.slot} · {info.pairId.replace('gTileset_', '').replace('+gTileset_', ' + ')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '10px' }}>
+                  <span style={{ color: '#888' }}>Animations:</span><span>{info.animationCount}</span>
+                  <span style={{ color: '#888' }}>Destinations:</span><span>{info.destinationCount}</span>
+                  <span style={{ color: '#888' }}>Frames:</span><span>{info.frameCount}</span>
+                </div>
+                {info.animationIds.length > 0 && (
+                  <div style={{ marginTop: 4, fontSize: '9px', color: '#aaa', wordBreak: 'break-word' }}>
+                    {info.animationIds.join(', ')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* World State */}
       {mapStitching && (
         <Section title="World State">

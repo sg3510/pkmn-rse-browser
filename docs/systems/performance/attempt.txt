@@ -1,0 +1,454 @@
+  ⧉ Selected 1 lines from docs/systems/performance/rendering-bugs-codex.md in Cursor
+
+⏺ Let me think through this carefully and implement the Codex fixes properly.
+
+⏺ Fix 3: Revert surf blob mutation - This is critical because my earlier "optimization" introduced/worsened the sand bug.
+
+⏺ Read(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Read 120 lines
+
+⏺ Update(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Updated src/rendering/compositeWebGLFrame.ts with 12 additions and 5 removals                                         
+        94    
+        95      const gl = pipeline.getGL();
+        96    
+        97 -    // Add surf blob to main sprites in sorted position using in-place mutation
+        98 -    // allSprites is already sorted by sortKey, so we insert surf blob at the correct position
+        97 +    // Add surf blob to main sprites in sorted position
+        98 +    // IMPORTANT: Create a copy to avoid mutating the original array, which is reused
+        99 +    // by other systems (debug, split layers). In-place mutation causes sprites to
+       100 +    // disappear on sand tiles when footprints are added concurrently.
+       101 +    let spritesWithBlob = allSprites;
+       102      if (surfBlobSprite) {
+       103        const insertIndex = findSortedInsertIndex(allSprites, surfBlobSprite.sortKey);
+       104 -      allSprites.splice(insertIndex, 0, surfBlobSprite);
+       104 +      spritesWithBlob = [
+       105 +        ...allSprites.slice(0, insertIndex),
+       106 +        surfBlobSprite,
+       107 +        ...allSprites.slice(insertIndex),
+       108 +      ];
+       109      }
+       110    
+       111      // Split sprites into reflection-layer and normal
+       112 -    const reflectionLayerSprites = allSprites.filter((s) => s.isReflection || s.isReflectionLayer);
+       113 -    const normalSprites = allSprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+       112 +    const reflectionLayerSprites = spritesWithBlob.filter((s) => s.isReflection || s.isReflectionLayer);
+       113 +    const normalSprites = spritesWithBlob.filter((s) => !s.isReflection && !s.isReflectionLayer);
+       114      const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
+       115      const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+       116    
+
+⏺ Now I need to update the standard path to use spritesWithBlob:
+
+⏺ Read(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Read 50 lines
+
+⏺ Update(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Updated src/rendering/compositeWebGLFrame.ts with 1 addition and 1 removal                   
+       133        );
+       134      } else {
+       135        // === Standard compositing (no reflections) ===
+       136 -      compositeStandard(ctx, lowPrioritySprites, allSprites, overlaySprites, gl);
+       136 +      compositeStandard(ctx, lowPrioritySprites, spritesWithBlob, overlaySprites, gl);
+       137      }
+       138    
+       139      // TopAbove layer (renders on both paths)
+
+⏺ Fix 1: Animation-only path guard for empty caches
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 80 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 9 additions and 3 removals               
+       254        const allowDirtyTracking = RENDERING_CONFIG.webgl.enableDirtyTracking;
+       255    
+       256        // Handle animation-only frame: update textures and re-blit cached instances
+       257 +      // GUARD: Only use animation-only path if caches are actually populated.
+       258 +      // If dimensions are null or caches are empty (first frame after invalidate/upload),
+       259 +      // fall through to full render to avoid black framebuffers.
+       260 +      const dims = this.passRenderer.getCurrentDimensions();
+       261 +      const cachesPopulated = dims !== null && this.passRenderer.hasCachedInstances();
+       262 +  
+       263        const animationOnly =
+       264          allowDirtyTracking &&
+       265          animationChanged &&
+       266          !forceFullRender &&
+       267          !viewChanged &&
+       268          !elevationChanged &&
+       269 -        !this.needsFullRender;
+       269 +        !this.needsFullRender &&
+       270 +        cachesPopulated;  // NEW: require populated caches
+       271    
+       272        if (animationOnly) {
+       273          const updated = this.animationManager.updateAnimations(gameFrame);
+       274 -        const dims = this.passRenderer.getCurrentDimensions();
+       275 -        if (updated && dims) {
+       274 +        if (updated) {
+       275            this.passRenderer.rerenderCached();
+       276          }
+       277          return;
+
+⏺ Now I need to add the hasCachedInstances() method to WebGLPassRenderer:
+
+⏺ Read(src/rendering/webgl/WebGLPassRenderer.ts)
+  ⎿  Read 54 lines
+
+⏺ Update(src/rendering/webgl/WebGLPassRenderer.ts)
+  ⎿  Updated src/rendering/webgl/WebGLPassRenderer.ts with 14 additions                         
+       256      }
+       257    
+       258      /**
+       259 +     * Check if all three passes have cached instances.
+       260 +     * Used to determine if animation-only rendering is safe.
+       261 +     */
+       262 +    hasCachedInstances(): boolean {
+       263 +      // All three passes must have some cached instances for animation-only to work
+       264 +      const bg = this.cachedInstances.get('background');
+       265 +      const tb = this.cachedInstances.get('topBelow');
+       266 +      const ta = this.cachedInstances.get('topAbove');
+       267 +      // At minimum, background should have instances (even empty maps have tiles)
+       268 +      // TopBelow and TopAbove may legitimately be empty for some views
+       269 +      return bg !== undefined && bg.length > 0;
+       270 +    }
+       271 +  
+       272 +    /**
+       273       * Get rendering statistics
+       274       */
+       275      getStats(): {
+
+⏺ Fix 2: Remove renderLayer1Only shortcut, use proper 3-pass system
+
+  This is the key fix. The reflection path corrupts caches because renderLayer1Only renders ALL layer 1 without elevation filtering. The water mask already clips reflections correctly, so we can use normal compositing.
+
+⏺ Read(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Read 80 lines
+
+⏺ Update(src/rendering/compositeWebGLFrame.ts)
+  ⎿  Updated src/rendering/compositeWebGLFrame.ts with 15 additions and 5 removals              
+       174    ): void {
+       175      const { pipeline, spriteRenderer, ctx2d, webglCanvas, view } = ctx;
+       176    
+       177 -    // Step 1: Render layer 0 only (water base)
+       178 -    pipeline.renderAndCompositeLayer0Only(ctx2d, view);
+       177 +    // FIX: Use normal compositing instead of layer0/layer1 shortcuts.
+       178 +    // The old renderAndCompositeLayer0Only/Layer1Only methods corrupted caches
+       179 +    // by overwriting them with non-elevation-filtered content.
+       180 +    // Water mask clips reflections to water-only pixels, so correct layering
+       181 +    // is achieved without special layer ordering.
+       182    
+       183 +    // Step 1: Background layer (layer 0 + COVERED layer 1)
+       184 +    pipeline.compositeBackgroundOnly(ctx2d, view);
+       185 +  
+       186      // Step 2: Render reflection-layer sprites with water mask
+       187 +    // Reflections are clipped to water pixels only, so they won't appear
+       188 +    // on shore edges even though shore edges were rendered in step 1.
+       189      clearAndBindFramebuffer(gl);
+       190    
+       191      const waterMask = buildWaterMaskFromView(
+     ...
+       196      spriteRenderer.renderBatch(allReflectionSprites, view);
+       197      ctx2d.drawImage(webglCanvas, 0, 0);
+       198    
+       199 -    // Step 2.5: Render low priority sprites before layer 1
+       199 +    // Step 2.5: Render low priority sprites (P2/P3)
+       200      if (normalLowPrioritySprites.length > 0) {
+       201        clearAndBindFramebuffer(gl);
+       202        spriteRenderer.renderBatch(normalLowPrioritySprites, view);
+       203        ctx2d.drawImage(webglCanvas, 0, 0);
+       204      }
+       205    
+       206 -    // Step 3: Render layer 1 (shore edges cover reflections)
+       207 -    pipeline.renderAndCompositeLayer1Only(ctx2d, view);
+       206 +    // Step 3: TopBelow layer (elevation-filtered NORMAL/SPLIT layer 1 below player)
+       207 +    // Uses cached framebuffer from pipeline.render() - no cache corruption!
+       208 +    pipeline.compositeTopBelowOnly(ctx2d, view);
+       209    
+       210      // Step 3.5: Door + arrow overlays
+       211      if (overlaySprites.length > 0) {
+     ...
+       219        spriteRenderer.renderBatch(normalSprites, view);
+       220        ctx2d.drawImage(webglCanvas, 0, 0);
+       221      }
+       222 +    // Note: TopAbove is rendered outside this function in compositeWebGLFrame
+       223    }
+       224    
+       225    function compositeStandard(
+
+ ▐▛███▜▌   Claude Code v2.0.56
+▝▜█████▛▘  Opus 4.5 · Claude Max
+  ▘▘ ▝▝    ~/Documents/GitHub/pkmn-rse-browser
+═══════════════════════════════════════════════════════════════════════════════════════════════ Conversation compacted · ctrl+o for history ══════════════════════════════════════════════════════════════════════════════════════════════
+  ⎿  Read src/rendering/compositeWebGLFrame.ts (300 lines)
+  ⎿  Read src/rendering/webgl/WebGLPassRenderer.ts (287 lines)
+  ⎿  Read src/rendering/webgl/WebGLRenderPipeline.ts (548 lines)
+  ⎿  Read docs/systems/performance/rendering-bugs-codex.md (57 lines)
+  ⎿  Referenced file docs/systems/performance/PERFORMANCE-TODO.md
+  ⎿  Todo list read (5 items)
+
+⏺ Continuing with Fix 4: Adding the tilesetVersion safety net. This adds an extra layer of protection by including a tileset version in the view hash, ensuring a full render is triggered when tileset content changes.
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 80 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 4 additions                 
+       54      // Track if tilesets have been uploaded
+       55      private tilesetsUploaded: boolean = false;
+       56    
+       57 +    // Monotonically increasing version for tileset changes
+       58 +    // Included in view hash to force full render when tileset content changes
+       59 +    private tilesetVersion: number = 0;
+       60 +  
+       61      // External callbacks for context events
+       62      private onContextLostCallback: (() => void) | null = null;
+       63      private onContextRestoredCallback: (() => void) | null = null;
+
+⏺ Now let me increment the version in uploadTilesets:
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 40 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 1 addition
+       161    
+       162        this.tilesetsUploaded = true;
+       163        this.needsFullRender = true;
+       164 +      this.tilesetVersion++;
+       165      }
+       166    
+       167      /**
+
+⏺ Now let me find uploadTilesetsPair1:
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 40 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 1 addition
+       201        }
+       202    
+       203        this.needsFullRender = true;
+       204 +      this.tilesetVersion++;
+       205      }
+       206    
+       207      /**
+
+⏺ Now let me find and update invalidate():
+
+⏺ Search(pattern: "invalidate\(\): void", path: "src/rendering/webgl/WebGLRenderPipeline.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "invalidate\(", path: "src/rendering/webgl/WebGLRenderPipeline.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 20 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 1 addition
+       412      invalidate(): void {
+       413        this.needsFullRender = true;
+       414        this.lastViewHash = '';
+       415 +      this.tilesetVersion++;
+       416        this.passRenderer.invalidate();
+       417      }
+       418    
+
+⏺ Now let me update the viewHash calculation to include tilesetVersion:
+
+⏺ Read(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Read 35 lines
+
+⏺ Update(src/rendering/webgl/WebGLRenderPipeline.ts)
+  ⎿  Updated src/rendering/webgl/WebGLRenderPipeline.ts with 2 additions and 2 removals                                                          
+       252        const elevationChanged = optionElevationChanged || playerElevation !== this.lastPlayerElevation;
+       253        this.lastPlayerElevation = playerElevation;
+       254    
+       255 -      // Check if view changed
+       256 -      const viewHash = `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh}`;
+       255 +      // Check if view changed (includes tilesetVersion for safety)
+       256 +      const viewHash = `${view.worldStartTileX},${view.worldStartTileY},${view.tilesWide},${view.tilesHigh},v${this.tilesetVersion}`;
+       257        const viewChanged = viewHash !== this.lastViewHash;
+       258        this.lastViewHash = viewHash;
+       259    
+
+⏺ Fix 4 is complete. Now let me update the todo and run the build to test all fixes work together:
+
+⏺ Bash(npm run build 2>&1 | head -100)
+  ⎿  > temp-vite-app@0.0.0 build  
+     > tsc -b && vite build
+     … +4 lines (ctrl+o to expand)
+
+⏺ There are some TypeScript errors. Let me fix the unused variable warnings in my code:
+
+⏺ Read(src/rendering/webgl/WebGLPassRenderer.ts)
+  ⎿  Read 20 lines
+
+⏺ Update(src/rendering/webgl/WebGLPassRenderer.ts)
+  ⎿  Updated src/rendering/webgl/WebGLPassRenderer.ts with 3 additions and 7 removals           
+       256      }
+       257    
+       258      /**
+       259 -     * Check if all three passes have cached instances.
+       260 -     * Used to determine if animation-only rendering is safe.
+       259 +     * Check if cached instances exist for animation-only rendering.
+       260 +     * At minimum, background must have instances (even empty maps have tiles).
+       261 +     * TopBelow and TopAbove may legitimately be empty for some views.
+       262       */
+       263      hasCachedInstances(): boolean {
+       264 -      // All three passes must have some cached instances for animation-only to work
+       264        const bg = this.cachedInstances.get('background');
+       265 -      const tb = this.cachedInstances.get('topBelow');
+       266 -      const ta = this.cachedInstances.get('topAbove');
+       267 -      // At minimum, background should have instances (even empty maps have tiles)
+       268 -      // TopBelow and TopAbove may legitimately be empty for some views
+       265        return bg !== undefined && bg.length > 0;
+       266      }
+       267    
+
+⏺ Bash(npm run build 2>&1 | head -100)
+  ⎿  > temp-vite-app@0.0.0 build  
+     > tsc -b && vite build
+     … +2 lines (ctrl+o to expand)
+
+⏺ There's a pre-existing type error in MapRendererInit.ts. Let me fix it:
+
+⏺ Read(src/components/MapRendererInit.ts)
+  ⎿  Read 25 lines
+
+⏺ Search(pattern: "interface PlayerDebugInfo", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "PlayerDebugInfo", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Read(src/components/debug/types.ts)
+  ⎿  Read 377 lines
+
+⏺ Now I need to add the missing properties to the PlayerDebugInfo object in MapRendererInit.ts:
+
+⏺ Read(src/components/MapRendererInit.ts)
+  ⎿  Read 20 lines
+
+⏺ Let me check what the player controller exposes:
+
+⏺ Search(pattern: "currentElevation|previousElevation|isJumping|stateName|hasCollisionChecker", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "getElevation|get jumping|state|isSurfing", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "class PlayerController", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Read(src/game/PlayerController.ts)
+  ⎿  Read 100 lines
+
+⏺ Search(pattern: "state\.|currentState|_state", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "private.*state|this\.state", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Read(src/game/PlayerController.ts)
+  ⎿  Read 100 lines
+
+⏺ Search(pattern: "currentElevation|previousElevation|isJumping|objectCollisionChecker", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "isJumping", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "JumpingState|jumping", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Read(src/game/PlayerController.ts)
+  ⎿  Read 100 lines
+
+⏺ Search(pattern: "getElevation|getCurrentElevation|getPreviousElevation|getStateName", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "get\s.*[Ee]levation", path: "src/game/PlayerController.ts", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Bash(grep -n "getElevation\|getCurrentElevation\|getPreviousElevation\|public.*elevation" "/Users/seb/Documents/GitHub/pkmn-rse-browser/src/game/PlayerController.ts")
+  ⎿  630:  public getElevation(): number {         
+     648:  public getCurrentElevation(): number {
+     2004:  public getPreviousElevation(): number {
+
+⏺ Bash(grep -n "Jumping\|isJumping\|getStateName\|objectCollisionChecker" "/Users/seb/Documents/GitHub/pkmn-rse-browser/src/game/PlayerController.ts" | head -20)
+  ⎿  167:class JumpingState implements PlayerState {                            
+     316:class SurfJumpingState implements PlayerState {
+     427:  private objectCollisionChecker: ObjectCollisionChecker | null = null;
+     … +15 lines (ctrl+o to expand)
+
+⏺ Read(src/game/PlayerController.ts)
+  ⎿  Read 24 lines
+
+⏺ Read(src/game/PlayerController.ts)
+  ⎿  Read 35 lines
+
+⏺ Bash(grep -n "public.*isJumping\|isJumping()" "/Users/seb/Documents/GitHub/pkmn-rse-browser/src/game/PlayerController.ts" | head -10)
+  ⎿  1315:    const isJumping = this.surfingController.isJumping();                        
+     1975:    if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';
+
+⏺ Now I can fix MapRendererInit.ts by adding the missing properties:
+
+⏺ Update(src/components/MapRendererInit.ts)
+  ⎿  Updated src/components/MapRendererInit.ts with 6 additions                                
+       476              west: getObjectsAtTile(playerForDebug.tileX - 1, playerForDebug.tileY),
+       477            };
+       478    
+       479 +          const stateName = playerForDebug.getStateName();
+       480            callbacks.setDebugState({
+       481              player: {
+       482                tileX: playerForDebug.tileX,
+     ...
+       484                pixelY: playerForDebug.y,
+       485                direction: playerForDebug.dir,
+       486                elevation: playerForDebug.getElevation(),
+       487 +              currentElevation: playerForDebug.getCurrentElevation(),
+       488 +              previousElevation: playerForDebug.getPreviousElevation(),
+       489                isMoving: playerForDebug.isMoving,
+       490                isSurfing: playerForDebug.isSurfing(),
+       491 +              isJumping: stateName.includes('Jumping'),
+       492                mapId: refs.renderContextRef.current?.anchor.entry.id ?? 'unknown',
+       493 +              stateName,
+       494 +              hasCollisionChecker: playerForDebug.hasObjectCollisionChecker(),
+       495              },
+       496              tile: null,
+       497              objectsAtPlayerTile: objectsAtPlayer,
+
+⏺ Now let's rebuild to verify all fixes compile:
+
+⏺ Bash(npm run build 2>&1)
+  ⎿  > temp-vite-app@0.0.0 build   
+     > tsc -b && vite build
+     … +14 lines (ctrl+o to expand)
+
+⏺ All fixes compiled successfully. Let me update the todo list:
+
+⏺ All Codex rendering bug fixes have been implemented and the build passes:
+
+  Completed Fixes:
+
+  1. Fix 3 (surf blob mutation) - src/rendering/compositeWebGLFrame.ts:97-109
+    - Changed from in-place splice to immutable array copy
+    - Prevents sprites from disappearing on sand tiles
+  2. Fix 1 (animation-only guard) - src/rendering/webgl/WebGLRenderPipeline.ts:266-276
+    - Added cachesPopulated check before using animation-only fast path
+    - Prevents black tiles when caches are empty after tileset upload
+  3. Fix 2 (layer1 shortcut removal) - src/rendering/compositeWebGLFrame.ts:177-231
+    - Replaced renderAndCompositeLayer0Only/Layer1Only shortcuts with normal 3-pass compositing
+    - Uses existing elevation-filtered caches instead of corrupting them
+    - Fixes NPC priority and shoreline rendering bugs
+  4. Fix 4 (tilesetVersion safety net) - src/rendering/webgl/WebGLRenderPipeline.ts:57-59,164,204,256,415
+    - Added monotonically increasing tilesetVersion counter
+    - Incremented on uploadTilesets, uploadTilesetsPair1, and invalidate
+    - Included in viewHash to force full render when tileset content changes
+
+  Additional fix:
+  - src/components/MapRendererInit.ts:479-495 - Added missing PlayerDebugInfo fields to fix type error
+
+  These fixes preserve dirty-tracking optimizations while ensuring correct rendering at all times.

@@ -93,7 +93,7 @@ export interface WorldManagerEventDeps {
 export function uploadTilesetPairToSlot(
   pipeline: WebGLRenderPipeline,
   pair: TilesetPairInfo,
-  slot: 0 | 1
+  slot: 0 | 1 | 2
 ): void {
   if (slot === 0) {
     pipeline.uploadTilesets(
@@ -106,7 +106,7 @@ export function uploadTilesetPairToSlot(
       pair.animations
     );
     pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-  } else {
+  } else if (slot === 1) {
     pipeline.uploadTilesetsPair1(
       pair.primaryImage.data,
       pair.primaryImage.width,
@@ -117,6 +117,17 @@ export function uploadTilesetPairToSlot(
       pair.animations
     );
     pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
+  } else {
+    pipeline.uploadTilesetsPair2(
+      pair.primaryImage.data,
+      pair.primaryImage.width,
+      pair.primaryImage.height,
+      pair.secondaryImage.data,
+      pair.secondaryImage.width,
+      pair.secondaryImage.height,
+      pair.animations
+    );
+    pipeline.uploadPalettesPair2(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
   }
 }
 
@@ -128,7 +139,7 @@ function uploadTilesetsFromScheduler(
   pipeline: WebGLRenderPipeline,
   scheduler: TilesetPairScheduler
 ): void {
-  const { slot0: slot0PairId, slot1: slot1PairId } = scheduler.getGpuSlots();
+  const { slot0: slot0PairId, slot1: slot1PairId, slot2: slot2PairId } = scheduler.getGpuSlots();
 
   if (slot0PairId) {
     const pair = scheduler.getCachedPair(slot0PairId);
@@ -141,6 +152,13 @@ function uploadTilesetsFromScheduler(
     const pair = scheduler.getCachedPair(slot1PairId);
     if (pair) {
       uploadTilesetPairToSlot(pipeline, pair, 1);
+    }
+  }
+
+  if (slot2PairId) {
+    const pair = scheduler.getCachedPair(slot2PairId);
+    if (pair) {
+      uploadTilesetPairToSlot(pipeline, pair, 2);
     }
   }
 }
@@ -319,8 +337,8 @@ export function createWorldManagerEventHandler(
  */
 export function createGpuUploadCallback(
   pipeline: WebGLRenderPipeline
-): (pair: TilesetPairInfo, slot: 0 | 1) => void {
-  return (pair: TilesetPairInfo, slot: 0 | 1) => {
+): (pair: TilesetPairInfo, slot: 0 | 1 | 2) => void {
+  return (pair: TilesetPairInfo, slot: 0 | 1 | 2) => {
     uploadTilesetPairToSlot(pipeline, pair, slot);
   };
 }

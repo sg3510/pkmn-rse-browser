@@ -90,7 +90,7 @@ export class TilesetPairScheduler {
   private eventHandlers: SchedulerEventHandler[] = [];
 
   /** Callback to actually upload tileset to GPU */
-  private onUploadToGpu: ((pair: TilesetPairInfo, slot: 0 | 1) => void) | null = null;
+  private onUploadToGpu: ((pair: TilesetPairInfo, slot: 0 | 1 | 2) => void) | null = null;
 
   /** Callback to load tileset pair data from disk */
   private onLoadPair: ((pairId: string) => Promise<TilesetPairInfo>) | null = null;
@@ -99,7 +99,7 @@ export class TilesetPairScheduler {
    * Set callbacks for GPU upload and disk loading
    */
   setCallbacks(
-    uploadToGpu: (pair: TilesetPairInfo, slot: 0 | 1) => void,
+    uploadToGpu: (pair: TilesetPairInfo, slot: 0 | 1 | 2) => void,
     loadPair: (pairId: string) => Promise<TilesetPairInfo>
   ): void {
     this.onUploadToGpu = uploadToGpu;
@@ -381,6 +381,11 @@ export class TilesetPairScheduler {
   /**
    * Update the scheduler based on player position
    * Call this each frame or when player moves
+   *
+   * Now manages all 3 GPU slots:
+   * - Slot 0: Current map's tileset pair
+   * - Slot 1: First visible adjacent tileset pair (prioritized by direction)
+   * - Slot 2: Second visible adjacent tileset pair (if different from slot 1)
    */
   async update(
     playerTileX: number,
@@ -397,7 +402,7 @@ export class TilesetPairScheduler {
       const cached = this.cache.get(currentMapPairId);
       if (cached && this.onUploadToGpu) {
         // Current pair needs to be in slot 0
-        // If it's in slot 1, swap. If not in GPU, upload.
+        // If it's in slot 1 or 2, swap. If not in GPU, upload.
         if (this.gpuSlot1 === currentMapPairId) {
           // Swap slots: current slot0 -> slot1, currentMapPairId -> slot0
           const oldSlot0 = this.gpuSlot0;
@@ -406,6 +411,19 @@ export class TilesetPairScheduler {
             if (oldCached) {
               this.onUploadToGpu(oldCached.data, 1);
               this.setGpuSlot(oldSlot0, 1);
+            }
+          }
+          this.onUploadToGpu(cached.data, 0);
+          this.setGpuSlot(currentMapPairId, 0);
+          needsRebuild = true;
+        } else if (this.gpuSlot2 === currentMapPairId) {
+          // Swap slots: current slot0 -> slot2, currentMapPairId -> slot0
+          const oldSlot0 = this.gpuSlot0;
+          if (oldSlot0) {
+            const oldCached = this.cache.get(oldSlot0);
+            if (oldCached) {
+              this.onUploadToGpu(oldCached.data, 2);
+              this.setGpuSlot(oldSlot0, 2);
             }
           }
           this.onUploadToGpu(cached.data, 0);
@@ -428,21 +446,60 @@ export class TilesetPairScheduler {
       }
     }
 
-    // Check if player is near a tileset boundary
-    const upcomingPairId = this.getUpcomingPairId(playerTileX, playerTileY, currentMapPairId, playerDirection);
+    // Get ALL nearby boundaries (not just direction-based)
+    // This ensures we load tilesets for all visible adjacent maps
+    const nearbyBoundaries = this.getNearbyBoundaries(playerTileX, playerTileY, PRELOAD_DISTANCE + 5);
 
+    // Collect all unique adjacent pair IDs (excluding current map's pair)
+    const adjacentPairIds: string[] = [];
+    for (const boundary of nearbyBoundaries) {
+      const otherPairId = boundary.pairIdA === currentMapPairId ? boundary.pairIdB : boundary.pairIdA;
+      if (otherPairId !== currentMapPairId && !adjacentPairIds.includes(otherPairId)) {
+        adjacentPairIds.push(otherPairId);
+      }
+    }
+
+    // Prioritize the direction-based upcoming pair if available
+    const upcomingPairId = this.getUpcomingPairId(playerTileX, playerTileY, currentMapPairId, playerDirection);
     if (upcomingPairId && upcomingPairId !== currentMapPairId) {
-      // Player is approaching a different tileset region
-      if (!this.isPairInGpu(upcomingPairId)) {
-        // Need to load the upcoming pair into slot 1
-        const cached = this.cache.get(upcomingPairId);
+      // Move upcoming pair to front of list
+      const idx = adjacentPairIds.indexOf(upcomingPairId);
+      if (idx > 0) {
+        adjacentPairIds.splice(idx, 1);
+        adjacentPairIds.unshift(upcomingPairId);
+      } else if (idx === -1) {
+        adjacentPairIds.unshift(upcomingPairId);
+      }
+    }
+
+    // Load first adjacent pair into slot 1
+    if (adjacentPairIds.length > 0) {
+      const pairId1 = adjacentPairIds[0];
+      if (!this.isPairInGpu(pairId1) || this.getGpuSlotForPair(pairId1) === 2) {
+        // Need to load into slot 1 (or move from slot 2 to slot 1)
+        const cached = this.cache.get(pairId1);
         if (cached && this.onUploadToGpu) {
           this.onUploadToGpu(cached.data, 1);
-          this.setGpuSlot(upcomingPairId, 1);
+          this.setGpuSlot(pairId1, 1);
           needsRebuild = true;
-        } else if (!this.loadingPairs.has(upcomingPairId) && this.onLoadPair) {
-          // Need to load from disk
-          this.preloadPair(upcomingPairId);
+        } else if (!this.loadingPairs.has(pairId1) && this.onLoadPair) {
+          this.preloadPair(pairId1);
+        }
+      }
+    }
+
+    // Load second adjacent pair into slot 2
+    if (adjacentPairIds.length > 1) {
+      const pairId2 = adjacentPairIds[1];
+      if (!this.isPairInGpu(pairId2) || this.getGpuSlotForPair(pairId2) === 1) {
+        // Need to load into slot 2 (or move from slot 1 to slot 2)
+        const cached = this.cache.get(pairId2);
+        if (cached && this.onUploadToGpu) {
+          this.onUploadToGpu(cached.data, 2);
+          this.setGpuSlot(pairId2, 2);
+          needsRebuild = true;
+        } else if (!this.loadingPairs.has(pairId2) && this.onLoadPair) {
+          this.preloadPair(pairId2);
         }
       }
     }
