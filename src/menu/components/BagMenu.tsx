@@ -13,7 +13,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { useMenuInput } from '../hooks/useMenuState';
 import { menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
-import { saveManager } from '../../save/SaveManager';
 import { getItemName, getItemIconPath, getItemDescription } from '../../data/items';
 import type { BagState } from '../../save/types';
 import '../styles/bag-menu.css';
@@ -54,9 +53,6 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
 
   // Get bag state
   const bagState = useMemo(() => bagManager.getBagState(), []);
-  const profile = saveManager.getProfile();
-  const money = (profile as { money?: number }).money ?? 0;
-
   const pocket = POCKETS[currentPocket];
   const items = bagState[pocket.id];
   const cursor = cursorPosition[currentPocket];

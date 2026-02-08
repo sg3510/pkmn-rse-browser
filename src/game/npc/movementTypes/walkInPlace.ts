@@ -7,8 +7,8 @@
  * Used for Vigoroth movers in the player's house.
  *
  * State Machine:
- *   Step 0: Initialize, set facing direction, start walking animation
- *   Step 1: Toggle isWalking on/off at regular intervals to cycle animation
+ *   Step 0: Initialize, set facing direction, start in-place walking animation
+ *   Step 1: Maintain animation-only walking state (no tile displacement)
  *
  * Reference: MovementType_WalkInPlace in event_object_movement.c
  */
@@ -22,9 +22,6 @@ import type {
   GBADirection,
 } from '../NPCMovementEngine';
 import { DIR, setFacingDirection } from '../NPCMovementEngine';
-
-/** Frames between walk animation toggles (~16 frames = ~267ms) */
-const WALK_IN_PLACE_TOGGLE_FRAMES = 16;
 
 function getInitialDirectionForType(movementTypeRaw: string): GBADirection {
   if (movementTypeRaw.includes('IN_PLACE_UP')) return DIR.NORTH;
@@ -41,9 +38,10 @@ function step0(
 ): MovementStepResult {
   const direction = getInitialDirectionForType(npc.movementTypeRaw);
   setFacingDirection(state, direction);
-  state.delayTimer = WALK_IN_PLACE_TOGGLE_FRAMES;
-  // Set walking on the movement state — the engine copies state.isWalking to npc.isWalking
+  state.movementDirection = direction;
+  // Keep walking animation active, but with animation-only in-place movement.
   state.isWalking = true;
+  state.walkInPlace = true;
 
   return {
     nextStep: 1,
@@ -56,14 +54,9 @@ function step1(
   state: NPCMovementState,
   _context: MovementContext
 ): MovementStepResult {
-  if (state.delayTimer > 0) {
-    state.delayTimer--;
-    return { nextStep: 1, continueImmediately: false };
-  }
-
-  // Toggle walk animation on the movement state
-  state.isWalking = !state.isWalking;
-  state.delayTimer = WALK_IN_PLACE_TOGGLE_FRAMES;
+  // Maintain continuous walk animation with no sub-tile displacement.
+  state.isWalking = true;
+  state.walkInPlace = true;
 
   return {
     nextStep: 1,

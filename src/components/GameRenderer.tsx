@@ -470,8 +470,10 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
         { gameFrame: state.gbaFrame, needsFullRender: false, animationChanged: state.animationFrameChanged }
       );
 
-      // Get NPCs and field effects
+      // Get NPCs, items, large objects, and field effects
       const npcs = objectEventManagerRef.current.getVisibleNPCs();
+      const items = objectEventManagerRef.current.getVisibleItemBalls();
+      const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
       const fieldEffects = fieldSpritesLoadedRef.current
         ? player.getGrassEffectManager().getEffectsForRendering()
         : [];
@@ -484,6 +486,8 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
         snapshot,
         tilesetRuntimes: tilesetRuntimesRef.current,
         npcs,
+        items,
+        largeObjects,
         fieldEffects,
         spriteRenderer,
         doorAnimations,

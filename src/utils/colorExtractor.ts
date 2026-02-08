@@ -6,12 +6,6 @@
 
 import { loadImageAsset } from './assetLoader';
 
-interface RGB {
-  r: number;
-  g: number;
-  b: number;
-}
-
 /**
  * Extract dominant color from a region of an image.
  * Ignores transparent and near-white pixels.

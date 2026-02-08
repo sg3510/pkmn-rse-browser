@@ -27,6 +27,7 @@ export interface StoryScriptContext {
     options?: { cancelable?: boolean; defaultIndex?: number }
   ) => Promise<T | null>;
   getPlayerGender: () => 0 | 1;
+  getPlayerName: () => string;
   hasPartyPokemon: () => boolean;
   setParty: (party: (PartyPokemon | null)[]) => void;
   startFirstBattle: (starter: PartyPokemon) => Promise<void>;
@@ -43,6 +44,13 @@ export interface StoryScriptContext {
   faceNpcToPlayer: (mapId: string, localId: string) => void;
   setNpcPosition: (mapId: string, localId: string, tileX: number, tileY: number) => void;
   setNpcVisible: (mapId: string, localId: string, visible: boolean) => void;
+  playDoorAnimation: (
+    mapId: string,
+    tileX: number,
+    tileY: number,
+    direction: 'open' | 'close'
+  ) => Promise<void>;
+  setPlayerVisible: (visible: boolean) => void;
 }
 
 type StarterChoice = {
@@ -64,6 +72,8 @@ const HANDLED_SCRIPTS = new Set<string>([
   'LittlerootTown_EventScript_StepOffTruckFemale',
   'LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn',
   'LittlerootTown_MaysHouse_1F_EventScript_EnterHouseMovingIn',
+  'LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom',
+  'LittlerootTown_MaysHouse_1F_EventScript_GoSeeRoom',
   'Route101_EventScript_HideMapNamePopup',
   'Route101_EventScript_StartBirchRescue',
   'Route101_EventScript_PreventExitSouth',
@@ -131,7 +141,15 @@ export function shouldRunCoordEvent(varName: string, requiredValue: number): boo
   return gameVariables.getVar(varName) === requiredValue;
 }
 
+function formatStoryText(text: string, playerName: string): string {
+  return text.replace(/\{PLAYER\}/g, playerName);
+}
+
 export async function executeStoryScript(scriptName: string, ctx: StoryScriptContext): Promise<boolean> {
+  const fallbackName = ctx.getPlayerGender() === 1 ? 'MAY' : 'BRENDAN';
+  const resolvedPlayerName = ctx.getPlayerName().trim() || fallbackName;
+  const showMessage = (text: string): Promise<void> => ctx.showMessage(formatStoryText(text, resolvedPlayerName));
+
   switch (scriptName) {
     case 'InsideOfTruck_EventScript_SetIntroFlags': {
       if (gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE) !== 0) {
@@ -165,7 +183,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
     }
 
     case 'InsideOfTruck_EventScript_MovingBox': {
-      await ctx.showMessage("The box is printed with a POKeMON logo. It's a POKeMON brand moving and delivery service.");
+      await showMessage("The box is printed with a POKeMON logo. It's a POKeMON brand moving and delivery service.");
       return true;
     }
 
@@ -176,18 +194,24 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
       const mapId = 'MAP_LITTLEROOT_TOWN';
       const momLocalId = 'LOCALID_LITTLEROOT_MOM';
+      const houseDoorX = 5;
+      const houseDoorY = 8;
+      gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE');
       ctx.setNpcPosition(mapId, momLocalId, 5, 8);
       ctx.setNpcVisible(mapId, momLocalId, true);
 
       await ctx.delayFrames(15);
       await ctx.movePlayer('right', 'jump');
+      await ctx.delayFrames(48); // C: delay_16 × 3 after jump_right
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'open');
 
       await ctx.moveNpc(mapId, momLocalId, 'down', 'walk');
       await ctx.moveNpc(mapId, momLocalId, 'down', 'walk');
       await ctx.moveNpc(mapId, momLocalId, 'left', 'face');
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
 
-      await ctx.showMessage("MOM: We're here, honey! This is LITTLEROOT TOWN. What do you think?");
-      await ctx.showMessage("MOM: This is going to be our new home! Let's go inside.");
+      await showMessage("MOM: We're here, honey! This is LITTLEROOT TOWN. What do you think?");
+      await showMessage("MOM: This is going to be our new home! Let's go inside.");
 
       await Promise.all([
         (async () => {
@@ -200,6 +224,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
           await ctx.movePlayer('up', 'face');
         })(),
       ]);
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'open');
 
       await Promise.all([
         (async () => {
@@ -213,10 +238,11 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       ]);
 
       gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE');
-      gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK');
       gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 3);
       gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_FAT_MAN');
       gameFlags.clear('FLAG_HIDE_MAP_NAME_POPUP');
+      ctx.setPlayerVisible(false);
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
       ctx.queueWarp('MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F', 8, 8, 'up');
       return true;
     }
@@ -228,18 +254,24 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
       const mapId = 'MAP_LITTLEROOT_TOWN';
       const momLocalId = 'LOCALID_LITTLEROOT_MOM';
+      const houseDoorX = 14;
+      const houseDoorY = 8;
+      gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE');
       ctx.setNpcPosition(mapId, momLocalId, 14, 8);
       ctx.setNpcVisible(mapId, momLocalId, true);
 
       await ctx.delayFrames(15);
       await ctx.movePlayer('right', 'jump');
+      await ctx.delayFrames(48); // C: delay_16 × 3 after jump_right
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'open');
 
       await ctx.moveNpc(mapId, momLocalId, 'down', 'walk');
       await ctx.moveNpc(mapId, momLocalId, 'down', 'walk');
       await ctx.moveNpc(mapId, momLocalId, 'left', 'face');
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
 
-      await ctx.showMessage("MOM: We're here, honey! This is LITTLEROOT TOWN. What do you think?");
-      await ctx.showMessage("MOM: This is going to be our new home! Let's go inside.");
+      await showMessage("MOM: We're here, honey! This is LITTLEROOT TOWN. What do you think?");
+      await showMessage("MOM: This is going to be our new home! Let's go inside.");
 
       await Promise.all([
         (async () => {
@@ -252,6 +284,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
           await ctx.movePlayer('up', 'face');
         })(),
       ]);
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'open');
 
       await Promise.all([
         (async () => {
@@ -265,10 +298,11 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       ]);
 
       gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE');
-      gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK');
       gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 3);
       gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_FAT_MAN');
       gameFlags.clear('FLAG_HIDE_MAP_NAME_POPUP');
+      ctx.setPlayerVisible(false);
+      await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
       ctx.queueWarp('MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F', 2, 8, 'up');
       return true;
     }
@@ -284,21 +318,46 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
         ? 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F'
         : 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F';
       const momLocalId = 'LOCALID_PLAYERS_HOUSE_1F_MOM';
+      ctx.setPlayerVisible(true);
 
-      await ctx.showMessage("MOM: See, {PLAYER}?\nIsn't it nice in here, too?");
+      // Hide the truck now that we're inside (exterior is off-screen during warp fade)
+      gameFlags.set(isMaleHouse
+        ? 'FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK'
+        : 'FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK');
+
+      await showMessage("MOM: See, {PLAYER}?\nIsn't it nice in here, too?");
       ctx.faceNpcToPlayer(houseMapId, momLocalId);
       await ctx.movePlayer(isMaleHouse ? 'right' : 'left', 'face');
 
-      await ctx.showMessage(
+      await showMessage(
         "The mover's POKeMON do all the work of moving us in and cleaning up after.\nThis is so convenient!"
       );
-      await ctx.showMessage("{PLAYER}, your room is upstairs.\nGo check it out, dear!");
-      await ctx.showMessage("DAD bought you a new clock to mark our move here.\nDon't forget to set it!");
+      await showMessage("{PLAYER}, your room is upstairs.\nGo check it out, dear!");
+      await showMessage("DAD bought you a new clock to mark our move here.\nDon't forget to set it!");
       gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 4);
       await Promise.all([
         ctx.movePlayer('up', 'walk'),
         ctx.moveNpc(houseMapId, momLocalId, 'up', 'face'),
       ]);
+      return true;
+    }
+
+    case 'LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom':
+    case 'LittlerootTown_MaysHouse_1F_EventScript_GoSeeRoom': {
+      if (gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE) !== 4) {
+        return true;
+      }
+      const isMaleHouse = scriptName.includes('BrendansHouse');
+      const houseMapId = isMaleHouse
+        ? 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F'
+        : 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F';
+      const momLocalId = 'LOCALID_PLAYERS_HOUSE_1F_MOM';
+
+      await showMessage("MOM: Well, {PLAYER}?\nAren't you interested in seeing your\nvery own room?");
+
+      // Mom faces back up (away from door), push player away from door
+      await ctx.moveNpc(houseMapId, momLocalId, 'up', 'face');
+      await ctx.movePlayer('up', 'walk');
       return true;
     }
 
@@ -317,15 +376,15 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
         return true;
       }
 
-      await ctx.showMessage('H-help me!');
-      await ctx.showMessage("Hello! You over there! Please! Help! In my BAG! There's a POKe BALL!");
+      await showMessage('H-help me!');
+      await showMessage("Hello! You over there! Please! Help! In my BAG! There's a POKe BALL!");
       gameVariables.setVar(GAME_VARS.VAR_ROUTE101_STATE, 2);
       return true;
     }
 
     case 'Route101_EventScript_PreventExitSouth': {
       if (gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE) === 2) {
-        await ctx.showMessage("Wh-Where are you going?! Don't leave me like this!");
+        await showMessage("Wh-Where are you going?! Don't leave me like this!");
         ctx.forcePlayerStep('up');
       }
       return true;
@@ -333,7 +392,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
     case 'Route101_EventScript_PreventExitWest': {
       if (gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE) === 2) {
-        await ctx.showMessage("Wh-Where are you going?! Don't leave me like this!");
+        await showMessage("Wh-Where are you going?! Don't leave me like this!");
         ctx.forcePlayerStep('right');
       }
       return true;
@@ -341,7 +400,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
     case 'Route101_EventScript_PreventExitNorth': {
       if (gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE) === 2) {
-        await ctx.showMessage("Wh-Where are you going?! Don't leave me like this!");
+        await showMessage("Wh-Where are you going?! Don't leave me like this!");
         ctx.forcePlayerStep('down');
       }
       return true;
@@ -349,12 +408,12 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
     case 'Route101_EventScript_BirchsBag': {
       if (gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE) < 2) {
-        await ctx.showMessage("You hear someone shouting for help deeper in the grass.");
+        await showMessage("You hear someone shouting for help deeper in the grass.");
         return true;
       }
 
       if (ctx.hasPartyPokemon()) {
-        await ctx.showMessage("Professor Birch's bag is here.");
+        await showMessage("Professor Birch's bag is here.");
         return true;
       }
 
@@ -386,7 +445,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       gameVariables.setVar(GAME_VARS.VAR_STARTER_MON, selectedChoice.species);
       gameVariables.setVar(GAME_VARS.VAR_RESULT, selectedChoice.species);
 
-      await ctx.showMessage(`You chose ${getSpeciesName(selectedChoice.species)}!`);
+      await showMessage(`You chose ${getSpeciesName(selectedChoice.species)}!`);
       await ctx.startFirstBattle(starter);
       return true;
     }

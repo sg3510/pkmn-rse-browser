@@ -1221,12 +1221,12 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
               </div>
             </div>
           )}
-          {renderStats.pipelineDebug.renderMeta && (
+          {renderStats.pipelineDebug?.renderMeta && (
             <div style={{ marginTop: 8 }}>
               <div style={{ color: '#888', fontSize: '10px', marginBottom: 4 }}>Last pass renders:</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px', fontSize: '10px' }}>
                 {(['background', 'topBelow', 'topAbove'] as const).map((pass) => {
-                  const meta = (renderStats.pipelineDebug.renderMeta as any)[pass];
+                  const meta = (renderStats.pipelineDebug?.renderMeta as any)?.[pass];
                   return meta ? (
                     <React.Fragment key={pass}>
                       <span style={{ color: '#888' }}>{pass}:</span>

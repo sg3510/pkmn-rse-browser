@@ -63,13 +63,19 @@ export interface FrameInfo {
 }
 
 // Jump Physics Constants
-const JUMP_DISTANCE = 32; // 2 tiles
 
-// Jump height arc (sJumpY_High from pokeemerald)
-// Indexed by (timer / 2)
-const JUMP_HEIGHT_ARC = [
+// 2-tile ledge jump (sJumpY_High from pokeemerald)
+const JUMP_DISTANCE_FAR = 32;
+const JUMP_ARC_HIGH = [
   -4,  -6,  -8, -10, -11, -12, -12, -12,
   -11, -10,  -9,  -8,  -6,  -4,   0,   0
+];
+
+// 1-tile normal jump (sJumpY_Normal from pokeemerald — jump_right in scripts)
+const JUMP_DISTANCE_NORMAL = 16;
+const JUMP_ARC_NORMAL = [
+  -2, -4, -6, -8, -9, -10, -10, -10,
+  -9, -8, -6, -5, -3,  -2,   0,   0
 ];
 
 // --- Player States ---
@@ -172,10 +178,14 @@ class JumpingState implements PlayerState {
   private startY: number = 0;
   private targetX: number = 0;
   private targetY: number = 0;
-  private wasRunning: boolean = false;
+  private wasRunning: boolean;
+  private jumpDistance: number;
+  private jumpArc: number[];
 
-  constructor(wasRunning: boolean = false) {
+  constructor(wasRunning: boolean = false, jumpDistance = JUMP_DISTANCE_FAR, jumpArc = JUMP_ARC_HIGH) {
     this.wasRunning = wasRunning;
+    this.jumpDistance = jumpDistance;
+    this.jumpArc = jumpArc;
   }
 
   enter(controller: PlayerController): void {
@@ -185,18 +195,18 @@ class JumpingState implements PlayerState {
     this.progress = 0;
     this.startX = controller.x;
     this.startY = controller.y;
-    
-    // Calculate target position (2 tiles away)
+
+    // Calculate target position based on jump distance
     let dx = 0;
     let dy = 0;
-    if (controller.dir === 'down') dy = 32;
-    else if (controller.dir === 'up') dy = -32;
-    else if (controller.dir === 'left') dx = -32;
-    else if (controller.dir === 'right') dx = 32;
-    
+    if (controller.dir === 'down') dy = this.jumpDistance;
+    else if (controller.dir === 'up') dy = -this.jumpDistance;
+    else if (controller.dir === 'left') dx = -this.jumpDistance;
+    else if (controller.dir === 'right') dx = this.jumpDistance;
+
     this.targetX = this.startX + dx;
     this.targetY = this.startY + dy;
-    
+
     // Update logical tile position immediately to the destination
     // This prevents other events from triggering on the jump-over tile
     controller.tileX += (dx / 16);
@@ -229,7 +239,7 @@ class JumpingState implements PlayerState {
     const moveAmount = this.SPEED * delta;
     this.progress += moveAmount;
 
-    if (this.progress >= JUMP_DISTANCE) {
+    if (this.progress >= this.jumpDistance) {
       // Jump finished - return to previous state (running if we were running, normal otherwise)
       if (this.wasRunning) {
         controller.changeState(new RunningState());
@@ -238,21 +248,18 @@ class JumpingState implements PlayerState {
       }
       return true;
     }
-    
+
     // Update position
-    if (controller.dir === 'down') controller.y = this.startX + this.progress; // Wait, startY
+    if (controller.dir === 'down') controller.y = this.startY + this.progress;
     else if (controller.dir === 'up') controller.y = this.startY - this.progress;
     else if (controller.dir === 'left') controller.x = this.startX - this.progress;
     else if (controller.dir === 'right') controller.x = this.startX + this.progress;
-    
-    // Fix for 'down' direction typo above
-    if (controller.dir === 'down') controller.y = this.startY + this.progress;
 
-    // Calculate jump height
-    // Map progress (0-32) to index (0-15)
-    const index = Math.min(15, Math.floor(this.progress / 2));
-    controller.spriteYOffset = JUMP_HEIGHT_ARC[index];
-    
+    // Calculate jump height from arc table
+    // Map progress (0..jumpDistance) to arc index (0..15)
+    const index = Math.min(15, Math.floor(this.progress * 16 / this.jumpDistance));
+    controller.spriteYOffset = this.jumpArc[index];
+
     return true;
   }
 
@@ -976,6 +983,18 @@ export class PlayerController {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Force the player into a jump animation (used by cutscenes).
+   * @param direction Direction to jump
+   * @param distance 'normal' = 1 tile (truck exit), 'far' = 2 tiles (ledge)
+   */
+  public forceJump(direction: 'up' | 'down' | 'left' | 'right', distance: 'normal' | 'far' = 'normal'): void {
+    this.dir = direction;
+    const dist = distance === 'far' ? JUMP_DISTANCE_FAR : JUMP_DISTANCE_NORMAL;
+    const arc = distance === 'far' ? JUMP_ARC_HIGH : JUMP_ARC_NORMAL;
+    this.changeState(new JumpingState(false, dist, arc));
   }
 
   public getCameraFocus() {

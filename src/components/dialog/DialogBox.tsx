@@ -130,7 +130,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     return {
       position: 'absolute' as const,
       right: dialogX,
-      top: dialogY - tilesToPx(options.choices.length + 3, zoom),
+      top: dialogY - tilesToPx((options?.choices.length ?? 0) + 3, zoom),
       pointerEvents: 'auto' as const,
     };
   })();

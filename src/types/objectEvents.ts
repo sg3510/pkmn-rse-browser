@@ -83,6 +83,7 @@ export type NPCMovementType =
   | 'wander_around'
   | 'wander_up_and_down'
   | 'wander_left_and_right'
+  | 'walk_back_and_forth'
   | 'face_up'
   | 'face_down'
   | 'face_left'
@@ -237,7 +238,6 @@ export function isNPCGraphicsId(graphicsId: string): boolean {
   if (graphicsId.includes('STATUE')) return false;
   if (graphicsId.includes('BAG')) return false; // Birch's bag
   if (graphicsId.includes('STONE')) return false; // Birth island stone
-  if (graphicsId.includes('MOVING_BOX')) return false;
 
   // Include all OBJ_EVENT_GFX_* that look like people
   return graphicsId.startsWith('OBJ_EVENT_GFX_');
@@ -259,11 +259,14 @@ export function parseMovementType(movementType: string): NPCMovementType {
     case 'MOVEMENT_TYPE_WANDER_DOWN_AND_UP':
       return 'wander_up_and_down';
     case 'MOVEMENT_TYPE_WANDER_LEFT_AND_RIGHT':
-    case 'MOVEMENT_TYPE_WALK_LEFT_AND_RIGHT':
       return 'wander_left_and_right';
     case 'MOVEMENT_TYPE_WANDER_RIGHT_AND_LEFT':
-    case 'MOVEMENT_TYPE_WALK_RIGHT_AND_LEFT':
       return 'wander_left_and_right';
+    case 'MOVEMENT_TYPE_WALK_LEFT_AND_RIGHT':
+    case 'MOVEMENT_TYPE_WALK_RIGHT_AND_LEFT':
+    case 'MOVEMENT_TYPE_WALK_UP_AND_DOWN':
+    case 'MOVEMENT_TYPE_WALK_DOWN_AND_UP':
+      return 'walk_back_and_forth';
     case 'MOVEMENT_TYPE_FACE_UP':
       return 'face_up';
     case 'MOVEMENT_TYPE_FACE_DOWN':

@@ -238,7 +238,7 @@ export interface RenderStatsDebugInfo {
       updatedAnimations: boolean;
       hadCaches: boolean;
     }>;
-    renderMeta: {
+    renderMeta?: {
       background?: { instances: number; width: number; height: number; timestamp: number };
       topBelow?: { instances: number; width: number; height: number; timestamp: number };
       topAbove?: { instances: number; width: number; height: number; timestamp: number };

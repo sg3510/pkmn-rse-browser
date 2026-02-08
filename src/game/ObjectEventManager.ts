@@ -510,15 +510,14 @@ export class ObjectEventManager {
   }
 
   /**
-   * Get unique graphics IDs used by visible NPCs
-   * (Used for sprite loading)
+   * Get unique graphics IDs used by ALL NPCs (including hidden ones).
+   * Hidden NPCs may become visible during cutscenes, so their sprite sheets
+   * must be pre-loaded at map load time.
    */
   getUniqueNPCGraphicsIds(): string[] {
     const ids = new Set<string>();
     for (const npc of this.npcs.values()) {
-      if (npc.visible) {
-        ids.add(npc.graphicsId);
-      }
+      ids.add(npc.graphicsId);
     }
     return [...ids];
   }

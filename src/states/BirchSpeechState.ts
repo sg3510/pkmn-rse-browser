@@ -209,7 +209,7 @@ export class BirchSpeechState implements StateRenderer {
 
   private drawSpriteCentered(
     ctx2d: CanvasRenderingContext2D,
-    sprite: HTMLImageElement | null,
+    sprite: HTMLCanvasElement | HTMLImageElement | null,
     centerX: number,
     centerY: number
   ): void {

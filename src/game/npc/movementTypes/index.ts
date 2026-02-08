@@ -13,6 +13,7 @@ import { faceDirectionHandler } from './faceDirection';
 import { lookAroundHandler } from './lookAround';
 import { wanderAroundHandler } from './wanderAround';
 import { wanderUpAndDownHandler, wanderLeftAndRightHandler } from './wanderDirectional';
+import { walkBackAndForthHandler } from './walkBackAndForth';
 import { walkInPlaceHandler } from './walkInPlace';
 import {
   faceDownAndUpHandler,
@@ -60,6 +61,7 @@ export const movementHandlers: Record<NPCMovementType, MovementTypeHandler | nul
   wander_around: wanderAroundHandler,
   wander_up_and_down: wanderUpAndDownHandler,
   wander_left_and_right: wanderLeftAndRightHandler,
+  walk_back_and_forth: walkBackAndForthHandler,
 
   // Walk in place - cycles walk animation frames while staying still
   walk_in_place: walkInPlaceHandler,
@@ -89,6 +91,7 @@ export {
   wanderAroundHandler,
   wanderUpAndDownHandler,
   wanderLeftAndRightHandler,
+  walkBackAndForthHandler,
   walkInPlaceHandler,
   faceDownAndUpHandler,
   faceLeftAndRightHandler,

@@ -12,7 +12,6 @@ import {
   npcMovementEngine,
   registerMovementHandlers,
   createCollisionContext,
-  gbaToDirection,
   type MovementContext,
   type CollisionContext,
 } from '../game/npc';

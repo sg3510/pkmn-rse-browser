@@ -475,9 +475,11 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
     for (const obj of largeObjects) {
       const atlasName = getLargeObjectAtlasName(obj.graphicsId);
       if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
-      // Large objects are sorted by their visual feet (bottom edge), not tile Y.
-      const objFeetY = obj.tileY * METATILE_SIZE + 3 * METATILE_SIZE;
-      const objSortKey = calculateSortKey(objFeetY, 0);
+      // C parity: object-event coordinates are feet-tile based, regardless of sprite size.
+      // Use max subpriority (255) so the truck renders in front of the player at the same Y,
+      // matching GBA behavior where the truck covers the player (player emerges from inside).
+      const objFeetY = obj.tileY * METATILE_SIZE + METATILE_SIZE;
+      const objSortKey = calculateSortKey(objFeetY, 255);
       const sprite = createLargeObjectSpriteInstance(obj, objSortKey);
       allSprites.push(sprite);
     }

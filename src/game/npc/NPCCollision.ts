@@ -10,7 +10,7 @@
 
 import type { NPCObject } from '../../types/objectEvents';
 import type { NPCMovementState, GBADirection } from './NPCMovementEngine';
-import { getDirectionDeltas, DIR } from './NPCMovementEngine';
+import { getDirectionDeltas } from './NPCMovementEngine';
 
 /**
  * Collision result types matching GBA constants

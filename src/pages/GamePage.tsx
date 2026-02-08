@@ -80,7 +80,7 @@ import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '..
 import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
-import { FADE_TIMING, type CardinalDirection } from '../field/types';
+import { DOOR_TIMING, FADE_TIMING, type CardinalDirection } from '../field/types';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
@@ -141,10 +141,32 @@ import {
   isHandledStoryScript,
   shouldRunCoordEvent,
 } from '../game/NewGameFlow';
-import { TruckSequence } from '../game/TruckSequence';
+import { TruckSequence, type TruckSequenceOutput } from '../game/TruckSequence';
 import './GamePage.css';
 
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
+
+// C references:
+// - public/pokeemerald/include/constants/metatile_labels.h
+const METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP = 0x20d;
+const METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID = 0x215;
+const METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM = 0x21d;
+const METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP = 0x208;
+const METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID = 0x210;
+const METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM = 0x218;
+const METATILE_HOUSE_MOVING_BOX_CLOSED = 0x268;
+const METATILE_HOUSE_MOVING_BOX_OPEN = 0x270;
+
+type ScriptedWarpDirection = 'up' | 'down' | 'left' | 'right';
+type ScriptedWarpPhase = 'pending' | 'fading' | 'loading';
+
+type PendingScriptedWarp = {
+  mapId: string;
+  x: number;
+  y: number;
+  direction: ScriptedWarpDirection;
+  phase: ScriptedWarpPhase;
+};
 
 type RenderStats = {
   webgl2Supported: boolean;
@@ -179,6 +201,11 @@ type RenderStats = {
       updatedAnimations: boolean;
       hadCaches: boolean;
     }>;
+    renderMeta?: {
+      background?: { instances: number; width: number; height: number; timestamp: number };
+      topBelow?: { instances: number; width: number; height: number; timestamp: number };
+      topAbove?: { instances: number; width: number; height: number; timestamp: number };
+    };
     samples?: {
       background?: Uint8Array | null;
       topBelow?: Uint8Array | null;
@@ -316,6 +343,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const cameraRef = useRef<CameraController | null>(null);
   const gbaFrameRef = useRef<number>(0);
   const truckSequenceRef = useRef<TruckSequence | null>(null);
+  const truckDoorClosedAppliedRef = useRef<boolean>(false);
+  const truckDoorOpenedAppliedRef = useRef<boolean>(false);
+  const lastTruckGbaFrameRef = useRef<number>(0);
+  const lastTruckOutputRef = useRef<TruckSequenceOutput>({ shakeOffsetY: 0, playerLocked: false, complete: true, boxOffsets: { box1X: 0, box1Y: 0, box2X: 0, box2Y: 0, box3X: 0, box3Y: 0 } });
   const lastTimeRef = useRef<number>(performance.now());
   const gbaAccumRef = useRef<number>(0);
 
@@ -462,9 +493,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       if (currentState !== GameState.OVERWORLD) return;
       // Don't open if dialog is open
       if (dialogIsOpen) return;
+      // Don't open during cutscenes/truck sequence/warps
+      if (storyScriptRunningRef.current) return;
+      if (warpingRef.current) return;
+      if (truckSequenceRef.current && !truckSequenceRef.current.isComplete()) return;
       // Don't open if player is moving
       const player = playerRef.current;
       if (player?.isMoving) return;
+      if (player?.inputLocked) return;
       // Don't open if menu is already open
       if (menuStateManager.isMenuOpen()) return;
 
@@ -506,8 +542,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     fps: 0,
     error: null,
   });
-  // Sampling cooldown ref (unused when debug disabled)
-  const sampleCooldownRef = useRef<number>(0);
   const [loading, setLoading] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [mapDebugInfo, setMapDebugInfo] = useState<{
@@ -554,6 +588,81 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Ref for pending saved location (set when Continue is selected, consumed on map load)
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
+  const pendingScriptedWarpRef = useRef<PendingScriptedWarp | null>(null);
+
+  const setMapMetatileLocal = useCallback((
+    mapId: string,
+    tileX: number,
+    tileY: number,
+    metatileId: number
+  ): boolean => {
+    const snapshot = worldSnapshotRef.current;
+    if (!snapshot) return false;
+
+    const map = snapshot.maps.find((m) => m.entry.id === mapId);
+    if (!map) return false;
+
+    if (tileX < 0 || tileY < 0 || tileX >= map.mapData.width || tileY >= map.mapData.height) {
+      return false;
+    }
+
+    const index = tileY * map.mapData.width + tileX;
+    const tile = map.mapData.layout[index];
+    if (!tile || tile.metatileId === metatileId) {
+      return false;
+    }
+
+    tile.metatileId = metatileId;
+    return true;
+  }, []);
+
+  const applyStoryOnLoadMetatileParity = useCallback((): void => {
+    const snapshot = worldSnapshotRef.current;
+    if (!snapshot) return;
+
+    const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
+    let changed = false;
+
+    for (const map of snapshot.maps) {
+      if (map.entry.id === 'MAP_INSIDE_OF_TRUCK') {
+        changed = setMapMetatileLocal(map.entry.id, 4, 1, METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP) || changed;
+        changed = setMapMetatileLocal(map.entry.id, 4, 2, METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID) || changed;
+        changed = setMapMetatileLocal(map.entry.id, 4, 3, METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM) || changed;
+      }
+
+      if (
+        (map.entry.id === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F'
+        || map.entry.id === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F')
+        && introState < 6
+      ) {
+        changed = setMapMetatileLocal(map.entry.id, 5, 4, METATILE_HOUSE_MOVING_BOX_OPEN) || changed;
+        changed = setMapMetatileLocal(map.entry.id, 5, 2, METATILE_HOUSE_MOVING_BOX_CLOSED) || changed;
+      }
+    }
+
+    if (changed) {
+      pipelineRef.current?.invalidate();
+    }
+  }, [setMapMetatileLocal]);
+
+  const applyStoryTransitionObjectParity = useCallback((mapId: string): void => {
+    const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
+    const objectManager = objectEventManagerRef.current;
+
+    if (mapId === 'MAP_LITTLEROOT_TOWN' && introState === 2) {
+      objectManager.setNPCPositionByLocalId('MAP_LITTLEROOT_TOWN', 'LOCALID_LITTLEROOT_MOM', 14, 8);
+    }
+
+    if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 3) {
+      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 9, 8);
+      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
+    }
+
+    if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 3) {
+      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 8);
+      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
+    }
+  }, []);
 
   const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
     return {
@@ -585,12 +694,76 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     storyScriptRunningRef.current = true;
     player.lockInput();
     npcMovement.setEnabled(false);
+    const heldDoorAnimIds = new Map<string, number>();
 
     try {
       const waitFrames = async (frames: number): Promise<void> => {
         if (frames <= 0) return;
         const ms = Math.max(1, Math.round(frames * GBA_FRAME_MS));
         await new Promise<void>((resolve) => setTimeout(resolve, ms));
+      };
+
+      const playScriptDoorAnimation = async (
+        mapId: string,
+        tileX: number,
+        tileY: number,
+        direction: 'open' | 'close'
+      ): Promise<void> => {
+        const snapshot = worldSnapshotRef.current;
+        if (!snapshot) {
+          await waitFrames(1);
+          return;
+        }
+
+        const map = snapshot.maps.find((m) => m.entry.id === mapId);
+        if (!map) {
+          await waitFrames(1);
+          return;
+        }
+
+        if (tileX < 0 || tileY < 0 || tileX >= map.mapData.width || tileY >= map.mapData.height) {
+          await waitFrames(1);
+          return;
+        }
+
+        const tileIndex = tileY * map.mapData.width + tileX;
+        const mapTile = map.mapData.layout[tileIndex];
+        if (!mapTile) {
+          await waitFrames(1);
+          return;
+        }
+
+        const metatileId = mapTile.metatileId;
+        const worldX = map.offsetX + tileX;
+        const worldY = map.offsetY + tileY;
+        const doorKey = `${mapId}:${tileX}:${tileY}`;
+
+        if (direction === 'close') {
+          const heldAnimId = heldDoorAnimIds.get(doorKey);
+          if (heldAnimId !== undefined) {
+            doorAnimations.clearById(heldAnimId);
+            heldDoorAnimIds.delete(doorKey);
+          }
+        }
+
+        const holdOnComplete = direction === 'open';
+        const animId = await doorAnimations.spawn(
+          direction,
+          worldX,
+          worldY,
+          metatileId,
+          performance.now(),
+          holdOnComplete
+        );
+        if (holdOnComplete && animId !== null) {
+          heldDoorAnimIds.set(doorKey, animId);
+        }
+
+        const doorAnimFrames = Math.max(
+          1,
+          Math.round((DOOR_TIMING.FRAME_DURATION_MS * DOOR_TIMING.FRAME_COUNT) / GBA_FRAME_MS)
+        );
+        await waitFrames(doorAnimFrames);
       };
 
       const getDirectionDelta = (direction: 'up' | 'down' | 'left' | 'right'): { dx: number; dy: number } => {
@@ -610,15 +783,18 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           return;
         }
 
+        if (mode === 'jump') {
+          player.forceJump(direction, 'normal');
+          let guard = 0;
+          while (player.isMoving && guard < 120) { await waitFrames(1); guard++; }
+          return;
+        }
+
         player.forceMove(direction, true);
         let guard = 0;
         while (player.isMoving && guard < 120) {
           await waitFrames(1);
           guard++;
-        }
-
-        if (mode === 'jump') {
-          await waitFrames(3);
         }
       };
 
@@ -662,6 +838,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         showMessage,
         showChoice,
         getPlayerGender: () => saveManager.getProfile().gender,
+        getPlayerName: () => saveManager.getPlayerName(),
         hasPartyPokemon: () => saveManager.hasParty(),
         setParty: (party) => {
           saveManager.setParty(party);
@@ -694,9 +871,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             isSurfing: false,
           };
 
-          if (mapId !== selectedMapId) {
-            setSelectedMapId(mapId);
-          }
+          pendingScriptedWarpRef.current = {
+            mapId,
+            x,
+            y,
+            direction,
+            phase: 'pending',
+          };
+          warpingRef.current = true;
+          player.lockInput();
         },
         forcePlayerStep: (direction) => {
           let deltaX = 0;
@@ -731,17 +914,33 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         setNpcVisible: (mapId, localId, visible) => {
           objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible);
         },
+        playDoorAnimation: playScriptDoorAnimation,
+        setPlayerVisible: (visible) => {
+          playerHiddenRef.current = !visible;
+        },
       });
 
       objectEventManagerRef.current.refreshCollectedState();
       return handled;
     } finally {
+      for (const animId of heldDoorAnimIds.values()) {
+        doorAnimations.clearById(animId);
+      }
       npcMovement.reset();
       npcMovement.setEnabled(true);
-      player.unlockInput();
+      if (!warpingRef.current && !pendingScriptedWarpRef.current) {
+        player.unlockInput();
+      }
       storyScriptRunningRef.current = false;
     }
-  }, [showMessage, showChoice, stateManager, selectedMapId, buildLocationStateFromPlayer, npcMovement]);
+  }, [
+    showMessage,
+    showChoice,
+    stateManager,
+    buildLocationStateFromPlayer,
+    npcMovement,
+    doorAnimations,
+  ]);
 
   const runHandledStoryScriptRef = useRef(runHandledStoryScript);
   runHandledStoryScriptRef.current = runHandledStoryScript;
@@ -931,7 +1130,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     // Load object events (NPCs, items) and upload sprites to WebGL
     await loadObjectEventsFromSnapshot(snapshot);
-  }, [buildTilesetRuntimesFromSnapshot, createSnapshotTileResolver, uploadTilesetsFromSnapshot, loadObjectEventsFromSnapshot]);
+    applyStoryOnLoadMetatileParity();
+  }, [
+    buildTilesetRuntimesFromSnapshot,
+    createSnapshotTileResolver,
+    uploadTilesetsFromSnapshot,
+    loadObjectEventsFromSnapshot,
+    applyStoryOnLoadMetatileParity,
+  ]);
 
   // Compute reflection state for an object at a tile position using shared function
   const computeReflectionStateFromSnapshot = useCallback((
@@ -1058,6 +1264,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         x: player.tileX,
         y: player.tileY,
       };
+      applyStoryTransitionObjectParity(currentMapId);
+      playerHiddenRef.current = false;
 
       // ===== WebGL-SPECIFIC: Post-warp updates =====
       pipeline.invalidate();
@@ -1091,7 +1299,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpHandlerRef.current.setInProgress(false);
       warpingRef.current = false;
     }
-  }, [initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, createRenderContextFromSnapshot, doorSequencer, doorAnimations]);
+  }, [
+    initializeWorldFromSnapshot,
+    createSnapshotPlayerTileResolver,
+    createRenderContextFromSnapshot,
+    doorSequencer,
+    doorAnimations,
+    applyStoryTransitionObjectParity,
+  ]);
 
   // Initialize WebGL pipeline and player once
   useEffect(() => {
@@ -1359,9 +1574,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       const { width, height, minX, minY } = worldBoundsRef.current;
 
-      // Convert tile offsets to pixel offsets for camera
-      const worldMinX = minX * METATILE_SIZE;
-      const worldMinY = minY * METATILE_SIZE;
+      // World bounds are tracked in pixel space.
+      const worldMinX = minX;
+      const worldMinY = minY;
       const player = playerRef.current;
 
       // Update warp handler cooldown
@@ -1391,9 +1606,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
           if (introState >= 0 && introState <= 2 && !truckSequenceRef.current) {
             truckSequenceRef.current = new TruckSequence();
+            truckDoorClosedAppliedRef.current = false;
+            truckDoorOpenedAppliedRef.current = false;
+            lastTruckGbaFrameRef.current = gbaFrameRef.current;
+            lastTruckOutputRef.current = { shakeOffsetY: 0, playerLocked: true, complete: false, boxOffsets: { box1X: 0, box1Y: 0, box2X: 0, box2Y: 0, box3X: 0, box3Y: 0 } };
           }
         } else if (truckSequenceRef.current) {
           truckSequenceRef.current = null;
+          truckDoorClosedAppliedRef.current = false;
+          truckDoorOpenedAppliedRef.current = false;
+          lastTruckGbaFrameRef.current = gbaFrameRef.current;
+          lastTruckOutputRef.current = { shakeOffsetY: 0, playerLocked: false, complete: true, boxOffsets: { box1X: 0, box1Y: 0, box2X: 0, box2Y: 0, box3X: 0, box3Y: 0 } };
         }
       }
 
@@ -1589,6 +1812,43 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         runDoorExitUpdate(doorDeps, nowTime);
       }
 
+      // Handle scripted (warpsilent-style) warps from story scripts.
+      const scriptedWarp = pendingScriptedWarpRef.current;
+      if (warpingRef.current && scriptedWarp) {
+        const fade = fadeControllerRef.current;
+        if (scriptedWarp.phase === 'pending') {
+          if (!fade.isActive()) {
+            fade.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+            scriptedWarp.phase = 'fading';
+            pendingScriptedWarpRef.current = scriptedWarp;
+          }
+        } else if (
+          scriptedWarp.phase === 'fading'
+          && fade.getDirection() === 'out'
+          && fade.isComplete(nowTime)
+        ) {
+          const activePlayer = playerRef.current;
+          const activeMapId = activePlayer
+            ? worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY)?.entry.id ?? null
+            : null;
+
+          if (activePlayer && activeMapId === scriptedWarp.mapId) {
+            activePlayer.setPosition(scriptedWarp.x, scriptedWarp.y);
+            activePlayer.dir = scriptedWarp.direction;
+            fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+            pendingScriptedWarpRef.current = null;
+            warpingRef.current = false;
+            setTimeout(() => {
+              activePlayer.unlockInput();
+            }, FADE_TIMING.DEFAULT_DURATION_MS);
+          } else {
+            scriptedWarp.phase = 'loading';
+            pendingScriptedWarpRef.current = scriptedWarp;
+            setSelectedMapId(scriptedWarp.mapId);
+          }
+        }
+      }
+
       // Handle pending warp when fade out completes
       if (warpingRef.current && pendingWarpRef.current) {
         const fade = fadeControllerRef.current;
@@ -1647,13 +1907,51 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           pixelHeight: camView.tilesHigh * METATILE_SIZE,
         });
 
-        // Truck sequence: apply camera shake from the active truck sequence
-        if (truckSequenceRef.current && !truckSequenceRef.current.isComplete()) {
-          const truckOutput = truckSequenceRef.current.update();
-          if (truckOutput.shakeOffsetY !== 0) {
+        // Truck sequence: execute metatile swaps and apply camera shake.
+        if (truckSequenceRef.current) {
+          if (!truckDoorClosedAppliedRef.current) {
+            let changed = false;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 1, METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP) || changed;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 2, METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID) || changed;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 3, METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM) || changed;
+            truckDoorClosedAppliedRef.current = true;
+            if (changed) {
+              pipeline.invalidate();
+            }
+          }
+
+          const truckFrameDelta = gbaFrameRef.current - lastTruckGbaFrameRef.current;
+          if (truckFrameDelta > 0) {
+            lastTruckOutputRef.current = truckSequenceRef.current.update(truckFrameDelta);
+            lastTruckGbaFrameRef.current = gbaFrameRef.current;
+          }
+          const truckOutput = lastTruckOutputRef.current;
+          if (!truckOutput.complete && truckOutput.shakeOffsetY !== 0) {
             view.cameraY += truckOutput.shakeOffsetY;
             view.cameraWorldY += truckOutput.shakeOffsetY;
             view.subTileOffsetY += truckOutput.shakeOffsetY;
+          }
+
+          // Apply box resting + bounce offsets to MOVING_BOX NPCs
+          {
+            const objMgr = objectEventManagerRef.current;
+            const boxTop = objMgr.getNPCByLocalId('MAP_INSIDE_OF_TRUCK', 'LOCALID_TRUCK_BOX_TOP');
+            const boxBL = objMgr.getNPCByLocalId('MAP_INSIDE_OF_TRUCK', 'LOCALID_TRUCK_BOX_BOTTOM_L');
+            const boxBR = objMgr.getNPCByLocalId('MAP_INSIDE_OF_TRUCK', 'LOCALID_TRUCK_BOX_BOTTOM_R');
+            if (boxTop) { boxTop.subTileX = truckOutput.boxOffsets.box1X; boxTop.subTileY = truckOutput.boxOffsets.box1Y; }
+            if (boxBL) { boxBL.subTileX = truckOutput.boxOffsets.box2X; boxBL.subTileY = truckOutput.boxOffsets.box2Y; }
+            if (boxBR) { boxBR.subTileX = truckOutput.boxOffsets.box3X; boxBR.subTileY = truckOutput.boxOffsets.box3Y; }
+          }
+
+          if (truckOutput.complete && !truckDoorOpenedAppliedRef.current) {
+            let changed = false;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 1, METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP) || changed;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 2, METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID) || changed;
+            changed = setMapMetatileLocal('MAP_INSIDE_OF_TRUCK', 4, 3, METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM) || changed;
+            truckDoorOpenedAppliedRef.current = true;
+            if (changed) {
+              pipeline.invalidate();
+            }
           }
         }
 
@@ -2249,12 +2547,32 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             x: player.tileX,
             y: player.tileY,
           };
+          applyStoryTransitionObjectParity(playerMapId);
+          playerHiddenRef.current = false;
           storyScriptRunningRef.current = false;
+
+          const scriptedWarp = pendingScriptedWarpRef.current;
+          if (scriptedWarp && scriptedWarp.phase === 'loading' && scriptedWarp.mapId === entry.id) {
+            pendingScriptedWarpRef.current = null;
+            warpingRef.current = false;
+            const fade = fadeControllerRef.current;
+            const now = performance.now();
+            fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
+            setTimeout(() => {
+              player.unlockInput();
+            }, FADE_TIMING.DEFAULT_DURATION_MS);
+          }
         }
 
         setStats((s) => ({ ...s, error: null }));
       } catch (err) {
         if (!cancelled) {
+          const scriptedWarp = pendingScriptedWarpRef.current;
+          if (scriptedWarp && scriptedWarp.mapId === entry.id) {
+            pendingScriptedWarpRef.current = null;
+            warpingRef.current = false;
+            playerRef.current?.unlockInput();
+          }
           setStats((s) => ({
             ...s,
             error: err instanceof Error ? err.message : 'Failed to load map assets',
@@ -2274,7 +2592,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         worldManagerRef.current = null;
       }
     };
-  }, [selectedMap, currentState, initializeWorldFromSnapshot, createSnapshotPlayerTileResolver, loadObjectEventsFromSnapshot]);
+  }, [
+    selectedMap,
+    currentState,
+    initializeWorldFromSnapshot,
+    createSnapshotPlayerTileResolver,
+    loadObjectEventsFromSnapshot,
+    applyStoryTransitionObjectParity,
+  ]);
 
   // Update camera controller when viewport config changes
   useEffect(() => {
@@ -2351,11 +2676,28 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           <button
             className="menu-button"
             onClick={() => {
-              if (currentState === GameState.OVERWORLD && !dialogIsOpen) {
+              const player = playerRef.current;
+              const truckLocked = truckSequenceRef.current && !truckSequenceRef.current.isComplete();
+              const canOpen =
+                currentState === GameState.OVERWORLD
+                && !dialogIsOpen
+                && !storyScriptRunningRef.current
+                && !warpingRef.current
+                && !truckLocked
+                && !player?.isMoving
+                && !player?.inputLocked;
+
+              if (canOpen) {
                 menuStateManager.open('start');
               }
             }}
-            disabled={currentState !== GameState.OVERWORLD || dialogIsOpen}
+            disabled={
+              currentState !== GameState.OVERWORLD
+              || dialogIsOpen
+              || storyScriptRunningRef.current
+              || warpingRef.current
+              || !!(truckSequenceRef.current && !truckSequenceRef.current.isComplete())
+            }
             title="Open Menu (Enter)"
           >
             Menu

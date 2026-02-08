@@ -101,6 +101,8 @@ export interface NPCMovementState {
 
   /** Walking state */
   isWalking: boolean;
+  /** True for animation-only walk actions (no tile displacement) */
+  walkInPlace: boolean;
 
   /** Progress through current walk (0-15 sub-pixels) */
   walkProgress: number;
@@ -207,6 +209,7 @@ class NPCMovementEngineClass {
       movementDirection: initialDir,
       singleMovementActive: false,
       isWalking: false,
+      walkInPlace: false,
       walkProgress: 0,
       initialTileX: npc.tileX,
       initialTileY: npc.tileY,
@@ -295,7 +298,13 @@ class NPCMovementEngineClass {
       for (let frame = 0; frame < framesToProcess; frame++) {
         // If walking, update position
         if (state.isWalking) {
-          this.updateWalkProgress(npc, state);
+          if (state.walkInPlace) {
+            // Animation-only "walk in place": no tile/sub-tile displacement.
+            state.subTileX = 0;
+            state.subTileY = 0;
+          } else {
+            this.updateWalkProgress(npc, state);
+          }
         }
 
         // Run movement state machine
@@ -351,6 +360,7 @@ class NPCMovementEngineClass {
       state.subTileY = 0;
       state.walkProgress = 0;
       state.isWalking = false;
+      state.walkInPlace = false;
       state.singleMovementActive = false;
     }
   }
@@ -398,6 +408,7 @@ export function startWalking(state: NPCMovementState, direction: GBADirection, n
   state.movementDirection = direction;
   state.facingDirection = direction;
   state.isWalking = true;
+  state.walkInPlace = false;
   state.walkProgress = 0;
   state.singleMovementActive = true;
 

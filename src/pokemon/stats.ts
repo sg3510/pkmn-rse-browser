@@ -208,13 +208,13 @@ export function isShiny(personality: number, otId: number): boolean {
 /**
  * Get ability from species and ability number
  */
-export function getAbility(speciesId: number, abilityNum: 0 | 1): string {
+export function getAbility(speciesId: number, abilityNum: 0 | 1): number {
   const info = getSpeciesInfo(speciesId);
-  if (!info) return 'NONE';
+  if (!info) return 0;
 
   const ability = info.abilities[abilityNum];
-  // If second ability is NONE, fall back to first
-  if (ability === 'NONE' && abilityNum === 1) {
+  // If second ability is NONE (0), fall back to first
+  if (ability === 0 && abilityNum === 1) {
     return info.abilities[0];
   }
   return ability;

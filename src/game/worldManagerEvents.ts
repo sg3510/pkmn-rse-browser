@@ -16,7 +16,7 @@ import { combineTilesetPalettes } from '../rendering/webgl/TilesetUploader';
 import { METATILE_SIZE } from '../utils/mapLoader';
 
 /**
- * World bounds with pixel dimensions and tile offsets
+ * World bounds in pixel space
  */
 export interface WorldBoundsInfo {
   width: number;
@@ -38,11 +38,13 @@ export function updateWorldBounds(
   const { worldBounds } = snapshot;
   const worldWidth = worldBounds.width * METATILE_SIZE;
   const worldHeight = worldBounds.height * METATILE_SIZE;
+  const worldMinX = worldBounds.minX * METATILE_SIZE;
+  const worldMinY = worldBounds.minY * METATILE_SIZE;
   worldBoundsRef.current = {
     width: worldWidth,
     height: worldHeight,
-    minX: worldBounds.minX,
-    minY: worldBounds.minY,
+    minX: worldMinX,
+    minY: worldMinY,
   };
   setWorldSize({ width: worldWidth, height: worldHeight });
   setStitchedMapCount(snapshot.maps.length);

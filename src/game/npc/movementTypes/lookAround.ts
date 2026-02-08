@@ -58,7 +58,7 @@ function step0(
  */
 function step1(
   _npc: NPCObject,
-  state: NPCMovementState,
+  _state: NPCMovementState,
   _context: MovementContext
 ): MovementStepResult {
   // The facing direction should already be set (from step 4 or initialization)

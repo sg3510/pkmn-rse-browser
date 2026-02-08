@@ -538,17 +538,20 @@ const TRUCK_SPRITE_SIZE = 48;
 /**
  * Create a SpriteInstance for a large object (e.g. truck)
  *
- * The truck sprite is 48×48 positioned at its tile coordinates.
- * The object event position is the top-left tile of the object.
+ * C parity: object-event coordinates are anchored to the object's "feet tile"
+ * center, then converted to top-left via center-to-corner vectors.
+ *
+ * References:
+ * - public/pokeemerald/src/event_object_movement.c
+ *   - sprite->x += 8 + centerToCornerVecX
+ *   - sprite->y += 16 + centerToCornerVecY
  */
 export function createLargeObjectSpriteInstance(
   obj: LargeObject,
   sortKey: number
 ): SpriteInstance {
-  // Position at tile coordinates. The truck sprite is 48×48 (3 tiles wide, 3 tiles tall)
-  // and its object event x,y is the top-left tile.
-  const worldX = obj.tileX * METATILE_SIZE;
-  const worldY = obj.tileY * METATILE_SIZE;
+  const worldX = obj.tileX * METATILE_SIZE + Math.floor(METATILE_SIZE / 2) - Math.floor(TRUCK_SPRITE_SIZE / 2);
+  const worldY = obj.tileY * METATILE_SIZE + METATILE_SIZE - TRUCK_SPRITE_SIZE;
 
   return {
     worldX,

@@ -156,8 +156,8 @@ export default function Birch3DDebugPage() {
   const modelLoadedRef = useRef(false); // Track if model was loaded (persists across strict mode remounts)
 
   const [modelConfig, setModelConfig] = useState<ModelConfig>(defaultModelConfig);
-  const [cameraConfig, setCameraConfig] = useState<CameraConfig>(defaultCameraConfig);
-  const [orbitEnabled, setOrbitEnabled] = useState(true);
+  const [cameraConfig, _setCameraConfig] = useState<CameraConfig>(defaultCameraConfig);
+  const [orbitEnabled, _setOrbitEnabled] = useState(true);
   const [loaded, setLoaded] = useState(false);
   
   // Bone control state

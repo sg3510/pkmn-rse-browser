@@ -24,7 +24,7 @@ import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { renderNPCs, renderNPCReflections, npcAnimationManager } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
-import { buildSpriteBatches, getEffectsForLayer, getEffectsForNPC, getPlayerEffectsForLayer } from '../rendering/SpriteBatcher';
+import { buildSpriteBatches, getEffectsForNPC, getPlayerEffectsForLayer } from '../rendering/SpriteBatcher';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;

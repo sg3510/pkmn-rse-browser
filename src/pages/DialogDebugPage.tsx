@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DialogProvider, useDialog, DialogBox } from '../components/dialog';
 import type { DialogConfig } from '../components/dialog/types';
 
@@ -11,10 +11,10 @@ const FONTS = [
 
 const SAMPLE_TEXT = "Hello! \nThis is a sample text to test the font rendering.\nDoes it look like the original game?";
 
-const Viewport: React.FC<{ font: string }> = ({ font }) => {
+const Viewport: React.FC<{ font: string }> = ({ font: _font }) => {
   const { showMessage, showYesNo } = useDialog();
-  const [width, setWidth] = useState(480);
-  const [height, setHeight] = useState(320);
+  const [width, _setWidth] = useState(480);
+  const [height, _setHeight] = useState(320);
   const [customText, setCustomText] = useState(SAMPLE_TEXT);
 
   // Update dialog config when font changes

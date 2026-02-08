@@ -31,6 +31,16 @@ import type {
 import type { Palette } from '../../utils/mapLoader';
 import type { LoadedAnimation } from '../types';
 
+type RenderInfoEntry = {
+  timestamp: number;
+  reason: string;
+  animationOnly: boolean;
+  tilesetVersion: number;
+  viewHash: string;
+  updatedAnimations: boolean;
+  hadCaches: boolean;
+};
+
 export class WebGLRenderPipeline {
   private glContext: WebGLContext;
   private tileRenderer: WebGLTileRenderer;
@@ -57,16 +67,8 @@ export class WebGLRenderPipeline {
   // Monotonic version for tileset content; included in view hash
   private tilesetVersion: number = 0;
   private lastRenderedTilesetVersion: number = -1;
-  private lastRenderInfo: {
-    timestamp: number;
-    reason: string;
-    animationOnly: boolean;
-    tilesetVersion: number;
-    viewHash: string;
-    updatedAnimations: boolean;
-    hadCaches: boolean;
-  } | null = null;
-  private renderHistory: Array<NonNullable<typeof this.lastRenderInfo>> = [];
+  private lastRenderInfo: RenderInfoEntry | null = null;
+  private renderHistory: RenderInfoEntry[] = [];
 
   // External callbacks for context events
   private onContextLostCallback: (() => void) | null = null;
@@ -529,8 +531,8 @@ export class WebGLRenderPipeline {
     needsWarmupRender: boolean;
     lastViewHash: string;
     hasCachedInstances: boolean;
-    lastRenderInfo: typeof this.lastRenderInfo;
-    renderHistory: Array<NonNullable<typeof this.lastRenderInfo>>;
+    lastRenderInfo: RenderInfoEntry | null;
+    renderHistory: RenderInfoEntry[];
     renderMeta: {
       background?: { instances: number; width: number; height: number; timestamp: number };
       topBelow?: { instances: number; width: number; height: number; timestamp: number };

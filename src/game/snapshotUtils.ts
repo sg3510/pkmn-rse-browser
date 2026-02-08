@@ -279,6 +279,7 @@ export function createRenderContextFromSnapshot(
       tilesets: tilesetPairToResources(pair),
       warpEvents: m.warpEvents ?? [],
       objectEvents: [],
+      coordEvents: [],
     };
   });
 
