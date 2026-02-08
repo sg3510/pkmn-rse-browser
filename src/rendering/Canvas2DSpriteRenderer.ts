@@ -202,7 +202,7 @@ export class Canvas2DSpriteRenderer implements ISpriteRenderer {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = sw;
     tempCanvas.height = sh;
-    const tempCtx = tempCanvas.getContext('2d');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
     if (!tempCtx) return;
 
     // Draw source region to temp

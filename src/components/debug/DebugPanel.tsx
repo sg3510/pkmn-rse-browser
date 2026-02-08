@@ -1132,7 +1132,7 @@ const PriorityDebugPanel: React.FC<{ priority: PriorityDebugInfo }> = ({ priorit
 
 // WebGL-specific debug tab
 const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
-  const { mapStitching, warp, renderStats, shimmer, reflectionTileGrid, priority } = webglState;
+  const { mapStitching, warp, renderStats, truck, shimmer, reflectionTileGrid, priority } = webglState;
 
   return (
     <>
@@ -1407,6 +1407,46 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
             {renderStats.stitchedMapCount > 1 && (
               <InfoRow label="Stitched" value={`${renderStats.stitchedMapCount} maps`} highlight />
             )}
+          </div>
+        </Section>
+      )}
+
+      {truck && (
+        <Section title="Truck Intro">
+          <InfoRow label="Intro State" value={truck.introState} />
+          <InfoRow label="Should Run" value={truck.shouldRun ? 'Yes' : 'No'} highlight={truck.shouldRun} />
+          <InfoRow label="Active" value={truck.active ? 'Yes' : 'No'} highlight={truck.active} />
+          <InfoRow label="Locked" value={truck.locked ? 'Yes' : 'No'} highlight={truck.locked} />
+          <InfoRow label="Complete" value={truck.complete ? 'Yes' : 'No'} />
+          <InfoRow label="Door Closed" value={truck.doorClosedApplied ? 'Yes' : 'No'} />
+          <InfoRow label="Door Opened" value={truck.doorOpenedApplied ? 'Yes' : 'No'} />
+          <InfoRow label="Frame" value={`${truck.lastGbaFrame} / ${truck.gbaFrame}`} />
+          <InfoRow label="Camera" value={`(${truck.cameraOffsetX}, ${truck.cameraOffsetY})`} />
+          <InfoRow
+            label="Offsets"
+            value={`B1(${truck.boxOffsets.box1X},${truck.boxOffsets.box1Y}) B2(${truck.boxOffsets.box2X},${truck.boxOffsets.box2Y}) B3(${truck.boxOffsets.box3X},${truck.boxOffsets.box3Y})`}
+          />
+          <div style={{ marginTop: 6, fontSize: '9px', color: '#aaa' }}>
+            Box Runtime:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+            {truck.boxes.map((box) => (
+              <div
+                key={box.localId}
+                style={{
+                  padding: 6,
+                  backgroundColor: '#252525',
+                  borderLeft: box.spriteFailed ? '3px solid #f66' : box.spriteCached ? '3px solid #6f6' : '3px solid #666',
+                  borderRadius: 4,
+                  fontSize: '9px',
+                }}
+              >
+                <div style={{ color: '#ddd', marginBottom: 3 }}>{box.localId}</div>
+                <div style={{ color: '#888' }}>{box.graphicsId}</div>
+                <div>tile=({box.tileX},{box.tileY}) sub=({box.subTileX},{box.subTileY})</div>
+                <div>visible={box.visible ? 'yes' : 'no'} cached={box.spriteCached ? 'yes' : 'no'} failed={box.spriteFailed ? 'yes' : 'no'}</div>
+              </div>
+            ))}
           </div>
         </Section>
       )}

@@ -133,7 +133,7 @@ export class ObjectRenderer {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = frameWidth;
         tempCanvas.height = frameHeight;
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         if (tempCtx) {
           // Draw the ripple frame to temp canvas
           tempCtx.imageSmoothingEnabled = false;
@@ -289,7 +289,7 @@ export class ObjectRenderer {
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = frameWidth;
       tempCanvas.height = frameHeight;
-      const tempCtx = tempCanvas.getContext('2d');
+      const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
       if (tempCtx) {
         tempCtx.imageSmoothingEnabled = false;
         tempCtx.drawImage(sprite, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);

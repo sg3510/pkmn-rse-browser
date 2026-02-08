@@ -20,7 +20,7 @@ export function extractDominantColor(
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return '#808080';
 
   ctx.drawImage(img, x, y, width, height, 0, 0, width, height);

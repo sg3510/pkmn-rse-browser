@@ -312,7 +312,7 @@ export function applyGbaAffineShimmer(
   dst.width = w;
   dst.height = h;
 
-  const srcCtx = srcCanvas.getContext('2d');
+  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
   const dstCtx = dst.getContext('2d');
   if (!srcCtx || !dstCtx) return dst;
 

@@ -3680,7 +3680,7 @@
       "animationTable": "sAnimTable_Inanimate",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/moving_box.png"
+      "spritePath": "/misc/moving_box.png"
     },
     "OBJ_EVENT_GFX_CABLE_CAR": {
       "graphicsId": "OBJ_EVENT_GFX_CABLE_CAR",

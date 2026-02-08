@@ -362,26 +362,74 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_SUDOWOODO: '/pokemon/sudowoodo.png',
 };
 
-/**
- * Try to guess the sprite path from a graphics ID
- * Handles common naming conventions for sprites not in the lookup table
- */
-function guessSpritePath(graphicsId: string): string | null {
+function getGuessedSpritePaths(graphicsId: string): string[] {
   // Remove prefix
   const name = graphicsId.replace('OBJ_EVENT_GFX_', '');
 
   // Convert to lowercase with underscores to path format
   const snakeCase = name.toLowerCase();
 
-  // Try common paths
-  const possiblePaths = [
+  return [
     `/people/${snakeCase}.png`,
-    `/pokemon/${snakeCase}.png`,
     `/misc/${snakeCase}.png`,
+    `/pokemon/${snakeCase}.png`,
   ];
+}
 
-  // Return the first one (caller will try to load it)
-  return possiblePaths[0];
+function addUniquePath(paths: string[], path: string | null | undefined): void {
+  if (!path) return;
+  if (!paths.includes(path)) {
+    paths.push(path);
+  }
+}
+
+function expandCategoryFallbacks(fullPath: string): string[] {
+  if (!fullPath.startsWith(SPRITE_BASE_PATH)) {
+    return [];
+  }
+
+  const relative = fullPath.slice(SPRITE_BASE_PATH.length);
+  const fallbacks: string[] = [];
+
+  if (relative.startsWith('/people/')) {
+    fallbacks.push(`${SPRITE_BASE_PATH}${relative.replace('/people/', '/misc/')}`);
+    fallbacks.push(`${SPRITE_BASE_PATH}${relative.replace('/people/', '/pokemon/')}`);
+  } else if (relative.startsWith('/misc/')) {
+    fallbacks.push(`${SPRITE_BASE_PATH}${relative.replace('/misc/', '/people/')}`);
+  } else if (relative.startsWith('/pokemon/')) {
+    fallbacks.push(`${SPRITE_BASE_PATH}${relative.replace('/pokemon/', '/people/')}`);
+    fallbacks.push(`${SPRITE_BASE_PATH}${relative.replace('/pokemon/', '/misc/')}`);
+  }
+
+  return fallbacks;
+}
+
+export function getNPCSpritePathCandidates(graphicsId: string): string[] {
+  const candidates: string[] = [];
+
+  const metaPath = getMetadataSpritePath(graphicsId);
+  if (metaPath) {
+    addUniquePath(candidates, SPRITE_BASE_PATH + metaPath);
+  }
+
+  const hardcoded = GRAPHICS_ID_TO_PATH[graphicsId];
+  if (hardcoded) {
+    addUniquePath(candidates, SPRITE_BASE_PATH + hardcoded);
+  }
+
+  for (const guessed of getGuessedSpritePaths(graphicsId)) {
+    addUniquePath(candidates, SPRITE_BASE_PATH + guessed);
+  }
+
+  // Add path-category fallbacks to survive incorrect metadata placement.
+  const expanded = [...candidates];
+  for (const candidate of candidates) {
+    for (const fallback of expandCategoryFallbacks(candidate)) {
+      addUniquePath(expanded, fallback);
+    }
+  }
+
+  return expanded;
 }
 
 /**
@@ -389,25 +437,7 @@ function guessSpritePath(graphicsId: string): string | null {
  * Uses auto-generated metadata first, then hardcoded paths, then guesses
  */
 export function getNPCSpritePath(graphicsId: string): string | null {
-  // First try auto-generated metadata
-  const metaPath = getMetadataSpritePath(graphicsId);
-  if (metaPath) {
-    return SPRITE_BASE_PATH + metaPath;
-  }
-
-  // Fall back to hardcoded paths
-  const path = GRAPHICS_ID_TO_PATH[graphicsId];
-  if (path) {
-    return SPRITE_BASE_PATH + path;
-  }
-
-  // Try to guess
-  const guessed = guessSpritePath(graphicsId);
-  if (guessed) {
-    return SPRITE_BASE_PATH + guessed;
-  }
-
-  return null;
+  return getNPCSpritePathCandidates(graphicsId)[0] ?? null;
 }
 
 /**
@@ -489,32 +519,51 @@ class NPCSpriteCache {
     }
 
     // Get path
-    const path = getNPCSpritePath(graphicsId);
-    if (!path) {
+    const paths = getNPCSpritePathCandidates(graphicsId);
+    if (paths.length === 0) {
       console.warn(`[NPCSpriteCache] No sprite path for ${graphicsId}`);
       this.failed.add(graphicsId);
       return null;
     }
 
     // Start loading
-    const loadPromise = loadImageAsset(path)
-      .then((img) => {
-        const canvas = makeTransparentCanvas(img, { type: 'top-left' });
-        this.cache.set(graphicsId, canvas);
+    const loadPromise = (async () => {
+      let loadedPath: string | null = null;
+      let img: HTMLImageElement | null = null;
+      for (const path of paths) {
+        try {
+          img = await loadImageAsset(path);
+          loadedPath = path;
+          break;
+        } catch {
+          // Try next fallback path.
+        }
+      }
 
-        const expected = getExpectedFrameDimensions(graphicsId);
-        this.dimensions.set(graphicsId, {
-          frameWidth: expected.width,
-          frameHeight: expected.height,
-          totalWidth: img.width,
-          totalHeight: img.height,
-        });
+      if (!img || !loadedPath) {
+        throw new Error('Sprite load failed');
+      }
 
-        this.loading.delete(graphicsId);
-        return canvas;
-      })
+      if (loadedPath !== paths[0]) {
+        console.warn(`[NPCSpriteCache] Loaded ${graphicsId} using fallback sprite path: ${loadedPath}`);
+      }
+
+      const canvas = makeTransparentCanvas(img, { type: 'top-left' });
+      this.cache.set(graphicsId, canvas);
+
+      const expected = getExpectedFrameDimensions(graphicsId);
+      this.dimensions.set(graphicsId, {
+        frameWidth: expected.width,
+        frameHeight: expected.height,
+        totalWidth: img.width,
+        totalHeight: img.height,
+      });
+
+      this.loading.delete(graphicsId);
+      return canvas;
+    })()
       .catch(() => {
-        console.warn(`[NPCSpriteCache] Failed to load sprite: ${path}`);
+        console.warn(`[NPCSpriteCache] Failed to load sprite: ${graphicsId} (tried ${paths.join(', ')})`);
         this.failed.add(graphicsId);
         this.loading.delete(graphicsId);
         return null;

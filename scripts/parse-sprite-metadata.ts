@@ -291,6 +291,7 @@ function nameToSpritePath(name: string): string {
   snakeName = snakeName.replace(/([a-z])(\d+)$/, '$1_$2');
 
   // Handle special cases
+  if (snakeName === 'moving_box') return '/misc/moving_box.png';
   if (snakeName.includes('brendan')) return `/people/brendan/${snakeName.replace('brendan_', '')}.png`;
   if (snakeName.includes('may')) return `/people/may/${snakeName.replace('may_', '')}.png`;
   if (snakeName.includes('aqua_member')) return `/people/team_aqua/${snakeName}.png`;

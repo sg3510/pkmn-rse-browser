@@ -1,0 +1,126 @@
+useNPCMovement.ts:98 [NPCMovement] Handlers registered
+GamePage.tsx:2354 [StateRenderLoop] Skipping - no stateManager yet
+GameStateManager.ts:119 [GameStateManager] Entering state: TITLE_SCREEN
+TitleScreenState.ts:166 [TitleScreenState] Entering...
+installHook.js:1 [StateRenderLoop] Skipping - no stateManager yet
+installHook.js:1 [GameStateManager] Entering state: TITLE_SCREEN
+installHook.js:1 [TitleScreenState] Entering...
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-grass (80x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-longGrass (64x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-sand (32x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-splash (32x8)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-ripple (80x16)
+GamePage.tsx:1589 [WebGL] Uploaded item ball sprite: item-ball (16x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-grass (80x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-longGrass (64x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-sand (32x16)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-splash (32x8)
+GamePage.tsx:1578 [WebGL] Uploaded field sprite: field-ripple (80x16)
+GamePage.tsx:1589 [WebGL] Uploaded item ball sprite: item-ball (16x16)
+TitleScreenState.ts:323 [TitleScreenState] Loading Rayquaza MTL: 100%
+TitleScreenState.ts:323 [TitleScreenState] Loading Rayquaza MTL: 100%
+GamePage.tsx:2364 [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+GamePage.tsx:2421 [StateRenderLoop] First frame rendered
+TitleScreenState.ts:382 [TitleScreenState] 2D assets loaded
+TitleScreenState.ts:382 [TitleScreenState] 2D assets loaded
+GamePage.tsx:1601 [WebGL] Uploaded truck sprite: large-OBJ_EVENT_GFX_TRUCK (48x48)
+GamePage.tsx:1601 [WebGL] Uploaded truck sprite: large-OBJ_EVENT_GFX_TRUCK (48x48)
+TitleScreenState.ts:312 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:312 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:307 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:307 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:214 [TitleScreenState] Ready, scale: 1
+TitleScreenState.ts:214 [TitleScreenState] Ready, scale: 1
+GamePage.tsx:243 [GamePage] State changed to: TITLE_SCREEN
+GamePage.tsx:243 [GamePage] State changed to: TITLE_SCREEN
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-walking (144x32, frame: 16x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-running (144x32, frame: 16x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-surfing (192x32, frame: 32x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-shadow (16x8, frame: 16x8)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-walking (144x32, frame: 16x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-running (144x32, frame: 16x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-surfing (192x32, frame: 32x32)
+GamePage.tsx:1541 [WebGL] Uploaded sprite sheet: player-shadow (16x8, frame: 16x8)
+GamePage.tsx:1553 [WebGL] Uploaded surf blob sprite (96x32)
+GamePage.tsx:1553 [WebGL] Uploaded surf blob sprite (96x32)
+GameStateManager.ts:114 [GameStateManager] Exiting state: TITLE_SCREEN
+TitleScreenState.ts:617 [TitleScreenState] Exiting...
+GameStateManager.ts:119 [GameStateManager] Entering state: MAIN_MENU
+MainMenuState.ts:42 [MainMenuState] Entered
+GamePage.tsx:243 [GamePage] State changed to: MAIN_MENU
+GamePage.tsx:2430 [StateRenderLoop] Cleanup
+GamePage.tsx:2364 [StateRenderLoop] Starting render loop for state: MAIN_MENU
+GamePage.tsx:2421 [StateRenderLoop] First frame rendered
+MainMenuState.ts:211 [MainMenuState] Selected: NEW GAME
+BagManager.ts:191 [BagManager] Bag reset
+SaveManager.ts:310 [SaveManager] New game started for BRENDAN
+MainMenuState.ts:219 [MainMenuState] Starting new game
+GameStateManager.ts:114 [GameStateManager] Exiting state: MAIN_MENU
+MainMenuState.ts:90 [MainMenuState] Exited
+GameStateManager.ts:119 [GameStateManager] Entering state: NEW_GAME_BIRCH
+GamePage.tsx:243 [GamePage] State changed to: NEW_GAME_BIRCH
+GamePage.tsx:2430 [StateRenderLoop] Cleanup
+GamePage.tsx:2364 [StateRenderLoop] Starting render loop for state: NEW_GAME_BIRCH
+GamePage.tsx:2421 [StateRenderLoop] First frame rendered
+GameStateManager.ts:114 [GameStateManager] Exiting state: NEW_GAME_BIRCH
+GameStateManager.ts:119 [GameStateManager] Entering state: OVERWORLD
+OverworldState.ts:36 [OverworldState] Entered Object
+GamePage.tsx:243 [GamePage] State changed to: OVERWORLD
+GamePage.tsx:2430 [StateRenderLoop] Cleanup
+GamePage.tsx:2350 [StateRenderLoop] Skipping - in OVERWORLD state
+GamePage.tsx:2449 [GamePage] Got saved location from Continue: Object
+GamePage.tsx:2460 [GamePage] Changing map to saved location: MAP_INSIDE_OF_TRUCK
+WorldManager.ts:206 [INIT] World epoch incremented to 1
+WorldManager.ts:216 [INIT] Starting initialize for MAP_LITTLEROOT_TOWN, connections: Array(1)
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_LITTLEROOT_TOWN at offset (0, 0) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: 
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(1)
+WorldManager.ts:206 [INIT] World epoch incremented to 1
+WorldManager.ts:216 [INIT] Starting initialize for MAP_INSIDE_OF_TRUCK, connections: Array(0)
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_INSIDE_OF_TRUCK at offset (0, 0) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_INSIDE_OF_TRUCK, loaded maps: 
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(0)
+WorldManager.ts:723 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_Petalburg, total pairs now: 1
+WorldManager.ts:724 [TILESET_CHANGE] For map: MAP_LITTLEROOT_TOWN, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:723 [TILESET_CHANGE] New pair loaded: gTileset_General+gTileset_InsideOfTruck, total pairs now: 1
+WorldManager.ts:724 [TILESET_CHANGE] For map: MAP_INSIDE_OF_TRUCK, anchor: MAP_INSIDE_OF_TRUCK
+GamePage.tsx:1121 [RESOLVER] #1 anchor:MAP_INSIDE_OF_TRUCK maps:0 pairs:1 Array(0)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_LITTLEROOT_TOWN. Total maps: 1, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_ROUTE101 at offset (0, -20) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(2)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_INSIDE_OF_TRUCK. Total maps: 1, anchor: MAP_INSIDE_OF_TRUCK
+GamePage.tsx:1121 [RESOLVER] #2 anchor:MAP_INSIDE_OF_TRUCK maps:1 pairs:1 Array(1)
+WorldManager.ts:218 [INIT] After loadMapsFromAnchor, loaded maps: Array(1)
+GamePage.tsx:1121 [RESOLVER] #3 anchor:MAP_INSIDE_OF_TRUCK maps:1 pairs:1 Array(1)
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_InsideOfTruck: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_InsideOfTruck to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+GamePage.tsx:1179 [WebGL] Uploaded NPC sprite: npc-OBJ_EVENT_GFX_MOVING_BOX (16x16)
+GamePage.tsx:1179 [WebGL] Uploaded NPC sprite: npc-OBJ_EVENT_GFX_MOVING_BOX (16x16)
+GamePage.tsx:2552 [GamePage] Spawning player at saved position: Object
+PlayerController.ts:527 [TELEPORT_DEBUG] setPosition called: (0,0) -> (2,2) pixel: (0.0,0.0) -> (32,16)     at PlayerController.setPosition (http://localhost:5175/src/game/PlayerController.ts:415:7) <-     at load (http://localhost:5175/src/pages/GamePage.tsx:1853:22)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_ROUTE101. Total maps: 2, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_OLDALE_TOWN at offset (0, -40) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(3)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_OLDALE_TOWN. Total maps: 3, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_ROUTE103 at offset (0, -62) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(2)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_ROUTE103. Total maps: 4, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:678 [LOAD_MAP] Loading MAP_ROUTE102 at offset (-50, -40) epoch=1
+WorldManager.ts:679 [LOAD_MAP] Current anchor: MAP_LITTLEROOT_TOWN, loaded maps: MAP_LITTLEROOT_TOWN, MAP_ROUTE101, MAP_OLDALE_TOWN, MAP_ROUTE103
+WorldManager.ts:680 [LOAD_MAP] Entry connections: Array(2)
+WorldManager.ts:790 [MAPS_CHANGED] Emitting after loading MAP_ROUTE102. Total maps: 5, anchor: MAP_LITTLEROOT_TOWN
+WorldManager.ts:218 [INIT] After loadMapsFromAnchor, loaded maps: Array(5)
+useNPCMovement.ts:187 [NPCMovement] Engine reset

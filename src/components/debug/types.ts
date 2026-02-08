@@ -250,6 +250,41 @@ export interface RenderStatsDebugInfo {
   };
 }
 
+export interface TruckBoxRuntimeDebugInfo {
+  localId: string;
+  graphicsId: string;
+  visible: boolean;
+  tileX: number;
+  tileY: number;
+  subTileX: number;
+  subTileY: number;
+  spriteCached: boolean;
+  spriteFailed: boolean;
+}
+
+export interface TruckDebugInfo {
+  active: boolean;
+  locked: boolean;
+  shouldRun: boolean;
+  introState: number;
+  gbaFrame: number;
+  lastGbaFrame: number;
+  doorClosedApplied: boolean;
+  doorOpenedApplied: boolean;
+  complete: boolean;
+  cameraOffsetX: number;
+  cameraOffsetY: number;
+  boxOffsets: {
+    box1X: number;
+    box1Y: number;
+    box2X: number;
+    box2Y: number;
+    box3X: number;
+    box3Y: number;
+  };
+  boxes: TruckBoxRuntimeDebugInfo[];
+}
+
 /**
  * Shimmer debug info
  */
@@ -415,6 +450,7 @@ export interface WebGLDebugState {
   mapStitching: MapStitchingDebugInfo | null;
   warp: WarpDebugInfo | null;
   renderStats: RenderStatsDebugInfo | null;
+  truck?: TruckDebugInfo | null;
   shimmer?: ShimmerDebugInfo | null;
   reflectionTileGrid?: ReflectionTileGridDebugInfo | null;
   priority?: PriorityDebugInfo | null;

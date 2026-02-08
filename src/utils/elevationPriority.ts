@@ -44,8 +44,8 @@ export function getSpritePriorityForElevation(elevation: number): number {
  *
  * Sprites are rendered at different layers based on their priority:
  * - 'low' (P2/P3): Render BEFORE TopBelow (behind all top layer tiles like bridges)
- * - 'normal' (P1): Render with player, between TopBelow and TopAbove
- * - 'high' (P0): Render AFTER TopAbove (above all BG layers)
+ * - 'normal' (P2): Render with player, between TopBelow and TopAbove
+ * - 'high' (P0/P1): Render AFTER TopAbove (above BG1, which has priority 1)
  */
 export type PriorityLayer = 'low' | 'normal' | 'high';
 
@@ -58,8 +58,7 @@ export type PriorityLayer = 'low' | 'normal' | 'high';
  */
 export function getPriorityLayer(elevation: number): PriorityLayer {
   const priority = getSpritePriorityForElevation(elevation);
-  if (priority === 0) return 'high';
-  if (priority === 1) return 'normal';
+  if (priority <= 1) return 'high';
   return 'low';
 }
 
@@ -89,9 +88,9 @@ export type NPCRenderLayer = 'behindBridge' | 'withPlayer' | 'aboveAll';
  * Determine which render layer an NPC should be in based on player and NPC elevations.
  *
  * This implements the GBA priority comparison:
- * - P0 NPCs (elevation 13-14) always render above everything
- * - P2/P3 NPCs render behind bridges ONLY when player is at higher priority (P1, on bridge)
- * - When player and NPC are at same priority, NPC renders with player (Y-sorted)
+ * - P0/P1 NPCs (elevation 4,6,8,10,12,13,14) render above topAbove (BG1)
+ * - P2/P3 NPCs render behind bridges ONLY when player is at higher priority
+ * - Otherwise P2 NPCs render with player (Y-sorted, between TopBelow and TopAbove)
  *
  * @param npcElevation NPC's elevation (0-15)
  * @param playerElevation Player's current elevation (0-15)
@@ -104,8 +103,10 @@ export function getNPCRenderLayer(
   const npcPriority = getSpritePriorityForElevation(npcElevation);
   const playerPriority = getSpritePriorityForElevation(playerElevation);
 
-  // Priority 0 NPCs always render above everything (elevation 13-14)
-  if (npcPriority === 0) return 'aboveAll';
+  // P0 and P1 NPCs render above all BG layers (above topAbove/BG1).
+  // On GBA, sprites with priority <= BG priority render ON TOP of that BG.
+  // BG1 (topAbove) has priority 1, so P0 and P1 sprites are above it.
+  if (npcPriority <= 1) return 'aboveAll';
 
   // Low priority NPCs (P2/P3) render behind bridges only when player is at higher priority
   // This prevents NPCs from incorrectly appearing behind distant bridge tiles
