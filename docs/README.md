@@ -1,7 +1,7 @@
 ---
 title: Documentation Index
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-06
 ---
 
 # Documentation Index
@@ -26,6 +26,9 @@ This folder uses frontmatter in every markdown document to make status explicit.
 - backlog: `docs/backlog/`
 - assets: `docs/assets/`
 - experiments: `docs/experiments/`
+
+## Recently Updated
+- Birch intro rendering/layering + scaling notes: `docs/architecture/intro/birch-intro-rendering.md`
 
 ## How to keep docs accurate
 1. Update the frontmatter `status` and `last_verified` whenever behavior changes.

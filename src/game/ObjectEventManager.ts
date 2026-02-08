@@ -10,9 +10,10 @@
  * - Berry trees
  */
 
-import type { ObjectEventData, ItemBallObject, NPCObject } from '../types/objectEvents';
+import type { ObjectEventData, ItemBallObject, NPCObject, ScriptObject, LargeObject } from '../types/objectEvents';
 import {
   OBJ_EVENT_GFX_ITEM_BALL,
+  OBJ_EVENT_GFX_TRUCK,
   isNPCGraphicsId,
   parseMovementType,
   parseTrainerType,
@@ -28,9 +29,14 @@ import { gameFlags } from './GameFlags';
  */
 export type TileElevationResolver = (tileX: number, tileY: number) => number | null;
 
+/** Set of graphics IDs treated as large (non-NPC) rendered objects */
+const LARGE_OBJECT_GFX_IDS = new Set([OBJ_EVENT_GFX_TRUCK]);
+
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
   private npcs: Map<string, NPCObject> = new Map();
+  private scriptObjects: Map<string, ScriptObject> = new Map();
+  private largeObjects: Map<string, LargeObject> = new Map();
   private tileElevationResolver: TileElevationResolver | null = null;
 
   /**
@@ -51,6 +57,8 @@ export class ObjectEventManager {
   clear(): void {
     this.itemBalls.clear();
     this.npcs.clear();
+    this.scriptObjects.clear();
+    this.largeObjects.clear();
   }
 
   /**
@@ -72,6 +80,22 @@ export class ObjectEventManager {
       // Convert local coordinates to world coordinates
       const worldX = mapOffsetX + obj.x;
       const worldY = mapOffsetY + obj.y;
+
+      // Handle large non-NPC objects (e.g. truck)
+      if (LARGE_OBJECT_GFX_IDS.has(obj.graphics_id)) {
+        const id = `${mapId}_large_${worldX}_${worldY}`;
+        const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
+        this.largeObjects.set(id, {
+          id,
+          tileX: worldX,
+          tileY: worldY,
+          elevation: obj.elevation,
+          graphicsId: obj.graphics_id,
+          flag: obj.flag,
+          visible: !isHidden,
+        });
+        continue;
+      }
 
       // Handle item balls
       if (obj.graphics_id === OBJ_EVENT_GFX_ITEM_BALL) {
@@ -139,6 +163,27 @@ export class ObjectEventManager {
           initialTileY: worldY,
         });
       }
+      // Handle scripted non-NPC objects (e.g. Birch's bag)
+      else if (obj.script && obj.script !== '0x0') {
+        const localId = obj.local_id ?? null;
+        const id = localId
+          ? `${mapId}_script_${localId}`
+          : `${mapId}_script_${worldX}_${worldY}`;
+
+        const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
+
+        this.scriptObjects.set(id, {
+          id,
+          localId,
+          tileX: worldX,
+          tileY: worldY,
+          elevation: obj.elevation,
+          graphicsId: obj.graphics_id,
+          script: obj.script,
+          flag: obj.flag,
+          visible: !isHidden,
+        });
+      }
       // Future: handle other object types (berry trees, etc.)
     }
   }
@@ -197,7 +242,7 @@ export class ObjectEventManager {
   getInteractableAt(
     tileX: number,
     tileY: number
-  ): { type: 'item'; data: ItemBallObject } | { type: 'npc'; data: NPCObject } | null {
+  ): { type: 'item'; data: ItemBallObject } | { type: 'npc'; data: NPCObject } | { type: 'script'; data: ScriptObject } | null {
     const itemBall = this.getItemBallAt(tileX, tileY);
     if (itemBall) {
       return { type: 'item', data: itemBall };
@@ -205,6 +250,10 @@ export class ObjectEventManager {
     const npc = this.getNPCAt(tileX, tileY);
     if (npc) {
       return { type: 'npc', data: npc };
+    }
+    const scriptObject = this.getScriptObjectAt(tileX, tileY);
+    if (scriptObject) {
+      return { type: 'script', data: scriptObject };
     }
     return null;
   }
@@ -218,6 +267,8 @@ export class ObjectEventManager {
     }
     // Also refresh NPC visibility
     this.refreshNPCVisibility();
+    this.refreshScriptObjectVisibility();
+    this.refreshLargeObjectVisibility();
   }
 
   // === NPC Methods ===
@@ -234,6 +285,53 @@ export class ObjectEventManager {
    */
   getAllNPCs(): NPCObject[] {
     return [...this.npcs.values()];
+  }
+
+  /**
+   * Get an NPC by map-local ID.
+   */
+  getNPCByLocalId(mapId: string, localId: string): NPCObject | null {
+    const key = `${mapId}_npc_${localId}`;
+    return this.npcs.get(key) ?? null;
+  }
+
+  /**
+   * Set an NPC's tile position by map-local ID.
+   */
+  setNPCPositionByLocalId(mapId: string, localId: string, tileX: number, tileY: number): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+
+    npc.tileX = tileX;
+    npc.tileY = tileY;
+    npc.subTileX = 0;
+    npc.subTileY = 0;
+    npc.isWalking = false;
+    return true;
+  }
+
+  /**
+   * Set an NPC's visibility by map-local ID.
+   */
+  setNPCVisibilityByLocalId(mapId: string, localId: string, visible: boolean): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.visible = visible;
+    return true;
+  }
+
+  /**
+   * Set an NPC's facing direction by map-local ID.
+   */
+  setNPCDirectionByLocalId(
+    mapId: string,
+    localId: string,
+    direction: 'up' | 'down' | 'left' | 'right'
+  ): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.direction = direction;
+    return true;
   }
 
   /**
@@ -330,6 +428,10 @@ export class ObjectEventManager {
     if (this.getItemBallAtWithElevation(tileX, tileY, playerElevation) !== null) {
       return true;
     }
+    // Block if there's a scripted object (e.g. Birch's bag) at same elevation
+    if (this.getScriptObjectAtWithElevation(tileX, tileY, playerElevation) !== null) {
+      return true;
+    }
     // Block if there's a visible NPC at same elevation
     if (this.hasNPCAtWithElevation(tileX, tileY, playerElevation)) {
       return true;
@@ -344,6 +446,66 @@ export class ObjectEventManager {
     for (const npc of this.npcs.values()) {
       // NPCs with FLAG_HIDE_* are hidden when the flag IS set
       npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+    }
+  }
+
+  /**
+   * Get all visible scripted objects.
+   */
+  getVisibleScriptObjects(): ScriptObject[] {
+    return [...this.scriptObjects.values()].filter((obj) => obj.visible);
+  }
+
+  /**
+   * Get scripted object at specific tile.
+   */
+  getScriptObjectAt(tileX: number, tileY: number): ScriptObject | null {
+    for (const scriptObject of this.scriptObjects.values()) {
+      if (scriptObject.visible && scriptObject.tileX === tileX && scriptObject.tileY === tileY) {
+        return scriptObject;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get scripted object at tile with elevation rules.
+   */
+  getScriptObjectAtWithElevation(tileX: number, tileY: number, playerElevation: number): ScriptObject | null {
+    const scriptObject = this.getScriptObjectAt(tileX, tileY);
+    if (!scriptObject) return null;
+
+    if (playerElevation === 0 || playerElevation === 15) return scriptObject;
+    if (scriptObject.elevation === 0 || scriptObject.elevation === 15) return scriptObject;
+    if (scriptObject.elevation === playerElevation) return scriptObject;
+
+    return null;
+  }
+
+  /**
+   * Refresh scripted object visibility from flags.
+   */
+  refreshScriptObjectVisibility(): void {
+    for (const scriptObject of this.scriptObjects.values()) {
+      scriptObject.visible = !(scriptObject.flag && scriptObject.flag !== '0' ? gameFlags.isSet(scriptObject.flag) : false);
+    }
+  }
+
+  // === Large Object Methods ===
+
+  /**
+   * Get all visible large objects (e.g. truck)
+   */
+  getVisibleLargeObjects(): LargeObject[] {
+    return [...this.largeObjects.values()].filter((obj) => obj.visible);
+  }
+
+  /**
+   * Refresh large object visibility from flags
+   */
+  refreshLargeObjectVisibility(): void {
+    for (const obj of this.largeObjects.values()) {
+      obj.visible = !(obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false);
     }
   }
 

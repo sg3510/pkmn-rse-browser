@@ -1,4 +1,5 @@
 import UPNG from 'upng-js';
+import { loadBinaryAsset, loadTextAsset } from './assetLoader';
 
 export interface Palette {
   colors: string[]; // 16 hex strings: "#RRGGBB"
@@ -79,15 +80,11 @@ const MAPGRID_COLLISION_SHIFT = 10;
 const MAPGRID_ELEVATION_SHIFT = 12;
 
 export async function loadText(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to load ${url}`);
-  return response.text();
+  return loadTextAsset(url);
 }
 
 export async function loadBinary(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to load ${url}`);
-  return response.arrayBuffer();
+  return loadBinaryAsset(url);
 }
 
 export function parsePalette(text: string): Palette {

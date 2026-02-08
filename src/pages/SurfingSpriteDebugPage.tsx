@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import type { SpriteInstance, WorldCameraView } from '../rendering/types';
+import { loadImageCanvasAsset } from '../utils/assetLoader';
 
 // Sprite sheet info
 const SURF_BLOB_URL = '/pokeemerald/graphics/field_effects/pics/surf_blob.png';
@@ -50,37 +51,8 @@ const SURFING_WALK_MAP: Record<Direction, { atlasX: number; flip: boolean }> = {
 const JUMP_Y_HIGH = [-4, -6, -8, -10, -11, -12, -12, -12, -11, -10, -9, -8, -6, -4, 0, 0];
 
 async function loadImage(url: string): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-
-      // Remove background color (top-left pixel)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const bgR = data[0];
-      const bgG = data[1];
-      const bgB = data[2];
-
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-          data[i + 3] = 0;
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas);
-    };
-    img.onerror = reject;
-    img.src = url;
+  return loadImageCanvasAsset(url, {
+    transparency: { type: 'top-left' },
   });
 }
 

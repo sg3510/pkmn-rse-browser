@@ -14,6 +14,7 @@
  */
 
 import { useRef, useCallback, useMemo } from 'react';
+import { loadImageCanvasAsset } from '../utils/assetLoader';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -54,37 +55,8 @@ export interface UseFieldSpritesReturn {
  * Uses top-left pixel as the background color to make transparent
  */
 async function loadSpriteWithTransparency(path: string): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.src = path;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error(`Failed to get context for sprite: ${path}`));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-
-      // Make transparent - assume top-left pixel is background (cyan for GBA sprites)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const bgR = data[0];
-      const bgG = data[1];
-      const bgB = data[2];
-
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-          data[i + 3] = 0; // Alpha 0
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas);
-    };
-    img.onerror = (err) => reject(err);
+  return loadImageCanvasAsset(path, {
+    transparency: { type: 'top-left' },
   });
 }
 

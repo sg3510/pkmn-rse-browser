@@ -12,7 +12,13 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { GameState, GameStateManager } from '../core';
-import { createTitleScreenState, createMainMenuState, createOverworldState } from '../states';
+import {
+  createTitleScreenState,
+  createMainMenuState,
+  createBirchSpeechState,
+  createOverworldState,
+  createBattleState,
+} from '../states';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
@@ -23,6 +29,7 @@ import {
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getNPCAtlasName,
+  getLargeObjectAtlasName,
   ITEM_BALL_ATLAS_NAME,
 } from '../rendering/spriteUtils';
 import type { SpriteInstance } from '../rendering/types';
@@ -51,6 +58,7 @@ import { ObjectEventManager } from '../game/ObjectEventManager';
 import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
+import { npcAnimationManager } from '../game/npc/NPCAnimationEngine';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { useNPCMovement } from '../hooks/useNPCMovement';
 import { WorldManager, type WorldSnapshot } from '../game/WorldManager';
@@ -112,11 +120,28 @@ import {
   startDoorWarpSequence,
   type DoorWarpContext,
 } from '../game/DoorActionDispatcher';
-import { DialogProvider, DialogBox, useDialog } from '../components/dialog';
+import {
+  DialogProvider,
+  DialogBox,
+  useDialog,
+  registerDialogBridge,
+  unregisterDialogBridge,
+} from '../components/dialog';
 import { useActionInput } from '../hooks/useActionInput';
 import { SaveLoadButtons } from '../components/SaveLoadButtons';
 import { MenuOverlay, menuStateManager } from '../menu';
 import type { LocationState } from '../save/types';
+import { saveManager } from '../save/SaveManager';
+import { SPECIES } from '../data/species';
+import type { PartyPokemon } from '../pokemon/types';
+import { gameVariables, GAME_VARS } from '../game/GameVariables';
+import { getDynamicWarpTarget } from '../game/DynamicWarp';
+import {
+  executeStoryScript,
+  isHandledStoryScript,
+  shouldRunCoordEvent,
+} from '../game/NewGameFlow';
+import { TruckSequence } from '../game/TruckSequence';
 import './GamePage.css';
 
 const GBA_FRAME_MS = 1000 / 59.7275; // Match real GBA vblank timing (~59.73 Hz)
@@ -191,7 +216,9 @@ export function GamePage() {
     // Register all states
     manager.registerState(GameState.TITLE_SCREEN, createTitleScreenState);
     manager.registerState(GameState.MAIN_MENU, createMainMenuState);
+    manager.registerState(GameState.NEW_GAME_BIRCH, createBirchSpeechState);
     manager.registerState(GameState.OVERWORLD, createOverworldState);
+    manager.registerState(GameState.BATTLE, createBattleState);
 
     // Set state to trigger child re-render
     setStateManager(manager);
@@ -215,9 +242,17 @@ export function GamePage() {
 
   // Compute viewport pixel size for responsive menus
   const viewportPixelSize = getViewportPixelSize(viewportConfig);
+  const dialogConfig = useMemo(
+    () => ({
+      // Keep Birch intro message flow typewriter-like (no instant skip-to-full-line).
+      allowSkip: currentState === GameState.NEW_GAME_BIRCH ? false : true,
+      textSpeed: 'medium' as const,
+    }),
+    [currentState]
+  );
 
   return (
-    <DialogProvider zoom={zoom} viewport={viewportPixelSize}>
+    <DialogProvider zoom={zoom} viewport={viewportPixelSize} config={dialogConfig}>
       <GamePageContent
         zoom={zoom}
         onZoomChange={setZoom}
@@ -256,6 +291,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
 
+  // Refs to avoid stale closures in the long-lived render loop.
+  const currentStateRef = useRef(currentState);
+  currentStateRef.current = currentState;
+
+  const dialogIsOpenRef = useRef(false);
+
   // Canvas refs - we use two canvases: hidden WebGL and visible 2D
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   // State overlay canvas - used for title screen and menus (2D rendering)
@@ -274,6 +315,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const rafRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraController | null>(null);
   const gbaFrameRef = useRef<number>(0);
+  const truckSequenceRef = useRef<TruckSequence | null>(null);
   const lastTimeRef = useRef<number>(performance.now());
   const gbaAccumRef = useRef<number>(0);
 
@@ -320,6 +362,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Track visible NPCs/items for debug panel (updated during render loop)
   const visibleNPCsRef = useRef<NPCObject[]>([]);
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
+  const storyScriptRunningRef = useRef<boolean>(false);
+  const lastCoordTriggerTileRef = useRef<{ mapId: string; x: number; y: number } | null>(null);
 
   // NPC movement hook - provides collision-aware movement updates
   // The providers object uses closure over refs so it always has fresh data
@@ -386,16 +430,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const npcMovement = useNPCMovement(npcMovementProviders);
 
   // Dialog system
-  const { showYesNo, showMessage, isOpen: dialogIsOpen } = useDialog();
-
-  // Action input hook (handles X key for surf/item pickup dialogs)
-  useActionInput({
-    playerControllerRef: playerRef,
-    objectEventManagerRef,
-    dialogIsOpen,
-    showMessage,
+  const {
     showYesNo,
-  });
+    showMessage,
+    showChoice,
+    showTextEntry,
+    close: closeDialog,
+    isOpen: dialogIsOpen,
+  } = useDialog();
+  dialogIsOpenRef.current = dialogIsOpen;
+
+  // Expose dialog API to non-React state renderers (e.g. Birch intro state).
+  useEffect(() => {
+    registerDialogBridge({
+      showMessage,
+      showChoice,
+      showTextEntry,
+      close: closeDialog,
+      isOpen: () => dialogIsOpenRef.current,
+    });
+
+    return () => {
+      unregisterDialogBridge();
+    };
+  }, [showMessage, showChoice, showTextEntry, closeDialog]);
 
   // Menu open handler (Enter key)
   useEffect(() => {
@@ -496,6 +554,210 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Ref for pending saved location (set when Continue is selected, consumed on map load)
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
+
+  const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
+    return {
+      pos: { x: player.tileX, y: player.tileY },
+      location: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      continueGameWarp: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      direction: player.getFacingDirection(),
+      elevation: player.getElevation(),
+      isSurfing: player.isSurfing(),
+    };
+  }, []);
+
+  const runHandledStoryScript = useCallback(async (scriptName: string): Promise<boolean> => {
+    if (!isHandledStoryScript(scriptName)) {
+      return false;
+    }
+
+    if (storyScriptRunningRef.current) {
+      return true;
+    }
+
+    const player = playerRef.current;
+    if (!player) {
+      return true;
+    }
+
+    storyScriptRunningRef.current = true;
+    player.lockInput();
+    npcMovement.setEnabled(false);
+
+    try {
+      const waitFrames = async (frames: number): Promise<void> => {
+        if (frames <= 0) return;
+        const ms = Math.max(1, Math.round(frames * GBA_FRAME_MS));
+        await new Promise<void>((resolve) => setTimeout(resolve, ms));
+      };
+
+      const getDirectionDelta = (direction: 'up' | 'down' | 'left' | 'right'): { dx: number; dy: number } => {
+        if (direction === 'up') return { dx: 0, dy: -1 };
+        if (direction === 'down') return { dx: 0, dy: 1 };
+        if (direction === 'left') return { dx: -1, dy: 0 };
+        return { dx: 1, dy: 0 };
+      };
+
+      const movePlayerStep = async (
+        direction: 'up' | 'down' | 'left' | 'right',
+        mode: 'walk' | 'jump' | 'face' = 'walk'
+      ): Promise<void> => {
+        player.dir = direction;
+        if (mode === 'face') {
+          await waitFrames(1);
+          return;
+        }
+
+        player.forceMove(direction, true);
+        let guard = 0;
+        while (player.isMoving && guard < 120) {
+          await waitFrames(1);
+          guard++;
+        }
+
+        if (mode === 'jump') {
+          await waitFrames(3);
+        }
+      };
+
+      const moveNpcStep = async (
+        mapId: string,
+        localId: string,
+        direction: 'up' | 'down' | 'left' | 'right',
+        mode: 'walk' | 'face' = 'walk'
+      ): Promise<void> => {
+        const objectManager = objectEventManagerRef.current;
+        const npc = objectManager.getNPCByLocalId(mapId, localId);
+        if (!npc) return;
+
+        npc.direction = direction;
+        if (mode === 'face') {
+          npc.isWalking = false;
+          npc.subTileX = 0;
+          npc.subTileY = 0;
+          await waitFrames(1);
+          return;
+        }
+
+        const { dx, dy } = getDirectionDelta(direction);
+        npc.isWalking = true;
+        npc.tileX += dx;
+        npc.tileY += dy;
+
+        for (let frame = 1; frame <= 16; frame++) {
+          const remaining = 16 - frame;
+          npc.subTileX = -dx * remaining;
+          npc.subTileY = -dy * remaining;
+          await waitFrames(1);
+        }
+
+        npc.isWalking = false;
+        npc.subTileX = 0;
+        npc.subTileY = 0;
+      };
+
+      const handled = await executeStoryScript(scriptName, {
+        showMessage,
+        showChoice,
+        getPlayerGender: () => saveManager.getProfile().gender,
+        hasPartyPokemon: () => saveManager.hasParty(),
+        setParty: (party) => {
+          saveManager.setParty(party);
+        },
+        startFirstBattle: async (starter: PartyPokemon) => {
+          if (!stateManager) return;
+
+          const worldManager = worldManagerRef.current;
+          const currentMap = worldManager?.findMapAtPosition(player.tileX, player.tileY);
+          const returnMapId = currentMap?.entry.id ?? selectedMapId;
+          const returnLocation = buildLocationStateFromPlayer(player, returnMapId);
+
+          await stateManager.transitionTo(GameState.BATTLE, {
+            playerPokemon: starter,
+            wildSpecies: SPECIES.POOCHYENA,
+            wildLevel: 2,
+            firstBattle: true,
+            returnLocation,
+          });
+        },
+        queueWarp: (mapId, x, y, direction) => {
+          pendingSavedLocationRef.current = {
+            pos: { x, y },
+            location: { mapId, warpId: 0, x, y },
+            continueGameWarp: { mapId, warpId: 0, x, y },
+            lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+            escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+            direction,
+            elevation: player.getElevation(),
+            isSurfing: false,
+          };
+
+          if (mapId !== selectedMapId) {
+            setSelectedMapId(mapId);
+          }
+        },
+        forcePlayerStep: (direction) => {
+          let deltaX = 0;
+          let deltaY = 0;
+          if (direction === 'up') deltaY = -1;
+          else if (direction === 'down') deltaY = 1;
+          else if (direction === 'left') deltaX = -1;
+          else if (direction === 'right') deltaX = 1;
+
+          player.setPosition(player.tileX + deltaX, player.tileY + deltaY);
+          player.dir = direction;
+        },
+        delayFrames: waitFrames,
+        movePlayer: movePlayerStep,
+        moveNpc: moveNpcStep,
+        faceNpcToPlayer: (mapId, localId) => {
+          const objectManager = objectEventManagerRef.current;
+          const npc = objectManager.getNPCByLocalId(mapId, localId);
+          if (!npc) return;
+
+          const dx = player.tileX - npc.tileX;
+          const dy = player.tileY - npc.tileY;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            npc.direction = dx < 0 ? 'left' : 'right';
+          } else if (dy !== 0) {
+            npc.direction = dy < 0 ? 'up' : 'down';
+          }
+        },
+        setNpcPosition: (mapId, localId, tileX, tileY) => {
+          objectEventManagerRef.current.setNPCPositionByLocalId(mapId, localId, tileX, tileY);
+        },
+        setNpcVisible: (mapId, localId, visible) => {
+          objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible);
+        },
+      });
+
+      objectEventManagerRef.current.refreshCollectedState();
+      return handled;
+    } finally {
+      npcMovement.reset();
+      npcMovement.setEnabled(true);
+      player.unlockInput();
+      storyScriptRunningRef.current = false;
+    }
+  }, [showMessage, showChoice, stateManager, selectedMapId, buildLocationStateFromPlayer, npcMovement]);
+
+  const runHandledStoryScriptRef = useRef(runHandledStoryScript);
+  runHandledStoryScriptRef.current = runHandledStoryScript;
+
+  // Action input hook (handles X key for surf/item pickup dialogs)
+  useActionInput({
+    playerControllerRef: playerRef,
+    objectEventManagerRef,
+    enabled: currentState === GameState.OVERWORLD,
+    dialogIsOpen,
+    showMessage,
+    showYesNo,
+    onScriptInteract: async (scriptObject) => {
+      await runHandledStoryScript(scriptObject.script);
+    },
+  });
 
   // Create WebGL debug state from existing debug info
   const webglDebugState = useMemo<WebGLDebugState>(() => ({
@@ -600,6 +862,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     // Clear previous objects
     objectManager.clear();
+    npcAnimationManager.clear();
 
     // Parse object events for each map in the snapshot
     // Object events are now loaded by WorldManager and included in LoadedMapInstance
@@ -701,7 +964,18 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const pipeline = pipelineRef.current;
     if (!worldManager || !player || !pipeline) return;
 
-    const destMapId = trigger.warpEvent.destMap;
+    let destMapId = trigger.warpEvent.destMap;
+    let dynamicWarpOverride: { x: number; y: number } | null = null;
+
+    if (destMapId === 'MAP_DYNAMIC') {
+      const dynamicWarp = getDynamicWarpTarget();
+      if (!dynamicWarp) {
+        console.warn('[WARP] MAP_DYNAMIC encountered, but no dynamic warp target is set.');
+        return;
+      }
+      destMapId = dynamicWarp.mapId;
+      dynamicWarpOverride = { x: dynamicWarp.x, y: dynamicWarp.y };
+    }
     // Capture prior facing for ladder/surf transitions (GBA preserves facing)
     const priorFacing = player.getFacingDirection();
 
@@ -773,6 +1047,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         ...options,
         priorFacing,
       });
+
+      if (dynamicWarpOverride) {
+        player.setPosition(dynamicWarpOverride.x, dynamicWarpOverride.y);
+      }
+
+      const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
+      lastCoordTriggerTileRef.current = {
+        mapId: currentMapId,
+        x: player.tileX,
+        y: player.tileY,
+      };
 
       // ===== WebGL-SPECIFIC: Post-warp updates =====
       pipeline.invalidate();
@@ -1009,6 +1294,21 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             });
             console.log(`[WebGL] Uploaded item ball sprite: ${ITEM_BALL_ATLAS_NAME} (${itemBallCanvas.width}x${itemBallCanvas.height})`);
           }
+
+          // Upload truck sprite for large object rendering
+          try {
+            const { loadImageAsset, makeTransparentCanvas } = await import('../utils/assetLoader');
+            const truckImg = await loadImageAsset('/pokeemerald/graphics/object_events/pics/misc/truck.png');
+            const truckCanvas = makeTransparentCanvas(truckImg, { type: 'top-left' });
+            const atlasName = getLargeObjectAtlasName('OBJ_EVENT_GFX_TRUCK');
+            spriteRenderer.uploadSpriteSheet(atlasName, truckCanvas, {
+              frameWidth: 48,
+              frameHeight: 48,
+            });
+            console.log(`[WebGL] Uploaded truck sprite: ${atlasName} (${truckCanvas.width}x${truckCanvas.height})`);
+          } catch (err) {
+            console.warn('Failed to load truck sprite:', err);
+          }
         }
 
         fieldSpritesLoadedRef.current = true;
@@ -1022,6 +1322,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     let fpsTime = performance.now();
 
     const renderLoop = () => {
+      if (currentStateRef.current !== GameState.OVERWORLD) {
+        lastTimeRef.current = performance.now();
+        rafRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
+
       const pipeline = pipelineRef.current;
       const stitchedWorld = stitchedWorldRef.current;
       const displayCanvas = displayCanvasRef.current;
@@ -1049,6 +1355,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       // Update shimmer animation (GBA-accurate reflection distortion)
       getGlobalShimmer().update(nowTime);
+      npcAnimationManager.update();
 
       const { width, height, minX, minY } = worldBoundsRef.current;
 
@@ -1076,10 +1383,26 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         }
       }
 
+      // Check if we're in the truck — create/advance truck sequence
+      if (player && playerLoadedRef.current) {
+        const wm = worldManagerRef.current;
+        const truckMap = wm?.findMapAtPosition(player.tileX, player.tileY);
+        if (truckMap?.entry.id === 'MAP_INSIDE_OF_TRUCK') {
+          const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
+          if (introState >= 0 && introState <= 2 && !truckSequenceRef.current) {
+            truckSequenceRef.current = new TruckSequence();
+          }
+        } else if (truckSequenceRef.current) {
+          truckSequenceRef.current = null;
+        }
+      }
+
       // Update player if loaded (handles its own input via keyboard events)
-      // Skip player update when menu is open to prevent movement
+      // Skip player update when menu/dialog is open or during truck sequence to prevent movement
       const menuOpen = menuStateManager.isMenuOpen();
-      if (player && playerLoadedRef.current && !warpingRef.current && !menuOpen) {
+      const truckLocked = truckSequenceRef.current && !truckSequenceRef.current.isComplete();
+      const dialogOpen = dialogIsOpenRef.current;
+      if (player && playerLoadedRef.current && !warpingRef.current && !menuOpen && !truckLocked && !dialogOpen) {
         player.update(dt);
 
         // Update world manager with player position and direction (triggers dynamic map loading)
@@ -1088,6 +1411,76 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           // Get player's current facing direction for predictive tileset loading
           const playerDirection = player.getFacingDirection();
           worldManager.update(player.tileX, player.tileY, playerDirection);
+
+          const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+          if (currentMap) {
+            const tileChanged =
+              !lastCoordTriggerTileRef.current ||
+              lastCoordTriggerTileRef.current.mapId !== currentMap.entry.id ||
+              lastCoordTriggerTileRef.current.x !== player.tileX ||
+              lastCoordTriggerTileRef.current.y !== player.tileY;
+
+            if (tileChanged) {
+              lastCoordTriggerTileRef.current = {
+                mapId: currentMap.entry.id,
+                x: player.tileX,
+                y: player.tileY,
+              };
+
+              if (!storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+                const playerElevation = player.getCurrentElevation();
+
+                for (const coordEvent of currentMap.coordEvents) {
+                  const eventWorldX = currentMap.offsetX + coordEvent.x;
+                  const eventWorldY = currentMap.offsetY + coordEvent.y;
+                  if (eventWorldX !== player.tileX || eventWorldY !== player.tileY) {
+                    continue;
+                  }
+
+                  const eventElevation = coordEvent.elevation;
+                  const elevationMatches =
+                    playerElevation === 0 ||
+                    playerElevation === 15 ||
+                    eventElevation === 0 ||
+                    eventElevation === 15 ||
+                    eventElevation === playerElevation;
+
+                  if (!elevationMatches) {
+                    continue;
+                  }
+
+                  if (!shouldRunCoordEvent(coordEvent.var, coordEvent.varValue)) {
+                    continue;
+                  }
+
+                  void runHandledStoryScriptRef.current(coordEvent.script);
+                  break;
+                }
+              }
+            }
+
+            if (!storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+              const currentMapId = currentMap.entry.id;
+              const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
+
+              if (currentMapId === 'MAP_LITTLEROOT_TOWN') {
+                if (introState === 1) {
+                  void runHandledStoryScriptRef.current('LittlerootTown_EventScript_StepOffTruckMale');
+                } else if (introState === 2) {
+                  void runHandledStoryScriptRef.current('LittlerootTown_EventScript_StepOffTruckFemale');
+                }
+              } else if (currentMapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 3) {
+                void runHandledStoryScriptRef.current('LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn');
+              } else if (currentMapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 3) {
+                void runHandledStoryScriptRef.current('LittlerootTown_MaysHouse_1F_EventScript_EnterHouseMovingIn');
+              } else if (
+                currentMapId === 'MAP_ROUTE101'
+                && gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE) === 0
+              ) {
+                void runHandledStoryScriptRef.current('Route101_EventScript_HideMapNamePopup');
+              }
+            }
+          }
 
           // Update debug info every ~500ms
           if (gbaFrameRef.current % 30 === 0) {
@@ -1254,6 +1647,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           pixelHeight: camView.tilesHigh * METATILE_SIZE,
         });
 
+        // Truck sequence: apply camera shake from the active truck sequence
+        if (truckSequenceRef.current && !truckSequenceRef.current.isComplete()) {
+          const truckOutput = truckSequenceRef.current.update();
+          if (truckOutput.shakeOffsetY !== 0) {
+            view.cameraY += truckOutput.shakeOffsetY;
+            view.cameraWorldY += truckOutput.shakeOffsetY;
+            view.subTileOffsetY += truckOutput.shakeOffsetY;
+          }
+        }
+
         // Get player elevation for layer splitting (same as useCompositeScene)
         const playerElevation = player && playerLoadedRef.current ? player.getElevation() : 0;
 
@@ -1344,9 +1747,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             // Use WorldCameraView for sprite renderer
             const spriteView = view;
 
-            // Get visible NPCs and items for debug panel
+            // Get visible NPCs, items, and large objects for rendering
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
             const items = objectEventManagerRef.current.getVisibleItemBalls();
+            const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
             visibleNPCsRef.current = npcs;
             visibleItemsRef.current = items;
 
@@ -1364,6 +1768,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               tilesetRuntimes: tilesetRuntimesRef.current,
               npcs,
               items,
+              largeObjects,
               fieldEffects,
               spriteRenderer,
               doorAnimations,
@@ -1837,6 +2242,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             );
             player.setPosition(spawnResult.x, spawnResult.y);
           }
+
+          const playerMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? entry.id;
+          lastCoordTriggerTileRef.current = {
+            mapId: playerMapId,
+            x: player.tileX,
+            y: player.tileY,
+          };
+          storyScriptRunningRef.current = false;
         }
 
         setStats((s) => ({ ...s, error: null }));
@@ -1925,6 +2338,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Could show a toast notification here
   }, []);
 
+  const defaultDialogViewport = {
+    width: viewportPixelSize.width * zoom,
+    height: viewportPixelSize.height * zoom,
+  };
+
   return (
     <div className="game-page">
       <div className="game-header">
@@ -1981,8 +2399,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           />
           {/* Dialog box overlay - positioned within viewport */}
           <DialogBox
-            viewportWidth={viewportPixelSize.width * zoom}
-            viewportHeight={viewportPixelSize.height * zoom}
+            viewportWidth={defaultDialogViewport.width}
+            viewportHeight={defaultDialogViewport.height}
           />
           {/* Menu overlay */}
           <MenuOverlay />

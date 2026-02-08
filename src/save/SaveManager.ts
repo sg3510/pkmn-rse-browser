@@ -37,6 +37,7 @@ import {
   DEFAULT_PLAY_TIME,
 } from './types';
 import { gameFlags } from '../game/GameFlags';
+import { gameVariables } from '../game/GameVariables';
 import { bagManager } from '../game/BagManager';
 import { parseGen3Save, isValidGen3Save } from './native';
 import type { PartyPokemon } from '../pokemon/types';
@@ -179,6 +180,7 @@ class SaveManagerClass {
 
       // Load flags into GameFlags system
       gameFlags.loadFromArray(data.flags);
+      gameVariables.loadFromRecord(data.vars ?? {});
 
       // Load bag state if present
       if (data.bag) {
@@ -228,6 +230,7 @@ class SaveManagerClass {
       playTime: this.playTime,
       location: locationState,
       flags: gameFlags.getAllFlags(),
+      vars: gameVariables.getAllVars(),
       bag: bagManager.getBagState(),
     };
 
@@ -292,6 +295,7 @@ class SaveManagerClass {
 
     // Reset game flags
     gameFlags.reset();
+    gameVariables.reset();
 
     // Reset bag
     bagManager.reset();

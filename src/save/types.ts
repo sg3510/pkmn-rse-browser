@@ -166,7 +166,7 @@ export type GameFlags = string[];
  * Game variables (numbered vars used by scripts)
  * Reference: SaveBlock1.vars
  */
-export type GameVars = Record<number, number>;
+export type GameVars = Record<string, number>;
 
 /**
  * Game statistics

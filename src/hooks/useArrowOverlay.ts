@@ -10,6 +10,7 @@ import { ArrowOverlay } from '../field/ArrowOverlay';
 import type { ArrowOverlayState, CardinalDirection } from '../field/types';
 import { ARROW_SPRITE_PATH } from '../data/doorAssets';
 import { getArrowDirectionFromBehavior } from '../utils/metatileBehaviors';
+import { loadImageCanvasAsset } from '../utils/assetLoader';
 
 // Helper to check if debug mode is enabled
 function isDebugMode(): boolean {
@@ -77,59 +78,16 @@ export function useArrowOverlay(): UseArrowOverlayReturn {
       return Promise.resolve(spriteRef.current);
     }
     if (!spritePromiseRef.current) {
-      spritePromiseRef.current = new Promise<HTMLImageElement | HTMLCanvasElement>((resolve, reject) => {
-        const img = new Image();
-        img.src = ARROW_SPRITE_PATH;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Failed to acquire arrow sprite context'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0);
-
-          // Apply transparency - find most common color and make it transparent
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          const colorCounts = new Map<number, number>();
-
-          for (let i = 0; i < data.length; i += 4) {
-            const alpha = data[i + 3];
-            if (alpha === 0) continue;
-            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-            colorCounts.set(key, (colorCounts.get(key) ?? 0) + 1);
-          }
-
-          let bgKey = 0;
-          let bgCount = -1;
-          for (const [key, count] of colorCounts.entries()) {
-            if (count > bgCount) {
-              bgKey = key;
-              bgCount = count;
-            }
-          }
-
-          const bgR = (bgKey >> 16) & 0xff;
-          const bgG = (bgKey >> 8) & 0xff;
-          const bgB = bgKey & 0xff;
-
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-              data[i + 3] = 0;
-            }
-          }
-
-          ctx.putImageData(imageData, 0, 0);
+      spritePromiseRef.current = loadImageCanvasAsset(ARROW_SPRITE_PATH, {
+        transparency: { type: 'most-common', minAlpha: 1 },
+      })
+        .then((canvas) => {
           spriteRef.current = canvas;
-          resolve(canvas);
-        };
-        img.onerror = (err) => reject(err);
-      }).finally(() => {
-        spritePromiseRef.current = null;
-      }) as Promise<HTMLImageElement | HTMLCanvasElement>;
+          return canvas;
+        })
+        .finally(() => {
+          spritePromiseRef.current = null;
+        }) as Promise<HTMLImageElement | HTMLCanvasElement>;
     }
     return spritePromiseRef.current!;
   }, []);

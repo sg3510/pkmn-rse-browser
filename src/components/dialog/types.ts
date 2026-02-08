@@ -126,6 +126,13 @@ export interface DialogChoice<T = unknown> {
   disabled?: boolean;
 }
 
+export interface DialogMenuPosition {
+  /** Menu left offset as a ratio of viewport width (0..1) */
+  leftRatio: number;
+  /** Menu top offset as a ratio of viewport height (0..1) */
+  topRatio: number;
+}
+
 export interface DialogOptions<T = unknown> {
   /** Available choices */
   choices: DialogChoice<T>[];
@@ -135,6 +142,27 @@ export interface DialogOptions<T = unknown> {
   cancelable?: boolean;
   /** Value returned on cancel (default: null) */
   cancelValue?: T | null;
+  /** Optional viewport-relative menu placement override */
+  menuPosition?: DialogMenuPosition;
+  /** Called when the highlighted choice changes (before confirm) */
+  onSelectionChange?: (index: number) => void;
+}
+
+// === Text Input Types ===
+
+export interface DialogTextInput {
+  /** Initial value shown in the entry field */
+  initialValue?: string;
+  /** Maximum length for input (default: 12) */
+  maxLength?: number;
+  /** Allow submitting an empty value (default: false) */
+  allowEmpty?: boolean;
+  /** Allow canceling with B/cancel keys (default: true) */
+  cancelable?: boolean;
+  /** Optional key mapper (return appended text, or null to ignore key) */
+  mapKey?: (event: KeyboardEvent) => string | null;
+  /** Optional normalization before resolving */
+  normalize?: (value: string) => string;
 }
 
 // === State Machine Types ===
@@ -144,7 +172,8 @@ export type DialogStateType =
   | 'printing'    // Text being revealed character by character
   | 'waiting'     // Text complete, waiting for input
   | 'scrolling'   // Scrolling text up for overflow
-  | 'choosing';   // Showing options menu
+  | 'choosing'    // Showing options menu
+  | 'editing';    // Showing text input entry
 
 export interface DialogStateClosed {
   type: 'closed';
@@ -173,23 +202,32 @@ export interface DialogStateChoosing {
   selectedIndex: number;
 }
 
+export interface DialogStateEditing {
+  type: 'editing';
+  messageIndex: number;
+  value: string;
+}
+
 export type DialogState =
   | DialogStateClosed
   | DialogStatePrinting
   | DialogStateWaiting
   | DialogStateScrolling
-  | DialogStateChoosing;
+  | DialogStateChoosing
+  | DialogStateEditing;
 
 // === Action Types (for reducer) ===
 
 export type DialogAction =
-  | { type: 'OPEN'; messages: DialogMessage[]; options?: DialogOptions }
+  | { type: 'OPEN'; messages: DialogMessage[]; options?: DialogOptions; textInput?: DialogTextInput }
   | { type: 'ADVANCE_CHAR' }
   | { type: 'COMPLETE_TEXT' }
   | { type: 'START_SCROLL' }
   | { type: 'UPDATE_SCROLL'; progress: number }
   | { type: 'FINISH_SCROLL' }
   | { type: 'SHOW_OPTIONS'; options: DialogOptions }
+  | { type: 'START_EDITING'; initialValue: string }
+  | { type: 'UPDATE_INPUT'; value: string }
   | { type: 'SELECT_OPTION'; index: number }
   | { type: 'CONFIRM_OPTION' }
   | { type: 'CANCEL' }
@@ -209,8 +247,10 @@ export interface UseDialogReturn {
   showChoice: <T>(
     text: string,
     choices: Array<{ label: string; value: T; disabled?: boolean }>,
-    options?: { cancelable?: boolean; defaultIndex?: number }
+    options?: { cancelable?: boolean; defaultIndex?: number; menuPosition?: DialogMenuPosition; onSelectionChange?: (index: number) => void }
   ) => Promise<T | null>;
+  /** Show a message + text entry field, returns entered value or null on cancel */
+  showTextEntry: (text: string, input?: DialogTextInput) => Promise<string | null>;
   /** Close dialog immediately */
   close: () => void;
   /** Whether dialog is currently open */
@@ -223,6 +263,7 @@ export interface DialogContextValue {
   state: DialogState;
   messages: DialogMessage[];
   options: DialogOptions | null;
+  textInput: DialogTextInput | null;
   config: DialogConfig;
   zoom: number;
   /** Viewport dimensions in pixels (for responsive menus) */

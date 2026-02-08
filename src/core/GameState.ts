@@ -13,9 +13,10 @@ import type { ViewportConfig } from '../config/viewport';
 export const GameState = {
   TITLE_SCREEN: 'TITLE_SCREEN',
   MAIN_MENU: 'MAIN_MENU',
+  NEW_GAME_BIRCH: 'NEW_GAME_BIRCH',
   OVERWORLD: 'OVERWORLD',
+  BATTLE: 'BATTLE',
   // Future states:
-  // BATTLE: 'BATTLE',
   // POKEMON_MENU: 'POKEMON_MENU',
   // BAG: 'BAG',
   // SAVE_SCREEN: 'SAVE_SCREEN',

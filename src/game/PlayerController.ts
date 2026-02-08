@@ -24,6 +24,7 @@ import {
 import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
 import { getShadowPosition } from '../rendering/spriteUtils';
+import { loadImageCanvasAsset } from '../utils/assetLoader';
 
 // Helper to check if debug mode is enabled
 const DEBUG_MODE_FLAG = 'DEBUG_MODE';
@@ -505,41 +506,8 @@ export class PlayerController {
   }
 
   public async loadSprite(key: string, src: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get sprite context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-        
-        // Get image data
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Assume top-left pixel is the background color
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-        
-        // Replace all matching pixels with transparent
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-        this.sprites[key] = canvas;
-        resolve();
-      };
-      img.onerror = reject;
+    this.sprites[key] = await loadImageCanvasAsset(src, {
+      transparency: { type: 'top-left' },
     });
   }
 

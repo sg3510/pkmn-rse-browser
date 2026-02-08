@@ -45,6 +45,30 @@ export interface ItemBallObject {
 }
 
 /**
+ * Processed scripted object for interaction (e.g. Birch's bag).
+ */
+export interface ScriptObject {
+  /** Unique ID for lookups */
+  id: string;
+  /** Local ID within map data, if any */
+  localId: string | null;
+  /** World tile X coordinate */
+  tileX: number;
+  /** World tile Y coordinate */
+  tileY: number;
+  /** Elevation level (for layering/collision checks) */
+  elevation: number;
+  /** Graphics ID from map data */
+  graphicsId: string;
+  /** Script identifier to execute */
+  script: string;
+  /** Visibility flag from map data */
+  flag: string;
+  /** Whether object is visible */
+  visible: boolean;
+}
+
+/**
  * Direction an NPC can face
  */
 export type NPCDirection = 'down' | 'up' | 'left' | 'right';
@@ -174,6 +198,24 @@ export const NPC_SPRITE = {
 export const OBJ_EVENT_GFX_ITEM_BALL = 'OBJ_EVENT_GFX_ITEM_BALL';
 
 /**
+ * Graphics ID for the truck
+ */
+export const OBJ_EVENT_GFX_TRUCK = 'OBJ_EVENT_GFX_TRUCK';
+
+/**
+ * Large (non-NPC) rendered object like the moving truck
+ */
+export interface LargeObject {
+  id: string;
+  tileX: number;
+  tileY: number;
+  elevation: number;
+  graphicsId: string;
+  flag: string;
+  visible: boolean;
+}
+
+/**
  * Check if a graphics ID represents an NPC (person/character)
  * Excludes items, misc objects, berry trees, etc.
  */
@@ -217,8 +259,10 @@ export function parseMovementType(movementType: string): NPCMovementType {
     case 'MOVEMENT_TYPE_WANDER_DOWN_AND_UP':
       return 'wander_up_and_down';
     case 'MOVEMENT_TYPE_WANDER_LEFT_AND_RIGHT':
+    case 'MOVEMENT_TYPE_WALK_LEFT_AND_RIGHT':
       return 'wander_left_and_right';
     case 'MOVEMENT_TYPE_WANDER_RIGHT_AND_LEFT':
+    case 'MOVEMENT_TYPE_WALK_RIGHT_AND_LEFT':
       return 'wander_left_and_right';
     case 'MOVEMENT_TYPE_FACE_UP':
       return 'face_up';

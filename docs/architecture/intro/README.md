@@ -1,7 +1,7 @@
 ---
 title: Pokemon Emerald Title Screen - Implementation Documentation
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-06
 ---
 
 # Pokemon Emerald Title Screen - Implementation Documentation
@@ -19,6 +19,7 @@ This documentation covers the complete implementation details of the Pokemon Eme
 | [gba-hardware.md](./gba-hardware.md) | GBA-specific hardware details and constraints |
 | [responsive-design.md](./responsive-design.md) | Notes for responsive/scalable implementation |
 | [modern-implementation.md](./modern-implementation.md) | HD remake options with WebGL, generated effects, OTF fonts |
+| [birch-intro-rendering.md](./birch-intro-rendering.md) | Birch intro tile layering, sprite composition, and scaling rules |
 
 ## Quick Reference
 

@@ -20,7 +20,7 @@ import type { WorldSnapshot } from '../game/WorldManager';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { UseDoorSequencerReturn } from './useDoorSequencer';
-import type { NPCObject, ItemBallObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject, LargeObject } from '../types/objectEvents';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { SortableSpriteInfo } from '../rendering/SpriteBatcher';
@@ -35,6 +35,8 @@ import {
   createNPCReflectionSprite,
   createDoorAnimationSprite,
   createItemBallSpriteInstance,
+  createLargeObjectSpriteInstance,
+  getLargeObjectAtlasName,
   calculateSortKey,
   getPlayerAtlasName,
   getDoorAtlasName,
@@ -51,6 +53,8 @@ import { getPlayerCenterY } from '../game/playerCoords';
 import { buildSpriteBatches } from '../rendering/SpriteBatcher';
 import { getReflectionMetaFromSnapshot } from '../game/snapshotUtils';
 import { isLongGrassBehavior } from '../utils/metatileBehaviors';
+import { npcAnimationManager, shouldAnimate } from '../game/npc/NPCAnimationEngine';
+import { getNPCFrameInfo } from '../game/npc/NPCSpriteLoader';
 
 // =============================================================================
 // Types
@@ -64,6 +68,7 @@ export interface SpriteBuildContext {
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
   npcs: NPCObject[];
   items: ItemBallObject[];
+  largeObjects: LargeObject[];
   fieldEffects: FieldEffectForRendering[];
   spriteRenderer: WebGLSpriteRenderer;
   doorAnimations: UseDoorAnimationsReturn;
@@ -122,6 +127,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       tilesetRuntimes,
       npcs,
       items,
+      largeObjects,
       fieldEffects,
       spriteRenderer,
       doorAnimations,
@@ -341,13 +347,33 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         ? getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, visualTileX, visualTileY)
         : null;
 
-      // Get tile meta at destination (for reflection checks)
-      const destTileMeta = snapshot
-        ? getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, npc.tileX, npc.tileY)
-        : null;
-
       const isOnLongGrass = visualTileMeta ? isLongGrassBehavior(visualTileMeta.behavior) : false;
-      const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass);
+      let frameOverride: { frameIndex: number; flipHorizontal: boolean } | undefined;
+      if (shouldAnimate(npc.graphicsId)) {
+        npcAnimationManager.getState(npc.id, npc.graphicsId, npc.direction, npc.isWalking);
+        const frameInfo = npcAnimationManager.getFrameInfo(npc.id);
+        if (frameInfo) {
+          frameOverride = {
+            frameIndex: frameInfo.frameIndex,
+            flipHorizontal: frameInfo.hFlip,
+          };
+        }
+      }
+      if (!frameOverride) {
+        const walkFrame = npc.isWalking ? Math.floor(nowTime / 120) % 2 : 0;
+        const fallbackFrame = getNPCFrameInfo(
+          npc.direction,
+          npc.isWalking,
+          walkFrame,
+          npc.graphicsId
+        );
+        frameOverride = {
+          frameIndex: fallbackFrame.frameIndex,
+          flipHorizontal: fallbackFrame.flipHorizontal,
+        };
+      }
+
+      const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass, frameOverride);
       if (!npcSprite) return;
 
       targetArray.push(npcSprite);
@@ -443,6 +469,17 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
           allSprites.push(itemSprite);
         }
       }
+    }
+
+    // === Large objects (truck, etc.) ===
+    for (const obj of largeObjects) {
+      const atlasName = getLargeObjectAtlasName(obj.graphicsId);
+      if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+      // Large objects are sorted by their visual feet (bottom edge), not tile Y.
+      const objFeetY = obj.tileY * METATILE_SIZE + 3 * METATILE_SIZE;
+      const objSortKey = calculateSortKey(objFeetY, 0);
+      const sprite = createLargeObjectSpriteInstance(obj, objSortKey);
+      allSprites.push(sprite);
     }
 
     // Process high priority batch (P0 NPCs)

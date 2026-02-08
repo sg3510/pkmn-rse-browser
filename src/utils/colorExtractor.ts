@@ -2,7 +2,9 @@
  * Dominant Color Extractor
  *
  * Extracts the dominant color from a sprite in a sprite sheet.
- */
+*/
+
+import { loadImageAsset } from './assetLoader';
 
 interface RGB {
   r: number;
@@ -123,18 +125,13 @@ export async function loadSpriteSheetColors(
     return colorCache.get(cacheKey)!;
   }
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const colors = extractSpriteSheetColors(img, spriteWidth, spriteHeight, row, count);
-      colorCache.set(cacheKey, colors);
-      resolve(colors);
-    };
-    img.onerror = () => {
-      // Return default gray colors on error
-      const defaults = Array(count || 8).fill('#808080');
-      resolve(defaults);
-    };
-    img.src = src;
-  });
+  try {
+    const img = await loadImageAsset(src);
+    const colors = extractSpriteSheetColors(img, spriteWidth, spriteHeight, row, count);
+    colorCache.set(cacheKey, colors);
+    return colors;
+  } catch {
+    // Return default gray colors on error
+    return Array(count || 8).fill('#808080');
+  }
 }

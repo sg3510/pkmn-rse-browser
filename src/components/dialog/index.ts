@@ -28,13 +28,16 @@ export { DialogBox } from './DialogBox';
 export { DialogFrame } from './DialogFrame';
 export { DialogText, DialogArrow } from './DialogText';
 export { OptionMenu, YesNoMenu } from './OptionMenu';
+export { registerDialogBridge, unregisterDialogBridge, getDialogBridge } from './DialogBridge';
 
 // Types
 export type {
   DialogConfig,
   DialogMessage,
   DialogChoice,
+  DialogMenuPosition,
   DialogOptions,
+  DialogTextInput,
   DialogState,
   DialogAction,
   UseDialogReturn,

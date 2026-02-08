@@ -2,15 +2,18 @@ import { useCallback, useRef } from 'react';
 import { useInput } from './useInput';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
+import type { ScriptObject } from '../types/objectEvents';
 import { saveManager } from '../save/SaveManager';
 import { bagManager } from '../game/BagManager';
 
 export interface ActionInputDeps {
   playerControllerRef: React.RefObject<PlayerController | null>;
   objectEventManagerRef: React.RefObject<ObjectEventManager>;
+  enabled?: boolean;
   dialogIsOpen: boolean;
   showMessage: (text: string) => Promise<void>;
   showYesNo: (text: string) => Promise<boolean>;
+  onScriptInteract?: (scriptObject: ScriptObject) => Promise<void>;
 }
 
 /**
@@ -21,14 +24,17 @@ export interface ActionInputDeps {
 export function useActionInput({
   playerControllerRef,
   objectEventManagerRef,
+  enabled = true,
   dialogIsOpen,
   showMessage,
   showYesNo,
+  onScriptInteract,
 }: ActionInputDeps) {
   const surfPromptInProgressRef = useRef<boolean>(false);
   const itemPickupInProgressRef = useRef<boolean>(false);
 
   const handleActionKeyDown = useCallback(async (e: KeyboardEvent) => {
+    if (!enabled) return;
     if (e.code !== 'KeyX') return;
 
     const player = playerControllerRef.current;
@@ -74,24 +80,38 @@ export function useActionInput({
 
     const objectEventManager = objectEventManagerRef.current;
     const interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
-    if (!interactable || interactable.type !== 'item') return;
+    if (!interactable) return;
 
-    const itemBall = interactable.data;
-    itemPickupInProgressRef.current = true;
-    player.lockInput();
+    if (interactable.type === 'item') {
+      const itemBall = interactable.data;
+      itemPickupInProgressRef.current = true;
+      player.lockInput();
 
-    try {
-      objectEventManager.collectItem(itemBall.id);
-      // Add item to bag inventory
-      bagManager.addItem(itemBall.itemId, 1);
-      const itemName = itemBall.itemName;
-      const playerName = saveManager.getPlayerName();
-      await showMessage(`${playerName} found one ${itemName}!`);
-    } finally {
-      itemPickupInProgressRef.current = false;
-      player.unlockInput();
+      try {
+        objectEventManager.collectItem(itemBall.id);
+        // Add item to bag inventory
+        bagManager.addItem(itemBall.itemId, 1);
+        const itemName = itemBall.itemName;
+        const playerName = saveManager.getPlayerName();
+        await showMessage(`${playerName} found one ${itemName}!`);
+      } finally {
+        itemPickupInProgressRef.current = false;
+        player.unlockInput();
+      }
+      return;
     }
-  }, [dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef]);
+
+    if (interactable.type === 'script' && onScriptInteract) {
+      itemPickupInProgressRef.current = true;
+      player.lockInput();
+      try {
+        await onScriptInteract(interactable.data);
+      } finally {
+        itemPickupInProgressRef.current = false;
+        player.unlockInput();
+      }
+    }
+  }, [enabled, dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef, onScriptInteract]);
 
   useInput({ onKeyDown: handleActionKeyDown });
 

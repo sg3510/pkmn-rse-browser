@@ -1,7 +1,7 @@
 ---
 title: Birch Speech Intro Sequence
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-06
 ---
 
 # Birch Speech Intro Sequence
@@ -115,6 +115,9 @@ After selecting gender, the game shows the appropriate character sprite:
 The name entry uses a standard keyboard interface:
 - Max length: 7 characters (PLAYER_NAME_LENGTH)
 - Preset names available for quick selection
+
+Current TS implementation note:
+- Birch naming currently uses the shared dialog component text-entry mode (framed dialog box + typed input) rather than a standalone naming-screen state.
 
 ## State Management
 

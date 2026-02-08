@@ -17,6 +17,7 @@ import {
   type RenderContext,
 } from '../core/GameState';
 import type { ViewportConfig } from '../config/viewport';
+import { loadImageAsset, loadBinaryAsset } from '../utils/assetLoader';
 
 // GBA timing constants
 const GBA_FPS = 59.7275;
@@ -333,20 +334,6 @@ export class TitleScreenState implements StateRenderer {
   private async loadAssets(): Promise<void> {
     const basePath = '/pokeemerald/graphics/title_screen/';
 
-    const loadImage = (src: string): Promise<HTMLImageElement> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load: ${src}`));
-        img.src = src;
-      });
-    };
-
-    const loadBinary = async (src: string): Promise<ArrayBuffer> => {
-      const response = await fetch(src);
-      return response.arrayBuffer();
-    };
-
     try {
       // Load images and tilemaps in parallel
       const [
@@ -356,11 +343,11 @@ export class TitleScreenState implements StateRenderer {
         logoShine,
         cloudsBin,
       ] = await Promise.all([
-        loadImage(basePath + 'pokemon_logo.png'),
-        loadImage(basePath + 'clouds.png'),
-        loadImage(basePath + 'emerald_version.png'),
-        loadImage(basePath + 'logo_shine.png'),
-        loadBinary(basePath + 'clouds.bin'),
+        loadImageAsset(basePath + 'pokemon_logo.png'),
+        loadImageAsset(basePath + 'clouds.png'),
+        loadImageAsset(basePath + 'emerald_version.png'),
+        loadImageAsset(basePath + 'logo_shine.png'),
+        loadBinaryAsset(basePath + 'clouds.bin'),
       ]);
 
       // Parse tilemaps

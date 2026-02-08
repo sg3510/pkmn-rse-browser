@@ -11,6 +11,7 @@ import { isDoorAnimationDone } from '../field/DoorSequencer';
 import { getDoorAssetForMetatile } from '../data/doorAssets';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import type { WorldCameraView } from '../components/MapRendererTypes';
+import { loadImageAsset } from '../utils/assetLoader';
 
 // Helper to check if debug mode is enabled
 function isDebugMode(): boolean {
@@ -83,12 +84,7 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
       if (cached && cached.complete) {
         return { image: cached, size: asset.size };
       }
-      const img = new Image();
-      img.src = asset.path;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = (err) => reject(err);
-      });
+      const img = await loadImageAsset(asset.path);
       doorSpriteCacheRef.current.set(asset.path, img);
       return { image: img, size: asset.size };
     },

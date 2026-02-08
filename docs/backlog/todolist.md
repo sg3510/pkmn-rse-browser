@@ -51,10 +51,10 @@ These systems are shared infrastructure used by ALL subsequent phases.
 ### 0.1 Game Variables Manager
 > C ref: `include/constants/vars.h`, `src/script.c` (`GetVarPointer`)
 
-- [ ] Create `src/game/GameVariables.ts` — numeric variable store (mirrors GBA's `gSaveBlock1Ptr->vars[]`)
-- [ ] Support named constants: `VAR_LITTLEROOT_INTRO_STATE`, `VAR_BIRCH_LAB_STATE`, `VAR_ROUTE101_STATE`, etc.
-- [ ] Integrate with SaveManager for persistence
-- [ ] Add `getVar(id)`, `setVar(id, value)`, `addVar(id, delta)`, `compareVar(id, value)` API
+- [x] Create `src/game/GameVariables.ts` — numeric variable store (mirrors GBA's `gSaveBlock1Ptr->vars[]`)
+- [x] Support named constants: `VAR_LITTLEROOT_INTRO_STATE`, `VAR_BIRCH_LAB_STATE`, `VAR_ROUTE101_STATE`, etc.
+- [x] Integrate with SaveManager for persistence
+- [x] Add `getVar(id)`, `setVar(id, value)`, `addVar(id, delta)`, `compareVar(id, value)` API
 - [ ] Map variable IDs from `include/constants/vars.h` (at minimum the ~20 needed for new game)
 - [ ] Implement `VAR_RESULT` and `VAR_0x8000..VAR_0x800F` temp vars used heavily in scripts (`checkplayergender`, yes/no prompts, etc.)
 - [ ] Mirror `VarGet`/`VarSet` semantics for special vars (e.g., `VAR_RESULT`) vs save-backed vars
@@ -159,7 +159,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [ ] Wire coordinate trigger events (step on tile X,Y when VAR matches → run script)
 - [ ] Wire object event interaction (press A facing NPC → run their script)
 - [ ] Implement `map_script_2` table evaluation using `VarGet(var) == VarGet(compare)` semantics
-- [ ] Support `MAP_DYNAMIC` / `WARP_ID_DYNAMIC` resolution using `setdynamicwarp` state
+- [x] Support `MAP_DYNAMIC` / `WARP_ID_DYNAMIC` resolution using `setdynamicwarp` state
 
 ### 0.5 NPC Interaction System
 > C ref: `src/field_player_avatar.c`, `src/event_object_interaction.c`
@@ -214,19 +214,19 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 ### 0.11 Map Event Data (Coord + BG Events)
 > C ref: `include/global.fieldmap.h`, map `.json` data
 
-- [ ] Extend map event loader to parse `coord_events` (trigger tiles with var + value)
+- [x] Extend map event loader to parse `coord_events` (trigger tiles with var + value)
 - [ ] Extend map event loader to parse `bg_events` (signs and background interactions)
-- [ ] Ensure coordinate events respect elevation and trigger only on step-in
+- [x] Ensure coordinate events respect elevation and trigger only on step-in
 - [ ] Wire `bg_events` to A-button interaction (signs use `MSGBOX_SIGN`)
 - [ ] Respect `player_facing_dir` constraints for `bg_events`
 
 ### 0.12 Scripted Object Events (Non-NPC)
 > C ref: `event_object_movement.c` (object events are more than NPCs)
 
-- [ ] Support scripted objects like `OBJ_EVENT_GFX_BIRCHS_BAG` (interactable, no movement)
-- [ ] Allow object events with `script` but not `OBJ_EVENT_GFX_ITEM_BALL` to run scripts
-- [ ] Persist object visibility based on `FLAG_HIDE_*` and update live when flags change
-- [ ] Provide stable lookup by `local_id` for script commands (`setobjectxy`, `applymovement`, etc.)
+- [x] Support scripted objects like `OBJ_EVENT_GFX_BIRCHS_BAG` (interactable, no movement)
+- [x] Allow object events with `script` but not `OBJ_EVENT_GFX_ITEM_BALL` to run scripts
+- [x] Persist object visibility based on `FLAG_HIDE_*` and update live when flags change
+- [x] Provide stable lookup by `local_id` for script commands (`setobjectxy`, `applymovement`, etc.)
 - [ ] Implement `setobjectxy` (runtime move) vs `setobjectxyperm` (persisted spawn) semantics
 - [ ] When `setobjectxy` targets `LOCALID_PLAYER`, update PlayerController + camera immediately
 
@@ -240,8 +240,23 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 > C ref: `src/field_player_avatar.c`, `src/event_object_movement.c`
 
 - [ ] Verify walking/running step timing matches GBA (16px per tile, per-frame speed)
-- [ ] Match turn-in-place animation timing (walk_in_place vs faster variants)
+- [x] Match turn-in-place animation timing (walk_in_place vs faster variants)
 - [ ] Ensure collision + elevation checks remain pixel-accurate during scripted movement
+
+### 0.15 Scripted NPC Movement (`applymovement` / `waitmovement`)
+> C ref: `src/event_object_movement.c`, `src/scrcmd.c`
+> Design doc: [docs/backlog/reference/scripted-movement.md](reference/scripted-movement.md)
+
+- [ ] Create `ScriptMovementManager` for concurrent NPC movement scripts
+- [ ] Implement face actions (face_down/up/left/right)
+- [ ] Implement walk normal (4 dirs) with proper tile-crossing animation
+- [ ] Implement delay actions (frame counting)
+- [ ] Implement walk-in-place (animation only, no tile change)
+- [ ] Implement `applymovement(localId, actions[])` script command
+- [ ] Implement `waitmovement(localId)` async wait
+- [ ] Implement `lockall` / `releaseall` for freezing autonomous NPC movement
+- [ ] Support scripted player movement (disable keyboard, drive player like NPC)
+- [x] Full house entry cutscene (replace dialog-only handler in NewGameFlow.ts)
 
 ---
 
@@ -250,7 +265,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 ### 1.1 Birch Speech State
 > C ref: `src/main_menu.c` (`Task_NewGameBirchSpeech_*`), `graphics/birch_speech/`
 
-- [ ] Add `NEW_GAME_BIRCH` to GameState enum
+- [x] Add `NEW_GAME_BIRCH` to GameState enum
 - [ ] Create `src/states/BirchSpeechState.ts`:
   - Background: load `graphics/birch_speech/` assets (birch.png, shadow.png, bg palettes, map.bin)
   - Phase 1: Fade in, Birch appears with shadow
@@ -260,10 +275,22 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
   - Phase 5: Name input screen
   - Phase 6: Confirm and shrink player into Pokeball
   - Phase 7: Fade to black → transition to InsideOfTruck
-- [ ] Wire MainMenuState "NEW GAME" to transition to `NEW_GAME_BIRCH` instead of `OVERWORLD`
+- [x] Wire MainMenuState "NEW GAME" to transition to `NEW_GAME_BIRCH` instead of `OVERWORLD`
 - [ ] Implement gender-dependent rival selection (Brendan if girl, May if boy)
 - [ ] Match `Task_NewGameBirchSpeech_*` timings, palette fades, and sprite positions from C
 - [ ] Support A/B input cadence and text speed during Birch speech (no skipping beyond GBA rules)
+- [x] Birch intro parity pass (visual): render real Birch speech assets from `graphics/birch_speech/` (Birch sprite, shadow, background layers) instead of placeholder panels
+- [x] Birch intro parity pass (dialog): use script text from `data/text/birch_speech.inc` with phase ordering that matches `Task_NewGameBirchSpeech_*`
+- [x] Birch intro parity pass (Pokemon reveal): show Birch's Pokemon graphic during the corresponding dialog phase before gender selection
+- [x] Birch intro parity pass (tile layering): render `graphics/birch_speech/map.bin` as a 32x20 8x8 tilemap using `shadow.png` tile source to match GBA background composition
+- [x] Birch intro parity pass (viewport scaling): render to a fixed 240x160 GBA framebuffer, then integer-scale + letterbox into configurable viewport sizes
+- [x] Birch intro parity pass (scene cleanup): remove placeholder blue/green gradient fills and use map-accurate black stage + spotlight backdrop
+- [x] Birch intro parity pass (dialog architecture): remove custom Birch textbox rendering and route speech/choices through shared dialog system (`src/components/dialog/*`)
+- [x] Birch intro parity pass (name entry architecture): remove Birch-specific Canvas2D name panel and run name entry through shared dialog component with the standard framed border
+- [x] Birch intro parity pass (shared input UX): add reusable dialog text-entry mode so intro naming uses the same dialog renderer/cadence pipeline as overworld chat
+- [x] Birch intro parity pass (overlay alignment): keep dialog overlay viewport-anchored (bottom aligned) while Birch scene scales/centers responsively
+- [x] Birch intro parity pass (dialog cadence): disable instant text skip for Birch speech so lines reveal letter-by-letter via shared dialog system
+- [x] Birch intro parity pass (responsive vertical alignment): center Birch scene in viewport at any aspect ratio so Birch + platform stay compositionally centered
 
 ### 1.2 Player Profile Initialization
 > C ref: `src/new_game.c` (`NewGameInitData`)
@@ -279,7 +306,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
   - Run `EventScript_ResetAllMapFlags` equivalent to sync map object visibility
 - [ ] Warp to `MAP_INSIDE_OF_TRUCK` after init (mirrors `WarpToTruck`)
 - [ ] Wire SaveManager to persist this initial state
-- [ ] Main Menu "NEW GAME" must call new-game init before Birch speech
+- [x] Main Menu "NEW GAME" must call new-game init before Birch speech
 
 ### 1.3 Name Input Screen
 > C ref: `src/naming_screen.c` (1800+ lines)
@@ -318,8 +345,11 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [ ] Implement `setstepcallback STEP_CB_TRUCK` — step callback system for camera effects
 - [ ] Implement full `ExecuteTruckSequence` timing: SE_TRUCK_MOVE/STOP/UNLOAD, fade in, camera pan table, box bobbing
 - [ ] Support `setrespawn` + `setdynamicwarp` used by `InsideOfTruck_EventScript_SetIntroFlags*`
-- [ ] `InsideOfTruck_EventScript_SetIntroFlags*` sets `VAR_LITTLEROOT_INTRO_STATE` to 1 (male) or 2 (female) and dynamic warp to Littleroot coordinates
-- [ ] `InsideOfTruck_EventScript_SetIntroFlags*` also sets house-state vars + hide flags for mom/truck/rival sibling
+- [x] `InsideOfTruck_EventScript_SetIntroFlags*` sets `VAR_LITTLEROOT_INTRO_STATE` to 1 (male) or 2 (female) and dynamic warp to Littleroot coordinates
+- [x] `InsideOfTruck_EventScript_SetIntroFlags*` also sets house-state vars + hide flags for mom/truck/rival sibling
+- [x] Remove MVP shortcut teleport from truck trigger: `InsideOfTruck_EventScript_SetIntroFlags` should set flags/vars/dynamic warp only, then return control so player can walk to truck exit
+- [x] Implement `MAP_DYNAMIC` / `WARP_ID_DYNAMIC` warp resolution for truck exit so walking onto truck door warp sends player to gender-specific Littleroot coordinates (from `setdynamicwarp`)
+- [x] Keep truck shake active while inside truck (until exit warp), matching `STEP_CB_TRUCK` behavior at a practical MVP fidelity
 
 ### 2.2 Littleroot Town Arrival Cutscene
 > Map: `data/maps/LittlerootTown/scripts.inc` (900+ lines)
@@ -340,11 +370,13 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [ ] Implement `hideplayer` / `showplayer` (used during door sequences)
 - [ ] Implement `call_if_eq`, `call_if_unset`, and `map_script_2` table evaluation
 - [ ] Handle `LittlerootTown_OnTransition` setup: `FLAG_VISITED_LITTLEROOT_TOWN`, rival gfx id, twin position logic
+- [x] Ensure truck is visible when stepping into Littleroot from truck exit and only hidden at the correct post-step-off point (`FLAG_HIDE_LITTLEROOT_TOWN_*_HOUSE_TRUCK`)
+- [x] Ensure first Littleroot arrival runs a mom greeting sequence after stepping off truck (before normal free-roam), matching `LittlerootTown_EventScript_StepOffTruck*` intent
 
 ### 2.3 Player's House Events
 > Map: `data/maps/LittlerootTown_BrendansHouse_1F/scripts.inc` (500+ lines)
 
-- [ ] MAP_SCRIPT_ON_FRAME when `VAR_LITTLEROOT_INTRO_STATE == 3`:
+- [x] MAP_SCRIPT_ON_FRAME when `VAR_LITTLEROOT_INTRO_STATE == 3`:
   - Mom welcomes player, mentions setting clock upstairs
   - Vigoroth moving boxes (2 NPCs with movement type MOVEMENT_TYPE_WANDER_AROUND)
   - `VAR_LITTLEROOT_INTRO_STATE = 4`
@@ -396,10 +428,10 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
   - `msgbox "Help! In my BAG!"`
   - `VAR_ROUTE101_STATE = 2`
   - `releaseall`
-- [ ] Block exits while `VAR_ROUTE101_STATE == 2` (trigger events on map edges)
-- [ ] Birch's bag is an interactable object event on the ground
+- [x] Block exits while `VAR_ROUTE101_STATE == 2` (trigger events on map edges)
+- [x] Birch's bag is an interactable object event on the ground
 - [ ] Route 101 ON_FRAME table sets `FLAG_HIDE_MAP_NAME_POPUP` and `VAR_ROUTE101_STATE = 1`
-- [ ] Coordinate triggers come from `coord_events` in `map.json`, not `scripts.inc`
+- [x] Coordinate triggers come from `coord_events` in `map.json`, not `scripts.inc`
 
 ### 3.2 Starter Selection
 > C ref: `src/starter_choose.c`, `graphics/starter_choose/`
@@ -421,7 +453,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
   - `special HealPlayerParty`
   - Set progression flags
   - Warp to Birch's Lab (6, 5)
-- [ ] `ChooseStarter` special must set `VAR_STARTER_MON` + `VAR_RESULT` and start the first battle (see `CB2_GiveStarter`)
+- [x] `ChooseStarter` special must set `VAR_STARTER_MON` + `VAR_RESULT` and start the first battle (see `CB2_GiveStarter`)
 - [ ] Post-choice script sets `FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE`, `FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG`, `FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH`, `VAR_BIRCH_LAB_STATE = 2`, `VAR_ROUTE101_STATE = 3`
 
 ### 3.3 Pokemon Data for Starters
@@ -459,14 +491,14 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
 ### 4.1 Battle State & Transition
 > C ref: `src/battle_setup.c` (`BattleSetup_StartWildBattle`), `src/battle_transition.c`
 
-- [ ] Add `BATTLE` to GameState enum
+- [x] Add `BATTLE` to GameState enum
 - [ ] Create `src/states/BattleState.ts`:
   - Accept battle params: player party, wild pokemon species/level
   - Battle transition effect (screen wipe/slide)
   - Return to overworld after battle with outcome
 - [ ] Create transition animation (simple fade-to-black acceptable for MVP)
 - [ ] First battle entry uses `B_TRANSITION_BLUR` and sets `BATTLE_TYPE_FIRST_BATTLE`
-- [ ] `ChooseStarter` special must kick off battle flow and hand control to BattleState
+- [x] `ChooseStarter` special must kick off battle flow and hand control to BattleState
 
 ### 4.2 Battle Scene & UI
 > C ref: `src/battle_main.c`, `src/battle_bg.c`, `src/battle_interface.c`
@@ -512,7 +544,7 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
 ### 4.5 Turn Execution
 > C ref: `src/battle_main.c` (`BattleMainCB1`), `src/battle_script_commands.c`
 
-- [ ] Turn order: compare Speed stats, higher goes first (ties: random)
+- [x] Turn order: compare Speed stats, higher goes first (ties: random)
 - [ ] Execute moves in order:
   - Accuracy check (hit/miss)
   - Damage calculation
@@ -520,7 +552,7 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
   - Display battle message ("TREECKO used POUND!")
   - Show HP bar animation (decrease smoothly)
   - Check faint condition
-- [ ] Status moves (Leer, Growl): modify stat stages
+- [x] Status moves (Leer, Growl): modify stat stages
   - Stat stages: -6 to +6, ratios from `gStatStageRatios[]`
   - Leer: lower defense 1 stage
   - Growl: lower attack 1 stage
@@ -528,9 +560,9 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
 ### 4.6 Wild AI (Poochyena)
 > C ref: `src/battle_ai_main.c`, but for wild Pokemon it's simple
 
-- [ ] Wild Pokemon AI: select random move from available moves
-- [ ] Poochyena level 2 moveset: Tackle only (learns Howl at L5)
-- [ ] No switching, no items for wild Pokemon
+- [x] Wild Pokemon AI: select random move from available moves
+- [x] Poochyena level 2 moveset: Tackle only (learns Howl at L5)
+- [x] No switching, no items for wild Pokemon
 
 ### 4.7 Battle End
 > C ref: `src/battle_main.c` (`HandleEndTurn_FinishBattle`)
@@ -545,12 +577,12 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
   - "TREECKO fainted!" → white out → respawn at last heal point
 - [ ] Run condition: `runChance = (playerSpeed * 128 / wildSpeed + 30 * escapeAttempts) % 256`
   - First battle is scripted — running may be blocked
-- [ ] Return to overworld: transition back with battle outcome
+- [x] Return to overworld: transition back with battle outcome
 
 ### 4.8 Post-Battle Return
 > C ref: `src/battle_setup.c` (`CB2_EndWildBattle`)
 
-- [ ] After winning, return to Route 101 overworld
+- [x] After winning, return to Route 101 overworld
 - [ ] Script continues: Birch thanks player, warp to lab
 - [ ] Game progression flags already set during bag interaction
 - [ ] Restore map music after battle (match `Overworld_ClearSavedMusic` behavior)

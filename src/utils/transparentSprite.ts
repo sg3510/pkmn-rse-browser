@@ -1,11 +1,11 @@
 /**
  * Transparent Sprite Utility
  *
- * Converts indexed-color PNG sprites (with black background) to transparent.
- * GBA sprites use palette index 0 (usually black #000000) as the transparent color.
- * When loaded as <img>, the browser decodes them to RGB, losing transparency info.
- * This utility re-applies transparency by keying out the background color.
+ * Compatibility utility for callers that expect a data URL result.
+ * Internally delegates image processing to shared asset loader helpers.
  */
+
+import { loadImageCanvasAsset } from './assetLoader';
 
 // Cache processed sprites to avoid re-processing
 const spriteCache = new Map<string, string>();
@@ -26,57 +26,13 @@ export async function loadTransparentSprite(
   const cached = spriteCache.get(cacheKey);
   if (cached) return cached;
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => {
-      // Create canvas at image size
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-
-      // Draw image
-      ctx.drawImage(img, 0, 0);
-
-      // Get pixel data
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Replace background color with transparent
-      // Allow small tolerance for compression artifacts
-      const tolerance = 5;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-
-        if (
-          Math.abs(r - bgColor.r) <= tolerance &&
-          Math.abs(g - bgColor.g) <= tolerance &&
-          Math.abs(b - bgColor.b) <= tolerance
-        ) {
-          // Make transparent
-          data[i + 3] = 0;
-        }
-      }
-
-      // Put modified data back
-      ctx.putImageData(imageData, 0, 0);
-
-      // Convert to data URL and cache
-      const dataUrl = canvas.toDataURL('image/png');
-      spriteCache.set(cacheKey, dataUrl);
-      resolve(dataUrl);
-    };
-
-    img.onerror = () => {
-      reject(new Error(`Failed to load sprite: ${src}`));
-    };
-
-    img.src = src;
+  const canvas = await loadImageCanvasAsset(src, {
+    crossOrigin: 'anonymous',
+    transparency: { type: 'color', color: bgColor, tolerance: 5 },
   });
+  const dataUrl = canvas.toDataURL('image/png');
+  spriteCache.set(cacheKey, dataUrl);
+  return dataUrl;
 }
 
 /**

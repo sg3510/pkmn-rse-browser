@@ -21,6 +21,7 @@ import type {
   DialogAction,
   DialogMessage,
   DialogOptions,
+  DialogTextInput,
   DialogContextValue,
   UseDialogReturn,
 } from './types';
@@ -80,6 +81,22 @@ function dialogReducer(
       }
       return state;
 
+    case 'START_EDITING':
+      if (state.type === 'waiting') {
+        return {
+          type: 'editing',
+          messageIndex: state.messageIndex,
+          value: action.initialValue,
+        };
+      }
+      return state;
+
+    case 'UPDATE_INPUT':
+      if (state.type === 'editing') {
+        return { ...state, value: action.value };
+      }
+      return state;
+
     case 'SELECT_OPTION':
       if (state.type === 'choosing') {
         return { ...state, selectedIndex: action.index };
@@ -131,6 +148,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
   // Store messages and options in refs to avoid unnecessary re-renders
   const messagesRef = useRef<DialogMessage[]>([]);
   const optionsRef = useRef<DialogOptions | null>(null);
+  const textInputRef = useRef<DialogTextInput | null>(null);
   const resolveRef = useRef<((value: unknown) => void) | null>(null);
 
   // Reducer with access to messages ref
@@ -140,6 +158,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
       if (action.type === 'OPEN') {
         messagesRef.current = action.messages;
         optionsRef.current = action.options ?? null;
+        textInputRef.current = action.textInput ?? null;
       }
       if (action.type === 'SHOW_OPTIONS') {
         optionsRef.current = action.options;
@@ -147,6 +166,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
       if (action.type === 'CLOSE' || action.type === 'CONFIRM_OPTION' || action.type === 'CANCEL') {
         messagesRef.current = [];
         optionsRef.current = null;
+        textInputRef.current = null;
       }
       return dialogReducer(currentState, action, messagesRef.current);
     },
@@ -212,6 +232,18 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     }
   }, [state, dispatch]);
 
+  // Enter editing mode when a text input prompt reaches waiting state.
+  useEffect(() => {
+    if (state.type !== 'waiting') return;
+    if (!textInputRef.current) return;
+
+    const isLastMessage = state.messageIndex === messagesRef.current.length - 1;
+    if (!isLastMessage) return;
+
+    const initialValue = textInputRef.current.initialValue ?? '';
+    dispatch({ type: 'START_EDITING', initialValue });
+  }, [state, dispatch]);
+
   // Resolve setter/getter
   const setResolve = useCallback((fn: ((value: unknown) => void) | null) => {
     resolveRef.current = fn;
@@ -223,6 +255,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     state,
     messages: messagesRef.current,
     options: optionsRef.current,
+    textInput: textInputRef.current,
     config,
     zoom,
     viewport,
@@ -259,7 +292,7 @@ export function useDialog(): UseDialogReturn {
   const resolveRef = useRef<((value: unknown) => void) | null>(null);
 
   const showMessages = useCallback(
-    (messages: DialogMessage[], options?: DialogOptions): Promise<unknown> => {
+    (messages: DialogMessage[], options?: DialogOptions, textInput?: DialogTextInput): Promise<unknown> => {
       if (!context) {
         console.warn('useDialog: No DialogProvider found');
         return Promise.resolve();
@@ -268,7 +301,7 @@ export function useDialog(): UseDialogReturn {
       return new Promise((resolve) => {
         resolveRef.current = resolve;
         context.setResolve(resolve);
-        context.dispatch({ type: 'OPEN', messages, options });
+        context.dispatch({ type: 'OPEN', messages, options, textInput });
       });
     },
     [context]
@@ -301,15 +334,32 @@ export function useDialog(): UseDialogReturn {
     <T,>(
       text: string,
       choices: Array<{ label: string; value: T; disabled?: boolean }>,
-      options?: { cancelable?: boolean; defaultIndex?: number }
+      options?: { cancelable?: boolean; defaultIndex?: number; menuPosition?: DialogOptions<T>['menuPosition']; onSelectionChange?: (index: number) => void }
     ): Promise<T | null> => {
       const dialogOptions: DialogOptions<T> = {
         choices,
         defaultIndex: options?.defaultIndex ?? 0,
         cancelable: options?.cancelable ?? true,
         cancelValue: null,
+        menuPosition: options?.menuPosition,
+        onSelectionChange: options?.onSelectionChange,
       };
       return showMessages([{ text }], dialogOptions) as Promise<T | null>;
+    },
+    [showMessages]
+  );
+
+  const showTextEntry = useCallback(
+    (text: string, input?: DialogTextInput): Promise<string | null> => {
+      const textInput: DialogTextInput = {
+        initialValue: input?.initialValue ?? '',
+        maxLength: input?.maxLength ?? 12,
+        allowEmpty: input?.allowEmpty ?? false,
+        cancelable: input?.cancelable ?? true,
+        mapKey: input?.mapKey,
+        normalize: input?.normalize,
+      };
+      return showMessages([{ text }], undefined, textInput) as Promise<string | null>;
     },
     [showMessages]
   );
@@ -329,6 +379,7 @@ export function useDialog(): UseDialogReturn {
   const stateRef = useRef(context?.state);
   const optionsRef = useRef(context?.options);
   const messagesRef = useRef(context?.messages);
+  const textInputRef = useRef(context?.textInput);
 
   // Update refs when context changes
   useEffect(() => {
@@ -336,8 +387,9 @@ export function useDialog(): UseDialogReturn {
       stateRef.current = context.state;
       optionsRef.current = context.options;
       messagesRef.current = context.messages;
+      textInputRef.current = context.textInput;
     }
-  }, [context?.state, context?.options, context?.messages, context]);
+  }, [context?.state, context?.options, context?.messages, context?.textInput, context]);
 
   useEffect(() => {
     if (!context || context.state.type === 'closed') return;
@@ -346,9 +398,74 @@ export function useDialog(): UseDialogReturn {
       const state = stateRef.current;
       const options = optionsRef.current;
       const messages = messagesRef.current;
+      const textInput = textInputRef.current;
       if (!state || !context) return;
 
       const { config, dispatch, getResolve, setResolve } = context;
+
+      if (state.type === 'editing') {
+        if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'KeyX') {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const normalize = textInput?.normalize;
+          const normalizedValue = normalize ? normalize(state.value) : state.value;
+          const allowEmpty = textInput?.allowEmpty ?? false;
+          if (!allowEmpty && normalizedValue.trim().length === 0) {
+            return;
+          }
+
+          dispatch({ type: 'CLOSE' });
+          const resolve = getResolve();
+          if (resolve) {
+            resolve(normalizedValue);
+            setResolve(null);
+          }
+          return;
+        }
+
+        if (e.code === 'Escape' && (textInput?.cancelable ?? true)) {
+          e.preventDefault();
+          e.stopPropagation();
+          dispatch({ type: 'CANCEL' });
+          const resolve = getResolve();
+          if (resolve) {
+            resolve(null);
+            setResolve(null);
+          }
+          return;
+        }
+
+        if (e.code === 'Backspace') {
+          e.preventDefault();
+          e.stopPropagation();
+          dispatch({ type: 'UPDATE_INPUT', value: state.value.slice(0, -1) });
+          return;
+        }
+
+        const maxLength = textInput?.maxLength ?? 12;
+        if (state.value.length >= maxLength) {
+          return;
+        }
+
+        let append: string | null = null;
+        if (textInput?.mapKey) {
+          append = textInput.mapKey(e);
+        } else {
+          const letterMatch = e.code.match(/^Key([A-Z])$/);
+          const digitMatch = e.code.match(/^Digit([0-9])$/);
+          if (letterMatch) append = letterMatch[1];
+          else if (digitMatch) append = digitMatch[1];
+          else if (e.code === 'Space') append = ' ';
+        }
+
+        if (append && append.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          dispatch({ type: 'UPDATE_INPUT', value: (state.value + append).slice(0, maxLength) });
+        }
+        return;
+      }
 
       // Advance keys (Space, Enter, X)
       if (config.advanceKeys.includes(e.code)) {
@@ -382,6 +499,7 @@ export function useDialog(): UseDialogReturn {
             }
           }
         }
+        return;
       }
 
       // Cancel keys (Escape, Z)
@@ -397,6 +515,7 @@ export function useDialog(): UseDialogReturn {
             setResolve(null);
           }
         }
+        return;
       }
 
       // Arrow keys for menu navigation
@@ -406,14 +525,18 @@ export function useDialog(): UseDialogReturn {
           e.stopPropagation();
           const newIndex = Math.max(0, state.selectedIndex - 1);
           dispatch({ type: 'SELECT_OPTION', index: newIndex });
+          options.onSelectionChange?.(newIndex);
         }
         if (e.code === 'ArrowDown') {
           e.preventDefault();
           e.stopPropagation();
           const newIndex = Math.min(options.choices.length - 1, state.selectedIndex + 1);
           dispatch({ type: 'SELECT_OPTION', index: newIndex });
+          options.onSelectionChange?.(newIndex);
         }
+        return;
       }
+
     };
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
@@ -427,6 +550,7 @@ export function useDialog(): UseDialogReturn {
     showMessages,
     showYesNo,
     showChoice,
+    showTextEntry,
     close,
     isOpen,
   };

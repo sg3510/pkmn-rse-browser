@@ -10,6 +10,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { TILE_SIZE, getFramePath } from './types';
+import { loadImageCanvasAsset } from '../../utils/assetLoader';
 
 interface DialogFrameProps {
   /** Width in pixels (will be rounded to tile boundary) */
@@ -35,42 +36,11 @@ async function loadFrameImage(style: number): Promise<HTMLCanvasElement> {
     return frameCache.get(style)!;
   }
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      // Create canvas and apply transparency
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0);
-
-      // Get image data and remove background color (top-left pixel)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const bgR = data[0];
-      const bgG = data[1];
-      const bgB = data[2];
-
-      // Replace all matching pixels with transparent
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-          data[i + 3] = 0; // Alpha 0
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      frameCache.set(style, canvas);
-      resolve(canvas);
-    };
-    img.onerror = reject;
-    img.src = getFramePath(style);
+  const canvas = await loadImageCanvasAsset(getFramePath(style), {
+    transparency: { type: 'top-left' },
   });
+  frameCache.set(style, canvas);
+  return canvas;
 }
 
 export const DialogFrame: React.FC<DialogFrameProps> = ({

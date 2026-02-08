@@ -35,6 +35,7 @@ import {
   getSpriteInfo,
   getStaticFrameIndex,
 } from '../../data/spriteMetadata';
+import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
 
 /** Base path for object event graphics */
 const SPRITE_BASE_PATH = '/pokeemerald/graphics/object_events/pics';
@@ -174,6 +175,10 @@ const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number 
   OBJ_EVENT_GFX_AZURILL: { width: 16, height: 16 },
   OBJ_EVENT_GFX_SKITTY: { width: 16, height: 16 },
   OBJ_EVENT_GFX_MEW: { width: 16, height: 16 },
+
+  // Special intro Pokemon sprites
+  OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_VIGOROTH_FACING_AWAY: { width: 32, height: 32 },
 
   // Larger Pokemon (32x32)
   OBJ_EVENT_GFX_LATIAS: { width: 32, height: 32 },
@@ -340,6 +345,8 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_PIKACHU: '/pokemon/pikachu.png',
   OBJ_EVENT_GFX_POOCHYENA: '/pokemon/poochyena.png',
   OBJ_EVENT_GFX_WINGULL: '/pokemon/wingull.png',
+  OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX: '/pokemon/vigoroth.png',
+  OBJ_EVENT_GFX_VIGOROTH_FACING_AWAY: '/pokemon/vigoroth.png',
   OBJ_EVENT_GFX_AZURILL: '/pokemon/azurill.png',
   OBJ_EVENT_GFX_SKITTY: '/pokemon/skitty.png',
   OBJ_EVENT_GFX_KECLEON: '/pokemon/kecleon.png',
@@ -401,39 +408,6 @@ export function getNPCSpritePath(graphicsId: string): string | null {
   }
 
   return null;
-}
-
-/**
- * Apply transparency to a sprite by making the background color transparent.
- * GBA sprites use the top-left pixel color as the transparency key (usually cyan).
- */
-function applyTransparency(img: HTMLImageElement): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    return canvas;
-  }
-
-  ctx.drawImage(img, 0, 0);
-
-  // Get the background color from the top-left pixel
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  const bgR = data[0];
-  const bgG = data[1];
-  const bgB = data[2];
-
-  // Make all pixels matching the background color transparent
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-      data[i + 3] = 0; // Set alpha to 0
-    }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-  return canvas;
 }
 
 /**
@@ -523,38 +497,28 @@ class NPCSpriteCache {
     }
 
     // Start loading
-    const loadPromise = new Promise<HTMLCanvasElement | null>((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        // Apply transparency and store as canvas
-        const canvas = applyTransparency(img);
+    const loadPromise = loadImageAsset(path)
+      .then((img) => {
+        const canvas = makeTransparentCanvas(img, { type: 'top-left' });
         this.cache.set(graphicsId, canvas);
 
-        // Get expected frame dimensions from C source
         const expected = getExpectedFrameDimensions(graphicsId);
-
-        // Frame dimensions come from the C source (getExpectedFrameDimensions)
-        const frameWidth = expected.width;
-        const frameHeight = expected.height;
-
         this.dimensions.set(graphicsId, {
-          frameWidth,
-          frameHeight,
+          frameWidth: expected.width,
+          frameHeight: expected.height,
           totalWidth: img.width,
           totalHeight: img.height,
         });
 
         this.loading.delete(graphicsId);
-        resolve(canvas);
-      };
-      img.onerror = () => {
+        return canvas;
+      })
+      .catch(() => {
         console.warn(`[NPCSpriteCache] Failed to load sprite: ${path}`);
         this.failed.add(graphicsId);
         this.loading.delete(graphicsId);
-        resolve(null);
-      };
-      img.src = path;
-    });
+        return null;
+      });
 
     this.loading.set(graphicsId, loadPromise);
     return loadPromise;

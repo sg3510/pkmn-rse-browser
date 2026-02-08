@@ -9,6 +9,7 @@
  */
 
 import type { SurfBlobDirection, BlobBobState } from './types';
+import { loadImageCanvasAsset } from '../../utils/assetLoader';
 
 export class SurfBlobRenderer {
   private sprite: HTMLCanvasElement | null = null;
@@ -55,44 +56,16 @@ export class SurfBlobRenderer {
       return this.loadPromise;
     }
 
-    this.loadPromise = new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        // Create canvas and apply transparency
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-
-        // Get image data and remove background color (top-left pixel)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        // Replace all matching pixels with transparent
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === bgR && data[i + 1] === bgG && data[i + 2] === bgB) {
-            data[i + 3] = 0; // Alpha 0
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
+    this.loadPromise = loadImageCanvasAsset('/pokeemerald/graphics/field_effects/pics/surf_blob.png', {
+      transparency: { type: 'top-left' },
+    })
+      .then((canvas) => {
         this.sprite = canvas;
-        resolve();
-      };
-      img.onerror = (err) => {
+      })
+      .catch((err) => {
         console.error('Failed to load surf blob sprite:', err);
-        reject(err);
-      };
-      img.src = '/pokeemerald/graphics/field_effects/pics/surf_blob.png';
-    });
+        throw err;
+      });
 
     return this.loadPromise;
   }

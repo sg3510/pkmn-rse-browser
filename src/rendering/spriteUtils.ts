@@ -12,7 +12,7 @@ import type { SpriteInstance } from './types';
 import type { FrameInfo } from '../game/PlayerController';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { ReflectionState } from '../field/ReflectionRenderer';
-import type { NPCObject, ItemBallObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject, LargeObject } from '../types/objectEvents';
 import type { DoorAnimDrawable } from '../field/types';
 import {
   BRIDGE_OFFSETS,
@@ -428,11 +428,14 @@ export function getNPCAtlasName(graphicsId: string): string {
 export function createNPCSpriteInstance(
   npc: NPCObject,
   sortKey: number,
-  clipToHalf: boolean = false
+  clipToHalf: boolean = false,
+  frameOverride?: { frameIndex: number; flipHorizontal: boolean }
 ): SpriteInstance | null {
-  // Get frame info based on direction and walking state (with frame mapping for non-standard sprite layouts)
+  // Get frame info based on direction and walking state unless an explicit frame is provided.
   const isWalking = npc.isWalking ?? false;
-  const { frameIndex, flipHorizontal } = getNPCFrameInfo(npc.direction, isWalking, 0, npc.graphicsId);
+  const defaultFrameInfo = getNPCFrameInfo(npc.direction, isWalking, 0, npc.graphicsId);
+  const frameIndex = frameOverride?.frameIndex ?? defaultFrameInfo.frameIndex;
+  const flipHorizontal = frameOverride?.flipHorizontal ?? defaultFrameInfo.flipHorizontal;
   const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, npc.graphicsId);
 
   // Calculate world position with sub-tile offset for smooth movement
@@ -511,6 +514,52 @@ export function createItemBallSpriteInstance(
     atlasY: 0,
     atlasWidth: ITEM_BALL_SIZE,
     atlasHeight: ITEM_BALL_SIZE,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey,
+    isReflection: false,
+  };
+}
+
+// === Large Object Sprites ===
+
+/** Atlas name prefix for large objects */
+export function getLargeObjectAtlasName(graphicsId: string): string {
+  return `large-${graphicsId}`;
+}
+
+/** Truck sprite is 48×48 */
+const TRUCK_SPRITE_SIZE = 48;
+
+/**
+ * Create a SpriteInstance for a large object (e.g. truck)
+ *
+ * The truck sprite is 48×48 positioned at its tile coordinates.
+ * The object event position is the top-left tile of the object.
+ */
+export function createLargeObjectSpriteInstance(
+  obj: LargeObject,
+  sortKey: number
+): SpriteInstance {
+  // Position at tile coordinates. The truck sprite is 48×48 (3 tiles wide, 3 tiles tall)
+  // and its object event x,y is the top-left tile.
+  const worldX = obj.tileX * METATILE_SIZE;
+  const worldY = obj.tileY * METATILE_SIZE;
+
+  return {
+    worldX,
+    worldY,
+    width: TRUCK_SPRITE_SIZE,
+    height: TRUCK_SPRITE_SIZE,
+    atlasName: getLargeObjectAtlasName(obj.graphicsId),
+    atlasX: 0,
+    atlasY: 0,
+    atlasWidth: TRUCK_SPRITE_SIZE,
+    atlasHeight: TRUCK_SPRITE_SIZE,
     flipX: false,
     flipY: false,
     alpha: 1.0,

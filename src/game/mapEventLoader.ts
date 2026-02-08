@@ -22,11 +22,25 @@ export interface WarpEvent {
 }
 
 /**
+ * Coordinate trigger event from map.json
+ */
+export interface CoordEvent {
+  type: string;
+  x: number;
+  y: number;
+  elevation: number;
+  var: string;
+  varValue: number;
+  script: string;
+}
+
+/**
  * Result of loading map events
  */
 export interface MapEventsData {
   warpEvents: WarpEvent[];
   objectEvents: ObjectEventData[];
+  coordEvents: CoordEvent[];
 }
 
 /**
@@ -39,7 +53,8 @@ export function parseWarpEvents(warpEventsRaw: Array<Record<string, unknown>>): 
       const y = Number(warp.y ?? 0);
       const elevation = Number(warp.elevation ?? 0);
       const destMap = String(warp.dest_map ?? '');
-      const destWarpId = Number(warp.dest_warp_id ?? 0);
+      const parsedWarpId = Number(warp.dest_warp_id ?? 0);
+      const destWarpId = Number.isFinite(parsedWarpId) ? parsedWarpId : 255;
       return { x, y, elevation, destMap, destWarpId };
     })
     .filter((w) => w.destMap !== '');
@@ -81,6 +96,37 @@ export function parseObjectEvents(objectEventsRaw: Array<Record<string, unknown>
 }
 
 /**
+ * Parse coordinate trigger events from raw JSON array
+ */
+export function parseCoordEvents(coordEventsRaw: Array<Record<string, unknown>>): CoordEvent[] {
+  return coordEventsRaw
+    .map((coordEvent) => {
+      const x = Number(coordEvent.x ?? 0);
+      const y = Number(coordEvent.y ?? 0);
+      const elevation = Number(coordEvent.elevation ?? 0);
+      const variable = String(coordEvent.var ?? '');
+      const script = String(coordEvent.script ?? '');
+      const parsedVarValue = Number.parseInt(String(coordEvent.var_value ?? '0'), 10);
+      const varValue = Number.isFinite(parsedVarValue) ? parsedVarValue : 0;
+
+      if (!script || !variable || !Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+      }
+
+      return {
+        type: String(coordEvent.type ?? ''),
+        x,
+        y,
+        elevation,
+        var: variable,
+        varValue,
+        script,
+      } satisfies CoordEvent;
+    })
+    .filter((coordEvent): coordEvent is CoordEvent => coordEvent !== null);
+}
+
+/**
  * Load all events (warps + objects) from a map's map.json file
  *
  * @param mapFolder The map folder name (e.g., "Route101", "LittlerootTown")
@@ -92,17 +138,20 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
     const data = JSON.parse(jsonText) as {
       warp_events?: Array<Record<string, unknown>>;
       object_events?: Array<Record<string, unknown>>;
+      coord_events?: Array<Record<string, unknown>>;
     };
 
     const warpEventsRaw = Array.isArray(data.warp_events) ? data.warp_events : [];
     const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
+    const coordEventsRaw = Array.isArray(data.coord_events) ? data.coord_events : [];
 
     return {
       warpEvents: parseWarpEvents(warpEventsRaw),
       objectEvents: parseObjectEvents(objectEventsRaw),
+      coordEvents: parseCoordEvents(coordEventsRaw),
     };
   } catch {
-    return { warpEvents: [], objectEvents: [] };
+    return { warpEvents: [], objectEvents: [], coordEvents: [] };
   }
 }
 
@@ -121,4 +170,12 @@ export async function loadWarpEvents(mapFolder: string): Promise<WarpEvent[]> {
 export async function loadObjectEvents(mapFolder: string): Promise<ObjectEventData[]> {
   const { objectEvents } = await loadMapEvents(mapFolder);
   return objectEvents;
+}
+
+/**
+ * Load only coordinate events from a map's map.json file
+ */
+export async function loadCoordEvents(mapFolder: string): Promise<CoordEvent[]> {
+  const { coordEvents } = await loadMapEvents(mapFolder);
+  return coordEvents;
 }

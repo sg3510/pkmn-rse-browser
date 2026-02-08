@@ -22,3 +22,5 @@ This README is agent-facing. Follow these instructions when working in this repo
 ## Docs location
 - All documentation lives under `docs/`.
 - If you reference a doc from code comments or other docs, use the `docs/` path.
+- the main readme is in docs/README.md
+- the main backlog is in docs/backlog/todolist.md

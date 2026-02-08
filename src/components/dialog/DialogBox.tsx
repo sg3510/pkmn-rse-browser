@@ -15,7 +15,7 @@ import { useDialogContext } from './DialogContext';
 import { DialogFrame } from './DialogFrame';
 import { DialogText, DialogArrow } from './DialogText';
 import { YesNoMenu, OptionMenu } from './OptionMenu';
-import { DIALOG_DIMENSIONS, tilesToPx } from './types';
+import { DIALOG_DIMENSIONS, YESNO_DIMENSIONS, TILE_SIZE, tilesToPx } from './types';
 
 interface DialogBoxProps {
   /** Viewport width in pixels */
@@ -48,10 +48,16 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   // Get current message
   const currentMessage = messages[state.messageIndex] ?? { text: '' };
 
+  const renderedText = state.type === 'editing'
+    ? `${currentMessage.text}\n${state.value}_`
+    : currentMessage.text;
+
   // Calculate visible characters for typewriter effect
-  let visibleChars = currentMessage.text.length;
+  let visibleChars = renderedText.length;
   if (state.type === 'printing') {
     visibleChars = state.charIndex;
+  } else if (state.type === 'waiting' || state.type === 'choosing') {
+    visibleChars = currentMessage.text.length;
   }
 
   // Show arrow when waiting for input (not during choosing)
@@ -64,6 +70,70 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
   // Get selected index for menu
   const selectedIndex = state.type === 'choosing' ? state.selectedIndex : 0;
+
+  const menuGeometry = options ? (() => {
+    const scaledTile = TILE_SIZE * zoom;
+    const longestLabel = options.choices.reduce(
+      (max, choice) => Math.max(max, choice.label.length),
+      0
+    );
+    const widthTiles = Math.max(
+      YESNO_DIMENSIONS.widthTiles,
+      Math.ceil(longestLabel * 0.8) + 3
+    );
+    const heightTiles = Math.max(
+      YESNO_DIMENSIONS.heightTiles,
+      options.choices.length + 2
+    );
+    return {
+      width: widthTiles * scaledTile,
+      height: heightTiles * scaledTile,
+    };
+  })() : null;
+
+  const menuStyle = (() => {
+    if (!menuGeometry) {
+      return undefined;
+    }
+
+    const inferredBirchGenderMenu = options?.choices.length === 2
+      && options.choices[0]?.label === 'BOY'
+      && options.choices[1]?.label === 'GIRL';
+    if (inferredBirchGenderMenu) {
+      const rawLeft = tilesToPx(3, zoom);
+      const rawTop = tilesToPx(2, zoom);
+      const left = Math.max(0, Math.min(rawLeft, viewportWidth - menuGeometry.width));
+      const top = Math.max(0, Math.min(rawTop, viewportHeight - menuGeometry.height));
+      return {
+        position: 'absolute' as const,
+        left,
+        top,
+        pointerEvents: 'auto' as const,
+      };
+    }
+
+    const customPosition = options?.menuPosition
+      ?? undefined;
+    if (customPosition) {
+      const rawLeft = Math.floor(viewportWidth * customPosition.leftRatio);
+      const rawTop = Math.floor(viewportHeight * customPosition.topRatio);
+      const left = Math.max(0, Math.min(rawLeft, viewportWidth - menuGeometry.width));
+      const top = Math.max(0, Math.min(rawTop, viewportHeight - menuGeometry.height));
+      return {
+        position: 'absolute' as const,
+        left,
+        top,
+        pointerEvents: 'auto' as const,
+      };
+    }
+
+    return {
+      position: 'absolute' as const,
+      right: dialogX,
+      top: dialogY - tilesToPx(options.choices.length + 3, zoom),
+      pointerEvents: 'auto' as const,
+    };
+  })();
 
   return (
     <div
@@ -93,7 +163,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
           zoom={zoom}
         >
           <DialogText
-            text={currentMessage.text}
+            text={renderedText}
             visibleChars={visibleChars}
             zoom={zoom}
             color={config.textColor}
@@ -106,15 +176,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
       {/* Option menu (if showing choices) */}
       {state.type === 'choosing' && options && (
-        <div
-          style={{
-            position: 'absolute',
-            // Position above dialog box, right-aligned
-            right: dialogX,
-            top: dialogY - tilesToPx(options.choices.length + 3, zoom),
-            pointerEvents: 'auto',
-          }}
-        >
+        <div style={menuStyle}>
           {isYesNoMenu ? (
             <YesNoMenu
               selectedYes={selectedIndex === 0}

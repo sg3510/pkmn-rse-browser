@@ -73,7 +73,7 @@ export class MainMenuState implements StateRenderer {
 
     this.menuOptions.push({
       label: 'NEW GAME',
-      action: GameState.OVERWORLD, // TODO: Should go to NEW_GAME_BIRCH state
+      action: GameState.NEW_GAME_BIRCH,
       enabled: true,
     });
 

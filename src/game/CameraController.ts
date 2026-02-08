@@ -138,18 +138,25 @@ export class CameraController {
     const viewportHeight = this.config.viewportTilesHigh * METATILE_SIZE;
     const overscan = this.config.borderOverscanTiles * METATILE_SIZE;
 
+    // Note: all bounds values (minX, minY, width, height) are in pixels
     const { minX, minY, width, height } = this.bounds;
 
-    // Calculate camera bounds with overscan
-    // minX/minY can be negative for stitched worlds
-    const camMinX = minX - overscan;
-    const camMaxX = minX + width - viewportWidth + overscan;
-    const camMinY = minY - overscan;
-    const camMaxY = minY + height - viewportHeight + overscan;
+    // Center camera when the world is smaller than the viewport
+    if (width <= viewportWidth) {
+      this.x = minX + (width - viewportWidth) / 2;
+    } else {
+      const camMinX = minX - overscan;
+      const camMaxX = minX + width - viewportWidth + overscan;
+      this.x = Math.max(camMinX, Math.min(this.x, camMaxX));
+    }
 
-    // Clamp - handle case where world is smaller than viewport
-    this.x = Math.max(camMinX, Math.min(this.x, Math.max(camMinX, camMaxX)));
-    this.y = Math.max(camMinY, Math.min(this.y, Math.max(camMinY, camMaxY)));
+    if (height <= viewportHeight) {
+      this.y = minY + (height - viewportHeight) / 2;
+    } else {
+      const camMinY = minY - overscan;
+      const camMaxY = minY + height - viewportHeight + overscan;
+      this.y = Math.max(camMinY, Math.min(this.y, camMaxY));
+    }
   }
 
   /**
