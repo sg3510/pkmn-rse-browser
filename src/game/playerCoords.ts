@@ -16,9 +16,10 @@
  */
 
 import type { PlayerController } from './PlayerController';
+import { METATILE_SIZE as MAP_METATILE_SIZE } from '../utils/mapLoader';
 
 /** Size of a metatile in pixels */
-export const METATILE_SIZE = 16;
+export const METATILE_SIZE = MAP_METATILE_SIZE;
 
 /** Player sprite height in pixels */
 export const PLAYER_SPRITE_HEIGHT = 32;

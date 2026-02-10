@@ -1,0 +1,1596 @@
+BagManager.ts:171 [BagManager] Loaded bag state: Object
+SaveManager.ts:199 [SaveManager] Loaded 6 Pokemon from party
+SaveManager.ts:207 [SaveManager] Loaded save from slot 0
+useNPCMovement.ts:98 [NPCMovement] Handlers registered
+useStateMachineRenderLoop.ts:32 [StateRenderLoop] Skipping - no stateManager yet
+GameStateManager.ts:119 [GameStateManager] Entering state: TITLE_SCREEN
+TitleScreenState.ts:163 [TitleScreenState] Entering...
+installHook.js:1 [StateRenderLoop] Skipping - no stateManager yet
+installHook.js:1 [GameStateManager] Entering state: TITLE_SCREEN
+installHook.js:1 [TitleScreenState] Entering...
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+TitleScreenState.ts:320 [TitleScreenState] Loading Rayquaza MTL: 100%
+TitleScreenState.ts:320 [TitleScreenState] Loading Rayquaza MTL: 100%
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+TitleScreenState.ts:379 [TitleScreenState] 2D assets loaded
+TitleScreenState.ts:379 [TitleScreenState] 2D assets loaded
+TitleScreenState.ts:309 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:309 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:304 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:304 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:211 [TitleScreenState] Ready, scale: 1
+TitleScreenState.ts:211 [TitleScreenState] Ready, scale: 1
+logger.ts:56 [GamePage] State changed to: TITLE_SCREEN
+logger.ts:56 [GamePage] State changed to: TITLE_SCREEN
+GameStateManager.ts:114 [GameStateManager] Exiting state: TITLE_SCREEN
+TitleScreenState.ts:614 [TitleScreenState] Exiting...
+GameStateManager.ts:119 [GameStateManager] Entering state: MAIN_MENU
+MainMenuState.ts:42 [MainMenuState] Entered
+MainMenuState.ts:59 [MainMenuState] Found save: Object
+logger.ts:56 [GamePage] State changed to: MAIN_MENU
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: MAIN_MENU
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+MainMenuState.ts:211 [MainMenuState] Selected: NEW GAME
+BagManager.ts:191 [BagManager] Bag reset
+SaveManager.ts:310 [SaveManager] New game started for BRENDAN
+MainMenuState.ts:219 [MainMenuState] Starting new game
+GameStateManager.ts:114 [GameStateManager] Exiting state: MAIN_MENU
+MainMenuState.ts:90 [MainMenuState] Exited
+GameStateManager.ts:119 [GameStateManager] Entering state: NEW_GAME_BIRCH
+logger.ts:56 [GamePage] State changed to: NEW_GAME_BIRCH
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: NEW_GAME_BIRCH
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+GameStateManager.ts:114 [GameStateManager] Exiting state: NEW_GAME_BIRCH
+GameStateManager.ts:119 [GameStateManager] Entering state: OVERWORLD
+OverworldState.ts:36 [OverworldState] Entered Object
+logger.ts:56 [GamePage] State changed to: OVERWORLD
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:27 [StateRenderLoop] Skipping - in OVERWORLD state
+useOverworldContinueLocation.ts:52 [GamePage] Got saved location from Continue: Object
+useOverworldContinueLocation.ts:61 [GamePage] Changing map to saved location: MAP_INSIDE_OF_TRUCK
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_InsideOfTruck: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_InsideOfTruck to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+loadSelectedOverworldMap.ts:163 [GamePage] Spawning player at saved position: Object
+GamePage.tsx?t=1770672291623:858 [CoordEvent] Firing: InsideOfTruck_EventScript_SetIntroFlags at (3,2) var=VAR_LITTLEROOT_INTRO_STATE=0
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: InsideOfTruck_EventScript_SetIntroFlags
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_INSIDE_OF_TRUCK
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: right
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_0 (tried /pokeemerald/graphics/object_events/pics/people/var_0.png, /pokeemerald/graphics/object_events/pics/misc/var_0.png, /pokeemerald/graphics/object_events/pics/pokemon/var_0.png)
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: LittlerootTown_EventScript_StepOffTruckMale
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=right mode=jump pos=(3,10) isMoving=false inputLocked=true
+useHandledStoryScript.ts?t=1770672291623:132 [movePlayerStep] jump done guard=15
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,8)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,9)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=left mode=face pos=(5,10)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,10)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=right mode=walk pos=(4,10) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(5,10)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=up mode=face pos=(5,10) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,9)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=up mode=walk pos=(5,10) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=14 isMoving=false pos=(5,9)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=up mode=walk pos=(5,9) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(5,8)
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true
+GamePage.tsx?t=1770672291623:982 [ScriptedWarp] pending → fading (fadeOut to MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F)
+GamePage.tsx?t=1770672291623:990 [ScriptedWarp] fade complete. activeMapId=MAP_LITTLEROOT_TOWN targetMapId=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+GamePage.tsx?t=1770672291623:1002 [ScriptedWarp] different map → loading MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: undefined
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/brendan/walking.png
+overrideMethod @ installHook.js:1
+loadSelectedOverworldMap.ts:163 [GamePage] Spawning player at saved position: Object
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=right mode=face pos=(8,8) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(8,7)
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_2 (tried /pokeemerald/graphics/object_events/pics/people/var_2.png, /pokeemerald/graphics/object_events/pics/misc/var_2.png, /pokeemerald/graphics/object_events/pics/pokemon/var_2.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_3 (tried /pokeemerald/graphics/object_events/pics/people/var_3.png, /pokeemerald/graphics/object_events/pics/misc/var_3.png, /pokeemerald/graphics/object_events/pics/pokemon/var_3.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_6 (tried /pokeemerald/graphics/object_events/pics/people/var_6.png, /pokeemerald/graphics/object_events/pics/misc/var_6.png, /pokeemerald/graphics/object_events/pics/pokemon/var_6.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_5 (tried /pokeemerald/graphics/object_events/pics/people/var_5.png, /pokeemerald/graphics/object_events/pics/misc/var_5.png, /pokeemerald/graphics/object_events/pics/pokemon/var_5.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_4 (tried /pokeemerald/graphics/object_events/pics/people/var_4.png, /pokeemerald/graphics/object_events/pics/misc/var_4.png, /pokeemerald/graphics/object_events/pics/pokemon/var_4.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_1 (tried /pokeemerald/graphics/object_events/pics/people/var_1.png, /pokeemerald/graphics/object_events/pics/misc/var_1.png, /pokeemerald/graphics/object_events/pics/pokemon/var_1.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_7 (tried /pokeemerald/graphics/object_events/pics/people/var_7.png, /pokeemerald/graphics/object_events/pics/misc/var_7.png, /pokeemerald/graphics/object_events/pics/pokemon/var_7.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_8 (tried /pokeemerald/graphics/object_events/pics/people/var_8.png, /pokeemerald/graphics/object_events/pics/misc/var_8.png, /pokeemerald/graphics/object_events/pics/pokemon/var_8.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_9 (tried /pokeemerald/graphics/object_events/pics/people/var_9.png, /pokeemerald/graphics/object_events/pics/misc/var_9.png, /pokeemerald/graphics/object_events/pics/pokemon/var_9.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_A (tried /pokeemerald/graphics/object_events/pics/people/var_a.png, /pokeemerald/graphics/object_events/pics/misc/var_a.png, /pokeemerald/graphics/object_events/pics/pokemon/var_a.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_B (tried /pokeemerald/graphics/object_events/pics/people/var_b.png, /pokeemerald/graphics/object_events/pics/misc/var_b.png, /pokeemerald/graphics/object_events/pics/pokemon/var_b.png)
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+installHook.js:1 [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:249 [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: PlayersHouse_2F_EventScript_SimplifiedClock
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=down mode=walk pos=(7,1)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=face pos=(7,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=walk pos=(7,2)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=right mode=face pos=(5,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=right mode=walk pos=(6,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=up mode=walk pos=(7,2)
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(4,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=down mode=walk pos=(8,3) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=14 isMoving=false pos=(8,4)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=down mode=walk pos=(8,4) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(8,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=left mode=walk pos=(8,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(7,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=left mode=walk pos=(7,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=14 isMoving=false pos=(6,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=left mode=walk pos=(6,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=13 isMoving=false pos=(5,5)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(4,5)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(3,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=left mode=walk pos=(5,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(4,5)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=up mode=face pos=(4,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=left mode=face pos=(4,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(3,5)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=down mode=walk pos=(2,5)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(2,6)
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+GamePage.tsx?t=1770672291623:858 [CoordEvent] Firing: LittlerootTown_EventScript_NeedPokemonTriggerLeft at (10,1) var=VAR_LITTLEROOT_TOWN_STATE=0
+useHandledStoryScript.ts?t=1770672291623:51 [StoryScript] ▶ Starting: LittlerootTown_EventScript_NeedPokemonTriggerLeft
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(7,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=face pos=(8,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(8,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(9,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(10,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(11,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(12,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(12,1)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(12,0)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(11,0)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(11,1)
+useHandledStoryScript.ts?t=1770672291623:119 [movePlayerStep] dir=down mode=walk pos=(10,1) isMoving=false inputLocked=true
+useHandledStoryScript.ts?t=1770672291623:136 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts?t=1770672291623:142 [movePlayerStep] done guard=15 isMoving=false pos=(10,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(11,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(12,2)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(12,3)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(12,4)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(11,4)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(10,4)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(9,4)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(8,4)
+useHandledStoryScript.ts?t=1770672291623:151 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=face pos=(8,3)
+useHandledStoryScript.ts?t=1770672291623:302 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts?t=1770672291623:310 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx:886
+handleMapsChanged @ worldManagerEvents.ts:230
+(anonymous) @ worldManagerEvents.ts:319
+emit @ WorldManager.ts:928
+loadMap @ WorldManager.ts:801
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:629
+initialize @ WorldManager.ts:227
+performWarpTransition @ performWarpTransition.ts:110
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx?t=1770672291623:611
+(anonymous) @ GamePage.tsx?t=1770672291623:633
+performWarpTransition @ performWarpTransition.ts:112
+await in performWarpTransition
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+installHook.js:1 [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
+overrideMethod @ installHook.js:1
+executeSpecial @ ScriptRunner.ts:911
+runCommands @ ScriptRunner.ts:647
+execute @ ScriptRunner.ts:210
+performWarpTransition @ performWarpTransition.ts:248
+await in performWarpTransition
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:249 [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 9, maxY: 8, width: 9, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 11, maxY: 9, width: 11, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx:886
+handleMapsChanged @ worldManagerEvents.ts:230
+(anonymous) @ worldManagerEvents.ts:319
+emit @ WorldManager.ts:928
+loadMap @ WorldManager.ts:801
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:629
+initialize @ WorldManager.ts:227
+performWarpTransition @ performWarpTransition.ts:110
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx?t=1770672291623:611
+(anonymous) @ GamePage.tsx?t=1770672291623:633
+performWarpTransition @ performWarpTransition.ts:112
+await in performWarpTransition
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+installHook.js:1 [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
+overrideMethod @ installHook.js:1
+executeSpecial @ ScriptRunner.ts:911
+runCommands @ ScriptRunner.ts:647
+execute @ ScriptRunner.ts:210
+performWarpTransition @ performWarpTransition.ts:248
+await in performWarpTransition
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:249 [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 9, maxY: 8, width: 9, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 11, maxY: 9, width: 11, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_General+gTileset_Petalburg']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_General+gTileset_Petalburg: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: -40, maxX: 20, maxY: 20, width: 20, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: (3) ['MAP_LITTLEROOT_TOWN', 'MAP_ROUTE101', 'MAP_OLDALE_TOWN']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_General+gTileset_Petalburg']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_General+gTileset_Petalburg: 0}
+useHandledStoryScript.ts:89 [StoryScript] ▶ Starting: LittlerootTown_EventScript_Twin
+useHandledStoryScript.ts:412 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:423 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+useHandledStoryScript.ts:89 [StoryScript] ▶ Starting: LittlerootTown_EventScript_FatMan
+useHandledStoryScript.ts:412 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:423 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+useHandledStoryScript.ts:89 [StoryScript] ▶ Starting: LittlerootTown_EventScript_Boy
+useHandledStoryScript.ts:412 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:423 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:548
+await in (anonymous)
+load @ NPCSpriteLoader.ts:564
+(anonymous) @ NPCSpriteLoader.ts:580
+loadMany @ NPCSpriteLoader.ts:580
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:148
+(anonymous) @ GamePage.tsx:886
+handleMapsChanged @ worldManagerEvents.ts:230
+(anonymous) @ worldManagerEvents.ts:319
+emit @ WorldManager.ts:928
+loadMap @ WorldManager.ts:801
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:629
+initialize @ WorldManager.ts:227
+performWarpTransition @ performWarpTransition.ts:110
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 11, maxY: 9, width: 11, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+useHandledStoryScript.ts:89 [StoryScript] ▶ Starting: LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor
+useHandledStoryScript.ts:196 [movePlayerStep] dir=right mode=face pos=(2,8) isMoving=false inputLocked=true
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=down mode=walk pos=(8,7)
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(8,8)
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(7,8)
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(6,8)
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(5,8)
+useHandledStoryScript.ts:236 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(4,8)
+useHandledStoryScript.ts:412 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:423 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+useHandledStoryScript.ts:89 [StoryScript] ▶ Starting: RivalsHouse_1F_EventScript_RivalMom
+useHandledStoryScript.ts:412 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:423 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_MaysHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx:886
+handleMapsChanged @ worldManagerEvents.ts:230
+(anonymous) @ worldManagerEvents.ts:319
+emit @ WorldManager.ts:928
+loadMap @ WorldManager.ts:801
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:629
+initialize @ WorldManager.ts:227
+performWarpTransition @ performWarpTransition.ts:110
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [ObjectEventManager] Unknown item script: LittlerootTown_MaysHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+parseMapObjects @ ObjectEventManager.ts:108
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:116
+(anonymous) @ GamePage.tsx?t=1770672291623:611
+(anonymous) @ GamePage.tsx?t=1770672291623:633
+performWarpTransition @ performWarpTransition.ts:112
+await in performWarpTransition
+(anonymous) @ GamePage.tsx?t=1770672291623:681
+onExecuteWarp @ GamePage.tsx?t=1770672291623:970
+handleDoorEntryAction @ DoorActionDispatcher.ts:175
+runDoorEntryUpdate @ DoorSequenceRunner.ts:97
+renderLoop @ GamePage.tsx?t=1770672291623:973
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+requestAnimationFrame
+renderLoop @ GamePage.tsx?t=1770672291623:1221
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
+performWarpTransition.ts:249 [WARP] ON_WARP_INTO script executed: LittlerootTown_MaysHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: {minX: 0, minY: 0, maxX: 9, maxY: 8, width: 9, …}
+performWarpTransition.ts:265 [WARP] Loaded maps: ['MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F']
+performWarpTransition.ts:266 [WARP] Tileset pairs: ['gTileset_Building+gTileset_BrendansMaysHouse']
+performWarpTransition.ts:267 [WARP] GPU slots: {gTileset_Building+gTileset_BrendansMaysHouse: 0}
+
+No NPCs or items on adjacent tiles
+Player at (4, 4), facing left
+No visible NPCs
+No visible items
+Total NPCs:
+14
+Total Items:
+0Tile:
+(4, 4)
+Pixel:
+(64.0, 48.0)
+Direction:
+left
+Map:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Moving:
+NO
+Surfing:
+NO
+ELEVATION
+Render (prev):
+3
+Collision (cur):
+3
+STATE
+State:
+Normal
+Collision Check:
+ENABLED
+Visible NPCs:
+0
+Total NPCs:
+14
+Visible Items:
+0
+Total Items:
+0Tile:
+(4, 4)
+player.y:
+48
+Sprite Center (y+16):
+64
+Feet Y (y+32):
+80
+SortKey Y:
+80
+Subpriority:
+128
+Sort Key:
+20608
+Elevation:
+3
+Formula: sortKey = (feetY << 8) | subpriority = (80 << 8) | 128
+🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
+Player
+20608
++0
+First = renders first (behind) | Last = renders last (in front)
+0
+Player
+withPlayer
+20608
+tilesetVersion:
+33
+lastRendered:
+33
+needsFullRender:
+NO
+needsWarmup:
+NO
+hasCachedInstances:
+YES
+tilesetsUploaded:
+YES
+cached bg/tb/ta:
+1872/0/1656
+lastViewHash:
+33:-6,-6,21,21
+Copy pipeline debug
+Center pixel samples (RGBA):
+BG: 213,123,172,255
+TopBelow: 0,0,0,0
+Recent renders (most recent last):
+ts:
+422741.3 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422758.3 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422774.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422791.1 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422808.0 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422823.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422847.3 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422858.2 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422874.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422891.1 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422907.7 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+ts:
+422924.4 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+no
+tilesetVer:
+33
+hadCaches:
+yes
+Last pass renders:
+background:
+1872 inst · 336x336 · 366357.7ms
+topBelow:
+0 inst · 336x336 · 366358.1ms
+topAbove:
+1656 inst · 336x336 · 366358.5ms
+Player:
+(4, 4)
+Dest:
+(4, 4)
+Moving:
+NO
+Reflection State:
+Has Reflection:
+NO
+Type:
+none
+Bridge:
+none
+Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
+519
+-2,-2
+517
+-1,-2
+605
+0,-2
+615
+1,-2
+517
+2,-2
+668
+-2,-1
+668
+-1,-1
+669
+0,-1
+513
+1,-1
+640
+2,-1
+676
+-2,0
+676
+-1,0
+677
+0,0
+513
+1,0
+648
+2,0
+676
+-2,1
+676
+-1,1
+677
+0,1
+513
+1,1
+656
+2,1
+684
+-2,2
+684
+-1,2
+685
+0,2
+513
+1,2
+513
+2,2
+Tiles Below Player (reflection scan area):
+Y+1: (4, 5)
+Metatile:
+677 (2nd)
+Behavior:
+181 (UNK_181)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Y+2: (4, 6)
+Metatile:
+685 (2nd)
+Behavior:
+181 (UNK_181)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Enabled:
+Yes
+GBA Frame:
+24773
+Cycle Frame:
+4/48
+Scale X (M0):
+1.01563
+Scale X (M1):
+1.01563
+Tiles:
+3,528
+FPS:
+57
+Render:
+0.40 ms
+WebGL2:
+Yes
+Viewport:
+20×20
+Camera:
+(-88, -96)
+World:
+144×128px
+Intro State:
+7
+Should Run:
+No
+Active:
+No
+Locked:
+No
+Complete:
+Yes
+Door Closed:
+No
+Door Opened:
+No
+Frame:
+4796 / 24780
+Camera:
+(0, 0)
+Offsets:
+B1(3,3) B2(0,-3) B3(-3,0)
+Box Runtime:
+LOCALID_TRUCK_BOX_TOP
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_L
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_R
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+Slot 0
+Building + BrendansMaysHouse
+Slot 1
+empty
+Total tileset pairs: 1
+Slot 0 · Building + BrendansMaysHouse
+Animations:
+0
+Destinations:
+0
+Frames:
+0
+Current Map:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Anchor Map:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Player:
+(4, 4)
+Version:
+52
+Last Warp:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+Anchor:
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+World Bounds:
+(0,0) 9x8
+LITTLEROOT_TOWN_MAYS_HOUSE_2F
+(0,0) ✓GPU
+Building + BrendansMaysHouse
+→ Slot 0

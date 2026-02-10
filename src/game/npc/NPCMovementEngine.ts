@@ -8,9 +8,11 @@
  */
 
 import type { NPCObject, NPCDirection, NPCMovementType } from '../../types/objectEvents';
+import { TICK_60FPS_MS } from '../../config/timing';
+import { directionToOffset } from '../../utils/direction';
 
 // GBA runs at 60fps
-const FRAME_MS = 1000 / 60; // ~16.67ms
+const FRAME_MS = TICK_60FPS_MS;
 
 // Movement delay arrays from GBA (in frames)
 // sMovementDelaysShort  = {32, 48, 64, 80}   -> 0.53-1.33 seconds
@@ -68,13 +70,10 @@ export function directionToGBA(dir: NPCDirection): GBADirection {
  * Get direction deltas for movement
  */
 export function getDirectionDeltas(dir: GBADirection): { dx: number; dy: number } {
-  switch (dir) {
-    case DIR.NORTH: return { dx: 0, dy: -1 };
-    case DIR.SOUTH: return { dx: 0, dy: 1 };
-    case DIR.WEST: return { dx: -1, dy: 0 };
-    case DIR.EAST: return { dx: 1, dy: 0 };
-    default: return { dx: 0, dy: 0 };
+  if (dir === DIR.NONE) {
+    return { dx: 0, dy: 0 };
   }
+  return directionToOffset(gbaToDirection(dir));
 }
 
 /**

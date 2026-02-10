@@ -32,12 +32,7 @@ import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { WarpTrigger } from '../components/map/utils';
 import type { DebugOptions } from '../components/debug';
-
-// Helper to check if debug mode is enabled
-const DEBUG_MODE_FLAG = 'DEBUG_DOOR';
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
+import { isDebugMode } from '../utils/debug';
 
 /** Animation state for tileset animations */
 interface AnimationState {
@@ -167,7 +162,7 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
         // DEBUG: Track player position at start of each update
         {
           const p = refs.playerControllerRef.current;
-          if (p) {
+          if (p && isDebugMode('map')) {
             const posKey = `${p.tileX},${p.tileY},${p.x.toFixed(1)},${p.y.toFixed(1)}`;
             if ((window as unknown as Record<string, unknown>).__lastPosKey !== posKey) {
               console.log(`[FRAME_POS] tile:(${p.tileX},${p.tileY}) pixel:(${p.x.toFixed(1)},${p.y.toFixed(1)}) moving:${p.isMoving} dir:${p.dir}`);
@@ -197,7 +192,7 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
 
             // Debug logging for stair/ladder behaviors
             const behavior = warpResult.behavior ?? -1;
-            if (isDebugMode() && (behavior === 96 || behavior === 97)) {
+            if (isDebugMode('door') && (behavior === 96 || behavior === 97)) {
               console.log('[TILE_CHANGED_STAIR_LADDER]', {
                 playerTile: { x: player.tileX, y: player.tileY },
                 behavior: `0x${behavior.toString(16)} (${behavior})`,
@@ -211,7 +206,7 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
           // Handle warp actions
           const action = warpResult.action;
           if (action.type === 'arrow') {
-            if (isDebugMode()) {
+            if (isDebugMode('door')) {
               console.log('[DETECT_WARP] Arrow warp detected, waiting for player input');
             }
           } else if (action.type === 'autoDoorWarp') {

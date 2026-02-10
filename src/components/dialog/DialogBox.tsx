@@ -15,7 +15,7 @@ import { useDialogContext } from './DialogContext';
 import { DialogFrame } from './DialogFrame';
 import { DialogText, DialogArrow } from './DialogText';
 import { YesNoMenu, OptionMenu } from './OptionMenu';
-import { DIALOG_DIMENSIONS, YESNO_DIMENSIONS, TILE_SIZE, tilesToPx } from './types';
+import { DIALOG_DIMENSIONS, YESNO_DIMENSIONS, TILE_SIZE, TEXT_SPECS, tilesToPx } from './types';
 
 interface DialogBoxProps {
   /** Viewport width in pixels */
@@ -48,19 +48,35 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   // Get current message
   const currentMessage = messages[state.messageIndex] ?? { text: '' };
 
-  const renderedText = state.type === 'editing'
-    ? `${currentMessage.text}\n${state.value}_`
-    : currentMessage.text;
+  // Line height for scroll offset calculation
+  const lineHeight = TILE_SIZE * TEXT_SPECS.lineHeightMultiplier * zoom;
 
-  // Calculate visible characters for typewriter effect
-  let visibleChars = renderedText.length;
-  if (state.type === 'printing') {
-    visibleChars = state.charIndex;
-  } else if (state.type === 'waiting' || state.type === 'choosing') {
-    visibleChars = currentMessage.text.length;
+  // Compute scroll offset and display text for scrolling state
+  let renderedText: string;
+  let visibleChars: number;
+  let scrollOffset = 0;
+
+  if (state.type === 'scrolling') {
+    // During scroll: just scroll the current 2 lines up.
+    // Line 1 gets clipped at the top by overflow:hidden.
+    // After FINISH_SCROLL, the next message starts with the carried line
+    // already prefilled and the new line typewriters in.
+    renderedText = currentMessage.text;
+    visibleChars = renderedText.length;
+    scrollOffset = state.scrollProgress * lineHeight;
+  } else if (state.type === 'editing') {
+    renderedText = `${currentMessage.text}\n${state.value}_`;
+    visibleChars = renderedText.length;
+  } else {
+    renderedText = currentMessage.text;
+    if (state.type === 'printing') {
+      visibleChars = state.charIndex;
+    } else {
+      visibleChars = currentMessage.text.length;
+    }
   }
 
-  // Show arrow when waiting for input (not during choosing)
+  // Show arrow when waiting for input (not during choosing or scrolling)
   const showArrow = state.type === 'waiting' && !options;
 
   // Determine if we're showing a Yes/No menu
@@ -169,6 +185,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             color={config.textColor}
             shadowColor={config.shadowColor}
             fontFamily={config.fontFamily}
+            scrollOffset={scrollOffset}
           />
           <DialogArrow visible={showArrow} zoom={zoom} />
         </DialogFrame>

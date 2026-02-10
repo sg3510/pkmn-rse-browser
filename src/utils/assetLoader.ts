@@ -5,6 +5,8 @@
  * so states/hooks don't re-implement per-file loaders.
  */
 
+import { createCanvas2D } from './canvasHelper';
+
 export interface RgbColor {
   r: number;
   g: number;
@@ -39,14 +41,8 @@ function getCanvasCacheKey(src: string, options?: LoadImageCanvasOptions): strin
 }
 
 function cloneCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
-  const clone = document.createElement('canvas');
-  clone.width = source.width;
-  clone.height = source.height;
-  const ctx = clone.getContext('2d');
-  if (ctx) {
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(source, 0, 0);
-  }
+  const { canvas: clone, ctx } = createCanvas2D(source.width, source.height);
+  ctx.drawImage(source, 0, 0);
   return clone;
 }
 
@@ -117,22 +113,14 @@ function applyTransparencyToCanvas(canvas: HTMLCanvasElement, mode?: Transparenc
 }
 
 export function imageToCanvas(image: CanvasImageSource, width?: number, height?: number): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
   const resolvedWidth =
     width
     ?? ((image as HTMLImageElement).naturalWidth || (image as HTMLImageElement).width || 0);
   const resolvedHeight =
     height
     ?? ((image as HTMLImageElement).naturalHeight || (image as HTMLImageElement).height || 0);
-
-  canvas.width = resolvedWidth;
-  canvas.height = resolvedHeight;
-
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, 0, 0, resolvedWidth, resolvedHeight);
-  }
+  const { canvas, ctx } = createCanvas2D(resolvedWidth, resolvedHeight);
+  ctx.drawImage(image, 0, 0, resolvedWidth, resolvedHeight);
   return canvas;
 }
 
@@ -255,4 +243,3 @@ export function clearAssetCaches(): void {
   binaryCache.clear();
   canvasCache.clear();
 }
-

@@ -12,14 +12,15 @@ import {
 export type { ResolvedTile } from './types';
 import {
   type MapTileData,
-  NUM_PRIMARY_METATILES,
   METATILE_LAYER_TYPE_NORMAL,
   METATILE_LAYER_TYPE_COVERED,
   METATILE_LAYER_TYPE_SPLIT,
   isCollisionPassable,
+  resolveMetatileIndex,
 } from '../../utils/mapLoader';
 import { type WorldMapInstance, type WarpEvent } from '../../services/MapManager';
 import { PlayerController } from '../../game/PlayerController';
+import { isDebugMode } from '../../utils/debug';
 import {
   getBridgeTypeFromBehavior,
   isDoorBehavior,
@@ -30,20 +31,16 @@ import {
 } from '../../utils/metatileBehaviors';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 
-const DEBUG_MODE_FLAG = 'PKMN_DEBUG_MODE';
-
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
-
 export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY: number): ResolvedTile | null {
-  const map = ctx.world.maps.find(
-    (m) =>
-      worldTileX >= m.offsetX &&
-      worldTileX < m.offsetX + m.mapData.width &&
-      worldTileY >= m.offsetY &&
-      worldTileY < m.offsetY + m.mapData.height
-  );
+  const tileLookupKey = `${worldTileX},${worldTileY}`;
+  const map = ctx.tileLookup?.get(tileLookupKey)
+    ?? ctx.world.maps.find(
+      (m) =>
+        worldTileX >= m.offsetX &&
+        worldTileX < m.offsetX + m.mapData.width &&
+        worldTileY >= m.offsetY &&
+        worldTileY < m.offsetY + m.mapData.height
+    );
 
   if (map) {
     const localX = worldTileX - map.offsetX;
@@ -51,12 +48,12 @@ export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY
     const idx = localY * map.mapData.width + localX;
     const mapTileData = map.mapData.layout[idx];
     const metatileId = mapTileData.metatileId;
-    const isSecondary = metatileId >= NUM_PRIMARY_METATILES;
+    const { isSecondary, index: metatileIndex } = resolveMetatileIndex(metatileId);
     const metatile = isSecondary
-      ? map.tilesets.secondaryMetatiles[metatileId - NUM_PRIMARY_METATILES] ?? null
+      ? map.tilesets.secondaryMetatiles[metatileIndex] ?? null
       : map.tilesets.primaryMetatiles[metatileId] ?? null;
     const attributes = isSecondary
-      ? map.tilesets.secondaryAttributes[metatileId - NUM_PRIMARY_METATILES]
+      ? map.tilesets.secondaryAttributes[metatileIndex]
       : map.tilesets.primaryAttributes[metatileId];
     return {
       map,
@@ -77,12 +74,12 @@ export function resolveTileAt(ctx: RenderContext, worldTileX: number, worldTileY
   // Shift pattern one tile up/left so the repeating border visually aligns with GBA behavior.
   const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
   const borderMetatileId = borderTiles[borderIndex % borderTiles.length];
-  const isSecondary = borderMetatileId >= NUM_PRIMARY_METATILES;
+  const { isSecondary, index: borderMetatileIndex } = resolveMetatileIndex(borderMetatileId);
   const metatile = isSecondary
-    ? anchor.tilesets.secondaryMetatiles[borderMetatileId - NUM_PRIMARY_METATILES] ?? null
+    ? anchor.tilesets.secondaryMetatiles[borderMetatileIndex] ?? null
     : anchor.tilesets.primaryMetatiles[borderMetatileId] ?? null;
   const attributes = isSecondary
-    ? anchor.tilesets.secondaryAttributes[borderMetatileId - NUM_PRIMARY_METATILES]
+    ? anchor.tilesets.secondaryAttributes[borderMetatileIndex]
     : anchor.tilesets.primaryAttributes[borderMetatileId];
   // Border tiles: create MapTileData with impassable collision, elevation 0
   const mapTile: MapTileData = {
@@ -118,8 +115,9 @@ export function getMetatileBehavior(
   const runtime = ctx.tilesetRuntimes.get(resolved.tileset.key);
   if (!runtime) return null;
   const metatileId = resolved.mapTile.metatileId;
+  const metatileIndex = resolveMetatileIndex(metatileId).index;
   const meta = resolved.isSecondary
-    ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+    ? runtime.secondaryReflectionMeta[metatileIndex]
     : runtime.primaryReflectionMeta[metatileId];
   const behavior = resolved.attributes?.behavior ?? -1;
   return {
@@ -152,7 +150,7 @@ export function detectWarpTrigger(ctx: RenderContext, player: PlayerController):
   const behavior = resolved.attributes?.behavior ?? -1;
 
   // Debug: Log warp check details before looking up warp event
-  if (isDebugMode()) {
+  if (isDebugMode('map')) {
     const localX = player.tileX - resolved.map.offsetX;
     const localY = player.tileY - resolved.map.offsetY;
     console.log('[WARP_CHECK]', {
@@ -171,7 +169,7 @@ export function detectWarpTrigger(ctx: RenderContext, player: PlayerController):
   const metatileId = resolved.mapTile.metatileId;
   const kind = classifyWarpKind(behavior) ?? 'teleport';
   
-  if (isDebugMode()) {
+  if (isDebugMode('map')) {
     console.log('[DETECT_WARP_TRIGGER]', {
       tileX: player.tileX,
       tileY: player.tileY,
@@ -308,7 +306,7 @@ export function describeTile(
   const meta = resolved.metatile;
   const reflectionMeta = runtime
     ? isSecondary
-      ? runtime.secondaryReflectionMeta[metatileId - NUM_PRIMARY_METATILES]
+      ? runtime.secondaryReflectionMeta[resolveMetatileIndex(metatileId).index]
       : runtime.primaryReflectionMeta[metatileId]
     : undefined;
   const behavior = attr?.behavior;

@@ -48,6 +48,7 @@
 import type { BridgeType } from '../utils/metatileBehaviors';
 import { isPondBridge, getBridgeTypeFromBehavior } from '../utils/metatileBehaviors';
 import type { ReflectionMeta } from '../utils/tilesetUtils';
+import { METATILE_SIZE } from '../utils/mapLoader';
 import {
   ReflectionShimmer,
   getGlobalShimmer,
@@ -256,8 +257,6 @@ export function createEmptyReflectionState(): ReflectionState {
 // =============================================================================
 // Generic Reflection Computation and Rendering
 // =============================================================================
-
-const METATILE_SIZE = 16;
 
 /**
  * Result from looking up reflection meta at a tile position.

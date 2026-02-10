@@ -17,8 +17,9 @@ import type {
 import type { WorldSnapshot } from './WorldManager';
 import { resolveTileAt } from '../components/map/utils';
 import type { MetatileAttributes } from '../utils/mapLoader';
-import { SECONDARY_TILE_OFFSET } from '../utils/mapLoader';
+import { resolveMetatileIndex } from '../utils/mapLoader';
 import type { TileResolver as PlayerTileResolver } from './PlayerController';
+import { buildSnapshotSpatialIndex } from './snapshotSpatialIndex';
 
 // =============================================================================
 // Types
@@ -66,6 +67,7 @@ export class TileResolverFactory {
 
     const shouldLog = !!logger;
     const log = logger ?? (() => {});
+    const spatialIndex = buildSnapshotSpatialIndex(snapshot);
 
     // Helper to convert tileset pair array index to GPU slot (0 or 1)
     const getGpuSlot = (pairIndex: number): number => {
@@ -89,105 +91,68 @@ export class TileResolverFactory {
       if (!pair) return false;
       return pairIdToGpuSlot.has(pair.id);
     };
+    const mapIdsWithGpuTilesets = new Set(
+      maps
+        .filter((map) => isMapTilesetInGpu(map))
+        .map((map) => map.entry.id)
+    );
 
     return (worldX: number, worldY: number): ResolvedTile | null => {
-      // Find which map contains this world tile
-      for (const map of maps) {
+      const map = spatialIndex.getMapAt(worldX, worldY);
+      if (map) {
         const localX = worldX - map.offsetX;
         const localY = worldY - map.offsetY;
 
-        if (
-          localX >= 0 &&
-          localX < map.entry.width &&
-          localY >= 0 &&
-          localY < map.entry.height
-        ) {
-          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-          const pair = tilesetPairs[pairIndex];
+        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+        const pair = tilesetPairs[pairIndex];
 
-          const idx = localY * map.entry.width + localX;
-          const mapTile = map.mapData.layout[idx];
-          const metatileId = mapTile.metatileId;
+        const idx = localY * map.entry.width + localX;
+        const mapTile = map.mapData.layout[idx];
+        if (!mapTile) return null;
+        const metatileId = mapTile.metatileId;
 
-          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-          const metatile = isSecondary
-            ? pair.secondaryMetatiles[metatileId - SECONDARY_TILE_OFFSET]
-            : pair.primaryMetatiles[metatileId];
+        const { isSecondary, index: attrIndex } = resolveMetatileIndex(metatileId);
+        const metatile = isSecondary
+          ? pair.secondaryMetatiles[attrIndex]
+          : pair.primaryMetatiles[metatileId];
 
-          if (!metatile) return null;
+        if (!metatile) return null;
 
-          const attrIndex = isSecondary
-            ? metatileId - SECONDARY_TILE_OFFSET
-            : metatileId;
-          const attrArray = isSecondary
-            ? pair.secondaryAttributes
-            : pair.primaryAttributes;
-          const attributes: MetatileAttributes = attrArray[attrIndex] ?? {
-            behavior: 0,
-            layerType: 0,
-          };
+        const attrArray = isSecondary
+          ? pair.secondaryAttributes
+          : pair.primaryAttributes;
+        const attributes: MetatileAttributes = attrArray[attrIndex] ?? {
+          behavior: 0,
+          layerType: 0,
+        };
 
-          // Use GPU slot index (0 or 1), not array index
-          const gpuSlot = getGpuSlot(pairIndex);
+        // Use GPU slot index (0 or 1), not array index
+        const gpuSlot = getGpuSlot(pairIndex);
 
-          if (shouldLog) {
-            log(
-              `[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> map:${map.entry.id} local(${localX},${localY}) metatile:${metatileId} gpuSlot:${gpuSlot} pair:${pair.id}`
-            );
-          }
-
-          return {
-            metatile,
-            attributes,
-            mapTile,
-            map: null as any,
-            tileset: null as any,
-            isSecondary,
-            isBorder: false,
-            tilesetPairIndex: gpuSlot,
-          };
+        if (shouldLog) {
+          log(
+            `[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> map:${map.entry.id} local(${localX},${localY}) metatile:${metatileId} gpuSlot:${gpuSlot} pair:${pair.id}`
+          );
         }
+
+        return {
+          metatile,
+          attributes,
+          mapTile,
+          map: null as any,
+          tileset: null as any,
+          isSecondary,
+          isBorder: false,
+          tilesetPairIndex: gpuSlot,
+        };
       }
 
       // Out of bounds - find NEAREST map whose tileset pair is IN GPU and use its border tiles
       // CRITICAL: We can only render tiles from tilesets that are currently in GPU!
       // If nearest map's tileset isn't in GPU, fall back to a map whose tileset IS in GPU
-      let nearestMap: (typeof maps)[0] | null = null;
-      let nearestDist = Infinity;
-
-      for (const map of maps) {
-        // ONLY consider maps whose tileset pair is currently in GPU
-        if (!isMapTilesetInGpu(map)) continue;
-
-        // Calculate distance from (worldX, worldY) to map's bounding box
-        const mapLeft = map.offsetX;
-        const mapRight = map.offsetX + map.entry.width;
-        const mapTop = map.offsetY;
-        const mapBottom = map.offsetY + map.entry.height;
-
-        // Horizontal distance (0 if inside map's X range)
-        const dx =
-          worldX < mapLeft
-            ? mapLeft - worldX
-            : worldX >= mapRight
-              ? worldX - mapRight + 1
-              : 0;
-        // Vertical distance (0 if inside map's Y range)
-        const dy =
-          worldY < mapTop
-            ? mapTop - worldY
-            : worldY >= mapBottom
-              ? worldY - mapBottom + 1
-              : 0;
-
-        // Euclidean distance to bounding box (squared for comparison, no need for sqrt)
-        const dist = dx * dx + dy * dy;
-
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestMap = map;
-        }
-      }
+      let nearestMap = mapIdsWithGpuTilesets.size > 0
+        ? spatialIndex.getNearestMap(worldX, worldY, mapIdsWithGpuTilesets)
+        : null;
 
       // Fall back to anchor if no maps with GPU tilesets found
       if (!nearestMap) {
@@ -221,16 +186,13 @@ export class TileResolverFactory {
         ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
       const borderMetatileId = borderMetatiles[borderIndex];
 
-      const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
+      const { isSecondary, index: attrIndex } = resolveMetatileIndex(borderMetatileId);
       const metatile = isSecondary
-        ? nearestPair.secondaryMetatiles[borderMetatileId - SECONDARY_TILE_OFFSET]
+        ? nearestPair.secondaryMetatiles[attrIndex]
         : nearestPair.primaryMetatiles[borderMetatileId];
 
       if (!metatile) return null;
 
-      const attrIndex = isSecondary
-        ? borderMetatileId - SECONDARY_TILE_OFFSET
-        : borderMetatileId;
       const attrArray = isSecondary
         ? nearestPair.secondaryAttributes
         : nearestPair.primaryAttributes;
@@ -265,42 +227,35 @@ export class TileResolverFactory {
    * Create a player tile resolver from a WorldManager snapshot.
    * Used for collision detection and behavior checks.
    *
-   * @param snapshot - WorldSnapshot from WorldManager
+  * @param snapshot - WorldSnapshot from WorldManager
    */
   static createPlayerResolver(snapshot: WorldSnapshot): PlayerTileResolver {
-    const { maps, tilesetPairs, mapTilesetPairIndex } = snapshot;
+    const { tilesetPairs, mapTilesetPairIndex } = snapshot;
+    const spatialIndex = buildSnapshotSpatialIndex(snapshot);
 
     return (worldX: number, worldY: number): PlayerTileResult | null => {
-      for (const map of maps) {
+      const map = spatialIndex.getMapAt(worldX, worldY);
+      if (map) {
         const localX = worldX - map.offsetX;
         const localY = worldY - map.offsetY;
 
-        if (
-          localX >= 0 &&
-          localX < map.entry.width &&
-          localY >= 0 &&
-          localY < map.entry.height
-        ) {
-          const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-          const pair = tilesetPairs[pairIndex];
+        const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+        const pair = tilesetPairs[pairIndex];
 
-          const idx = localY * map.entry.width + localX;
-          const mapTile = map.mapData.layout[idx];
-          const metatileId = mapTile.metatileId;
-          const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-          const attrIndex = isSecondary
-            ? metatileId - SECONDARY_TILE_OFFSET
-            : metatileId;
-          const attrArray = isSecondary
-            ? pair.secondaryAttributes
-            : pair.primaryAttributes;
-          const attributes: MetatileAttributes = attrArray[attrIndex] ?? {
-            behavior: 0,
-            layerType: 0,
-          };
+        const idx = localY * map.entry.width + localX;
+        const mapTile = map.mapData.layout[idx];
+        if (!mapTile) return null;
+        const metatileId = mapTile.metatileId;
+        const { isSecondary, index: attrIndex } = resolveMetatileIndex(metatileId);
+        const attrArray = isSecondary
+          ? pair.secondaryAttributes
+          : pair.primaryAttributes;
+        const attributes: MetatileAttributes = attrArray[attrIndex] ?? {
+          behavior: 0,
+          layerType: 0,
+        };
 
-          return { mapTile, attributes };
-        }
+        return { mapTile, attributes };
       }
       return null;
     };

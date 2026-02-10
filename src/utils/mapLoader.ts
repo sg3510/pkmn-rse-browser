@@ -1,5 +1,6 @@
 import UPNG from 'upng-js';
 import { loadBinaryAsset, loadTextAsset } from './assetLoader';
+import { isDebugMode } from './debug';
 
 export interface Palette {
   colors: string[]; // 16 hex strings: "#RRGGBB"
@@ -66,6 +67,19 @@ export const METATILE_SIZE = 16;
 export const TILES_PER_ROW_IN_IMAGE = 16; // 128px / 8px
 export const SECONDARY_TILE_OFFSET = TILES_PER_ROW_IN_IMAGE * 32; // 512 tiles
 export const NUM_PRIMARY_METATILES = 512;
+
+export interface ResolvedMetatileIndex {
+  index: number;
+  isSecondary: boolean;
+}
+
+export function resolveMetatileIndex(metatileId: number): ResolvedMetatileIndex {
+  const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
+  return {
+    index: isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId,
+    isSecondary,
+  };
+}
 
 /**
  * Bit masks and shifts for map.bin tile data
@@ -139,7 +153,7 @@ export async function loadTilesetImage(url: string, withDimensions?: boolean): P
     }
   } else {
     // Only warn if debug mode is enabled
-    if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+    if (isDebugMode()) {
       console.warn('Tileset image is not indexed (ctype != 3). This might cause issues.', url);
     }
     data = new Uint8Array(img.data);

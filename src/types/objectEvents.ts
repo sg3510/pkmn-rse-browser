@@ -157,6 +157,13 @@ export interface NPCObject {
   initialTileX: number;
   /** Initial spawn Y position (for movement range checking) */
   initialTileY: number;
+
+  // Jump animation state (updated by script movement)
+
+  /** Y pixel offset for jump arc (negative = up). Default 0. */
+  spriteYOffset?: number;
+  /** Render shadow sprite during jumps */
+  showShadow?: boolean;
 }
 
 /**

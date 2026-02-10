@@ -1,0 +1,97 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "NavelRock_Top_OnTransition",
+    onResume: "NavelRock_Top_OnResume",
+  },
+  scripts: {
+    "NavelRock_Top_OnTransition": [
+      { cmd: "call_if_set", args: ["FLAG_CAUGHT_HO_OH", "NavelRock_Top_EventScript_HideHoOh"] },
+      { cmd: "call_if_unset", args: ["FLAG_CAUGHT_HO_OH", "NavelRock_Top_EventScript_TryShowHoOh"] },
+      { cmd: "end" },
+    ],
+    "NavelRock_Top_EventScript_HideHoOh": [
+      { cmd: "setvar", args: ["VAR_TEMP_1", 1] },
+      { cmd: "setflag", args: ["FLAG_HIDE_HO_OH"] },
+      { cmd: "return" },
+    ],
+    "NavelRock_Top_EventScript_TryShowHoOh": [
+      { cmd: "setvar", args: ["VAR_TEMP_1", 1] },
+      { cmd: "goto_if_set", args: ["FLAG_DEFEATED_HO_OH", "Common_EventScript_NopReturn"] },
+      { cmd: "setvar", args: ["VAR_TEMP_1", 0] },
+      { cmd: "clearflag", args: ["FLAG_HIDE_HO_OH"] },
+      { cmd: "return" },
+    ],
+    "NavelRock_Top_OnResume": [
+      { cmd: "call_if_set", args: ["FLAG_SYS_CTRL_OBJ_DELETE", "NavelRock_Top_EventScript_TryRemoveHoOh"] },
+      { cmd: "end" },
+    ],
+    "NavelRock_Top_EventScript_TryRemoveHoOh": [
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_ne", args: ["VAR_RESULT", "B_OUTCOME_CAUGHT", "Common_EventScript_NopReturn"] },
+      { cmd: "removeobject", args: ["LOCALID_NAVEL_ROCK_HO_OH"] },
+      { cmd: "return" },
+    ],
+    "NavelRock_Top_EventScript_HoOh": [
+      { cmd: "lockall" },
+      { cmd: "setvar", args: ["VAR_TEMP_1", 1] },
+      { cmd: "special", args: ["SpawnCameraObject"] },
+      { cmd: "setvar", args: ["VAR_0x8004", 3] },
+      { cmd: "setvar", args: ["VAR_0x8005", 35] },
+      { cmd: "special", args: ["LoopWingFlapSE"] },
+      { cmd: "applymovement", args: ["LOCALID_NAVEL_ROCK_HO_OH", "NavelRock_Top_Movement_HoOhAppear"] },
+      { cmd: "applymovement", args: ["LOCALID_CAMERA", "NavelRock_Top_Movement_CameraPanUp"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [50] },
+      { cmd: "setweather", args: ["WEATHER_NONE"] },
+      { cmd: "doweather" },
+      { cmd: "waitse" },
+      { cmd: "playmoncry", args: ["SPECIES_HO_OH", "CRY_MODE_ENCOUNTER"] },
+      { cmd: "delay", args: [30] },
+      { cmd: "waitmoncry" },
+      { cmd: "delay", args: [60] },
+      { cmd: "setvar", args: ["VAR_0x8004", 3] },
+      { cmd: "setvar", args: ["VAR_0x8005", 35] },
+      { cmd: "special", args: ["LoopWingFlapSE"] },
+      { cmd: "applymovement", args: ["LOCALID_CAMERA", "NavelRock_Top_Movement_CameraPanDown"] },
+      { cmd: "applymovement", args: ["LOCALID_NAVEL_ROCK_HO_OH", "NavelRock_Top_Movement_HoOhApproach"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "special", args: ["RemoveCameraObject"] },
+      { cmd: "seteventmon", args: ["SPECIES_HO_OH", 70] },
+      { cmd: "setflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "special", args: ["BattleSetup_StartLegendaryBattle"] },
+      { cmd: "waitstate" },
+      { cmd: "clearflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "setvar", args: ["VAR_LAST_TALKED", "LOCALID_NAVEL_ROCK_HO_OH"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_WON", "NavelRock_Top_EventScript_DefeatedHoOh"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_RAN", "NavelRock_Top_EventScript_RanFromHoOh"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_PLAYER_TELEPORTED", "NavelRock_Top_EventScript_RanFromHoOh"] },
+      { cmd: "setflag", args: ["FLAG_CAUGHT_HO_OH"] },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "NavelRock_Top_EventScript_DefeatedHoOh": [
+      { cmd: "setflag", args: ["FLAG_DEFEATED_HO_OH"] },
+      { cmd: "setvar", args: ["VAR_0x8004", "SPECIES_HO_OH"] },
+      { cmd: "goto", args: ["Common_EventScript_LegendaryFlewAway"] },
+      { cmd: "end" },
+    ],
+    "NavelRock_Top_EventScript_RanFromHoOh": [
+      { cmd: "setvar", args: ["VAR_0x8004", "SPECIES_HO_OH"] },
+      { cmd: "goto", args: ["Common_EventScript_LegendaryFlewAway"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+    "NavelRock_Top_Movement_CameraPanUp": ["walk_up", "walk_up", "walk_up"],
+    "NavelRock_Top_Movement_CameraPanDown": ["delay_16", "delay_16", "walk_down", "walk_down", "walk_down"],
+    "NavelRock_Top_Movement_HoOhApproach": ["walk_down", "walk_down", "walk_down", "walk_down", "walk_down", "walk_in_place_down", "delay_16", "delay_16"],
+    "NavelRock_Top_Movement_HoOhAppear": ["delay_16", "delay_16", "walk_in_place_down", "walk_in_place_down", "walk_in_place_down", "walk_in_place_down"],
+  },
+  text: {
+  },
+};

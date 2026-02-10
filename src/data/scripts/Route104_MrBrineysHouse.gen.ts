@@ -1,0 +1,116 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "Route104_MrBrineysHouse_OnTransition",
+  },
+  scripts: {
+    "Route104_MrBrineysHouse_OnTransition": [
+      { cmd: "setflag", args: ["FLAG_LANDMARK_MR_BRINEY_HOUSE"] },
+      { cmd: "call_if_eq", args: ["VAR_BRINEY_HOUSE_STATE", 1, "Route104_MrBrineysHouse_EventScript_SetBrineyPeekoPos"] },
+      { cmd: "call_if_set", args: ["FLAG_RECEIVED_POKENAV", "Route104_MrBrineysHouse_EventScript_HideRustboroRival"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_HideRustboroRival": [
+      { cmd: "setflag", args: ["FLAG_HIDE_RUSTBORO_CITY_RIVAL"] },
+      { cmd: "return" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_SetBrineyPeekoPos": [
+      { cmd: "setobjectxyperm", args: ["LOCALID_BRINEYS_HOUSE_BRINEY", 9, 3] },
+      { cmd: "setobjectmovementtype", args: ["LOCALID_BRINEYS_HOUSE_BRINEY", "MOVEMENT_TYPE_WALK_SEQUENCE_DOWN_LEFT_UP_RIGHT"] },
+      { cmd: "setobjectxyperm", args: ["LOCALID_BRINEYS_HOUSE_PEEKO", 9, 6] },
+      { cmd: "setobjectmovementtype", args: ["LOCALID_BRINEYS_HOUSE_PEEKO", "MOVEMENT_TYPE_WALK_SEQUENCE_LEFT_UP_RIGHT_DOWN"] },
+      { cmd: "return" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_Briney": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "call_if_unset", args: ["FLAG_MR_BRINEY_SAILING_INTRO", "Route104_MrBrineysHouse_EventScript_SailingIntro"] },
+      { cmd: "goto_if_unset", args: ["FLAG_DELIVERED_STEVEN_LETTER", "Route104_MrBrineysHouse_EventScript_SailBothDeliveries"] },
+      { cmd: "goto_if_unset", args: ["FLAG_DELIVERED_DEVON_GOODS", "Route104_MrBrineysHouse_EventScript_SailDeliverPackage"] },
+      { cmd: "goto", args: ["Route104_MrBrineysHouse_EventScript_WhereAreWeBound"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_SailingIntro": [
+      { cmd: "setflag", args: ["FLAG_MR_BRINEY_SAILING_INTRO"] },
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_WaitUpPeeko", "MSGBOX_DEFAULT"] },
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_ItsYouLetsSailToDewford", "MSGBOX_YESNO"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "NO", "Route104_MrBrineysHouse_EventScript_DeclineDeliverySailing"] },
+      { cmd: "goto", args: ["Route104_MrBrineysHouse_EventScript_SailToDewford"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_WhereAreWeBound": [
+      { cmd: "message", args: ["Route104_MrBrineysHouse_Text_WhereAreWeBound"] },
+      { cmd: "waitmessage" },
+      { cmd: "multichoicedefault", args: [20, 8, "MULTI_BRINEY_OFF_DEWFORD", 1, "FALSE"] },
+      { cmd: "switch", args: ["VAR_RESULT"] },
+      { cmd: "case", args: [0, "Route104_MrBrineysHouse_EventScript_SailToDewford"] },
+      { cmd: "case", args: [1, "Route104_MrBrineysHouse_EventScript_DeclineSailing"] },
+      { cmd: "case", args: ["MULTI_B_PRESSED", "Route104_MrBrineysHouse_EventScript_DeclineSailing"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_SailBothDeliveries": [
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_NeedToMakeDeliveriesSailToDewford", "MSGBOX_YESNO"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "NO", "Route104_MrBrineysHouse_EventScript_DeclineDeliverySailing"] },
+      { cmd: "goto", args: ["Route104_MrBrineysHouse_EventScript_SailToDewford"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_SailDeliverPackage": [
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_NeedToDeliverPackageSailToDewford", "MSGBOX_YESNO"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "NO", "Route104_MrBrineysHouse_EventScript_DeclineDeliverySailing"] },
+      { cmd: "goto", args: ["Route104_MrBrineysHouse_EventScript_SailToDewford"] },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_DeclineDeliverySailing": [
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_DeclineDeliverySail", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_DeclineSailing": [
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_TellMeWheneverYouWantToSail", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_SailToDewford": [
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_SetSailForDewford", "MSGBOX_DEFAULT"] },
+      { cmd: "call", args: ["EventScript_BackupMrBrineyLocation"] },
+      { cmd: "setvar", args: ["VAR_BOARD_BRINEY_BOAT_STATE", 1] },
+      { cmd: "clearflag", args: ["FLAG_HIDE_ROUTE_104_MR_BRINEY"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_BRINEYS_HOUSE_MR_BRINEY"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_BRINEYS_HOUSE_PEEKO"] },
+      { cmd: "setvar", args: ["VAR_RUSTBORO_CITY_STATE", 8] },
+      { cmd: "setvar", args: ["VAR_ROUTE104_STATE", 2] },
+      { cmd: "setflag", args: ["FLAG_HIDE_RUSTBORO_CITY_RIVAL"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_ROUTE_104_RIVAL"] },
+      { cmd: "warp", args: ["MAP_ROUTE104", 13, 51] },
+      { cmd: "waitstate" },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "Route104_MrBrineysHouse_EventScript_Peeko": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "waitse" },
+      { cmd: "playmoncry", args: ["SPECIES_WINGULL", "CRY_MODE_NORMAL"] },
+      { cmd: "msgbox", args: ["Route104_MrBrineysHouse_Text_Peeko", "MSGBOX_DEFAULT"] },
+      { cmd: "waitmoncry" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+    "Route104_MrBrineysHouse_Text_WaitUpPeeko": "MR. BRINEY: Hold on, lass!\\nWait up, PEEKO!",
+    "Route104_MrBrineysHouse_Text_ItsYouLetsSailToDewford": "Hm? You're {PLAYER}{KUN}!\\nYou saved my darling PEEKO!\\lWe owe so much to you!\\pWhat's that?\\nYou want to sail with me?\\pHmhm…\\pYou have a LETTER bound for DEWFORD\\nand a package for SLATEPORT, then?\\pQuite the busy life you must lead!\\pBut, certainly, what you're asking is\\nno problem at all.\\pYou've come to the right man!\\nWe'll set sail for DEWFORD.",
+    "Route104_MrBrineysHouse_Text_SetSailForDewford": "MR. BRINEY: DEWFORD it is, then!\\pAnchors aweigh!\\nPEEKO, we're setting sail, my darling!",
+    "Route104_MrBrineysHouse_Text_DeclineDeliverySail": "MR. BRINEY: Is that so?\\nYour deliveries can wait?\\pYou just go on and tell me whenever\\nyou want to set sail!",
+    "Route104_MrBrineysHouse_Text_NeedToMakeDeliveriesSailToDewford": "MR. BRINEY: Ahoy!\\nI know exactly what you want to say!\\pYou're to deliver a LETTER to DEWFORD\\nand a package to SLATEPORT.\\pWhat you need me to do is no problem\\nat all--I'm the man for the job!\\pFirst, we'll set sail for DEWFORD.",
+    "Route104_MrBrineysHouse_Text_NeedToDeliverPackageSailToDewford": "MR. BRINEY: Ahoy!\\nI know exactly what you want to say!\\pYou're to deliver a package to\\nCAPT. STERN in SLATEPORT.\\pWhat you need me to do is no problem\\nat all--I'm the man for the job!\\pFirst, we'll set sail for DEWFORD.",
+    "Route104_MrBrineysHouse_Text_WhereAreWeBound": "MR. BRINEY: Ahoy!\\nFor you, I'll go out to sea anytime!\\pNow, my friend, where are we bound?",
+    "Route104_MrBrineysHouse_Text_TellMeWheneverYouWantToSail": "MR. BRINEY: Is that so?\\nWell, PEEKO owes her life to you.\\pYou just go on and tell me whenever\\nyou want to set sail!",
+    "Route104_MrBrineysHouse_Text_Peeko": "PEEKO: Pii piihyoro!",
+  },
+};

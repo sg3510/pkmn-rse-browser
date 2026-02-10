@@ -11,8 +11,7 @@ import type { WorldSnapshot } from '../../game/WorldManager';
 import type { TilesetRuntime } from '../../utils/tilesetUtils';
 import type { ReflectionState } from '../map/types';
 import type { ReflectionTileDebugInfo, ReflectionTileGridDebugInfo } from './types';
-
-const SECONDARY_TILE_OFFSET = 512;
+import { SECONDARY_TILE_OFFSET, resolveMetatileIndex } from '../../utils/mapLoader';
 
 /**
  * Human-readable names for common metatile behaviors.
@@ -115,8 +114,7 @@ export function getTileDebugInfo(
       const mapTile = map.mapData.layout[idx];
       const metatileId = mapTile.metatileId;
 
-      const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-      const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
+      const { isSecondary, index: attrIndex } = resolveMetatileIndex(metatileId);
       const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
       const behavior = attrArray[attrIndex]?.behavior ?? 0;
 
@@ -186,8 +184,7 @@ export function getTileDebugInfo(
       const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
       const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
 
-      const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
-      const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
+      const { isSecondary, index: attrIndex } = resolveMetatileIndex(borderMetatileId);
       const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
       const behavior = attrArray[attrIndex]?.behavior ?? 0;
 

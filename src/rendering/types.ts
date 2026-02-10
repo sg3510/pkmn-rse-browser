@@ -93,6 +93,8 @@ export interface RenderContext {
   tilesetRuntimes: Map<string, TilesetRuntime>;
   /** Current anchor map (player's map) */
   anchor: WorldMapInstance;
+  /** Optional O(1) tile-to-map lookup for hot-path resolution */
+  tileLookup?: Map<string, WorldMapInstance>;
 }
 
 // TilesetRuntime, ReflectionMeta, LoadedAnimation imported from ../utils/tilesetUtils

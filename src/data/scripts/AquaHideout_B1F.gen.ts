@@ -1,0 +1,131 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "AquaHideout_B1F_OnTransition",
+    onResume: "AquaHideout_B1F_OnResume",
+  },
+  scripts: {
+    "AquaHideout_B1F_OnResume": [
+      { cmd: "call_if_set", args: ["FLAG_SYS_CTRL_OBJ_DELETE", "AquaHideout_B1F_EventScript_TryRemoveElectrode"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_TryRemoveElectrode": [
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_ne", args: ["VAR_RESULT", "B_OUTCOME_CAUGHT", "Common_EventScript_NopReturn"] },
+      { cmd: "removeobject", args: ["VAR_LAST_TALKED"] },
+      { cmd: "return" },
+    ],
+    "AquaHideout_B1F_OnTransition": [
+      { cmd: "call_if_unset", args: ["FLAG_DEFEATED_ELECTRODE_1_AQUA_HIDEOUT", "AquaHideout_B1F_EventScript_ShowElectrode1"] },
+      { cmd: "call_if_unset", args: ["FLAG_DEFEATED_ELECTRODE_2_AQUA_HIDEOUT", "AquaHideout_B1F_EventScript_ShowElectrode2"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_ShowElectrode1": [
+      { cmd: "clearflag", args: ["FLAG_HIDE_AQUA_HIDEOUT_B1F_ELECTRODE_1"] },
+      { cmd: "return" },
+    ],
+    "AquaHideout_B1F_EventScript_ShowElectrode2": [
+      { cmd: "clearflag", args: ["FLAG_HIDE_AQUA_HIDEOUT_B1F_ELECTRODE_2"] },
+      { cmd: "return" },
+    ],
+    "AquaHideout_B1F_EventScript_Electrode1": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setwildbattle", args: ["SPECIES_ELECTRODE", 30] },
+      { cmd: "waitse" },
+      { cmd: "playmoncry", args: ["SPECIES_ELECTRODE", "CRY_MODE_ENCOUNTER"] },
+      { cmd: "delay", args: [40] },
+      { cmd: "waitmoncry" },
+      { cmd: "setflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "dowildbattle" },
+      { cmd: "clearflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_WON", "AquaHideout_B1F_EventScript_DefeatedElectrode1"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_RAN", "AquaHideout_B1F_EventScript_DefeatedElectrode1"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_PLAYER_TELEPORTED", "AquaHideout_B1F_EventScript_DefeatedElectrode1"] },
+      { cmd: "setflag", args: ["FLAG_DEFEATED_ELECTRODE_1_AQUA_HIDEOUT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_DefeatedElectrode1": [
+      { cmd: "setflag", args: ["FLAG_DEFEATED_ELECTRODE_1_AQUA_HIDEOUT"] },
+      { cmd: "goto", args: ["Common_EventScript_RemoveStaticPokemon"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Electrode2": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setwildbattle", args: ["SPECIES_ELECTRODE", 30] },
+      { cmd: "waitse" },
+      { cmd: "playmoncry", args: ["SPECIES_ELECTRODE", "CRY_MODE_ENCOUNTER"] },
+      { cmd: "delay", args: [40] },
+      { cmd: "waitmoncry" },
+      { cmd: "setflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "dowildbattle" },
+      { cmd: "clearflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_WON", "AquaHideout_B1F_EventScript_DefeatedElectrode2"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_RAN", "AquaHideout_B1F_EventScript_DefeatedElectrode2"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_PLAYER_TELEPORTED", "AquaHideout_B1F_EventScript_DefeatedElectrode2"] },
+      { cmd: "setflag", args: ["FLAG_DEFEATED_ELECTRODE_2_AQUA_HIDEOUT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_DefeatedElectrode2": [
+      { cmd: "setflag", args: ["FLAG_DEFEATED_ELECTRODE_2_AQUA_HIDEOUT"] },
+      { cmd: "goto", args: ["Common_EventScript_RemoveStaticPokemon"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt2": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_AQUA_HIDEOUT_2", "AquaHideout_B1F_Text_Grunt2Intro", "AquaHideout_B1F_Text_Grunt2Defeat", "AquaHideout_B1F_EventScript_Grunt2Defeated"] },
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt2PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt2Defeated": [
+      { cmd: "special", args: ["PlayerFaceTrainerAfterBattle"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt2PostBattle", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt3": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_AQUA_HIDEOUT_3", "AquaHideout_B1F_Text_Grunt3Intro", "AquaHideout_B1F_Text_Grunt3Defeat", "AquaHideout_B1F_EventScript_Grunt3Defeated"] },
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt3PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt3Defeated": [
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt3PostBattle", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt5": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_AQUA_HIDEOUT_5", "AquaHideout_B1F_Text_Grunt5Intro", "AquaHideout_B1F_Text_Grunt5Defeat"] },
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt5PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "AquaHideout_B1F_EventScript_Grunt7": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_AQUA_HIDEOUT_7", "AquaHideout_B1F_Text_Grunt7Intro", "AquaHideout_B1F_Text_Grunt7Defeat"] },
+      { cmd: "msgbox", args: ["AquaHideout_B1F_Text_Grunt7PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+    "AquaHideout_B1F_Text_Grunt2Intro": "If you want to know the secret about\\nour HIDEOUT, you have me to beat!",
+    "AquaHideout_B1F_Text_Grunt2Defeat": "I can't win at all…",
+    "AquaHideout_B1F_Text_Grunt2PostBattle": "Our HIDEOUT's secret?\\pWell, let's just say…\\nThere's a submarine at the far end!\\pBut, by now…\\nKekekeke…",
+    "AquaHideout_B1F_Text_Grunt3Intro": "Fuel supply loaded A-OK!\\nIn-cruise snacks loaded A-OK!\\pNothing left to do but KO a pesky\\nmeddler!",
+    "AquaHideout_B1F_Text_Grunt3Defeat": "I took a serious licking!",
+    "AquaHideout_B1F_Text_Grunt3PostBattle": "Humph!\\nThis was supposed to happen!\\pMy mission was to just hold you up!",
+    "AquaHideout_B1F_Text_Grunt5Intro": "Yawn… Keeping watch over the\\nHIDEOUT bores me. I'll take you on.",
+    "AquaHideout_B1F_Text_Grunt5Defeat": "Yawn…\\nOh, I lost…",
+    "AquaHideout_B1F_Text_Grunt5PostBattle": "If you scurry too much, other TEAM\\nAQUA members might get you.",
+    "AquaHideout_B1F_Text_Grunt7Intro": "Hey!\\nYou there!\\pWhich do you think is cooler?\\nTEAM AQUA's uniform or TEAM MAGMA's?",
+    "AquaHideout_B1F_Text_Grunt7Defeat": "I lost in a cool way…",
+    "AquaHideout_B1F_Text_Grunt7PostBattle": "If you have a cool uniform, you look\\ngood even in a loss, don't you think?",
+  },
+};

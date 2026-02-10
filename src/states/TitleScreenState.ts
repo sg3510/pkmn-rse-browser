@@ -18,10 +18,7 @@ import {
 } from '../core/GameState';
 import type { ViewportConfig } from '../config/viewport';
 import { loadImageAsset, loadBinaryAsset } from '../utils/assetLoader';
-
-// GBA timing constants
-const GBA_FPS = 59.7275;
-const GBA_FRAME_MS = 1000 / GBA_FPS;
+import { GBA_FRAME_MS } from '../config/timing';
 
 // GBA native resolution
 const GBA_WIDTH = 240;

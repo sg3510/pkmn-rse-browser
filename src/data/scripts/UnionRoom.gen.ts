@@ -1,0 +1,118 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "UnionRoom_OnTransition",
+    onResume: "UnionRoom_OnResume",
+  },
+  scripts: {
+    "UnionRoom_OnResume": [
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_1"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_2"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_3"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_4"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_5"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_6"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_7"] },
+      { cmd: "setflag", args: ["FLAG_HIDE_UNION_ROOM_PLAYER_8"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_1"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_2"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_3"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_4"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_5"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_6"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_7"] },
+      { cmd: "removeobject", args: ["LOCALID_UNION_ROOM_PLAYER_8"] },
+      { cmd: "special", args: ["RunUnionRoom"] },
+      { cmd: "end" },
+    ],
+    "UnionRoom_OnTransition": [
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player1": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_1"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player2": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_2"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player3": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_3"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player4": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_4"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player5": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_5"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player6": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_6"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player7": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_7"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Player8": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_PLAYER_8"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Attendant": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_ATTENDANT"] },
+      { cmd: "waitstate" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "UnionRoom_EventScript_Unused": [
+      { cmd: "lockall" },
+      { cmd: "setvar", args: ["VAR_RESULT", "UR_INTERACT_UNUSED"] },
+      { cmd: "waitstate" },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+  },
+};

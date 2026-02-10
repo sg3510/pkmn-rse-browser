@@ -1,3 +1,5 @@
+import { TICK_60FPS_MS } from '../config/timing';
+
 /**
  * AnimationTimer - Manages tileset animation frame timing.
  *
@@ -10,7 +12,7 @@ export class AnimationTimer {
   private tickCounter = 0;
 
   // GBA tick = 1/60 second = 16.67ms
-  private readonly TICK_MS = 1000 / 60;
+  private readonly TICK_MS = TICK_60FPS_MS;
 
   // Default frame period in ticks (10 ticks is the common tileset cadence)
   private readonly FRAME_TICKS = 10;

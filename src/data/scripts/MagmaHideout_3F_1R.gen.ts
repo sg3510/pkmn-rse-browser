@@ -1,0 +1,30 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+  },
+  scripts: {
+    "MagmaHideout_3F_1R_EventScript_Grunt9": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_MAGMA_HIDEOUT_9", "MagmaHideout_3F_1R_Text_Grunt9Intro", "MagmaHideout_3F_1R_Text_Grunt9Defeat"] },
+      { cmd: "msgbox", args: ["MagmaHideout_3F_1R_Text_Grunt9PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "MagmaHideout_3F_1R_EventScript_Grunt16": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_GRUNT_MAGMA_HIDEOUT_16", "MagmaHideout_3F_1R_Text_Grunt16Intro", "MagmaHideout_3F_1R_Text_Grunt16Defeat"] },
+      { cmd: "msgbox", args: ["MagmaHideout_3F_1R_Text_Grunt16PostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+    "MagmaHideout_3F_1R_Text_Grunt9Intro": "What did I do to deserve this guard\\nposting?\\pMy left ear is burning up!",
+    "MagmaHideout_3F_1R_Text_Grunt9Defeat": "I'm getting heat exhaustion…",
+    "MagmaHideout_3F_1R_Text_Grunt9PostBattle": "Do you think it's odd that we're wearing\\nhoods in this magma-filled volcano?",
+    "MagmaHideout_3F_1R_Text_Grunt16Intro": "We joined so we can help our leader\\nachieve his fantastic vision.\\pI don't care if you're with TEAM AQUA\\nor if you're just some kid passing by.\\pNo one interferes with us and gets\\naway with it!",
+    "MagmaHideout_3F_1R_Text_Grunt16Defeat": "Oh, no!\\nYou're not to be trusted at all!",
+    "MagmaHideout_3F_1R_Text_Grunt16PostBattle": "Listen to me.\\nTEAM MAGMA is right!\\pDon't listen to TEAM AQUA.\\nDon't believe their lies!",
+  },
+};

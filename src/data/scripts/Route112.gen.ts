@@ -1,0 +1,127 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "Route112_OnTransition",
+  },
+  scripts: {
+    "Route112_OnTransition": [
+      { cmd: "clearflag", args: ["FLAG_FORCE_MIRAGE_TOWER_VISIBLE"] },
+      { cmd: "setvar", args: ["VAR_JAGGED_PASS_ASH_WEATHER", 0] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_MagmaGrunts": [
+      { cmd: "lockall" },
+      { cmd: "delay", args: [40] },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_1", "Common_Movement_WalkInPlaceFasterRight"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [20] },
+      { cmd: "msgbox", args: ["Route112_Text_LeaderGoingToAwakenThing", "MSGBOX_DEFAULT"] },
+      { cmd: "closemessage" },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_1", "Common_Movement_FaceOriginalDirection"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [40] },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_2", "Common_Movement_WalkInPlaceFasterLeft"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [20] },
+      { cmd: "msgbox", args: ["Route112_Text_YeahWeNeedMeteorite", "MSGBOX_DEFAULT"] },
+      { cmd: "closemessage" },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_2", "Common_Movement_FaceOriginalDirection"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [40] },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_1", "Common_Movement_WalkInPlaceFasterRight"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [20] },
+      { cmd: "msgbox", args: ["Route112_Text_OhThatsWhyCrewWentToFallarbor", "MSGBOX_DEFAULT"] },
+      { cmd: "closemessage" },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_1", "Common_Movement_FaceOriginalDirection"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [40] },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_2", "Common_Movement_WalkInPlaceFasterLeft"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "delay", args: [20] },
+      { cmd: "msgbox", args: ["Route112_Text_CantLetAnyonePassUntilTheyreBack", "MSGBOX_DEFAULT"] },
+      { cmd: "closemessage" },
+      { cmd: "applymovement", args: ["LOCALID_ROUTE112_GRUNT_2", "Common_Movement_FaceOriginalDirection"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_MtChimneyCableCarSign": [
+      { cmd: "msgbox", args: ["Route112_Text_MtChimneyCableCarSign", "MSGBOX_SIGN"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_MtChimneySign": [
+      { cmd: "msgbox", args: ["Route112_Text_MtChimneySign", "MSGBOX_SIGN"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_RouteSignLavaridge": [
+      { cmd: "msgbox", args: ["Route112_Text_RouteSignLavaridge", "MSGBOX_SIGN"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Hiker": [
+      { cmd: "msgbox", args: ["Route112_Text_NotEasyToGetBackToLavaridge", "MSGBOX_NPC"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Brice": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_BRICE", "Route112_Text_BriceIntro", "Route112_Text_BriceDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_BricePostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Trent": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_TRENT_1", "Route112_Text_TrentIntro", "Route112_Text_TrentDefeat", "Route112_EventScript_RegisterTrent"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "ShouldTryRematchBattle"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "TRUE", "Route112_EventScript_RematchTrent"] },
+      { cmd: "msgbox", args: ["Route112_Text_TrentPostBattle", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_RegisterTrent": [
+      { cmd: "special", args: ["PlayerFaceTrainerAfterBattle"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "msgbox", args: ["Route112_Text_TrentRegister", "MSGBOX_DEFAULT"] },
+      { cmd: "register_matchcall", args: ["TRAINER_TRENT_1"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_RematchTrent": [
+      { cmd: "trainerbattle_rematch", args: ["TRAINER_TRENT_1", "Route112_Text_TrentRematchIntro", "Route112_Text_TrentRematchDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_TrentRematchPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Larry": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_LARRY", "Route112_Text_LarryIntro", "Route112_Text_LarryDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_LarryPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Carol": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_CAROL", "Route112_Text_CarolIntro", "Route112_Text_CarolDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_CarolPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Bryant": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_BRYANT", "Route112_Text_BryantIntro", "Route112_Text_BryantDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_BryantPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route112_EventScript_Shayla": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_SHAYLA", "Route112_Text_ShaylaIntro", "Route112_Text_ShaylaDefeat"] },
+      { cmd: "msgbox", args: ["Route112_Text_ShaylaPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+    "Route112_Text_LeaderGoingToAwakenThing": "Hey, man, is our leader really going\\nto awaken that thing?",
+    "Route112_Text_YeahWeNeedMeteorite": "Sounds like it, yeah. But I heard\\nwe need a METEORITE to do it.",
+    "Route112_Text_OhThatsWhyCrewWentToFallarbor": "Oh, I get it now. That's why the rest\\nof the crew went out to FALLARBOR.",
+    "Route112_Text_CantLetAnyonePassUntilTheyreBack": "You got it. And until they come back,\\nwe're not to let anyone pass, right.",
+    "Route112_Text_NotEasyToGetBackToLavaridge": "Eh, I'd like to get to MAUVILLE, but if\\nI went down these ledges, it'd be no\\leasy matter to get back to LAVARIDGE.",
+    "Route112_Text_MtChimneyCableCarSign": "MT. CHIMNEY CABLE CAR\\n“A short walk {UP_ARROW} way!”",
+    "Route112_Text_MtChimneySign": "MT. CHIMNEY\\p“For LAVARIDGE TOWN or the summit,\\nplease take the CABLE CAR.”",
+    "Route112_Text_RouteSignLavaridge": "ROUTE 112\\n{LEFT_ARROW} LAVARIDGE TOWN",
+  },
+};

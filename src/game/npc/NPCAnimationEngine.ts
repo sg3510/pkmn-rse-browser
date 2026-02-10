@@ -18,6 +18,7 @@ import {
   isInanimate,
   type AnimFrame,
 } from '../../data/spriteMetadata';
+import { TICK_60FPS_MS } from '../../config/timing';
 
 /**
  * Animation state for a single NPC sprite
@@ -127,7 +128,7 @@ export function updateAnimation(
   }
 
   // Convert deltaTime to game ticks (60fps = 16.67ms per tick)
-  const deltaTicks = deltaTime / (1000 / 60);
+  const deltaTicks = deltaTime / TICK_60FPS_MS;
 
   // Decrement delay counter
   state.animDelayCounter -= deltaTicks;

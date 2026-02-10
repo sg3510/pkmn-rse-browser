@@ -10,6 +10,7 @@
 
 import type { SurfBlobDirection, BlobBobState } from './types';
 import { loadImageCanvasAsset } from '../../utils/assetLoader';
+import { TICK_60FPS_MS } from '../../config/timing';
 
 export class SurfBlobRenderer {
   private sprite: HTMLCanvasElement | null = null;
@@ -23,7 +24,7 @@ export class SurfBlobRenderer {
   // - Range: -4 to +4 pixels
   //
   // We use time-based timing for frame-rate independence
-  private readonly FRAME_DURATION_MS = 1000 / 60; // GBA frame duration ~16.67ms
+  private readonly FRAME_DURATION_MS = TICK_60FPS_MS;
   private readonly BOB_UPDATE_INTERVAL = 4 * this.FRAME_DURATION_MS; // ~66.67ms
   private readonly BOB_REVERSE_INTERVAL = 16 * this.FRAME_DURATION_MS; // ~266.67ms
 

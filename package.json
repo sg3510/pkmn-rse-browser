@@ -16,7 +16,8 @@
     "generate:species-info": "node scripts/generate-species-info.cjs",
     "generate:moves": "node scripts/generate-moves.cjs",
     "generate:abilities": "node scripts/generate-abilities.cjs",
-    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities"
+    "generate:scripts": "node scripts/generate-scripts.cjs",
+    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts"
   },
   "dependencies": {
     "@types/three": "^0.181.0",

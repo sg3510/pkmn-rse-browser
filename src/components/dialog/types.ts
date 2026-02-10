@@ -113,6 +113,10 @@ export interface DialogMessage {
   autoAdvance?: boolean;
   /** Delay before auto-advance in ms (default: 2000) */
   autoAdvanceMs?: number;
+  /** How to transition INTO this message from the previous one */
+  transition?: 'scroll' | 'clear';
+  /** Number of chars already visible after a scroll transition (skip typewriter for these) */
+  prefilledChars?: number;
 }
 
 // === Choice/Menu Types ===

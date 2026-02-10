@@ -11,11 +11,7 @@ import type { ArrowOverlayState, CardinalDirection } from '../field/types';
 import { ARROW_SPRITE_PATH } from '../data/doorAssets';
 import { getArrowDirectionFromBehavior } from '../utils/metatileBehaviors';
 import { loadImageCanvasAsset } from '../utils/assetLoader';
-
-// Helper to check if debug mode is enabled
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>).DEBUG_DOOR;
-}
+import { isDebugMode } from '../utils/debug';
 
 /**
  * Arrow sprite data for WebGL upload
@@ -111,7 +107,7 @@ export function useArrowOverlay(): UseArrowOverlayReturn {
       // Ensure sprite is loaded if we need to show an arrow
       if (arrowDir && !spriteRef.current && !spritePromiseRef.current) {
         ensureSprite().catch((err) => {
-          if (isDebugMode()) {
+          if (isDebugMode('door')) {
             console.warn('Failed to load arrow sprite', err);
           }
         });

@@ -50,6 +50,9 @@ export interface DoorSequenceDeps {
   /** Ref to player hidden state (mutable) */
   playerHiddenRef: { current: boolean };
 
+  /** Optional gate for unlocking player input when a sequence completes */
+  shouldUnlockPlayer?: () => boolean;
+
   /**
    * Callback to execute warp when door entry sequence completes.
    * This is renderer-specific (WebGL vs Canvas2D have different warp implementations).
@@ -91,6 +94,7 @@ export function runDoorEntryUpdate(deps: DoorSequenceDeps, nowTime: number): boo
     doorAnimations,
     fadeController,
     playerHiddenRef,
+    shouldUnlockPlayer: deps.shouldUnlockPlayer,
     onExecuteWarp,
   };
 
@@ -133,6 +137,7 @@ export function runDoorExitUpdate(deps: DoorSequenceDeps, nowTime: number): bool
     doorAnimations,
     fadeController,
     playerHiddenRef,
+    shouldUnlockPlayer: deps.shouldUnlockPlayer,
     onExecuteWarp: () => {}, // Not used in exit sequence
   };
 

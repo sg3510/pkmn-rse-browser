@@ -25,22 +25,22 @@ import {
   loadMetatileDefinitions,
   loadMetatileAttributes,
   loadBorderMetatiles,
-  loadBinary,
   type Palette,
   type TilesetImageData,
   type Metatile,
   type MapData,
   type MetatileAttributes,
 } from '../utils/mapLoader';
+import { createLogger } from '../utils/logger';
+import { isDebugMode } from '../utils/debug';
 import type { LoadedAnimation } from '../rendering/types';
-import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
 import { TilesetPairScheduler } from './TilesetPairScheduler';
-import UPNG from 'upng-js';
+import { loadTilesetAnimations } from './loadTilesetAnimations';
 
 const PROJECT_ROOT = '/pokeemerald';
 const NUM_PALS_IN_PRIMARY = 6;
 const NUM_PALS_TOTAL = 13;
-const TILE_SIZE = 8;
+const worldManagerLogger = createLogger('WorldManager');
 
 /** Maximum number of unique tileset pairs to keep in CPU memory
  * The scheduler manages which 2 are in GPU - this is the total that can be cached
@@ -53,7 +53,7 @@ const MAX_TILESET_PAIRS_IN_MEMORY = 16;
 const REANCHOR_DISTANCE = 50;
 
 /** Maximum depth for map loading from current position */
-const LOAD_DEPTH = 3;
+const LOAD_DEPTH = 2;
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
@@ -151,6 +151,16 @@ export class WorldManager {
   /** Tileset pair scheduler for smart loading/unloading */
   private scheduler: TilesetPairScheduler = new TilesetPairScheduler();
 
+  private debugLog(...args: unknown[]): void {
+    if (!isDebugMode()) return;
+    worldManagerLogger.debug(...args);
+  }
+
+  private debugWarn(...args: unknown[]): void {
+    if (!isDebugMode()) return;
+    worldManagerLogger.warn(...args);
+  }
+
   /**
    * Set the callback for uploading tileset pairs to GPU
    * This must be called before initialize() for proper scheduler setup
@@ -203,7 +213,7 @@ export class WorldManager {
 
     // Increment epoch to invalidate any in-flight async operations from old world
     this.worldEpoch++;
-    console.log(`[INIT] World epoch incremented to ${this.worldEpoch}`);
+    this.debugLog(`[INIT] World epoch incremented to ${this.worldEpoch}`);
 
     // Reset scheduler state (but keep callbacks)
     this.scheduler.reset();
@@ -213,9 +223,9 @@ export class WorldManager {
     this.anchorOffsetY = 0;
 
     // Load initial world
-    console.log(`[INIT] Starting initialize for ${startMapId}, connections:`, startEntry.connections || 'NONE');
+    this.debugLog(`[INIT] Starting initialize for ${startMapId}, connections:`, startEntry.connections || 'NONE');
     await this.loadMapsFromAnchor(startEntry, 0, 0, LOAD_DEPTH);
-    console.log(`[INIT] After loadMapsFromAnchor, loaded maps:`, Array.from(this.maps.keys()));
+    this.debugLog(`[INIT] After loadMapsFromAnchor, loaded maps:`, Array.from(this.maps.keys()));
 
     // Update scheduler with loaded maps and boundaries
     this.scheduler.updateBoundaries(
@@ -262,7 +272,7 @@ export class WorldManager {
       // DEBUG: Player position doesn't match any loaded map (this is normal during warps)
       // Only log if maps exist (to reduce noise during world reinitialization)
       if (this.maps.size > 0) {
-        console.warn(`[WM_UPDATE] No map at player pos (${playerTileX},${playerTileY}). Loaded maps:`,
+        this.debugWarn(`[WM_UPDATE] No map at player pos (${playerTileX},${playerTileY}). Loaded maps:`,
           Array.from(this.maps.values()).map(m => `${m.entry.id}@(${m.offsetX},${m.offsetY}) ${m.entry.width}x${m.entry.height}`));
       }
       return;
@@ -468,7 +478,7 @@ export class WorldManager {
     // CRITICAL: Verify fromMap is still valid (exists in current world)
     // This catches stale references from old async operations
     if (!this.maps.has(fromMap.entry.id)) {
-      console.log(`[LOAD_CONNECTED] Skipping - fromMap ${fromMap.entry.id} is not in current world (epoch ${startEpoch})`);
+      this.debugLog(`[LOAD_CONNECTED] Skipping - fromMap ${fromMap.entry.id} is not in current world (epoch ${startEpoch})`);
       return;
     }
 
@@ -483,14 +493,14 @@ export class WorldManager {
       !this.maps.has(c.map) && !this.loadingMaps.has(c.map)
     );
     if (unloadedConnections.length > 0) {
-      console.log(`[LOAD_CONNECTED] From ${fromMap.entry.id} with ${unloadedConnections.length}/${connections.length} unloaded connections (epoch ${startEpoch}):`,
+      this.debugLog(`[LOAD_CONNECTED] From ${fromMap.entry.id} with ${unloadedConnections.length}/${connections.length} unloaded connections (epoch ${startEpoch}):`,
         unloadedConnections.map(c => `${c.direction}->${c.map}`));
     }
 
     while (queue.length > 0) {
       // Check epoch before processing each item - abort if world changed
       if (this.worldEpoch !== startEpoch) {
-        console.log(`[LOAD_CONNECTED] Aborting - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
+        this.debugLog(`[LOAD_CONNECTED] Aborting - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
         return;
       }
 
@@ -539,13 +549,13 @@ export class WorldManager {
 
         // Check epoch before each async operation
         if (this.worldEpoch !== startEpoch) {
-          console.log(`[LOAD_CONNECTED] Aborting before loadMap - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
+          this.debugLog(`[LOAD_CONNECTED] Aborting before loadMap - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
           return;
         }
 
         // Load the map - pass sourceInfo so offset can be recalculated if reanchor happens during load
         try {
-          console.log(`[LOAD_CONNECTED] Loading ${neighborEntry.id} via ${connection.direction} from ${currentMap.entry.id} at depth ${depth} (epoch ${startEpoch})`);
+          this.debugLog(`[LOAD_CONNECTED] Loading ${neighborEntry.id} via ${connection.direction} from ${currentMap.entry.id} at depth ${depth} (epoch ${startEpoch})`);
           await this.loadMap(neighborEntry, offsetX, offsetY, startEpoch, {
             sourceMapId: currentMap.entry.id,
             connection: { direction: connection.direction, offset: connection.offset },
@@ -553,7 +563,7 @@ export class WorldManager {
 
           // Check epoch after async operation
           if (this.worldEpoch !== startEpoch) {
-            console.log(`[LOAD_CONNECTED] Aborting after loadMap - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
+            this.debugLog(`[LOAD_CONNECTED] Aborting after loadMap - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
             return;
           }
 
@@ -564,14 +574,14 @@ export class WorldManager {
           }
         } catch (err) {
           // Map failed to load (likely tileset limit) - skip it
-          console.warn(`Failed to load map ${connection.map}:`, err);
+          this.debugWarn(`Failed to load map ${connection.map}:`, err);
         }
       }
     }
 
     // Final epoch check before updating scheduler
     if (this.worldEpoch !== startEpoch) {
-      console.log(`[LOAD_CONNECTED] Aborting scheduler update - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
+      this.debugLog(`[LOAD_CONNECTED] Aborting scheduler update - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
       return;
     }
 
@@ -668,16 +678,16 @@ export class WorldManager {
   ): Promise<void> {
     // Check epoch if provided - abort if world was reinitialized
     if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
-      console.log(`[LOAD_MAP] Skipping ${entry.id} - epoch mismatch (expected ${expectedEpoch}, current ${this.worldEpoch})`);
+      this.debugLog(`[LOAD_MAP] Skipping ${entry.id} - epoch mismatch (expected ${expectedEpoch}, current ${this.worldEpoch})`);
       return;
     }
 
     if (this.maps.has(entry.id) || this.loadingMaps.has(entry.id)) return;
 
     // DEBUG: Track why maps are being loaded
-    console.log(`[LOAD_MAP] Loading ${entry.id} at offset (${offsetX}, ${offsetY}) epoch=${this.worldEpoch}`);
-    console.log(`[LOAD_MAP] Current anchor: ${this.anchorMapId}, loaded maps: ${Array.from(this.maps.keys()).join(', ')}`);
-    console.log(`[LOAD_MAP] Entry connections:`, entry.connections?.map(c => `${c.direction}->${c.map}`) || 'NONE');
+    this.debugLog(`[LOAD_MAP] Loading ${entry.id} at offset (${offsetX}, ${offsetY}) epoch=${this.worldEpoch}`);
+    this.debugLog(`[LOAD_MAP] Current anchor: ${this.anchorMapId}, loaded maps: ${Array.from(this.maps.keys()).join(', ')}`);
+    this.debugLog(`[LOAD_MAP] Entry connections:`, entry.connections?.map(c => `${c.direction}->${c.map}`) || 'NONE');
 
     this.loadingMaps.add(entry.id);
 
@@ -695,7 +705,7 @@ export class WorldManager {
 
         // Check epoch after async - abort if world reinitialized
         if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
-          console.log(`[LOAD_MAP] Aborting ${entry.id} after tileset load - epoch mismatch`);
+          this.debugLog(`[LOAD_MAP] Aborting ${entry.id} after tileset load - epoch mismatch`);
           return;
         }
 
@@ -720,8 +730,8 @@ export class WorldManager {
         // the scheduler swaps them into GPU based on player position
 
         // Emit tileset change
-        console.log(`[TILESET_CHANGE] New pair loaded: ${pair.id}, total pairs now: ${this.tilesetPairs.length}`);
-        console.log(`[TILESET_CHANGE] For map: ${entry.id}, anchor: ${this.anchorMapId}`);
+        this.debugLog(`[TILESET_CHANGE] New pair loaded: ${pair.id}, total pairs now: ${this.tilesetPairs.length}`);
+        this.debugLog(`[TILESET_CHANGE] For map: ${entry.id}, anchor: ${this.anchorMapId}`);
         this.emit({
           type: 'tilesetsChanged',
           pair0: this.tilesetPairs[0],
@@ -739,7 +749,7 @@ export class WorldManager {
 
       // Check epoch after async - abort if world reinitialized
       if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
-        console.log(`[LOAD_MAP] Aborting ${entry.id} after layout load - epoch mismatch`);
+        this.debugLog(`[LOAD_MAP] Aborting ${entry.id} after layout load - epoch mismatch`);
         return;
       }
 
@@ -761,13 +771,13 @@ export class WorldManager {
 
           // Check if offset changed (indicates reanchor happened during load)
           if (recalculated.offsetX !== offsetX || recalculated.offsetY !== offsetY) {
-            console.log(`[LOAD_MAP] Offset recalculated for ${entry.id}: (${offsetX},${offsetY}) -> (${recalculated.offsetX},${recalculated.offsetY}) due to reanchor during load`);
+            this.debugLog(`[LOAD_MAP] Offset recalculated for ${entry.id}: (${offsetX},${offsetY}) -> (${recalculated.offsetX},${recalculated.offsetY}) due to reanchor during load`);
             finalOffsetX = recalculated.offsetX;
             finalOffsetY = recalculated.offsetY;
           }
         } else {
           // Source map was unloaded during load - this map's offset may be stale
-          console.warn(`[LOAD_MAP] Source map ${sourceInfo.sourceMapId} no longer exists - ${entry.id} may have wrong offset`);
+          this.debugWarn(`[LOAD_MAP] Source map ${sourceInfo.sourceMapId} no longer exists - ${entry.id} may have wrong offset`);
         }
       }
 
@@ -787,7 +797,7 @@ export class WorldManager {
       this.mapTilesetPairIndex.set(entry.id, pairIndex);
 
       // Emit maps changed
-      console.log(`[MAPS_CHANGED] Emitting after loading ${entry.id}. Total maps: ${this.maps.size}, anchor: ${this.anchorMapId}`);
+      this.debugLog(`[MAPS_CHANGED] Emitting after loading ${entry.id}. Total maps: ${this.maps.size}, anchor: ${this.anchorMapId}`);
       this.emit({ type: 'mapsChanged', snapshot: this.getSnapshot() });
     } finally {
       this.loadingMaps.delete(entry.id);
@@ -905,73 +915,9 @@ export class WorldManager {
    * Load tile animations for tilesets
    */
   private async loadAnimationsForTilesets(primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> {
-    const loaded: LoadedAnimation[] = [];
-    const requested = [
-      ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
-      ...(TILESET_ANIMATION_CONFIGS[secondaryId] ?? []),
-    ];
-
-    for (const def of requested) {
-      try {
-        const frames: Uint8Array[] = [];
-        let width = 0;
-        let height = 0;
-
-        for (const framePath of def.frames) {
-          const frame = await this.loadIndexedFrame(`${PROJECT_ROOT}/${framePath}`);
-          frames.push(frame.data);
-          width = frame.width;
-          height = frame.height;
-        }
-
-        const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
-        const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
-        const sequence = def.sequence ?? frames.map((_, i) => i);
-
-        loaded.push({
-          id: def.id,
-          tileset: def.tileset,
-          frames,
-          width,
-          height,
-          tilesWide,
-          tilesHigh,
-          sequence,
-          interval: def.interval,
-          destinations: def.destinations,
-          altSequence: def.altSequence,
-          altSequenceThreshold: def.altSequenceThreshold,
-        });
-      } catch {
-        // Skip missing animation assets
-      }
-    }
-
-    return loaded;
-  }
-
-  /**
-   * Decode indexed PNG frame
-   */
-  private async loadIndexedFrame(url: string): Promise<{ data: Uint8Array; width: number; height: number }> {
-    const buffer = await loadBinary(url);
-    const img = UPNG.decode(buffer);
-
-    let data: Uint8Array;
-    if (img.ctype === 3 && img.depth === 4) {
-      const packed = new Uint8Array(img.data);
-      const unpacked = new Uint8Array(packed.length * 2);
-      for (let i = 0; i < packed.length; i++) {
-        const byte = packed[i];
-        unpacked[i * 2] = (byte >> 4) & 0xf;
-        unpacked[i * 2 + 1] = byte & 0xf;
-      }
-      data = unpacked;
-    } else {
-      data = new Uint8Array(img.data);
-    }
-
-    return { data, width: img.width, height: img.height };
+    return loadTilesetAnimations(primaryId, secondaryId, {
+      projectRoot: PROJECT_ROOT,
+    });
   }
 
   /**

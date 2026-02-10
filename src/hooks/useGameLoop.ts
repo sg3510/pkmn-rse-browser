@@ -12,9 +12,7 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
-
-// GBA vblank timing: 59.7275 Hz (16.7427ms per frame)
-const GBA_FRAME_MS = 1000 / 59.7275;
+import { GBA_FPS, GBA_FRAME_MS } from '../config/timing';
 
 // Animation frame period: every 10 GBA frames (~167ms)
 const ANIMATION_FRAME_TICKS = 10;
@@ -77,7 +75,7 @@ export function useGameLoop(
   onRender: GameRenderFn,
   options: UseGameLoopOptions = {}
 ): UseGameLoopReturn {
-  const { running: initialRunning = true, frameRateHz = 59.7275 } = options;
+  const { running: initialRunning = true, frameRateHz = GBA_FPS } = options;
 
   const frameMs = 1000 / frameRateHz;
 

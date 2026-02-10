@@ -25,12 +25,13 @@ import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
 import { getShadowPosition } from '../rendering/spriteUtils';
 import { loadImageCanvasAsset } from '../utils/assetLoader';
+import { createLogger } from '../utils/logger';
+import { isDebugMode } from '../utils/debug';
+import { directionToOffset } from '../utils/direction';
+import { areElevationsCompatible } from '../utils/elevation';
+import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL } from './jumpArc';
 
-// Helper to check if debug mode is enabled
-const DEBUG_MODE_FLAG = 'DEBUG_MODE';
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
+const playerLogger = createLogger('PlayerController');
 
 export interface ResolvedTileInfo {
   mapTile: MapTileData;  // CHANGED: was number, now MapTileData
@@ -62,21 +63,9 @@ export interface FrameInfo {
   flip: boolean;
 }
 
-// Jump Physics Constants
-
-// 2-tile ledge jump (sJumpY_High from pokeemerald)
-const JUMP_DISTANCE_FAR = 32;
-const JUMP_ARC_HIGH = [
-  -4,  -6,  -8, -10, -11, -12, -12, -12,
-  -11, -10,  -9,  -8,  -6,  -4,   0,   0
-];
-
-// 1-tile normal jump (sJumpY_Normal from pokeemerald — jump_right in scripts)
-const JUMP_DISTANCE_NORMAL = 16;
-const JUMP_ARC_NORMAL = [
-  -2, -4, -6, -8, -9, -10, -10, -10,
-  -9, -8, -6, -5, -3,  -2,   0,   0
-];
+// Jump Physics Constants (arc tables imported from jumpArc.ts)
+const JUMP_DISTANCE_FAR = 32;    // 2-tile ledge jump (pixels)
+const JUMP_DISTANCE_NORMAL = 16; // 1-tile normal jump (pixels)
 
 // --- Player States ---
 
@@ -180,7 +169,7 @@ class JumpingState implements PlayerState {
   private targetY: number = 0;
   private wasRunning: boolean;
   private jumpDistance: number;
-  private jumpArc: number[];
+  private jumpArc: readonly number[];
 
   constructor(wasRunning: boolean = false, jumpDistance = JUMP_DISTANCE_FAR, jumpArc = JUMP_ARC_HIGH) {
     this.wasRunning = wasRunning;
@@ -189,20 +178,16 @@ class JumpingState implements PlayerState {
   }
 
   enter(controller: PlayerController): void {
-    controller.lockInput();
     controller.isMoving = true;
     controller.showShadow = true;
     this.progress = 0;
     this.startX = controller.x;
     this.startY = controller.y;
 
-    // Calculate target position based on jump distance
-    let dx = 0;
-    let dy = 0;
-    if (controller.dir === 'down') dy = this.jumpDistance;
-    else if (controller.dir === 'up') dy = -this.jumpDistance;
-    else if (controller.dir === 'left') dx = -this.jumpDistance;
-    else if (controller.dir === 'right') dx = this.jumpDistance;
+    // Calculate target position based on jump distance.
+    const move = directionToOffset(controller.dir);
+    const dx = move.dx * this.jumpDistance;
+    const dy = move.dy * this.jumpDistance;
 
     this.targetX = this.startX + dx;
     this.targetY = this.startY + dy;
@@ -214,7 +199,6 @@ class JumpingState implements PlayerState {
   }
 
   exit(controller: PlayerController): void {
-    controller.unlockInput();
     controller.isMoving = false;
     controller.showShadow = false;
     controller.spriteYOffset = 0;
@@ -249,11 +233,9 @@ class JumpingState implements PlayerState {
       return true;
     }
 
-    // Update position
-    if (controller.dir === 'down') controller.y = this.startY + this.progress;
-    else if (controller.dir === 'up') controller.y = this.startY - this.progress;
-    else if (controller.dir === 'left') controller.x = this.startX - this.progress;
-    else if (controller.dir === 'right') controller.x = this.startX + this.progress;
+    const move = directionToOffset(controller.dir);
+    controller.x = this.startX + move.dx * this.progress;
+    controller.y = this.startY + move.dy * this.progress;
 
     // Calculate jump height from arc table
     // Map progress (0..jumpDistance) to arc index (0..15)
@@ -330,13 +312,11 @@ class SurfJumpingState implements PlayerState {
   }
 
   enter(controller: PlayerController): void {
-    controller.lockInput();
     controller.isMoving = true;
     controller.showShadow = true;
   }
 
   exit(controller: PlayerController): void {
-    controller.unlockInput();
     controller.isMoving = false;
     controller.showShadow = false;
     controller.spriteYOffset = 0;
@@ -482,6 +462,16 @@ export class PlayerController {
     'Enter',                                             // Enter (often used as confirm)
   ]);
 
+  private debugLog(...args: unknown[]): void {
+    if (!isDebugMode()) return;
+    playerLogger.debug(...args);
+  }
+
+  private debugWarn(...args: unknown[]): void {
+    if (!isDebugMode()) return;
+    playerLogger.warn(...args);
+  }
+
   constructor() {
     this.currentState = new NormalState();
     this.handleKeyDown = (e: KeyboardEvent) => {
@@ -519,14 +509,15 @@ export class PlayerController {
   }
 
   public setPosition(tileX: number, tileY: number) {
-    // DEBUG: Log all setPosition calls with stack trace to track teleporting
-    const oldX = this.tileX;
-    const oldY = this.tileY;
-    const oldPixelX = this.x;
-    const oldPixelY = this.y;
-    console.log(`[TELEPORT_DEBUG] setPosition called: (${oldX},${oldY}) -> (${tileX},${tileY})`,
-      `pixel: (${oldPixelX?.toFixed(1)},${oldPixelY?.toFixed(1)}) -> (${tileX * this.TILE_PIXELS},${tileY * this.TILE_PIXELS - 16})`,
-      new Error().stack?.split('\n').slice(1, 5).join(' <- '));
+    if (isDebugMode()) {
+      const oldX = this.tileX;
+      const oldY = this.tileY;
+      const oldPixelX = this.x;
+      const oldPixelY = this.y;
+      this.debugLog(`[TELEPORT_DEBUG] setPosition called: (${oldX},${oldY}) -> (${tileX},${tileY})`,
+        `pixel: (${oldPixelX?.toFixed(1)},${oldPixelY?.toFixed(1)}) -> (${tileX * this.TILE_PIXELS},${tileY * this.TILE_PIXELS - 16})`,
+        new Error().stack?.split('\n').slice(1, 5).join(' <- '));
+    }
 
     this.tileX = tileX;
     this.tileY = tileY;
@@ -543,13 +534,13 @@ export class PlayerController {
       this.previousElevation = this.currentElevation;
       
       if (isDebugMode()) {
-        console.log(`[SPAWN] Player spawned at (${tileX}, ${tileY}) with elevation ${this.currentElevation}, set previousElevation to ${this.previousElevation}`);
+        this.debugLog(`[SPAWN] Player spawned at (${tileX}, ${tileY}) with elevation ${this.currentElevation}, set previousElevation to ${this.previousElevation}`);
       }
     } else {
       this.currentElevation = 0;
       this.previousElevation = 3; // Default to ground (3) instead of 0
       if (isDebugMode()) {
-        console.warn(`[SPAWN] Player spawned at (${tileX}, ${tileY}) but tile not found, defaulting to elevation 0 (prev 3)`);
+        this.debugWarn(`[SPAWN] Player spawned at (${tileX}, ${tileY}) but tile not found, defaulting to elevation 0 (prev 3)`);
       }
     }
     
@@ -649,7 +640,7 @@ export class PlayerController {
       // Reference: event_object_movement.c:7762-7763
       if (curTileElevation === 15 || prevTileElevation === 15) {
         if (isDebugMode()) {
-          console.log(
+          this.debugLog(
             `[ELEVATION] Universal tile (15) involved: cur=${curTileElevation}, prev=${prevTileElevation}. ` +
             `Preserving currentElev=${this.currentElevation}, previousElev=${this.previousElevation}`
           );
@@ -681,13 +672,13 @@ export class PlayerController {
           changes.push(`previousElev: ${oldPreviousElevation}→${this.previousElevation}`);
         }
         if (changes.length > 0) {
-          console.log(`[ELEVATION] At (${this.tileX}, ${this.tileY}) tileElev=${curTileElevation}: ${changes.join(', ')}`);
+          this.debugLog(`[ELEVATION] At (${this.tileX}, ${this.tileY}) tileElev=${curTileElevation}: ${changes.join(', ')}`);
         }
       }
     } else {
       // Out of bounds - keep current elevation
       if (isDebugMode()) {
-        console.warn(`[ELEVATION] Out of bounds at (${this.tileX}, ${this.tileY}), keeping elevation ${this.currentElevation}`);
+        this.debugWarn(`[ELEVATION] Out of bounds at (${this.tileX}, ${this.tileY}), keeping elevation ${this.currentElevation}`);
       }
     }
   }
@@ -801,7 +792,7 @@ export class PlayerController {
         this.y = this.tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
         
         if (isDebugMode()) {
-          console.log(`[MOVEMENT] Completed move from (${oldTileX}, ${oldTileY}) → (${this.tileX}, ${this.tileY})`);
+          this.debugLog(`[MOVEMENT] Completed move from (${oldTileX}, ${oldTileY}) → (${this.tileX}, ${this.tileY})`);
         }
         
         // Update elevation when changing tiles
@@ -826,20 +817,19 @@ export class PlayerController {
         didRenderMove = true;
         
         if (isDebugMode()) {
-          console.log(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
+          this.debugLog(`[Player] COMPLETED MOVEMENT - snapped to tile (${this.tileX}, ${this.tileY}) at pixel (${this.x}, ${this.y}) - next walk frame: ${this.walkFrameAlternate ? 2 : 1}`);
         }
       } else {
         // Only apply movement if we haven't completed the tile
         const oldX = this.x;
         const oldY = this.y;
-        
-        if (this.dir === 'up') this.y -= moveAmount;
-        else if (this.dir === 'down') this.y += moveAmount;
-        else if (this.dir === 'left') this.x -= moveAmount;
-        else if (this.dir === 'right') this.x += moveAmount;
+
+        const move = directionToOffset(this.dir);
+        this.x += move.dx * moveAmount;
+        this.y += move.dy * moveAmount;
         
         if (isDebugMode()) {
-          console.log(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
+          this.debugLog(`[Player] delta:${delta.toFixed(2)}ms moveAmt:${moveAmount.toFixed(3)}px x:${oldX.toFixed(2)}->${this.x.toFixed(2)} y:${oldY.toFixed(2)}->${this.y.toFixed(2)} progress:${this.pixelsMoved.toFixed(2)}/${this.TILE_PIXELS}`);
         }
 
         didRenderMove = true;
@@ -850,26 +840,20 @@ export class PlayerController {
   }
 
   public handleDirectionInput(keys: { [key: string]: boolean }) {
-    let dx = 0;
-    let dy = 0;
     let newDir = this.dir;
     let attemptMove = false;
 
 
     if (keys['ArrowUp']) {
-      dy = -1;
       newDir = 'up';
       attemptMove = true;
     } else if (keys['ArrowDown']) {
-      dy = 1;
       newDir = 'down';
       attemptMove = true;
     } else if (keys['ArrowLeft']) {
-      dx = -1;
       newDir = 'left';
       attemptMove = true;
     } else if (keys['ArrowRight']) {
-      dx = 1;
       newDir = 'right';
       attemptMove = true;
     }
@@ -878,7 +862,7 @@ export class PlayerController {
       this.dir = newDir;
       
       if (isDebugMode()) {
-        console.log(`[INPUT] Attempting to move ${newDir} from (${this.tileX}, ${this.tileY})`);
+        this.debugLog(`[INPUT] Attempting to move ${newDir} from (${this.tileX}, ${this.tileY})`);
       }
       
       // Give door interactions a chance to consume input before collision/movement.
@@ -888,11 +872,12 @@ export class PlayerController {
       }
       
       // Check collision at target tile
+      const { dx, dy } = directionToOffset(newDir);
       const targetTileX = this.tileX + dx;
       const targetTileY = this.tileY + dy;
       
       if (isDebugMode()) {
-        console.log(`[INPUT] Target tile: (${targetTileX}, ${targetTileY})`);
+        this.debugLog(`[INPUT] Target tile: (${targetTileX}, ${targetTileY})`);
       }
       
       const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
@@ -906,7 +891,7 @@ export class PlayerController {
 
       if (!blocked) {
         if (isDebugMode()) {
-          console.log(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
+          this.debugLog(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
         }
 
         // Create sand footprint as we START to move off current tile
@@ -920,7 +905,7 @@ export class PlayerController {
         this.pixelsMoved = 0;
       } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
         if (isDebugMode()) {
-          console.log('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
+          this.debugLog('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
         }
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
       } else if (this.doorWarpHandler && isOnArrowWarp) {
@@ -935,7 +920,7 @@ export class PlayerController {
         }
       } else {
         if (isDebugMode()) {
-          console.warn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
+          this.debugWarn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
         }
       }
     }
@@ -948,8 +933,7 @@ export class PlayerController {
     this.checkAndTriggerSandFootprints();
 
     // Calculate target tile and trigger tall grass on begin step
-    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
-    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    const { dx, dy } = directionToOffset(direction);
     this.checkAndTriggerGrassEffectOnBeginStep(this.tileX + dx, this.tileY + dy);
 
     this.isMoving = true;
@@ -958,8 +942,7 @@ export class PlayerController {
 
   public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
     this.dir = direction;
-    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
-    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    const { dx, dy } = directionToOffset(direction);
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
 
@@ -1027,54 +1010,26 @@ export class PlayerController {
     // CRITICAL FIX: Use currentElevation for collision, not previousElevation!
     // Reference: event_object_movement.c:4667 uses objectEvent->currentElevation
     const playerElevation = this.currentElevation;
-    
-    // Ground level (0) can go anywhere
-    // Reference: public/pokeemerald/src/event_object_movement.c:7711-7712
-    if (playerElevation === 0) {
-      if (isDebugMode()) {
-        console.log(`[ELEVATION] Player at ground level (0), can move to (${tileX}, ${tileY})`);
-      }
-      return false;
-    }
-    
+
     const resolved = this.tileResolver?.(tileX, tileY);
     if (!resolved) {
       if (isDebugMode()) {
-        console.warn(`[ELEVATION] Target tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
+        this.debugWarn(`[ELEVATION] Target tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
       }
       return true; // Out of bounds = mismatch
     }
     
     const tileElevation = resolved.mapTile.elevation;
     
-    // Tiles with elevation 0 or 15 are accessible from any elevation
-    // Reference: public/pokeemerald/src/event_object_movement.c:7716-7717
-    if (tileElevation === 0 || tileElevation === 15) {
+    if (!areElevationsCompatible(playerElevation, tileElevation)) {
       if (isDebugMode()) {
-        console.log(`[ELEVATION] Target (${tileX}, ${tileY}) is universal (elev ${tileElevation}), player at ${playerElevation} can access - ALLOWED`);
-      }
-      return false;
-    }
-
-    // Player elevation 15 is also universal (can access any target elevation)
-    if (playerElevation === 15) {
-      if (isDebugMode()) {
-        console.log(`[ELEVATION] Player is universal (elev 15), can access target (${tileX}, ${tileY}) at ${tileElevation} - ALLOWED`);
-      }
-      return false;
-    }
-    
-    // Different non-zero elevations = mismatch = COLLISION
-    // Reference: public/pokeemerald/src/event_object_movement.c:7719-7720
-    if (tileElevation !== playerElevation) {
-      if (isDebugMode()) {
-        console.warn(`[ELEVATION MISMATCH] Player at elevation ${playerElevation} CANNOT move to (${tileX}, ${tileY}) at elevation ${tileElevation} - BLOCKED`);
+        this.debugWarn(`[ELEVATION MISMATCH] Player at elevation ${playerElevation} CANNOT move to (${tileX}, ${tileY}) at elevation ${tileElevation} - BLOCKED`);
       }
       return true;
     }
-    
+
     if (isDebugMode()) {
-      console.log(`[ELEVATION] Player at ${playerElevation} can move to (${tileX}, ${tileY}) at ${tileElevation} - ALLOWED`);
+      this.debugLog(`[ELEVATION] Player at ${playerElevation} can move to (${tileX}, ${tileY}) at ${tileElevation} - ALLOWED`);
     }
     return false;
   }
@@ -1083,7 +1038,7 @@ export class PlayerController {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     if (!resolved) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) out of bounds - BLOCKED`);
       }
       return true; // Out of bounds = collision
     }
@@ -1093,7 +1048,7 @@ export class PlayerController {
 
     if (!attributes) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) has no attributes - PASSABLE`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) has no attributes - PASSABLE`);
       }
       return false; // No attributes = passable
     }
@@ -1114,7 +1069,7 @@ export class PlayerController {
         // Respect collision bits even on water (matches MapGridGetCollisionAt)
         if (!isCollisionPassable(collision)) {
           if (isDebugMode()) {
-            console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water but collision bit=${collision} - BLOCKED`);
+            this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is water but collision bit=${collision} - BLOCKED`);
           }
           return true;
         }
@@ -1123,13 +1078,13 @@ export class PlayerController {
         // Reference: CheckForObjectEventCollision in event_object_movement.c
         if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
           if (isDebugMode()) {
-            console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water but blocked by NPC/object - BLOCKED`);
+            this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is water but blocked by NPC/object - BLOCKED`);
           }
           return true;
         }
 
         if (isDebugMode()) {
-          console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is surfable water while surfing - PASSABLE`);
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is surfable water while surfing - PASSABLE`);
         }
         return false; // Water is passable when surfing
       }
@@ -1139,7 +1094,7 @@ export class PlayerController {
       // This returns COLLISION_STOP_SURFING which the movement system handles
       // For now, we'll block here and let handleSurfingInput handle dismount
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is not water while surfing - checking dismount`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is not water while surfing - checking dismount`);
       }
       // Don't block here - SurfingState handles dismount logic via handleSurfingInput
       // Return true to signal collision, but the state machine checks canDismount
@@ -1153,7 +1108,7 @@ export class PlayerController {
     // (This was a bug where NPCs on sand tiles could be walked through)
     if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
       }
       return true;
     }
@@ -1162,7 +1117,7 @@ export class PlayerController {
     const isSand = behavior === MB_SAND || behavior === MB_DEEP_SAND;
     if (isSand) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is sand - PASSABLE`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is sand - PASSABLE`);
       }
       return false;
     }
@@ -1170,7 +1125,7 @@ export class PlayerController {
     // Check collision bits from map.bin (bits 10-11)
     if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} has collision bit=${collision}, behavior=${behavior} - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} has collision bit=${collision}, behavior=${behavior} - BLOCKED`);
       }
       return true;
     }
@@ -1180,7 +1135,7 @@ export class PlayerController {
     // SKIP if options.ignoreElevation is true (e.g. for ledge jumping)
     if (!options?.ignoreElevation && this.isElevationMismatchAt(tileX, tileY)) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH`);
       }
       return true; // COLLISION_ELEVATION_MISMATCH
     }
@@ -1188,7 +1143,7 @@ export class PlayerController {
     // Impassable behaviors
     if (behavior === 1) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is SECRET_BASE_WALL - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is SECRET_BASE_WALL - BLOCKED`);
       }
       return true;
     }
@@ -1196,7 +1151,7 @@ export class PlayerController {
     // Surfable/deep water and waterfalls require surf (when NOT surfing)
     if (isSurfableBehavior(behavior)) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is water (behavior=${behavior}) without surf - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is water (behavior=${behavior}) without surf - BLOCKED`);
       }
       return true;
     }
@@ -1204,13 +1159,13 @@ export class PlayerController {
     // Directionally impassable
     if (behavior >= 48 && behavior <= 55) {
       if (isDebugMode()) {
-        console.log(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
       }
       return true;
     }
 
     if (isDebugMode()) {
-      console.log(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE`);
+      this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE`);
     }
     return false; // Passable
   }
@@ -1438,24 +1393,9 @@ export class PlayerController {
       return { x: this.tileX, y: this.tileY };
     }
 
-    // Calculate destination based on movement direction
-    let destX = this.tileX;
-    let destY = this.tileY;
-
-    switch (this.dir) {
-      case 'up':
-        destY = this.tileY - 1;
-        break;
-      case 'down':
-        destY = this.tileY + 1;
-        break;
-      case 'left':
-        destX = this.tileX - 1;
-        break;
-      case 'right':
-        destX = this.tileX + 1;
-        break;
-    }
+    const { dx, dy } = directionToOffset(this.dir);
+    const destX = this.tileX + dx;
+    const destY = this.tileY + dy;
 
     return { x: destX, y: destY };
   }
@@ -1484,8 +1424,7 @@ export class PlayerController {
   }
 
   public tryInteract(direction: 'up' | 'down' | 'left' | 'right'): boolean {
-    const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
-    const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+    const { dx, dy } = directionToOffset(direction);
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
     const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
@@ -1500,16 +1439,15 @@ export class PlayerController {
   }
 
   public checkForLedgeJump(keys: { [key: string]: boolean }, wasRunning: boolean = false): boolean {
-    let dx = 0;
-    let dy = 0;
     let dir: 'up' | 'down' | 'left' | 'right' | null = null;
 
-    if (keys['ArrowUp']) { dy = -1; dir = 'up'; }
-    else if (keys['ArrowDown']) { dy = 1; dir = 'down'; }
-    else if (keys['ArrowLeft']) { dx = -1; dir = 'left'; }
-    else if (keys['ArrowRight']) { dx = 1; dir = 'right'; }
+    if (keys['ArrowUp']) dir = 'up';
+    else if (keys['ArrowDown']) dir = 'down';
+    else if (keys['ArrowLeft']) dir = 'left';
+    else if (keys['ArrowRight']) dir = 'right';
 
     if (!dir) return false;
+    const { dx, dy } = directionToOffset(dir);
 
     // Check if the tile we are moving INTO is a ledge that allows jumping in our direction
     const targetTileX = this.tileX + dx;
@@ -1737,7 +1675,7 @@ export class PlayerController {
       this.grassEffectManager.create(currentTileX, currentTileY, 'puddle_splash', false, 'player');
 
       if (isDebugMode()) {
-        console.log(
+        this.debugLog(
           `[PUDDLE] Splash triggered at (${currentTileX}, ${currentTileY}) - ` +
             `both current and previous tiles are puddles`
         );
@@ -1779,7 +1717,7 @@ export class PlayerController {
         this.grassEffectManager.create(currentTileX, currentTileY, 'water_ripple', false, 'player');
 
         if (isDebugMode()) {
-          console.log(
+          this.debugLog(
             `[RIPPLE] Water ripple triggered at (${currentTileX}, ${currentTileY}) - ` +
               `behavior: ${currentBehavior}, surfing: ${isSurfing}`
           );
@@ -1862,25 +1800,19 @@ export class PlayerController {
    * @param keys Currently pressed keys
    */
   public handleSurfingInput(keys: { [key: string]: boolean }): void {
-    let dx = 0;
-    let dy = 0;
     let newDir = this.dir;
     let attemptMove = false;
 
     if (keys['ArrowUp']) {
-      dy = -1;
       newDir = 'up';
       attemptMove = true;
     } else if (keys['ArrowDown']) {
-      dy = 1;
       newDir = 'down';
       attemptMove = true;
     } else if (keys['ArrowLeft']) {
-      dx = -1;
       newDir = 'left';
       attemptMove = true;
     } else if (keys['ArrowRight']) {
-      dx = 1;
       newDir = 'right';
       attemptMove = true;
     }
@@ -1888,6 +1820,7 @@ export class PlayerController {
     if (attemptMove) {
       this.dir = newDir;
       this.surfingController.updateBlobDirection(newDir);
+      const { dx, dy } = directionToOffset(newDir);
 
       const targetTileX = this.tileX + dx;
       const targetTileY = this.tileY + dy;
@@ -1907,10 +1840,10 @@ export class PlayerController {
           this.isMoving = true;
           this.pixelsMoved = 0;
           if (isDebugMode()) {
-            console.log(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
+            this.debugLog(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
           }
         } else if (isDebugMode()) {
-          console.log(`[SURF] Water tile (${targetTileX}, ${targetTileY}) blocked (object/event)`);
+          this.debugLog(`[SURF] Water tile (${targetTileX}, ${targetTileY}) blocked (object/event)`);
         }
       } else {
         // Check if we can dismount to this tile
@@ -1923,7 +1856,7 @@ export class PlayerController {
         if (canDismount) {
           // Start dismount sequence
           if (isDebugMode()) {
-            console.log(`[SURF] Starting dismount to (${targetTileX}, ${targetTileY})`);
+            this.debugLog(`[SURF] Starting dismount to (${targetTileX}, ${targetTileY})`);
           }
           this.surfingController.startDismountSequence(
             this.tileX,
@@ -1935,7 +1868,7 @@ export class PlayerController {
           this.changeState(new SurfJumpingState(false));
         } else {
           if (isDebugMode()) {
-            console.log(`[SURF] Cannot move to (${targetTileX}, ${targetTileY}) - blocked`);
+            this.debugLog(`[SURF] Cannot move to (${targetTileX}, ${targetTileY}) - blocked`);
           }
         }
       }
@@ -1964,13 +1897,13 @@ export class PlayerController {
     const check = this.canInitiateSurf();
     if (!check.canSurf || check.targetX === undefined || check.targetY === undefined) {
       if (isDebugMode()) {
-        console.log(`[SURF] Cannot initiate surf: ${check.reason}`);
+        this.debugLog(`[SURF] Cannot initiate surf: ${check.reason}`);
       }
       return;
     }
 
     if (isDebugMode()) {
-      console.log(`[SURF] Starting surf sequence to (${check.targetX}, ${check.targetY})`);
+      this.debugLog(`[SURF] Starting surf sequence to (${check.targetX}, ${check.targetY})`);
     }
 
     this.surfingController.startSurfSequence(

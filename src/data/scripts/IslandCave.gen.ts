@@ -1,0 +1,130 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onLoad: "IslandCave_OnLoad",
+    onTransition: "IslandCave_OnTransition",
+    onResume: "IslandCave_OnResume",
+  },
+  scripts: {
+    "IslandCave_OnResume": [
+      { cmd: "call_if_set", args: ["FLAG_SYS_CTRL_OBJ_DELETE", "IslandCave_EventScript_TryRemoveRegice"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_TryRemoveRegice": [
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_ne", args: ["VAR_RESULT", "B_OUTCOME_CAUGHT", "Common_EventScript_NopReturn"] },
+      { cmd: "removeobject", args: ["VAR_LAST_TALKED"] },
+      { cmd: "return" },
+    ],
+    "IslandCave_OnLoad": [
+      { cmd: "call_if_unset", args: ["FLAG_SYS_BRAILLE_REGICE_COMPLETED", "IslandCave_EventScript_HideRegiEntrance"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_HideRegiEntrance": [
+      { cmd: "setmetatile", args: [7, 19, "METATILE_Cave_EntranceCover", "TRUE"] },
+      { cmd: "setmetatile", args: [8, 19, "METATILE_Cave_EntranceCover", "TRUE"] },
+      { cmd: "setmetatile", args: [9, 19, "METATILE_Cave_EntranceCover", "TRUE"] },
+      { cmd: "setmetatile", args: [7, 20, "METATILE_Cave_SealedChamberBraille_Mid", "TRUE"] },
+      { cmd: "setmetatile", args: [8, 20, "METATILE_Cave_SealedChamberBraille_Mid", "TRUE"] },
+      { cmd: "setmetatile", args: [9, 20, "METATILE_Cave_SealedChamberBraille_Mid", "TRUE"] },
+      { cmd: "return" },
+    ],
+    "IslandCave_OnTransition": [
+      { cmd: "setflag", args: ["FLAG_LANDMARK_ISLAND_CAVE"] },
+      { cmd: "call", args: ["IslandCave_EventScript_ClearSteps"] },
+      { cmd: "call_if_unset", args: ["FLAG_DEFEATED_REGICE", "IslandCave_EventScript_ShowRegice"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_ShowRegice": [
+      { cmd: "clearflag", args: ["FLAG_HIDE_REGICE"] },
+      { cmd: "return" },
+    ],
+    "IslandCave_EventScript_OpenRegiEntrance": [
+      { cmd: "setmetatile", args: [7, 19, "METATILE_Cave_SealedChamberEntrance_TopLeft", "TRUE"] },
+      { cmd: "setmetatile", args: [8, 19, "METATILE_Cave_SealedChamberEntrance_TopMid", "TRUE"] },
+      { cmd: "setmetatile", args: [9, 19, "METATILE_Cave_SealedChamberEntrance_TopRight", "TRUE"] },
+      { cmd: "setmetatile", args: [7, 20, "METATILE_Cave_SealedChamberEntrance_BottomLeft", "TRUE"] },
+      { cmd: "setmetatile", args: [8, 20, "METATILE_Cave_SealedChamberEntrance_BottomMid", "FALSE"] },
+      { cmd: "setmetatile", args: [9, 20, "METATILE_Cave_SealedChamberEntrance_BottomRight", "TRUE"] },
+      { cmd: "special", args: ["DrawWholeMapView"] },
+      { cmd: "playse", args: ["SE_BANG"] },
+      { cmd: "setflag", args: ["FLAG_SYS_BRAILLE_REGICE_COMPLETED"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_CaveEntranceMiddle": [
+      { cmd: "lockall" },
+      { cmd: "call_if_set", args: ["FLAG_TEMP_REGICE_PUZZLE_FAILED", "IslandCave_EventScript_ClearSteps"] },
+      { cmd: "goto_if_set", args: ["FLAG_SYS_BRAILLE_REGICE_COMPLETED", "IslandCave_EventScript_BigHoleInWall"] },
+      { cmd: "braillemessage", args: ["IslandCave_Braille_RunLapAroundWall"] },
+      { cmd: "setflag", args: ["FLAG_TEMP_REGICE_PUZZLE_STARTED"] },
+      { cmd: "special", args: ["ShouldDoBrailleRegicePuzzle"] },
+      { cmd: "goto", args: ["IslandCave_EventScript_CloseBrailleMsg"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_BigHoleInWall": [
+      { cmd: "msgbox", args: ["gText_BigHoleInTheWall", "MSGBOX_DEFAULT"] },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_CaveEntranceSide": [
+      { cmd: "lockall" },
+      { cmd: "call_if_set", args: ["FLAG_TEMP_REGICE_PUZZLE_FAILED", "IslandCave_EventScript_ClearSteps"] },
+      { cmd: "braillemessage", args: ["IslandCave_Braille_RunLapAroundWall"] },
+      { cmd: "goto_if_set", args: ["FLAG_SYS_BRAILLE_REGICE_COMPLETED", "IslandCave_EventScript_CloseBrailleMsg"] },
+      { cmd: "setflag", args: ["FLAG_TEMP_REGICE_PUZZLE_STARTED"] },
+      { cmd: "special", args: ["ShouldDoBrailleRegicePuzzle"] },
+      { cmd: "goto", args: ["IslandCave_EventScript_CloseBrailleMsg"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_CloseBrailleMsg": [
+      { cmd: "waitbuttonpress" },
+      { cmd: "closebraillemessage" },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_ClearSteps": [
+      { cmd: "setvar", args: ["VAR_REGICE_STEPS_1", 0] },
+      { cmd: "setvar", args: ["VAR_REGICE_STEPS_2", 0] },
+      { cmd: "setvar", args: ["VAR_REGICE_STEPS_3", 0] },
+      { cmd: "clearflag", args: ["FLAG_TEMP_REGICE_PUZZLE_FAILED"] },
+      { cmd: "return" },
+    ],
+    "IslandCave_EventScript_Regice": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "waitse" },
+      { cmd: "playmoncry", args: ["SPECIES_REGICE", "CRY_MODE_ENCOUNTER"] },
+      { cmd: "delay", args: [40] },
+      { cmd: "waitmoncry" },
+      { cmd: "setwildbattle", args: ["SPECIES_REGICE", 40] },
+      { cmd: "setflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "special", args: ["StartRegiBattle"] },
+      { cmd: "waitstate" },
+      { cmd: "clearflag", args: ["FLAG_SYS_CTRL_OBJ_DELETE"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "GetBattleOutcome"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_WON", "IslandCave_EventScript_DefeatedRegice"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_RAN", "IslandCave_EventScript_RanFromRegice"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "B_OUTCOME_PLAYER_TELEPORTED", "IslandCave_EventScript_RanFromRegice"] },
+      { cmd: "setflag", args: ["FLAG_DEFEATED_REGICE"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_DefeatedRegice": [
+      { cmd: "setflag", args: ["FLAG_DEFEATED_REGICE"] },
+      { cmd: "goto", args: ["Common_EventScript_RemoveStaticPokemon"] },
+      { cmd: "end" },
+    ],
+    "IslandCave_EventScript_RanFromRegice": [
+      { cmd: "setvar", args: ["VAR_0x8004", "SPECIES_REGICE"] },
+      { cmd: "goto", args: ["Common_EventScript_LegendaryFlewAway"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+  },
+};

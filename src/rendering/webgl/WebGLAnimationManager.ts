@@ -11,15 +11,13 @@
 
 import { WebGLTextureManager } from './WebGLTextureManager';
 import type { LoadedAnimation } from '../types';
+import { SECONDARY_TILE_OFFSET } from '../../utils/mapLoader';
 
 /** Tile size in pixels */
 const TILE_SIZE = 8;
 
 /** Tiles per row in tileset texture (128px / 8px) */
 const TILES_PER_ROW = 16;
-
-/** Secondary tileset tile ID offset */
-const SECONDARY_TILE_OFFSET = 512;
 
 /**
  * Animation frame state

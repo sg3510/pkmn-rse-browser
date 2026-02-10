@@ -10,7 +10,6 @@
  * - Berry trees
  */
 
-import type { ObjectEventData, ItemBallObject, NPCObject, ScriptObject, LargeObject } from '../types/objectEvents';
 import {
   OBJ_EVENT_GFX_ITEM_BALL,
   OBJ_EVENT_GFX_TRUCK,
@@ -18,6 +17,11 @@ import {
   parseMovementType,
   parseTrainerType,
   getInitialDirection,
+  type ObjectEventData,
+  type ItemBallObject,
+  type NPCObject,
+  type ScriptObject,
+  type LargeObject,
 } from '../types/objectEvents';
 import { getItemIdFromScript } from '../data/itemScripts';
 import { getItemName } from '../data/items';
@@ -99,11 +103,11 @@ export class ObjectEventManager {
 
       // Handle item balls
       if (obj.graphics_id === OBJ_EVENT_GFX_ITEM_BALL) {
-        const itemId = getItemIdFromScript(obj.script);
-        if (itemId === null) {
-          console.warn(`[ObjectEventManager] Unknown item script: ${obj.script}`);
-          continue;
-        }
+        // Resolve item ID from script name. Story objects (e.g. RivalsPokeBall)
+        // don't map to a real item — render them as item balls anyway so the
+        // sprite is visible and interaction falls through to ScriptRunner.
+        const itemId = getItemIdFromScript(obj.script) ?? 0;
+        const itemName = itemId > 0 ? getItemName(itemId) : '';
 
         // Create unique ID
         const id = `${mapId}_item_${worldX}_${worldY}`;
@@ -117,7 +121,7 @@ export class ObjectEventManager {
           tileY: worldY,
           elevation: obj.elevation,
           itemId,
-          itemName: getItemName(itemId),
+          itemName,
           flag: obj.flag,
           script: obj.script,
           collected,
@@ -245,7 +249,24 @@ export class ObjectEventManager {
   ): { type: 'item'; data: ItemBallObject } | { type: 'npc'; data: NPCObject } | { type: 'script'; data: ScriptObject } | null {
     const itemBall = this.getItemBallAt(tileX, tileY);
     if (itemBall) {
-      return { type: 'item', data: itemBall };
+      if (itemBall.itemId > 0) {
+        return { type: 'item', data: itemBall };
+      }
+      // Story item ball (e.g. RivalsPokeBall) — route through script system
+      return {
+        type: 'script',
+        data: {
+          id: itemBall.id,
+          localId: null,
+          tileX: itemBall.tileX,
+          tileY: itemBall.tileY,
+          elevation: itemBall.elevation,
+          graphicsId: OBJ_EVENT_GFX_ITEM_BALL,
+          script: itemBall.script,
+          flag: itemBall.flag,
+          visible: !itemBall.collected,
+        },
+      };
     }
     const npc = this.getNPCAt(tileX, tileY);
     if (npc) {
@@ -304,6 +325,9 @@ export class ObjectEventManager {
 
     npc.tileX = tileX;
     npc.tileY = tileY;
+    // Also update initial position (used by movement engine for wander bounds)
+    npc.initialTileX = tileX;
+    npc.initialTileY = tileY;
     npc.subTileX = 0;
     npc.subTileY = 0;
     npc.isWalking = false;
@@ -331,6 +355,46 @@ export class ObjectEventManager {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.direction = direction;
+    return true;
+  }
+
+  /**
+   * Face an NPC toward the player's position.
+   */
+  faceNpcTowardPlayer(
+    mapId: string,
+    localId: string,
+    playerTileX: number,
+    playerTileY: number
+  ): void {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return;
+    const dx = playerTileX - npc.tileX;
+    const dy = playerTileY - npc.tileY;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      npc.direction = dx < 0 ? 'left' : 'right';
+    } else if (dy !== 0) {
+      npc.direction = dy < 0 ? 'up' : 'down';
+    }
+  }
+
+  /**
+   * Set an NPC's movement type by map-local ID.
+   * Also updates direction and stops wandering.
+   */
+  setNPCMovementTypeByLocalId(
+    mapId: string,
+    localId: string,
+    movementTypeRaw: string
+  ): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.movementType = parseMovementType(movementTypeRaw);
+    npc.movementTypeRaw = movementTypeRaw;
+    npc.direction = getInitialDirection(movementTypeRaw);
+    npc.isWalking = false;
+    npc.subTileX = 0;
+    npc.subTileY = 0;
     return true;
   }
 

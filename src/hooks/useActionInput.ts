@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useInput } from './useInput';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
-import type { ScriptObject } from '../types/objectEvents';
+import type { ScriptObject, NPCObject } from '../types/objectEvents';
 import { saveManager } from '../save/SaveManager';
 import { bagManager } from '../game/BagManager';
 
@@ -14,6 +14,10 @@ export interface ActionInputDeps {
   showMessage: (text: string) => Promise<void>;
   showYesNo: (text: string) => Promise<boolean>;
   onScriptInteract?: (scriptObject: ScriptObject) => Promise<void>;
+  /** Called when the player presses A facing an NPC with a script */
+  onNpcInteract?: (npc: NPCObject) => Promise<void>;
+  /** Called when the player presses A facing a tile with no NPC/item/script (bg_events, signs, etc.) */
+  onTileInteract?: (facingTileX: number, facingTileY: number, playerDir: string) => Promise<void>;
 }
 
 /**
@@ -29,6 +33,8 @@ export function useActionInput({
   showMessage,
   showYesNo,
   onScriptInteract,
+  onNpcInteract,
+  onTileInteract,
 }: ActionInputDeps) {
   const surfPromptInProgressRef = useRef<boolean>(false);
   const itemPickupInProgressRef = useRef<boolean>(false);
@@ -42,6 +48,8 @@ export function useActionInput({
 
     // Avoid conflicts with dialog or concurrent prompts
     if (dialogIsOpen) return;
+    // Respect script/warp locks owned outside this hook.
+    if (player.inputLocked) return;
 
     // Surf prompt takes priority when available
     if (!surfPromptInProgressRef.current && !player.isMoving && !player.isSurfing()) {
@@ -80,7 +88,18 @@ export function useActionInput({
 
     const objectEventManager = objectEventManagerRef.current;
     const interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
-    if (!interactable) return;
+    if (!interactable) {
+      // No NPC/item/script — check bg_events (signs, clocks, etc.)
+      if (onTileInteract) {
+        itemPickupInProgressRef.current = true;
+        try {
+          await onTileInteract(facingTileX, facingTileY, player.dir);
+        } finally {
+          itemPickupInProgressRef.current = false;
+        }
+      }
+      return;
+    }
 
     if (interactable.type === 'item') {
       const itemBall = interactable.data;
@@ -101,17 +120,25 @@ export function useActionInput({
       return;
     }
 
+    if (interactable.type === 'npc' && interactable.data.script && interactable.data.script !== '0x0' && onNpcInteract) {
+      itemPickupInProgressRef.current = true;
+      try {
+        await onNpcInteract(interactable.data);
+      } finally {
+        itemPickupInProgressRef.current = false;
+      }
+      return;
+    }
+
     if (interactable.type === 'script' && onScriptInteract) {
       itemPickupInProgressRef.current = true;
-      player.lockInput();
       try {
         await onScriptInteract(interactable.data);
       } finally {
         itemPickupInProgressRef.current = false;
-        player.unlockInput();
       }
     }
-  }, [enabled, dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef, onScriptInteract]);
+  }, [enabled, dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef, onScriptInteract, onNpcInteract, onTileInteract]);
 
   useInput({ onKeyDown: handleActionKeyDown });
 

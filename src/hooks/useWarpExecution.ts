@@ -43,12 +43,7 @@ import {
   runDoorExitUpdate,
   type DoorSequenceDeps,
 } from '../game/DoorSequenceRunner';
-
-// Helper to check if debug mode is enabled
-const DEBUG_MODE_FLAG = 'DEBUG_MODE';
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
+import { isDebugMode } from '../utils/debug';
 
 function logDoor(...args: unknown[]) {
   if (isDebugMode()) {

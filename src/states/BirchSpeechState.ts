@@ -278,7 +278,7 @@ export class BirchSpeechState implements StateRenderer {
         },
         normalize: (value) => value.trim().toUpperCase().slice(0, MAX_PLAYER_NAME_LENGTH),
       });
-      if (enteredName === null || this.exiting) return;
+      if (enteredName == null || this.exiting) return;
       this.playerName = enteredName;
 
       this.phase = 'confirm';

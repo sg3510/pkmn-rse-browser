@@ -17,6 +17,7 @@ import {
   type Palette,
 } from '../utils/mapLoader';
 import type { LoadedAnimation } from '../utils/tilesetUtils';
+import { isDebugMode } from '../utils/debug';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -213,7 +214,7 @@ export class MapManager {
           );
           queue.push({ map: neighbor, offsetX, offsetY, depth: current.depth + 1 });
         } catch (err) {
-          if ((window as unknown as Record<string, boolean>)['DEBUG_MODE']) {
+          if (isDebugMode()) {
             console.warn(`Failed to load connected map ${connection.map}:`, err);
           }
         }

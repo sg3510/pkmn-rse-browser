@@ -25,15 +25,10 @@ import { getSpritePriorityForElevation } from '../utils/elevationPriority';
 import { renderNPCs, renderNPCReflections, npcAnimationManager } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
 import { buildSpriteBatches, getEffectsForNPC, getPlayerEffectsForLayer } from '../rendering/SpriteBatcher';
+import { isDebugMode } from '../utils/debug';
 
 // Feature flag for render pipeline
 const USE_RENDER_PIPELINE = true;
-
-// Helper to check if debug mode is enabled
-const DEBUG_MODE_FLAG = 'DEBUG_DOOR';
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
 
 /** Refs needed by compositeScene */
 export interface CompositeSceneRefs {
@@ -337,7 +332,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         }
       }
 
-      if (isDebugMode()) {
+      if (isDebugMode('door')) {
         console.log(
           `[MapRender] view (${view.worldStartTileX}, ${view.worldStartTileY}) player (${refs.playerControllerRef.current?.tileX}, ${refs.playerControllerRef.current?.tileY})`
         );

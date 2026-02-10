@@ -1,0 +1,364 @@
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 6 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [NPCMovement] Handlers registered
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+(index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+ [StateRenderLoop] First frame rendered
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] Ready, scale: 1
+ [TitleScreenState] Ready, scale: 1
+ [GamePage] State changed to: TITLE_SCREEN
+ [GamePage] State changed to: TITLE_SCREEN
+ [GameStateManager] Exiting state: TITLE_SCREEN
+ [TitleScreenState] Exiting...
+ [GameStateManager] Entering state: MAIN_MENU
+ [MainMenuState] Entered
+ [MainMenuState] Found save: Object
+ [GamePage] State changed to: MAIN_MENU
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Starting render loop for state: MAIN_MENU
+ [StateRenderLoop] First frame rendered
+ [MainMenuState] Selected: NEW GAME
+ [BagManager] Bag reset
+ [SaveManager] New game started for BRENDAN
+ [MainMenuState] Starting new game
+ [GameStateManager] Exiting state: MAIN_MENU
+ [MainMenuState] Exited
+ [GameStateManager] Entering state: NEW_GAME_BIRCH
+ [GamePage] State changed to: NEW_GAME_BIRCH
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Starting render loop for state: NEW_GAME_BIRCH
+ [StateRenderLoop] First frame rendered
+ [GameStateManager] Exiting state: NEW_GAME_BIRCH
+ [GameStateManager] Entering state: OVERWORLD
+ [OverworldState] Entered Object
+ [GamePage] State changed to: OVERWORLD
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Skipping - in OVERWORLD state
+ [GamePage] Got saved location from Continue: Object
+ [GamePage] Changing map to saved location: MAP_INSIDE_OF_TRUCK
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_InsideOfTruck: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_InsideOfTruck to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [GamePage] Spawning player at saved position: Object
+ [CoordEvent] Firing: InsideOfTruck_EventScript_SetIntroFlags at (3,2) var=VAR_LITTLEROOT_INTRO_STATE=0
+ [StoryScript] ▶ Starting: InsideOfTruck_EventScript_SetIntroFlags
+ [StoryScript] ✓ Script handled=true
+ [NPCMovement] Engine reset
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_INSIDE_OF_TRUCK
+ [WARP] Destination map: MAP_LITTLEROOT_TOWN
+ [WARP] fromDoor: true
+ [WARP] priorFacing: right
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_0 (tried /pokeemerald/graphics/object_events/pics/people/var_0.png, /pokeemerald/graphics/object_events/pics/misc/var_0.png, /pokeemerald/graphics/object_events/pics/pokemon/var_0.png)
+overrideMethod @ installHook.js:1
+ [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(3)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [StoryScript] ▶ Starting: LittlerootTown_EventScript_StepOffTruckMale
+ [movePlayerStep] dir=right mode=jump pos=(3,10) isMoving=false inputLocked=true
+ [movePlayerStep] jump done guard=15
+ [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,8)
+ [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,9)
+ [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=left mode=face pos=(5,10)
+ [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,10)
+ [movePlayerStep] dir=right mode=walk pos=(4,10) isMoving=false inputLocked=false
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=15 isMoving=false pos=(5,10)
+ [movePlayerStep] dir=up mode=face pos=(5,10) isMoving=false inputLocked=false
+ [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,9)
+ [movePlayerStep] dir=up mode=walk pos=(5,10) isMoving=false inputLocked=false
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=14 isMoving=false pos=(5,9)
+ [movePlayerStep] dir=up mode=walk pos=(5,9) isMoving=false inputLocked=false
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=15 isMoving=false pos=(5,8)
+ [StoryScript] ✓ Script handled=true
+ [NPCMovement] Engine reset
+ [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true
+ [ScriptedWarp] pending → fading (fadeOut to MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F)
+ [ScriptedWarp] fade complete. activeMapId=MAP_LITTLEROOT_TOWN targetMapId=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [ScriptedWarp] different map → loading MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_LITTLEROOT_TOWN
+ [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [WARP] fromDoor: undefined
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/brendan/walking.png
+overrideMethod @ installHook.js:1
+ [GamePage] Spawning player at saved position: Object
+ [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
+ [movePlayerStep] dir=right mode=face pos=(8,8) isMoving=false inputLocked=false
+ [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=false
+ [movePlayerStep] forceMove=true isMoving=true
+ [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
+ [movePlayerStep] done guard=15 isMoving=false pos=(8,7)
+ [StoryScript] ✓ Script handled=true
+ [NPCMovement] Engine reset
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+ [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [ObjectEventManager] Unknown item script: LittlerootTown_BrendansHouse_2F_EventScript_RivalsPokeBall
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_2 (tried /pokeemerald/graphics/object_events/pics/people/var_2.png, /pokeemerald/graphics/object_events/pics/misc/var_2.png, /pokeemerald/graphics/object_events/pics/pokemon/var_2.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_3 (tried /pokeemerald/graphics/object_events/pics/people/var_3.png, /pokeemerald/graphics/object_events/pics/misc/var_3.png, /pokeemerald/graphics/object_events/pics/pokemon/var_3.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_6 (tried /pokeemerald/graphics/object_events/pics/people/var_6.png, /pokeemerald/graphics/object_events/pics/misc/var_6.png, /pokeemerald/graphics/object_events/pics/pokemon/var_6.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_5 (tried /pokeemerald/graphics/object_events/pics/people/var_5.png, /pokeemerald/graphics/object_events/pics/misc/var_5.png, /pokeemerald/graphics/object_events/pics/pokemon/var_5.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_4 (tried /pokeemerald/graphics/object_events/pics/people/var_4.png, /pokeemerald/graphics/object_events/pics/misc/var_4.png, /pokeemerald/graphics/object_events/pics/pokemon/var_4.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_1 (tried /pokeemerald/graphics/object_events/pics/people/var_1.png, /pokeemerald/graphics/object_events/pics/misc/var_1.png, /pokeemerald/graphics/object_events/pics/pokemon/var_1.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_7 (tried /pokeemerald/graphics/object_events/pics/people/var_7.png, /pokeemerald/graphics/object_events/pics/misc/var_7.png, /pokeemerald/graphics/object_events/pics/pokemon/var_7.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_8 (tried /pokeemerald/graphics/object_events/pics/people/var_8.png, /pokeemerald/graphics/object_events/pics/misc/var_8.png, /pokeemerald/graphics/object_events/pics/pokemon/var_8.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_9 (tried /pokeemerald/graphics/object_events/pics/people/var_9.png, /pokeemerald/graphics/object_events/pics/misc/var_9.png, /pokeemerald/graphics/object_events/pics/pokemon/var_9.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_A (tried /pokeemerald/graphics/object_events/pics/people/var_a.png, /pokeemerald/graphics/object_events/pics/misc/var_a.png, /pokeemerald/graphics/object_events/pics/pokemon/var_a.png)
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_B (tried /pokeemerald/graphics/object_events/pics/people/var_b.png, /pokeemerald/graphics/object_events/pics/misc/var_b.png, /pokeemerald/graphics/object_events/pics/pokemon/var_b.png)
+overrideMethod @ installHook.js:1
+ [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+ [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
+overrideMethod @ installHook.js:1
+ [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: PlayersHouse_2F_EventScript_SimplifiedClock
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=down mode=walk pos=(7,1)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=face pos=(7,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=walk pos=(7,2)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=right mode=face pos=(5,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=right mode=walk pos=(6,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=up mode=walk pos=(7,2)
+useHandledStoryScript.ts:404 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:415 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:235 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(4,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=down mode=walk pos=(8,3) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=14 isMoving=false pos=(8,4)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=down mode=walk pos=(8,4) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=15 isMoving=false pos=(8,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=left mode=walk pos=(8,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=15 isMoving=false pos=(7,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=left mode=walk pos=(7,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=14 isMoving=false pos=(6,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=left mode=walk pos=(6,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=13 isMoving=false pos=(5,5)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(4,5)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(3,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=left mode=walk pos=(5,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=15 isMoving=false pos=(4,5)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=up mode=face pos=(4,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:188 [movePlayerStep] dir=left mode=face pos=(4,5) isMoving=false inputLocked=false
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(3,5)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=down mode=walk pos=(2,5)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(2,6)
+useHandledStoryScript.ts:404 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:415 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:241 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:263 [WARP] Warp complete
+performWarpTransition.ts:264 [WARP] World bounds: Object
+performWarpTransition.ts:265 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:266 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:267 [WARP] GPU slots: Object
+GamePage.tsx:1241 [CoordEvent] Firing: LittlerootTown_EventScript_NeedPokemonTriggerLeft at (10,1) var=VAR_LITTLEROOT_TOWN_STATE=0
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: LittlerootTown_EventScript_NeedPokemonTriggerLeft
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(7,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=face pos=(8,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(8,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(9,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(10,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(11,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(12,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(12,1)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(12,0)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(11,0)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(11,1)
+useHandledStoryScript.ts:188 [movePlayerStep] dir=down mode=walk pos=(10,1) isMoving=false inputLocked=true
+useHandledStoryScript.ts:207 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:213 [movePlayerStep] done guard=15 isMoving=false pos=(10,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(11,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(12,2)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(12,3)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(12,4)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(11,4)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(10,4)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(9,4)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(8,4)
+useHandledStoryScript.ts:228 [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=face pos=(8,3)
+useHandledStoryScript.ts:404 [StoryScript] ✓ Script handled=true
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+useHandledStoryScript.ts:415 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false
+
+
+Tile:
+(10, 2)
+Pixel:
+(160.0, 16.0)
+Direction:
+down
+Map:
+LITTLEROOT_TOWN
+Moving:
+NO
+Surfing:
+NO
+ELEVATION
+Render (prev):
+3
+Collision (cur):
+3
+STATE
+State:
+Normal
+Collision Check:
+ENABLED
+Visible NPCs:
+10
+Total NPCs:
+15
+Visible Items:
+0
+Total Items:
+0
+
+
+No NPCs or items on adjacent tiles
+Player at (10, 2), facing down
+TWIN
+(8, 3) E3 P2 D
+FAT_MAN
+(12, 13) E3 P2 D
+BOY_2
+(16, 17) E3 P2 R
+YOUNGSTER
+(16, -12) E3 P2 R
+PROF_BIRCH
+(9, -7) E0 P2 D
+ZIGZAGOON_1
+(10, -7) E0 P2 D
+GIRL_3
+(16, -29) E3 P2 L
+MART_EMPLOYEE
+(13, -33) E3 P2 D
+MANIAC
+(8, -31) E3 P2 R
+VAR_0
+(11, -21) E3 P2 U
+No visible items
+Total NPCs:
+15
+Total Items:
+0

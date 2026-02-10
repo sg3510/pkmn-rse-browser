@@ -10,10 +10,21 @@ import { buildTilesetRuntime, type TilesetRuntime, type ReflectionMeta } from '.
 import type { TilesetResources } from '../services/MapManager';
 import type { RenderContext } from '../components/map/types';
 import type { MapData, Metatile, MetatileAttributes, Palette, TilesetImageData } from '../utils/mapLoader';
+import { resolveMetatileIndex } from '../utils/mapLoader';
 import type { MapIndexEntry } from '../types/maps';
 import type { LoadedAnimation } from '../rendering/types';
+import { buildSnapshotSpatialIndex, type SnapshotSpatialIndex } from './snapshotSpatialIndex';
+const snapshotSpatialIndexCache = new WeakMap<WorldSnapshot, SnapshotSpatialIndex>();
 
-const SECONDARY_TILE_OFFSET = 512;
+function getSnapshotSpatialIndex(snapshot: WorldSnapshot): SnapshotSpatialIndex {
+  const cached = snapshotSpatialIndexCache.get(snapshot);
+  if (cached) {
+    return cached;
+  }
+  const built = buildSnapshotSpatialIndex(snapshot);
+  snapshotSpatialIndexCache.set(snapshot, built);
+  return built;
+}
 
 /**
  * Result of reflection metadata lookup
@@ -159,47 +170,40 @@ export function getReflectionMetaFromSnapshot(
   tileY: number
 ): ReflectionMetaResult | null {
   const { maps, tilesetPairs, mapTilesetPairIndex, anchorBorderMetatiles, anchorMapId } = snapshot;
+  const spatialIndex = getSnapshotSpatialIndex(snapshot);
 
-  // Find which map contains this tile
-  for (const map of maps) {
+  const map = spatialIndex.getMapAt(tileX, tileY);
+  if (map) {
     const localX = tileX - map.offsetX;
     const localY = tileY - map.offsetY;
 
-    if (
-      localX >= 0 &&
-      localX < map.entry.width &&
-      localY >= 0 &&
-      localY < map.entry.height
-    ) {
-      const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
-      const pair = tilesetPairs[pairIndex];
+    const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
+    const pair = tilesetPairs[pairIndex];
 
-      const idx = localY * map.entry.width + localX;
-      const mapTile = map.mapData.layout[idx];
-      const metatileId = mapTile.metatileId;
+    const idx = localY * map.entry.width + localX;
+    const mapTile = map.mapData.layout[idx];
+    const metatileId = mapTile.metatileId;
 
-      const isSecondary = metatileId >= SECONDARY_TILE_OFFSET;
-      const attrIndex = isSecondary ? metatileId - SECONDARY_TILE_OFFSET : metatileId;
-      const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
-      const behavior = attrArray[attrIndex]?.behavior ?? 0;
+    const { isSecondary, index: attrIndex } = resolveMetatileIndex(metatileId);
+    const attrArray = isSecondary ? pair.secondaryAttributes : pair.primaryAttributes;
+    const behavior = attrArray[attrIndex]?.behavior ?? 0;
 
-      // Get reflection meta from runtime
-      // First try the expected pair ID, then try all runtimes as fallback
-      let runtime = tilesetRuntimes.get(pair.id);
+    // Get reflection meta from runtime
+    // First try the expected pair ID, then try all runtimes as fallback
+    let runtime = tilesetRuntimes.get(pair.id);
 
-      // Fallback: try first available runtime (for single-tileset scenarios)
-      if (!runtime && tilesetRuntimes.size > 0) {
-        runtime = tilesetRuntimes.values().next().value;
-      }
-
-      if (!runtime) return { behavior, meta: null };
-
-      const meta = isSecondary
-        ? runtime.secondaryReflectionMeta[attrIndex]
-        : runtime.primaryReflectionMeta[attrIndex];
-
-      return { behavior, meta: meta ?? null };
+    // Fallback: try first available runtime (for single-tileset scenarios)
+    if (!runtime && tilesetRuntimes.size > 0) {
+      runtime = tilesetRuntimes.values().next().value;
     }
+
+    if (!runtime) return { behavior, meta: null };
+
+    const meta = isSecondary
+      ? runtime.secondaryReflectionMeta[attrIndex]
+      : runtime.primaryReflectionMeta[attrIndex];
+
+    return { behavior, meta: meta ?? null };
   }
 
   // BORDER FALLBACK: Tile is outside all loaded maps
@@ -222,8 +226,7 @@ export function getReflectionMetaFromSnapshot(
   const borderIndex = (anchorLocalX & 1) + ((anchorLocalY & 1) * 2);
   const borderMetatileId = anchorBorderMetatiles[borderIndex % anchorBorderMetatiles.length];
 
-  const isSecondary = borderMetatileId >= SECONDARY_TILE_OFFSET;
-  const attrIndex = isSecondary ? borderMetatileId - SECONDARY_TILE_OFFSET : borderMetatileId;
+  const { isSecondary, index: attrIndex } = resolveMetatileIndex(borderMetatileId);
   const attrArray = isSecondary ? anchorPair.secondaryAttributes : anchorPair.primaryAttributes;
   const behavior = attrArray[attrIndex]?.behavior ?? 0;
 
@@ -285,6 +288,21 @@ export function createRenderContextFromSnapshot(
 
   // Create anchor WorldMapInstance
   const anchor = worldMaps.find((m) => m.offsetX === 0 && m.offsetY === 0) ?? worldMaps[0];
+  const tileLookup = new Map<string, (typeof worldMaps)[number]>();
+  for (const map of worldMaps) {
+    const minX = map.offsetX;
+    const maxX = map.offsetX + map.mapData.width - 1;
+    const minY = map.offsetY;
+    const maxY = map.offsetY + map.mapData.height - 1;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const key = `${x},${y}`;
+        if (!tileLookup.has(key)) {
+          tileLookup.set(key, map);
+        }
+      }
+    }
+  }
 
   return {
     world: {
@@ -298,6 +316,7 @@ export function createRenderContextFromSnapshot(
       },
     },
     tilesetRuntimes,
+    tileLookup,
     anchor: {
       ...anchor,
       tilesets: anchorTilesetResources,

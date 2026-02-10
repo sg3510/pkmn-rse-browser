@@ -8,14 +8,11 @@
  * - src/event_object_movement.c: Ground effect triggers
  */
 
-// Helper to check if debug mode is enabled
-const DEBUG_MODE_FLAG = 'DEBUG_MODE';
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>)[DEBUG_MODE_FLAG];
-}
+import { TICK_60FPS_MS } from '../config/timing';
+import { isDebugMode } from '../utils/debug';
 
-// GBA frame timing - 1 tick = 1 frame at 60fps = ~16.67ms
-const MS_PER_TICK = 1000 / 60;
+// GBA/NDS-style tick used by field effects (60fps cadence)
+const MS_PER_TICK = TICK_60FPS_MS;
 
 export interface FieldEffect {
   id: string;

@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import UPNG from 'upng-js';
 import { WebGLContext, isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLTileRenderer } from '../rendering/webgl/WebGLTileRenderer';
 import { WebGLFramebufferManager } from '../rendering/webgl/WebGLFramebufferManager';
@@ -14,19 +13,22 @@ import { WebGLAnimationManager } from '../rendering/webgl/WebGLAnimationManager'
 import {
   loadTilesetImage,
   loadText,
-  loadBinary,
   parsePalette,
   loadMapLayout,
   loadMetatileDefinitions,
   TILE_SIZE,
+  METATILE_SIZE,
+  NUM_PRIMARY_METATILES,
+  SECONDARY_TILE_OFFSET,
   type Palette,
   type TilesetImageData,
   type Metatile,
   type MapData,
 } from '../utils/mapLoader';
-import { TILESET_ANIMATION_CONFIGS } from '../data/tilesetAnimations';
 import type { TileInstance } from '../rendering/webgl/types';
 import type { LoadedAnimation } from '../rendering/types';
+import { GBA_FRAME_MS } from '../config/timing';
+import { loadTilesetAnimations } from '../game/loadTilesetAnimations';
 
 /** Available tileset options */
 const TILESET_OPTIONS = [
@@ -101,8 +103,6 @@ const MAP_CONFIGS: Record<string, { layoutPath: string; width: number; height: n
 const NUM_PALS_IN_PRIMARY = 6;
 /** Total number of tileset palettes (slots 0-12) */
 const NUM_PALS_TOTAL = 13;
-/** GBA vblank frame duration (~59.73 Hz) for accurate animation timing */
-const GBA_FRAME_MS = 1000 / 59.7275;
 
 /** Load palettes for a tileset */
 async function loadPalettes(tilesetPath: string, startIndex: number, count: number): Promise<Palette[]> {
@@ -147,83 +147,6 @@ function combineTilesetPalettes(primaryPalettes: Palette[], secondaryPalettes: P
 }
 
 /**
- * Load a PNG frame as indexed pixel data
- */
-async function loadIndexedFrame(url: string): Promise<{ data: Uint8Array; width: number; height: number }> {
-  const buffer = await loadBinary(url);
-  const img = UPNG.decode(buffer);
-
-  let data: Uint8Array;
-  if (img.ctype === 3 && img.depth === 4) {
-    // 4-bit indexed PNG - unpack nibbles
-    const packed = new Uint8Array(img.data);
-    const unpacked = new Uint8Array(packed.length * 2);
-    for (let i = 0; i < packed.length; i++) {
-      const byte = packed[i];
-      unpacked[i * 2] = (byte >> 4) & 0xf;
-      unpacked[i * 2 + 1] = byte & 0xf;
-    }
-    data = unpacked;
-  } else {
-    data = new Uint8Array(img.data);
-  }
-
-  return { data, width: img.width, height: img.height };
-}
-
-/**
- * Load animations for the given tilesets
- */
-async function loadAnimationsForTilesets(primaryId: string, secondaryId: string): Promise<LoadedAnimation[]> {
-  const loaded: LoadedAnimation[] = [];
-  const requested = [
-    ...(TILESET_ANIMATION_CONFIGS[primaryId] ?? []),
-    ...(TILESET_ANIMATION_CONFIGS[secondaryId] ?? []),
-  ];
-
-  for (const def of requested) {
-    try {
-      const frames: Uint8Array[] = [];
-      let width = 0;
-      let height = 0;
-
-      for (const framePath of def.frames) {
-        const frame = await loadIndexedFrame(`/pokeemerald/${framePath}`);
-        frames.push(frame.data);
-        width = frame.width;
-        height = frame.height;
-      }
-
-      const tilesWide = Math.max(1, Math.floor(width / TILE_SIZE));
-      const tilesHigh = Math.max(1, Math.floor(height / TILE_SIZE));
-      const sequence = def.sequence ?? frames.map((_, i) => i);
-
-      loaded.push({
-        id: def.id,
-        tileset: def.tileset,
-        frames,
-        width,
-        height,
-        tilesWide,
-        tilesHigh,
-        sequence,
-        interval: def.interval,
-        destinations: def.destinations,
-        altSequence: def.altSequence,
-        altSequenceThreshold: def.altSequenceThreshold,
-      });
-    } catch (err) {
-      console.warn(`Animation ${def.id} not loaded:`, err);
-    }
-  }
-
-  return loaded;
-}
-
-/** Secondary tileset tile ID offset */
-const SECONDARY_TILE_OFFSET = 512;
-
-/**
  * Build tile instances from map data and metatiles
  * This mimics how the actual renderer works
  */
@@ -233,9 +156,6 @@ function buildMapTiles(
   secondaryMetatiles: Metatile[]
 ): TileInstance[] {
   const tiles: TileInstance[] = [];
-  const TILE_SIZE = 8;
-  const METATILE_SIZE = 16;
-  const NUM_PRIMARY_METATILES = 512;
 
   for (let my = 0; my < mapData.height; my++) {
     for (let mx = 0; mx < mapData.width; mx++) {
@@ -604,9 +524,15 @@ export function WebGLTestPage() {
       // Load animations for map mode
       let animations: LoadedAnimation[] | undefined;
       if (isMapMode && mapConfig) {
-        animations = await loadAnimationsForTilesets(
+        animations = await loadTilesetAnimations(
           mapConfig.primaryTilesetId,
-          mapConfig.secondaryTilesetId
+          mapConfig.secondaryTilesetId,
+          {
+            projectRoot: '/pokeemerald',
+            onError: (animationId, err) => {
+              console.warn(`Animation ${animationId} not loaded:`, err);
+            },
+          }
         );
         console.log('Loaded animations:', animations.length);
       }

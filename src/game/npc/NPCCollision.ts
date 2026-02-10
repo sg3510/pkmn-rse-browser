@@ -11,6 +11,7 @@
 import type { NPCObject } from '../../types/objectEvents';
 import type { NPCMovementState, GBADirection } from './NPCMovementEngine';
 import { getDirectionDeltas } from './NPCMovementEngine';
+import { areElevationsCompatible as areElevationsCompatibleShared } from '../../utils/elevation';
 
 /**
  * Collision result types matching GBA constants
@@ -148,12 +149,7 @@ export function getCollisionAtCoords(
  * Reference: AreElevationsCompatible in event_object_movement.c:7791
  */
 export function areElevationsCompatible(elevation1: number, elevation2: number): boolean {
-  // Ground level (0) or universal (15) can interact with any elevation
-  if (elevation1 === 0 || elevation1 === 15) return true;
-  if (elevation2 === 0 || elevation2 === 15) return true;
-
-  // Same elevation = compatible
-  return elevation1 === elevation2;
+  return areElevationsCompatibleShared(elevation1, elevation2);
 }
 
 /**

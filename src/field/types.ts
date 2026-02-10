@@ -17,6 +17,7 @@
  */
 
 import type { CardinalDirection } from '../utils/metatileBehaviors';
+import { directionToOffset } from '../utils/direction';
 
 // Re-export for convenience
 export type { CardinalDirection };
@@ -135,10 +136,10 @@ export interface ArrowOverlayState {
  * Used for calculating adjacent tile positions.
  */
 export const DIRECTION_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 },
+  up: directionToOffset('up'),
+  down: directionToOffset('down'),
+  left: directionToOffset('left'),
+  right: directionToOffset('right'),
 };
 
 /**

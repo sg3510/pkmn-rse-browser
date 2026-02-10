@@ -1,53 +1,18 @@
-import { type WorldMapInstance, type WorldState, type TilesetResources } from '../../services/MapManager';
-import { type Metatile, type MetatileAttributes, type MapTileData } from '../../utils/mapLoader';
-import { type LoadedAnimation } from '../../hooks/map/useMapAssets';
+import { type Metatile, type MapTileData } from '../../utils/mapLoader';
 import { type TilesetKind } from '../../data/tilesetAnimations';
-import { type PrerenderedAnimations } from '../../rendering/PrerenderedAnimations';
+import type { RenderContext, ResolvedTile } from '../../rendering/types';
+import type {
+  LoadedAnimation,
+  ReflectionMeta,
+  TilesetBuffers,
+  TilesetRuntime,
+} from '../../utils/tilesetUtils';
+import { type WarpKind } from '../../field/types';
 export { type LoadedAnimation, type TilesetKind };
+export type { RenderContext, ResolvedTile, ReflectionMeta, TilesetBuffers, TilesetRuntime };
 
 export type ReflectionType = 'water' | 'ice';
-export type WarpKind = 'door' | 'teleport' | 'arrow';
-
-export interface ReflectionMeta {
-  isReflective: boolean;
-  reflectionType: ReflectionType | null;
-  pixelMask: Uint8Array; // 16x16 mask where 1 = BG1 transparent (reflection allowed), 0 = opaque
-}
-
-export interface TilesetBuffers {
-  primary: Uint8Array;
-  secondary: Uint8Array;
-}
-
-export interface TilesetRuntime {
-  resources: TilesetResources;
-  primaryTileMasks: Uint8Array[];
-  secondaryTileMasks: Uint8Array[];
-  primaryReflectionMeta: ReflectionMeta[];
-  secondaryReflectionMeta: ReflectionMeta[];
-  animations: LoadedAnimation[];
-  animatedTileIds: { primary: Set<number>; secondary: Set<number> };
-  patchedTiles: TilesetBuffers | null;
-  lastPatchedKey: string;
-  /** Pre-rendered animation frames (optional, for optimized rendering) */
-  prerenderedAnimations: PrerenderedAnimations | null;
-}
-
-export interface RenderContext {
-  world: WorldState;
-  tilesetRuntimes: Map<string, TilesetRuntime>;
-  anchor: WorldMapInstance;
-}
-
-export interface ResolvedTile {
-  map: WorldMapInstance;
-  tileset: TilesetResources;
-  metatile: Metatile | null;
-  attributes: MetatileAttributes | undefined;
-  mapTile: MapTileData;
-  isSecondary: boolean;
-  isBorder: boolean;
-}
+export type { WarpKind } from '../../field/types';
 
 export interface DebugTileInfo {
   inBounds: boolean;

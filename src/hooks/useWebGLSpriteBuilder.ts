@@ -32,6 +32,7 @@ import {
   createPlayerReflectionSprite,
   createPlayerShadowSprite,
   createNPCSpriteInstance,
+  createNPCShadowSprite,
   createNPCReflectionSprite,
   createDoorAnimationSprite,
   createItemBallSpriteInstance,
@@ -377,6 +378,12 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       if (!npcSprite) return;
 
       targetArray.push(npcSprite);
+
+      // Add shadow for jumping NPCs
+      if (npc.showShadow && spriteRenderer.hasSpriteSheet(getPlayerAtlasName('shadow'))) {
+        const shadowSprite = createNPCShadowSprite(npc, info.sortKey);
+        targetArray.push(shadowSprite);
+      }
 
       // Add reflection (not for P0 sprites)
       if (snapshot && targetArray !== priority0Sprites) {

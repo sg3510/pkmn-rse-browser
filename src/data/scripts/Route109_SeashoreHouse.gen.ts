@@ -1,0 +1,126 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "Route109_SeashoreHouse_OnTransition",
+  },
+  scripts: {
+    "Route109_SeashoreHouse_OnTransition": [
+      { cmd: "setflag", args: ["FLAG_LANDMARK_SEASHORE_HOUSE"] },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_Owner": [
+      { cmd: "lock" },
+      { cmd: "faceplayer" },
+      { cmd: "goto_if_set", args: ["FLAG_RECEIVED_6_SODA_POP", "Route109_SeashoreHouse_EventScript_AlreadyReceivedSodaPop"] },
+      { cmd: "goto_if_set", args: ["FLAG_DEFEATED_SEASHORE_HOUSE", "Route109_SeashoreHouse_EventScript_DefeatedTrainers"] },
+      { cmd: "goto_if_set", args: ["FLAG_TEMP_2", "Route109_SeashoreHouse_EventScript_AlreadyGaveIntroduction"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_SeashoreHouseIntro", "MSGBOX_DEFAULT"] },
+      { cmd: "setflag", args: ["FLAG_TEMP_2"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_AlreadyGaveIntroduction": [
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_ShowMeSomeHotMatches", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_DefeatedTrainers": [
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_TakeTheseSodaPopBottles", "MSGBOX_DEFAULT"] },
+      { cmd: "giveitem", args: ["ITEM_SODA_POP", 6] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "FALSE", "Route109_SeashoreHouse_EventScript_BagFull"] },
+      { cmd: "setflag", args: ["FLAG_RECEIVED_6_SODA_POP"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_BagFull": [
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_BagFull", "MSGBOX_DEFAULT"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_AlreadyReceivedSodaPop": [
+      { cmd: "showmoneybox", args: [0, 0] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_WantToBuySodaPop", "MSGBOX_YESNO"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "YES", "Route109_SeashoreHouse_EventScript_BuySodaPop"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_ThatsTooBad", "MSGBOX_DEFAULT"] },
+      { cmd: "hidemoneybox" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_BuySodaPop": [
+      { cmd: "checkmoney", args: [300] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "FALSE", "Route109_SeashoreHouse_EventScript_NotEnoughMoney"] },
+      { cmd: "checkitemspace", args: ["ITEM_SODA_POP"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "FALSE", "Route109_SeashoreHouse_EventScript_NotEnoughSpace"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_HereYouGo", "MSGBOX_DEFAULT"] },
+      { cmd: "removemoney", args: [300] },
+      { cmd: "updatemoneybox" },
+      { cmd: "giveitem", args: ["ITEM_SODA_POP"] },
+      { cmd: "hidemoneybox" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_NotEnoughMoney": [
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_NotEnoughMoney", "MSGBOX_DEFAULT"] },
+      { cmd: "hidemoneybox" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_NotEnoughSpace": [
+      { cmd: "msgbox", args: ["gText_TooBadBagIsFull", "MSGBOX_DEFAULT"] },
+      { cmd: "hidemoneybox" },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_Dwayne": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_DWAYNE", "Route109_SeashoreHouse_Text_DwayneIntro", "Route109_SeashoreHouse_Text_DwayneDefeated", "Route109_SeashoreHouse_EventScript_CheckTrainersCompletion"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_DwaynePostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_Johanna": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_JOHANNA", "Route109_SeashoreHouse_Text_JohannaIntro", "Route109_SeashoreHouse_Text_JohannaDefeated", "Route109_SeashoreHouse_EventScript_CheckTrainersCompletion"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_JohannaPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_Simon": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_SIMON", "Route109_SeashoreHouse_Text_SimonIntro", "Route109_SeashoreHouse_Text_SimonDefeated", "Route109_SeashoreHouse_EventScript_CheckTrainersCompletion"] },
+      { cmd: "msgbox", args: ["Route109_SeashoreHouse_Text_SimonPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_CheckTrainersCompletion": [
+      { cmd: "goto_if_not_defeated", args: ["TRAINER_DWAYNE", "Route109_SeashoreHouse_EventScript_TrainersNotCompleted"] },
+      { cmd: "goto_if_not_defeated", args: ["TRAINER_JOHANNA", "Route109_SeashoreHouse_EventScript_TrainersNotCompleted"] },
+      { cmd: "goto_if_not_defeated", args: ["TRAINER_SIMON", "Route109_SeashoreHouse_EventScript_TrainersNotCompleted"] },
+      { cmd: "setflag", args: ["FLAG_DEFEATED_SEASHORE_HOUSE"] },
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+    "Route109_SeashoreHouse_EventScript_TrainersNotCompleted": [
+      { cmd: "release" },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+  },
+  text: {
+    "Route109_SeashoreHouse_Text_SeashoreHouseIntro": "I'm the owner of the SEASHORE HOUSE.\\nBut you can call me MR. SEA!\\pWhat I love above all is to see hot\\nPOKéMON battles.\\pLet me see that your heart burns hot!\\pIf you can defeat all the TRAINERS\\nhere, I'll reward your efforts.",
+    "Route109_SeashoreHouse_Text_ShowMeSomeHotMatches": "Show me some hot matches!\\pI run this SEASHORE HOUSE just for\\nthat reason alone!",
+    "Route109_SeashoreHouse_Text_TakeTheseSodaPopBottles": "You're scorching hot!\\nThose battles blazed!\\lI'm more than just satisfied!\\pAs thanks for showing me your hot\\nstreak, I want you to take these.\\pIt's half a dozen bottles of SODA POP!",
+    "Route109_SeashoreHouse_Text_BagFull": "Oh, but hey, your BAG's jammed full.\\nI'll hang on to these for you.",
+    "Route109_SeashoreHouse_Text_WantToBuySodaPop": "Want to buy some SODA POP?\\nPOKéMON love it!\\pJust ¥300 a bottle!\\nBuy some!",
+    "Route109_SeashoreHouse_Text_HereYouGo": "Here you go!",
+    "Route109_SeashoreHouse_Text_NotEnoughMoney": "You don't have the money.",
+    "Route109_SeashoreHouse_Text_ThatsTooBad": "No?\\nThat's too bad.",
+    "Route109_SeashoreHouse_Text_DwayneIntro": "If you're looking for a battle in the\\nSEASHORE HOUSE, you'll find no\\lhotter TRAINER than me, matey!",
+    "Route109_SeashoreHouse_Text_DwayneDefeated": "That was a hot battle!\\nI can accept that loss, matey!",
+    "Route109_SeashoreHouse_Text_DwaynePostBattle": "Whenever I'm in SLATEPORT, I enjoy\\nhot battles and ice-cold SODA POP!",
+    "Route109_SeashoreHouse_Text_JohannaIntro": "Boring battles aren't worth the effort.\\pFiery hot battles are what toughen up\\nTRAINERS and POKéMON!",
+    "Route109_SeashoreHouse_Text_JohannaDefeated": "That's hot!",
+    "Route109_SeashoreHouse_Text_JohannaPostBattle": "Whew, I'm all thirsty.\\nMaybe I'll have a SODA POP.",
+    "Route109_SeashoreHouse_Text_SimonIntro": "I'm going to show you how great\\nmy POKéMON are, but don't cry!",
+    "Route109_SeashoreHouse_Text_SimonDefeated": "…I lost, but I won't cry…",
+    "Route109_SeashoreHouse_Text_SimonPostBattle": "If one of my POKéMON knew the move\\nfor carrying me across water on its\\lback, I could get rid of this inner tube.",
+  },
+};

@@ -10,6 +10,7 @@
  */
 
 import spriteData from './sprite-metadata.json';
+import { ticksToMs as ticksToMilliseconds } from '../config/timing';
 
 /**
  * Normalize a graphics ID to match the format in sprite-metadata.json
@@ -253,7 +254,7 @@ export function getStaticFrameIndex(
  * GBA runs at 60fps, each tick is ~16.67ms
  */
 export function ticksToMs(ticks: number): number {
-  return ticks * (1000 / 60);
+  return ticksToMilliseconds(ticks);
 }
 
 /**

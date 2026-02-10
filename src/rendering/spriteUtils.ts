@@ -348,7 +348,6 @@ export function buildWaterMaskFromView(
   cameraWorldY: number,
   getReflectionMeta: (tileX: number, tileY: number) => { pixelMask?: Uint8Array | boolean[]; isReflective?: boolean } | null
 ): { data: Uint8Array; width: number; height: number; worldOffsetX: number; worldOffsetY: number } {
-  const METATILE_SIZE = 16;
   const data = new Uint8Array(viewportWidth * viewportHeight);
 
   // Calculate tile range covered by viewport
@@ -453,8 +452,9 @@ export function createNPCSpriteInstance(
   //   = tileY*16 - (height - 16)
   const subTileX = npc.subTileX ?? 0;
   const subTileY = npc.subTileY ?? 0;
+  const spriteYOffset = npc.spriteYOffset ?? 0;
   const worldX = npc.tileX * METATILE_SIZE + subTileX + Math.floor((METATILE_SIZE - sw) / 2);
-  const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE);
+  const worldY = npc.tileY * METATILE_SIZE + subTileY - (sh - METATILE_SIZE) + spriteYOffset;
 
   // For long grass clipping, only show top half of sprite (matches player behavior)
   const displayHeight = clipToHalf ? Math.floor(sh / 2) : sh;
@@ -785,6 +785,48 @@ export function createPlayerShadowSprite(
     tintB: 1.0,
     // Shadow renders behind player (lower subpriority)
     sortKey: playerSortKey - 64,
+    isReflection: false,
+  };
+}
+
+/**
+ * Create a shadow SpriteInstance for an NPC during jumps
+ *
+ * Shadow stays at ground level (no spriteYOffset applied).
+ * Reuses the player shadow atlas since the shadow sprite is identical.
+ *
+ * @param npc - NPC object (position used for shadow placement)
+ * @param npcSortKey - NPC's sort key (shadow uses lower priority)
+ * @returns SpriteInstance for the shadow
+ */
+export function createNPCShadowSprite(
+  npc: NPCObject,
+  npcSortKey: number
+): SpriteInstance {
+  const subTileX = npc.subTileX ?? 0;
+  const subTileY = npc.subTileY ?? 0;
+  // Ground-level NPC position (no spriteYOffset)
+  const groundX = npc.tileX * METATILE_SIZE + subTileX;
+  const groundY = npc.tileY * METATILE_SIZE + subTileY - (32 - METATILE_SIZE);
+  const pos = getShadowPosition(groundX, groundY);
+
+  return {
+    worldX: pos.worldX,
+    worldY: pos.worldY,
+    width: pos.width,
+    height: pos.height,
+    atlasName: getPlayerAtlasName('shadow'),
+    atlasX: 0,
+    atlasY: 0,
+    atlasWidth: SHADOW_WIDTH,
+    atlasHeight: SHADOW_HEIGHT,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey: npcSortKey - 64,
     isReflection: false,
   };
 }

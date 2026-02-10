@@ -5,8 +5,6 @@ import { GamePage } from './pages/GamePage.tsx'
 import { LegacyCanvasPage } from './pages/LegacyCanvasPage.tsx'
 import { WebGLTestPage } from './pages/WebGLTestPage.tsx'
 import { SurfingSpriteDebugPage } from './pages/SurfingSpriteDebugPage.tsx'
-import { GameRenderer } from './components/GameRenderer.tsx'
-import { DialogProvider } from './components/dialog'
 import { DialogDebugPage } from './pages/DialogDebugPage.tsx'
 import Rayquaza3DDebugPage from './pages/Rayquaza3DDebugPage.tsx'
 import Birch3DDebugPage from './pages/Birch3DDebugPage.tsx'
@@ -42,13 +40,9 @@ function Router() {
   if (route === '#/birch-debug') {
     return <Birch3DDebugPage />;
   }
-  // New unified GameRenderer (work in progress)
+  // Canonical runtime path: GamePage (WebGL overworld)
   if (route === '#/play' || route.startsWith('#/play?')) {
-    return (
-      <DialogProvider zoom={1}>
-        <GameRenderer mapId="MAP_LITTLEROOT_TOWN" mapName="Littleroot Town" zoom={2} />
-      </DialogProvider>
-    );
+    return <GamePage />;
   }
 
   // WebGL game page is the default

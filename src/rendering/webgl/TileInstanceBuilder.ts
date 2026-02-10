@@ -19,13 +19,11 @@ import {
   METATILE_LAYER_TYPE_COVERED,
   METATILE_LAYER_TYPE_NORMAL,
   METATILE_LAYER_TYPE_SPLIT,
+  resolveMetatileIndex,
 } from '../../utils/mapLoader';
 
 /** Tile size in pixels */
 const TILE_SIZE = 8;
-
-/** Secondary tileset tile ID offset */
-const SECONDARY_TILE_OFFSET = 512;
 
 /**
  * Builder for creating tile instance arrays from map data
@@ -236,14 +234,8 @@ export class TileInstanceBuilder {
       const subX = (i % 2) * TILE_SIZE;
       const subY = Math.floor(i / 2) * TILE_SIZE;
 
-      // Determine tileset (primary vs secondary)
-      const isSecondary = tile.tileId >= SECONDARY_TILE_OFFSET;
+      const { isSecondary, index: effectiveTileId } = resolveMetatileIndex(tile.tileId);
       const tilesetIndex = isSecondary ? 1 : 0;
-
-      // Adjust tile ID for secondary tileset (remove offset)
-      const effectiveTileId = isSecondary
-        ? tile.tileId - SECONDARY_TILE_OFFSET
-        : tile.tileId;
 
       this.instanceBuffer.push({
         x: screenX + subX,

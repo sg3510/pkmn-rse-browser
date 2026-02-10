@@ -380,32 +380,32 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
   - Mom welcomes player, mentions setting clock upstairs
   - Vigoroth moving boxes (2 NPCs with movement type MOVEMENT_TYPE_WANDER_AROUND)
   - `VAR_LITTLEROOT_INTRO_STATE = 4`
-- [ ] Player's Room (2F):
-  - Clock interaction → simplified clock set (can skip for MVP)
+- [x] Player's Room (2F):
+  - Clock interaction → simplified clock set (auto-trigger "Seems like it's already correct!")
   - Set `FLAG_SET_WALL_CLOCK`
   - Pokeball item on floor (if not collected)
-- [ ] Modern adaptation: if skipping clock UI, auto-set time + `FLAG_SET_WALL_CLOCK` and advance `VAR_LITTLEROOT_INTRO_STATE` to 6
-- [ ] After clock set (`VAR_LITTLEROOT_INTRO_STATE == 6`):
+- [x] Modern adaptation: if skipping clock UI, auto-set time + `FLAG_SET_WALL_CLOCK` and advance `VAR_LITTLEROOT_INTRO_STATE` to 6
+- [x] After clock set (`VAR_LITTLEROOT_INTRO_STATE == 6`):
   - Mom calls player downstairs
   - TV broadcast about Dad's gym
   - `VAR_LITTLEROOT_INTRO_STATE = 7` → free exploration begins
-- [ ] Block player from leaving house until `VAR_LITTLEROOT_INTRO_STATE >= 7`
-- [ ] Implement both house variants (`BrendansHouse_*` and `MaysHouse_*`) and select by player gender
+- [x] Block player from leaving house until `VAR_LITTLEROOT_INTRO_STATE >= 7` (GoSeeRoom coord event blocks at state 4, state 5 pushes upstairs)
+- [x] Implement both house variants (`BrendansHouse_*` and `MaysHouse_*`) and select by player gender
 - [ ] Support house scripts that call shared `PlayersHouse_1F_*` and `PlayersHouse_2F_*` event scripts
 - [ ] Support moving-box metatile swaps on load (`setmetatile ... TRUE` for immediate redraw)
-- [ ] Implement rival-mom intro event (exclamation emote + approach + `GetRivalSonDaughterString`)
+- [x] Implement rival-mom intro event (exclamation emote + approach + `GetRivalSonDaughterString`)
 
 ### 2.4 Meet Rival
 > Map: `data/maps/LittlerootTown_BrendansHouse_2F/scripts.inc` (or May's)
 
-- [ ] When player enters rival's room (controlled by `VAR_LITTLEROOT_RIVAL_STATE`):
+- [x] When player enters rival's room (controlled by `VAR_LITTLEROOT_RIVAL_STATE`):
   - Rival appears, introduces themselves
-  - Movement script: Rival approaches from room corner
+  - Movement script: Rival approaches from different positions (3 coord event variants)
   - Brief dialogue about Pokemon and Birch
   - Rival runs out of room
   - `VAR_LITTLEROOT_RIVAL_STATE = 3`
-- [ ] Interaction is triggered by rival's Pokeball object script (not a generic NPC)
-- [ ] Branch movement based on `VAR_FACING` (player direction at time of trigger)
+- [ ] Interaction is triggered by rival's Pokeball object script (not a generic NPC) — deferred, requires A-button NPC interaction
+- [x] Branch movement based on coord event variant (0/1/2 positions per house)
 - [ ] BGM flow: `playbgm MUS_ENCOUNTER_*`, `savebgm`, then `fadedefaultbgm`
 
 ---

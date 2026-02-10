@@ -26,6 +26,8 @@ interface DialogTextProps {
   fontFamily?: string;
   /** Maximum width in pixels (for line wrapping calculation) */
   maxWidth?: number;
+  /** Vertical scroll offset in pixels (for scroll animation) */
+  scrollOffset?: number;
 }
 
 export const DialogText: React.FC<DialogTextProps> = ({
@@ -36,6 +38,7 @@ export const DialogText: React.FC<DialogTextProps> = ({
   shadowColor = '#a8a8a8',
   fontFamily = '"Pokemon Emerald", "Pokemon RS", monospace',
   maxWidth,
+  scrollOffset = 0,
 }) => {
   // Calculate font size (base 8px scaled by zoom)
   const fontSize = TEXT_SPECS.fontSizePx * zoom;
@@ -73,6 +76,8 @@ export const DialogText: React.FC<DialogTextProps> = ({
         textRendering: 'optimizeSpeed',
         imageRendering: 'pixelated',
         maxWidth: maxWidth ? `${maxWidth}px` : undefined,
+        // Scroll animation offset — translateY shifts text up during scroll
+        transform: scrollOffset ? `translateY(-${scrollOffset}px)` : undefined,
       }}
     >
       {lines.map((line, index) => (

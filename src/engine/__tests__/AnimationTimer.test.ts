@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import test from 'node:test';
 import { AnimationTimer } from '../AnimationTimer';
+import { TICK_60FPS_MS } from '../../config/timing';
 
-const TICK_MS = 1000 / 60;
+const TICK_MS = TICK_60FPS_MS;
 
 test('AnimationTimer tracks ticks and frames', () => {
   const timer = new AnimationTimer();

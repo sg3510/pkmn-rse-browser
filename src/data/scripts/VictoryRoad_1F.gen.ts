@@ -1,0 +1,125 @@
+// Auto-generated from pokeemerald source. DO NOT EDIT.
+// Regenerate with: npm run generate:scripts
+import type { MapScriptData } from './types';
+
+export const data: MapScriptData = {
+  mapScripts: {
+    onTransition: "VictoryRoad_1F_OnTransition",
+  },
+  scripts: {
+    "VictoryRoad_1F_OnTransition": [
+      { cmd: "call_if_eq", args: ["VAR_VICTORY_ROAD_1F_STATE", 1, "VictoryRoad_1F_EventScript_SetEntranceWallyPos1"] },
+      { cmd: "call_if_eq", args: ["VAR_VICTORY_ROAD_1F_STATE", 2, "VictoryRoad_1F_EventScript_SetEntranceWallyPos2"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_SetEntranceWallyPos1": [
+      { cmd: "setobjectxyperm", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", 2, 24] },
+      { cmd: "setobjectmovementtype", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", "MOVEMENT_TYPE_FACE_DOWN"] },
+      { cmd: "return" },
+    ],
+    "VictoryRoad_1F_EventScript_SetEntranceWallyPos2": [
+      { cmd: "setobjectxyperm", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", 3, 24] },
+      { cmd: "setobjectmovementtype", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", "MOVEMENT_TYPE_FACE_DOWN"] },
+      { cmd: "return" },
+    ],
+    "VictoryRoad_1F_EventScript_WallyBattleTrigger1": [
+      { cmd: "lockall" },
+      { cmd: "setvar", args: ["VAR_0x8008", 1] },
+      { cmd: "addobject", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY"] },
+      { cmd: "applymovement", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", "VictoryRoad_1F_Movement_WallyApproachPlayer1"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "goto", args: ["VictoryRoad_1F_EventScript_WallyEntranceBattle"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_WallyBattleTrigger2": [
+      { cmd: "lockall" },
+      { cmd: "setvar", args: ["VAR_0x8008", 2] },
+      { cmd: "addobject", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY"] },
+      { cmd: "applymovement", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY", "VictoryRoad_1F_Movement_WallyApproachPlayer2"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "goto", args: ["VictoryRoad_1F_EventScript_WallyEntranceBattle"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_WallyEntranceBattle": [
+      { cmd: "applymovement", args: ["LOCALID_PLAYER", "Common_Movement_WalkInPlaceFasterDown"] },
+      { cmd: "waitmovement", args: [0] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_WallyNotGoingToLoseAnymore", "MSGBOX_DEFAULT"] },
+      { cmd: "trainerbattle_no_intro", args: ["TRAINER_WALLY_VR_1", "VictoryRoad_1F_Text_WallyEntranceDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_WallyPostEntranceBattle", "MSGBOX_DEFAULT"] },
+      { cmd: "clearflag", args: ["FLAG_HIDE_VICTORY_ROAD_ENTRANCE_WALLY"] },
+      { cmd: "copyobjectxytoperm", args: ["LOCALID_VICTORY_ROAD_ENTRANCE_WALLY"] },
+      { cmd: "setflag", args: ["FLAG_DEFEATED_WALLY_VICTORY_ROAD"] },
+      { cmd: "copyvar", args: ["VAR_VICTORY_ROAD_1F_STATE", "VAR_0x8008"] },
+      { cmd: "releaseall" },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_EntranceWally": [
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_WallyPostEntranceBattle", "MSGBOX_NPC"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_ExitWally": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_WALLY_VR_2", "VictoryRoad_1F_Text_WallyIntro", "VictoryRoad_1F_Text_WallyDefeat"] },
+      { cmd: "specialvar", args: ["VAR_RESULT", "ShouldTryRematchBattle"] },
+      { cmd: "goto_if_eq", args: ["VAR_RESULT", "TRUE", "VictoryRoad_1F_EventScript_RematchWally"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_WallyPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_RematchWally": [
+      { cmd: "trainerbattle_rematch", args: ["TRAINER_WALLY_VR_2", "VictoryRoad_1F_Text_WallyIntro", "VictoryRoad_1F_Text_WallyDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_WallyPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_Edgar": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_EDGAR", "VictoryRoad_1F_Text_EdgarIntro", "VictoryRoad_1F_Text_EdgarDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_EdgarPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_Albert": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_ALBERT", "VictoryRoad_1F_Text_AlbertIntro", "VictoryRoad_1F_Text_AlbertDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_AlbertPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_Hope": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_HOPE", "VictoryRoad_1F_Text_HopeIntro", "VictoryRoad_1F_Text_HopeDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_HopePostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_Quincy": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_QUINCY", "VictoryRoad_1F_Text_QuincyIntro", "VictoryRoad_1F_Text_QuincyDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_QuincyPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+    "VictoryRoad_1F_EventScript_Katelynn": [
+      { cmd: "trainerbattle_single", args: ["TRAINER_KATELYNN", "VictoryRoad_1F_Text_KatelynnIntro", "VictoryRoad_1F_Text_KatelynnDefeat"] },
+      { cmd: "msgbox", args: ["VictoryRoad_1F_Text_KatelynnPostBattle", "MSGBOX_AUTOCLOSE"] },
+      { cmd: "end" },
+    ],
+  },
+  movements: {
+    "VictoryRoad_1F_Movement_WallyApproachPlayer1": ["walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_up"],
+    "VictoryRoad_1F_Movement_WallyApproachPlayer2": ["walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_left", "walk_up"],
+  },
+  text: {
+    "VictoryRoad_1F_Text_WallyNotGoingToLoseAnymore": "WALLY: Hi! {PLAYER}!\\pI bet you're surprised to see me here!\\pI made it all the way here, and it's\\nall thanks to you!\\p{PLAYER}, losing to you that time\\nmade me stronger!\\pBut I'm not going to lose anymore!\\pI'm going to win! For the POKéMON who\\ngave me courage and strength!\\pOkay… Here I come!",
+    "VictoryRoad_1F_Text_WallyEntranceDefeat": "Wow!\\n{PLAYER}, you are strong, after all!",
+    "VictoryRoad_1F_Text_WallyPostEntranceBattle": "WALLY: I couldn't beat you today,\\n{PLAYER}, but one of these days, I'll\\lcatch up to you!",
+    "VictoryRoad_1F_Text_WallyIntro": "WALLY: Hi! {PLAYER}!\\pI've gotten stronger since that last\\ntime! I wanted to show you, {PLAYER}!\\pOkay… Here I come!",
+    "VictoryRoad_1F_Text_WallyDefeat": "Wow!\\n{PLAYER}, you are strong, after all!",
+    "VictoryRoad_1F_Text_WallyPostBattle": "WALLY: I couldn't beat you this time,\\ntoo… But one of these days, {PLAYER},\\lI'm going to catch up to you…\\pAnd challenge the POKéMON LEAGUE!",
+    "VictoryRoad_1F_Text_EdgarIntro": "I've made it this far a couple times,\\nbut the last stretch is so long…",
+    "VictoryRoad_1F_Text_EdgarDefeat": "My dream ends here again…",
+    "VictoryRoad_1F_Text_EdgarPostBattle": "You've made it this far. Keep the\\nmomentum going and become the\\lCHAMPION! If anyone can, it's you!",
+    "VictoryRoad_1F_Text_AlbertIntro": "I didn't come all this way to lose now.\\nThat possibility doesn't exist!",
+    "VictoryRoad_1F_Text_AlbertDefeat": "Impossible…\\nI lost?",
+    "VictoryRoad_1F_Text_AlbertPostBattle": "I lost here…\\pThat means I lack the qualifications\\nto become the CHAMPION…",
+    "VictoryRoad_1F_Text_HopeIntro": "This seemingly infinite and harsh road\\nlives up to its name of VICTORY.",
+    "VictoryRoad_1F_Text_HopeDefeat": "Your battle style is fantastic…",
+    "VictoryRoad_1F_Text_HopePostBattle": "You seem to have the potential for\\nbecoming the CHAMPION.",
+    "VictoryRoad_1F_Text_QuincyIntro": "What is the VICTORY ROAD?\\nI'll tell you if you win!",
+    "VictoryRoad_1F_Text_QuincyDefeat": "Okay!\\nWell done!",
+    "VictoryRoad_1F_Text_QuincyPostBattle": "Getting through here safely--that's\\nthe final test for any TRAINER aiming\\lto become the POKéMON CHAMPION.\\pThat's why it's called the VICTORY\\nROAD.",
+    "VictoryRoad_1F_Text_KatelynnIntro": "I have nothing to say to anyone\\nthat's come this far. Come on!",
+    "VictoryRoad_1F_Text_KatelynnDefeat": "This is a disgrace…",
+    "VictoryRoad_1F_Text_KatelynnPostBattle": "Humph, go right on ahead.\\nSee if I care.",
+  },
+};

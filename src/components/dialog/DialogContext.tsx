@@ -26,6 +26,7 @@ import type {
   UseDialogReturn,
 } from './types';
 import { DEFAULT_CONFIG, TEXT_SPEED_DELAYS } from './types';
+import { paginateDialogText } from './textPagination';
 
 // === Reducer ===
 
@@ -67,7 +68,9 @@ function dialogReducer(
 
     case 'FINISH_SCROLL':
       if (state.type === 'scrolling') {
-        return { type: 'printing', messageIndex: state.messageIndex + 1, charIndex: 0 };
+        const nextMsg = messages[state.messageIndex + 1];
+        const prefilled = nextMsg?.prefilledChars ?? 0;
+        return { type: 'printing', messageIndex: state.messageIndex + 1, charIndex: prefilled };
       }
       return state;
 
@@ -206,6 +209,32 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     return () => clearTimeout(timer);
   }, [state, config.textSpeed, dispatch]);
 
+  // Scroll animation effect — drives scrollProgress from 0 to 1 using rAF
+  useEffect(() => {
+    if (state.type !== 'scrolling') return;
+
+    const duration = config.scrollDurationMs;
+    let startTime: number | null = null;
+    let rafId: number;
+
+    const tick = (now: number) => {
+      if (startTime === null) startTime = now;
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      if (progress < 1) {
+        dispatch({ type: 'UPDATE_SCROLL', progress });
+        rafId = requestAnimationFrame(tick);
+      } else {
+        dispatch({ type: 'FINISH_SCROLL' });
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only start/stop on state.type change, not every progress update
+  }, [state.type, config.scrollDurationMs, dispatch]);
+
   // Auto-advance effect
   useEffect(() => {
     if (state.type !== 'waiting') return;
@@ -213,9 +242,13 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     const currentMessage = messagesRef.current[state.messageIndex];
     if (!currentMessage?.autoAdvance) return;
 
+    // Check if next message needs scroll transition
+    const nextMsg = messagesRef.current[state.messageIndex + 1];
+    const useScroll = nextMsg?.transition === 'scroll';
+
     const delay = currentMessage.autoAdvanceMs ?? 2000;
     const timer = setTimeout(() => {
-      dispatch({ type: 'NEXT_MESSAGE' });
+      dispatch({ type: useScroll ? 'START_SCROLL' : 'NEXT_MESSAGE' });
     }, delay);
 
     return () => clearTimeout(timer);
@@ -309,9 +342,18 @@ export function useDialog(): UseDialogReturn {
 
   const showMessage = useCallback(
     (text: string, messageOptions?: Partial<DialogMessage>): Promise<void> => {
-      return showMessages([{ text, ...messageOptions }]) as Promise<void>;
+      const z = context?.zoom ?? 1;
+      const ff = context?.config.fontFamily ?? DEFAULT_CONFIG.fontFamily;
+      const pages = paginateDialogText(text, z, ff);
+      const messages = pages.map(page => ({
+        ...messageOptions,
+        text: page.text,
+        transition: page.transition,
+        prefilledChars: page.prefilledChars,
+      }));
+      return showMessages(messages) as Promise<void>;
     },
-    [showMessages]
+    [showMessages, context?.zoom, context?.config.fontFamily]
   );
 
   const showYesNo = useCallback(
@@ -476,10 +518,19 @@ export function useDialog(): UseDialogReturn {
           if (config.allowSkip) {
             dispatch({ type: 'COMPLETE_TEXT' });
           }
+        } else if (state.type === 'scrolling') {
+          // Skip scroll animation
+          dispatch({ type: 'FINISH_SCROLL' });
         } else if (state.type === 'waiting') {
           const isLastMessage = state.messageIndex === (messages?.length ?? 1) - 1;
           if (!isLastMessage) {
-            dispatch({ type: 'NEXT_MESSAGE' });
+            // Check if next message wants scroll transition
+            const nextMsg = messages?.[state.messageIndex + 1];
+            if (nextMsg?.transition === 'scroll') {
+              dispatch({ type: 'START_SCROLL' });
+            } else {
+              dispatch({ type: 'NEXT_MESSAGE' });
+            }
           } else if (!options) {
             dispatch({ type: 'CLOSE' });
             const resolve = getResolve();

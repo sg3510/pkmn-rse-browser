@@ -21,8 +21,9 @@
  * by both Canvas2D and WebGL renderers.
  */
 
+import { GBA_FRAME_MS } from '../config/timing';
+
 /** GBA frame duration in milliseconds (~59.73 Hz) */
-const GBA_FRAME_MS = 1000 / 59.7275;
 
 /** Length of the repeating shimmer loop (commands 1..8) */
 const SHIMMER_LOOP_FRAMES = 48;

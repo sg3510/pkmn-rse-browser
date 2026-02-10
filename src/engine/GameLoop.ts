@@ -2,6 +2,7 @@ import { AnimationTimer } from './AnimationTimer';
 import type { GameState } from './GameState';
 import type { ObservableState } from './GameState';
 import { UpdateCoordinator, type UpdateResult } from './UpdateCoordinator';
+import { TICK_60FPS_MS } from '../config/timing';
 
 export type FrameHandler = (
   state: GameState,
@@ -18,7 +19,7 @@ export type FrameHandler = (
  * animation frame counter.
  */
 export class GameLoop {
-  private readonly FRAME_MS = 1000 / 60;
+  private readonly FRAME_MS = TICK_60FPS_MS;
   private running = false;
   private lastTime = 0;
   private accumulator = 0;

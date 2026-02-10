@@ -24,9 +24,10 @@ import { compositeWebGLFrame } from '../rendering/compositeWebGLFrame';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
 import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
+import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../game/loadObjectEventsFromSnapshot';
 import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import { processWarpTrigger, updateWarpHandlerTile } from '../game/WarpTriggerProcessor';
-import { getPlayerAtlasName, getFieldEffectAtlasName, getNPCAtlasName } from '../rendering/spriteUtils';
+import { getPlayerAtlasName, getFieldEffectAtlasName } from '../rendering/spriteUtils';
 import { computeReflectionState, type ReflectionMetaProvider } from '../field/ReflectionRenderer';
 import { getReflectionMetaFromSnapshot, buildTilesetRuntimesForSnapshot, createRenderContextFromSnapshot } from '../game/snapshotUtils';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
@@ -149,44 +150,12 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
 
   // Load object events from snapshot
   const loadObjectEventsFromSnapshot = useCallback(async (snapshot: WorldSnapshot, spriteRenderer: WebGLSpriteRenderer | null): Promise<void> => {
-    const objectManager = objectEventManagerRef.current;
-
-    // Clear previous objects
-    objectManager.clear();
-
-    // Parse object events for each map in the snapshot
-    for (const mapInst of snapshot.maps) {
-      if (mapInst.objectEvents.length > 0) {
-        objectManager.parseMapObjects(
-          mapInst.entry.id,
-          mapInst.objectEvents,
-          mapInst.offsetX,
-          mapInst.offsetY
-        );
-      }
-    }
-
-    // Get unique graphics IDs needed for NPCs
-    const graphicsIds = objectManager.getUniqueNPCGraphicsIds();
-    if (graphicsIds.length === 0) return;
-
-    // Load sprites that haven't been loaded yet
-    await npcSpriteCache.loadMany(graphicsIds);
-
-    // Upload loaded sprites to WebGL renderer
-    if (spriteRenderer) {
-      for (const graphicsId of graphicsIds) {
-        const sprite = npcSpriteCache.get(graphicsId);
-        if (sprite) {
-          const atlasName = getNPCAtlasName(graphicsId);
-          const dims = npcSpriteCache.getDimensions(graphicsId);
-          spriteRenderer.uploadSpriteSheet(atlasName, sprite, {
-            frameWidth: dims.frameWidth,
-            frameHeight: dims.frameHeight,
-          });
-        }
-      }
-    }
+    await loadObjectEventsFromSnapshotUtil({
+      snapshot,
+      objectEventManager: objectEventManagerRef.current,
+      spriteCache: npcSpriteCache,
+      spriteRenderer,
+    });
   }, []);
 
   // Initialize renderers and game

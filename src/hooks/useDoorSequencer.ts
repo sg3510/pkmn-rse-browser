@@ -29,7 +29,7 @@
  * ```
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import {
   DoorSequencer,
   type DoorEntryConfig,
@@ -220,7 +220,7 @@ export function useDoorSequencer(options: UseDoorSequencerOptions = {}): UseDoor
     return sequencerRef.current.getExitDoorPosition();
   }, []);
 
-  return {
+  return useMemo(() => ({
     startEntry,
     startAutoWarp,
     updateEntry,
@@ -238,5 +238,22 @@ export function useDoorSequencer(options: UseDoorSequencerOptions = {}): UseDoor
     getEntryDoorPosition,
     getExitDoorPosition,
     sequencer: sequencerRef.current,
-  };
+  }), [
+    startEntry,
+    startAutoWarp,
+    updateEntry,
+    startExit,
+    updateExit,
+    setEntryOpenAnimId,
+    setEntryCloseAnimId,
+    setExitOpenAnimId,
+    setExitCloseAnimId,
+    isActive,
+    isEntryActive,
+    isExitActive,
+    isPlayerHidden,
+    reset,
+    getEntryDoorPosition,
+    getExitDoorPosition,
+  ]);
 }

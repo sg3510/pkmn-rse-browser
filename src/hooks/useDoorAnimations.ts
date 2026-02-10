@@ -12,15 +12,11 @@ import { getDoorAssetForMetatile } from '../data/doorAssets';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import type { WorldCameraView } from '../components/MapRendererTypes';
 import { loadImageAsset } from '../utils/assetLoader';
-
-// Helper to check if debug mode is enabled
-function isDebugMode(): boolean {
-  return !!(window as unknown as Record<string, boolean>).DEBUG_DOOR;
-}
+import { isDebugMode } from '../utils/debug';
 
 // Debug logging for door operations
 function logDoor(event: string, data: Record<string, unknown>): void {
-  if (isDebugMode()) {
+  if (isDebugMode('door')) {
     console.log(`[DOOR:${event}]`, data);
   }
 }
@@ -101,7 +97,7 @@ export function useDoorAnimations(): UseDoorAnimationsReturn {
       holdOnComplete: boolean = false
     ): Promise<number | null> => {
       // Debug logging
-      if (isDebugMode()) {
+      if (isDebugMode('door')) {
         const stackTrace = new Error().stack;
         console.log('[DOOR_SPAWN]', {
           direction,

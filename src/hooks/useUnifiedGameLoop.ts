@@ -27,9 +27,7 @@ import type { UseDoorSequencerReturn } from './useDoorSequencer';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { WarpTrigger, ResolvedTile } from '../components/map/utils';
-
-// GBA runs at ~59.7275 Hz (16.78ms per frame)
-const GBA_FRAME_MS = 1000 / 59.7275;
+import { GBA_FRAME_MS } from '../config/timing';
 
 /**
  * World bounds for camera clamping
