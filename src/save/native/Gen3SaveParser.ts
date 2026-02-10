@@ -27,6 +27,7 @@ import {
 import { decodeGen3String } from './Gen3Charset';
 import { mapGroupNumToMapId } from './mapResolver';
 import { parseParty } from './Gen3Pokemon';
+import { FLAG_ID_TO_NAME, VAR_ID_TO_NAME } from '../../data/flagVarMaps.gen';
 import type {
   SaveData,
   PlayerProfile,
@@ -278,6 +279,64 @@ function readItemSlots(
 }
 
 /**
+ * Parse the flag bitfield from SaveBlock1 (300 bytes at FLAGS offset)
+ * Each bit represents one flag; look up the name from FLAG_ID_TO_NAME
+ */
+function parseFlags(data: DataView, sectionMap: SectionMap): string[] {
+  const flags: string[] = [];
+  const flagsSize = SAVEBLOCK1.FLAGS_SIZE; // 300 bytes = 2400 possible flags
+
+  for (let byteIdx = 0; byteIdx < flagsSize; byteIdx++) {
+    const byte = readFromSaveBlock1(
+      data,
+      SAVEBLOCK1.FLAGS + byteIdx,
+      sectionMap,
+      (o) => data.getUint8(o)
+    );
+    if (byte === 0) continue; // Fast-skip zero bytes
+
+    for (let bit = 0; bit < 8; bit++) {
+      if (byte & (1 << bit)) {
+        const flagId = byteIdx * 8 + bit;
+        const name = FLAG_ID_TO_NAME[flagId];
+        if (name) {
+          flags.push(name);
+        }
+      }
+    }
+  }
+
+  return flags;
+}
+
+/**
+ * Parse game variables from SaveBlock1 (256 u16 values at VARS offset)
+ * Var ID = 0x4000 + index; look up name from VAR_ID_TO_NAME
+ */
+function parseVars(data: DataView, sectionMap: SectionMap): Record<string, number> {
+  const vars: Record<string, number> = {};
+  const varsCount = SAVEBLOCK1.VARS_COUNT; // 256
+
+  for (let i = 0; i < varsCount; i++) {
+    const value = readFromSaveBlock1(
+      data,
+      SAVEBLOCK1.VARS + i * 2,
+      sectionMap,
+      (o) => data.getUint16(o, true)
+    );
+    if (value === 0) continue; // Skip zero-value vars
+
+    const varId = 0x4000 + i;
+    const name = VAR_ID_TO_NAME[varId];
+    if (name) {
+      vars[name] = value;
+    }
+  }
+
+  return vars;
+}
+
+/**
  * Main parser function
  */
 export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3ParseResult {
@@ -409,6 +468,11 @@ export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3Parse
   const partyPokemon: PartyPokemon[] = parseParty(data, activeSectionMap);
   console.log(`[Gen3SaveParser] Parsed ${partyPokemon.length} Pokemon in party`);
 
+  // === Parse Flags & Variables ===
+  const parsedFlags = parseFlags(data, activeSectionMap);
+  const parsedVars = parseVars(data, activeSectionMap);
+  console.log(`[Gen3SaveParser] Parsed ${parsedFlags.length} flags, ${Object.keys(parsedVars).length} vars`);
+
   // === Build SaveData ===
 
   const profile: PlayerProfile = {
@@ -483,7 +547,8 @@ export function parseGen3Save(buffer: ArrayBuffer, filename?: string): Gen3Parse
     bag,
     pcItems: pcItemsState,
     party: partyState,
-    flags: [], // TODO: Parse flags
+    flags: parsedFlags,
+    vars: parsedVars,
     // Store full party data in a custom field for our use
     _fullParty: partyPokemon,
   } as SaveData & { _fullParty: PartyPokemon[] };

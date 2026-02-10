@@ -48,6 +48,7 @@ export interface LoadSelectedOverworldMapParams {
   warpingRef: MutableRef<boolean>;
   playerHiddenRef: MutableRef<boolean>;
   storyScriptRunningRef: MutableRef<boolean>;
+  mapScriptCacheRef: MutableRef<Map<string, unknown> | null>;
   lastCoordTriggerTileRef: MutableRef<{ mapId: string; x: number; y: number } | null>;
   warpHandlerRef: MutableRef<WarpHandler>;
   lastWorldUpdateRef: MutableRef<LastWorldUpdate | null>;
@@ -81,6 +82,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     warpingRef,
     playerHiddenRef,
     storyScriptRunningRef,
+    mapScriptCacheRef,
     lastCoordTriggerTileRef,
     warpHandlerRef,
     lastWorldUpdateRef,
@@ -133,6 +135,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           createSnapshotPlayerTileResolver,
           isCancelled: () => cancelled,
           loadObjectEventsFromSnapshot,
+          storyScriptRunningRef,
+          mapScriptCacheRef,
         },
         worldManager
       );

@@ -25,8 +25,8 @@ game logic while using different underlying implementations for world management
 - **GPU Slot Management**: Only 2 tileset pairs can be in GPU at once
 - **Tileset Pair Scheduling**: `TilesetPairScheduler` manages which pairs are loaded
 - **Epoch Tracking**: Cancels stale async operations when world changes
-- **Reanchoring**: When player moves far, world re-centers to prevent coordinate overflow
-- **Events**: Emits `mapsChanged`, `tilesetsChanged`, `reanchored`, `gpuSlotsSwapped`
+- **Anchor Tracking**: Updates anchor map when player crosses map boundaries (for border metatiles)
+- **Events**: Emits `mapsChanged`, `tilesetsChanged`, `gpuSlotsSwapped`
 
 ### MapManager Details
 

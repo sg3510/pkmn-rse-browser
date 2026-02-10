@@ -46,11 +46,6 @@ export interface DoorActionDeps {
   doorAnimations: UseDoorAnimationsReturn;
   fadeController: FadeController;
   playerHiddenRef: { current: boolean };
-  /**
-   * Optional gate for player unlock on sequence completion.
-   * When false, completion will not call player.unlockInput().
-   */
-  shouldUnlockPlayer?: () => boolean;
   /** Called when warp should be executed (after fade out complete) */
   onExecuteWarp: (trigger: WarpTrigger) => void;
 }
@@ -259,10 +254,7 @@ export function handleDoorExitAction(
 
   // Handle sequence completion
   if (result.done) {
-    const canUnlock = deps.shouldUnlockPlayer ? deps.shouldUnlockPlayer() : true;
-    if (canUnlock) {
-      player.unlockInput();
-    }
+    player.unlockInput();
     playerHiddenRef.current = false;
     return true;
   }

@@ -12,6 +12,7 @@ import { gameFlags } from './GameFlags';
 import { gameVariables, GAME_VARS } from './GameVariables';
 import { clearDynamicWarpTarget } from './DynamicWarp';
 import { SPECIES, getSpeciesName } from '../data/species';
+import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
 import { MOVES } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
 import type { PartyPokemon } from '../pokemon/types';
@@ -53,6 +54,8 @@ export interface StoryScriptContext {
   setPlayerVisible: (visible: boolean) => void;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => void;
   setNpcMovementType?: (mapId: string, localId: string, movementTypeRaw: string) => void;
+  showYesNo?: (text: string) => Promise<boolean>;
+  getParty?: () => (PartyPokemon | null)[];
 }
 
 type StarterChoice = {
@@ -129,30 +132,20 @@ export function initializeNewGameStoryState(): void {
   gameVariables.setVar(GAME_VARS.VAR_RESULT, 0);
   gameVariables.setVar(GAME_VARS.VAR_STARTER_MON, 0);
 
-  // Baseline flags needed for the opening story. This intentionally mirrors
-  // the "everything hidden, then selectively shown" behavior from new_game.inc.
+  // Set all hide flags from C source (EventScript_ResetAllMapFlags in new_game.inc).
+  // This hides ~159 NPCs/objects across every map — post-game content, story NPCs
+  // that appear later, Johto starter balls in the lab, rival dolls, etc.
+  for (const flag of NEW_GAME_FLAGS) {
+    gameFlags.set(flag);
+  }
+  // FLAG_HIDE_MAP_NAME_POPUP is not in the C source — it's our own UI flag.
   gameFlags.set('FLAG_HIDE_MAP_NAME_POPUP');
-  gameFlags.set('FLAG_HIDE_ROUTE_101_BIRCH');
-  gameFlags.set('FLAG_HIDE_ROUTE_101_BOY');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_BEDROOM_MOM');
-
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_FAT_MAN');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_RIVAL');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BIRCH');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_RIVAL');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_BRENDAN');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_MAY');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_BEDROOM');
-  gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_RIVAL_BEDROOM');
-
-  gameFlags.set('FLAG_HIDE_PLAYERS_HOUSE_DAD');
 
   // Movers must be visible during moving-in (hidden later when clock is set).
   gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_1');
   gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_2');
 
+  // Route 101 objects that must be visible at game start.
   gameFlags.clear('FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG');
   gameFlags.clear('FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE');
   gameFlags.clear('FLAG_HIDE_ROUTE_101_ZIGZAGOON');
@@ -346,10 +339,9 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       await ctx.moveNpc(houseMapId, momLocalId, 'up', 'face');
       await ctx.movePlayer('up', 'walk');
 
-      // Advance past 4 so the coord event at the door doesn't re-trigger.
-      // The original game advances to 6 when the wall clock is set upstairs;
-      // state 5 acts as an intermediate "player has been told to go upstairs".
-      gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 5);
+      // VAR stays at 4 — on GBA this coord event re-fires each time the
+      // player walks to the door.  VAR advances to 5 only when the player
+      // warps to 2F (ON_TRANSITION: BlockStairsUntilClockIsSet).
       return true;
     }
 

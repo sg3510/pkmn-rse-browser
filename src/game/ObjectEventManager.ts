@@ -42,6 +42,7 @@ export class ObjectEventManager {
   private scriptObjects: Map<string, ScriptObject> = new Map();
   private largeObjects: Map<string, LargeObject> = new Map();
   private tileElevationResolver: TileElevationResolver | null = null;
+  private parsedMapIds: Set<string> = new Set();
 
   /**
    * Set the tile elevation resolver
@@ -63,6 +64,42 @@ export class ObjectEventManager {
     this.npcs.clear();
     this.scriptObjects.clear();
     this.largeObjects.clear();
+    this.parsedMapIds.clear();
+  }
+
+  /**
+   * Check if objects for a given map have already been parsed.
+   */
+  hasMapObjects(mapId: string): boolean {
+    return this.parsedMapIds.has(mapId);
+  }
+
+  /**
+   * Get the set of map IDs whose objects have been parsed.
+   */
+  getParsedMapIds(): ReadonlySet<string> {
+    return this.parsedMapIds;
+  }
+
+  /**
+   * Remove all objects belonging to a specific map.
+   * Entries are keyed with the mapId prefix (e.g. "MAP_ROUTE_101_npc_...").
+   */
+  removeMapObjects(mapId: string): void {
+    const prefix = `${mapId}_`;
+    for (const key of [...this.npcs.keys()]) {
+      if (key.startsWith(prefix)) this.npcs.delete(key);
+    }
+    for (const key of [...this.itemBalls.keys()]) {
+      if (key.startsWith(prefix)) this.itemBalls.delete(key);
+    }
+    for (const key of [...this.scriptObjects.keys()]) {
+      if (key.startsWith(prefix)) this.scriptObjects.delete(key);
+    }
+    for (const key of [...this.largeObjects.keys()]) {
+      if (key.startsWith(prefix)) this.largeObjects.delete(key);
+    }
+    this.parsedMapIds.delete(mapId);
   }
 
   /**
@@ -80,6 +117,8 @@ export class ObjectEventManager {
     mapOffsetX: number,
     mapOffsetY: number
   ): void {
+    this.parsedMapIds.add(mapId);
+
     for (const obj of objectEvents) {
       // Convert local coordinates to world coordinates
       const worldX = mapOffsetX + obj.x;

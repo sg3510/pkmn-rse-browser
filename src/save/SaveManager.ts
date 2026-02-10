@@ -666,22 +666,6 @@ class SaveManagerClass {
     result.saveData.version = SAVE_VERSION;
     result.saveData.timestamp = Date.now();
 
-    // Ensure flags array exists and add system flags if party has Pokemon
-    if (!result.saveData.flags) {
-      result.saveData.flags = [];
-    }
-
-    // If we have Pokemon, add the system flags to the save data
-    if (fullParty && fullParty.length > 0) {
-      if (!result.saveData.flags.includes('FLAG_SYS_POKEMON_GET')) {
-        result.saveData.flags.push('FLAG_SYS_POKEMON_GET');
-      }
-      if (!result.saveData.flags.includes('FLAG_SYS_POKEDEX_GET')) {
-        result.saveData.flags.push('FLAG_SYS_POKEDEX_GET');
-      }
-      console.log('[SaveManager] Added FLAG_SYS_POKEMON_GET and FLAG_SYS_POKEDEX_GET to save flags');
-    }
-
     // Save to localStorage
     try {
       const key = getSlotKey(slot);

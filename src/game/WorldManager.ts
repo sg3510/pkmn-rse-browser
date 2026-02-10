@@ -5,12 +5,12 @@
  * moves through the world. Handles:
  * - Dynamic map loading based on player position
  * - Map unloading when too far from player
- * - World re-anchoring to prevent coordinate overflow
+ * - Anchor tracking for border metatile resolution
  * - Tileset pair management (max 2 pairs for GPU)
  *
- * The world is always centered around an "anchor" map. When the player moves
- * far enough from the anchor, the world is re-anchored to the player's current
- * map, and all map offsets are recalculated.
+ * The world tracks an "anchor" map (the player's current map) for border
+ * metatile resolution. No coordinate shifting is needed — tile coordinates
+ * stay small enough for full precision across the entire game world.
  */
 
 import mapIndexJson from '../data/mapIndex.json';
@@ -48,9 +48,6 @@ const worldManagerLogger = createLogger('WorldManager');
  * Set high to avoid blocking map loading during development/debugging
  */
 const MAX_TILESET_PAIRS_IN_MEMORY = 16;
-
-/** Distance in tiles from anchor before re-anchoring */
-const REANCHOR_DISTANCE = 50;
 
 /** Maximum depth for map loading from current position */
 const LOAD_DEPTH = 2;
@@ -119,9 +116,9 @@ export interface WorldSnapshot {
  */
 export type WorldManagerEvent =
   | { type: 'mapsChanged'; snapshot: WorldSnapshot }
+  | { type: 'anchorChanged'; snapshot: WorldSnapshot; newAnchorMapId: string }
   | { type: 'tilesetsChanged'; pair0: TilesetPairInfo; pair1: TilesetPairInfo | null }
-  | { type: 'reanchored'; newAnchorId: string; offsetShift: { x: number; y: number } }
-  | { type: 'gpuSlotsSwapped'; slot0PairId: string | null; slot1PairId: string | null; needsRebuild: boolean };
+| { type: 'gpuSlotsSwapped'; slot0PairId: string | null; slot1PairId: string | null; needsRebuild: boolean };
 
 export type WorldManagerEventHandler = (event: WorldManagerEvent) => void;
 
@@ -139,8 +136,6 @@ export class WorldManager {
   private mapTilesetPairIndex: Map<string, number> = new Map();
 
   private anchorMapId: string = '';
-  private anchorOffsetX: number = 0;
-  private anchorOffsetY: number = 0;
 
   private eventHandlers: WorldManagerEventHandler[] = [];
   private loadingMaps: Set<string> = new Set();
@@ -219,8 +214,6 @@ export class WorldManager {
     this.scheduler.reset();
 
     this.anchorMapId = startMapId;
-    this.anchorOffsetX = 0;
-    this.anchorOffsetY = 0;
 
     // Load initial world
     this.debugLog(`[INIT] Starting initialize for ${startMapId}, connections:`, startEntry.connections || 'NONE');
@@ -316,14 +309,11 @@ export class WorldManager {
       }
     }
 
-    // Check if we need to re-anchor
-    const distFromAnchor = Math.max(
-      Math.abs(playerTileX - this.anchorOffsetX),
-      Math.abs(playerTileY - this.anchorOffsetY)
-    );
-
-    if (distFromAnchor > REANCHOR_DISTANCE && currentMap.entry.id !== this.anchorMapId) {
-      await this.reanchor(currentMap);
+    // Lightweight anchor tracking: update anchorMapId when player enters a new map
+    // (no coordinate shift — tile coords stay small enough for full precision)
+    if (currentMap.entry.id !== this.anchorMapId) {
+      this.anchorMapId = currentMap.entry.id;
+      this.emit({ type: 'anchorChanged', snapshot: this.getSnapshot(), newAnchorMapId: currentMap.entry.id });
     }
 
     // Load any missing connected maps
@@ -407,64 +397,6 @@ export class WorldManager {
     const pairIndex = this.mapTilesetPairIndex.get(mapId);
     if (pairIndex === undefined) return null;
     return this.tilesetPairs[pairIndex] ?? null;
-  }
-
-  /**
-   * Re-anchor the world around a new map
-   */
-  private async reanchor(newAnchorMap: LoadedMapInstance): Promise<void> {
-    // New anchor is at the center of the new anchor map
-    this.anchorMapId = newAnchorMap.entry.id;
-    this.anchorOffsetX = newAnchorMap.offsetX;
-    this.anchorOffsetY = newAnchorMap.offsetY;
-
-    // Calculate offset shift
-    const shiftX = newAnchorMap.offsetX;
-    const shiftY = newAnchorMap.offsetY;
-
-    // Shift all map positions
-    for (const map of this.maps.values()) {
-      map.offsetX -= shiftX;
-      map.offsetY -= shiftY;
-    }
-
-    // Update anchor offset (now at 0,0)
-    this.anchorOffsetX = 0;
-    this.anchorOffsetY = 0;
-
-    // Unload maps that are too far from new anchor
-    const mapsToUnload: string[] = [];
-    for (const map of this.maps.values()) {
-      const dist = Math.max(
-        Math.abs(map.offsetX),
-        Math.abs(map.offsetY)
-      );
-      if (dist > REANCHOR_DISTANCE * 2) {
-        mapsToUnload.push(map.entry.id);
-      }
-    }
-
-    for (const mapId of mapsToUnload) {
-      this.maps.delete(mapId);
-      this.mapTilesetPairIndex.delete(mapId);
-    }
-
-    // Update scheduler boundaries after unloading
-    this.scheduler.updateBoundaries(
-      Array.from(this.maps.values()),
-      this.mapTilesetPairIndex,
-      this.tilesetPairs
-    );
-
-    // Emit event
-    this.emit({
-      type: 'reanchored',
-      newAnchorId: this.anchorMapId,
-      offsetShift: { x: shiftX, y: shiftY },
-    });
-
-    // Emit maps changed
-    this.emit({ type: 'mapsChanged', snapshot: this.getSnapshot() });
   }
 
   /**

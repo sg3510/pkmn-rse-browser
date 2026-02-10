@@ -14,6 +14,7 @@ import type { CameraController } from './CameraController';
 import type { TilesetPairScheduler } from './TilesetPairScheduler';
 import { combineTilesetPalettes } from '../rendering/webgl/TilesetUploader';
 import { METATILE_SIZE } from '../utils/mapLoader';
+import { getMapScripts } from '../data/scripts';
 
 /**
  * World bounds in pixel space
@@ -86,6 +87,12 @@ export interface WorldManagerEventDeps {
 
   /** Optional: Reload object events (NPCs, items) when maps change */
   loadObjectEventsFromSnapshot?: (snapshot: WorldSnapshot) => Promise<void>;
+
+  /** Ref indicating a story script is currently running */
+  storyScriptRunningRef?: React.MutableRefObject<boolean>;
+
+  /** Map script cache for eager pre-population on anchor change */
+  mapScriptCacheRef?: React.MutableRefObject<Map<string, unknown> | null>;
 }
 
 /**
@@ -222,13 +229,64 @@ function handleMapsChanged(
   // Update world bounds (shared helper)
   updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
 
-  // Reload object events (NPCs, items) for the new set of maps
-  // Note: This is async - NPCs will appear once loaded
-  // The collision checker references the same ObjectEventManager so it will
-  // see the new NPCs once this completes
-  if (loadObjectEventsFromSnapshot) {
+  // Reload object events (NPCs, items) for the new set of maps.
+  // Skip if a story script is running — scripts may have repositioned or
+  // toggled NPCs, and a full reload would reset that runtime state.
+  const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
+  if (loadObjectEventsFromSnapshot && !scriptRunning) {
     loadObjectEventsFromSnapshot(snapshot).catch((err) => {
       console.warn('[WorldManager] Failed to reload object events:', err);
+    });
+  }
+
+  // Invalidate pipeline cache
+  pipeline.invalidate();
+}
+
+/**
+ * Handle anchorChanged event - update snapshot, resolvers, world bounds,
+ * and eagerly cache the new anchor's scripts. Does NOT reload NPC objects
+ * (no map was actually loaded/unloaded — the player just crossed a map boundary).
+ */
+function handleAnchorChanged(
+  deps: WorldManagerEventDeps,
+  snapshot: WorldSnapshot,
+  newAnchorMapId: string
+): void {
+  const {
+    pipeline,
+    worldSnapshotRef,
+    playerRef,
+    worldBoundsRef,
+    setWorldSize,
+    setStitchedMapCount,
+    createSnapshotTileResolver,
+    createSnapshotPlayerTileResolver,
+    mapScriptCacheRef,
+  } = deps;
+
+  // Update snapshot and resolvers
+  worldSnapshotRef.current = snapshot;
+
+  const resolver = createSnapshotTileResolver(snapshot);
+  pipeline.setTileResolver(resolver);
+
+  const player = playerRef.current;
+  if (player) {
+    const playerResolver = createSnapshotPlayerTileResolver(snapshot);
+    player.setTileResolver(playerResolver);
+  }
+
+  // Update world bounds
+  updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
+
+  // Eagerly pre-populate map script cache for the new anchor
+  const cache = mapScriptCacheRef?.current;
+  if (cache && !cache.has(newAnchorMapId)) {
+    getMapScripts(newAnchorMapId).then((data) => {
+      cache.set(newAnchorMapId, data);
+    }).catch(() => {
+      // Non-critical — scripts will be loaded lazily later
     });
   }
 
@@ -254,30 +312,6 @@ function handleTilesetsChanged(
   updateResolversFromSnapshot(deps, freshSnapshot);
 
   pipeline.invalidate();
-}
-
-/**
- * Handle reanchored event - adjust player and camera positions
- */
-function handleReanchored(
-  deps: Pick<WorldManagerEventDeps, 'playerRef' | 'cameraRef'>,
-  offsetShift: { x: number; y: number }
-): void {
-  const { playerRef, cameraRef } = deps;
-
-  // Adjust player position by the offset shift
-  const player = playerRef.current;
-  if (player) {
-    player.setPosition(
-      player.tileX - offsetShift.x,
-      player.tileY - offsetShift.y
-    );
-  }
-
-  // Also adjust camera to prevent jitter on reanchor
-  if (cameraRef.current) {
-    cameraRef.current.adjustOffset(offsetShift.x, offsetShift.y);
-  }
 }
 
 /**
@@ -319,12 +353,12 @@ export function createWorldManagerEventHandler(
       handleMapsChanged(deps, event.snapshot);
     }
 
-    if (event.type === 'tilesetsChanged') {
-      handleTilesetsChanged(deps, worldManager);
+    if (event.type === 'anchorChanged') {
+      handleAnchorChanged(deps, event.snapshot, event.newAnchorMapId);
     }
 
-    if (event.type === 'reanchored') {
-      handleReanchored(deps, event.offsetShift);
+    if (event.type === 'tilesetsChanged') {
+      handleTilesetsChanged(deps, worldManager);
     }
 
     if (event.type === 'gpuSlotsSwapped') {

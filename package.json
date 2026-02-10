@@ -17,7 +17,9 @@
     "generate:moves": "node scripts/generate-moves.cjs",
     "generate:abilities": "node scripts/generate-abilities.cjs",
     "generate:scripts": "node scripts/generate-scripts.cjs",
-    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts"
+    "generate:new-game-flags": "node scripts/generate-new-game-flags.cjs",
+    "generate:flags": "node scripts/generate-flag-var-maps.cjs",
+    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:new-game-flags && npm run generate:flags"
   },
   "dependencies": {
     "@types/three": "^0.181.0",

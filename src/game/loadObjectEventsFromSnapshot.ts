@@ -105,10 +105,23 @@ export async function loadObjectEventsFromSnapshot(
     spritePreloadScope = 'anchor-and-neighbors',
   } = params;
 
-  objectEventManager.clear();
-  clearAnimations?.();
+  // Incremental update: only add/remove maps that changed.
+  // This preserves NPC runtime state (positions, visibility) on still-loaded maps.
+  const newMapIds = new Set(snapshot.maps.map((m) => m.entry.id));
+  const existingMapIds = objectEventManager.getParsedMapIds();
 
+  // Remove objects for maps no longer in the snapshot
+  for (const mapId of existingMapIds) {
+    if (!newMapIds.has(mapId)) {
+      objectEventManager.removeMapObjects(mapId);
+    }
+  }
+
+  // Parse objects for newly added maps only
   for (const mapInst of snapshot.maps) {
+    if (objectEventManager.hasMapObjects(mapInst.entry.id)) {
+      continue; // Already parsed — preserve existing NPC state
+    }
     if (mapInst.objectEvents.length === 0) {
       continue;
     }

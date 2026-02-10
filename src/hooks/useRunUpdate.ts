@@ -281,10 +281,13 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
             const targetId = resolved.map.entry.id;
             const targetOffsetX = resolved.map.offsetX;
             const targetOffsetY = resolved.map.offsetY;
-            console.log(`[REANCHOR] Starting: player at tile(${player.tileX},${player.tileY}) pixel(${player.x.toFixed(1)},${player.y.toFixed(1)}) moving:${player.isMoving}`);
+            console.log(`[REANCHOR-RENDER] Starting: currentAnchor=${ctx.anchor.entry.id} → targetAnchor=${targetId}`);
+            console.log(`[REANCHOR-RENDER] Player: tile(${player.tileX},${player.tileY}) pixel(${player.x.toFixed(1)},${player.y.toFixed(1)}) moving:${player.isMoving} inputLocked:${player.inputLocked}`);
+            console.log(`[REANCHOR-RENDER] Target map offset: (${targetOffsetX},${targetOffsetY})`);
 
             (async () => {
               const newWorldRaw = await refs.mapManagerRef.current.buildWorld(targetId, connectionDepth);
+              console.log(`[REANCHOR-RENDER] Built new world for ${targetId}, shifting by (${targetOffsetX},${targetOffsetY})`);
               const newWorld = callbacks.shiftWorld(newWorldRaw, targetOffsetX, targetOffsetY);
               await callbacks.rebuildContextForWorld(newWorld, targetId);
               callbacks.applyTileResolver();
@@ -293,7 +296,7 @@ export function useRunUpdate(options: UseRunUpdateOptions): UseRunUpdateReturn {
 
               const currentPlayer = refs.playerControllerRef.current;
               if (currentPlayer) {
-                console.log(`[REANCHOR] Complete: player at tile(${currentPlayer.tileX},${currentPlayer.tileY}) pixel(${currentPlayer.x.toFixed(1)},${currentPlayer.y.toFixed(1)}) moving:${currentPlayer.isMoving}`);
+                console.log(`[REANCHOR-RENDER] Complete: player at tile(${currentPlayer.tileX},${currentPlayer.tileY}) pixel(${currentPlayer.x.toFixed(1)},${currentPlayer.y.toFixed(1)}) moving:${currentPlayer.isMoving} inputLocked:${currentPlayer.inputLocked}`);
                 warpHandler.updateLastCheckedTile(currentPlayer.tileX, currentPlayer.tileY, targetId);
               }
               warpHandler.setCooldown(Math.max(warpHandler.getCooldownRemaining(), 50));

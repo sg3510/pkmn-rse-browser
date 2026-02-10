@@ -14,6 +14,7 @@ import type { StoryScriptContext } from '../game/NewGameFlow';
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { setDynamicWarpTarget } from '../game/DynamicWarp';
+import { getSpeciesName } from '../data/species';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -45,10 +46,16 @@ function resolveConstant(val: string | number): string | number {
   if (typeof val === 'number') return val;
   if (val === 'MALE') return GENDER_MALE;
   if (val === 'FEMALE') return GENDER_FEMALE;
-  if (val === 'TRUE') return 1;
-  if (val === 'FALSE') return 0;
+  if (val === 'TRUE' || val === 'YES') return 1;
+  if (val === 'FALSE' || val === 'NO') return 0;
   if (val === 'FADE_TO_BLACK') return 1;
   if (val === 'FADE_FROM_BLACK') return 0;
+  // GBA direction constants (from include/constants/event_object_movement.h)
+  if (val === 'DIR_NONE') return 0;
+  if (val === 'DIR_SOUTH') return 1;
+  if (val === 'DIR_NORTH') return 2;
+  if (val === 'DIR_WEST') return 3;
+  if (val === 'DIR_EAST') return 4;
   // Metatile labels
   if (val in METATILE_LABELS) return METATILE_LABELS[val];
   return val;
@@ -437,18 +444,38 @@ export class ScriptRunner {
         // --- Message ---
         case 'msgbox': {
           const textLabel = asString(args[0]);
+          const msgType = args.length > 1 ? asString(args[1]) : '';
           const rawText = this.findText(textLabel);
           if (rawText) {
-            await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
+            const formattedText = formatScriptText(rawText, this.playerName, this.playerGender);
+            if (msgType === 'MSGBOX_YESNO' && this.ctx.showYesNo) {
+              const yes = await this.ctx.showYesNo(formattedText);
+              gameVariables.setVar('VAR_RESULT', yes ? 1 : 0);
+            } else {
+              await this.ctx.showMessage(formattedText);
+            }
           } else {
             console.warn(`[ScriptRunner] Text not found: ${textLabel}`);
           }
           break;
         }
 
+        case 'waitmessage':
+          // Our showMessage already waits for dismissal — no-op.
+          break;
+
         case 'closemessage':
           // Dialog auto-closes after showMessage resolves
           break;
+
+        case 'bufferleadmonspeciesname': {
+          const destIdx = asNumber(args[0]);
+          const destKey = `STR_VAR_${destIdx + 1}`;
+          const party = this.ctx.getParty?.() ?? [];
+          const lead = party.find((p) => p !== null);
+          stringVars[destKey] = lead ? getSpeciesName(lead.species) : 'POKeMON';
+          break;
+        }
 
         // --- Variables ---
         case 'setvar': {
@@ -705,6 +732,14 @@ export class ScriptRunner {
           break;
         }
 
+        // --- Battle Frontier stubs ---
+        case 'frontier_getstatus':
+          // GBA: sets VAR_TEMP_CHALLENGE_STATUS to 0xFF, then overwrites with
+          // actual status if a challenge is in progress. We have no frontier
+          // save data, so 0xFF ("no challenge") is always correct.
+          gameVariables.setVar('VAR_TEMP_CHALLENGE_STATUS', 0xFF);
+          break;
+
         // --- Commands that are parsed but not yet implemented ---
         case 'setstepcallback':
         case 'setrespawn':
@@ -914,10 +949,11 @@ export class ScriptRunner {
    */
   private resolveDirection(val: string | number): Direction | null {
     const s = asString(val);
-    if (s === 'DIR_UP' || s === '1') return 'up';
-    if (s === 'DIR_DOWN' || s === '2') return 'down';
-    if (s === 'DIR_LEFT' || s === '3') return 'left';
-    if (s === 'DIR_RIGHT' || s === '4') return 'right';
+    // GBA: DIR_SOUTH=1, DIR_NORTH=2, DIR_WEST=3, DIR_EAST=4
+    if (s === 'DIR_UP' || s === 'DIR_NORTH' || s === '2') return 'up';
+    if (s === 'DIR_DOWN' || s === 'DIR_SOUTH' || s === '1') return 'down';
+    if (s === 'DIR_LEFT' || s === 'DIR_WEST' || s === '3') return 'left';
+    if (s === 'DIR_RIGHT' || s === 'DIR_EAST' || s === '4') return 'right';
     if (s === 'up' || s === 'down' || s === 'left' || s === 'right') return s as Direction;
     return null;
   }

@@ -163,6 +163,14 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
 
     if (dynamicWarpOverride) {
       player.setPosition(dynamicWarpOverride.x, dynamicWarpOverride.y);
+      // Dynamic warp overrides the warp-event position; cancel any door-exit
+      // that executeWarp started for the fallback warp-event tile.
+      // The script (e.g. StepOffTruckMale) handles player movement instead.
+      if (doorSequencer.isExitActive()) {
+        doorSequencer.reset();
+        playerHiddenRef.current = false;
+        player.unlockInput();
+      }
     }
 
     const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
@@ -221,6 +229,8 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
           setNpcMovementType: (mapId, localId, movementTypeRaw) => {
             objectEventManager.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
           },
+          showYesNo: async () => false,
+          getParty: () => [],
         };
         const runner = new ScriptRunner(
           { mapData, commonData },

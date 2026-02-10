@@ -145,7 +145,7 @@ export interface IWebGLWorldProvider extends IWorldProvider {
   getSnapshot(): IWebGLWorldState;
 
   /**
-   * Subscribe to world events (maps changed, tilesets changed, reanchored, etc.)
+   * Subscribe to world events (maps changed, tilesets changed, gpuSlotsSwapped, etc.)
    */
   subscribe(handler: (event: unknown) => void): () => void;
 

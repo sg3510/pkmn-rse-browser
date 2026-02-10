@@ -386,6 +386,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
   const mapScriptLoadingRef = useRef<Set<string>>(new Set());
 
+  // Safety net: suppress ON_FRAME scripts that ran but didn't change their trigger var.
+  // Keyed by "scriptName" → trigger value when suppressed. Only un-suppress when var changes.
+  // Cleared on warp. Prevents infinite loops from unimplemented cmds.
+  const onFrameSuppressedRef = useRef<Map<string, number>>(new Map());
+
   // NPC movement hook - provides collision-aware movement updates
   // The providers object uses closure over refs so it always has fresh data
   const npcMovementProviders = useMemo(() => ({
@@ -711,6 +716,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const runHandledStoryScript = useHandledStoryScript({
     showMessage,
     showChoice,
+    showYesNo,
     stateManager,
     selectedMapId,
     buildLocationStateFromPlayer,
@@ -751,6 +757,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const mapId = (player && wm)
         ? wm.findMapAtPosition(player.tileX, player.tileY)?.entry.id
         : undefined;
+      // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
+      if (player) {
+        const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
+        gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
+      }
       await runHandledStoryScript(scriptObject.script, mapId);
     },
     onNpcInteract: async (npc) => {
@@ -760,6 +771,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const currentMap = wm.findMapAtPosition(player.tileX, player.tileY);
       if (!currentMap) return;
       const mapId = currentMap.entry.id;
+      // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
+      const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
+      gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
       // Face the NPC toward the player (handles `faceplayer` command)
       if (npc.localId) {
         objectEventManagerRef.current.faceNpcTowardPlayer(
@@ -992,6 +1006,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     trigger: WarpTrigger,
     options?: { force?: boolean; fromDoor?: boolean }
   ) => {
+    // Clear ON_FRAME suppression — new map visit should re-evaluate frame scripts
+    onFrameSuppressedRef.current.clear();
     await performWarpTransition({
       trigger,
       options,
@@ -1196,10 +1212,20 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
             if (cachedData?.mapScripts.onFrame) {
               for (const entry of cachedData.mapScripts.onFrame) {
-                if (gameVariables.getVar(entry.var) === entry.value) {
+                const currentVarValue = gameVariables.getVar(entry.var);
+                if (currentVarValue === entry.value) {
+                  // Check if suppressed at this exact value
+                  const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
+                  if (suppressedValue === entry.value) continue;
+                  console.log(`[ON_FRAME] Triggered: map=${currentMapId} script=${entry.script} var=${entry.var} value=${entry.value}`);
+                  // Suppress until var changes or warp occurs (prevents loops from unimplemented cmds)
+                  onFrameSuppressedRef.current.set(entry.script, entry.value);
                   preInputOnFrameTriggered = true;
                   void runHandledStoryScriptRef.current(entry.script, currentMapId);
                   break;
+                } else {
+                  // Var no longer matches — un-suppress so it can fire again if var returns to this value
+                  onFrameSuppressedRef.current.delete(entry.script);
                 }
               }
             }
@@ -1310,9 +1336,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 const onFrameEntries = cachedData.mapScripts.onFrame;
                 if (onFrameEntries) {
                   for (const entry of onFrameEntries) {
-                    if (gameVariables.getVar(entry.var) === entry.value) {
+                    const currentVarValue = gameVariables.getVar(entry.var);
+                    if (currentVarValue === entry.value) {
+                      const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
+                      if (suppressedValue === entry.value) continue;
+                      onFrameSuppressedRef.current.set(entry.script, entry.value);
                       void runHandledStoryScriptRef.current(entry.script, currentMapId);
                       break;
+                    } else {
+                      onFrameSuppressedRef.current.delete(entry.script);
                     }
                   }
                 }
@@ -1387,6 +1419,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 // Arrow warps are handled through PlayerController's doorWarpHandler
                 // Just update arrow overlay, don't auto-warp
               } else if (action.type === 'autoDoorWarp') {
+                console.log(`[WARP] autoDoorWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
                 // Non-animated doors (stairs, ladders): auto-warp with fade
                 arrowOverlay.hide();
                 doorSequencer.startAutoWarp({
@@ -1399,6 +1432,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 }, nowTime, true);
                 player.lockInput();
               } else if (action.type === 'walkOverWarp') {
+                console.log(`[WARP] walkOverWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
                 // Other walk-over warps: simple warp
                 warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
                 pendingWarpRef.current = action.trigger;
@@ -1419,8 +1453,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           doorAnimations,
           fadeController: fadeControllerRef.current,
           playerHiddenRef,
-          // Prevent door-exit completion from unlocking input while a story script owns the lock.
-          shouldUnlockPlayer: () => !storyScriptRunningRef.current,
           onExecuteWarp: (trigger) => {
             // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
             warpingRef.current = true;
@@ -1854,6 +1886,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpingRef,
       playerHiddenRef,
       storyScriptRunningRef,
+      mapScriptCacheRef,
       lastCoordTriggerTileRef,
       warpHandlerRef,
       lastWorldUpdateRef,

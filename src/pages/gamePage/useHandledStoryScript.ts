@@ -30,6 +30,7 @@ interface PendingScriptedWarpLike {
 export interface UseHandledStoryScriptParams {
   showMessage: StoryScriptContext['showMessage'];
   showChoice: StoryScriptContext['showChoice'];
+  showYesNo: (text: string) => Promise<boolean>;
   stateManager: GameStateManager | null;
   selectedMapId: string;
   buildLocationStateFromPlayer: (player: PlayerController, mapId: string) => LocationState;
@@ -51,6 +52,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
   const {
     showMessage,
     showChoice,
+    showYesNo,
     stateManager,
     selectedMapId,
     buildLocationStateFromPlayer,
@@ -87,6 +89,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     // This prevents the player from moving during the gap between detecting
     // a script trigger (ON_FRAME, coord event) and starting execution.
     console.log(`[StoryScript] ▶ Starting: ${scriptName}`);
+    console.trace(`[StoryScript] lockInput caller for: ${scriptName}`);
     storyScriptRunningRef.current = true;
     player.lockInput();
     npcMovement.setEnabled(false);
@@ -390,6 +393,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         setNpcMovementType: (mapId, localId, movementTypeRaw) => {
           objectEventManagerRef.current.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
         },
+        showYesNo,
+        getParty: () => saveManager.getParty(),
       };
 
       let handled = false;
@@ -420,13 +425,13 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       for (const animId of heldDoorAnimIds.values()) {
         doorAnimations.clearById(animId);
       }
-      npcMovement.reset();
       npcMovement.setEnabled(true);
       // Only keep input locked if a warp is actively in progress.
       // pendingScriptedWarpRef may be stale from a previously completed warp,
       // so we only check the authoritative warpingRef flag.
-      console.log(`[StoryScript] ■ Finally: warpingRef=${warpingRef.current} pendingScriptedWarp=${!!pendingScriptedWarpRef.current}`);
+      console.log(`[StoryScript] ■ Finally: warpingRef=${warpingRef.current} pendingScriptedWarp=${!!pendingScriptedWarpRef.current} inputLocked=${player.inputLocked}`);
       if (!warpingRef.current) {
+        console.log(`[StoryScript] ■ Unlocking input (no active warp)`);
         player.unlockInput();
         // Clear stale scripted warp ref if the warp already completed
         if (pendingScriptedWarpRef.current) {
@@ -438,6 +443,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
   }, [
     showMessage,
     showChoice,
+    showYesNo,
     stateManager,
     selectedMapId,
     buildLocationStateFromPlayer,
