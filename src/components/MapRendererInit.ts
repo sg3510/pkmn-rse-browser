@@ -29,6 +29,7 @@ import type { ObjectEventManager } from '../game/ObjectEventManager';
 import { setupObjectCollisionChecker } from '../game/setupObjectCollisionChecker';
 import type { DoorWarpRequest } from '../game/PlayerController';
 import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
+import { saveManager } from '../save/SaveManager';
 import type { CardinalDirection } from '../field/types';
 import type { WorldCameraView } from '../rendering/types';
 
@@ -143,7 +144,8 @@ async function rebuildContextForWorld(
       map.entry.id,
       map.objectEvents,
       map.offsetX,
-      map.offsetY
+      map.offsetY,
+      saveManager.getProfile().gender
     );
     if (map.bgEvents && map.bgEvents.length > 0) {
       objectEventManager.parseMapBgEvents(

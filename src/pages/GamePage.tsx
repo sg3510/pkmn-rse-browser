@@ -977,8 +977,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         const viewportPx = viewportPixelSizeRef.current;
         const camera = cameraRef.current;
-        const cameraWorldX = camera ? Math.round(camera.x - viewportPx.width / 2) : 0;
-        const cameraWorldY = camera ? Math.round(camera.y - viewportPx.height / 2) : 0;
+        const cameraPos = camera?.getPosition();
+        const cameraWorldX = cameraPos ? Math.round(cameraPos.x - viewportPx.width / 2) : 0;
+        const cameraWorldY = cameraPos ? Math.round(cameraPos.y - viewportPx.height / 2) : 0;
         const collected: DebugTileInfo[] = [];
 
         for (let dy = -1; dy <= 1; dy++) {

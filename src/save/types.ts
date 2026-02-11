@@ -14,6 +14,8 @@
  * - Version field for migration support
  */
 
+import type { PartyPokemon } from '../pokemon/types';
+
 /**
  * Current save format version. Increment when making breaking changes.
  */
@@ -260,14 +262,22 @@ export interface SaveData {
   pcItems?: PCItemsState;
   /** Pokemon party */
   party?: PartyState;
+  /** Runtime battle-ready party payload */
+  partyFull?: (PartyPokemon | null)[];
   /** PC Pokemon storage */
   pcPokemon?: PCPokemonState;
   /** Event flags */
   flags: GameFlags;
+  /** Raw 300-byte event flag bitset (lossless import/export) */
+  rawFlags?: number[];
   /** Script variables */
   vars?: GameVars;
+  /** Raw 256-entry script var array (u16, lossless import/export) */
+  rawVars?: number[];
   /** Game statistics */
   stats?: GameStats;
+  /** Permanent NPC position overrides from copyobjectxytoperm */
+  objectEventOverrides?: Record<string, { x: number; y: number }>;
 }
 
 // ============================================================================

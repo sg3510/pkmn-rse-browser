@@ -2,6 +2,8 @@ import type { ObjectEventManager } from './ObjectEventManager';
 import type { WorldSnapshot } from './WorldManager';
 import type { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { getNPCAtlasName } from '../rendering/spriteUtils';
+import { saveManager } from '../save/SaveManager';
+import { saveStateStore } from '../save/SaveStateStore';
 
 interface SpriteDimensionsLike {
   frameWidth: number;
@@ -136,7 +138,8 @@ export async function loadObjectEventsFromSnapshot(
         mapInst.entry.id,
         mapInst.objectEvents,
         mapInst.offsetX,
-        mapInst.offsetY
+        mapInst.offsetY,
+        saveManager.getProfile().gender
       );
     }
 
@@ -147,6 +150,15 @@ export async function loadObjectEventsFromSnapshot(
         mapInst.offsetX,
         mapInst.offsetY
       );
+    }
+
+    // Apply persistent NPC position overrides (from copyobjectxytoperm).
+    // These are stored in map-local coords; convert to world coords.
+    const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
+    for (const override of overrides) {
+      const worldX = mapInst.offsetX + override.x;
+      const worldY = mapInst.offsetY + override.y;
+      objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
     }
   }
 

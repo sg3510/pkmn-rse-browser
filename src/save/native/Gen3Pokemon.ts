@@ -14,10 +14,10 @@
  * - Substruct order is shuffled based on personality % 24
  */
 
-import { POKEMON, SAVEBLOCK1, SECTION_SIZES } from './Gen3Constants';
-import { decodeGen3String } from './Gen3Charset';
-import type { BoxPokemon, PartyPokemon, IVs, EVs } from '../../pokemon/types';
-import { createEmptyRibbons } from '../../pokemon/types';
+import { POKEMON, SAVEBLOCK1, SECTION_SIZES } from './Gen3Constants.ts';
+import { decodeGen3String } from './Gen3Charset.ts';
+import type { BoxPokemon, PartyPokemon, IVs, EVs } from '../../pokemon/types.ts';
+import { createEmptyRibbons } from '../../pokemon/types.ts';
 
 // ============================================================================
 // Substruct Order Table

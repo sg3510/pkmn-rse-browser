@@ -9,8 +9,8 @@
  * - src/data/mapIndex.json (mapName → mapId)
  */
 
-import mapGroupsJson from '../../../public/pokeemerald/data/maps/map_groups.json';
-import mapIndexJson from '../../data/mapIndex.json';
+import mapGroupsJson from '../../../public/pokeemerald/data/maps/map_groups.json' with { type: 'json' };
+import mapIndexJson from '../../data/mapIndex.json' with { type: 'json' };
 import type { MapIndexEntry } from '../../types/maps';
 
 // Type for map_groups.json structure

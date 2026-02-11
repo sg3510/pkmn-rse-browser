@@ -7,8 +7,8 @@ export const data: MapScriptData = {
     onResume: "BattleFrontier_BattlePikeRoom_OnResume",
     onFrame: [
       { var: "VAR_TEMP_CHALLENGE_STATUS", value: 0, script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_GetChallengeStatus" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_SAVING", script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_WarpToLobby" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_PAUSED", script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_ResumeChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 1, script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_WarpToLobby" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 2, script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_ResumeChallenge" },
       { var: "VAR_TEMP_5", value: 0, script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_SetHintRoom" },
       { var: "VAR_TEMP_5", value: 1, script: "BattleFrontier_BattlePikeThreePathRoom_EventScript_GivePikeQueenHint" },
     ],

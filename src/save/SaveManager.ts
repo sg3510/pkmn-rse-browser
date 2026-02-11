@@ -42,6 +42,7 @@ import { bagManager } from '../game/BagManager';
 import { parseGen3Save, isValidGen3Save } from './native';
 import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types';
+import { saveStateStore } from './SaveStateStore';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -75,9 +76,6 @@ class SaveManagerClass {
   /** Play time tracking */
   private playTimeStartMs: number = 0;
   private isPlayTimerRunning: boolean = false;
-
-  /** Current party Pokemon (full data) */
-  private party: (PartyPokemon | null)[] = createEmptyParty().pokemon;
 
   constructor() {
     // Try to auto-load most recent save on construction
@@ -178,9 +176,27 @@ class SaveManagerClass {
         // Add migration logic here when needed
       }
 
-      // Load flags into GameFlags system
-      gameFlags.loadFromArray(data.flags);
-      gameVariables.loadFromRecord(data.vars ?? {});
+      // Prefer raw event state if present so unknown IDs are preserved.
+      if (Array.isArray(data.rawFlags) && Array.isArray(data.rawVars)) {
+        saveStateStore.replaceRawEventState(data.rawFlags, data.rawVars);
+        if (Array.isArray(data.flags) && data.flags.length > 0) {
+          // Preserve profile-specific named projections (e.g. romhack flag aliases)
+          // without mutating the underlying raw bitfield.
+          saveStateStore.mergeNamedFlags(data.flags);
+        }
+      } else if (Array.isArray(data.rawFlags)) {
+        saveStateStore.replaceRawEventState(data.rawFlags, []);
+        if (Array.isArray(data.flags) && data.flags.length > 0) {
+          saveStateStore.mergeNamedFlags(data.flags);
+        }
+        gameVariables.loadFromRecord(data.vars ?? {});
+      } else if (Array.isArray(data.rawVars)) {
+        saveStateStore.replaceRawEventState([], data.rawVars);
+        gameFlags.loadFromArray(data.flags);
+      } else {
+        gameFlags.loadFromArray(data.flags);
+        gameVariables.loadFromRecord(data.vars ?? {});
+      }
 
       // Load bag state if present
       if (data.bag) {
@@ -189,14 +205,17 @@ class SaveManagerClass {
         bagManager.reset();
       }
 
-      // Load party data if present (from _fullParty for native saves)
-      const saveDataWithParty = data as SaveData & { _fullParty?: PartyPokemon[] };
-      if (saveDataWithParty._fullParty && saveDataWithParty._fullParty.length > 0) {
-        this.party = [...saveDataWithParty._fullParty];
-        while (this.party.length < 6) {
-          this.party.push(null);
-        }
-        console.log(`[SaveManager] Loaded ${saveDataWithParty._fullParty.length} Pokemon from party`);
+      // Load object event overrides (copyobjectxytoperm)
+      if (data.objectEventOverrides) {
+        saveStateStore.setAllObjectEventOverrides(data.objectEventOverrides);
+      }
+
+      // Support both current `partyFull` and legacy `_fullParty` payloads.
+      const legacy = data as SaveData & { _fullParty?: (PartyPokemon | null)[] };
+      const fullParty = data.partyFull ?? legacy._fullParty ?? [];
+      saveStateStore.setParty(fullParty);
+      if (fullParty.length > 0) {
+        console.log(`[SaveManager] Loaded ${saveStateStore.getPartyCount()} Pokemon from party`);
       }
 
       this.activeSlot = slot;
@@ -222,6 +241,7 @@ class SaveManagerClass {
 
     // Update play time before saving
     this.updatePlayTime();
+    const partyFull = saveStateStore.getParty();
 
     const saveData: SaveData = {
       version: SAVE_VERSION,
@@ -230,8 +250,12 @@ class SaveManagerClass {
       playTime: this.playTime,
       location: locationState,
       flags: gameFlags.getAllFlags(),
+      rawFlags: saveStateStore.getRawFlags(),
       vars: gameVariables.getAllVars(),
+      rawVars: saveStateStore.getRawVars(),
       bag: bagManager.getBagState(),
+      partyFull,
+      objectEventOverrides: saveStateStore.getAllObjectEventOverrides(),
     };
 
     try {
@@ -301,7 +325,7 @@ class SaveManagerClass {
     bagManager.reset();
 
     // Reset party
-    this.party = createEmptyParty().pokemon;
+    saveStateStore.setParty(createEmptyParty().pokemon);
 
     // Reset play timer
     this.playTimeStartMs = Date.now();
@@ -430,31 +454,28 @@ class SaveManagerClass {
    * Get current party Pokemon
    */
   getParty(): (PartyPokemon | null)[] {
-    return [...this.party];
+    return saveStateStore.getParty();
   }
 
   /**
    * Set party Pokemon
    */
   setParty(party: (PartyPokemon | null)[]): void {
-    this.party = party.slice(0, 6);
-    while (this.party.length < 6) {
-      this.party.push(null);
-    }
+    saveStateStore.setParty(party);
   }
 
   /**
    * Get party count (non-null Pokemon)
    */
   getPartyCount(): number {
-    return this.party.filter(p => p !== null).length;
+    return saveStateStore.getPartyCount();
   }
 
   /**
    * Check if party has any Pokemon
    */
   hasParty(): boolean {
-    return this.party.some(p => p !== null);
+    return saveStateStore.hasParty();
   }
 
   // === Quick Save/Load (for development) ===
@@ -566,8 +587,13 @@ class SaveManagerClass {
       if (!data.location || typeof data.location.pos?.x !== 'number') {
         return { success: false, error: 'Invalid save file: missing location' };
       }
+      if (!Array.isArray(data.flags) && !Array.isArray(data.rawFlags)) {
+        return { success: false, error: 'Invalid save file: missing flags/rawFlags' };
+      }
+
+      // Normalize optional projections for backward/forward compatibility.
       if (!Array.isArray(data.flags)) {
-        return { success: false, error: 'Invalid save file: missing flags' };
+        data.flags = [];
       }
 
       // Version migration if needed
@@ -627,11 +653,6 @@ class SaveManagerClass {
       return { success: false, error: `Invalid slot: ${slot}` };
     }
 
-    // Validate file
-    if (!isValidGen3Save(buffer)) {
-      return { success: false, error: 'Invalid .sav file: no valid GBA save signature found' };
-    }
-
     // Parse the native save
     const result = parseGen3Save(buffer, filename);
 
@@ -639,15 +660,22 @@ class SaveManagerClass {
       return { success: false, error: result.error ?? 'Failed to parse .sav file' };
     }
 
-    // Extract full party data if available
-    const fullParty = (result.saveData as SaveData & { _fullParty?: PartyPokemon[] })._fullParty;
-    if (fullParty && fullParty.length > 0) {
-      // Store full party data
-      this.party = [...fullParty];
-      while (this.party.length < 6) {
-        this.party.push(null);
-      }
-      console.log(`[SaveManager] Loaded ${fullParty.length} Pokemon from .sav file`);
+    if (result.nativeMetadata && !result.nativeMetadata.layoutSupported) {
+      const issues = result.nativeMetadata.sanity.issues.join(' ');
+      const candidateSummary = result.nativeMetadata.layoutCandidates
+        .map((candidate) => `${candidate.profileId}:${candidate.score}`)
+        .join(', ');
+      return {
+        success: false,
+        error: `Unsupported or low-confidence save layout (${result.nativeMetadata.layoutProfileId}, confidence=${result.nativeMetadata.layoutConfidence}). Import aborted to avoid incorrect state. Candidates: ${candidateSummary}. ${issues}`,
+      };
+    }
+
+    // Stage full party data if available.
+    const fullParty = result.saveData.partyFull ?? [];
+    if (fullParty.length > 0) {
+      saveStateStore.setParty(fullParty);
+      console.log(`[SaveManager] Loaded ${saveStateStore.getPartyCount()} Pokemon from .sav file`);
     }
 
     // Log what we parsed for debugging
@@ -659,7 +687,12 @@ class SaveManagerClass {
       mapId: result.saveData.location.location.mapId,
       money: result.saveData.money?.money,
       game: result.nativeMetadata?.game,
-      partyCount: fullParty?.length ?? 0,
+      layoutProfileId: result.nativeMetadata?.layoutProfileId,
+      layoutConfidence: result.nativeMetadata?.layoutConfidence,
+      layoutSupported: result.nativeMetadata?.layoutSupported,
+      sourceFormat: result.nativeMetadata?.sourceFormat,
+      partyCount: fullParty.filter((p) => p !== null).length,
+      sanity: result.nativeMetadata?.sanity,
     });
 
     // Update version and timestamp

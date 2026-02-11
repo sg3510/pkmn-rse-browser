@@ -3,7 +3,7 @@
  * Generated from public/pokeemerald/data/scripts/item_ball_scripts.inc
  */
 
-import { ITEMS } from './items';
+import { ITEMS } from './items.ts';
 
 // Script name -> Item constant name mapping
 // Format: "Location_EventScript_ItemName" -> "ITEM_NAME"

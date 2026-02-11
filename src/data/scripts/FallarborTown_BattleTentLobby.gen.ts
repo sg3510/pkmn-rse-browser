@@ -6,10 +6,10 @@ export const data: MapScriptData = {
   mapScripts: {
     onFrame: [
       { var: "VAR_TEMP_CHALLENGE_STATUS", value: 0, script: "FallarborTown_BattleTentLobby_EventScript_GetChallengeStatus" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_SAVING", script: "FallarborTown_BattleTentLobby_EventScript_QuitWithoutSaving" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_PAUSED", script: "FallarborTown_BattleTentLobby_EventScript_ResumeChallenge" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_WON", script: "FallarborTown_BattleTentLobby_EventScript_WonChallenge" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_LOST", script: "FallarborTown_BattleTentLobby_EventScript_LostChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 1, script: "FallarborTown_BattleTentLobby_EventScript_QuitWithoutSaving" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 2, script: "FallarborTown_BattleTentLobby_EventScript_ResumeChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 3, script: "FallarborTown_BattleTentLobby_EventScript_WonChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 4, script: "FallarborTown_BattleTentLobby_EventScript_LostChallenge" },
     ],
     onWarpInto: [
       { var: "VAR_TEMP_1", value: 0, script: "FallarborTown_BattleTentLobby_EventScript_TurnPlayerNorth" },

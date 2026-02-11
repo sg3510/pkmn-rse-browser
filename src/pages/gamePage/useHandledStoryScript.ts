@@ -491,6 +491,16 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         hasNpc: (mapId, localId) => {
           return objectEventManagerRef.current.getNPCByLocalId(mapId, localId) != null;
         },
+        getNpcPosition: (mapId, localId) => {
+          const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+          if (!npc) return null;
+          return { tileX: npc.tileX, tileY: npc.tileY };
+        },
+        getMapOffset: (mapId) => {
+          const map = worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === mapId);
+          if (!map) return null;
+          return { offsetX: map.offsetX, offsetY: map.offsetY };
+        },
       };
 
       let handled = false;

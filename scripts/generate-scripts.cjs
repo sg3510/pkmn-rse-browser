@@ -21,6 +21,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const MAPS_DIR = path.join(ROOT, 'public/pokeemerald/data/maps');
 const SHARED_SCRIPTS_DIR = path.join(ROOT, 'public/pokeemerald/data/scripts');
+const CONSTANTS_DIR = path.join(ROOT, 'public/pokeemerald/include/constants');
 const OUTPUT_DIR = path.join(ROOT, 'src/data/scripts');
 
 /**
@@ -72,6 +73,102 @@ function mapFolderToConstant(folder) {
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
     .toUpperCase();
 }
+
+/**
+ * Build a map of C #define constants from pokeemerald header files.
+ * Scans all .h files in include/constants/ and resolves numeric values,
+ * including aliases and simple arithmetic expressions.
+ */
+function buildConstantMap() {
+  const constants = new Map();
+  const headerFiles = [];
+
+  try {
+    const entries = fs.readdirSync(CONSTANTS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.h')) {
+        headerFiles.push(path.join(CONSTANTS_DIR, entry.name));
+      }
+    }
+  } catch (e) {
+    console.warn('Warning: Could not read constants directory:', e.message);
+    return constants;
+  }
+
+  // Collect all raw #define entries: name → raw value string
+  const rawDefines = new Map();
+  for (const filePath of headerFiles) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const line of content.split('\n')) {
+      const m = line.match(/^\s*#define\s+(\w+)\s+(.+?)(?:\s*\/\/.*|\s*\/\*.*)?$/);
+      if (m) {
+        const name = m[1];
+        const value = m[2].trim();
+        // Skip macro-like defines (those with parenthesized params)
+        if (/^\(.*\)$/.test(name) || /\w+\(/.test(value) && !value.startsWith('(')) continue;
+        rawDefines.set(name, value);
+      }
+    }
+  }
+
+  // Try to evaluate a raw value string into a number
+  function tryEvaluateExpr(expr) {
+    // Strip outer parens
+    expr = expr.replace(/^\((.+)\)$/, '$1').trim();
+
+    // Simple numeric literal
+    if (/^-?\d+$/.test(expr)) return parseInt(expr, 10);
+    if (/^0x[0-9a-fA-F]+$/i.test(expr)) return parseInt(expr, 16);
+
+    // Simple alias: just a name
+    if (/^\w+$/.test(expr)) {
+      return constants.has(expr) ? constants.get(expr) : undefined;
+    }
+
+    // Arithmetic expression: substitute known constants, then evaluate
+    // Only allow safe tokens: numbers, hex, +, -, *, /, (), <<, >>, |, &, ~, whitespace
+    let substituted = expr.replace(/\b([A-Z_][A-Z0-9_]*)\b/g, (match) => {
+      if (constants.has(match)) return String(constants.get(match));
+      return match;
+    });
+
+    // Check if all identifiers are resolved (no remaining uppercase identifiers)
+    if (/\b[A-Z_][A-Z0-9_]*\b/.test(substituted)) return undefined;
+
+    // Safety check: only allow numeric expressions
+    if (!/^[\d\sx+\-*/().<>&|~^]+$/.test(substituted)) return undefined;
+
+    try {
+      const result = Function('"use strict"; return (' + substituted + ')')();
+      if (typeof result === 'number' && isFinite(result)) return result | 0;
+    } catch {
+      // Expression evaluation failed
+    }
+    return undefined;
+  }
+
+  // Multi-pass resolution: iterate until no more progress
+  let resolved = 0;
+  for (let pass = 0; pass < 10; pass++) {
+    let progress = false;
+    for (const [name, raw] of rawDefines) {
+      if (constants.has(name)) continue;
+      const val = tryEvaluateExpr(raw);
+      if (val !== undefined) {
+        constants.set(name, val);
+        progress = true;
+        resolved++;
+      }
+    }
+    if (!progress) break;
+  }
+
+  console.log(`Parsed ${resolved} numeric constants from ${headerFiles.length} header files`);
+  return constants;
+}
+
+// Pre-built constant map from C headers
+const CONSTANT_MAP = buildConstantMap();
 
 /**
  * Build the set of known movement commands by parsing the canonical
@@ -344,9 +441,13 @@ function tryParseInt(val) {
   if (typeof val === 'number') return val;
   if (/^-?\d+$/.test(val)) return parseInt(val, 10);
   if (/^0x[0-9a-fA-F]+$/i.test(val)) return parseInt(val, 16);
+  // Try resolving as a C constant
+  if (CONSTANT_MAP.has(val)) return CONSTANT_MAP.get(val);
   // Return as number if it looks numeric, otherwise keep as string
   const n = parseInt(val, 10);
-  return isNaN(n) ? val : n;
+  if (!isNaN(n)) return n;
+  console.warn(`  Warning: unresolved constant in map_script_2: ${val}`);
+  return val;
 }
 
 /**

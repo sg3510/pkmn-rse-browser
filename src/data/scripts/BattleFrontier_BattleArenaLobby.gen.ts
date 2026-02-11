@@ -6,10 +6,10 @@ export const data: MapScriptData = {
   mapScripts: {
     onFrame: [
       { var: "VAR_TEMP_CHALLENGE_STATUS", value: 0, script: "BattleFrontier_BattleArenaLobby_EventScript_GetChallengeStatus" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_SAVING", script: "BattleFrontier_BattleArenaLobby_EventScript_QuitWithoutSaving" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_PAUSED", script: "BattleFrontier_BattleArenaLobby_EventScript_ResumeChallenge" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_WON", script: "BattleFrontier_BattleArenaLobby_EventScript_WonChallenge" },
-      { var: "VAR_TEMP_CHALLENGE_STATUS", value: "CHALLENGE_STATUS_LOST", script: "BattleFrontier_BattleArenaLobby_EventScript_LostChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 1, script: "BattleFrontier_BattleArenaLobby_EventScript_QuitWithoutSaving" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 2, script: "BattleFrontier_BattleArenaLobby_EventScript_ResumeChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 3, script: "BattleFrontier_BattleArenaLobby_EventScript_WonChallenge" },
+      { var: "VAR_TEMP_CHALLENGE_STATUS", value: 4, script: "BattleFrontier_BattleArenaLobby_EventScript_LostChallenge" },
     ],
     onWarpInto: [
       { var: "VAR_TEMP_1", value: 0, script: "BattleFrontier_BattleArenaLobby_EventScript_TurnPlayerNorth" },

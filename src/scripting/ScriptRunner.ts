@@ -22,6 +22,7 @@ import {
 import { getSpeciesName } from '../data/species';
 import { getItemId, getItemName } from '../data/items';
 import { bagManager } from '../game/BagManager';
+import { saveStateStore } from '../save/SaveStateStore';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -649,6 +650,24 @@ export class ScriptRunner {
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
           this.ctx.setNpcPosition(this.currentMapId, localId, x, y);
+          break;
+        }
+
+        case 'copyobjectxytoperm': {
+          // C ref: ScrCmd_copyobjectxytoperm in scrcmd.c
+          // Copies NPC's current runtime position back to the persistent template
+          // so the NPC stays at the new position across save/load.
+          const localId = this.resolveObjectId(asString(args[0]));
+          if (this.ctx.getNpcPosition && this.ctx.getMapOffset) {
+            const worldPos = this.ctx.getNpcPosition(this.currentMapId, localId);
+            const mapOffset = this.ctx.getMapOffset(this.currentMapId);
+            if (worldPos && mapOffset) {
+              // Convert world coords back to map-local (subtract map offset)
+              const localX = worldPos.tileX - mapOffset.offsetX;
+              const localY = worldPos.tileY - mapOffset.offsetY;
+              saveStateStore.setObjectEventOverride(this.currentMapId, localId, localX, localY);
+            }
+          }
           break;
         }
 

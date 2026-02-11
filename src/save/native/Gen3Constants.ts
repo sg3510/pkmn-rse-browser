@@ -43,7 +43,8 @@ export const SECTION_SIZES: Record<number, number> = {
   1: 0xF80, // Section 1: SaveBlock1 part 1
   2: 0xF80, // Section 2: SaveBlock1 part 2
   3: 0xF80, // Section 3: SaveBlock1 part 3
-  4: 0xC40, // Section 4: SaveBlock1 part 4 (smaller)
+  // Vanilla Emerald SaveBlock1 size is 0x3D88, so chunk 4 is 0xF08.
+  4: 0xF08, // Section 4: SaveBlock1 part 4 (smaller)
   5: 0xF80, // Sections 5-13: PC storage
   6: 0xF80,
   7: 0xF80,

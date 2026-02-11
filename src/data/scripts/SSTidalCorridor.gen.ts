@@ -6,10 +6,10 @@ export const data: MapScriptData = {
   mapScripts: {
     onFrame: [
       { var: "VAR_SS_TIDAL_SCOTT_STATE", value: 0, script: "SSTidalCorridor_EventScript_ScottScene" },
-      { var: "VAR_SS_TIDAL_STATE", value: "SS_TIDAL_BOARD_SLATEPORT", script: "SSTidalCorridor_EventScript_DepartSlateportForLilycove" },
-      { var: "VAR_SS_TIDAL_STATE", value: "SS_TIDAL_BOARD_LILYCOVE", script: "SSTidalCorridor_EventScript_DepartLilycoveForSlateport" },
-      { var: "VAR_SS_TIDAL_STATE", value: "SS_TIDAL_EXIT_CURRENTS_RIGHT", script: "SSTidalCorridor_EventScript_HalfwayToLilycove" },
-      { var: "VAR_SS_TIDAL_STATE", value: "SS_TIDAL_EXIT_CURRENTS_LEFT", script: "SSTidalCorridor_EventScript_ArrivedInSlateport" },
+      { var: "VAR_SS_TIDAL_STATE", value: 1, script: "SSTidalCorridor_EventScript_DepartSlateportForLilycove" },
+      { var: "VAR_SS_TIDAL_STATE", value: 5, script: "SSTidalCorridor_EventScript_DepartLilycoveForSlateport" },
+      { var: "VAR_SS_TIDAL_STATE", value: 9, script: "SSTidalCorridor_EventScript_HalfwayToLilycove" },
+      { var: "VAR_SS_TIDAL_STATE", value: 10, script: "SSTidalCorridor_EventScript_ArrivedInSlateport" },
     ],
   },
   scripts: {

@@ -60,6 +60,10 @@ export interface StoryScriptContext {
   showYesNo?: (text: string) => Promise<boolean>;
   getParty?: () => (PartyPokemon | null)[];
   hasNpc?: (mapId: string, localId: string) => boolean;
+  /** Get NPC's current world position (for copyobjectxytoperm) */
+  getNpcPosition?: (mapId: string, localId: string) => { tileX: number; tileY: number } | null;
+  /** Get map offset for converting world→local coords */
+  getMapOffset?: (mapId: string) => { offsetX: number; offsetY: number } | null;
 }
 
 type StarterChoice = {

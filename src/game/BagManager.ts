@@ -6,6 +6,7 @@
  */
 
 import type { BagState, ItemSlot } from '../save/types';
+import { saveStateStore } from '../save/SaveStateStore';
 
 /** Maximum items per pocket (from Emerald) */
 const POCKET_MAX = {
@@ -48,16 +49,12 @@ function getPocketForItem(itemId: number): keyof BagState {
 }
 
 class BagManagerClass {
-  private bag: BagState = {
-    items: [],
-    keyItems: [],
-    pokeBalls: [],
-    tmHm: [],
-    berries: [],
-  };
+  private getBag(): BagState {
+    return saveStateStore.getBagState();
+  }
 
-  constructor() {
-    // Bag will be loaded by SaveManager on Continue
+  private setBag(state: BagState): void {
+    saveStateStore.setBagState(state);
   }
 
   /**
@@ -65,8 +62,9 @@ class BagManagerClass {
    * @returns true if successfully added, false if bag full
    */
   addItem(itemId: number, quantity: number = 1): boolean {
+    const bag = this.getBag();
     const pocket = getPocketForItem(itemId);
-    const pocketItems = this.bag[pocket];
+    const pocketItems = bag[pocket];
     const maxItems = POCKET_MAX[pocket];
 
     // Check if we already have this item
@@ -74,6 +72,7 @@ class BagManagerClass {
     if (existing) {
       // Stack with existing (max 99 per stack for most items)
       existing.quantity = Math.min(existing.quantity + quantity, 99);
+      this.setBag(bag);
       console.log(`[BagManager] Added ${quantity}x item ${itemId} to ${pocket} (now ${existing.quantity})`);
       return true;
     }
@@ -86,6 +85,7 @@ class BagManagerClass {
 
     // Add new item slot
     pocketItems.push({ itemId, quantity });
+    this.setBag(bag);
     console.log(`[BagManager] Added ${quantity}x item ${itemId} to ${pocket}`);
     return true;
   }
@@ -95,8 +95,9 @@ class BagManagerClass {
    * @returns true if successfully removed, false if not enough
    */
   removeItem(itemId: number, quantity: number = 1): boolean {
+    const bag = this.getBag();
     const pocket = getPocketForItem(itemId);
-    const pocketItems = this.bag[pocket];
+    const pocketItems = bag[pocket];
 
     const index = pocketItems.findIndex((slot) => slot.itemId === itemId);
     if (index === -1) {
@@ -115,6 +116,7 @@ class BagManagerClass {
       pocketItems.splice(index, 1);
     }
 
+    this.setBag(bag);
     console.log(`[BagManager] Removed ${quantity}x item ${itemId} from ${pocket}`);
     return true;
   }
@@ -123,8 +125,9 @@ class BagManagerClass {
    * Check if bag has at least the specified quantity of an item
    */
   hasItem(itemId: number, quantity: number = 1): boolean {
+    const bag = this.getBag();
     const pocket = getPocketForItem(itemId);
-    const slot = this.bag[pocket].find((s) => s.itemId === itemId);
+    const slot = bag[pocket].find((s) => s.itemId === itemId);
     return slot !== undefined && slot.quantity >= quantity;
   }
 
@@ -132,8 +135,9 @@ class BagManagerClass {
    * Get quantity of an item in bag
    */
   getItemQuantity(itemId: number): number {
+    const bag = this.getBag();
     const pocket = getPocketForItem(itemId);
-    const slot = this.bag[pocket].find((s) => s.itemId === itemId);
+    const slot = bag[pocket].find((s) => s.itemId === itemId);
     return slot?.quantity ?? 0;
   }
 
@@ -141,39 +145,28 @@ class BagManagerClass {
    * Get a copy of a specific pocket
    */
   getPocket(pocket: keyof BagState): ItemSlot[] {
-    return [...this.bag[pocket]];
+    return [...this.getBag()[pocket]];
   }
 
   /**
    * Get the full bag state (for saving)
    */
   getBagState(): BagState {
-    return {
-      items: [...this.bag.items],
-      keyItems: [...this.bag.keyItems],
-      pokeBalls: [...this.bag.pokeBalls],
-      tmHm: [...this.bag.tmHm],
-      berries: [...this.bag.berries],
-    };
+    return this.getBag();
   }
 
   /**
    * Load bag state (from save)
    */
   loadBagState(state: BagState): void {
-    this.bag = {
-      items: state.items ? [...state.items] : [],
-      keyItems: state.keyItems ? [...state.keyItems] : [],
-      pokeBalls: state.pokeBalls ? [...state.pokeBalls] : [],
-      tmHm: state.tmHm ? [...state.tmHm] : [],
-      berries: state.berries ? [...state.berries] : [],
-    };
+    this.setBag(state);
+    const bag = this.getBag();
     console.log('[BagManager] Loaded bag state:', {
-      items: this.bag.items.length,
-      keyItems: this.bag.keyItems.length,
-      pokeBalls: this.bag.pokeBalls.length,
-      tmHm: this.bag.tmHm.length,
-      berries: this.bag.berries.length,
+      items: bag.items.length,
+      keyItems: bag.keyItems.length,
+      pokeBalls: bag.pokeBalls.length,
+      tmHm: bag.tmHm.length,
+      berries: bag.berries.length,
     });
   }
 
@@ -181,13 +174,13 @@ class BagManagerClass {
    * Reset bag to empty (new game)
    */
   reset(): void {
-    this.bag = {
+    this.setBag({
       items: [],
       keyItems: [],
       pokeBalls: [],
       tmHm: [],
       berries: [],
-    };
+    });
     console.log('[BagManager] Bag reset');
   }
 
@@ -195,12 +188,13 @@ class BagManagerClass {
    * Get total item count across all pockets
    */
   getTotalItemCount(): number {
+    const bag = this.getBag();
     return (
-      this.bag.items.length +
-      this.bag.keyItems.length +
-      this.bag.pokeBalls.length +
-      this.bag.tmHm.length +
-      this.bag.berries.length
+      bag.items.length +
+      bag.keyItems.length +
+      bag.pokeBalls.length +
+      bag.tmHm.length +
+      bag.berries.length
     );
   }
 
@@ -208,8 +202,9 @@ class BagManagerClass {
    * Debug: print bag contents
    */
   debugPrint(): void {
+    const bag = this.getBag();
     console.log('[BagManager] Current bag contents:');
-    for (const [pocket, items] of Object.entries(this.bag)) {
+    for (const [pocket, items] of Object.entries(bag)) {
       if (items.length > 0) {
         console.log(`  ${pocket}:`, items.map((i: ItemSlot) => `${i.itemId}x${i.quantity}`).join(', '));
       }

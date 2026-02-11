@@ -6,10 +6,10 @@ export const data: MapScriptData = {
   mapScripts: {
     onLoad: "CableClub_OnLoad",
     onFrame: [
-      { var: "VAR_CABLE_CLUB_STATE", value: "USING_MINIGAME", script: "CableClub_EventScript_ExitMinigameRoom" },
+      { var: "VAR_CABLE_CLUB_STATE", value: 8, script: "CableClub_EventScript_ExitMinigameRoom" },
     ],
     onWarpInto: [
-      { var: "VAR_CABLE_CLUB_STATE", value: "USING_MINIGAME", script: "CableClub_EventScript_CheckTurnAttendant" },
+      { var: "VAR_CABLE_CLUB_STATE", value: 8, script: "CableClub_EventScript_CheckTurnAttendant" },
     ],
   },
   scripts: {

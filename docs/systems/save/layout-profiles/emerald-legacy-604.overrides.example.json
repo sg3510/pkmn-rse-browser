@@ -1,0 +1,16 @@
+{
+  "profiles": [
+    {
+      "id": "emerald_legacy_604_candidate",
+      "baseProfileId": "emerald_vanilla",
+      "displayName": "Pokemon Emerald Legacy 6.0.4 (candidate)",
+      "game": "E",
+      "encryption": "xor",
+      "source": "custom",
+      "supportLevel": "experimental",
+      "sectionSizes": {},
+      "saveBlock1": {},
+      "saveBlock2": {}
+    }
+  ]
+}

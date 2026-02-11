@@ -4,7 +4,7 @@
  */
 
 // Re-export item descriptions from auto-generated file
-export { ITEM_DESCRIPTIONS, getItemDescription } from './itemDescriptions';
+export { ITEM_DESCRIPTIONS, getItemDescription } from './itemDescriptions.ts';
 
 // Item ID constants
 export const ITEMS: Record<string, number> = {

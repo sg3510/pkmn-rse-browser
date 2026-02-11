@@ -1,7 +1,8 @@
 ---
 title: Save State Integrity Investigation (Emerald Legacy Route 114 Import)
-status: bug
+status: in_progress
 last_verified: 2026-02-11
+implementation_updated: 2026-02-11
 ---
 
 # Save State Integrity Investigation (Emerald Legacy Route 114 Import)
@@ -25,9 +26,52 @@ last_verified: 2026-02-11
 2. For the Emerald Legacy Route 114 save, data at vanilla SaveBlock1 flag/var offsets is not valid gameplay state:
    - flags read as all zero
    - vars decode as implausible/random values
-3. This indicates layout mismatch versus hardcoded vanilla Emerald offsets. Current native parser is effectively vanilla-profile only.
-4. Flag/var mapping is lossy: unknown IDs are dropped during import, so custom hack flags/vars cannot round-trip.
+3. This indicates layout mismatch versus vanilla Emerald offsets. A dedicated `emerald_legacy_604` profile is now implemented (based on PKHeX Emerald Legacy offsets), with profile-specific system-flag aliases for menu gating.
+4. Flag/var mapping was lossy at investigation start; Phase 2 now preserves unknown IDs via raw event-state payloads.
 5. Save state responsibility is scattered across multiple managers, making correctness and diagnostics harder.
+
+## Implementation Status (2026-02-11)
+
+- [x] Phase 0: Guardrails and observability
+- [x] Phase 0.1: section size fix (`SECTION_SIZES[4] = 0xF08`)
+- [x] Phase 0.2: input preflight/normalization (raw vs wrapped vs PNG reject)
+- [x] Phase 0.3: parse sanity diagnostics and low-confidence import rejection
+- [x] Phase 1: central runtime `SaveStateStore` introduced
+- [x] Phase 1.1: `GameFlags`, `GameVariables`, `BagManager`, and party access in `SaveManager` routed through store
+- [x] Phase 1.2: replaced ad-hoc `_fullParty` import payload with typed `partyFull` (legacy `_fullParty` still accepted on load)
+- [x] Phase 2: raw + named event-state model implemented
+- [x] Phase 2.1: parser reads/stores `rawFlags` (300-byte bitfield) + `rawVars` (256-entry u16 array)
+- [x] Phase 2.2: named `flags`/`vars` are explicit projections from raw data
+- [x] Phase 2.3: save/load JSON round-trip preserves unknown/unmapped flag/var IDs through raw arrays
+- [x] Phase 3: layout profile system (vanilla profiles + detector)
+- [x] Phase 3.1: `SaveLayoutProfile` registry added (`emerald_vanilla`, `ruby_sapphire_vanilla`)
+- [x] Phase 3.2: parser now scores candidates and selects best profile with confidence metadata
+- [x] Phase 4: unsupported profile UX path
+- [x] Phase 4.1: parser marks unsupported/low-confidence layout explicitly (`layoutSupported=false`)
+- [x] Phase 4.2: import now aborts with explicit profile/confidence/candidate score context
+- [x] Phase 5: automated fixture/regression matrix (full)
+- [x] Phase 5.1: native parser fixture tests added for vanilla, wrapped, legacy-unsupported, and PNG-reject paths
+- [x] Phase 5.2: menu/object/item runtime regression tests from loaded saves
+- [x] Phase 6: profile override + corpus audit tooling
+- [x] Phase 6.1: parser now accepts injected profile sets + configurable support threshold/sanity gate
+- [x] Phase 6.2: centralized profile builders added (`buildSaveLayoutProfile`, `buildSaveLayoutProfiles`, `mergeSaveLayoutProfiles`)
+- [x] Phase 6.3: sample-save audit script added (`scripts/audit-save-layouts.ts`) with optional markdown output
+- [x] Phase 6.4: override workflow docs/templates added in `docs/systems/save/layout-profiles*`
+- [x] Phase 7: Emerald Legacy profile onboarding (initial implementation)
+- [x] Phase 7.1: extracted Legacy layout offsets from PKHeX Emerald Legacy (`SAV3E.cs`)
+- [x] Phase 7.2: promoted `emerald_legacy_604` profile into built-ins + parser/runtime fixtures
+- [x] Phase 7.3: Legacy imports now parse as supported with profile-specific system-flag aliases
+- [ ] Phase 7.4: verify/replace alias IDs against authoritative romhack `flags.h` from the exact 6.0.4 source used to generate these saves
+
+Test command for implemented fixture coverage:
+- `node --test --experimental-strip-types src/save/native/__tests__/*.test.ts`
+- `npm run save:audit-layouts` (profile corpus audit)
+- Latest audit artifact: `docs/systems/save/layout-profiles/sample-save-audit-2026-02-11.md`
+- Runtime regression additions are in `src/save/native/__tests__/SaveRuntimeRegression.test.ts` and assert:
+  - start-menu `FLAG_SYS_POKEMON_GET`/`FLAG_SYS_POKEDEX_GET` gating from imported vanilla saves
+  - Littleroot truck/mom visibility from imported flags
+  - Route 102 item-ball collected-state persistence from imported item flags
+  - Emerald Legacy Route 114 import enables start-menu system flags and hides Littleroot trucks
 
 ## Evidence
 
@@ -141,30 +185,27 @@ Correct approach: explicit layout profiles + confidence checks + unsupported-pro
 
 ## Root Causes
 
-1. Hardcoded single-layout assumptions in parser
-- `src/save/native/Gen3Constants.ts` and `src/save/native/Gen3SaveParser.ts` assume one Emerald-like SaveBlock layout.
-- No profile/layout selection step exists.
+1. Hardcoded single-layout assumptions in parser `[resolved in Phase 3]`
+- Parser now selects from explicit layout profiles (`emerald_vanilla`, `ruby_sapphire_vanilla`) using candidate scoring and confidence.
 
-2. No parse-confidence/sanity checks before applying state
-- Import currently accepts decode results even when critical state is clearly invalid (e.g., party exists but all flags unset and vars nonsensical).
+2. No parse-confidence/sanity checks before applying state `[resolved in Phase 0/4]`
+- Parser now computes sanity + confidence; import rejects unsupported/low-confidence layouts instead of silently applying bad state.
 
-3. Lossy flag/var representation
-- `parseFlags` and `parseVars` only keep IDs present in `FLAG_ID_TO_NAME` / `VAR_ID_TO_NAME`.
-- Unknown IDs are discarded, preventing full fidelity for hacks or custom builds.
+3. Lossy flag/var representation `[resolved in Phase 2]`
+- Raw event-state arrays are now preserved (`rawFlags`, `rawVars`) and named views are projections.
 
-4. Scattered state ownership
+4. Scattered state ownership `[partially resolved in Phase 1]`
 - Flags: `GameFlags`
 - Vars: `GameVariables`
 - Inventory: `BagManager`
-- Party: `SaveManager` private field + `_fullParty` escape hatch
+- Party: now centralized via `SaveStateStore` (legacy `_fullParty` still read on load for compatibility)
 - Runtime objects: `ObjectEventManager`
 - This fragmentation makes import validation and atomic apply harder.
 
-5. No file-format preflight classification
-- `.sav` extension is not sufficient:
-  - wrapped formats (e.g. SharkPort) can contain valid saves with header/padding
-  - non-save artifacts can be mislabeled (e.g. `.sav.ss0` PNG screenshot)
-- Import path currently assumes raw Gen3 flash-like input too early.
+5. No file-format preflight classification `[resolved in Phase 0]`
+- `.sav` extension is no longer trusted alone:
+  - wrapped formats (e.g. SharkPort) are unwrapped before parsing
+  - non-save artifacts (e.g. `.sav.ss0` PNG screenshot) are rejected deterministically
 
 ## Centralized Architecture Proposal
 
@@ -286,11 +327,26 @@ No partial writes to separate localStorage keys.
 Add automated fixtures for:
 
 - vanilla Emerald sample (baseline pass)
-- Emerald Legacy Route 114 sample (currently expected unsupported or partial-failure warning until profile support exists)
+- Emerald Legacy Route 114 sample (expected supported via `emerald_legacy_604`)
 - regression checks:
   - start menu system flag gating
   - object visibility from flags
   - item persistence after load
+
+### Phase 6: Profile override + audit tooling
+
+- Add parser option to evaluate an injected profile list (without modifying built-ins).
+- Add a deterministic script to audit all files in `public/sample_save/` and compare selected profile/confidence/sanity.
+- Add JSON override template + docs so romhack layout offsets can be validated before promotion to built-in support.
+
+### Phase 7: Emerald Legacy support
+
+- Pull authoritative SaveBlock/section offsets from Emerald Legacy source. `[done via PKHeX Emerald Legacy offsets]`
+- Encode those constants in a dedicated built-in profile (`emerald_legacy_604`). `[done]`
+- Promote Legacy fixtures from unsupported to supported and verify: `[done]`
+  - menu flags
+  - object visibility
+  - collected item persistence
 
 ## Non-goals (for now)
 
@@ -299,10 +355,8 @@ Add automated fixtures for:
 
 ## Recommended Next Action
 
-Start with Phase 0 in a focused PR:
+Next action:
 
-1. section size correction
-2. parse sanity checks + diagnostics
-3. import warning path for low-confidence decodes
-
-Then proceed with Phase 1 (central store extraction), which is the key scalability step.
+1. Cross-check Legacy alias IDs (`FLAG_SYS_POKEMON_GET`, `FLAG_SYS_POKEDEX_GET`, `FLAG_SYS_POKENAV_GET`) against the exact Emerald Legacy 6.0.4 `flags.h`/`start_menu.c` used by these saves.
+2. Re-run `npm run save:audit-layouts` and verify no regression for vanilla Emerald/RS profiles.
+3. Keep unsupported-profile guardrails enabled for unknown romhacks/layouts.

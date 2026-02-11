@@ -142,8 +142,7 @@ export const DialogArrow: React.FC<DialogArrowProps> = ({
 const dialogCSS = `
 @font-face {
   font-family: 'Pokemon Emerald';
-  src: url('/fonts/pokemon-emerald.otf') format('opentype'),
-       url('/fonts/pokemon-emerald-pro.otf') format('opentype');
+  src: url('/fonts/pokemon-emerald.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;

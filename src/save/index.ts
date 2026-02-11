@@ -38,6 +38,7 @@
 
 // Main save manager
 export { saveManager, SaveManagerClass } from './SaveManager';
+export { saveStateStore } from './SaveStateStore';
 
 // Types
 export type {

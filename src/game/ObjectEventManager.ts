@@ -22,13 +22,12 @@ import {
   type NPCObject,
   type ScriptObject,
   type LargeObject,
-} from '../types/objectEvents';
+} from '../types/objectEvents.ts';
 import type { BgEvent } from './mapEventLoader';
-import { getItemIdFromScript } from '../data/itemScripts';
-import { getItemName } from '../data/items';
-import { gameFlags } from './GameFlags';
-import { saveManager } from '../save/SaveManager';
-import { resolveDynamicObjectGfx } from './DynamicObjectGfx';
+import { getItemIdFromScript } from '../data/itemScripts.ts';
+import { getItemName } from '../data/items.ts';
+import { gameFlags } from './GameFlags.ts';
+import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -153,10 +152,10 @@ export class ObjectEventManager {
     mapId: string,
     objectEvents: ObjectEventData[],
     mapOffsetX: number,
-    mapOffsetY: number
+    mapOffsetY: number,
+    playerGender: 0 | 1 = 0
   ): void {
     this.parsedMapIds.add(mapId);
-    const playerGender = saveManager.getProfile().gender;
 
     for (let objIndex = 0; objIndex < objectEvents.length; objIndex++) {
       const obj = objectEvents[objIndex];
