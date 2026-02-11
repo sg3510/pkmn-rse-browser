@@ -15,6 +15,8 @@ import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { setDynamicWarpTarget } from '../game/DynamicWarp';
 import { getSpeciesName } from '../data/species';
+import { getItemId, getItemName } from '../data/items';
+import { bagManager } from '../game/BagManager';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -740,12 +742,60 @@ export class ScriptRunner {
           gameVariables.setVar('VAR_TEMP_CHALLENGE_STATUS', 0xFF);
           break;
 
+        // --- giveitem: add item to bag and show obtain message ---
+        // C macro: sets VAR_0x8000=item, VAR_0x8001=amount, callstd STD_OBTAIN_ITEM
+        // Shows fanfare + "[Player] obtained [item]!" and sets VAR_RESULT
+        case 'giveitem': {
+          const itemArg = asString(args[0]);
+          const amount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
+          // Resolve item: could be a constant name or a variable reference
+          let itemId: number | null;
+          if (itemArg.startsWith('VAR_')) {
+            itemId = this.getVar(itemArg);
+          } else {
+            itemId = getItemId(itemArg);
+          }
+          if (itemId && itemId > 0) {
+            bagManager.addItem(itemId, amount);
+            const itemName = getItemName(itemId);
+            const qty = amount > 1 ? ` (x${amount})` : '';
+            await this.ctx.showMessage(`${this.playerName} obtained\\n${itemName}${qty}!`);
+            gameVariables.setVar('VAR_RESULT', 1); // TRUE = success
+          } else {
+            gameVariables.setVar('VAR_RESULT', 0); // FALSE = failed
+          }
+          break;
+        }
+
+        // --- finditem: overworld item pickup (like giveitem but "found" language) ---
+        // C macro: sets VAR_0x8000=item, VAR_0x8001=amount, callstd STD_FIND_ITEM
+        // Also sets the flag of the interacted object (item ball disappears)
+        case 'finditem': {
+          const findItemArg = asString(args[0]);
+          const findAmount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
+          let findItemId: number | null;
+          if (findItemArg.startsWith('VAR_')) {
+            findItemId = this.getVar(findItemArg);
+          } else {
+            findItemId = getItemId(findItemArg);
+          }
+          if (findItemId && findItemId > 0) {
+            bagManager.addItem(findItemId, findAmount);
+            const findItemName = getItemName(findItemId);
+            const findQty = findAmount > 1 ? ` (x${findAmount})` : '';
+            await this.ctx.showMessage(`${this.playerName} found\\n${findItemName}${findQty}!`);
+            gameVariables.setVar('VAR_RESULT', 1);
+          } else {
+            gameVariables.setVar('VAR_RESULT', 0);
+          }
+          break;
+        }
+
         // --- Commands that are parsed but not yet implemented ---
         case 'setstepcallback':
         case 'setrespawn':
         case 'incrementgamestat':
         case 'trainerbattle':
-        case 'giveitem':
         case 'multichoice':
         case 'compare':
           // No-ops or logged for future implementation

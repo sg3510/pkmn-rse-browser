@@ -15,6 +15,7 @@ import { wanderAroundHandler } from './wanderAround';
 import { wanderUpAndDownHandler, wanderLeftAndRightHandler } from './wanderDirectional';
 import { walkBackAndForthHandler } from './walkBackAndForth';
 import { walkInPlaceHandler } from './walkInPlace';
+import { walkSequenceHandler } from './walkSequence';
 import {
   faceDownAndUpHandler,
   faceLeftAndRightHandler,
@@ -66,6 +67,9 @@ export const movementHandlers: Record<NPCMovementType, MovementTypeHandler | nul
   // Walk in place - cycles walk animation frames while staying still
   walk_in_place: walkInPlaceHandler,
 
+  // Walk sequence - 24 variants cycling through 4 directions
+  walk_sequence: walkSequenceHandler,
+
   // Copy player - TODO: requires player position tracking
   copy_player: faceDirectionHandler, // For now, just face
 
@@ -93,6 +97,7 @@ export {
   wanderLeftAndRightHandler,
   walkBackAndForthHandler,
   walkInPlaceHandler,
+  walkSequenceHandler,
   faceDownAndUpHandler,
   faceLeftAndRightHandler,
   faceUpAndLeftHandler,

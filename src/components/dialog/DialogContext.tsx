@@ -358,6 +358,14 @@ export function useDialog(): UseDialogReturn {
 
   const showYesNo = useCallback(
     (text: string, options?: { defaultYes?: boolean }): Promise<boolean> => {
+      const z = context?.zoom ?? 1;
+      const ff = context?.config.fontFamily ?? DEFAULT_CONFIG.fontFamily;
+      const pages = paginateDialogText(text, z, ff);
+      const messages = pages.map(page => ({
+        text: page.text,
+        transition: page.transition,
+        prefilledChars: page.prefilledChars,
+      }));
       const dialogOptions: DialogOptions<boolean> = {
         choices: [
           { label: 'YES', value: true },
@@ -367,9 +375,9 @@ export function useDialog(): UseDialogReturn {
         cancelable: true,
         cancelValue: false,
       };
-      return showMessages([{ text }], dialogOptions) as Promise<boolean>;
+      return showMessages(messages, dialogOptions) as Promise<boolean>;
     },
-    [showMessages]
+    [showMessages, context?.zoom, context?.config.fontFamily]
   );
 
   const showChoice = useCallback(
@@ -378,6 +386,14 @@ export function useDialog(): UseDialogReturn {
       choices: Array<{ label: string; value: T; disabled?: boolean }>,
       options?: { cancelable?: boolean; defaultIndex?: number; menuPosition?: DialogOptions<T>['menuPosition']; onSelectionChange?: (index: number) => void }
     ): Promise<T | null> => {
+      const z = context?.zoom ?? 1;
+      const ff = context?.config.fontFamily ?? DEFAULT_CONFIG.fontFamily;
+      const pages = paginateDialogText(text, z, ff);
+      const messages = pages.map(page => ({
+        text: page.text,
+        transition: page.transition,
+        prefilledChars: page.prefilledChars,
+      }));
       const dialogOptions: DialogOptions<T> = {
         choices,
         defaultIndex: options?.defaultIndex ?? 0,
@@ -386,9 +402,9 @@ export function useDialog(): UseDialogReturn {
         menuPosition: options?.menuPosition,
         onSelectionChange: options?.onSelectionChange,
       };
-      return showMessages([{ text }], dialogOptions) as Promise<T | null>;
+      return showMessages(messages, dialogOptions) as Promise<T | null>;
     },
-    [showMessages]
+    [showMessages, context?.zoom, context?.config.fontFamily]
   );
 
   const showTextEntry = useCallback(

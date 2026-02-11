@@ -135,7 +135,7 @@ async function rebuildContextForWorld(
   };
   refs.hasRenderedRef.current = false;
 
-  // Re-parse object events for the new world
+  // Re-parse object events and bg_events for the new world
   const objectEventManager = refs.objectEventManagerRef.current;
   objectEventManager.clear();
   for (const map of world.maps) {
@@ -145,6 +145,14 @@ async function rebuildContextForWorld(
       map.offsetX,
       map.offsetY
     );
+    if (map.bgEvents && map.bgEvents.length > 0) {
+      objectEventManager.parseMapBgEvents(
+        map.entry.id,
+        map.bgEvents,
+        map.offsetX,
+        map.offsetY
+      );
+    }
   }
 
   // Load NPC sprites for visible NPCs

@@ -42,8 +42,11 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const dialogHeight = tilesToPx(DIALOG_DIMENSIONS.heightTiles, zoom);
 
   // Position: centered horizontally, near bottom
+  // Flush with bottom on GBA-sized viewports (≤20 tiles), float 1 tile above on larger screens
+  const viewportHeightTiles = viewportHeight / (TILE_SIZE * zoom);
+  const bottomOffsetTiles = viewportHeightTiles > 20 ? 1 : 0;
   const dialogX = Math.floor((viewportWidth - dialogWidth) / 2);
-  const dialogY = viewportHeight - dialogHeight - tilesToPx(DIALOG_DIMENSIONS.bottomOffsetTiles, zoom);
+  const dialogY = viewportHeight - dialogHeight - tilesToPx(bottomOffsetTiles, zoom);
 
   // Get current message
   const currentMessage = messages[state.messageIndex] ?? { text: '' };

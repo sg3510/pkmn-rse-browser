@@ -1,7 +1,7 @@
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, MapConnection, WarpEvent } from '../types/maps';
 import type { ObjectEventData } from '../types/objectEvents';
-import { loadMapEvents, type CoordEvent } from '../game/mapEventLoader';
+import { loadMapEvents, type CoordEvent, type BgEvent } from '../game/mapEventLoader';
 export type { WarpEvent, ObjectEventData };
 import {
   loadBorderMetatiles,
@@ -48,6 +48,7 @@ export interface LoadedMapData {
   warpEvents: WarpEvent[];
   objectEvents: ObjectEventData[];
   coordEvents: CoordEvent[];
+  bgEvents: BgEvent[];
 }
 
 export interface WorldMapInstance extends LoadedMapData {
@@ -153,6 +154,7 @@ export class MapManager {
       warpEvents: mapEvents.warpEvents,
       objectEvents: mapEvents.objectEvents,
       coordEvents: mapEvents.coordEvents,
+      bgEvents: mapEvents.bgEvents,
     };
 
     this.mapCache.set(mapId, loaded);

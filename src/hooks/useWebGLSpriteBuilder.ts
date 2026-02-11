@@ -20,7 +20,7 @@ import type { WorldSnapshot } from '../game/WorldManager';
 import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { UseDoorSequencerReturn } from './useDoorSequencer';
-import type { NPCObject, ItemBallObject, LargeObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../types/objectEvents';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { SortableSpriteInfo } from '../rendering/SpriteBatcher';
@@ -36,7 +36,9 @@ import {
   createNPCReflectionSprite,
   createDoorAnimationSprite,
   createItemBallSpriteInstance,
+  createScriptObjectSpriteInstance,
   createLargeObjectSpriteInstance,
+  getNPCAtlasName,
   getLargeObjectAtlasName,
   calculateSortKey,
   getPlayerAtlasName,
@@ -69,6 +71,7 @@ export interface SpriteBuildContext {
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
   npcs: NPCObject[];
   items: ItemBallObject[];
+  scriptObjects: ScriptObject[];
   largeObjects: LargeObject[];
   fieldEffects: FieldEffectForRendering[];
   spriteRenderer: WebGLSpriteRenderer;
@@ -128,6 +131,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       tilesetRuntimes,
       npcs,
       items,
+      scriptObjects,
       largeObjects,
       fieldEffects,
       spriteRenderer,
@@ -475,6 +479,19 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
           const itemSprite = createItemBallSpriteInstance(info.itemBall, info.sortKey);
           allSprites.push(itemSprite);
         }
+      }
+    }
+
+    // Script objects (e.g. Birch's bag) share object-event sprite atlases and
+    // should be sorted alongside regular field sprites.
+    for (const scriptObject of scriptObjects) {
+      const atlasName = getNPCAtlasName(scriptObject.graphicsId);
+      if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+      const feetY = scriptObject.tileY * METATILE_SIZE + METATILE_SIZE;
+      const sortKey = calculateSortKey(feetY, 128);
+      const sprite = createScriptObjectSpriteInstance(scriptObject, sortKey);
+      if (sprite) {
+        allSprites.push(sprite);
       }
     }
 

@@ -34,6 +34,15 @@ function getMapIdFromNpcObjectId(id: string): string | null {
   return id.slice(0, idx);
 }
 
+function getMapIdFromScriptObjectId(id: string): string | null {
+  const separator = '_script_';
+  const idx = id.indexOf(separator);
+  if (idx <= 0) {
+    return null;
+  }
+  return id.slice(0, idx);
+}
+
 function areMapBoundsNeighbors(
   a: { offsetX: number; offsetY: number; width: number; height: number },
   b: { offsetX: number; offsetY: number; width: number; height: number }
@@ -100,7 +109,6 @@ export async function loadObjectEventsFromSnapshot(
     spriteCache,
     spriteRenderer,
     uploadedSpriteIds,
-    clearAnimations,
     debugLog,
     spritePreloadScope = 'anchor-and-neighbors',
   } = params;
@@ -117,35 +125,52 @@ export async function loadObjectEventsFromSnapshot(
     }
   }
 
-  // Parse objects for newly added maps only
+  // Parse objects and bg_events for newly added maps only
   for (const mapInst of snapshot.maps) {
     if (objectEventManager.hasMapObjects(mapInst.entry.id)) {
       continue; // Already parsed — preserve existing NPC state
     }
-    if (mapInst.objectEvents.length === 0) {
-      continue;
+
+    if (mapInst.objectEvents.length > 0) {
+      objectEventManager.parseMapObjects(
+        mapInst.entry.id,
+        mapInst.objectEvents,
+        mapInst.offsetX,
+        mapInst.offsetY
+      );
     }
 
-    objectEventManager.parseMapObjects(
-      mapInst.entry.id,
-      mapInst.objectEvents,
-      mapInst.offsetX,
-      mapInst.offsetY
-    );
+    if (mapInst.bgEvents.length > 0) {
+      objectEventManager.parseMapBgEvents(
+        mapInst.entry.id,
+        mapInst.bgEvents,
+        mapInst.offsetX,
+        mapInst.offsetY
+      );
+    }
   }
 
   const preloadMapIds = getPreloadMapIds(snapshot, spritePreloadScope);
-  const graphicsIds = Array.from(
-    new Set(
-      objectEventManager
-        .getAllNPCs()
-        .filter((npc) => {
-          const mapId = getMapIdFromNpcObjectId(npc.id);
-          return mapId ? preloadMapIds.has(mapId) : true;
-        })
-        .map((npc) => npc.graphicsId)
-    )
-  );
+  const npcGraphicsIds = objectEventManager
+    .getAllNPCs()
+    .filter((npc) => {
+      const mapId = getMapIdFromNpcObjectId(npc.id);
+      return mapId ? preloadMapIds.has(mapId) : true;
+    })
+    .map((npc) => npc.graphicsId);
+
+  const scriptObjectGraphicsIds = objectEventManager
+    .getVisibleScriptObjects()
+    .filter((scriptObject) => {
+      const mapId = getMapIdFromScriptObjectId(scriptObject.id);
+      return mapId ? preloadMapIds.has(mapId) : true;
+    })
+    .map((scriptObject) => scriptObject.graphicsId);
+
+  const graphicsIds = Array.from(new Set([
+    ...npcGraphicsIds,
+    ...scriptObjectGraphicsIds,
+  ]));
   if (graphicsIds.length === 0) {
     return;
   }

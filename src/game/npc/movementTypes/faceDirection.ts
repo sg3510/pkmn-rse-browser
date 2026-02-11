@@ -21,7 +21,7 @@ import type {
   MovementContext,
   GBADirection,
 } from '../NPCMovementEngine';
-import { DIR, setFacingDirection } from '../NPCMovementEngine';
+import { DIR } from '../NPCMovementEngine';
 
 /**
  * Get initial direction based on movement type
@@ -38,14 +38,14 @@ function getInitialDirectionForType(movementTypeRaw: string): GBADirection {
  * Step 0: Initialize and set facing animation
  */
 function step0(
-  npc: NPCObject,
-  state: NPCMovementState,
+  _npc: NPCObject,
+  _state: NPCMovementState,
   _context: MovementContext
 ): MovementStepResult {
-  // Set initial facing direction
-  const direction = getInitialDirectionForType(npc.movementTypeRaw);
-  setFacingDirection(state, direction);
-
+  // C parity: facingDirection is already set from npc.direction in
+  // initializeNPC(). Don't override here — scripts (e.g. applymovement
+  // walk_in_place_faster_up) may have set a specific direction that
+  // differs from the movementTypeRaw default.
   return {
     nextStep: 1,
     continueImmediately: true, // Immediately execute face action

@@ -147,66 +147,71 @@ export class TileResolverFactory {
         };
       }
 
-      // Out of bounds - find NEAREST map whose tileset pair is IN GPU and use its border tiles
-      // CRITICAL: We can only render tiles from tilesets that are currently in GPU!
-      // If nearest map's tileset isn't in GPU, fall back to a map whose tileset IS in GPU
-      let nearestMap = mapIdsWithGpuTilesets.size > 0
-        ? spatialIndex.getNearestMap(worldX, worldY, mapIdsWithGpuTilesets)
-        : null;
+      // Out of bounds.
+      // C parity: sample border metatiles from the current anchor map first so
+      // edge visuals (e.g. Littleroot infinite trees) stay stable at map seams.
+      // Reference: public/pokeemerald/src/fieldmap.c (GetBorderBlockAt)
+      let borderMap = anchorMap ?? null;
+      let borderPairIndex = anchorPairIndex;
+      let borderPair = anchorPair ?? null;
+      let borderMetatiles = anchorBorderMetatiles;
 
-      // Fall back to anchor if no maps with GPU tilesets found
-      if (!nearestMap) {
-        if (anchorBorderMetatiles.length === 0 || !anchorPair) return null;
-        // Use anchor map's borders with anchor's tileset (should be in GPU)
-        nearestMap = anchorMap;
+      const anchorReady =
+        borderMap !== null
+        && borderPair !== null
+        && borderMetatiles.length > 0
+        && pairIdToGpuSlot.has(borderPair.id);
+
+      if (!anchorReady) {
+        // Fallback for rare cases where anchor tileset is not in GPU.
+        const nearestMap = mapIdsWithGpuTilesets.size > 0
+          ? spatialIndex.getNearestMap(worldX, worldY, mapIdsWithGpuTilesets)
+          : null;
+        if (!nearestMap) return null;
+
+        const nearestPairIndex = mapTilesetPairIndex.get(nearestMap.entry.id);
+        if (nearestPairIndex === undefined) return null;
+        const nearestPair = tilesetPairs[nearestPairIndex];
+        if (!nearestPair || !pairIdToGpuSlot.has(nearestPair.id)) return null;
+
+        borderMap = nearestMap;
+        borderPairIndex = nearestPairIndex;
+        borderPair = nearestPair;
+        borderMetatiles =
+          nearestMap.borderMetatiles.length > 0
+            ? nearestMap.borderMetatiles
+            : anchorBorderMetatiles;
       }
 
-      // Get border tiles from the nearest map
-      const borderMetatiles =
-        nearestMap.borderMetatiles.length > 0
-          ? nearestMap.borderMetatiles
-          : anchorBorderMetatiles;
+      if (!borderMap || !borderPair || borderMetatiles.length === 0) return null;
 
-      if (borderMetatiles.length === 0) return null;
-
-      // Get tileset pair for the nearest map
-      const nearestPairIndex =
-        mapTilesetPairIndex.get(nearestMap.entry.id) ?? anchorPairIndex;
-      const nearestPair = tilesetPairs[nearestPairIndex] ?? anchorPair;
-
-      if (!nearestPair) return null;
-
-      // Verify the pair is actually in GPU - if not, we can't render these borders
-      if (!pairIdToGpuSlot.has(nearestPair.id)) {
-        // Tileset not in GPU, cannot render border
-        return null;
-      }
-
+      const borderLocalX = worldX - borderMap.offsetX;
+      const borderLocalY = worldY - borderMap.offsetY;
       const borderIndex =
-        ((worldX & 1) + ((worldY & 1) * 2)) % borderMetatiles.length;
+        ((borderLocalX & 1) + ((borderLocalY & 1) * 2)) % borderMetatiles.length;
       const borderMetatileId = borderMetatiles[borderIndex];
 
       const { isSecondary, index: attrIndex } = resolveMetatileIndex(borderMetatileId);
       const metatile = isSecondary
-        ? nearestPair.secondaryMetatiles[attrIndex]
-        : nearestPair.primaryMetatiles[borderMetatileId];
+        ? borderPair.secondaryMetatiles[attrIndex]
+        : borderPair.primaryMetatiles[borderMetatileId];
 
       if (!metatile) return null;
 
       const attrArray = isSecondary
-        ? nearestPair.secondaryAttributes
-        : nearestPair.primaryAttributes;
+        ? borderPair.secondaryAttributes
+        : borderPair.primaryAttributes;
       const attributes: MetatileAttributes = attrArray[attrIndex] ?? {
         behavior: 0,
         layerType: 0,
       };
 
-      // Use GPU slot index (0 or 1) of the nearest map's tileset pair
-      const gpuSlot = getGpuSlot(nearestPairIndex);
+      // Use GPU slot index (0, 1, or 2) of the selected border map's tileset pair.
+      const gpuSlot = getGpuSlot(borderPairIndex);
 
       if (shouldLog) {
         log(
-          `[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> BORDER nearestMap:${nearestMap.entry.id} metatile:${borderMetatileId} gpuSlot:${gpuSlot} pair:${nearestPair.id}`
+          `[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> BORDER map:${borderMap.entry.id} metatile:${borderMetatileId} gpuSlot:${gpuSlot} pair:${borderPair.id}`
         );
       }
 

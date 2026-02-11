@@ -12,7 +12,7 @@ import type { SpriteInstance } from './types';
 import type { FrameInfo } from '../game/PlayerController';
 import type { FieldEffectForRendering } from '../game/FieldEffectManager';
 import type { ReflectionState } from '../field/ReflectionRenderer';
-import type { NPCObject, ItemBallObject, LargeObject } from '../types/objectEvents';
+import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../types/objectEvents';
 import type { DoorAnimDrawable } from '../field/types';
 import {
   BRIDGE_OFFSETS,
@@ -515,6 +515,43 @@ export function createItemBallSpriteInstance(
     atlasWidth: ITEM_BALL_SIZE,
     atlasHeight: ITEM_BALL_SIZE,
     flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey,
+    isReflection: false,
+  };
+}
+
+/**
+ * Create a SpriteInstance from a scripted static object (e.g. Birch's bag).
+ *
+ * Uses the same frame atlas layout as NPC object-event graphics, but does not
+ * apply movement offsets or animation.
+ */
+export function createScriptObjectSpriteInstance(
+  scriptObject: ScriptObject,
+  sortKey: number
+): SpriteInstance | null {
+  const frameInfo = getNPCFrameInfo('down', false, 0, scriptObject.graphicsId);
+  const { sx, sy, sw, sh } = getNPCFrameRect(frameInfo.frameIndex, scriptObject.graphicsId);
+
+  const worldX = scriptObject.tileX * METATILE_SIZE + Math.floor((METATILE_SIZE - sw) / 2);
+  const worldY = scriptObject.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
+
+  return {
+    worldX,
+    worldY,
+    width: sw,
+    height: sh,
+    atlasName: getNPCAtlasName(scriptObject.graphicsId),
+    atlasX: sx,
+    atlasY: sy,
+    atlasWidth: sw,
+    atlasHeight: sh,
+    flipX: frameInfo.flipHorizontal,
     flipY: false,
     alpha: 1.0,
     tintR: 1.0,

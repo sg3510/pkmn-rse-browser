@@ -48,7 +48,7 @@ import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
-import type { NPCObject, ItemBallObject } from '../types/objectEvents';
+import { isNPCGraphicsId, type NPCObject, type ItemBallObject } from '../types/objectEvents';
 import { METATILE_SIZE, isCollisionPassable } from '../utils/mapLoader';
 import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
@@ -108,6 +108,8 @@ import { MenuOverlay, menuStateManager } from '../menu';
 import type { LocationState } from '../save/types';
 import { gameVariables, GAME_VARS } from '../game/GameVariables';
 import { saveManager } from '../save/SaveManager';
+import { bagManager } from '../game/BagManager';
+import { getItemId, getItemName } from '../data/items';
 import { getDynamicWarpTarget } from '../game/DynamicWarp';
 import { shouldRunCoordEvent } from '../game/NewGameFlow';
 import { getMapScripts } from '../data/scripts';
@@ -381,6 +383,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
   const storyScriptRunningRef = useRef<boolean>(false);
   const lastCoordTriggerTileRef = useRef<{ mapId: string; x: number; y: number } | null>(null);
+  const lastPlayerMapIdRef = useRef<string | null>(null);
 
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
@@ -520,6 +523,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   const defaultMap = renderableMaps.find((m) => m.name === 'LittlerootTown') || renderableMaps[0];
   const [selectedMapId, setSelectedMapId] = useState<string>(defaultMap?.id ?? '');
+  // Display-only map ID for the debug panel. Updated by warps without triggering the map-load effect.
+  const [displayMapId, setDisplayMapId] = useState<string>(defaultMap?.id ?? '');
+  // Wrapper that updates both map-load state AND debug display (for user-driven map changes).
+  const selectMapForLoad = useCallback((mapId: string) => {
+    setSelectedMapId(mapId);
+    setDisplayMapId(mapId);
+  }, []);
   const [stitchedMapCount, setStitchedMapCount] = useState<number>(1);
   const [worldSize, setWorldSize] = useState<{ width: number; height: number }>({
     width: (defaultMap?.width ?? 0) * METATILE_SIZE,
@@ -652,38 +662,44 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const applyStoryTransitionObjectParity = useCallback((mapId: string): void => {
     const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
     const objectManager = objectEventManagerRef.current;
+    const map = worldSnapshotRef.current?.maps.find((m) => m.entry.id === mapId);
+    const mapOffsetX = map?.offsetX ?? 0;
+    const mapOffsetY = map?.offsetY ?? 0;
+    const setNpcPositionLocal = (localId: string, localX: number, localY: number) => {
+      objectManager.setNPCPositionByLocalId(mapId, localId, mapOffsetX + localX, mapOffsetY + localY);
+    };
 
     if (mapId === 'MAP_LITTLEROOT_TOWN' && introState === 2) {
-      objectManager.setNPCPositionByLocalId('MAP_LITTLEROOT_TOWN', 'LOCALID_LITTLEROOT_MOM', 14, 8);
+      setNpcPositionLocal('LOCALID_LITTLEROOT_MOM', 14, 8);
     }
 
     if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 3) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 9, 8);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 9, 8);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
 
     if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 3) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 8);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 8);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
 
     // State 5: Mom near stairs (waiting for player to go upstairs)
     if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 5) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 8, 4);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 8, 4);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
     if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 5) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 4);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 4);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
 
     // State 6: Mom near TV (watching for broadcast)
     if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 6) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 4, 5);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 4, 5);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
     if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 6) {
-      objectManager.setNPCPositionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 6, 5);
+      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 6, 5);
       objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
     }
 
@@ -701,10 +717,21 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   }, []);
 
   const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
+    const worldManager = worldManagerRef.current;
+    const mapInstance =
+      worldManager?.getSnapshot().maps.find((map) => map.entry.id === mapId)
+      ?? worldManager?.findMapAtPosition(player.tileX, player.tileY)
+      ?? null;
+
+    // C parity: SaveBlock1 position and warp coordinates are map-local.
+    // Reference: public/pokeemerald/include/global.h (struct SaveBlock1)
+    const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
+    const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
+
     return {
-      pos: { x: player.tileX, y: player.tileY },
-      location: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
-      continueGameWarp: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      pos: { x: localX, y: localY },
+      location: { mapId, warpId: 0, x: localX, y: localY },
+      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
       lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       direction: player.getFacingDirection(),
@@ -774,19 +801,23 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
       const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
       gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
-      // Face the NPC toward the player (handles `faceplayer` command)
-      if (npc.localId) {
-        objectEventManagerRef.current.faceNpcTowardPlayer(
-          mapId, npc.localId, player.tileX, player.tileY
-        );
-      } else {
-        // NPC without localId — face directly via its mutable object
-        const dx = player.tileX - npc.tileX;
-        const dy = player.tileY - npc.tileY;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          npc.direction = dx < 0 ? 'left' : 'right';
-        } else if (dy !== 0) {
-          npc.direction = dy < 0 ? 'up' : 'down';
+      // Only face person NPCs toward the player. Inanimate objects (boxes,
+      // boulders, etc.) have a single sprite frame and must not be rotated.
+      // In the GBA game `faceplayer` is a script command, but almost every
+      // NPC dialog opens with it, so we do it eagerly for real NPCs here.
+      if (isNPCGraphicsId(npc.graphicsId)) {
+        if (npc.localId) {
+          objectEventManagerRef.current.faceNpcTowardPlayer(
+            mapId, npc.localId, player.tileX, player.tileY
+          );
+        } else {
+          const dx = player.tileX - npc.tileX;
+          const dy = player.tileY - npc.tileY;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            npc.direction = dx < 0 ? 'left' : 'right';
+          } else if (dy !== 0) {
+            npc.direction = dy < 0 ? 'up' : 'down';
+          }
         }
       }
       await runHandledStoryScript(npc.script, mapId);
@@ -798,19 +829,39 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const currentMap = wm.findMapAtPosition(player.tileX, player.tileY);
       if (!currentMap) return;
       const mapId = currentMap.entry.id;
-      // Convert world coords to local tile coords for bg_event matching
-      const localX = facingTileX - currentMap.offsetX;
-      const localY = facingTileY - currentMap.offsetY;
 
-      // Wall clock bg_events (intro state 5 = "go set the clock")
+      // Priority: hardcoded wall clock override for intro (uses SimplifiedClock
+      // since the real WallClock script requires unimplemented `special` commands)
       const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
       if (introState === 5) {
+        const localX = facingTileX - currentMap.offsetX;
+        const localY = facingTileY - currentMap.offsetY;
         if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F' && localX === 5 && localY === 1) {
           await runHandledStoryScript('PlayersHouse_2F_EventScript_SimplifiedClock', mapId);
           return;
         }
         if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F' && localX === 3 && localY === 1) {
           await runHandledStoryScript('PlayersHouse_2F_EventScript_SimplifiedClock', mapId);
+          return;
+        }
+      }
+
+      // Generic bg_event lookup (signs, hidden items)
+      const bgEvent = objectEventManagerRef.current.getBgEventAt(facingTileX, facingTileY);
+      if (bgEvent) {
+        if (bgEvent.type === 'sign' && bgEvent.script) {
+          await runHandledStoryScript(bgEvent.script, mapId);
+          return;
+        }
+        if (bgEvent.type === 'hidden_item' && bgEvent.item) {
+          const itemId = getItemId(bgEvent.item);
+          if (itemId && itemId > 0) {
+            objectEventManagerRef.current.collectHiddenItem(bgEvent.id);
+            bagManager.addItem(itemId, 1);
+            const playerName = saveManager.getPlayerName();
+            const itemName = getItemName(itemId);
+            await showMessage(`${playerName} found one ${itemName}!`);
+          }
           return;
         }
       }
@@ -1040,6 +1091,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         return changed;
       },
       mapScriptCache: mapScriptCacheRef.current,
+      onMapChanged: (mapId: string) => {
+        setDisplayMapId(mapId);
+      },
     });
   }, [
     initializeWorldFromSnapshot,
@@ -1230,6 +1284,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               }
             }
 
+            // Safety net for Route 101 intro: run ON_FRAME hide-map-name script immediately
+            // if script cache is not ready yet. This matches the C on-frame gate at map entry
+            // and prevents missing the first coord trigger tile while cache loads.
+            if (!preInputOnFrameTriggered && currentMapId === 'MAP_ROUTE101') {
+              const route101State = gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE);
+              if (route101State === 0) {
+                preInputOnFrameTriggered = true;
+                void runHandledStoryScriptRef.current('Route101_EventScript_HideMapNamePopup', currentMapId);
+              }
+            }
+
             // Safety net for the truck exit cutscene if ON_FRAME data is not cached yet.
             if (!preInputOnFrameTriggered && currentMapId === 'MAP_LITTLEROOT_TOWN') {
               const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
@@ -1278,41 +1343,95 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               lastCoordTriggerTileRef.current.y !== player.tileY;
 
             if (tileChanged) {
-              lastCoordTriggerTileRef.current = {
-                mapId: currentMap.entry.id,
-                x: player.tileX,
-                y: player.tileY,
-              };
+              const previousMapId = lastPlayerMapIdRef.current;
+              if (previousMapId !== currentMap.entry.id) {
+                const seamTransition =
+                  (previousMapId === 'MAP_LITTLEROOT_TOWN' && currentMap.entry.id === 'MAP_ROUTE101')
+                  || (previousMapId === 'MAP_ROUTE101' && currentMap.entry.id === 'MAP_LITTLEROOT_TOWN');
+                if (seamTransition) {
+                  const snapshot = worldSnapshotRef.current;
+                  const localX = player.tileX - currentMap.offsetX;
+                  const localY = player.tileY - currentMap.offsetY;
+                  const cameraPos = cameraRef.current?.getPosition();
+                  const bounds = worldBoundsRef.current;
+                  const seamMaps = (snapshot?.maps ?? [])
+                    .filter((m) => m.entry.id === 'MAP_LITTLEROOT_TOWN' || m.entry.id === 'MAP_ROUTE101')
+                    .map((m) => `${m.entry.id}@(${m.offsetX},${m.offsetY})`)
+                    .join(' | ');
+                  console.log(
+                    `[SEAM] map transition ${previousMapId} -> ${currentMap.entry.id} `
+                    + `world=(${player.tileX},${player.tileY}) local=(${localX},${localY}) `
+                    + `camera=(${cameraPos ? `${cameraPos.x.toFixed(1)},${cameraPos.y.toFixed(1)}` : 'n/a'}) `
+                    + `bounds=(${bounds.minX},${bounds.minY},${bounds.width}x${bounds.height}) `
+                    + `anchor=${snapshot?.anchorMapId ?? 'unknown'} `
+                    + `loaded=${snapshot?.maps.map((m) => m.entry.id).join(',') ?? 'none'} `
+                    + `seamOffsets=${seamMaps || 'missing'}`
+                  );
+                }
+              }
+              lastPlayerMapIdRef.current = currentMap.entry.id;
 
-              if (!storyScriptRunningRef.current && !dialogIsOpenRef.current && !warpingRef.current && !doorSequencer.isActive()) {
+              const canProcessCoordEvents =
+                !storyScriptRunningRef.current
+                && !dialogIsOpenRef.current
+                && !warpingRef.current
+                && !doorSequencer.isActive();
+
+              if (canProcessCoordEvents) {
                 const playerElevation = player.getCurrentElevation();
-
-                for (const coordEvent of currentMap.coordEvents) {
+                const coordEventsAtTile = currentMap.coordEvents.filter((coordEvent) => {
                   const eventWorldX = currentMap.offsetX + coordEvent.x;
                   const eventWorldY = currentMap.offsetY + coordEvent.y;
                   if (eventWorldX !== player.tileX || eventWorldY !== player.tileY) {
-                    continue;
+                    return false;
                   }
 
                   const eventElevation = coordEvent.elevation;
-                  const elevationMatches =
-                    playerElevation === 0 ||
-                    playerElevation === 15 ||
-                    eventElevation === 0 ||
-                    eventElevation === 15 ||
-                    eventElevation === playerElevation;
+                  return (
+                    playerElevation === 0
+                    || playerElevation === 15
+                    || eventElevation === 0
+                    || eventElevation === 15
+                    || eventElevation === playerElevation
+                  );
+                });
 
-                  if (!elevationMatches) {
-                    continue;
-                  }
-
+                let firedCoordEvent = false;
+                for (const coordEvent of coordEventsAtTile) {
                   if (!shouldRunCoordEvent(coordEvent.var, coordEvent.varValue)) {
                     continue;
                   }
 
                   console.log(`[CoordEvent] Firing: ${coordEvent.script} at (${coordEvent.x},${coordEvent.y}) var=${coordEvent.var}=${coordEvent.varValue}`);
                   void runHandledStoryScriptRef.current(coordEvent.script, currentMap.entry.id);
+                  firedCoordEvent = true;
                   break;
+                }
+
+                const pendingRescueEvents = coordEventsAtTile.filter(
+                  (coordEvent) => coordEvent.script === 'Route101_EventScript_StartBirchRescue'
+                );
+                if (!firedCoordEvent && pendingRescueEvents.length > 0) {
+                  const pendingStates = pendingRescueEvents
+                    .map(
+                      (coordEvent) =>
+                        `${coordEvent.var} current=${gameVariables.getVar(coordEvent.var)} required=${coordEvent.varValue}`
+                    )
+                    .join(' | ');
+                  console.log(
+                    `[CoordEvent] Pending Route101 rescue at (${player.tileX},${player.tileY}): ${pendingStates}`
+                  );
+                }
+
+                // Consume this tile only if there are no coord events here, or one fired.
+                // If events exist but vars are not ready yet (e.g. pending ON_FRAME setvar),
+                // leave tile "pending" so we retry next frame without requiring movement.
+                if (firedCoordEvent || coordEventsAtTile.length === 0) {
+                  lastCoordTriggerTileRef.current = {
+                    mapId: currentMap.entry.id,
+                    x: player.tileX,
+                    y: player.tileY,
+                  };
                 }
               }
             }
@@ -1400,7 +1519,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           // Check for warps using shared WarpTriggerProcessor
           if (snapshot) {
             const renderContext = getRenderContextFromSnapshot(snapshot);
-            if (renderContext) {
+            const suppressWarpChecks =
+              storyScriptRunningRef.current
+              || dialogIsOpenRef.current
+              || pendingScriptedWarpRef.current !== null;
+            if (renderContext && !suppressWarpChecks) {
               const warpResult = processWarpTrigger({
                 player,
                 renderContext,
@@ -1453,6 +1576,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           doorAnimations,
           fadeController: fadeControllerRef.current,
           playerHiddenRef,
+          shouldUnlockInput: () =>
+            !storyScriptRunningRef.current
+            && !warpingRef.current
+            && !dialogIsOpenRef.current,
           onExecuteWarp: (trigger) => {
             // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
             warpingRef.current = true;
@@ -1489,21 +1616,26 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
           console.log(`[ScriptedWarp] fade complete. activeMapId=${activeMapId} targetMapId=${scriptedWarp.mapId}`);
           if (activePlayer && activeMapId === scriptedWarp.mapId) {
-            console.log(`[ScriptedWarp] same map reposition to (${scriptedWarp.x},${scriptedWarp.y})`);
-            activePlayer.setPosition(scriptedWarp.x, scriptedWarp.y);
+            const currentMap = worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY);
+            const targetWorldX = currentMap ? currentMap.offsetX + scriptedWarp.x : scriptedWarp.x;
+            const targetWorldY = currentMap ? currentMap.offsetY + scriptedWarp.y : scriptedWarp.y;
+            console.log(`[ScriptedWarp] same map reposition to local=(${scriptedWarp.x},${scriptedWarp.y}) world=(${targetWorldX},${targetWorldY})`);
+            activePlayer.setPosition(targetWorldX, targetWorldY);
             activePlayer.dir = scriptedWarp.direction;
             fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
             pendingScriptedWarpRef.current = null;
             warpingRef.current = false;
-            warpHandlerRef.current.updateLastCheckedTile(scriptedWarp.x, scriptedWarp.y, scriptedWarp.mapId);
+            warpHandlerRef.current.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
             setTimeout(() => {
-              activePlayer.unlockInput();
+              if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+                activePlayer.unlockInput();
+              }
             }, FADE_TIMING.DEFAULT_DURATION_MS);
           } else {
             console.log(`[ScriptedWarp] different map → loading ${scriptedWarp.mapId}`);
             scriptedWarp.phase = 'loading';
             pendingScriptedWarpRef.current = scriptedWarp;
-            setSelectedMapId(scriptedWarp.mapId);
+            selectMapForLoad(scriptedWarp.mapId);
           }
         }
       }
@@ -1522,7 +1654,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             if (player) {
               // Delay unlock until fade in completes
               setTimeout(() => {
-                player.unlockInput();
+                if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+                  player.unlockInput();
+                }
               }, FADE_TIMING.DEFAULT_DURATION_MS);
             }
           });
@@ -1666,9 +1800,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             // Use WorldCameraView for sprite renderer
             const spriteView = view;
 
-            // Get visible NPCs, items, and large objects for rendering
+            // Get visible NPCs, script objects, items, and large objects for rendering
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
             const items = objectEventManagerRef.current.getVisibleItemBalls();
+            const scriptObjects = objectEventManagerRef.current.getVisibleScriptObjects();
             const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
             visibleNPCsRef.current = npcs;
             visibleItemsRef.current = items;
@@ -1687,6 +1822,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               tilesetRuntimes: tilesetRuntimesRef.current,
               npcs,
               items,
+              scriptObjects,
               largeObjects,
               fieldEffects,
               spriteRenderer,
@@ -1856,7 +1992,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     currentState,
     stateManager,
     selectedMapId,
-    setSelectedMapId,
+    setSelectedMapId: selectMapForLoad,
     setOverworldEntryReady,
     pendingSavedLocationRef,
   });
@@ -1902,12 +2038,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       initializeWorldFromSnapshot,
       applyStoryTransitionObjectParity,
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedMap,
     currentState,
     overworldEntryReady,
-    viewportTilesWide,
-    viewportTilesHigh,
+    // NOTE: viewportTilesWide/viewportTilesHigh intentionally excluded.
+    // Viewport changes are handled by the camera.updateConfig() effect below.
+    // Including them here would tear down + reload the entire map on resize.
     initializeWorldFromSnapshot,
     createSnapshotTileResolver,
     createSnapshotPlayerTileResolver,
@@ -1940,12 +2078,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const player = playerRef.current;
     if (!player || !playerLoadedRef.current) return null;
 
-    const mapId = mapDebugInfo?.currentMap ?? selectedMap.id;
+    const worldManager = worldManagerRef.current;
+    const mapInstance = worldManager?.findMapAtPosition(player.tileX, player.tileY) ?? null;
+    const mapId = mapInstance?.entry.id ?? mapDebugInfo?.currentMap ?? selectedMap.id;
+    const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
+    const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
 
     return {
-      pos: { x: player.tileX, y: player.tileY },
-      location: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
-      continueGameWarp: { mapId, warpId: 0, x: player.tileX, y: player.tileY },
+      pos: { x: localX, y: localY },
+      location: { mapId, warpId: 0, x: localX, y: localY },
+      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
       lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       direction: player.getFacingDirection(),
@@ -2028,38 +2170,40 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
 
       <div className="map-card">
-        <div className="map-canvas-wrapper" style={{ position: 'relative' }}>
-          {/* WebGL canvas for overworld rendering */}
-          <canvas
-            ref={displayCanvasRef}
-            className="game-canvas"
-            style={{
-              width: viewportPixelSize.width * zoom,
-              height: viewportPixelSize.height * zoom,
-              imageRendering: 'pixelated',
-              display: currentState === GameState.OVERWORLD ? 'block' : 'none',
-            }}
-          />
-          {/* 2D canvas for state machine rendering (title screen, menus) */}
-          <canvas
-            ref={stateCanvasRef}
-            className="game-canvas"
-            width={viewportPixelSize.width}
-            height={viewportPixelSize.height}
-            style={{
-              width: viewportPixelSize.width * zoom,
-              height: viewportPixelSize.height * zoom,
-              imageRendering: 'pixelated',
-              display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
-            }}
-          />
-          {/* Dialog box overlay - positioned within viewport */}
-          <DialogBox
-            viewportWidth={defaultDialogViewport.width}
-            viewportHeight={defaultDialogViewport.height}
-          />
-          {/* Menu overlay */}
-          <MenuOverlay />
+        <div className="map-canvas-wrapper">
+          <div style={{ position: 'relative' }}>
+            {/* WebGL canvas for overworld rendering */}
+            <canvas
+              ref={displayCanvasRef}
+              className="game-canvas"
+              style={{
+                width: viewportPixelSize.width * zoom,
+                height: viewportPixelSize.height * zoom,
+                imageRendering: 'pixelated',
+                display: currentState === GameState.OVERWORLD ? 'block' : 'none',
+              }}
+            />
+            {/* 2D canvas for state machine rendering (title screen, menus) */}
+            <canvas
+              ref={stateCanvasRef}
+              className="game-canvas"
+              width={viewportPixelSize.width}
+              height={viewportPixelSize.height}
+              style={{
+                width: viewportPixelSize.width * zoom,
+                height: viewportPixelSize.height * zoom,
+                imageRendering: 'pixelated',
+                display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
+              }}
+            />
+            {/* Dialog box overlay - positioned within viewport */}
+            <DialogBox
+              viewportWidth={defaultDialogViewport.width}
+              viewportHeight={defaultDialogViewport.height}
+            />
+            {/* Menu overlay */}
+            <MenuOverlay />
+          </div>
         </div>
         <div className="map-stats">
           <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2095,8 +2239,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         state={debugState}
         webglState={webglDebugState}
         maps={renderableMaps}
-        selectedMapId={selectedMapId}
-        onMapChange={setSelectedMapId}
+        selectedMapId={displayMapId}
+        onMapChange={selectMapForLoad}
         mapLoading={loading}
         viewportConfig={viewportConfig}
         onViewportChange={onViewportChange}

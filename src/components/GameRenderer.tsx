@@ -442,6 +442,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
       // Get NPCs, items, large objects, and field effects
       const npcs = objectEventManagerRef.current.getVisibleNPCs();
       const items = objectEventManagerRef.current.getVisibleItemBalls();
+      const scriptObjects = objectEventManagerRef.current.getVisibleScriptObjects();
       const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
       const fieldEffects = fieldSpritesLoadedRef.current
         ? player.getGrassEffectManager().getEffectsForRendering()
@@ -456,6 +457,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
         tilesetRuntimes: tilesetRuntimesRef.current,
         npcs,
         items,
+        scriptObjects,
         largeObjects,
         fieldEffects,
         spriteRenderer,

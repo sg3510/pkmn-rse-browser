@@ -198,7 +198,9 @@ class NPCMovementEngineClass {
    */
   initializeNPC(npc: NPCObject): void {
     const handler = this.handlers.get(npc.movementType);
-    const initialDir = handler?.getInitialDirection(npc.movementType) ?? DIR.SOUTH;
+    // Pass movementTypeRaw from map/script data (e.g. MOVEMENT_TYPE_JOG_IN_PLACE_RIGHT),
+    // not the parsed enum key (e.g. walk_in_place), so directional variants initialize correctly.
+    const initialDir = handler?.getInitialDirection(npc.movementTypeRaw) ?? directionToGBA(npc.direction);
 
     const state: NPCMovementState = {
       npcId: npc.id,

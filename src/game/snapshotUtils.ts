@@ -283,6 +283,7 @@ export function createRenderContextFromSnapshot(
       warpEvents: m.warpEvents ?? [],
       objectEvents: [],
       coordEvents: [],
+      bgEvents: [],
     };
   });
 

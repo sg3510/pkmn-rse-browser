@@ -169,7 +169,10 @@ const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number 
   // Pokemon (16x16)
   OBJ_EVENT_GFX_PIKACHU: { width: 16, height: 16 },
   OBJ_EVENT_GFX_KECLEON: { width: 16, height: 16 },
-  OBJ_EVENT_GFX_ZIGZAGOON_1: { width: 16, height: 16 },
+  // C parity: OBJ_EVENT_GFX_ZIGZAGOON_1 points to EnemyZigzagoon (32x32),
+  // while OBJ_EVENT_GFX_ZIGZAGOON_2 points to the normal 16x16 Zigzagoon.
+  OBJ_EVENT_GFX_ZIGZAGOON_1: { width: 32, height: 32 },
+  OBJ_EVENT_GFX_ZIGZAGOON_2: { width: 16, height: 16 },
   OBJ_EVENT_GFX_POOCHYENA: { width: 16, height: 16 },
   OBJ_EVENT_GFX_WINGULL: { width: 16, height: 16 },
   OBJ_EVENT_GFX_AZURILL: { width: 16, height: 16 },
@@ -341,7 +344,8 @@ const GRAPHICS_ID_TO_PATH: Record<string, string> = {
   OBJ_EVENT_GFX_RIVAL_MAY_NORMAL: '/people/may/walking.png',
 
   // Pokemon (overworld)
-  OBJ_EVENT_GFX_ZIGZAGOON_1: '/pokemon/zigzagoon.png',
+  OBJ_EVENT_GFX_ZIGZAGOON_1: '/pokemon/enemy_zigzagoon.png',
+  OBJ_EVENT_GFX_ZIGZAGOON_2: '/pokemon/zigzagoon.png',
   OBJ_EVENT_GFX_PIKACHU: '/pokemon/pikachu.png',
   OBJ_EVENT_GFX_POOCHYENA: '/pokemon/poochyena.png',
   OBJ_EVENT_GFX_WINGULL: '/pokemon/wingull.png',

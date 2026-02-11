@@ -23,9 +23,27 @@ import {
   type ScriptObject,
   type LargeObject,
 } from '../types/objectEvents';
+import type { BgEvent } from './mapEventLoader';
 import { getItemIdFromScript } from '../data/itemScripts';
 import { getItemName } from '../data/items';
 import { gameFlags } from './GameFlags';
+
+/**
+ * Processed background event for tile-based interaction (signs, hidden items)
+ */
+export interface ProcessedBgEvent {
+  id: string;
+  type: 'sign' | 'hidden_item' | 'secret_base';
+  tileX: number;
+  tileY: number;
+  elevation: number;
+  playerFacingDir: string;
+  script: string;
+  item: string;
+  flag: string;
+  /** Whether hidden item has been collected (derived from flag state) */
+  collected: boolean;
+}
 
 /**
  * Simple tile resolver type for getting tile elevation
@@ -41,6 +59,7 @@ export class ObjectEventManager {
   private npcs: Map<string, NPCObject> = new Map();
   private scriptObjects: Map<string, ScriptObject> = new Map();
   private largeObjects: Map<string, LargeObject> = new Map();
+  private bgEvents: Map<string, ProcessedBgEvent> = new Map();
   private tileElevationResolver: TileElevationResolver | null = null;
   private parsedMapIds: Set<string> = new Set();
 
@@ -64,6 +83,7 @@ export class ObjectEventManager {
     this.npcs.clear();
     this.scriptObjects.clear();
     this.largeObjects.clear();
+    this.bgEvents.clear();
     this.parsedMapIds.clear();
   }
 
@@ -98,6 +118,9 @@ export class ObjectEventManager {
     }
     for (const key of [...this.largeObjects.keys()]) {
       if (key.startsWith(prefix)) this.largeObjects.delete(key);
+    }
+    for (const key of [...this.bgEvents.keys()]) {
+      if (key.startsWith(prefix)) this.bgEvents.delete(key);
     }
     this.parsedMapIds.delete(mapId);
   }
@@ -325,10 +348,11 @@ export class ObjectEventManager {
     for (const ball of this.itemBalls.values()) {
       ball.collected = ball.flag && ball.flag !== '0' ? gameFlags.isSet(ball.flag) : false;
     }
-    // Also refresh NPC visibility
-    this.refreshNPCVisibility();
-    this.refreshScriptObjectVisibility();
-    this.refreshLargeObjectVisibility();
+    // C parity: setflag/clearflag during a script does NOT immediately change
+    // already-spawned object visibility. Objects only check their hide flags
+    // on map load (when first created). Scripts use addobject/removeobject
+    // for immediate visibility changes.
+    this.refreshBgEventState();
   }
 
   // === NPC Methods ===
@@ -613,15 +637,100 @@ export class ObjectEventManager {
   }
 
   /**
-   * Get unique graphics IDs used by ALL NPCs (including hidden ones).
+   * Get unique graphics IDs used by ALL NPCs and script objects (including hidden ones).
    * Hidden NPCs may become visible during cutscenes, so their sprite sheets
-   * must be pre-loaded at map load time.
+   * must be pre-loaded at map load time. Script objects (cut trees, smash rocks,
+   * strength boulders, etc.) also need their sprites pre-loaded.
    */
   getUniqueNPCGraphicsIds(): string[] {
     const ids = new Set<string>();
     for (const npc of this.npcs.values()) {
       ids.add(npc.graphicsId);
     }
+    for (const obj of this.scriptObjects.values()) {
+      ids.add(obj.graphicsId);
+    }
     return [...ids];
+  }
+
+  // === Background Event Methods ===
+
+  /**
+   * Parse background events (signs, hidden items) from map data.
+   *
+   * @param mapId The map identifier
+   * @param bgEventsData Array of bg event data from map JSON
+   * @param mapOffsetX Map's X offset in world coordinates (tiles)
+   * @param mapOffsetY Map's Y offset in world coordinates (tiles)
+   */
+  parseMapBgEvents(
+    mapId: string,
+    bgEventsData: BgEvent[],
+    mapOffsetX: number,
+    mapOffsetY: number
+  ): void {
+    for (const bg of bgEventsData) {
+      // Skip secret bases for now
+      if (bg.type === 'secret_base') continue;
+
+      const worldX = mapOffsetX + bg.x;
+      const worldY = mapOffsetY + bg.y;
+      const id = `${mapId}_bg_${worldX}_${worldY}`;
+
+      const collected = bg.type === 'hidden_item' && bg.flag && bg.flag !== '0'
+        ? gameFlags.isSet(bg.flag)
+        : false;
+
+      this.bgEvents.set(id, {
+        id,
+        type: bg.type,
+        tileX: worldX,
+        tileY: worldY,
+        elevation: bg.elevation,
+        playerFacingDir: bg.playerFacingDir,
+        script: bg.script,
+        item: bg.item,
+        flag: bg.flag,
+        collected,
+      });
+    }
+  }
+
+  /**
+   * Get background event at a specific tile position.
+   * For hidden items, returns null if already collected.
+   */
+  getBgEventAt(tileX: number, tileY: number): ProcessedBgEvent | null {
+    for (const bg of this.bgEvents.values()) {
+      if (bg.tileX === tileX && bg.tileY === tileY) {
+        if (bg.type === 'hidden_item' && bg.collected) return null;
+        return bg;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Collect a hidden item bg_event (set flag, mark collected).
+   */
+  collectHiddenItem(id: string): ProcessedBgEvent | null {
+    const bg = this.bgEvents.get(id);
+    if (!bg || bg.type !== 'hidden_item' || bg.collected) return null;
+    bg.collected = true;
+    if (bg.flag && bg.flag !== '0') {
+      gameFlags.set(bg.flag);
+    }
+    return bg;
+  }
+
+  /**
+   * Refresh bg_event collected state from flags.
+   */
+  refreshBgEventState(): void {
+    for (const bg of this.bgEvents.values()) {
+      if (bg.type === 'hidden_item') {
+        bg.collected = bg.flag && bg.flag !== '0' ? gameFlags.isSet(bg.flag) : false;
+      }
+    }
   }
 }

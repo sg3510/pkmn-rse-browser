@@ -686,9 +686,16 @@ export class PlayerController {
   public lockInput() {
     console.log(`[INPUT] lockInput() called at tile(${this.tileX},${this.tileY}) wasLocked=${this.inputLocked} moving=${this.isMoving}`);
     console.trace('[INPUT] lockInput stack');
+    const wasMoving = this.isMoving;
     this.inputLocked = true;
     // Don't clear keysPressed - we need to remember held keys (like Z for running)
     // so state can be properly restored after input is unlocked
+    // Scripts should start on tile boundaries. If lock hits during movement
+    // (e.g. seam coord events), snap to the logical tile to avoid XY desync.
+    if (wasMoving) {
+      this.x = this.tileX * this.TILE_PIXELS;
+      this.y = this.tileY * this.TILE_PIXELS - 16;
+    }
     this.isMoving = false;
     this.pixelsMoved = 0;
   }

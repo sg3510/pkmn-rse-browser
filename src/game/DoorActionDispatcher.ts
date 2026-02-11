@@ -46,6 +46,8 @@ export interface DoorActionDeps {
   doorAnimations: UseDoorAnimationsReturn;
   fadeController: FadeController;
   playerHiddenRef: { current: boolean };
+  /** Return false to keep existing external input locks (e.g. story scripts) */
+  shouldUnlockInput?: () => boolean;
   /** Called when warp should be executed (after fade out complete) */
   onExecuteWarp: (trigger: WarpTrigger) => void;
 }
@@ -254,7 +256,10 @@ export function handleDoorExitAction(
 
   // Handle sequence completion
   if (result.done) {
-    player.unlockInput();
+    const shouldUnlock = deps.shouldUnlockInput ? deps.shouldUnlockInput() : true;
+    if (shouldUnlock) {
+      player.unlockInput();
+    }
     playerHiddenRef.current = false;
     return true;
   }

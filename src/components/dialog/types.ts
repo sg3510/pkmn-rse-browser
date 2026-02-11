@@ -22,14 +22,14 @@ export const FRAME_STYLES_COUNT = 20;
 
 /** Standard dialog dimensions in tiles */
 export const DIALOG_DIMENSIONS = {
-  /** Standard width: 28 tiles = 224px at 1x (nearly full GBA width 240) */
-  widthTiles: 28,
-  /** Standard height: 6 tiles = 48px at 1x (fits 2 lines + padding) */
-  heightTiles: 6,
+  /** Standard width: 30 tiles = 240px at 1x (full GBA width) */
+  widthTiles: 30,
+  /** Standard height: 5.5 tiles = 44px at 1x (fits 2 lines + padding) */
+  heightTiles: 5.5,
   /** Inner padding: 1 tile on each side */
   paddingTiles: 1,
-  /** Distance from bottom of screen: 1 tile */
-  bottomOffsetTiles: 1,
+  /** Distance from bottom of screen: 0 tiles (flush with bottom in GBA viewport) */
+  bottomOffsetTiles: 0,
   /** Left offset from screen edge: 2 tiles (centered) */
   leftOffsetTiles: 2,
 } as const;

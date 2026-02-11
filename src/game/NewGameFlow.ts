@@ -427,26 +427,21 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       // Player faces mom
       await ctx.movePlayer(isMale ? 'right' : 'left', 'face');
 
-      // Mom's dialog (matches C source text from players_house.inc)
+      // Mom's dialog (C source: PlayersHouse_2F_Text_HowDoYouLikeYourRoom)
       await showMessage(
-        'MOM: {PLAYER}, how do you like your new room?\n'
-        + "Isn't it nice? It's spacious and pokemon."
+        'MOM: {PLAYER}, how do you like your\nnew room?'
       );
       await showMessage(
-        'MOM: The mover\'s POKeMON do all the\n'
-        + 'heavy lifting. So convenient!'
+        'Good! Everything\'s put away neatly!'
       );
       await showMessage(
-        "MOM: Oh, you should make sure\n"
-        + "everything was put away properly."
+        'They finished moving everything in\ndownstairs, too.'
       );
       await showMessage(
-        "MOM: Your CLOCK's already running.\n"
-        + "Your POKeMON should also be in your PC."
+        'POKéMON movers are so convenient!'
       );
       await showMessage(
-        "MOM: DAD bought it for you.\n"
-        + "Well, I've got to go back downstairs."
+        'Oh, you should make sure that\neverything\'s all there on your desk.'
       );
 
       // Mom exits — walk back to staircase and disappear

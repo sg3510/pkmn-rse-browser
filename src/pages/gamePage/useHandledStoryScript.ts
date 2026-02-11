@@ -8,6 +8,7 @@ import { executeStoryScript, isHandledStoryScript, type StoryScriptContext } fro
 import { getJumpConfig, getJumpYOffset } from '../../game/jumpArc';
 import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
 import type { UseNPCMovementReturn } from '../../hooks/useNPCMovement';
+import { npcMovementEngine, directionToGBA } from '../../game/npc/NPCMovementEngine';
 import type { LocationState } from '../../save/types';
 import { saveManager } from '../../save/SaveManager';
 import type { PartyPokemon } from '../../pokemon/types';
@@ -249,6 +250,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           npc.isWalking = false;
           npc.subTileX = 0;
           npc.subTileY = 0;
+          // Sync movement engine state so it doesn't overwrite the direction
+          // when it resumes after the script ends.
+          const engineState = npcMovementEngine.getState(npc.id);
+          if (engineState) {
+            engineState.facingDirection = directionToGBA(direction);
+          }
           await waitFrames(1);
           return;
         }
@@ -301,6 +308,22 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         npc.subTileX = 0;
         npc.subTileY = 0;
       };
+
+      // C parity: script commands like setobjectxy use map-local coordinates.
+      // Convert to world coordinates using the current map instance offset.
+      const mapLocalToWorld = (mapId: string, tileX: number, tileY: number): { x: number; y: number } => {
+        const map = worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === mapId);
+        if (!map) {
+          return { x: tileX, y: tileY };
+        }
+        return {
+          x: map.offsetX + tileX,
+          y: map.offsetY + tileY,
+        };
+      };
+
+      const isPlayerLocalId = (localId: string): boolean =>
+        localId === 'LOCALID_PLAYER' || localId === '255';
 
       const scriptCtx: StoryScriptContext = {
         showMessage,
@@ -376,7 +399,27 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           }
         },
         setNpcPosition: (mapId, localId, tileX, tileY) => {
-          objectEventManagerRef.current.setNPCPositionByLocalId(mapId, localId, tileX, tileY);
+          const worldPos = mapLocalToWorld(mapId, tileX, tileY);
+          if (
+            mapId === 'MAP_ROUTE101'
+            && (
+              localId === 'LOCALID_ROUTE101_BIRCH'
+              || localId === 'LOCALID_ROUTE101_ZIGZAGOON'
+              || isPlayerLocalId(localId)
+            )
+          ) {
+            console.log(
+              `[ROUTE101] setobjectxy ${localId} local=(${tileX},${tileY}) `
+              + `-> world=(${worldPos.x},${worldPos.y})`
+            );
+          }
+          if (isPlayerLocalId(localId)) {
+            // C parity: setobjectxy LOCALID_PLAYER uses map-local coordinates too.
+            player.setPosition(worldPos.x, worldPos.y);
+            return;
+          }
+
+          objectEventManagerRef.current.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
         },
         setNpcVisible: (mapId, localId, visible) => {
           objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible);
@@ -426,17 +469,11 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         doorAnimations.clearById(animId);
       }
       npcMovement.setEnabled(true);
-      // Only keep input locked if a warp is actively in progress.
-      // pendingScriptedWarpRef may be stale from a previously completed warp,
-      // so we only check the authoritative warpingRef flag.
       console.log(`[StoryScript] ■ Finally: warpingRef=${warpingRef.current} pendingScriptedWarp=${!!pendingScriptedWarpRef.current} inputLocked=${player.inputLocked}`);
-      if (!warpingRef.current) {
-        console.log(`[StoryScript] ■ Unlocking input (no active warp)`);
+      const hasPendingScriptedWarp = pendingScriptedWarpRef.current !== null;
+      if (!warpingRef.current && !hasPendingScriptedWarp) {
+        console.log('[StoryScript] ■ Unlocking input (no active/pending warp)');
         player.unlockInput();
-        // Clear stale scripted warp ref if the warp already completed
-        if (pendingScriptedWarpRef.current) {
-          pendingScriptedWarpRef.current = null;
-        }
       }
       storyScriptRunningRef.current = false;
     }

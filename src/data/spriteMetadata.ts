@@ -110,12 +110,56 @@ const metadata = spriteData as {
 };
 
 /**
+ * Graphics ID aliases where map/object data uses one ID and metadata uses another.
+ *
+ * C references:
+ * - public/pokeemerald/src/data/object_events/object_event_graphics_info_pointers.h
+ *   - OBJ_EVENT_GFX_ZIGZAGOON_1 -> gObjectEventGraphicsInfo_EnemyZigzagoon
+ *   - OBJ_EVENT_GFX_ZIGZAGOON_2 -> gObjectEventGraphicsInfo_Zigzagoon
+ * - public/pokeemerald/src/data/object_events/object_event_graphics.h
+ */
+const GRAPHICS_ID_ALIASES: Record<string, { metadataId: string; spritePath?: string }> = {
+  OBJ_EVENT_GFX_ZIGZAGOON_1: {
+    metadataId: 'OBJ_EVENT_GFX_ENEMY_ZIGZAGOON',
+    spritePath: '/pokemon/enemy_zigzagoon.png',
+  },
+  OBJ_EVENT_GFX_ZIGZAGOON_2: {
+    metadataId: 'OBJ_EVENT_GFX_ZIGZAGOON',
+  },
+};
+
+/**
  * Get sprite info for a graphics ID
  * Normalizes the ID to handle naming variations (e.g., BOY_1 vs BOY1)
  */
 export function getSpriteInfo(graphicsId: string): SpriteInfo | null {
-  // Try original first, then normalized
-  return metadata.sprites[graphicsId] ?? metadata.sprites[normalizeGraphicsId(graphicsId)] ?? null;
+  const alias = GRAPHICS_ID_ALIASES[graphicsId];
+  if (alias) {
+    const aliasedInfo = metadata.sprites[alias.metadataId];
+    if (aliasedInfo) {
+      return {
+        ...aliasedInfo,
+        graphicsId,
+        spritePath: alias.spritePath ?? aliasedInfo.spritePath,
+      };
+    }
+  }
+
+  // Try original first, then normalized variants.
+  // Some pokeemerald IDs use numbered aliases in map JSON (e.g. ZIGZAGOON_1)
+  // while metadata may only contain the base ID (e.g. ZIGZAGOON).
+  const direct = metadata.sprites[graphicsId];
+  if (direct) return direct;
+
+  const normalized = metadata.sprites[normalizeGraphicsId(graphicsId)];
+  if (normalized) return normalized;
+
+  const baseWithoutNumericSuffix = graphicsId.replace(/_\d+$/, '');
+  if (baseWithoutNumericSuffix !== graphicsId) {
+    return metadata.sprites[baseWithoutNumericSuffix] ?? null;
+  }
+
+  return null;
 }
 
 /**

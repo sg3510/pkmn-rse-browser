@@ -22,6 +22,24 @@ export interface WarpEvent {
 }
 
 /**
+ * Background event from map.json (signs, hidden items, secret bases)
+ */
+export interface BgEvent {
+  type: 'sign' | 'hidden_item' | 'secret_base';
+  x: number;
+  y: number;
+  elevation: number;
+  /** Required player facing direction (for signs) */
+  playerFacingDir: string;
+  /** Script to run (signs) */
+  script: string;
+  /** Item identifier (hidden items) */
+  item: string;
+  /** Flag for collected state (hidden items) */
+  flag: string;
+}
+
+/**
  * Coordinate trigger event from map.json
  */
 export interface CoordEvent {
@@ -41,6 +59,7 @@ export interface MapEventsData {
   warpEvents: WarpEvent[];
   objectEvents: ObjectEventData[];
   coordEvents: CoordEvent[];
+  bgEvents: BgEvent[];
 }
 
 /**
@@ -127,6 +146,33 @@ export function parseCoordEvents(coordEventsRaw: Array<Record<string, unknown>>)
 }
 
 /**
+ * Parse background events (signs, hidden items, secret bases) from raw JSON array
+ */
+export function parseBgEvents(bgEventsRaw: Array<Record<string, unknown>>): BgEvent[] {
+  return bgEventsRaw
+    .map((bg) => {
+      const type = String(bg.type ?? '');
+      if (type !== 'sign' && type !== 'hidden_item' && type !== 'secret_base') return null;
+
+      const x = Number(bg.x ?? 0);
+      const y = Number(bg.y ?? 0);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+      return {
+        type,
+        x,
+        y,
+        elevation: Number(bg.elevation ?? 0),
+        playerFacingDir: String(bg.player_facing_dir ?? 'BG_EVENT_PLAYER_FACING_ANY'),
+        script: String(bg.script ?? ''),
+        item: String(bg.item ?? ''),
+        flag: String(bg.flag ?? ''),
+      } satisfies BgEvent;
+    })
+    .filter((bg): bg is BgEvent => bg !== null);
+}
+
+/**
  * Load all events (warps + objects) from a map's map.json file
  *
  * @param mapFolder The map folder name (e.g., "Route101", "LittlerootTown")
@@ -139,19 +185,22 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       warp_events?: Array<Record<string, unknown>>;
       object_events?: Array<Record<string, unknown>>;
       coord_events?: Array<Record<string, unknown>>;
+      bg_events?: Array<Record<string, unknown>>;
     };
 
     const warpEventsRaw = Array.isArray(data.warp_events) ? data.warp_events : [];
     const objectEventsRaw = Array.isArray(data.object_events) ? data.object_events : [];
     const coordEventsRaw = Array.isArray(data.coord_events) ? data.coord_events : [];
+    const bgEventsRaw = Array.isArray(data.bg_events) ? data.bg_events : [];
 
     return {
       warpEvents: parseWarpEvents(warpEventsRaw),
       objectEvents: parseObjectEvents(objectEventsRaw),
       coordEvents: parseCoordEvents(coordEventsRaw),
+      bgEvents: parseBgEvents(bgEventsRaw),
     };
   } catch {
-    return { warpEvents: [], objectEvents: [], coordEvents: [] };
+    return { warpEvents: [], objectEvents: [], coordEvents: [], bgEvents: [] };
   }
 }
 
@@ -178,4 +227,12 @@ export async function loadObjectEvents(mapFolder: string): Promise<ObjectEventDa
 export async function loadCoordEvents(mapFolder: string): Promise<CoordEvent[]> {
   const { coordEvents } = await loadMapEvents(mapFolder);
   return coordEvents;
+}
+
+/**
+ * Load only background events from a map's map.json file
+ */
+export async function loadBgEvents(mapFolder: string): Promise<BgEvent[]> {
+  const { bgEvents } = await loadMapEvents(mapFolder);
+  return bgEvents;
 }

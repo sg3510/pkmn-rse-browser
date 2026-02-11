@@ -167,8 +167,39 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         pendingSavedLocationRef.current = null;
 
         if (savedLocation) {
-          console.log('[GamePage] Spawning player at saved position:', savedLocation.pos);
-          player.setPosition(savedLocation.pos.x, savedLocation.pos.y);
+          const savedMapId = savedLocation.location.mapId;
+          const savedMap = snapshot.maps.find((map) => map.entry.id === savedMapId) ?? null;
+          let spawnWorldX = savedLocation.pos.x;
+          let spawnWorldY = savedLocation.pos.y;
+
+          // C parity: saved position is map-local. Convert to world coordinates
+          // for the currently stitched snapshot. Keep backward compatibility for
+          // older world-space saves by falling back when values are out of range.
+          if (savedMap) {
+            const isLocalInBounds =
+              savedLocation.pos.x >= 0
+              && savedLocation.pos.x < savedMap.entry.width
+              && savedLocation.pos.y >= 0
+              && savedLocation.pos.y < savedMap.entry.height;
+
+            if (isLocalInBounds) {
+              spawnWorldX = savedMap.offsetX + savedLocation.pos.x;
+              spawnWorldY = savedMap.offsetY + savedLocation.pos.y;
+            } else {
+              console.warn(
+                `[GamePage] Saved local position out of bounds for ${savedMap.entry.id}: `
+                + `(${savedLocation.pos.x},${savedLocation.pos.y}) not in ${savedMap.entry.width}x${savedMap.entry.height}; `
+                + 'treating as world coordinates (legacy save compatibility).'
+              );
+            }
+          }
+
+          console.log('[GamePage] Spawning player at saved position:', {
+            mapId: savedMapId,
+            local: savedLocation.pos,
+            world: { x: spawnWorldX, y: spawnWorldY },
+          });
+          player.setPosition(spawnWorldX, spawnWorldY);
           if (savedLocation.direction) {
             player.dir = savedLocation.direction;
           }
@@ -214,7 +245,9 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           const now = performance.now();
           fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
           setTimeout(() => {
-            player.unlockInput();
+            if (!warpingRef.current && !storyScriptRunningRef.current && !pendingScriptedWarpRef.current) {
+              player.unlockInput();
+            }
           }, FADE_TIMING.DEFAULT_DURATION_MS);
         }
       }
@@ -226,7 +259,9 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         if (scriptedWarp && scriptedWarp.mapId === entry.id) {
           pendingScriptedWarpRef.current = null;
           warpingRef.current = false;
-          playerRef.current?.unlockInput();
+          if (!storyScriptRunningRef.current && !pendingScriptedWarpRef.current) {
+            playerRef.current?.unlockInput();
+          }
         }
 
         setStats((stats) => ({

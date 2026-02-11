@@ -142,8 +142,15 @@ export class CameraController {
     const { minX, minY, width, height } = this.bounds;
 
     // Center camera when the world is smaller than the viewport
-    if (width <= viewportWidth) {
+    if (width < viewportWidth) {
       this.x = minX + (width - viewportWidth) / 2;
+    } else if (width === viewportWidth) {
+      // Keep a small overscan band so the player can remain centered and
+      // border metatiles (e.g. Littleroot's infinite trees) can appear.
+      const baseX = minX;
+      const camMinX = baseX - overscan;
+      const camMaxX = baseX + overscan;
+      this.x = Math.max(camMinX, Math.min(this.x, camMaxX));
     } else {
       const camMinX = minX - overscan;
       const camMaxX = minX + width - viewportWidth + overscan;

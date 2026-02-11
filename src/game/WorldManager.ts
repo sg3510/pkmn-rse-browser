@@ -16,7 +16,7 @@
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, WarpEvent } from '../types/maps';
 import type { ObjectEventData } from '../types/objectEvents';
-import { loadMapEvents, type CoordEvent } from './mapEventLoader';
+import { loadMapEvents, type CoordEvent, type BgEvent } from './mapEventLoader';
 import {
   loadMapLayout,
   loadTilesetImage,
@@ -87,6 +87,7 @@ export interface LoadedMapInstance {
   warpEvents: WarpEvent[];  // Warp events from map.json
   objectEvents: ObjectEventData[];  // Object events (NPCs, items) from map.json
   coordEvents: CoordEvent[];  // Coordinate trigger events from map.json
+  bgEvents: BgEvent[];  // Background events (signs, hidden items) from map.json
 }
 
 /**
@@ -723,6 +724,7 @@ export class WorldManager {
         warpEvents: mapEvents.warpEvents,
         objectEvents: mapEvents.objectEvents,
         coordEvents: mapEvents.coordEvents,
+        bgEvents: mapEvents.bgEvents,
       };
 
       this.maps.set(entry.id, mapInstance);

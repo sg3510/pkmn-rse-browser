@@ -50,6 +50,8 @@ export interface PerformWarpTransitionParams {
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
   /** Pre-populate frame table cache so ON_FRAME scripts fire on the first frame */
   mapScriptCache?: Map<string, MapScriptData | null>;
+  /** Called after a warp completes with the new anchor map ID */
+  onMapChanged?: (mapId: string) => void;
 }
 
 export async function performWarpTransition(params: PerformWarpTransitionParams): Promise<void> {
@@ -77,9 +79,12 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
     resolveDynamicWarpTarget,
     setMapMetatile,
     mapScriptCache,
+    onMapChanged,
   } = params;
 
   if (!worldManager || !player || !pipeline) {
+    console.warn('[WARP] Missing dependencies, aborting warp:', { worldManager: !!worldManager, player: !!player, pipeline: !!pipeline });
+    warpingRef.current = false;
     return;
   }
 
@@ -169,7 +174,9 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
       if (doorSequencer.isExitActive()) {
         doorSequencer.reset();
         playerHiddenRef.current = false;
-        player.unlockInput();
+        if (!warpingRef.current) {
+          player.unlockInput();
+        }
       }
     }
 
@@ -193,6 +200,21 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
         mapScriptCache.set(currentMapId, mapData);
       }
       if (mapData) {
+        // C parity: script commands like setobjectxy use map-local coordinates.
+        const mapLocalToWorld = (mapId: string, tileX: number, tileY: number): { x: number; y: number } => {
+          const map = snapshot.maps.find((m) => m.entry.id === mapId);
+          if (!map) {
+            return { x: tileX, y: tileY };
+          }
+          return {
+            x: map.offsetX + tileX,
+            y: map.offsetY + tileY,
+          };
+        };
+
+        const isPlayerLocalId = (localId: string): boolean =>
+          localId === 'LOCALID_PLAYER' || localId === '255';
+
         const scriptCtx: StoryScriptContext = {
           showMessage: async () => {},
           showChoice: async () => null,
@@ -212,7 +234,12 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
           },
           faceNpcToPlayer: () => {},
           setNpcPosition: (mapId, localId, tileX, tileY) => {
-            objectEventManager.setNPCPositionByLocalId(mapId, localId, tileX, tileY);
+            const worldPos = mapLocalToWorld(mapId, tileX, tileY);
+            if (isPlayerLocalId(localId)) {
+              player.setPosition(worldPos.x, worldPos.y);
+              return;
+            }
+            objectEventManager.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
           },
           setNpcVisible: (mapId, localId, visible) => {
             objectEventManager.setNPCVisibilityByLocalId(mapId, localId, visible);
@@ -269,6 +296,9 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
 
     pipeline.invalidate();
     npcMovement.reset();
+
+    // Sync debug panel map selector with the new anchor map
+    onMapChanged?.(snapshot.anchorMapId);
 
     console.log('[WARP] Warp complete');
     console.log('[WARP] World bounds:', snapshot.worldBounds);

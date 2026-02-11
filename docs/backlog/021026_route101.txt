@@ -1,622 +1,512 @@
+BagManager.ts:171 [BagManager] Loaded bag state: Object
+SaveManager.ts:199 [SaveManager] Loaded 6 Pokemon from party
+SaveManager.ts:207 [SaveManager] Loaded save from slot 0
 (index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
 (index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
 CFF : Failed to parse table
 (index):1 Failed to decode downloaded font: http://localhost:5175/fonts/pokemon-emerald-pro.otf
 (index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
 CFF : Failed to parse table
- [INPUT] lockInput() called at tile(5,8) wasLocked=true moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1012
- [movePlayerStep] done guard=10 isMoving=false pos=(5,8)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true inputLocked=true
- [ScriptedWarp] pending → fading (fadeOut to MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F)
- [ScriptedWarp] fade complete. activeMapId=MAP_LITTLEROOT_TOWN targetMapId=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [ScriptedWarp] different map → loading MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] fromDoor: undefined
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/brendan/walking.png
-overrideMethod @ installHook.js:1
- [GamePage] Spawning player at saved position: Object
- [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F script=LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn var=VAR_LITTLEROOT_INTRO_STATE value=3
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [INPUT] lockInput() called at tile(8,8) wasLocked=true moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [INPUT] unlockInput() called at tile(8,8) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ loadSelectedOverworl…t=1770753331184:135
- [INPUT] unlockInput() called at tile(8,8) wasLocked=false
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ GamePage.tsx?t=1770753381438:1078
- [movePlayerStep] dir=right mode=face pos=(8,8) isMoving=false inputLocked=false
- [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=false
- [movePlayerStep] forceMove=true isMoving=true
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
- [movePlayerStep] done guard=14 isMoving=false pos=(8,7)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=false
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(8,7) wasLocked=false
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [CoordEvent] Firing: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom at (8,8) var=VAR_LITTLEROOT_INTRO_STATE=4
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [INPUT] lockInput() called at tile(8,8) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
- [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=14 isMoving=false pos=(8,7)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(8,7) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [CoordEvent] Firing: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom at (8,8) var=VAR_LITTLEROOT_INTRO_STATE=4
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [INPUT] lockInput() called at tile(8,8) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
- [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=13 isMoving=false pos=(8,7)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(8,7) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [CoordEvent] Firing: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom at (8,8) var=VAR_LITTLEROOT_INTRO_STATE=4
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [INPUT] lockInput() called at tile(8,8) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
- [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=16 isMoving=false pos=(8,7)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(8,7) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [WARP] autoDoorWarp at tile(8,2) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","name":"LittlerootTown_BrendansHouse_1F","folder":"LittlerootTown_BrendansHouse_1F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","width":11,"height":9,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_1F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":11,"height":9,"layout":[{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":527,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":560,"collision":1,"elevation":0},{"metatileId":561,"collision":1,"elevation":0},{"metatileId":562,"collision":1,"elevation":0},{"metatileId":563,"collision":1,"elevation":0},{"metatileId":564,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":520,"collision":1,"elevation":0},{"metatileId":521,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":589,"collision":1,"elevation":0},{"metatileId":568,"collision":1,"elevation":0},{"metatileId":569,"collision":1,"elevation":0},{"metatileId":570,"collision":1,"elevation":0},{"metatileId":571,"collision":1,"elevation":0},{"metatileId":572,"collision":1,"elevation":0},{"metatileId":616,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":528,"collision":1,"elevation":0},{"metatileId":529,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":534,"collision":1,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":578,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":612,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":576,"collision":1,"elevation":0},{"metatileId":577,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":624,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":565,"collision":0,"elevation":3},{"metatileId":584,"collision":0,"elevation":3},{"metatileId":585,"collision":0,"elevation":3},{"metatileId":586,"collision":0,"elevation":3},{"metatileId":558,"collision":0,"elevation":3},{"metatileId":566,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":536,"collision":0,"elevation":3},{"metatileId":537,"collision":0,"elevation":3},{"metatileId":538,"collision":1,"elevation":3},{"metatileId":539,"collision":1,"elevation":3},{"metatileId":540,"collision":0,"elevation":3},{"metatileId":541,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":544,"collision":0,"elevation":3},{"metatileId":545,"collision":0,"elevation":3},{"metatileId":546,"collision":1,"elevation":0},{"metatileId":547,"collision":1,"elevation":0},{"metatileId":548,"collision":0,"elevation":3},{"metatileId":549,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":552,"collision":0,"elevation":3},{"metatileId":553,"collision":0,"elevation":3
- [INPUT] lockInput() called at tile(8,2) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1006
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_3 (tried /pokeemerald/graphics/object_events/pics/people/var_3.png, /pokeemerald/graphics/object_events/pics/misc/var_3.png, /pokeemerald/graphics/object_events/pics/pokemon/var_3.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_6 (tried /pokeemerald/graphics/object_events/pics/people/var_6.png, /pokeemerald/graphics/object_events/pics/misc/var_6.png, /pokeemerald/graphics/object_events/pics/pokemon/var_6.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_4 (tried /pokeemerald/graphics/object_events/pics/people/var_4.png, /pokeemerald/graphics/object_events/pics/misc/var_4.png, /pokeemerald/graphics/object_events/pics/pokemon/var_4.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_5 (tried /pokeemerald/graphics/object_events/pics/people/var_5.png, /pokeemerald/graphics/object_events/pics/misc/var_5.png, /pokeemerald/graphics/object_events/pics/pokemon/var_5.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_1 (tried /pokeemerald/graphics/object_events/pics/people/var_1.png, /pokeemerald/graphics/object_events/pics/misc/var_1.png, /pokeemerald/graphics/object_events/pics/pokemon/var_1.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_2 (tried /pokeemerald/graphics/object_events/pics/people/var_2.png, /pokeemerald/graphics/object_events/pics/misc/var_2.png, /pokeemerald/graphics/object_events/pics/pokemon/var_2.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_9 (tried /pokeemerald/graphics/object_events/pics/people/var_9.png, /pokeemerald/graphics/object_events/pics/misc/var_9.png, /pokeemerald/graphics/object_events/pics/pokemon/var_9.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_A (tried /pokeemerald/graphics/object_events/pics/people/var_a.png, /pokeemerald/graphics/object_events/pics/misc/var_a.png, /pokeemerald/graphics/object_events/pics/pokemon/var_a.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_7 (tried /pokeemerald/graphics/object_events/pics/people/var_7.png, /pokeemerald/graphics/object_events/pics/misc/var_7.png, /pokeemerald/graphics/object_events/pics/pokemon/var_7.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_8 (tried /pokeemerald/graphics/object_events/pics/people/var_8.png, /pokeemerald/graphics/object_events/pics/misc/var_8.png, /pokeemerald/graphics/object_events/pics/pokemon/var_8.png)
-overrideMethod @ installHook.js:1
- [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_B (tried /pokeemerald/graphics/object_events/pics/people/var_b.png, /pokeemerald/graphics/object_events/pics/misc/var_b.png, /pokeemerald/graphics/object_events/pics/pokemon/var_b.png)
-overrideMethod @ installHook.js:1
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
-overrideMethod @ installHook.js:1
- [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [INPUT] unlockInput() called at tile(7,2) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitAction @ DoorActionDispatcher…?t=1770745271769:71
-runDoorExitUpdate @ DoorSequenceRunner.ts?t=1770745291790:45
-renderLoop @ GamePage.tsx?t=1770753381438:1032
- [WARP] autoDoorWarp at tile(7,1) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","name":"LittlerootTown_BrendansHouse_2F","folder":"LittlerootTown_BrendansHouse_2F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","width":9,"height":8,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_2F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":9,"height":8,"layout":[{"metatileId":594,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":592,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":598,"collision":1,"elevation":0},{"metatileId":647,"collision":1,"elevation":0},{"metatileId":523,"collision":1,"elevation":0},{"metatileId":524,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":602,"collision":1,"elevation":0},{"metatileId":603,"collision":1,"elevation":0},{"metatileId":597,"collision":1,"elevation":0},{"metatileId":613,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":655,"collision":1,"elevation":0},{"metatileId":531,"collision":1,"elevation":0},{"metatileId":532,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":610,"collision":0,"elevation":3},{"metatileId":611,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":614,"collision":0,"elevation":3},{"metatileId":605,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":518,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":635,"collision":0,"elevation":3},{"metatileId":636,"collision":0,"elevation":3},{"metatileId":637,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":664,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":666,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":643,"collision":0,"elevation":0},{"metatileId":644,"collision":0,"elevation":3},{"metatileId":645,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":651,"collision":0,"elevation":4},{"metatileId":652,"collision":1,"elevation":0},{"metatileId":653,"collision":0,"elevation":4},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":680,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":682,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3}]},"offsetX":0,"offsetY":0,"borderMetatiles":[],"tilesets":{"key":"gTileset_Building+gTileset_BrendansMaysHouse","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"","secondaryTilesetPath":"","primaryMetatiles":[{"id":0,"tiles":[{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0}]},{"id":1,"tiles":[{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},
- [INPUT] lockInput() called at tile(7,1) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1006
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [INPUT] unlockInput() called at tile(8,3) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitAction @ DoorActionDispatcher…?t=1770745271769:71
-runDoorExitUpdate @ DoorSequenceRunner.ts?t=1770745291790:45
-renderLoop @ GamePage.tsx?t=1770753381438:1032
- [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F script=LittlerootTown_BrendansHouse_1F_EventScript_GoUpstairsToSetClock var=VAR_LITTLEROOT_INTRO_STATE value=5
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_GoUpstairsToSetClock
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_GoUpstairsToSetClock
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [INPUT] lockInput() called at tile(8,3) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [GoUpstairsToSetClock] Showing dialog...
- [GoUpstairsToSetClock] Dialog dismissed, starting movePlayer+moveNpc...
- [movePlayerStep] dir=up mode=walk pos=(8,3) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=walk pos=(8,4)
- [WARP] autoDoorWarp at tile(8,2) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","name":"LittlerootTown_BrendansHouse_1F","folder":"LittlerootTown_BrendansHouse_1F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","width":11,"height":9,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_1F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":11,"height":9,"layout":[{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":527,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":560,"collision":1,"elevation":0},{"metatileId":561,"collision":1,"elevation":0},{"metatileId":562,"collision":1,"elevation":0},{"metatileId":563,"collision":1,"elevation":0},{"metatileId":564,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":520,"collision":1,"elevation":0},{"metatileId":521,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":589,"collision":1,"elevation":0},{"metatileId":568,"collision":1,"elevation":0},{"metatileId":569,"collision":1,"elevation":0},{"metatileId":570,"collision":1,"elevation":0},{"metatileId":571,"collision":1,"elevation":0},{"metatileId":572,"collision":1,"elevation":0},{"metatileId":616,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":528,"collision":1,"elevation":0},{"metatileId":529,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":534,"collision":1,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":578,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":612,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":576,"collision":1,"elevation":0},{"metatileId":577,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":624,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":565,"collision":0,"elevation":3},{"metatileId":584,"collision":0,"elevation":3},{"metatileId":585,"collision":0,"elevation":3},{"metatileId":586,"collision":0,"elevation":3},{"metatileId":558,"collision":0,"elevation":3},{"metatileId":566,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":536,"collision":0,"elevation":3},{"metatileId":537,"collision":0,"elevation":3},{"metatileId":538,"collision":1,"elevation":3},{"metatileId":539,"collision":1,"elevation":3},{"metatileId":540,"collision":0,"elevation":3},{"metatileId":541,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":544,"collision":0,"elevation":3},{"metatileId":545,"collision":0,"elevation":3},{"metatileId":546,"collision":1,"elevation":0},{"metatileId":547,"collision":1,"elevation":0},{"metatileId":548,"collision":0,"elevation":3},{"metatileId":549,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":552,"collision":0,"elevation":3},{"metatileId":553,"collision":0,"elevation":3
- [INPUT] lockInput() called at tile(8,2) wasLocked=true moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1006
- [movePlayerStep] done guard=10 isMoving=false pos=(8,2)
- [GoUpstairsToSetClock] movePlayer resolved
- [GoUpstairsToSetClock] moveNpc resolved
- [GoUpstairsToSetClock] Both moves done, queuing warp...
- [GoUpstairsToSetClock] Warp queued, returning
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true inputLocked=true
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [ScriptedWarp] pending → fading (fadeOut to MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F)
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
-overrideMethod @ installHook.js:1
- [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [INPUT] unlockInput() called at tile(7,2) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitAction @ DoorActionDispatcher…?t=1770745271769:71
-runDoorExitUpdate @ DoorSequenceRunner.ts?t=1770745291790:45
-renderLoop @ GamePage.tsx?t=1770753381438:1032
- [StoryScript] ▶ Starting: PlayersHouse_2F_EventScript_SimplifiedClock
- [StoryScript] lockInput caller for: PlayersHouse_2F_EventScript_SimplifiedClock
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-onTileInteract @ GamePage.tsx?t=1770753381438:538
-(anonymous) @ useActionInput.ts?t=1770753381438:58
-down @ useInput.ts:42
- [INPUT] lockInput() called at tile(5,2) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-onTileInteract @ GamePage.tsx?t=1770753381438:538
-(anonymous) @ useActionInput.ts?t=1770753381438:58
-down @ useInput.ts:42
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=down mode=walk pos=(7,1)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=face pos=(7,2)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=walk pos=(7,2)
- [movePlayerStep] dir=right mode=face pos=(5,2) isMoving=false inputLocked=true
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=right mode=walk pos=(6,2)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=up mode=walk pos=(7,2)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=true inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(5,2) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [WARP] autoDoorWarp at tile(7,1) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","name":"LittlerootTown_BrendansHouse_2F","folder":"LittlerootTown_BrendansHouse_2F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","width":9,"height":8,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_2F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":9,"height":8,"layout":[{"metatileId":594,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":592,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":598,"collision":1,"elevation":0},{"metatileId":647,"collision":1,"elevation":0},{"metatileId":523,"collision":1,"elevation":0},{"metatileId":524,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":602,"collision":1,"elevation":0},{"metatileId":603,"collision":1,"elevation":0},{"metatileId":597,"collision":1,"elevation":0},{"metatileId":613,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":655,"collision":1,"elevation":0},{"metatileId":531,"collision":1,"elevation":0},{"metatileId":532,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":610,"collision":0,"elevation":3},{"metatileId":611,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":614,"collision":0,"elevation":3},{"metatileId":605,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":518,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":635,"collision":0,"elevation":3},{"metatileId":636,"collision":0,"elevation":3},{"metatileId":637,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":664,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":666,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":643,"collision":0,"elevation":0},{"metatileId":644,"collision":0,"elevation":3},{"metatileId":645,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":651,"collision":0,"elevation":4},{"metatileId":652,"collision":1,"elevation":0},{"metatileId":653,"collision":0,"elevation":4},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":680,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":682,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3}]},"offsetX":0,"offsetY":0,"borderMetatiles":[],"tilesets":{"key":"gTileset_Building+gTileset_BrendansMaysHouse","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"","secondaryTilesetPath":"","primaryMetatiles":[{"id":0,"tiles":[{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0}]},{"id":1,"tiles":[{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},
- [INPUT] lockInput() called at tile(7,1) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1006
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [INPUT] unlockInput() called at tile(8,3) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitAction @ DoorActionDispatcher…?t=1770745271769:71
-runDoorExitUpdate @ DoorSequenceRunner.ts?t=1770745291790:45
-renderLoop @ GamePage.tsx?t=1770753381438:1032
- [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F script=LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport var=VAR_LITTLEROOT_INTRO_STATE value=6
- [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
- [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [INPUT] lockInput() called at tile(8,3) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(4,5)
- [movePlayerStep] dir=down mode=walk pos=(8,3) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=12 isMoving=false pos=(8,4)
- [movePlayerStep] dir=down mode=walk pos=(8,4) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=15 isMoving=false pos=(8,5)
- [movePlayerStep] dir=left mode=walk pos=(8,5) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=15 isMoving=false pos=(7,5)
- [movePlayerStep] dir=left mode=walk pos=(7,5) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=15 isMoving=false pos=(6,5)
- [movePlayerStep] dir=left mode=walk pos=(6,5) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=14 isMoving=false pos=(5,5)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(4,5)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(3,5)
- [movePlayerStep] dir=left mode=walk pos=(5,5) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=14 isMoving=false pos=(4,5)
- [movePlayerStep] dir=up mode=face pos=(4,5) isMoving=false inputLocked=true
- [movePlayerStep] dir=left mode=face pos=(4,5) isMoving=false inputLocked=true
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(3,5)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=down mode=walk pos=(2,5)
- [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(2,6)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(4,5) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [INPUT] lockInput() called at tile(8,8) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-startDoorWarpSequence @ DoorActionDispatcher…t=1770745271769:114
-(anonymous) @ overworldAssets.ts?t=1770748172562:95
-handleDirectionInput @ PlayerController.ts?t=1770748172562:668
-handleInput @ PlayerController.ts?t=1770748172562:85
-update @ PlayerController.ts?t=1770748172562:532
-renderLoop @ GamePage.tsx?t=1770753381438:872
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN
- [WARP] fromDoor: true
- [WARP] priorFacing: down
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
- [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(3)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [INPUT] unlockInput() called at tile(5,9) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitAction @ DoorActionDispatcher…?t=1770745271769:71
-runDoorExitUpdate @ DoorSequenceRunner.ts?t=1770745291790:45
-renderLoop @ GamePage.tsx?t=1770753381438:1032
- [CoordEvent] Firing: LittlerootTown_EventScript_NeedPokemonTriggerRight at (11,1) var=VAR_LITTLEROOT_TOWN_STATE=0
- [StoryScript] ▶ Starting: LittlerootTown_EventScript_NeedPokemonTriggerRight
- [StoryScript] lockInput caller for: LittlerootTown_EventScript_NeedPokemonTriggerRight
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [INPUT] lockInput() called at tile(11,1) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:911
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=face pos=(7,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=jump_in_place pos=(7,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(7,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(8,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(9,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(10,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=up mode=walk pos=(10,1)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=right mode=walk pos=(10,0)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=face pos=(11,0)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(11,0)
- [movePlayerStep] dir=down mode=walk pos=(11,1) isMoving=false inputLocked=true
- [movePlayerStep] forceMove=true isMoving=true
- [movePlayerStep] done guard=1 isMoving=false pos=(11,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(11,1)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=walk pos=(10,1)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(10,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(9,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=left mode=walk pos=(8,2)
- [moveNpcStep] LOCALID_LITTLEROOT_TWIN dir=down mode=face pos=(7,2)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(11,2) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [INPUT] lockInput() called at tile(14,9) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-startDoorWarpSequence @ DoorActionDispatcher…t=1770745271769:143
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
-overrideMethod @ installHook.js:1
- [INPUT] unlockInput() called at tile(2,8) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-handleDoorExitSequence @ WarpExecutor.ts?t=1770583971349:89
-executeWarp @ WarpExecutor.ts?t=1770583971349:114
-performWarpTransition @ performWarpTransitio…?t=1770753381438:94
- [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
- [NPCMovement] Engine reset
- [WARP] Warp complete
- [WARP] World bounds: Object
- [WARP] Loaded maps: Array(1)
- [WARP] Tileset pairs: Array(1)
- [WARP] GPU slots: Object
- [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F script=LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor var=VAR_LITTLEROOT_HOUSES_STATE_BRENDAN value=1
- [StoryScript] ▶ Starting: LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor
- [StoryScript] lockInput caller for: LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor
-overrideMethod @ installHook.js:1
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:41
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [INPUT] lockInput() called at tile(2,8) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-(anonymous) @ useHandledStoryScrip…?t=1770753381438:43
-renderLoop @ GamePage.tsx?t=1770753381438:852
- [movePlayerStep] dir=right mode=face pos=(2,8) isMoving=false inputLocked=true
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=down mode=walk pos=(8,7)
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(8,8)
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(7,8)
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(6,8)
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(5,8)
- [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(4,8)
- [StoryScript] ✓ Script handled=true
- [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
- [StoryScript] ■ Unlocking input (no active warp)
- [INPUT] unlockInput() called at tile(2,8) wasLocked=true
- [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts?t=1770748172562:519
-(anonymous) @ useHandledStoryScrip…t=1770753381438:322
- [WARP] autoDoorWarp at tile(2,2) map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F","name":"LittlerootTown_MaysHouse_1F","folder":"LittlerootTown_MaysHouse_1F","layoutId":"LAYOUT_LITTLEROOT_TOWN_MAYS_HOUSE_1F","width":11,"height":9,"layoutPath":"data/layouts/LittlerootTown_MaysHouse_1F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":11,"height":9,"layout":[{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":535,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":623,"collision":1,"elevation":0},{"metatileId":521,"collision":1,"elevation":0},{"metatileId":621,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":579,"collision":1,"elevation":0},{"metatileId":580,"collision":1,"elevation":0},{"metatileId":561,"collision":1,"elevation":0},{"metatileId":562,"collision":1,"elevation":0},{"metatileId":560,"collision":1,"elevation":0},{"metatileId":630,"collision":1,"elevation":0},{"metatileId":631,"collision":1,"elevation":0},{"metatileId":529,"collision":0,"elevation":0},{"metatileId":629,"collision":1,"elevation":0},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":587,"collision":1,"elevation":0},{"metatileId":588,"collision":1,"elevation":0},{"metatileId":569,"collision":1,"elevation":0},{"metatileId":570,"collision":1,"elevation":0},{"metatileId":568,"collision":1,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":518,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":633,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":582,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":576,"collision":1,"elevation":0},{"metatileId":577,"collision":1,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":688,"collision":0,"elevation":0},{"metatileId":696,"collision":0,"elevation":0},{"metatileId":691,"collision":0,"elevation":0},{"metatileId":689,"collision":0,"elevation":0},{"metatileId":690,"collision":0,"elevation":0},{"metatileId":699,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":0},{"metatileId":704,"collision":0,"elevation":0},{"metatileId":697,"collision":1,"elevation":0},{"metatileId":698,"collision":1,"elevation":0},{"metatileId":707,"collision":0,"elevation":0},{"metatileId":677,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":0},{"metatileId":704,"collision":0,"elevation":0},{"metatileId":705,"collision":1,"elevation":0},{"metatileId":706,"collision":1,"elevation":0},{"metatileId":707,"collision":0,"elevation":0},{"metatileId":677,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":514,"collision":0,"elevation":0},{"metatileId":515,"collision":0,"elevation":0},{"metatileId":513,"col
- [INPUT] lockInput() called at tile(2,2) wasLocked=false moving=false
- [INPUT] lockInput stack
-overrideMethod @ installHook.js:1
-lockInput @ PlayerController.ts?t=1770748172562:512
-renderLoop @ GamePage.tsx?t=1770753381438:1006
- [WARP] ========== WARP START ==========
- [WARP] Source map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
- [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
- [WARP] fromDoor: true
- [WARP] priorFacing: up
- [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
- [TILESET_UPLOAD] Tileset pairs: Array(1)
- [TILESET_UPLOAD] GPU slot mapping: Object
- [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
- [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
- [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
- [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
- [WARP] ON_WARP_INTO script executed: LittlerootTown_MaysHouse_2F_EventScript_CheckInitDecor
-useNPCMovement.ts:187 [NPCMovement] Engine reset
-performWarpTransition.ts:273 [WARP] Warp complete
-performWarpTransition.ts:274 [WARP] World bounds: Object
-performWarpTransition.ts:275 [WARP] Loaded maps: Array(1)
-performWarpTransition.ts:276 [WARP] Tileset pairs: Array(1)
-performWarpTransition.ts:277 [WARP] GPU slots: Object
-PlayerController.ts:697 [INPUT] unlockInput() called at tile(1,2) wasLocked=true
-installHook.js:1 [INPUT] unlockInput stack
-overrideMethod @ installHook.js:1
-unlockInput @ PlayerController.ts:698
-handleDoorExitAction @ DoorActionDispatcher.ts:257
-runDoorExitUpdate @ DoorSequenceRunner.ts:141
-renderLoop @ GamePage.tsx:1464
-useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_MaysHouse_2F_EventScript_RivalsPokeBall
-installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_MaysHouse_2F_EventScript_RivalsPokeBall
+useNPCMovement.ts:98 [NPCMovement] Handlers registered
+useStateMachineRenderLoop.ts:32 [StateRenderLoop] Skipping - no stateManager yet
+GameStateManager.ts:119 [GameStateManager] Entering state: TITLE_SCREEN
+TitleScreenState.ts:163 [TitleScreenState] Entering...
+installHook.js:1 [StateRenderLoop] Skipping - no stateManager yet
+installHook.js:1 [GameStateManager] Entering state: TITLE_SCREEN
+installHook.js:1 [TitleScreenState] Entering...
+TitleScreenState.ts:320 [TitleScreenState] Loading Rayquaza MTL: 100%
+TitleScreenState.ts:320 [TitleScreenState] Loading Rayquaza MTL: 100%
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+TitleScreenState.ts:379 [TitleScreenState] 2D assets loaded
+TitleScreenState.ts:379 [TitleScreenState] 2D assets loaded
+TitleScreenState.ts:309 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:309 [TitleScreenState] Loading Rayquaza OBJ: 100%
+TitleScreenState.ts:304 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:304 [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+TitleScreenState.ts:211 [TitleScreenState] Ready, scale: 1
+TitleScreenState.ts:211 [TitleScreenState] Ready, scale: 1
+logger.ts:56 [GamePage] State changed to: TITLE_SCREEN
+logger.ts:56 [GamePage] State changed to: TITLE_SCREEN
+GameStateManager.ts:114 [GameStateManager] Exiting state: TITLE_SCREEN
+TitleScreenState.ts:614 [TitleScreenState] Exiting...
+GameStateManager.ts:119 [GameStateManager] Entering state: MAIN_MENU
+MainMenuState.ts:42 [MainMenuState] Entered
+MainMenuState.ts:59 [MainMenuState] Found save: Object
+logger.ts:56 [GamePage] State changed to: MAIN_MENU
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: MAIN_MENU
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+MainMenuState.ts:211 [MainMenuState] Selected: NEW GAME
+BagManager.ts:191 [BagManager] Bag reset
+SaveManager.ts:310 [SaveManager] New game started for BRENDAN
+MainMenuState.ts:219 [MainMenuState] Starting new game
+GameStateManager.ts:114 [GameStateManager] Exiting state: MAIN_MENU
+MainMenuState.ts:90 [MainMenuState] Exited
+GameStateManager.ts:119 [GameStateManager] Entering state: NEW_GAME_BIRCH
+logger.ts:56 [GamePage] State changed to: NEW_GAME_BIRCH
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:42 [StateRenderLoop] Starting render loop for state: NEW_GAME_BIRCH
+useStateMachineRenderLoop.ts:93 [StateRenderLoop] First frame rendered
+GameStateManager.ts:114 [GameStateManager] Exiting state: NEW_GAME_BIRCH
+GameStateManager.ts:119 [GameStateManager] Entering state: OVERWORLD
+OverworldState.ts:36 [OverworldState] Entered Object
+logger.ts:56 [GamePage] State changed to: OVERWORLD
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:27 [StateRenderLoop] Skipping - in OVERWORLD state
+useOverworldContinueLocation.ts:52 [GamePage] Got saved location from Continue: Object
+useOverworldContinueLocation.ts:61 [GamePage] Changing map to saved location: MAP_INSIDE_OF_TRUCK
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_InsideOfTruck: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_InsideOfTruck to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+loadSelectedOverworldMap.ts:170 [GamePage] Spawning player at saved position: Object
+GamePage.tsx:1344 [CoordEvent] Firing: InsideOfTruck_EventScript_SetIntroFlags at (3,2) var=VAR_LITTLEROOT_INTRO_STATE=0
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: InsideOfTruck_EventScript_SetIntroFlags
+installHook.js:1 [StoryScript] lockInput caller for: InsideOfTruck_EventScript_SetIntroFlags
 overrideMethod @ installHook.js:1
 (anonymous) @ useHandledStoryScript.ts:92
-onScriptInteract @ GamePage.tsx:765
-(anonymous) @ useActionInput.ts:136
-down @ useInput.ts:63
-PlayerController.ts:687 [INPUT] lockInput() called at tile(4,4) wasLocked=false moving=false
+renderLoop @ GamePage.tsx:1345
+PlayerController.ts:687 [INPUT] lockInput() called at tile(3,2) wasLocked=false moving=false
 installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
 (anonymous) @ useHandledStoryScript.ts:94
-onScriptInteract @ GamePage.tsx:765
-(anonymous) @ useActionInput.ts:136
-down @ useInput.ts:63
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=down mode=walk pos=(1,1)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=down mode=walk pos=(1,2)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=face pos=(1,3)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(1,3)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(2,3)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=down mode=walk pos=(3,3)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=face pos=(3,4)
-useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=face pos=(4,4) isMoving=false inputLocked=true
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=up mode=walk pos=(3,4)
-useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=face pos=(4,4) isMoving=false inputLocked=true
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=up mode=walk pos=(3,3)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(3,2)
-useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=face pos=(4,4) isMoving=false inputLocked=true
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(4,2)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(5,2)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(6,2)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=right mode=walk pos=(7,2)
-useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_2F_RIVAL dir=up mode=face pos=(8,2)
-useHandledStoryScript.ts:422 [StoryScript] ✓ Script handled=true
-useHandledStoryScript.ts:432 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
-useHandledStoryScript.ts:434 [StoryScript] ■ Unlocking input (no active warp)
-PlayerController.ts:697 [INPUT] unlockInput() called at tile(4,4) wasLocked=true
+renderLoop @ GamePage.tsx:1345
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(3,2) wasLocked=true
 installHook.js:1 [INPUT] unlockInput stack
 overrideMethod @ installHook.js:1
 unlockInput @ PlayerController.ts:698
-(anonymous) @ useHandledStoryScript.ts:435
-GamePage.tsx:1422 [WARP] autoDoorWarp at tile(1,1) map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F","name":"LittlerootTown_MaysHouse_2F","folder":"LittlerootTown_MaysHouse_2F","layoutId":"LAYOUT_LITTLEROOT_TOWN_MAYS_HOUSE_2F","width":9,"height":8,"layoutPath":"data/layouts/LittlerootTown_MaysHouse_2F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":9,"height":8,"layout":[{"metatileId":520,"collision":1,"elevation":0},{"metatileId":524,"collision":1,"elevation":0},{"metatileId":522,"collision":1,"elevation":0},{"metatileId":551,"collision":1,"elevation":0},{"metatileId":598,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":592,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":593,"collision":1,"elevation":0},{"metatileId":528,"collision":1,"elevation":0},{"metatileId":532,"collision":0,"elevation":0},{"metatileId":530,"collision":1,"elevation":0},{"metatileId":559,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":599,"collision":1,"elevation":0},{"metatileId":597,"collision":1,"elevation":0},{"metatileId":600,"collision":1,"elevation":0},{"metatileId":601,"collision":1,"elevation":0},{"metatileId":581,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":605,"collision":0,"elevation":3},{"metatileId":615,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":608,"collision":0,"elevation":3},{"metatileId":609,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":667,"collision":0,"elevation":3},{"metatileId":668,"collision":0,"elevation":3},{"metatileId":668,"collision":0,"elevation":3},{"metatileId":669,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":640,"collision":0,"elevation":3},{"metatileId":641,"collision":0,"elevation":3},{"metatileId":642,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":677,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":648,"collision":0,"elevation":0},{"metatileId":649,"collision":0,"elevation":3},{"metatileId":650,"collision":0,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":677,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":656,"collision":0,"elevation":4},{"metatileId":657,"collision":1,"elevation":0},{"metatileId":658,"collision":0,"elevation":4},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":683,"collision":0,"elevation":3},{"metatileId":684,"collision":0,"elevation":3},{"metatileId":684,"collision":0,"elevation":3},{"metatileId":685,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3}]},"offsetX":0,"offsetY":0,"borderMetatiles":[],"tilesets":{"key":"gTileset_Building+gTileset_BrendansMaysHouse","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"","secondaryTilesetPath":"","primaryMetatiles":[{"id":0,"tiles":[{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0}]},{"id":1,"tiles":[{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":fal
+(anonymous) @ useHandledStoryScript.ts:469
+PlayerController.ts:687 [INPUT] lockInput() called at tile(4,2) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:141
+handleDirectionInput @ PlayerController.ts:923
+handleInput @ PlayerController.ts:112
+update @ PlayerController.ts:714
+renderLoop @ GamePage.tsx:1257
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_INSIDE_OF_TRUCK
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: right
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_0 (tried /pokeemerald/graphics/object_events/pics/people/var_0.png, /pokeemerald/graphics/object_events/pics/misc/var_0.png, /pokeemerald/graphics/object_events/pics/pokemon/var_0.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_BIRCHS_BAG using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/birchs_bag.png
+overrideMethod @ installHook.js:1
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+GamePage.tsx:1227 [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN script=LittlerootTown_EventScript_StepOffTruckMale var=VAR_LITTLEROOT_INTRO_STATE value=1
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_EventScript_StepOffTruckMale
+installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_EventScript_StepOffTruckMale
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+renderLoop @ GamePage.tsx:1231
+PlayerController.ts:687 [INPUT] lockInput() called at tile(3,10) wasLocked=true moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+renderLoop @ GamePage.tsx:1231
+useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=jump pos=(3,10) isMoving=false inputLocked=true
+useHandledStoryScript.ts:219 [movePlayerStep] jump done guard=11
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=down mode=walk pos=(5,9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=left mode=face pos=(5,10)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,10)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=walk pos=(4,10) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=14 isMoving=false pos=(5,10)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=face pos=(5,10) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_LITTLEROOT_MOM dir=up mode=walk pos=(5,9)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(5,10) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=16 isMoving=false pos=(5,9)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(5,9) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=15 isMoving=false pos=(5,8)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true inputLocked=true
+GamePage.tsx:1514 [ScriptedWarp] pending → fading (fadeOut to MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F)
+GamePage.tsx:1529 [ScriptedWarp] fade complete. activeMapId=MAP_LITTLEROOT_TOWN targetMapId=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+GamePage.tsx:1544 [ScriptedWarp] different map → loading MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/brendan/walking.png
+overrideMethod @ installHook.js:1
+loadSelectedOverworldMap.ts:170 [GamePage] Spawning player at saved position: Object
+GamePage.tsx:1227 [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F script=LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn var=VAR_LITTLEROOT_INTRO_STATE value=3
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
+installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+renderLoop @ GamePage.tsx:1231
+PlayerController.ts:687 [INPUT] lockInput() called at tile(8,8) wasLocked=true moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+renderLoop @ GamePage.tsx:1231
+useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=face pos=(8,8) isMoving=false inputLocked=true
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(8,8) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=up mode=face pos=(9,8)
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=12 isMoving=false pos=(8,7)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(8,7) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
+MenuStateManager.ts:82 [MenuStateManager] Opened menu: start
+StartMenu.tsx:109 [StartMenu] Options selected
+MenuStateManager.ts:82 [MenuStateManager] Opened menu: options
+MenuStateManager.ts:100 [MenuStateManager] Back to: start
+MenuStateManager.ts:119 [MenuStateManager] Closed all menus
+GamePage.tsx:1457 [WARP] autoDoorWarp at tile(8,2) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","name":"LittlerootTown_BrendansHouse_1F","folder":"LittlerootTown_BrendansHouse_1F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F","width":11,"height":9,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_1F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":11,"height":9,"layout":[{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":527,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":560,"collision":1,"elevation":0},{"metatileId":561,"collision":1,"elevation":0},{"metatileId":562,"collision":1,"elevation":0},{"metatileId":563,"collision":1,"elevation":0},{"metatileId":564,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":520,"collision":1,"elevation":0},{"metatileId":521,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":589,"collision":1,"elevation":0},{"metatileId":568,"collision":1,"elevation":0},{"metatileId":569,"collision":1,"elevation":0},{"metatileId":570,"collision":1,"elevation":0},{"metatileId":571,"collision":1,"elevation":0},{"metatileId":572,"collision":1,"elevation":0},{"metatileId":616,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":528,"collision":1,"elevation":0},{"metatileId":529,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":534,"collision":1,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":578,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":612,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":576,"collision":1,"elevation":0},{"metatileId":577,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":624,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":565,"collision":0,"elevation":3},{"metatileId":584,"collision":0,"elevation":3},{"metatileId":585,"collision":0,"elevation":3},{"metatileId":586,"collision":0,"elevation":3},{"metatileId":558,"collision":0,"elevation":3},{"metatileId":566,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":536,"collision":0,"elevation":3},{"metatileId":537,"collision":0,"elevation":3},{"metatileId":538,"collision":1,"elevation":3},{"metatileId":539,"collision":1,"elevation":3},{"metatileId":540,"collision":0,"elevation":3},{"metatileId":541,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":544,"collision":0,"elevation":3},{"metatileId":545,"collision":0,"elevation":3},{"metatileId":546,"collision":1,"elevation":0},{"metatileId":547,"collision":1,"elevation":0},{"metatileId":548,"collision":0,"elevation":3},{"metatileId":549,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":552,"collision":0,"elevation":3},{"metatileId":553,"collision":0,"elevation":3
+PlayerController.ts:687 [INPUT] lockInput() called at tile(8,2) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+renderLoop @ GamePage.tsx:1468
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_3 (tried /pokeemerald/graphics/object_events/pics/people/var_3.png, /pokeemerald/graphics/object_events/pics/misc/var_3.png, /pokeemerald/graphics/object_events/pics/pokemon/var_3.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_5 (tried /pokeemerald/graphics/object_events/pics/people/var_5.png, /pokeemerald/graphics/object_events/pics/misc/var_5.png, /pokeemerald/graphics/object_events/pics/pokemon/var_5.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_1 (tried /pokeemerald/graphics/object_events/pics/people/var_1.png, /pokeemerald/graphics/object_events/pics/misc/var_1.png, /pokeemerald/graphics/object_events/pics/pokemon/var_1.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_4 (tried /pokeemerald/graphics/object_events/pics/people/var_4.png, /pokeemerald/graphics/object_events/pics/misc/var_4.png, /pokeemerald/graphics/object_events/pics/pokemon/var_4.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_2 (tried /pokeemerald/graphics/object_events/pics/people/var_2.png, /pokeemerald/graphics/object_events/pics/misc/var_2.png, /pokeemerald/graphics/object_events/pics/pokemon/var_2.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_6 (tried /pokeemerald/graphics/object_events/pics/people/var_6.png, /pokeemerald/graphics/object_events/pics/misc/var_6.png, /pokeemerald/graphics/object_events/pics/pokemon/var_6.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_7 (tried /pokeemerald/graphics/object_events/pics/people/var_7.png, /pokeemerald/graphics/object_events/pics/misc/var_7.png, /pokeemerald/graphics/object_events/pics/pokemon/var_7.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_8 (tried /pokeemerald/graphics/object_events/pics/people/var_8.png, /pokeemerald/graphics/object_events/pics/misc/var_8.png, /pokeemerald/graphics/object_events/pics/pokemon/var_8.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_9 (tried /pokeemerald/graphics/object_events/pics/people/var_9.png, /pokeemerald/graphics/object_events/pics/misc/var_9.png, /pokeemerald/graphics/object_events/pics/pokemon/var_9.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_A (tried /pokeemerald/graphics/object_events/pics/people/var_a.png, /pokeemerald/graphics/object_events/pics/misc/var_a.png, /pokeemerald/graphics/object_events/pics/pokemon/var_a.png)
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_VAR_B (tried /pokeemerald/graphics/object_events/pics/people/var_b.png, /pokeemerald/graphics/object_events/pics/misc/var_b.png, /pokeemerald/graphics/object_events/pics/pokemon/var_b.png)
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+installHook.js:1 [ScriptRunner] Unimplemented special: InitSecretBaseDecorationSprites
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:281 [WARP] ON_WARP_INTO script executed: LittlerootTown_BrendansHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(7,2) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: PlayersHouse_2F_EventScript_SimplifiedClock
+installHook.js:1 [StoryScript] lockInput caller for: PlayersHouse_2F_EventScript_SimplifiedClock
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+onTileInteract @ GamePage.tsx:816
+(anonymous) @ useActionInput.ts:96
+down @ useInput.ts:63
+PlayerController.ts:687 [INPUT] lockInput() called at tile(5,2) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+onTileInteract @ GamePage.tsx:816
+(anonymous) @ useActionInput.ts:96
+down @ useInput.ts:63
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=down mode=walk pos=(7,1)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=face pos=(7,2)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=left mode=walk pos=(7,2)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=face pos=(5,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=right mode=walk pos=(6,2)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_2F_MOM dir=up mode=walk pos=(7,2)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(5,2) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
+GamePage.tsx:1457 [WARP] autoDoorWarp at tile(7,1) map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","name":"LittlerootTown_BrendansHouse_2F","folder":"LittlerootTown_BrendansHouse_2F","layoutId":"LAYOUT_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F","width":9,"height":8,"layoutPath":"data/layouts/LittlerootTown_BrendansHouse_2F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":9,"height":8,"layout":[{"metatileId":594,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":592,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":598,"collision":1,"elevation":0},{"metatileId":647,"collision":1,"elevation":0},{"metatileId":523,"collision":1,"elevation":0},{"metatileId":524,"collision":1,"elevation":0},{"metatileId":525,"collision":1,"elevation":0},{"metatileId":602,"collision":1,"elevation":0},{"metatileId":603,"collision":1,"elevation":0},{"metatileId":597,"collision":1,"elevation":0},{"metatileId":613,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":655,"collision":1,"elevation":0},{"metatileId":531,"collision":1,"elevation":0},{"metatileId":532,"collision":0,"elevation":0},{"metatileId":533,"collision":1,"elevation":0},{"metatileId":610,"collision":0,"elevation":3},{"metatileId":611,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":614,"collision":0,"elevation":3},{"metatileId":605,"collision":0,"elevation":3},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":518,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":635,"collision":0,"elevation":3},{"metatileId":636,"collision":0,"elevation":3},{"metatileId":637,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":664,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":665,"collision":0,"elevation":3},{"metatileId":666,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":643,"collision":0,"elevation":0},{"metatileId":644,"collision":0,"elevation":3},{"metatileId":645,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":651,"collision":0,"elevation":4},{"metatileId":652,"collision":1,"elevation":0},{"metatileId":653,"collision":0,"elevation":4},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":672,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":673,"collision":0,"elevation":3},{"metatileId":674,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":680,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":681,"collision":0,"elevation":3},{"metatileId":682,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3}]},"offsetX":0,"offsetY":0,"borderMetatiles":[],"tilesets":{"key":"gTileset_Building+gTileset_BrendansMaysHouse","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"","secondaryTilesetPath":"","primaryMetatiles":[{"id":0,"tiles":[{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0}]},{"id":1,"tiles":[{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},
+PlayerController.ts:687 [INPUT] lockInput() called at tile(7,1) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+renderLoop @ GamePage.tsx:1468
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:267 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(8,3) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
+GamePage.tsx:1227 [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F script=LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport var=VAR_LITTLEROOT_INTRO_STATE value=6
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
+installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+renderLoop @ GamePage.tsx:1231
+PlayerController.ts:687 [INPUT] lockInput() called at tile(8,3) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+renderLoop @ GamePage.tsx:1231
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(4,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=down mode=walk pos=(8,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=14 isMoving=false pos=(8,4)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=down mode=walk pos=(8,4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=14 isMoving=false pos=(8,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=walk pos=(8,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=15 isMoving=false pos=(7,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=walk pos=(7,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=14 isMoving=false pos=(6,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=walk pos=(6,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=16 isMoving=false pos=(5,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(4,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(3,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=walk pos=(5,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=14 isMoving=false pos=(4,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=face pos=(4,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=face pos=(4,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=left mode=walk pos=(3,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=down mode=walk pos=(2,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_PLAYERS_HOUSE_1F_MOM dir=right mode=face pos=(2,6)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(4,5) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
+PlayerController.ts:687 [INPUT] lockInput() called at tile(8,8) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:141
+handleDirectionInput @ PlayerController.ts:923
+handleInput @ PlayerController.ts:150
+update @ PlayerController.ts:714
+renderLoop @ GamePage.tsx:1257
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(5,9) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
+PlayerController.ts:687 [INPUT] lockInput() called at tile(14,9) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+startDoorWarpSequence @ DoorActionDispatcher.ts:379
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(2,8) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+handleDoorExitSequence @ WarpExecutor.ts:288
+executeWarp @ WarpExecutor.ts:359
+performWarpTransition @ performWarpTransition.ts:159
+performWarpTransition.ts:267 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+GamePage.tsx:1227 [ON_FRAME] Triggered: map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F script=LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor var=VAR_LITTLEROOT_HOUSES_STATE_BRENDAN value=1
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor
+installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+renderLoop @ GamePage.tsx:1231
+PlayerController.ts:687 [INPUT] lockInput() called at tile(2,8) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+renderLoop @ GamePage.tsx:1231
+useHandledStoryScript.ts:199 [movePlayerStep] dir=right mode=face pos=(2,8) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=down mode=walk pos=(8,7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(8,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(7,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(6,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(5,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_MOM dir=left mode=walk pos=(4,8)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(2,8) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: RivalsHouse_1F_EventScript_RivalMom
+installHook.js:1 [StoryScript] lockInput caller for: RivalsHouse_1F_EventScript_RivalMom
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+onNpcInteract @ GamePage.tsx:799
+(anonymous) @ useActionInput.ts:126
+down @ useInput.ts:63
+PlayerController.ts:687 [INPUT] lockInput() called at tile(2,8) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+onNpcInteract @ GamePage.tsx:799
+(anonymous) @ useActionInput.ts:126
+down @ useInput.ts:63
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(2,8) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
+GamePage.tsx:1457 [WARP] autoDoorWarp at tile(2,2) map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F","name":"LittlerootTown_MaysHouse_1F","folder":"LittlerootTown_MaysHouse_1F","layoutId":"LAYOUT_LITTLEROOT_TOWN_MAYS_HOUSE_1F","width":11,"height":9,"layoutPath":"data/layouts/LittlerootTown_MaysHouse_1F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":11,"height":9,"layout":[{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":543,"collision":1,"elevation":0},{"metatileId":535,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":542,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":622,"collision":1,"elevation":0},{"metatileId":623,"collision":1,"elevation":0},{"metatileId":521,"collision":1,"elevation":0},{"metatileId":621,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":550,"collision":1,"elevation":0},{"metatileId":579,"collision":1,"elevation":0},{"metatileId":580,"collision":1,"elevation":0},{"metatileId":561,"collision":1,"elevation":0},{"metatileId":562,"collision":1,"elevation":0},{"metatileId":560,"collision":1,"elevation":0},{"metatileId":630,"collision":1,"elevation":0},{"metatileId":631,"collision":1,"elevation":0},{"metatileId":529,"collision":0,"elevation":0},{"metatileId":629,"collision":1,"elevation":0},{"metatileId":632,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":587,"collision":1,"elevation":0},{"metatileId":588,"collision":1,"elevation":0},{"metatileId":569,"collision":1,"elevation":0},{"metatileId":570,"collision":1,"elevation":0},{"metatileId":568,"collision":1,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":518,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":633,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":582,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":576,"collision":1,"elevation":0},{"metatileId":577,"collision":1,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":688,"collision":0,"elevation":0},{"metatileId":696,"collision":0,"elevation":0},{"metatileId":691,"collision":0,"elevation":0},{"metatileId":689,"collision":0,"elevation":0},{"metatileId":690,"collision":0,"elevation":0},{"metatileId":699,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":0},{"metatileId":704,"collision":0,"elevation":0},{"metatileId":697,"collision":1,"elevation":0},{"metatileId":698,"collision":1,"elevation":0},{"metatileId":707,"collision":0,"elevation":0},{"metatileId":677,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":0},{"metatileId":704,"collision":0,"elevation":0},{"metatileId":705,"collision":1,"elevation":0},{"metatileId":706,"collision":1,"elevation":0},{"metatileId":707,"collision":0,"elevation":0},{"metatileId":677,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":514,"collision":0,"elevation":0},{"metatileId":515,"collision":0,"elevation":0},{"metatileId":513,"col
+PlayerController.ts:687 [INPUT] lockInput() called at tile(2,2) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+renderLoop @ GamePage.tsx:1468
+performWarpTransition.ts:103 [WARP] ========== WARP START ==========
+performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
+performWarpTransition.ts:106 [WARP] fromDoor: true
+performWarpTransition.ts:107 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
+performWarpTransition.ts:281 [WARP] ON_WARP_INTO script executed: LittlerootTown_MaysHouse_2F_EventScript_CheckInitDecor
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(1,2) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
+GamePage.tsx:1457 [WARP] autoDoorWarp at tile(1,1) map=MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F","name":"LittlerootTown_MaysHouse_2F","folder":"LittlerootTown_MaysHouse_2F","layoutId":"LAYOUT_LITTLEROOT_TOWN_MAYS_HOUSE_2F","width":9,"height":8,"layoutPath":"data/layouts/LittlerootTown_MaysHouse_2F","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"data/tilesets/primary/building","secondaryTilesetPath":"data/tilesets/secondary/brendans_mays_house","connections":[],"mapType":"MAP_TYPE_INDOOR","regionMapSection":"MAPSEC_LITTLEROOT_TOWN"},"mapData":{"width":9,"height":8,"layout":[{"metatileId":520,"collision":1,"elevation":0},{"metatileId":524,"collision":1,"elevation":0},{"metatileId":522,"collision":1,"elevation":0},{"metatileId":551,"collision":1,"elevation":0},{"metatileId":598,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":592,"collision":1,"elevation":0},{"metatileId":596,"collision":1,"elevation":0},{"metatileId":593,"collision":1,"elevation":0},{"metatileId":528,"collision":1,"elevation":0},{"metatileId":532,"collision":0,"elevation":0},{"metatileId":530,"collision":1,"elevation":0},{"metatileId":559,"collision":1,"elevation":0},{"metatileId":2,"collision":1,"elevation":0},{"metatileId":599,"collision":1,"elevation":0},{"metatileId":597,"collision":1,"elevation":0},{"metatileId":600,"collision":1,"elevation":0},{"metatileId":601,"collision":1,"elevation":0},{"metatileId":581,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":519,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":605,"collision":0,"elevation":3},{"metatileId":615,"collision":0,"elevation":3},{"metatileId":517,"collision":0,"elevation":3},{"metatileId":608,"collision":0,"elevation":3},{"metatileId":609,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":667,"collision":0,"elevation":3},{"metatileId":668,"collision":0,"elevation":3},{"metatileId":668,"collision":0,"elevation":3},{"metatileId":669,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":640,"collision":0,"elevation":3},{"metatileId":641,"collision":0,"elevation":3},{"metatileId":642,"collision":0,"elevation":3},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":677,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":648,"collision":0,"elevation":0},{"metatileId":649,"collision":0,"elevation":3},{"metatileId":650,"collision":0,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":675,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":676,"collision":0,"elevation":3},{"metatileId":677,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":656,"collision":0,"elevation":4},{"metatileId":657,"collision":1,"elevation":0},{"metatileId":658,"collision":0,"elevation":4},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":683,"collision":0,"elevation":3},{"metatileId":684,"collision":0,"elevation":3},{"metatileId":684,"collision":0,"elevation":3},{"metatileId":685,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":0},{"metatileId":516,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3},{"metatileId":513,"collision":0,"elevation":3}]},"offsetX":0,"offsetY":0,"borderMetatiles":[],"tilesets":{"key":"gTileset_Building+gTileset_BrendansMaysHouse","primaryTilesetId":"gTileset_Building","secondaryTilesetId":"gTileset_BrendansMaysHouse","primaryTilesetPath":"","secondaryTilesetPath":"","primaryMetatiles":[{"id":0,"tiles":[{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0},{"tileId":0,"xflip":false,"yflip":false,"palette":0}]},{"id":1,"tiles":[{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":false,"yflip":false,"palette":5},{"tileId":16,"xflip":fal
 PlayerController.ts:687 [INPUT] lockInput() called at tile(1,1) wasLocked=false moving=false
 installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
-renderLoop @ GamePage.tsx:1433
+renderLoop @ GamePage.tsx:1468
 performWarpTransition.ts:103 [WARP] ========== WARP START ==========
 performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F
 performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
@@ -628,31 +518,65 @@ TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
 TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_BrendansMaysHouse: gpuSlot=0, primarySize=128x256, secondarySize=128x240
 TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_BrendansMaysHouse to GPU SLOT 0
 TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
-performWarpTransition.ts:245 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
-performWarpTransition.ts:251 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:267 [WARP] ON_LOAD script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
 useNPCMovement.ts:187 [NPCMovement] Engine reset
-performWarpTransition.ts:273 [WARP] Warp complete
-performWarpTransition.ts:274 [WARP] World bounds: Object
-performWarpTransition.ts:275 [WARP] Loaded maps: Array(1)
-performWarpTransition.ts:276 [WARP] Tileset pairs: Array(1)
-performWarpTransition.ts:277 [WARP] GPU slots: Object
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
 PlayerController.ts:697 [INPUT] unlockInput() called at tile(2,3) wasLocked=true
 installHook.js:1 [INPUT] unlockInput stack
 overrideMethod @ installHook.js:1
 unlockInput @ PlayerController.ts:698
-handleDoorExitAction @ DoorActionDispatcher.ts:257
-runDoorExitUpdate @ DoorSequenceRunner.ts:141
-renderLoop @ GamePage.tsx:1464
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
+GamePage.tsx:1344 [CoordEvent] Firing: LittlerootTown_MaysHouse_1F_EventScript_MeetRival1 at (2,4) var=VAR_LITTLEROOT_RIVAL_STATE=2
+useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_MaysHouse_1F_EventScript_MeetRival1
+installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_MaysHouse_1F_EventScript_MeetRival1
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:92
+renderLoop @ GamePage.tsx:1345
+PlayerController.ts:687 [INPUT] lockInput() called at tile(2,4) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:688
+(anonymous) @ useHandledStoryScript.ts:94
+renderLoop @ GamePage.tsx:1345
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(2,8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(2,7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(2,6)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=left mode=face pos=(2,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=left mode=walk pos=(2,5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=face pos=(2,4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=face pos=(1,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(1,5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(1,4)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=face pos=(2,4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=right mode=face pos=(1,3)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=right mode=walk pos=(1,3)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=face pos=(2,3)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_RIVALS_HOUSE_1F_RIVAL dir=up mode=walk pos=(2,3)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(2,4) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:469
 PlayerController.ts:687 [INPUT] lockInput() called at tile(2,8) wasLocked=false moving=false
 installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
-startDoorWarpSequence @ DoorActionDispatcher.ts:338
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
 (anonymous) @ overworldAssets.ts:141
 handleDirectionInput @ PlayerController.ts:923
-handleInput @ PlayerController.ts:150
+handleInput @ PlayerController.ts:112
 update @ PlayerController.ts:714
-renderLoop @ GamePage.tsx:1250
+renderLoop @ GamePage.tsx:1257
 performWarpTransition.ts:103 [WARP] ========== WARP START ==========
 performWarpTransition.ts:104 [WARP] Source map: MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F
 performWarpTransition.ts:105 [WARP] Destination map: MAP_LITTLEROOT_TOWN
@@ -664,25 +588,25 @@ TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
 TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
 TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
 TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
-performWarpTransition.ts:251 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
+performWarpTransition.ts:273 [WARP] ON_TRANSITION script executed for MAP_LITTLEROOT_TOWN
 useNPCMovement.ts:187 [NPCMovement] Engine reset
-performWarpTransition.ts:273 [WARP] Warp complete
-performWarpTransition.ts:274 [WARP] World bounds: Object
-performWarpTransition.ts:275 [WARP] Loaded maps: Array(3)
-performWarpTransition.ts:276 [WARP] Tileset pairs: Array(1)
-performWarpTransition.ts:277 [WARP] GPU slots: Object
+performWarpTransition.ts:295 [WARP] Warp complete
+performWarpTransition.ts:296 [WARP] World bounds: Object
+performWarpTransition.ts:297 [WARP] Loaded maps: Array(3)
+performWarpTransition.ts:298 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:299 [WARP] GPU slots: Object
 PlayerController.ts:697 [INPUT] unlockInput() called at tile(14,9) wasLocked=true
 installHook.js:1 [INPUT] unlockInput stack
 overrideMethod @ installHook.js:1
 unlockInput @ PlayerController.ts:698
-handleDoorExitAction @ DoorActionDispatcher.ts:257
-runDoorExitUpdate @ DoorSequenceRunner.ts:141
-renderLoop @ GamePage.tsx:1464
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1503
 useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: LittlerootTown_EventScript_Twin
 installHook.js:1 [StoryScript] lockInput caller for: LittlerootTown_EventScript_Twin
 overrideMethod @ installHook.js:1
 (anonymous) @ useHandledStoryScript.ts:92
-onNpcInteract @ GamePage.tsx:792
+onNpcInteract @ GamePage.tsx:799
 (anonymous) @ useActionInput.ts:126
 down @ useInput.ts:63
 PlayerController.ts:687 [INPUT] lockInput() called at tile(10,2) wasLocked=false moving=false
@@ -690,685 +614,273 @@ installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
 (anonymous) @ useHandledStoryScript.ts:94
-onNpcInteract @ GamePage.tsx:792
+onNpcInteract @ GamePage.tsx:799
 (anonymous) @ useActionInput.ts:126
 down @ useInput.ts:63
-useHandledStoryScript.ts:422 [StoryScript] ✓ Script handled=true
-useHandledStoryScript.ts:432 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
-useHandledStoryScript.ts:434 [StoryScript] ■ Unlocking input (no active warp)
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
 PlayerController.ts:697 [INPUT] unlockInput() called at tile(10,2) wasLocked=true
 installHook.js:1 [INPUT] unlockInput stack
 overrideMethod @ installHook.js:1
 unlockInput @ PlayerController.ts:698
-(anonymous) @ useHandledStoryScript.ts:435
-GamePage.tsx:1220 [ON_FRAME] Triggered: map=MAP_ROUTE101 script=Route101_EventScript_HideMapNamePopup var=VAR_ROUTE101_STATE value=0
+(anonymous) @ useHandledStoryScript.ts:469
+GamePage.tsx:1301 [SEAM] map transition MAP_LITTLEROOT_TOWN -> MAP_ROUTE101 world=(11,-1) local=(11,19) anchor=MAP_LITTLEROOT_TOWN loaded=MAP_LITTLEROOT_TOWN,MAP_ROUTE101,MAP_OLDALE_TOWN seamOffsets=MAP_LITTLEROOT_TOWN@(0,0) | MAP_ROUTE101@(0,-20)
+GamePage.tsx:1227 [ON_FRAME] Triggered: map=MAP_ROUTE101 script=Route101_EventScript_HideMapNamePopup var=VAR_ROUTE101_STATE value=0
 useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: Route101_EventScript_HideMapNamePopup
 installHook.js:1 [StoryScript] lockInput caller for: Route101_EventScript_HideMapNamePopup
 overrideMethod @ installHook.js:1
 (anonymous) @ useHandledStoryScript.ts:92
-renderLoop @ GamePage.tsx:1224
+renderLoop @ GamePage.tsx:1231
 PlayerController.ts:687 [INPUT] lockInput() called at tile(11,-1) wasLocked=false moving=true
 installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
 (anonymous) @ useHandledStoryScript.ts:94
-renderLoop @ GamePage.tsx:1224
-useHandledStoryScript.ts:422 [StoryScript] ✓ Script handled=true
-useHandledStoryScript.ts:432 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
-useHandledStoryScript.ts:434 [StoryScript] ■ Unlocking input (no active warp)
+renderLoop @ GamePage.tsx:1231
+useHandledStoryScript.ts:458 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:465 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:468 [StoryScript] ■ Unlocking input (no active/pending warp)
 PlayerController.ts:697 [INPUT] unlockInput() called at tile(11,-1) wasLocked=true
 installHook.js:1 [INPUT] unlockInput stack
 overrideMethod @ installHook.js:1
 unlockInput @ PlayerController.ts:698
-(anonymous) @ useHandledStoryScript.ts:435
-GamePage.tsx:1313 [CoordEvent] Firing: Route101_EventScript_StartBirchRescue at (11,19) var=VAR_ROUTE101_STATE=1
+(anonymous) @ useHandledStoryScript.ts:469
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_BERRY_TREE (tried /pokeemerald/graphics/object_events/pics/people/berry_tree.png, /pokeemerald/graphics/object_events/pics/misc/berry_tree.png, /pokeemerald/graphics/object_events/pics/pokemon/berry_tree.png)
+overrideMethod @ installHook.js:1
+GamePage.tsx:1344 [CoordEvent] Firing: Route101_EventScript_StartBirchRescue at (11,19) var=VAR_ROUTE101_STATE=1
 useHandledStoryScript.ts:91 [StoryScript] ▶ Starting: Route101_EventScript_StartBirchRescue
 installHook.js:1 [StoryScript] lockInput caller for: Route101_EventScript_StartBirchRescue
 overrideMethod @ installHook.js:1
 (anonymous) @ useHandledStoryScript.ts:92
-renderLoop @ GamePage.tsx:1314
+renderLoop @ GamePage.tsx:1345
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
 PlayerController.ts:687 [INPUT] lockInput() called at tile(11,-1) wasLocked=false moving=false
 installHook.js:1 [INPUT] lockInput stack
 overrideMethod @ installHook.js:1
 lockInput @ PlayerController.ts:688
 (anonymous) @ useHandledStoryScript.ts:94
-renderLoop @ GamePage.tsx:1314
-Load
-Arrow Keys to move. Z to run. X to interact. ` for debug panel.
-Zoom:1x
-2x
-3x
-DEBUG
-Debug Panel
-Press ` to toggle
-Map
-General
-Objects
-Tile
-WebGL
-Tile:
-(11, -1)
-player.y:
--32
-Sprite Center (y+16):
--16
-Feet Y (y+32):
-0
-SortKey Y:
-0
-Subpriority:
-128
-Sort Key:
-128
-Elevation:
-3
-Formula: sortKey = (feetY << 8) | subpriority = (0 << 8) | 128
-🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
-Player
-128
-+0
-TWIN
-8320
-+8192
-PROF_BIRCH
--24448
--24576
-ZIGZAGOON_1
--24448
--24576
-YOUNGSTER
--44928
--45056
-FAT_MAN
-57472
-+57344
-BOY_2
-73856
-+73728
-BUG_CATCHER
--98176
--98304
-item-ball
--98176
--98304
-YOUNGSTER
--102272
--102400
-GIRL_3
--114560
--114688
-LITTLE_BOY
--114560
--114688
-MANIAC
--122752
--122880
-MART_EMPLOYEE
--130944
--131072
-LASS
--130944
--131072
-Bottom (behind): 1 | Top (front): 0
-frame []
-Tile:
-(-14, -36)
-WorldY:
--592
-SortKeyY:
--576
-Subpriority:
-192
-SortKey:
--147264
-With Player: 21 | Behind Bridge: 0 | Above All: 0
-item-ball[withPlayer] P
-Tile:
-(50, -56)
-FeetY:
--896
-SortKeyY:
--896
-Elevation:
-SortKey:
--229248
-item-ball[withPlayer] P
-Tile:
-(64, -54)
-FeetY:
--864
-SortKeyY:
--864
-Elevation:
-SortKey:
--221056
-BOY_1[withPlayer] P
-Tile:
-(20, -51)
-FeetY:
--816
-SortKeyY:
--816
-Elevation:
-SortKey:
--208768
-TWIN[withPlayer] P
-Tile:
-(65, -49)
-FeetY:
--784
-SortKeyY:
--784
-Elevation:
-SortKey:
--200576
-TWIN[withPlayer] P
-Tile:
-(64, -49)
-FeetY:
--784
-SortKeyY:
--784
-Elevation:
-SortKey:
--200576
-BOY_1[withPlayer] P
-Tile:
-(-14, -36)
-FeetY:
--576
-SortKeyY:
--576
-Elevation:
-SortKey:
--147328
-YOUNGSTER[withPlayer] P
-Tile:
-(-31, -35)
-FeetY:
--560
-SortKeyY:
--560
-Elevation:
-SortKey:
--143232
-MART_EMPLOYEE[withPlayer] P
-Tile:
-(13, -32)
-FeetY:
--512
-SortKeyY:
--512
-Elevation:
-SortKey:
--130944
-LASS[withPlayer] P
-Tile:
-(-42, -32)
-FeetY:
--512
-SortKeyY:
--512
-Elevation:
-SortKey:
--130944
-MANIAC[withPlayer] P
-Tile:
-(8, -30)
-FeetY:
--480
-SortKeyY:
--480
-Elevation:
-SortKey:
--122752
-GIRL_3[withPlayer] P
-Tile:
-(16, -28)
-FeetY:
--448
-SortKeyY:
--448
-Elevation:
-SortKey:
--114560
-LITTLE_BOY[withPlayer] P
-Tile:
-(-32, -28)
-FeetY:
--448
-SortKeyY:
--448
-Elevation:
-SortKey:
--114560
-YOUNGSTER[withPlayer] P
-Tile:
-(-17, -25)
-FeetY:
--400
-SortKeyY:
--400
-Elevation:
-SortKey:
--102272
-BUG_CATCHER[withPlayer] P
-Tile:
-(-25, -24)
-FeetY:
--384
-SortKeyY:
--384
-Elevation:
-SortKey:
--98176
-item-ball[withPlayer] P
-Tile:
-(-39, -24)
-FeetY:
--384
-SortKeyY:
--384
-Elevation:
-SortKey:
--98176
-YOUNGSTER[withPlayer] P
-Tile:
-(16, -11)
-FeetY:
--176
-SortKeyY:
--176
-Elevation:
-SortKey:
--44928
-PROF_BIRCH[withPlayer] P
-Tile:
-(9, -6)
-FeetY:
--96
-SortKeyY:
--96
-Elevation:
-SortKey:
--24448
-ZIGZAGOON_1[withPlayer] P
-Tile:
-(10, -6)
-FeetY:
--96
-SortKeyY:
--96
-Elevation:
-SortKey:
--24448
-TWIN[withPlayer] P
-Tile:
-(10, 2)
-FeetY:
-32
-SortKeyY:
-32
-Elevation:
-SortKey:
-8320
-FAT_MAN[withPlayer] P
-Tile:
-(12, 14)
-FeetY:
-224
-SortKeyY:
-224
-Elevation:
-SortKey:
-57472
-BOY_2[withPlayer] P
-Tile:
-(13, 18)
-FeetY:
-288
-SortKeyY:
-288
-Elevation:
-SortKey:
-73856
-tilesetVersion:
-25
-lastRendered:
-25
-needsFullRender:
-NO
-needsWarmup:
-NO
-hasCachedInstances:
-YES
-tilesetsUploaded:
-YES
-cached bg/tb/ta:
-1820/0/1708
-lastViewHash:
-25:1,-11,21,21
-Copy pipeline debug
-Center pixel samples (RGBA):
-BG: 115,197,164,255
-TopBelow: 0,0,0,0
-Recent renders (most recent last):
-ts:
-172397.4 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172406.1 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172419.4 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172435.7 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172452.4 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172482.0 ms
-reason:
-animationOnly
-animOnly:
-yes
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172485.1 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172502.3 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172541.9 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172553.6 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172648.2 ms
-reason:
-animationOnly
-animOnly:
-yes
-updatedAnim:
-yes
-tilesetVer:
-25
-hadCaches:
-yes
-ts:
-172721.1 ms
-reason:
-skipped-nochange
-animOnly:
-no
-updatedAnim:
-no
-tilesetVer:
-25
-hadCaches:
-yes
-Last pass renders:
-background:
-1820 inst · 336x336 · 172640.7ms
-topBelow:
-0 inst · 336x336 · 125952.7ms
-topAbove:
-1708 inst · 336x336 · 172640.7ms
-Player:
-(11, -1)
-Dest:
-(11, -1)
-Moving:
-NO
-Reflection State:
-Has Reflection:
-NO
-Type:
-none
-Bridge:
-none
-Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
-463
--2,-2
-1
--1,-2
-1
-0,-2
-476
-1,-2
-477
-2,-2
-471
--2,-1
-1
--1,-1
-1
-0,-1
-468
-1,-1
-469
-2,-1
-477
--2,0
-1
--1,0
-1
-0,0
-476
-1,0
-477
-2,0
-469
--2,1
-1
--1,1
-1
-0,1
-468
-1,1
-469
-2,1
-487
--2,2
-1
--1,2
-1
-0,2
-486
-1,2
-485
-2,2
-Tiles Below Player (reflection scan area):
-Y+1: (11, 0)
-Metatile:
-1 (1st)
-Behavior:
-0 (NORMAL)
-Reflective:
-NO
-Pixel Mask:
-0/256 px
-Elevation:
-3
-Collision:
-0
-Runtime:
-FOUND
-Map:
-LITTLEROOT_TOWN
-Y+2: (11, 1)
-Metatile:
-1 (1st)
-Behavior:
-0 (NORMAL)
-Reflective:
-NO
-Pixel Mask:
-0/256 px
-Elevation:
-3
-Collision:
-0
-Runtime:
-FOUND
-Map:
-LITTLEROOT_TOWN
-Enabled:
-Yes
-GBA Frame:
-9822
-Cycle Frame:
-29/48
-Scale X (M0):
-0.98438
-Scale X (M1):
-0.98438
-Tiles:
-3,528
-FPS:
-42
-Render:
-7.80 ms
-WebGL2:
-Yes
-Viewport:
-20×20
-Camera:
-(24, -168)
-World:
-2080×1312px
-Stitched:
-5 maps
-Intro State:
-7
-Should Run:
-No
-Active:
-No
-Locked:
-No
-Complete:
-Yes
-Door Closed:
-No
-Door Opened:
-No
-Frame:
-970 / 9830
-Camera:
-(0, 0)
-Offsets:
-B1(3,3) B2(0,-3) B3(-3,0)
-Box Runtime:
-LOCALID_TRUCK_BOX_TOP
-missing
-tile=(0,0) sub=(0,0)
-visible=no cached=no failed=no
-LOCALID_TRUCK_BOX_BOTTOM_L
-missing
-tile=(0,0) sub=(0,0)
-visible=no cached=no failed=no
-LOCALID_TRUCK_BOX_BOTTOM_R
-missing
-tile=(0,0) sub=(0,0)
-visible=no cached=no failed=no
-Version:
-38
-Last Warp:
-LITTLEROOT_TOWN
-Anchor:
-LITTLEROOT_TOWN
-World Bounds:
-(0,-40) 20x60
-General + Petalburg
-→ Slot 0
+renderLoop @ GamePage.tsx:1345
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1858
+useHandledStoryScript.ts:404 [ROUTE101] setobjectxy LOCALID_ROUTE101_BIRCH local=(0,15) -> world=(0,-5)
+useHandledStoryScript.ts:404 [ROUTE101] setobjectxy LOCALID_ROUTE101_ZIGZAGOON local=(0,16) -> world=(0,-4)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(11,-1) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(0,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(0,-4)
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=13 isMoving=false pos=(11,-2)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(11,-2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(1,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(0,-5)
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=11 isMoving=false pos=(11,-3)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(11,-3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(2,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(1,-5)
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=13 isMoving=false pos=(11,-4)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=up mode=walk pos=(11,-4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:224 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:230 [movePlayerStep] done guard=11 isMoving=false pos=(11,-5)
+useHandledStoryScript.ts:199 [movePlayerStep] dir=left mode=face pos=(11,-5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(3,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(2,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(3,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-6)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-5)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-6)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=up mode=walk pos=(4,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(4,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(5,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=right mode=walk pos=(6,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-9)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=down mode=walk pos=(7,-8)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(7,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=walk pos=(6,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=left mode=walk pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=face pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=face pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=face pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=face pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=face pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=face pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=face pos=(4,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_ZIGZAGOON dir=left mode=face pos=(5,-7)
+useHandledStoryScript.ts:245 [moveNpcStep] LOCALID_ROUTE101_BIRCH dir=right mode=face pos=(4,-7)
