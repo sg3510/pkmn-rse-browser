@@ -8,7 +8,7 @@
  * - View all loaded NPCs/items
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type {
   DebugOptions,
   DebugState,
@@ -22,8 +22,10 @@ import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
 import type { MapIndexEntry } from '../../types/maps';
 import type { ViewportConfig } from '../../config/viewport';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
+import { gameFlags } from '../../game/GameFlags';
+import { gameVariables } from '../../game/GameVariables';
 
-const PANEL_WIDTH = 340;
+const PANEL_WIDTH = 480;
 
 interface DebugPanelProps {
   options: DebugOptions;
@@ -73,7 +75,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   onViewportChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'map' | 'general' | 'objects' | 'tile' | 'webgl'>(maps ? 'map' : 'general');
+  const [activeTab, setActiveTab] = useState<'map' | 'general' | 'objects' | 'tile' | 'state' | 'webgl'>(maps ? 'map' : 'general');
 
   // Sync panel open state with debug enabled
   useEffect(() => {
@@ -215,6 +217,11 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             active={activeTab === 'tile'}
             onClick={() => setActiveTab('tile')}
           />
+          <TabButton
+            label="State"
+            active={activeTab === 'state'}
+            onClick={() => setActiveTab('state')}
+          />
           {webglState && (
             <TabButton
               label="WebGL"
@@ -251,6 +258,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             />
           )}
           {activeTab === 'objects' && <ObjectsTab state={state} />}
+          {activeTab === 'state' && <StateTab />}
           {activeTab === 'tile' && (
             <TileTab
               state={state}
@@ -1126,6 +1134,165 @@ const PriorityDebugPanel: React.FC<{ priority: PriorityDebugInfo }> = ({ priorit
           </div>
         </Section>
       )}
+    </>
+  );
+};
+
+// State tab — flags and variables inspector
+const StateTab: React.FC = () => {
+  const [search, setSearch] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  // Read state on each render / refresh
+  const allFlags = useMemo(() => gameFlags.getAllFlags().sort(), [refreshKey]);
+  const allVars = useMemo(() => {
+    const raw = gameVariables.getAllVars();
+    // Filter to non-zero, sort by name
+    return Object.entries(raw)
+      .filter(([, v]) => v !== 0)
+      .sort(([a], [b]) => a.localeCompare(b));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  const lowerSearch = search.toLowerCase();
+  const filteredFlags = lowerSearch
+    ? allFlags.filter((f) => f.toLowerCase().includes(lowerSearch))
+    : allFlags;
+  const filteredVars = lowerSearch
+    ? allVars.filter(([name]) => name.toLowerCase().includes(lowerSearch))
+    : allVars;
+
+  const handleCopy = () => {
+    const data = {
+      flags: allFlags,
+      variables: Object.fromEntries(allVars),
+    };
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => { /* noop */ });
+  };
+
+  return (
+    <>
+      {/* Summary + Refresh */}
+      <Section title="Game State">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ color: '#aaa', fontSize: '10px' }}>
+            {allFlags.length} flags set, {allVars.length} vars non-zero
+          </span>
+          <button
+            onClick={() => setRefreshKey((k) => k + 1)}
+            style={{
+              padding: '3px 8px',
+              fontSize: '10px',
+              fontFamily: 'monospace',
+              background: '#2f2f2f',
+              color: '#ccc',
+              border: '1px solid #444',
+              borderRadius: 4,
+              cursor: 'pointer',
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Filter flags/vars..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            backgroundColor: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #333',
+            borderRadius: 4,
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            marginBottom: 8,
+            boxSizing: 'border-box',
+          }}
+        />
+      </Section>
+
+      {/* Variables */}
+      <Section title={`Variables (${filteredVars.length})`} collapsible>
+        {filteredVars.length === 0 ? (
+          <div style={{ color: '#666', fontStyle: 'italic', fontSize: '10px' }}>
+            {search ? 'No matching variables' : 'No non-zero variables'}
+          </div>
+        ) : (
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {filteredVars.map(([name, value]) => (
+              <div
+                key={name}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '2px 0',
+                  borderBottom: '1px solid #2a2a2a',
+                  fontSize: '10px',
+                }}
+              >
+                <span style={{ color: '#4a9eff', wordBreak: 'break-all', flex: 1, marginRight: 8 }}>
+                  {name.replace('VAR_', '')}
+                </span>
+                <span style={{ color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Flags */}
+      <Section title={`Flags (${filteredFlags.length})`} collapsible>
+        {filteredFlags.length === 0 ? (
+          <div style={{ color: '#666', fontStyle: 'italic', fontSize: '10px' }}>
+            {search ? 'No matching flags' : 'No flags set'}
+          </div>
+        ) : (
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {filteredFlags.map((flag) => (
+              <div
+                key={flag}
+                style={{
+                  padding: '2px 0',
+                  borderBottom: '1px solid #2a2a2a',
+                  fontSize: '10px',
+                  color: '#4f4',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {flag.replace('FLAG_', '')}
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Copy button */}
+      <button
+        onClick={handleCopy}
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          backgroundColor: copied ? '#2a3a2a' : '#333',
+          color: copied ? '#4f4' : '#fff',
+          border: `1px solid ${copied ? '#4f4' : '#555'}`,
+          borderRadius: 4,
+          cursor: 'pointer',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          marginTop: 8,
+        }}
+      >
+        {copied ? 'Copied!' : 'Copy state to clipboard'}
+      </button>
     </>
   );
 };

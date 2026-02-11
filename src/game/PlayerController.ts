@@ -30,6 +30,7 @@ import { isDebugMode } from '../utils/debug';
 import { directionToOffset } from '../utils/direction';
 import { areElevationsCompatible } from '../utils/elevation';
 import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL } from './jumpArc';
+import { inputMap, GameButton } from '../core/InputMap';
 
 const playerLogger = createLogger('PlayerController');
 
@@ -98,12 +99,12 @@ class NormalState implements PlayerState {
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
-    // Check for transition to running (disabled on long grass)
-    if ((keys['z'] || keys['Z']) && !controller.isOnLongGrass()) { // Z is mapped to B button
+    // Check for transition to running (B held, disabled on long grass)
+    if (inputMap.isHeldInRecord(keys, GameButton.B) && !controller.isOnLongGrass()) {
       controller.changeState(new RunningState());
       return;
     }
-    
+
     // Check for ledge jumping
     if (controller.checkForLedgeJump(keys)) {
       return;
@@ -136,8 +137,8 @@ class RunningState implements PlayerState {
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
-    // Check for transition back to walking
-    if (!keys['z'] && !keys['Z']) {
+    // Check for transition back to walking (B released)
+    if (!inputMap.isHeldInRecord(keys, GameButton.B)) {
       controller.changeState(new NormalState());
       return;
     }
@@ -451,16 +452,9 @@ export class PlayerController {
   private readonly SPRITE_WIDTH = 16;
   private readonly SPRITE_HEIGHT = 32;
 
-  // Keys that should have their default browser behavior prevented
-  // This stops arrow keys from scrolling, space from activating buttons, etc.
-  private static readonly GAME_CONTROL_KEYS = new Set([
-    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',  // Movement
-    'w', 'W', 'a', 'A', 's', 'S', 'd', 'D',              // WASD movement
-    'z', 'Z',                                            // B button (cancel/run)
-    'x', 'X',                                            // A button (confirm)
-    ' ',                                                 // Space (often used as confirm)
-    'Enter',                                             // Enter (often used as confirm)
-  ]);
+  // Keys that should have their default browser behavior prevented.
+  // Derived from InputMap bindings (uses e.code values).
+  private static readonly GAME_CONTROL_KEYS = inputMap.getAllCodes();
 
   private debugLog(...args: unknown[]): void {
     if (!isDebugMode()) return;
@@ -475,18 +469,17 @@ export class PlayerController {
   constructor() {
     this.currentState = new NormalState();
     this.handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent default browser behavior for game control keys
-      // This stops arrow keys from scrolling the page, space from clicking buttons, etc.
-      if (PlayerController.GAME_CONTROL_KEYS.has(e.key)) {
+      // Prevent default browser behavior for game control keys (uses e.code)
+      if (PlayerController.GAME_CONTROL_KEYS.has(e.code)) {
         e.preventDefault();
       }
-      this.keysPressed[e.key] = true;
+      this.keysPressed[e.code] = true;
     };
     this.handleKeyUp = (e: KeyboardEvent) => {
-      if (PlayerController.GAME_CONTROL_KEYS.has(e.key)) {
+      if (PlayerController.GAME_CONTROL_KEYS.has(e.code)) {
         e.preventDefault();
       }
-      this.keysPressed[e.key] = false;
+      this.keysPressed[e.code] = false;
     };
 
     // Initialize prevTileX/Y to current position, behavior to undefined
@@ -854,17 +847,16 @@ export class PlayerController {
     let newDir = this.dir;
     let attemptMove = false;
 
-
-    if (keys['ArrowUp']) {
+    if (inputMap.isHeldInRecord(keys, GameButton.UP)) {
       newDir = 'up';
       attemptMove = true;
-    } else if (keys['ArrowDown']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) {
       newDir = 'down';
       attemptMove = true;
-    } else if (keys['ArrowLeft']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) {
       newDir = 'left';
       attemptMove = true;
-    } else if (keys['ArrowRight']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) {
       newDir = 'right';
       attemptMove = true;
     }
@@ -1452,10 +1444,10 @@ export class PlayerController {
   public checkForLedgeJump(keys: { [key: string]: boolean }, wasRunning: boolean = false): boolean {
     let dir: 'up' | 'down' | 'left' | 'right' | null = null;
 
-    if (keys['ArrowUp']) dir = 'up';
-    else if (keys['ArrowDown']) dir = 'down';
-    else if (keys['ArrowLeft']) dir = 'left';
-    else if (keys['ArrowRight']) dir = 'right';
+    if (inputMap.isHeldInRecord(keys, GameButton.UP)) dir = 'up';
+    else if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) dir = 'down';
+    else if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) dir = 'left';
+    else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) dir = 'right';
 
     if (!dir) return false;
     const { dx, dy } = directionToOffset(dir);
@@ -1814,16 +1806,16 @@ export class PlayerController {
     let newDir = this.dir;
     let attemptMove = false;
 
-    if (keys['ArrowUp']) {
+    if (inputMap.isHeldInRecord(keys, GameButton.UP)) {
       newDir = 'up';
       attemptMove = true;
-    } else if (keys['ArrowDown']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) {
       newDir = 'down';
       attemptMove = true;
-    } else if (keys['ArrowLeft']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) {
       newDir = 'left';
       attemptMove = true;
-    } else if (keys['ArrowRight']) {
+    } else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) {
       newDir = 'right';
       attemptMove = true;
     }

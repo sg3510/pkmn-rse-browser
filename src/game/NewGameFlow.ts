@@ -11,11 +11,12 @@
 import { gameFlags } from './GameFlags';
 import { gameVariables, GAME_VARS } from './GameVariables';
 import { clearDynamicWarpTarget } from './DynamicWarp';
+import { resetDynamicObjectGfxVars } from './DynamicObjectGfx';
 import { SPECIES, getSpeciesName } from '../data/species';
 import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
-import { MOVES } from '../data/moves';
+import { MOVES, getMoveInfo } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
-import type { PartyPokemon } from '../pokemon/types';
+import { STATUS, type PartyPokemon } from '../pokemon/types';
 
 type ScriptDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptMoveMode = 'walk' | 'jump' | 'jump_in_place' | 'face';
@@ -32,6 +33,7 @@ export interface StoryScriptContext {
   hasPartyPokemon: () => boolean;
   setParty: (party: (PartyPokemon | null)[]) => void;
   startFirstBattle: (starter: PartyPokemon) => Promise<void>;
+  startTrainerBattle?: (trainerId: string) => Promise<void>;
   queueWarp: (mapId: string, x: number, y: number, direction: ScriptDirection) => void;
   forcePlayerStep: (direction: ScriptDirection) => void;
   delayFrames: (frames: number) => Promise<void>;
@@ -54,20 +56,23 @@ export interface StoryScriptContext {
   setPlayerVisible: (visible: boolean) => void;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => void;
   setNpcMovementType?: (mapId: string, localId: string, movementTypeRaw: string) => void;
+  setSpriteHidden?: (mapId: string, localId: string, hidden: boolean) => void;
   showYesNo?: (text: string) => Promise<boolean>;
   getParty?: () => (PartyPokemon | null)[];
+  hasNpc?: (mapId: string, localId: string) => boolean;
 }
 
 type StarterChoice = {
+  slot: 0 | 1 | 2;
   species: number;
   moveA: number;
   moveB: number;
 };
 
 const STARTER_CHOICES: StarterChoice[] = [
-  { species: SPECIES.TREECKO, moveA: MOVES.POUND, moveB: MOVES.LEER },
-  { species: SPECIES.TORCHIC, moveA: MOVES.SCRATCH, moveB: MOVES.GROWL },
-  { species: SPECIES.MUDKIP, moveA: MOVES.TACKLE, moveB: MOVES.GROWL },
+  { slot: 0, species: SPECIES.TREECKO, moveA: MOVES.POUND, moveB: MOVES.LEER },
+  { slot: 1, species: SPECIES.TORCHIC, moveA: MOVES.SCRATCH, moveB: MOVES.GROWL },
+  { slot: 2, species: SPECIES.MUDKIP, moveA: MOVES.TACKLE, moveB: MOVES.GROWL },
 ];
 
 // Scripts with hand-coded implementations that override ScriptRunner.
@@ -113,6 +118,32 @@ function buildStarter(choice: StarterChoice): PartyPokemon {
   });
 }
 
+function healPartyForStory(party: (PartyPokemon | null)[]): (PartyPokemon | null)[] {
+  const getMaxPp = (moveId: number): number => {
+    if (moveId === 0) return 0;
+    return getMoveInfo(moveId)?.pp ?? 0;
+  };
+
+  return party.map((mon) => {
+    if (!mon) return null;
+    const maxPp: [number, number, number, number] = [
+      getMaxPp(mon.moves[0]),
+      getMaxPp(mon.moves[1]),
+      getMaxPp(mon.moves[2]),
+      getMaxPp(mon.moves[3]),
+    ];
+    return {
+      ...mon,
+      status: STATUS.NONE,
+      pp: maxPp,
+      stats: {
+        ...mon.stats,
+        hp: mon.stats.maxHp,
+      },
+    };
+  });
+}
+
 export function isHandledStoryScript(scriptName: string): boolean {
   return HANDLED_SCRIPTS.has(scriptName);
 }
@@ -121,6 +152,7 @@ export function initializeNewGameStoryState(): void {
   gameFlags.reset();
   gameVariables.reset();
   clearDynamicWarpTarget();
+  resetDynamicObjectGfxVars();
 
   gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 0);
   gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_TOWN_STATE, 0);
@@ -899,11 +931,42 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       const party: (PartyPokemon | null)[] = [starter, null, null, null, null, null];
       ctx.setParty(party);
 
-      gameVariables.setVar(GAME_VARS.VAR_STARTER_MON, selectedChoice.species);
-      gameVariables.setVar(GAME_VARS.VAR_RESULT, selectedChoice.species);
+      gameVariables.setVar(GAME_VARS.VAR_STARTER_MON, selectedChoice.slot);
+      gameVariables.setVar(GAME_VARS.VAR_RESULT, selectedChoice.slot);
 
       await showMessage(`You chose ${getSpeciesName(selectedChoice.species)}!`);
+
+      // C parity: remove the chased Zigzagoon and reposition the player for ChooseStarter.
+      ctx.setNpcVisible('MAP_ROUTE101', 'LOCALID_ROUTE101_ZIGZAGOON', false);
+      ctx.setNpcPosition('MAP_ROUTE101', 'LOCALID_PLAYER', 6, 13);
+      await ctx.movePlayer('left', 'face');
+
       await ctx.startFirstBattle(starter);
+
+      // C parity: continue Route101_EventScript_BirchsBag after first battle returns.
+      await ctx.moveNpc('MAP_ROUTE101', 'LOCALID_ROUTE101_BIRCH', 'right');
+      await showMessage("PROF.BIRCH: Whew... I was in the tall grass studying wild POKeMON when I was jumped!");
+
+      const currentParty = ctx.getParty?.();
+      if (currentParty) {
+        ctx.setParty(healPartyForStory(currentParty));
+      }
+
+      gameFlags.set('FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE');
+      gameFlags.set('FLAG_HIDE_ROUTE_101_ZIGZAGOON');
+      gameFlags.clear('FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH');
+      gameFlags.set('FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG');
+      gameVariables.setVar(GAME_VARS.VAR_BIRCH_LAB_STATE, 2);
+      gameVariables.setVar(GAME_VARS.VAR_ROUTE101_STATE, 3);
+      gameFlags.clear('FLAG_HIDE_MAP_NAME_POPUP');
+
+      if (ctx.getPlayerGender() === 0) {
+        gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_RIVAL_BEDROOM');
+      } else {
+        gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_BEDROOM');
+      }
+
+      ctx.queueWarp('MAP_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB', 6, 5, 'up');
       return true;
     }
 

@@ -15,3 +15,5 @@ export {
 } from './GameState';
 
 export { GameStateManager, type GameStateManagerConfig } from './GameStateManager';
+
+export { GameButton, inputMap } from './InputMap';

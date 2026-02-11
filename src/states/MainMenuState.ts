@@ -14,6 +14,7 @@ import {
   type InputState,
   type RenderContext,
 } from '../core/GameState';
+import { inputMap, GameButton } from '../core/InputMap';
 import type { ViewportConfig } from '../config/viewport';
 import { saveManager } from '../save/SaveManager';
 import { getMapDisplayName } from '../save/native/mapResolver';
@@ -179,7 +180,7 @@ export class MainMenuState implements StateRenderer {
     ctx2d.fillStyle = '#666666';
     ctx2d.font = '10px monospace';
     ctx2d.textAlign = 'center';
-    ctx2d.fillText('Arrow Keys: Move | Enter/Z: Select | Esc/X: Back', width / 2, height - 30);
+    ctx2d.fillText('Arrow Keys: Move | Enter/X: Select | Z/Esc: Back', width / 2, height - 30);
 
     // Viewport info (debug)
     ctx2d.fillStyle = '#666666';
@@ -195,17 +196,17 @@ export class MainMenuState implements StateRenderer {
 
   handleInput(input: InputState): StateTransition | null {
     // Navigate up
-    if (input.pressed.has('ArrowUp') || input.pressed.has('KeyW')) {
+    if (inputMap.isPressed(input, GameButton.UP)) {
       this.selectedIndex = Math.max(0, this.selectedIndex - 1);
     }
 
     // Navigate down
-    if (input.pressed.has('ArrowDown') || input.pressed.has('KeyS')) {
+    if (inputMap.isPressed(input, GameButton.DOWN)) {
       this.selectedIndex = Math.min(this.menuOptions.length - 1, this.selectedIndex + 1);
     }
 
-    // Select
-    if (input.pressed.has('Enter') || input.pressed.has('KeyZ') || input.pressed.has('Space')) {
+    // Select (GBA: A_BUTTON only, not Start)
+    if (inputMap.isPressed(input, GameButton.A)) {
       const selected = this.menuOptions[this.selectedIndex];
       if (selected.enabled && selected.action !== 'options') {
         console.log('[MainMenuState] Selected:', selected.label);
@@ -239,8 +240,8 @@ export class MainMenuState implements StateRenderer {
       }
     }
 
-    // Back to title
-    if (input.pressed.has('Escape') || input.pressed.has('KeyX')) {
+    // Back to title (GBA: B_BUTTON)
+    if (inputMap.isPressed(input, GameButton.B)) {
       return { to: GameState.TITLE_SCREEN };
     }
 

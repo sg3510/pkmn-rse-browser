@@ -60,8 +60,8 @@ export function renderNPCs(
   ctx.imageSmoothingEnabled = false;
 
   for (const npc of npcs) {
-    // Skip invisible NPCs
-    if (!npc.visible) continue;
+    // Skip invisible NPCs or sprite-hidden NPCs (MOVEMENT_TYPE_INVISIBLE)
+    if (!npc.visible || npc.spriteHidden) continue;
 
     // Get NPC's sprite priority based on their elevation
     // This matches GBA behavior: sElevationToPriority[elevation]
@@ -220,8 +220,8 @@ export function renderNPCReflections(
   if (npcs.length === 0) return;
 
   for (const npc of npcs) {
-    // Skip invisible NPCs
-    if (!npc.visible) continue;
+    // Skip invisible NPCs or sprite-hidden NPCs (MOVEMENT_TYPE_INVISIBLE)
+    if (!npc.visible || npc.spriteHidden) continue;
 
     // Get sprite
     const sprite = npcSpriteCache.get(npc.graphicsId);
@@ -346,8 +346,8 @@ export function renderNPCGrassEffects(
   ctx.imageSmoothingEnabled = false;
 
   for (const npc of npcs) {
-    // Skip invisible NPCs
-    if (!npc.visible) continue;
+    // Skip invisible NPCs or sprite-hidden NPCs (MOVEMENT_TYPE_INVISIBLE)
+    if (!npc.visible || npc.spriteHidden) continue;
 
     // Calculate the tile where the NPC visually appears
     // During walking: tileX/tileY is DESTINATION, but visual position is SOURCE

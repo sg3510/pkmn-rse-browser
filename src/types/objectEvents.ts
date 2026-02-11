@@ -145,6 +145,8 @@ export interface NPCObject {
   flag: string;
   /** Whether this NPC is currently visible (derived from flag state) */
   visible: boolean;
+  /** Whether the sprite is hidden (MOVEMENT_TYPE_INVISIBLE). NPC still blocks tile and responds to interaction. */
+  spriteHidden: boolean;
 
   // Movement state fields (updated by NPCMovementEngine)
 

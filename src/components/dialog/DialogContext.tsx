@@ -26,6 +26,7 @@ import type {
   UseDialogReturn,
 } from './types';
 import { DEFAULT_CONFIG, TEXT_SPEED_DELAYS } from './types';
+import { inputMap, GameButton } from '../../core/InputMap';
 import { paginateDialogText } from './textPagination';
 
 // === Reducer ===
@@ -462,7 +463,8 @@ export function useDialog(): UseDialogReturn {
       const { config, dispatch, getResolve, setResolve } = context;
 
       if (state.type === 'editing') {
-        if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'KeyX') {
+        // Submit: A button or NumpadEnter (special case for text entry)
+        if (inputMap.matchesCode(e.code, GameButton.A) || e.code === 'NumpadEnter') {
           e.preventDefault();
           e.stopPropagation();
 
@@ -482,7 +484,8 @@ export function useDialog(): UseDialogReturn {
           return;
         }
 
-        if (e.code === 'Escape' && (textInput?.cancelable ?? true)) {
+        // Cancel: B button
+        if (inputMap.matchesCode(e.code, GameButton.B) && (textInput?.cancelable ?? true)) {
           e.preventDefault();
           e.stopPropagation();
           dispatch({ type: 'CANCEL' });
@@ -525,8 +528,8 @@ export function useDialog(): UseDialogReturn {
         return;
       }
 
-      // Advance keys (Space, Enter, X)
-      if (config.advanceKeys.includes(e.code)) {
+      // Advance keys (A button)
+      if (inputMap.matchesCode(e.code, ...config.advanceKeys)) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -569,12 +572,37 @@ export function useDialog(): UseDialogReturn {
         return;
       }
 
-      // Cancel keys (Escape, Z)
-      if (config.cancelKeys.includes(e.code)) {
+      // Cancel keys (B button)
+      // GBA behavior: B advances text like A, but cancels choices instead of confirming
+      if (inputMap.matchesCode(e.code, ...config.cancelKeys)) {
         e.preventDefault();
         e.stopPropagation();
 
-        if (state.type === 'choosing' && options?.cancelable) {
+        if (state.type === 'printing') {
+          if (config.allowSkip) {
+            dispatch({ type: 'COMPLETE_TEXT' });
+          }
+        } else if (state.type === 'scrolling') {
+          dispatch({ type: 'FINISH_SCROLL' });
+        } else if (state.type === 'waiting') {
+          const isLastMessage = state.messageIndex === (messages?.length ?? 1) - 1;
+          if (!isLastMessage) {
+            const nextMsg = messages?.[state.messageIndex + 1];
+            if (nextMsg?.transition === 'scroll') {
+              dispatch({ type: 'START_SCROLL' });
+            } else {
+              dispatch({ type: 'NEXT_MESSAGE' });
+            }
+          } else if (!options) {
+            // B closes dialog at end (same as A), but does NOT open choices
+            dispatch({ type: 'CLOSE' });
+            const resolve = getResolve();
+            if (resolve) {
+              resolve(undefined);
+              setResolve(null);
+            }
+          }
+        } else if (state.type === 'choosing' && options?.cancelable) {
           dispatch({ type: 'CANCEL' });
           const resolve = getResolve();
           if (resolve) {
@@ -585,16 +613,16 @@ export function useDialog(): UseDialogReturn {
         return;
       }
 
-      // Arrow keys for menu navigation
+      // D-pad for menu navigation
       if (state.type === 'choosing' && options) {
-        if (e.code === 'ArrowUp') {
+        if (inputMap.matchesCode(e.code, GameButton.UP)) {
           e.preventDefault();
           e.stopPropagation();
           const newIndex = Math.max(0, state.selectedIndex - 1);
           dispatch({ type: 'SELECT_OPTION', index: newIndex });
           options.onSelectionChange?.(newIndex);
         }
-        if (e.code === 'ArrowDown') {
+        if (inputMap.matchesCode(e.code, GameButton.DOWN)) {
           e.preventDefault();
           e.stopPropagation();
           const newIndex = Math.min(options.choices.length - 1, state.selectedIndex + 1);

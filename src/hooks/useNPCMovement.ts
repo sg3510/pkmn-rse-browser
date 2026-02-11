@@ -203,7 +203,7 @@ export function useNPCMovement(
     if (!p?.fieldEffectManager || !p?.getTileBehavior) return;
 
     for (const npc of npcs) {
-      if (!npc.visible) continue;
+      if (!npc.visible || npc.spriteHidden) continue;
 
       const behavior = p.getTileBehavior(npc.tileX, npc.tileY);
       if (behavior !== undefined) {
@@ -245,7 +245,7 @@ export function useNPCMovement(
     }>();
 
     for (const npc of npcs) {
-      if (!npc.visible) continue;
+      if (!npc.visible || npc.spriteHidden) continue;
 
       // Calculate previous tile from subTile offset
       let prevTileX = npc.tileX;

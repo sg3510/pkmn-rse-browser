@@ -1,0 +1,1186 @@
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 6 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [NPCMovement] Handlers registered
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+(index):1 Failed to decode downloaded font: http://localhost:5173/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+(index):1 Failed to decode downloaded font: http://localhost:5173/fonts/pokemon-emerald-pro.otf
+(index):1 OTS parsing error: CFF : Failed to parse Name INDEX data
+CFF : Failed to parse table
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+ [StateRenderLoop] First frame rendered
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] Loading Rayquaza OBJ: 13%
+ [TitleScreenState] Loading Rayquaza OBJ: 13%
+ [TitleScreenState] Loading Rayquaza OBJ: 26%
+ [TitleScreenState] Loading Rayquaza OBJ: 26%
+ [TitleScreenState] Loading Rayquaza OBJ: 39%
+ [TitleScreenState] Loading Rayquaza OBJ: 39%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] Ready, scale: 1
+ [TitleScreenState] Ready, scale: 1
+ [GamePage] State changed to: TITLE_SCREEN
+ [GamePage] State changed to: TITLE_SCREEN
+ [GameStateManager] Exiting state: TITLE_SCREEN
+ [TitleScreenState] Exiting...
+ [GameStateManager] Entering state: MAIN_MENU
+ [MainMenuState] Entered
+ [MainMenuState] Found save: Object
+ [GamePage] State changed to: MAIN_MENU
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Starting render loop for state: MAIN_MENU
+ [StateRenderLoop] First frame rendered
+MainMenuState.ts:212 [MainMenuState] Selected: CONTINUE
+BagManager.ts:171 [BagManager] Loaded bag state: Object
+SaveManager.ts:199 [SaveManager] Loaded 6 Pokemon from party
+SaveManager.ts:207 [SaveManager] Loaded save from slot 0
+MainMenuState.ts:225 [MainMenuState] Continuing game: Object
+BagManager.ts:171 [BagManager] Loaded bag state: Object
+SaveManager.ts:199 [SaveManager] Loaded 6 Pokemon from party
+SaveManager.ts:207 [SaveManager] Loaded save from slot 0
+GameStateManager.ts:114 [GameStateManager] Exiting state: MAIN_MENU
+MainMenuState.ts:91 [MainMenuState] Exited
+GameStateManager.ts:119 [GameStateManager] Entering state: OVERWORLD
+OverworldState.ts:36 [OverworldState] Entered Object
+OverworldState.ts:42 [OverworldState] Continuing from saved location: Object
+logger.ts:56 [GamePage] State changed to: OVERWORLD
+useStateMachineRenderLoop.ts:102 [StateRenderLoop] Cleanup
+useStateMachineRenderLoop.ts:27 [StateRenderLoop] Skipping - in OVERWORLD state
+useOverworldContinueLocation.ts:52 [GamePage] Got saved location from Continue: Object
+useOverworldContinueLocation.ts:61 [GamePage] Changing map to saved location: MAP_ROUTE114
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_BREAKABLE_ROCK using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/breakable_rock.png
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_BERRY_TREE (tried /pokeemerald/graphics/object_events/pics/people/berry_tree.png, /pokeemerald/graphics/object_events/pics/misc/berry_tree.png, /pokeemerald/graphics/object_events/pics/pokemon/berry_tree.png)
+overrideMethod @ installHook.js:1
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(2)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=0, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 1
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+loadSelectedOverworldMap.ts:197 [GamePage] Spawning player at saved position: Object
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_CUTTABLE_TREE using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/cuttable_tree.png
+overrideMethod @ installHook.js:1
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(3)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=2, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:106 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 2
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+GamePage.tsx:1414 [CoordEvent] Firing: PetalburgCity_EventScript_Scott3 at (4,13) var=VAR_SCOTT_PETALBURG_ENCOUNTER=0
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: PetalburgCity_EventScript_Scott3
+installHook.js:1 [StoryScript] lockInput caller for: PetalburgCity_EventScript_Scott3
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1415
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+PlayerController.ts:680 [INPUT] lockInput() called at tile(4,13) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1415
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(13,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(12,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(11,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(10,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(9,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(8,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(7,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(6,13)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=face pos=(4,13) isMoving=false inputLocked=true
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=right mode=face pos=(5,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=face pos=(5,13)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=up mode=walk pos=(5,13)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=up mode=face pos=(4,13) isMoving=false inputLocked=true
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(5,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(4,12)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=left mode=face pos=(4,13) isMoving=false inputLocked=true
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(3,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(2,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(1,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(0,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(-1,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(-2,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(-3,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(-4,12)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_PETALBURG_SCOTT dir=left mode=walk pos=(-5,12)
+useHandledStoryScript.ts:514 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:521 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:524 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:697 [INPUT] unlockInput() called at tile(4,13) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:698
+(anonymous) @ useHandledStoryScript.ts:525
+GamePage.tsx:1283 [ON_FRAME] Triggered: map=MAP_ROUTE104 script=Route104_EventScript_StartSailToDewford var=VAR_BOARD_BRINEY_BOAT_STATE value=1
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: Route104_EventScript_StartSailToDewford
+installHook.js:1 [StoryScript] lockInput caller for: Route104_EventScript_StartSailToDewford
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1287
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+PlayerController.ts:680 [INPUT] lockInput() called at tile(-1,13) wasLocked=false moving=true
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1287
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+installHook.js:1 [ScriptRunner] Unknown command: setobjectsubpriority (3) ['LOCALID_ROUTE104_BRINEY', 'MAP_ROUTE104', 0]
+overrideMethod @ installHook.js:1
+runCommands @ ScriptRunner.ts:912
+execute @ ScriptRunner.ts:235
+(anonymous) @ useHandledStoryScript.ts:510
+await in (anonymous)
+renderLoop @ GamePage.tsx:1287
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+installHook.js:1 [ScriptRunner] Unknown command: setobjectsubpriority (3) ['LOCALID_PLAYER', 'MAP_ROUTE104', 0]
+overrideMethod @ installHook.js:1
+runCommands @ ScriptRunner.ts:912
+execute @ ScriptRunner.ts:235
+(anonymous) @ useHandledStoryScript.ts:510
+await in (anonymous)
+renderLoop @ GamePage.tsx:1287
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+requestAnimationFrame
+renderLoop @ GamePage.tsx:1958
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_ROUTE104_BRINEY dir=down mode=walk pos=(-28,1)
+useHandledStoryScript.ts:255 [moveNpcStep] LOCALID_ROUTE104_BRINEY dir=down mode=walk pos=(-28,2)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=left mode=walk pos=(-1,13) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,13)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,13) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,14)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,14) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,15)
+installHook.js:1 [ScriptRunner] call target not found: Common_EventScript_PlayBrineysBoatMusic
+overrideMethod @ installHook.js:1
+runCommands @ ScriptRunner.ts:282
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+runCommands @ ScriptRunner.ts:591
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,15) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+installHook.js:1 [moveNpcStep] NPC not found: MAP_ROUTE104/LOCALID_ROUTE104_BOAT
+overrideMethod @ installHook.js:1
+moveNpcStep @ useHandledStoryScript.ts:252
+executeMovement @ ScriptRunner.ts:1072
+await in executeMovement
+runCommands @ ScriptRunner.ts:591
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(-2,16)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,16) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(-2,17)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,17) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,18)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,18) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(-2,19)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,19) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,20)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,20) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,21)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,21) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,22)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,22) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(-2,23)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,23) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,24)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,24) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(-2,25)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(-2,25) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(-2,26)
+ [movePlayerStep] dir=down mode=walk pos=(-2,26) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=14 isMoving=false pos=(-2,27)
+ [movePlayerStep] dir=down mode=walk pos=(-2,27) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=14 isMoving=false pos=(-2,28)
+ [movePlayerStep] dir=down mode=walk pos=(-2,28) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=16 isMoving=false pos=(-2,29)
+ [movePlayerStep] dir=down mode=walk pos=(-2,29) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=14 isMoving=false pos=(-2,30)
+ [movePlayerStep] dir=down mode=walk pos=(-2,30) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true
+ [movePlayerStep] done guard=13 isMoving=false pos=(-2,31)
+ [movePlayerStep] dir=down mode=walk pos=(-2,31) isMoving=false inputLocked=true
+ [movePlayerStep] forceMove=true isMoving=true

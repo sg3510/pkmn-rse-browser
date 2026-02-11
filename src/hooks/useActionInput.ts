@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useInput } from './useInput';
+import { inputMap, GameButton } from '../core/InputMap';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
 import type { ScriptObject, NPCObject } from '../types/objectEvents';
@@ -41,7 +42,7 @@ export function useActionInput({
 
   const handleActionKeyDown = useCallback(async (e: KeyboardEvent) => {
     if (!enabled) return;
-    if (e.code !== 'KeyX') return;
+    if (!inputMap.matchesCode(e.code, GameButton.A)) return;
 
     const player = playerControllerRef.current;
     if (!player) return;

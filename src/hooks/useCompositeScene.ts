@@ -185,7 +185,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       };
 
       // Build set of NPC IDs for separating player vs NPC effects
-      const npcIds = new Set(npcs.filter(n => n.visible).map(n => n.id));
+      const npcIds = new Set(npcs.filter(n => n.visible && !n.spriteHidden).map(n => n.id));
 
       // Render PLAYER field effects behind player (using SpriteBatcher for layer decision)
       // NPC effects are rendered separately right after each NPC
@@ -206,7 +206,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
         // Render NPC grass effects for NPCs behind player (grass ON TOP of each NPC)
         for (const npc of npcs) {
-          if (!npc.visible) continue;
+          if (!npc.visible || npc.spriteHidden) continue;
           // Only for NPCs in bottom layer (Y < player)
           if (npc.tileY >= player.tileY) continue;
           // Render grass effects for this NPC
@@ -290,7 +290,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
         // Render NPC grass effects for NPCs in front of player (grass ON TOP of each NPC)
         for (const npc of npcs) {
-          if (!npc.visible) continue;
+          if (!npc.visible || npc.spriteHidden) continue;
           // Only for NPCs in top layer (Y >= player)
           if (npc.tileY < player.tileY) continue;
           // Render grass effects for this NPC

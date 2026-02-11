@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { inputMap } from '../core/InputMap';
 
 export interface UseInputOptions {
   onKeyDown?: (event: KeyboardEvent, pressed: Record<string, boolean>) => void;
@@ -7,26 +8,8 @@ export interface UseInputOptions {
   target?: Window | Document;
 }
 
-const DEFAULT_PREVENT_KEYS = new Set([
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-  'w',
-  'W',
-  'a',
-  'A',
-  's',
-  'S',
-  'd',
-  'D',
-  'z',
-  'Z',
-  'x',
-  'X',
-  ' ',
-  'Enter',
-]);
+/** Derived from InputMap bindings (e.code values) */
+const DEFAULT_PREVENT_KEYS = inputMap.getAllCodes();
 
 /**
  * useInput - tracks pressed keys and exposes change callbacks.
@@ -51,28 +34,28 @@ export function useInput(options: UseInputOptions = {}): {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (preventKeys.has(e.key)) {
+      if (preventKeys.has(e.code)) {
         e.preventDefault();
       }
-      if (pressedRef.current[e.key]) {
+      if (pressedRef.current[e.code]) {
         onKeyDown?.(e, pressedRef.current);
         return;
       }
-      pressedRef.current = { ...pressedRef.current, [e.key]: true };
+      pressedRef.current = { ...pressedRef.current, [e.code]: true };
       setPressedKeys(pressedRef.current);
       onKeyDown?.(e, pressedRef.current);
     };
 
     const up = (e: KeyboardEvent) => {
-      if (preventKeys.has(e.key)) {
+      if (preventKeys.has(e.code)) {
         e.preventDefault();
       }
-      if (!pressedRef.current[e.key]) {
+      if (!pressedRef.current[e.code]) {
         onKeyUp?.(e, pressedRef.current);
         return;
       }
       const next = { ...pressedRef.current };
-      delete next[e.key];
+      delete next[e.code];
       pressedRef.current = next;
       setPressedKeys(next);
       onKeyUp?.(e, pressedRef.current);

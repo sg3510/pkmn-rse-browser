@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { menuStateManager, type MenuState, type MenuType } from '../MenuStateManager';
+import { inputMap, GameButton } from '../../core/InputMap';
 
 /**
  * Hook to subscribe to menu state changes
@@ -71,45 +72,45 @@ export function useMenuInput(options: {
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Confirm: Enter, X
-      if (e.code === 'Enter' || e.code === 'KeyX') {
+      // Confirm: A button
+      if (inputMap.matchesCode(e.code, GameButton.A)) {
         e.preventDefault();
         e.stopPropagation();
         onConfirm?.();
         return;
       }
 
-      // Cancel: Escape, Z
-      if (e.code === 'Escape' || e.code === 'KeyZ') {
+      // Cancel: B button
+      if (inputMap.matchesCode(e.code, GameButton.B)) {
         e.preventDefault();
         e.stopPropagation();
         onCancel?.();
         return;
       }
 
-      // Navigation
-      if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+      // Navigation: D-pad
+      if (inputMap.matchesCode(e.code, GameButton.UP)) {
         e.preventDefault();
         e.stopPropagation();
         onUp?.();
         return;
       }
 
-      if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+      if (inputMap.matchesCode(e.code, GameButton.DOWN)) {
         e.preventDefault();
         e.stopPropagation();
         onDown?.();
         return;
       }
 
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'KeyQ') {
+      if (inputMap.matchesCode(e.code, GameButton.LEFT)) {
         e.preventDefault();
         e.stopPropagation();
         onLeft?.();
         return;
       }
 
-      if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'KeyE') {
+      if (inputMap.matchesCode(e.code, GameButton.RIGHT)) {
         e.preventDefault();
         e.stopPropagation();
         onRight?.();

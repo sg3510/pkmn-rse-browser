@@ -28,6 +28,15 @@ interface PendingScriptedWarpLike {
   phase: 'pending' | 'fading' | 'loading';
 }
 
+const SCRIPTED_TRAINER_BATTLES: Record<string, { species: number; level: number }> = {
+  TRAINER_MAY_ROUTE_103_TREECKO: { species: SPECIES.TORCHIC, level: 5 },
+  TRAINER_MAY_ROUTE_103_TORCHIC: { species: SPECIES.MUDKIP, level: 5 },
+  TRAINER_MAY_ROUTE_103_MUDKIP: { species: SPECIES.TREECKO, level: 5 },
+  TRAINER_BRENDAN_ROUTE_103_TREECKO: { species: SPECIES.TORCHIC, level: 5 },
+  TRAINER_BRENDAN_ROUTE_103_TORCHIC: { species: SPECIES.MUDKIP, level: 5 },
+  TRAINER_BRENDAN_ROUTE_103_MUDKIP: { species: SPECIES.TREECKO, level: 5 },
+};
+
 export interface UseHandledStoryScriptParams {
   showMessage: StoryScriptContext['showMessage'];
   showChoice: StoryScriptContext['showChoice'];
@@ -241,6 +250,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         const npc = objectManager.getNPCByLocalId(mapId, localId);
         if (!npc) {
           console.warn(`[moveNpcStep] NPC not found: ${mapId}/${localId}`);
+          await waitFrames(1);
           return;
         }
         console.log(`[moveNpcStep] ${localId} dir=${direction} mode=${mode} pos=(${npc.tileX},${npc.tileY})`);
@@ -325,6 +335,25 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       const isPlayerLocalId = (localId: string): boolean =>
         localId === 'LOCALID_PLAYER' || localId === '255';
 
+      const buildReturnLocation = (): LocationState => {
+        const worldManager = worldManagerRef.current;
+        const currentMap = worldManager?.findMapAtPosition(player.tileX, player.tileY);
+        const returnMapId = currentMap?.entry.id ?? selectedMapId;
+        return buildLocationStateFromPlayer(player, returnMapId);
+      };
+
+      const waitForBattleToEnd = async (): Promise<void> => {
+        if (!stateManager) return;
+        let guard = 0;
+        while (stateManager.getCurrentState() === GameState.BATTLE && guard < 72000) {
+          await waitFrames(1);
+          guard++;
+        }
+        if (guard >= 72000) {
+          console.warn('[StoryScript] Timed out waiting for battle to end.');
+        }
+      };
+
       const scriptCtx: StoryScriptContext = {
         showMessage,
         showChoice,
@@ -337,18 +366,36 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         startFirstBattle: async (starter: PartyPokemon) => {
           if (!stateManager) return;
 
-          const worldManager = worldManagerRef.current;
-          const currentMap = worldManager?.findMapAtPosition(player.tileX, player.tileY);
-          const returnMapId = currentMap?.entry.id ?? selectedMapId;
-          const returnLocation = buildLocationStateFromPlayer(player, returnMapId);
-
           await stateManager.transitionTo(GameState.BATTLE, {
             playerPokemon: starter,
             wildSpecies: SPECIES.POOCHYENA,
             wildLevel: 2,
             firstBattle: true,
-            returnLocation,
+            returnLocation: buildReturnLocation(),
           });
+          await waitForBattleToEnd();
+        },
+        startTrainerBattle: async (trainerId: string) => {
+          if (!stateManager) return;
+          const battle = SCRIPTED_TRAINER_BATTLES[trainerId];
+          if (!battle) {
+            console.warn(`[StoryScript] Unmapped trainer battle: ${trainerId}`);
+            return;
+          }
+
+          const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
+          if (!lead) {
+            console.warn('[StoryScript] Cannot start trainer battle without a party Pokemon.');
+            return;
+          }
+
+          await stateManager.transitionTo(GameState.BATTLE, {
+            playerPokemon: lead,
+            wildSpecies: battle.species,
+            wildLevel: battle.level,
+            returnLocation: buildReturnLocation(),
+          });
+          await waitForBattleToEnd();
         },
         queueWarp: (mapId, x, y, direction) => {
           pendingSavedLocationRef.current = {
@@ -436,8 +483,14 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         setNpcMovementType: (mapId, localId, movementTypeRaw) => {
           objectEventManagerRef.current.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
         },
+        setSpriteHidden: (mapId, localId, hidden) => {
+          objectEventManagerRef.current.setNPCSpriteHiddenByLocalId(mapId, localId, hidden);
+        },
         showYesNo,
         getParty: () => saveManager.getParty(),
+        hasNpc: (mapId, localId) => {
+          return objectEventManagerRef.current.getNPCByLocalId(mapId, localId) != null;
+        },
       };
 
       let handled = false;

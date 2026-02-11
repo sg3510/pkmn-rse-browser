@@ -14,6 +14,11 @@ import type { StoryScriptContext } from '../game/NewGameFlow';
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { setDynamicWarpTarget } from '../game/DynamicWarp';
+import {
+  setDynamicObjectGfxVar,
+  getDynamicObjectGfxVar,
+  clearDynamicObjectGfxVar,
+} from '../game/DynamicObjectGfx';
 import { getSpeciesName } from '../data/species';
 import { getItemId, getItemName } from '../data/items';
 import { bagManager } from '../game/BagManager';
@@ -58,6 +63,14 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'DIR_NORTH') return 2;
   if (val === 'DIR_WEST') return 3;
   if (val === 'DIR_EAST') return 4;
+  // Battle outcome constants (include/constants/battle.h)
+  if (val === 'B_OUTCOME_WON') return 1;
+  if (val === 'B_OUTCOME_LOST') return 2;
+  if (val === 'B_OUTCOME_DREW') return 3;
+  if (val === 'B_OUTCOME_RAN') return 4;
+  if (val === 'B_OUTCOME_PLAYER_TELEPORTED') return 5;
+  if (val === 'B_OUTCOME_MON_FLED') return 6;
+  if (val === 'B_OUTCOME_CAUGHT') return 7;
   // Metatile labels
   if (val in METATILE_LABELS) return METATILE_LABELS[val];
   return val;
@@ -159,6 +172,16 @@ export class ScriptRunner {
     for (const src of this.sources) {
       if (label in src.scripts) return src.scripts[label];
     }
+    // Built-in scripts not in generated data (from event_scripts.s)
+    if (label === 'Common_EventScript_RemoveStaticPokemon') {
+      return [
+        { cmd: 'fadescreen', args: [1] },
+        { cmd: 'removeobject', args: ['VAR_LAST_TALKED'] },
+        { cmd: 'fadescreen', args: [0] },
+        { cmd: 'release' },
+        { cmd: 'end' },
+      ];
+    }
     return null;
   }
 
@@ -219,6 +242,8 @@ export class ScriptRunner {
   private async runCommands(commands: ScriptCommand[]): Promise<void> {
     let ip = 0;
     const callStack: { commands: ScriptCommand[]; ip: number }[] = [];
+    let switchValue: number | null = null;
+    let switchMatched = false;
 
     while (ip < commands.length) {
       const { cmd, args = [] } = commands[ip];
@@ -260,6 +285,28 @@ export class ScriptRunner {
           callStack.push({ commands, ip });
           commands = target;
           ip = 0;
+          break;
+        }
+
+        case 'switch':
+          switchValue = this.resolveVarOrConst(args[0]);
+          switchMatched = false;
+          break;
+
+        case 'case': {
+          if (switchValue === null || switchMatched) break;
+          const caseVal = this.resolveVarOrConst(args[0]);
+          if (switchValue === caseVal) {
+            const label = asString(args[1]);
+            const target = this.findScript(label);
+            if (!target) {
+              console.warn(`[ScriptRunner] case target not found: ${label}`);
+              break;
+            }
+            switchMatched = true;
+            commands = target;
+            ip = 0;
+          }
           break;
         }
 
@@ -488,6 +535,9 @@ export class ScriptRunner {
           if (typeof rawValue === 'string' && rawValue.startsWith('LOCALID_')) {
             this.localStringVars.set(varName, rawValue);
           }
+          if (typeof rawValue === 'string' && rawValue.startsWith('OBJ_EVENT_GFX_')) {
+            setDynamicObjectGfxVar(varName, rawValue);
+          }
           const value = this.resolveVarOrConst(rawValue);
           gameVariables.setVar(varName, value);
           break;
@@ -503,6 +553,14 @@ export class ScriptRunner {
         case 'copyvar': {
           const dest = asString(args[0]);
           const src = asString(args[1]);
+          if (dest.startsWith('VAR_OBJ_GFX_ID_') && src.startsWith('VAR_OBJ_GFX_ID_')) {
+            const srcGfx = getDynamicObjectGfxVar(src);
+            if (srcGfx) {
+              setDynamicObjectGfxVar(dest, srcGfx);
+            } else {
+              clearDynamicObjectGfxVar(dest);
+            }
+          }
           gameVariables.setVar(dest, this.getVar(src));
           break;
         }
@@ -524,6 +582,17 @@ export class ScriptRunner {
         case 'applymovement': {
           const objectId = asString(args[0]);
           const movementLabel = asString(args[1]);
+          const resolvedObjId = this.resolveObjectId(objectId);
+          const isPlayerObj = resolvedObjId === 'LOCALID_PLAYER' || resolvedObjId === '255';
+          // Pre-check: if targeting an NPC that doesn't exist, skip entirely
+          if (!isPlayerObj && this.ctx.hasNpc) {
+            if (!this.ctx.hasNpc(this.currentMapId, resolvedObjId)) {
+              console.warn(`[ScriptRunner] applymovement skipped: NPC ${resolvedObjId} not found on ${this.currentMapId}`);
+              // Store a resolved promise so waitmovement doesn't hang
+              this.pendingMovements.set(objectId, Promise.resolve());
+              break;
+            }
+          }
           const steps = this.findMovement(movementLabel);
           if (!steps) {
             console.warn(`[ScriptRunner] Movement not found: ${movementLabel}`);
@@ -791,6 +860,55 @@ export class ScriptRunner {
           break;
         }
 
+        case 'trainerbattle_no_intro': {
+          const trainerId = asString(args[0]);
+          if (this.ctx.startTrainerBattle) {
+            await this.ctx.startTrainerBattle(trainerId);
+          } else {
+            console.warn(`[ScriptRunner] trainerbattle_no_intro not available in context: ${trainerId}`);
+          }
+
+          const defeatTextLabel = args.length > 1 ? asString(args[1]) : null;
+          if (defeatTextLabel) {
+            const rawText = this.findText(defeatTextLabel);
+            if (rawText) {
+              await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
+            }
+          }
+          break;
+        }
+
+        // --- checkitem: check if player has an item in bag ---
+        case 'checkitem': {
+          const itemConstant = asString(args[0]);
+          const checkItemId = getItemId(itemConstant);
+          if (checkItemId && checkItemId > 0 && bagManager.hasItem(checkItemId)) {
+            gameVariables.setVar('VAR_RESULT', 1); // TRUE
+          } else {
+            gameVariables.setVar('VAR_RESULT', 0); // FALSE
+          }
+          break;
+        }
+
+        // --- setwildbattle: store species/level for upcoming wild battle ---
+        case 'setwildbattle': {
+          const species = asString(args[0]);
+          const level = asNumber(args[1]);
+          console.log(`[ScriptRunner] setwildbattle: ${species} lv${level} (stub — no battle system)`);
+          break;
+        }
+
+        // --- dowildbattle: initiate wild battle (stub: auto-win) ---
+        case 'dowildbattle':
+          console.log('[ScriptRunner] dowildbattle: auto-win (no battle system yet)');
+          await this.ctx.delayFrames(16); // Brief pause to simulate battle
+          break;
+
+        // --- fadescreenswapbuffers: alias for fadescreen ---
+        case 'fadescreenswapbuffers':
+          await this.ctx.delayFrames(16);
+          break;
+
         // --- Commands that are parsed but not yet implemented ---
         case 'setstepcallback':
         case 'setrespawn':
@@ -865,13 +983,17 @@ export class ScriptRunner {
       }
 
       // --- Visibility toggling ---
+      // For NPCs, set_invisible/set_visible toggle spriteHidden (sprite only, NPC still blocks).
+      // For player, toggle full visibility.
       if (step === 'set_invisible') {
         if (isPlayer) this.ctx.setPlayerVisible(false);
+        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(this.currentMapId, resolvedId, true);
         else this.ctx.setNpcVisible(this.currentMapId, resolvedId, false);
         continue;
       }
       if (step === 'set_visible') {
         if (isPlayer) this.ctx.setPlayerVisible(true);
+        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(this.currentMapId, resolvedId, false);
         else this.ctx.setNpcVisible(this.currentMapId, resolvedId, true);
         continue;
       }
@@ -988,6 +1110,9 @@ export class ScriptRunner {
       case 'GetPlayerBigGuyGirlString':
         stringVars['STR_VAR_1'] = this.ctx.getPlayerGender() === 0 ? 'big guy' : 'big girl';
         return undefined;
+      case 'GetBattleOutcome':
+        // Return B_OUTCOME_WON (1) — no battle system yet, auto-win
+        return 1;
       default:
         console.warn(`[ScriptRunner] Unimplemented special: ${name}`);
         return undefined;

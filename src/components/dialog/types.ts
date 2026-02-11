@@ -12,6 +12,8 @@
  * - Lines visible: 2 at a time, scrolls for overflow
  */
 
+import { GameButton } from '../../core/InputMap';
+
 // === Core Constants ===
 
 /** Base tile size in pixels (GBA standard) */
@@ -80,10 +82,10 @@ export interface DialogConfig {
   shadowColor: string;
   /** Font family (default: "Pokemon Emerald") */
   fontFamily: string;
-  /** Keys to advance/confirm (default: Space, Enter, X) */
-  advanceKeys: string[];
-  /** Keys to cancel (default: Escape, Z) */
-  cancelKeys: string[];
+  /** Buttons to advance/confirm (default: A) */
+  advanceKeys: GameButton[];
+  /** Buttons to cancel (default: B) */
+  cancelKeys: GameButton[];
   /** Allow skipping text animation */
   allowSkip: boolean;
   /** Scroll animation duration in ms */
@@ -96,8 +98,8 @@ export const DEFAULT_CONFIG: DialogConfig = {
   textColor: '#303030',
   shadowColor: '#a8a8a8',
   fontFamily: '"Pokemon Emerald", "Pokemon RS", monospace',
-  advanceKeys: ['Space', 'Enter', 'KeyX'],
-  cancelKeys: ['Escape', 'KeyZ'],
+  advanceKeys: [GameButton.A],
+  cancelKeys: [GameButton.B],
   allowSkip: true,
   scrollDurationMs: 150,
 };

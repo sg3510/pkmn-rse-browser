@@ -188,7 +188,7 @@ export function buildSpriteBatches(
 
   // --- Add NPCs ---
   for (const npc of npcs) {
-    if (!npc.visible) continue;
+    if (!npc.visible || npc.spriteHidden) continue;
 
     // Include subTileY offset for smooth Y-sorting during movement
     const subTileY = npc.subTileY ?? 0;
@@ -219,7 +219,7 @@ export function buildSpriteBatches(
   // Build a map of NPC positions for owner-relative sorting
   const npcPositions = new Map<string, { feetY: number; sortKey: number }>();
   for (const npc of npcs) {
-    if (!npc.visible) continue;
+    if (!npc.visible || npc.spriteHidden) continue;
     const subTileY = npc.subTileY ?? 0;
     const npcFeetY = getNPCFeetY(npc.tileY) + subTileY;
     const npcSortKey = calculateSortKey(npcFeetY, DEFAULT_SPRITE_SUBPRIORITY);

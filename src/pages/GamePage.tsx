@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { GameState, GameStateManager } from '../core';
+import { inputMap, GameButton } from '../core/InputMap';
 import {
   createTitleScreenState,
   createMainMenuState,
@@ -60,7 +61,7 @@ import {
   getGlobalShimmer,
   type ReflectionMetaProvider,
 } from '../field/ReflectionRenderer';
-import { resolveTileAt, type WarpTrigger } from '../components/map/utils';
+import { resolveTileAt, describeTile, type WarpTrigger } from '../components/map/utils';
 import { processWarpTrigger, updateWarpHandlerTile } from '../game/WarpTriggerProcessor';
 import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../game/DoorSequenceRunner';
 import type { ReflectionState } from '../components/map/types';
@@ -78,6 +79,7 @@ import {
   getReflectionTileGridDebug,
   type DebugOptions,
   type DebugState,
+  type DebugTileInfo,
   type WebGLDebugState,
   type PlayerDebugInfo,
   type ReflectionTileGridDebugInfo,
@@ -318,6 +320,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const stateCanvasRef = useRef<HTMLCanvasElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Debug tile refs
+  const debugCanvasRef = useRef<HTMLCanvasElement>(null);
+  const bottomLayerCanvasRef = useRef<HTMLCanvasElement>(null);
+  const topLayerCanvasRef = useRef<HTMLCanvasElement>(null);
+  const compositeLayerCanvasRef = useRef<HTMLCanvasElement>(null);
+  const debugTilesRef = useRef<DebugTileInfo[]>([]);
+  const [centerTileInfo, setCenterTileInfo] = useState<DebugTileInfo | null>(null);
+
   // Pipeline and state refs
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
   const spriteRendererRef = useRef<WebGLSpriteRenderer | null>(null);
@@ -502,8 +512,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // Don't open if menu is already open
       if (menuStateManager.isMenuOpen()) return;
 
-      // Enter key opens menu
-      if (e.code === 'Enter') {
+      // START button opens menu
+      if (inputMap.matchesCode(e.code, GameButton.START)) {
         e.preventDefault();
         menuStateManager.open('start');
       }
@@ -801,6 +811,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
       const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
       gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
+      // Set VAR_LAST_TALKED to the NPC's local ID so scripts can reference it
+      // (e.g. removeobject VAR_LAST_TALKED after Kecleon flees)
+      if (npc.localId) {
+        const localIdNum = parseInt(npc.localId, 10);
+        if (!isNaN(localIdNum)) {
+          gameVariables.setVar('VAR_LAST_TALKED', localIdNum);
+        }
+      }
       // Only face person NPCs toward the player. Inanimate objects (boxes,
       // boulders, etc.) have a single sprite frame and must not be rotated.
       // In the GBA game `faceplayer` is a script command, but almost every
@@ -924,6 +942,96 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       totalItemCount: objectEventManagerRef.current.getAllItemBalls().length,
     });
   }, [playerDebugInfo]);
+
+  // Compute tile debug info when player moves and debug is enabled
+  useEffect(() => {
+    if (!debugOptions.enabled || !playerDebugInfo) return;
+
+    const snapshot = worldSnapshotRef.current;
+    if (!snapshot) return;
+
+    const renderContext = getRenderContextFromSnapshot(snapshot);
+    if (!renderContext) return;
+
+    const player = playerRef.current;
+    if (!player) return;
+
+    const info = describeTile(renderContext, player.tileX, player.tileY, player);
+    setCenterTileInfo(info.inBounds ? info : null);
+
+    // Render 3x3 debug grid
+    const dbgCanvas = debugCanvasRef.current;
+    const webglCanvas = webglCanvasRef.current;
+    if (dbgCanvas && webglCanvas) {
+      const CELL_SCALE = 3;
+      const CELL_SIZE = 16 * CELL_SCALE;
+      const GRID_SIZE = CELL_SIZE * 3;
+
+      dbgCanvas.width = GRID_SIZE;
+      dbgCanvas.height = GRID_SIZE;
+      const dbgCtx = dbgCanvas.getContext('2d');
+      if (dbgCtx) {
+        dbgCtx.imageSmoothingEnabled = false;
+        dbgCtx.fillStyle = '#111';
+        dbgCtx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
+
+        const viewportPx = viewportPixelSizeRef.current;
+        const camera = cameraRef.current;
+        const cameraWorldX = camera ? Math.round(camera.x - viewportPx.width / 2) : 0;
+        const cameraWorldY = camera ? Math.round(camera.y - viewportPx.height / 2) : 0;
+        const collected: DebugTileInfo[] = [];
+
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const tileX = player.tileX + dx;
+            const tileY = player.tileY + dy;
+            const tileInfo = describeTile(renderContext, tileX, tileY, player);
+            collected.push(tileInfo);
+
+            const destX = (dx + 1) * CELL_SIZE;
+            const destY = (dy + 1) * CELL_SIZE;
+            const screenX = tileX * 16 - cameraWorldX;
+            const screenY = tileY * 16 - cameraWorldY;
+            const visible =
+              screenX + 16 > 0 && screenY + 16 > 0 &&
+              screenX < viewportPx.width && screenY < viewportPx.height;
+
+            if (tileInfo.inBounds && visible) {
+              dbgCtx.drawImage(
+                webglCanvas,
+                screenX, screenY, 16, 16,
+                destX, destY, CELL_SIZE, CELL_SIZE
+              );
+            } else {
+              dbgCtx.fillStyle = '#333';
+              dbgCtx.fillRect(destX, destY, CELL_SIZE, CELL_SIZE);
+            }
+
+            dbgCtx.fillStyle = 'rgba(0,0,0,0.6)';
+            dbgCtx.fillRect(destX, destY, CELL_SIZE, 16);
+            dbgCtx.strokeStyle = dx === 0 && dy === 0 ? '#ff00aa' : 'rgba(255,255,255,0.3)';
+            dbgCtx.lineWidth = 2;
+            dbgCtx.strokeRect(destX + 1, destY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+            dbgCtx.fillStyle = '#fff';
+            dbgCtx.font = '12px monospace';
+            const label = tileInfo.inBounds
+              ? `${tileInfo.metatileId ?? '??'}` + (tileInfo.isReflective ? ' R' : '')
+              : 'OOB';
+            dbgCtx.fillText(label, destX + 4, destY + 12);
+          }
+        }
+
+        debugTilesRef.current = collected;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debugOptions.enabled, playerDebugInfo]);
+
+  // Copy tile debug info to clipboard
+  const handleCopyTileDebug = useCallback(() => {
+    if (!centerTileInfo) return;
+    navigator.clipboard.writeText(JSON.stringify(centerTileInfo, null, 2)).catch(() => { /* noop */ });
+  }, [centerTileInfo]);
 
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
@@ -2237,6 +2345,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         options={debugOptions}
         onChange={setDebugOptions}
         state={debugState}
+        debugCanvasRef={debugCanvasRef}
+        centerTileInfo={centerTileInfo}
+        bottomLayerCanvasRef={bottomLayerCanvasRef}
+        topLayerCanvasRef={topLayerCanvasRef}
+        compositeLayerCanvasRef={compositeLayerCanvasRef}
+        onCopyTileDebug={handleCopyTileDebug}
         webglState={webglDebugState}
         maps={renderableMaps}
         selectedMapId={displayMapId}

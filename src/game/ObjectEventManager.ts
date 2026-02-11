@@ -27,6 +27,8 @@ import type { BgEvent } from './mapEventLoader';
 import { getItemIdFromScript } from '../data/itemScripts';
 import { getItemName } from '../data/items';
 import { gameFlags } from './GameFlags';
+import { saveManager } from '../save/SaveManager';
+import { resolveDynamicObjectGfx } from './DynamicObjectGfx';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -53,6 +55,19 @@ export type TileElevationResolver = (tileX: number, tileY: number) => number | n
 
 /** Set of graphics IDs treated as large (non-NPC) rendered objects */
 const LARGE_OBJECT_GFX_IDS = new Set([OBJ_EVENT_GFX_TRUCK]);
+
+/**
+ * Player room decoration placeholders are map object slots backed by
+ * FLAG_DECORATION_* and OBJ_EVENT_GFX_VAR_* with no script.
+ *
+ * In pokeemerald these slots are populated by decoration data, not spawned as
+ * normal NPC object events. Skip them until decoration spawning exists.
+ */
+function isDecorationSlotPlaceholder(obj: ObjectEventData): boolean {
+  if (!obj.flag.startsWith('FLAG_DECORATION_')) return false;
+  if (!/^OBJ_EVENT_GFX_VAR_[0-9A-F]$/.test(obj.graphics_id)) return false;
+  return obj.script === '0x0' || obj.script === '0';
+}
 
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
@@ -141,14 +156,18 @@ export class ObjectEventManager {
     mapOffsetY: number
   ): void {
     this.parsedMapIds.add(mapId);
+    const playerGender = saveManager.getProfile().gender;
 
-    for (const obj of objectEvents) {
+    for (let objIndex = 0; objIndex < objectEvents.length; objIndex++) {
+      const obj = objectEvents[objIndex];
+      if (isDecorationSlotPlaceholder(obj)) continue;
+      const resolvedGraphicsId = resolveDynamicObjectGfx(obj.graphics_id, playerGender);
       // Convert local coordinates to world coordinates
       const worldX = mapOffsetX + obj.x;
       const worldY = mapOffsetY + obj.y;
 
       // Handle large non-NPC objects (e.g. truck)
-      if (LARGE_OBJECT_GFX_IDS.has(obj.graphics_id)) {
+      if (LARGE_OBJECT_GFX_IDS.has(resolvedGraphicsId)) {
         const id = `${mapId}_large_${worldX}_${worldY}`;
         const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
         this.largeObjects.set(id, {
@@ -156,7 +175,7 @@ export class ObjectEventManager {
           tileX: worldX,
           tileY: worldY,
           elevation: obj.elevation,
-          graphicsId: obj.graphics_id,
+          graphicsId: resolvedGraphicsId,
           flag: obj.flag,
           visible: !isHidden,
         });
@@ -164,7 +183,7 @@ export class ObjectEventManager {
       }
 
       // Handle item balls
-      if (obj.graphics_id === OBJ_EVENT_GFX_ITEM_BALL) {
+      if (resolvedGraphicsId === OBJ_EVENT_GFX_ITEM_BALL) {
         // Resolve item ID from script name. Story objects (e.g. RivalsPokeBall)
         // don't map to a real item — render them as item balls anyway so the
         // sprite is visible and interaction falls through to ScriptRunner.
@@ -190,12 +209,11 @@ export class ObjectEventManager {
         });
       }
       // Handle NPCs
-      else if (isNPCGraphicsId(obj.graphics_id)) {
+      else if (isNPCGraphicsId(resolvedGraphicsId)) {
         // Create unique ID
-        const localId = obj.local_id ?? null;
-        const id = localId
-          ? `${mapId}_npc_${localId}`
-          : `${mapId}_npc_${worldX}_${worldY}`;
+        // GBA: local IDs are 1-indexed array positions. Auto-assign if not explicit.
+        const localId = obj.local_id ?? String(objIndex + 1);
+        const id = `${mapId}_npc_${localId}`;
 
         // Check visibility from flag
         // NPCs with FLAG_HIDE_* are hidden when the flag IS set
@@ -204,15 +222,16 @@ export class ObjectEventManager {
         // Parse trainer sight range (could be "0" or a number)
         const trainerSightRange = parseInt(obj.trainer_sight_or_berry_tree_id, 10) || 0;
 
+        const movementType = parseMovementType(obj.movement_type);
         this.npcs.set(id, {
           id,
           localId,
           tileX: worldX,
           tileY: worldY,
           elevation: obj.elevation,
-          graphicsId: obj.graphics_id,
+          graphicsId: resolvedGraphicsId,
           direction: getInitialDirection(obj.movement_type),
-          movementType: parseMovementType(obj.movement_type),
+          movementType,
           movementTypeRaw: obj.movement_type,
           movementRangeX: obj.movement_range_x,
           movementRangeY: obj.movement_range_y,
@@ -221,6 +240,7 @@ export class ObjectEventManager {
           script: obj.script,
           flag: obj.flag,
           visible: !isHidden,
+          spriteHidden: movementType === 'invisible',
           // Movement state fields
           subTileX: 0,
           subTileY: 0,
@@ -244,7 +264,7 @@ export class ObjectEventManager {
           tileX: worldX,
           tileY: worldY,
           elevation: obj.elevation,
-          graphicsId: obj.graphics_id,
+          graphicsId: resolvedGraphicsId,
           script: obj.script,
           flag: obj.flag,
           visible: !isHidden,
@@ -404,6 +424,17 @@ export class ObjectEventManager {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.visible = visible;
+    return true;
+  }
+
+  /**
+   * Set an NPC's spriteHidden state by map-local ID.
+   * Used by set_visible/set_invisible movement commands (Kecleon, etc.)
+   */
+  setNPCSpriteHiddenByLocalId(mapId: string, localId: string, hidden: boolean): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.spriteHidden = hidden;
     return true;
   }
 

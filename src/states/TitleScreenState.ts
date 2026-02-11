@@ -16,6 +16,7 @@ import {
   type InputState,
   type RenderContext,
 } from '../core/GameState';
+import { inputMap, GameButton } from '../core/InputMap';
 import type { ViewportConfig } from '../config/viewport';
 import { loadImageAsset, loadBinaryAsset } from '../utils/assetLoader';
 import { GBA_FRAME_MS } from '../config/timing';
@@ -1200,13 +1201,10 @@ export class TitleScreenState implements StateRenderer {
       return null;
     }
 
-    // Go to main menu on Start/A during later phases
+    // Go to main menu on A or START during later phases (GBA: A_BUTTON || START_BUTTON)
     if (
       this.phase >= TitlePhase.PHASE2_LOGO_RISE &&
-      (input.pressed.has('Enter') ||
-        input.pressed.has('Space') ||
-        input.pressed.has('KeyZ') ||
-        input.pressed.has('KeyA'))
+      inputMap.isPressed(input, GameButton.A, GameButton.START)
     ) {
       return { to: GameState.MAIN_MENU };
     }
