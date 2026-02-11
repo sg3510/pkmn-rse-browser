@@ -50,7 +50,15 @@ class SaveStateStore {
   private bag: BagState = createEmptyBagState();
   private party: (PartyPokemon | null)[] = createEmptyParty().pokemon;
 
-  private setRawFlagById(flagId: number, isSet: boolean): void {
+  isRawFlagSet(flagId: number): boolean {
+    if (flagId < 0) return false;
+    const byteIdx = flagId >> 3;
+    const bitMask = 1 << (flagId & 7);
+    if (byteIdx < 0 || byteIdx >= this.rawFlags.length) return false;
+    return (this.rawFlags[byteIdx] & bitMask) !== 0;
+  }
+
+  setRawFlagById(flagId: number, isSet: boolean): void {
     if (flagId < 0) return;
     const byteIdx = flagId >> 3;
     const bitMask = 1 << (flagId & 7);

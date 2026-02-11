@@ -76,6 +76,7 @@ export class ObjectEventManager {
   private bgEvents: Map<string, ProcessedBgEvent> = new Map();
   private tileElevationResolver: TileElevationResolver | null = null;
   private parsedMapIds: Set<string> = new Set();
+  private parsedMapOffsets = new Map<string, { x: number; y: number }>();
 
   /**
    * Set the tile elevation resolver
@@ -99,6 +100,7 @@ export class ObjectEventManager {
     this.largeObjects.clear();
     this.bgEvents.clear();
     this.parsedMapIds.clear();
+    this.parsedMapOffsets.clear();
   }
 
   /**
@@ -113,6 +115,53 @@ export class ObjectEventManager {
    */
   getParsedMapIds(): ReadonlySet<string> {
     return this.parsedMapIds;
+  }
+
+  /**
+   * Get the world offset that was used when a map's objects were parsed.
+   */
+  getMapOffset(mapId: string): { x: number; y: number } | null {
+    return this.parsedMapOffsets.get(mapId) ?? null;
+  }
+
+  /**
+   * Shift all objects belonging to a map by a tile delta.
+   * Used when world stitching changes a persisted map's offset.
+   */
+  repositionMapObjects(mapId: string, dx: number, dy: number): void {
+    const prefix = `${mapId}_`;
+    for (const [key, npc] of this.npcs) {
+      if (!key.startsWith(prefix)) continue;
+      npc.tileX += dx;
+      npc.tileY += dy;
+      npc.initialTileX += dx;
+      npc.initialTileY += dy;
+    }
+    for (const [key, item] of this.itemBalls) {
+      if (!key.startsWith(prefix)) continue;
+      item.tileX += dx;
+      item.tileY += dy;
+    }
+    for (const [key, obj] of this.scriptObjects) {
+      if (!key.startsWith(prefix)) continue;
+      obj.tileX += dx;
+      obj.tileY += dy;
+    }
+    for (const [key, obj] of this.largeObjects) {
+      if (!key.startsWith(prefix)) continue;
+      obj.tileX += dx;
+      obj.tileY += dy;
+    }
+    for (const [key, bg] of this.bgEvents) {
+      if (!key.startsWith(prefix)) continue;
+      bg.tileX += dx;
+      bg.tileY += dy;
+    }
+    // Update stored offset to new value
+    const old = this.parsedMapOffsets.get(mapId);
+    if (old) {
+      this.parsedMapOffsets.set(mapId, { x: old.x + dx, y: old.y + dy });
+    }
   }
 
   /**
@@ -137,6 +186,7 @@ export class ObjectEventManager {
       if (key.startsWith(prefix)) this.bgEvents.delete(key);
     }
     this.parsedMapIds.delete(mapId);
+    this.parsedMapOffsets.delete(mapId);
   }
 
   /**
@@ -156,6 +206,7 @@ export class ObjectEventManager {
     playerGender: 0 | 1 = 0
   ): void {
     this.parsedMapIds.add(mapId);
+    this.parsedMapOffsets.set(mapId, { x: mapOffsetX, y: mapOffsetY });
 
     for (let objIndex = 0; objIndex < objectEvents.length; objIndex++) {
       const obj = objectEvents[objIndex];
@@ -240,6 +291,7 @@ export class ObjectEventManager {
           flag: obj.flag,
           visible: !isHidden,
           spriteHidden: movementType === 'invisible',
+          scriptRemoved: false,
           // Movement state fields
           subTileX: 0,
           subTileY: 0,
@@ -419,10 +471,19 @@ export class ObjectEventManager {
   /**
    * Set an NPC's visibility by map-local ID.
    */
-  setNPCVisibilityByLocalId(mapId: string, localId: string, visible: boolean): boolean {
+  setNPCVisibilityByLocalId(mapId: string, localId: string, visible: boolean, persistent: boolean = false): boolean {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.visible = visible;
+    // Track runtime script removal so refreshNPCVisibility won't undo it.
+    // addobject (visible=true) clears the flag; removeobject (visible=false) sets it.
+    npc.scriptRemoved = !visible;
+    // C parity: removeobject sets FLAG_HIDE_*, addobject clears it,
+    // so the NPC stays hidden/visible across map reloads.
+    if (persistent && npc.flag && npc.flag !== '0') {
+      if (visible) gameFlags.clear(npc.flag);
+      else gameFlags.set(npc.flag);
+    }
     return true;
   }
 
@@ -601,8 +662,44 @@ export class ObjectEventManager {
    */
   refreshNPCVisibility(): void {
     for (const npc of this.npcs.values()) {
+      // Skip NPCs whose visibility was changed at runtime by removeobject/addobject.
+      // Their state is authoritative until the next map load.
+      if (npc.scriptRemoved) continue;
       // NPCs with FLAG_HIDE_* are hidden when the flag IS set
       npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+    }
+  }
+
+  /**
+   * Reset scriptRemoved state for all NPCs on a map and re-derive visibility
+   * from flags. Called during warp transitions for maps that persist in the
+   * snapshot, simulating the C engine's behavior of respawning NPCs fresh on
+   * every map load.
+   */
+  resetScriptRemovedState(mapId: string): void {
+    const prefix = `${mapId}_npc_`;
+    for (const [key, npc] of this.npcs) {
+      if (!key.startsWith(prefix)) continue;
+      npc.scriptRemoved = false;
+      npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+    }
+  }
+
+  /**
+   * C parity: TrySpawnObjectEvents respawn check.
+   * After a script runs, check NPCs removed via removeobject whose hide flag
+   * has since been cleared (by clearflag). Re-show them.
+   * In the C engine this runs every frame; we run it after each script.
+   */
+  respawnFlagClearedNPCs(): void {
+    for (const npc of this.npcs.values()) {
+      if (!npc.scriptRemoved) continue;
+      // If the flag is clear (or NPC has no flag), it should be visible
+      const shouldBeHidden = npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false;
+      if (!shouldBeHidden) {
+        npc.visible = true;
+        npc.scriptRemoved = false;
+      }
     }
   }
 

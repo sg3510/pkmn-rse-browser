@@ -46,7 +46,7 @@ export interface StoryScriptContext {
   ) => Promise<void>;
   faceNpcToPlayer: (mapId: string, localId: string) => void;
   setNpcPosition: (mapId: string, localId: string, tileX: number, tileY: number) => void;
-  setNpcVisible: (mapId: string, localId: string, visible: boolean) => void;
+  setNpcVisible: (mapId: string, localId: string, visible: boolean, persistent?: boolean) => void;
   playDoorAnimation: (
     mapId: string,
     tileX: number,
@@ -64,6 +64,10 @@ export interface StoryScriptContext {
   getNpcPosition?: (mapId: string, localId: string) => { tileX: number; tileY: number } | null;
   /** Get map offset for converting world→local coords */
   getMapOffset?: (mapId: string) => { offsetX: number; offsetY: number } | null;
+  /** Set the player's facing direction (used by turnobject LOCALID_PLAYER) */
+  setPlayerDirection?: (dir: 'up' | 'down' | 'left' | 'right') => void;
+  /** Get the player's map-local tile position (used by getplayerxy) */
+  getPlayerLocalPosition?: () => { x: number; y: number } | null;
 }
 
 type StarterChoice = {

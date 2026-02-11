@@ -21,8 +21,12 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const MAPS_DIR = path.join(ROOT, 'public/pokeemerald/data/maps');
 const SHARED_SCRIPTS_DIR = path.join(ROOT, 'public/pokeemerald/data/scripts');
+const SHARED_TEXT_DIR = path.join(ROOT, 'public/pokeemerald/data/text');
 const CONSTANTS_DIR = path.join(ROOT, 'public/pokeemerald/include/constants');
 const OUTPUT_DIR = path.join(ROOT, 'src/data/scripts');
+
+// All .inc files in data/text/ contain text referenced by map scripts
+// (trainer dialogue, berry NPCs, nurse text, etc.)
 
 /**
  * Discover all maps that have a scripts.inc file.
@@ -674,6 +678,27 @@ function generate() {
     if (scriptCount + movementCount + textCount > 0) {
       console.log(`  ${fileName}: ${scriptCount} scripts, ${movementCount} movements, ${textCount} text`);
     }
+  }
+
+  // Parse all .inc files in data/text/ (trainer dialogue, berry NPCs, etc.)
+  try {
+    const textFiles = fs.readdirSync(SHARED_TEXT_DIR, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.inc'))
+      .map(e => e.name)
+      .sort();
+    console.log(`\nProcessing ${textFiles.length} text files from data/text/...`);
+    for (const textFile of textFiles) {
+      const textPath = path.join(SHARED_TEXT_DIR, textFile);
+      const content = fs.readFileSync(textPath, 'utf8');
+      const parsed = parseIncFile(content);
+      const textCount = Object.keys(parsed.text).length;
+      Object.assign(commonText, parsed.text);
+      if (textCount > 0) {
+        console.log(`  ${textFile}: ${textCount} text entries`);
+      }
+    }
+  } catch (e) {
+    console.warn('Warning: Could not read text directory:', e.message);
   }
 
   const commonData = {

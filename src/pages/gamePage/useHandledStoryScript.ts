@@ -324,6 +324,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       const mapLocalToWorld = (mapId: string, tileX: number, tileY: number): { x: number; y: number } => {
         const map = worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === mapId);
         if (!map) {
+          console.warn(`[StoryScript] mapLocalToWorld: map ${mapId} not in snapshot, using raw coords`);
           return { x: tileX, y: tileY };
         }
         return {
@@ -468,8 +469,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
 
           objectEventManagerRef.current.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
         },
-        setNpcVisible: (mapId, localId, visible) => {
-          objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible);
+        setNpcVisible: (mapId, localId, visible, persistent) => {
+          objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible, persistent);
         },
         playDoorAnimation: playScriptDoorAnimation,
         setPlayerVisible: (visible) => {
@@ -501,6 +502,16 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           if (!map) return null;
           return { offsetX: map.offsetX, offsetY: map.offsetY };
         },
+        setPlayerDirection: (dir) => {
+          player.dir = dir;
+        },
+        getPlayerLocalPosition: () => {
+          const map = worldManagerRef.current?.getSnapshot().maps.find(
+            (m) => m.entry.id === effectiveMapId
+          );
+          if (!map) return null;
+          return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
+        },
       };
 
       let handled = false;
@@ -525,6 +536,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       }
 
       objectEventManagerRef.current.refreshCollectedState();
+      objectEventManagerRef.current.respawnFlagClearedNPCs();
       console.log(`[StoryScript] ✓ Script handled=${handled}`);
       return handled;
     } finally {

@@ -241,8 +241,8 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
             }
             objectEventManager.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
           },
-          setNpcVisible: (mapId, localId, visible) => {
-            objectEventManager.setNPCVisibilityByLocalId(mapId, localId, visible);
+          setNpcVisible: (mapId, localId, visible, persistent) => {
+            objectEventManager.setNPCVisibilityByLocalId(mapId, localId, visible, persistent);
           },
           playDoorAnimation: async () => {},
           setPlayerVisible: (visible) => {
@@ -258,6 +258,9 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
           },
           showYesNo: async () => false,
           getParty: () => [],
+          setPlayerDirection: (dir) => {
+            player.dir = dir;
+          },
         };
         const runner = new ScriptRunner(
           { mapData, commonData },

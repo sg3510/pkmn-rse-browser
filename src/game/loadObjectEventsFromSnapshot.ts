@@ -130,7 +130,28 @@ export async function loadObjectEventsFromSnapshot(
   // Parse objects and bg_events for newly added maps only
   for (const mapInst of snapshot.maps) {
     if (objectEventManager.hasMapObjects(mapInst.entry.id)) {
-      continue; // Already parsed — preserve existing NPC state
+      // Check for offset changes — happens when world stitching shifts
+      const oldOffset = objectEventManager.getMapOffset(mapInst.entry.id);
+      if (oldOffset) {
+        const dx = mapInst.offsetX - oldOffset.x;
+        const dy = mapInst.offsetY - oldOffset.y;
+        if (dx !== 0 || dy !== 0) {
+          objectEventManager.repositionMapObjects(mapInst.entry.id, dx, dy);
+        }
+      }
+
+      // Map persisted across warp — simulate C's "respawn NPCs from flags"
+      objectEventManager.resetScriptRemovedState(mapInst.entry.id);
+
+      // Re-apply persistent position overrides (setobjectxyperm)
+      const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
+      for (const override of overrides) {
+        const worldX = mapInst.offsetX + override.x;
+        const worldY = mapInst.offsetY + override.y;
+        objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
+      }
+
+      continue;
     }
 
     if (mapInst.objectEvents.length > 0) {

@@ -691,6 +691,12 @@ export class PlayerController {
     }
     this.isMoving = false;
     this.pixelsMoved = 0;
+    // Reset to NormalState so the standing/walking sprite sheet is used for
+    // idle frames. Without this, RunningState keeps selecting the running
+    // sprite sheet which shows the run pose even when standing still.
+    if (!(this.currentState instanceof NormalState)) {
+      this.changeState(new NormalState());
+    }
   }
 
   public unlockInput() {

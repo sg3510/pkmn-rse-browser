@@ -1,0 +1,2181 @@
+ ISSUE: Devon empoloyee script triggers BUT sprite of devon employee isnt visible. we just saw him chase team aqua as we left gym is thee an issue since his sprite corectly disappeared when he chase aqua but it should reappear when were on the map? idk what if we left and re-enter/loaded mapo would ahve ahppened
+
+
+ {
+  "flags": [
+    "FLAG_ADVENTURE_STARTED",
+    "FLAG_BADGE01_GET",
+    "FLAG_DECORATION_1",
+    "FLAG_DECORATION_10",
+    "FLAG_DECORATION_11",
+    "FLAG_DECORATION_12",
+    "FLAG_DECORATION_13",
+    "FLAG_DECORATION_14",
+    "FLAG_DECORATION_2",
+    "FLAG_DECORATION_3",
+    "FLAG_DECORATION_4",
+    "FLAG_DECORATION_5",
+    "FLAG_DECORATION_6",
+    "FLAG_DECORATION_7",
+    "FLAG_DECORATION_8",
+    "FLAG_DECORATION_9",
+    "FLAG_DEFEATED_RIVAL_ROUTE103",
+    "FLAG_DEFEATED_RUSTBORO_GYM",
+    "FLAG_DEVON_GOODS_STOLEN",
+    "FLAG_HIDDEN_ITEM_PETALBURG_WOODS_POTION",
+    "FLAG_HIDE_BATTLE_TOWER_OPPONENT",
+    "FLAG_HIDE_BRINEYS_HOUSE_MR_BRINEY",
+    "FLAG_HIDE_BRINEYS_HOUSE_PEEKO",
+    "FLAG_HIDE_CHAMPIONS_ROOM_BIRCH",
+    "FLAG_HIDE_CHAMPIONS_ROOM_RIVAL",
+    "FLAG_HIDE_CONTEST_POKE_BALL",
+    "FLAG_HIDE_DEOXYS",
+    "FLAG_HIDE_DESERT_UNDERPASS_FOSSIL",
+    "FLAG_HIDE_DEWFORD_HALL_SLUDGE_BOMB_MAN",
+    "FLAG_HIDE_EVER_GRANDE_POKEMON_CENTER_1F_SCOTT",
+    "FLAG_HIDE_FALLARBOR_HOUSE_PROF_COZMO",
+    "FLAG_HIDE_FALLARBOR_TOWN_BATTLE_TENT_SCOTT",
+    "FLAG_HIDE_FANCLUB_BOY",
+    "FLAG_HIDE_FANCLUB_LADY",
+    "FLAG_HIDE_FANCLUB_LITTLE_BOY",
+    "FLAG_HIDE_FANCLUB_OLD_LADY",
+    "FLAG_HIDE_LANETTES_HOUSE_LANETTE",
+    "FLAG_HIDE_LAVARIDGE_TOWN_RIVAL",
+    "FLAG_HIDE_LAVARIDGE_TOWN_RIVAL_ON_BIKE",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_BLEND_MASTER",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_CONTEST_ATTENDANT_1",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_CONTEST_ATTENDANT_2",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_REPORTER",
+    "FLAG_HIDE_LILYCOVE_FAN_CLUB_INTERVIEWER",
+    "FLAG_HIDE_LILYCOVE_HARBOR_EVENT_TICKET_TAKER",
+    "FLAG_HIDE_LILYCOVE_HARBOR_FERRY_SAILOR",
+    "FLAG_HIDE_LILYCOVE_HARBOR_SSTIDAL",
+    "FLAG_HIDE_LILYCOVE_MOTEL_GAME_DESIGNERS",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_1",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_2",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_3",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_4",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_TOURISTS",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCH",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_CHIKORITA",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_CYNDAQUIL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_TOTODILE",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_RIVAL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_UNKNOWN_0x380",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_POKE_BALL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_SWABLU_DOLL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_BRENDAN",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_BEDROOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_SIBLING",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_PICHU_DOLL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_POKE_BALL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_MAY",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_RIVAL_BEDROOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_BEDROOM_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_1",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_2",
+    "FLAG_HIDE_LITTLEROOT_TOWN_RIVAL",
+    "FLAG_HIDE_MAGMA_HIDEOUT_4F_GROUDON",
+    "FLAG_HIDE_MAUVILLE_CITY_SCOTT",
+    "FLAG_HIDE_MAUVILLE_CITY_WATTSON",
+    "FLAG_HIDE_METEOR_FALLS_TEAM_AQUA",
+    "FLAG_HIDE_MOSSDEEP_CITY_HOUSE_2_WINGULL",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_1F_TEAM_MAGMA",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_STEVEN",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_TEAM_MAGMA",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_BELDUM_POKEBALL",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_INVISIBLE_NINJA_BOY",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_STEVEN",
+    "FLAG_HIDE_MOSSDEEP_CITY_TEAM_MAGMA",
+    "FLAG_HIDE_MR_BRINEY_BOAT_DEWFORD_TOWN",
+    "FLAG_HIDE_MR_BRINEY_DEWFORD_TOWN",
+    "FLAG_HIDE_MT_CHIMNEY_LAVA_COOKIE_LADY",
+    "FLAG_HIDE_MT_CHIMNEY_TRAINERS",
+    "FLAG_HIDE_MT_PYRE_SUMMIT_MAXIE",
+    "FLAG_HIDE_OLDALE_TOWN_RIVAL",
+    "FLAG_HIDE_PETALBURG_CITY_SCOTT",
+    "FLAG_HIDE_PETALBURG_CITY_WALLY",
+    "FLAG_HIDE_PETALBURG_CITY_WALLYS_DAD",
+    "FLAG_HIDE_PETALBURG_CITY_WALLYS_MOM",
+    "FLAG_HIDE_PETALBURG_GYM_GREETER",
+    "FLAG_HIDE_PETALBURG_GYM_WALLY",
+    "FLAG_HIDE_PETALBURG_GYM_WALLYS_DAD",
+    "FLAG_HIDE_PETALBURG_WOODS_AQUA_GRUNT",
+    "FLAG_HIDE_PETALBURG_WOODS_DEVON_EMPLOYEE",
+    "FLAG_HIDE_PLAYERS_HOUSE_DAD",
+    "FLAG_HIDE_ROUTE_101_BIRCH",
+    "FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG",
+    "FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE",
+    "FLAG_HIDE_ROUTE_101_ZIGZAGOON",
+    "FLAG_HIDE_ROUTE_103_BIRCH",
+    "FLAG_HIDE_ROUTE_103_RIVAL",
+    "FLAG_HIDE_ROUTE_104_MR_BRINEY",
+    "FLAG_HIDE_ROUTE_104_RIVAL",
+    "FLAG_HIDE_ROUTE_104_WHITE_HERB_FLORIST",
+    "FLAG_HIDE_ROUTE_109_MR_BRINEY",
+    "FLAG_HIDE_ROUTE_109_MR_BRINEY_BOAT",
+    "FLAG_HIDE_ROUTE_110_BIRCH",
+    "FLAG_HIDE_ROUTE_110_RIVAL_ON_BIKE",
+    "FLAG_HIDE_ROUTE_111_DESERT_FOSSIL",
+    "FLAG_HIDE_ROUTE_111_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_111_GABBY_AND_TY_3",
+    "FLAG_HIDE_ROUTE_111_PLAYER_DESCENT",
+    "FLAG_HIDE_ROUTE_111_VICKY_WINSTRATE",
+    "FLAG_HIDE_ROUTE_111_VICTORIA_WINSTRATE",
+    "FLAG_HIDE_ROUTE_111_VIVI_WINSTRATE",
+    "FLAG_HIDE_ROUTE_116_DEVON_EMPLOYEE",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_1",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_3",
+    "FLAG_HIDE_ROUTE_119_RIVAL",
+    "FLAG_HIDE_ROUTE_119_RIVAL_ON_BIKE",
+    "FLAG_HIDE_ROUTE_119_SCOTT",
+    "FLAG_HIDE_ROUTE_120_GABBY_AND_TY_1",
+    "FLAG_HIDE_ROUTE_120_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_128_ARCHIE",
+    "FLAG_HIDE_ROUTE_128_MAXIE",
+    "FLAG_HIDE_ROUTE_128_STEVEN",
+    "FLAG_HIDE_RUSTBORO_CITY_AQUA_GRUNT",
+    "FLAG_HIDE_RUSTBORO_CITY_RIVAL",
+    "FLAG_HIDE_RUSTBORO_CITY_SCIENTIST",
+    "FLAG_HIDE_RUSTURF_TUNNEL_BRINEY",
+    "FLAG_HIDE_RUSTURF_TUNNEL_WANDA",
+    "FLAG_HIDE_RUSTURF_TUNNEL_WANDAS_BOYFRIEND",
+    "FLAG_HIDE_SAFARI_ZONE_SOUTH_EAST_EXPANSION",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_ARCHIE",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_KYOGRE",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAGMA_GRUNTS",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAXIE",
+    "FLAG_HIDE_SKY_PILLAR_TOP_RAYQUAZA_STILL",
+    "FLAG_HIDE_SKY_PILLAR_WALLACE",
+    "FLAG_HIDE_SLATEPORT_CITY_CAPTAIN_STERN",
+    "FLAG_HIDE_SLATEPORT_CITY_CONTEST_REPORTER",
+    "FLAG_HIDE_SLATEPORT_CITY_GABBY_AND_TY",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_AQUA_GRUNT",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_ARCHIE",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_CAPTAIN_STERN",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_SS_TIDAL",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_SUBMARINE_SHADOW",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_AQUA_GRUNT_1",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_AQUA_GRUNT_2",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_ARCHIE",
+    "FLAG_HIDE_SLATEPORT_CITY_SCOTT",
+    "FLAG_HIDE_SLATEPORT_CITY_STERNS_SHIPYARD_MR_BRINEY",
+    "FLAG_HIDE_SLATEPORT_CITY_TM_SALESMAN",
+    "FLAG_HIDE_SLATEPORT_MUSEUM_POPULATION",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_ARCHIE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_GROUDON",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_KYOGRE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_MAXIE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_RAYQUAZA",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_RESIDENTS",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_STEVEN",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_WALLACE",
+    "FLAG_HIDE_SOUTHERN_ISLAND_EON_STONE",
+    "FLAG_HIDE_SOUTHERN_ISLAND_UNCHOSEN_EON_DUO_MON",
+    "FLAG_HIDE_SS_TIDAL_CORRIDOR_MR_BRINEY",
+    "FLAG_HIDE_TRICK_HOUSE_ENTRANCE_MAN",
+    "FLAG_HIDE_VERDANTURF_TOWN_SCOTT",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WALLY",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WALLYS_UNCLE",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WANDA",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WANDAS_BOYFRIEND",
+    "FLAG_HIDE_VICTORY_ROAD_ENTRANCE_WALLY",
+    "FLAG_HIDE_VICTORY_ROAD_EXIT_WALLY",
+    "FLAG_HIDE_WEATHER_INSTITUTE_1F_WORKERS",
+    "FLAG_HIDE_WEATHER_INSTITUTE_2F_AQUA_GRUNT_M",
+    "FLAG_INTERACTED_WITH_DEVON_EMPLOYEE_GOODS_STOLEN",
+    "FLAG_ITEM_ROUTE_102_POTION",
+    "FLAG_MET_RIVAL_MOM",
+    "FLAG_RECEIVED_POKEDEX_FROM_BIRCH",
+    "FLAG_RECEIVED_RUNNING_SHOES",
+    "FLAG_RECEIVED_TM_ROCK_TOMB",
+    "FLAG_RESCUED_BIRCH",
+    "FLAG_RIVAL_LEFT_FOR_ROUTE103",
+    "FLAG_SET_WALL_CLOCK",
+    "FLAG_SYS_B_DASH",
+    "FLAG_SYS_CLOCK_SET",
+    "FLAG_SYS_POKEDEX_GET",
+    "FLAG_SYS_POKEMON_GET",
+    "FLAG_SYS_SHOAL_ITEM",
+    "FLAG_SYS_TV_HOME",
+    "FLAG_SYS_TV_WATCH",
+    "FLAG_THANKED_FOR_PLAYING_WITH_WALLY",
+    "FLAG_UNKNOWN_0x363",
+    "FLAG_UNKNOWN_0x393",
+    "FLAG_VISITED_LITTLEROOT_TOWN",
+    "FLAG_VISITED_OLDALE_TOWN",
+    "FLAG_VISITED_PETALBURG_CITY",
+    "FLAG_VISITED_RUSTBORO_CITY"
+  ],
+  "variables": {
+    "VAR_0x8008": 1,
+    "VAR_BIRCH_LAB_STATE": 5,
+    "VAR_CABLE_CLUB_TUTORIAL_STATE": 1,
+    "VAR_DAILY_PICKED_BERRIES": 4,
+    "VAR_DAILY_WILDS": 31,
+    "VAR_DAYS": 1,
+    "VAR_FACING": 2,
+    "VAR_FRIENDSHIP_STEP_COUNTER": 114,
+    "VAR_FRONTIER_GAMBLER_CHALLENGE": 1,
+    "VAR_FRONTIER_MANIAC_FACILITY": 1,
+    "VAR_LAST_TALKED": 1,
+    "VAR_LITTLEROOT_HOUSES_STATE_BRENDAN": 2,
+    "VAR_LITTLEROOT_INTRO_STATE": 7,
+    "VAR_LITTLEROOT_RIVAL_STATE": 4,
+    "VAR_LITTLEROOT_TOWN_STATE": 4,
+    "VAR_LOTAD_SIZE_RECORD": 32768,
+    "VAR_MIRAGE_RND_L": 12345,
+    "VAR_OLDALE_RIVAL_STATE": 2,
+    "VAR_OLDALE_TOWN_STATE": 1,
+    "VAR_PETALBURG_CITY_STATE": 3,
+    "VAR_PETALBURG_GYM_STATE": 3,
+    "VAR_PETALBURG_WOODS_STATE": 1,
+    "VAR_POKELOT_RND1": 45143,
+    "VAR_POKELOT_RND2": 16436,
+    "VAR_ROUTE101_STATE": 3,
+    "VAR_ROUTE116_STATE": 1,
+    "VAR_RUSTBORO_CITY_STATE": 3,
+    "VAR_RUSTURF_TUNNEL_STATE": 2,
+    "VAR_SCOTT_PETALBURG_ENCOUNTER": 1,
+    "VAR_SCOTT_STATE": 1,
+    "VAR_SEEDOT_SIZE_RECORD": 32768,
+    "VAR_TEMP_1": 1
+  }
+}
+ 
+ 
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [NPCMovement] Handlers registered
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+ [StateRenderLoop] First frame rendered
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] Loading Rayquaza OBJ: 66%
+ [TitleScreenState] Loading Rayquaza OBJ: 66%
+ [TitleScreenState] Loading Rayquaza OBJ: 79%
+ [TitleScreenState] Loading Rayquaza OBJ: 79%
+ [TitleScreenState] Loading Rayquaza OBJ: 92%
+ [TitleScreenState] Loading Rayquaza OBJ: 92%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] Ready, scale: 1
+ [TitleScreenState] Ready, scale: 1
+ [GamePage] State changed to: TITLE_SCREEN
+ [GamePage] State changed to: TITLE_SCREEN
+ [GameStateManager] Exiting state: TITLE_SCREEN
+ [TitleScreenState] Exiting...
+ [GameStateManager] Entering state: MAIN_MENU
+ [MainMenuState] Entered
+ [MainMenuState] Found save: Object
+ [GamePage] State changed to: MAIN_MENU
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Starting render loop for state: MAIN_MENU
+ [StateRenderLoop] First frame rendered
+ [MainMenuState] Selected: CONTINUE
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [MainMenuState] Continuing game: Object
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [GameStateManager] Exiting state: MAIN_MENU
+ [MainMenuState] Exited
+ [GameStateManager] Entering state: OVERWORLD
+ [OverworldState] Entered Object
+ [OverworldState] Continuing from saved location: Object
+ [GamePage] State changed to: OVERWORLD
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Skipping - in OVERWORLD state
+ [GamePage] Got saved location from Continue: Object
+ [GamePage] Changing map to saved location: MAP_PETALBURG_WOODS
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_CUTTABLE_TREE using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/cuttable_tree.png
+overrideMethod @ installHook.js:1
+ [GamePage] Spawning player at saved position: Object
+ [CoordEvent] Firing: PetalburgWoods_EventScript_DevonResearcherLeft at (26,23) var=VAR_PETALBURG_WOODS_STATE=0
+ [StoryScript] ▶ Starting: PetalburgWoods_EventScript_DevonResearcherLeft
+ [StoryScript] lockInput caller for: PetalburgWoods_EventScript_DevonResearcherLeft
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770849074100:50
+renderLoop @ GamePage.tsx?t=1770849161715:1061
+ [INPUT] lockInput() called at tile(26,23) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770849074100:52
+renderLoop @ GamePage.tsx?t=1770849161715:1061
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=left mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,17)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,18)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=walk pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(27,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(27,23)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=left mode=walk pos=(27,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,21)
+ [StoryScript] Unmapped trainer battle: TRAINER_GRUNT_PETALBURG_WOODS
+overrideMethod @ installHook.js:1
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,18)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,17)
+ [movePlayerStep] dir=down mode=face pos=(26,23) isMoving=false inputLocked=true
+ [BagManager] Added 1x item 3 to pokeBalls
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=face pos=(26,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=walk pos=(26,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,24)
+ [movePlayerStep] dir=up mode=face pos=(26,23) isMoving=false inputLocked=true
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,23)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(27,18)
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(26,23) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770849074100:418
+ [INPUT] lockInput() called at tile(15,5) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:86
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770849161715:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_PETALBURG_WOODS
+ [WARP] Destination map: MAP_ROUTE104
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_BERRY_TREE (tried /pokeemerald/graphics/object_events/pics/people/berry_tree.png, /pokeemerald/graphics/object_events/pics/misc/berry_tree.png, /pokeemerald/graphics/object_events/pics/pokemon/berry_tree.png)
+overrideMethod @ installHook.js:1
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=2, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=undefined, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [WARP] ON_TRANSITION script executed for MAP_ROUTE104
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(9)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(11,29) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770849161715:1203
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_BREAKABLE_ROCK using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/breakable_rock.png
+overrideMethod @ installHook.js:1
+ [INPUT] lockInput() called at tile(16,-21) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:146
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY
+ [WARP] Destination map: MAP_RUSTBORO_CITY_POKEMON_CENTER_1F
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_PokemonCenter: gpuSlot=0, primarySize=128x256, secondarySize=128x240
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_PokemonCenter to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [INPUT] unlockInput() called at tile(7,8) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitSequence @ WarpExecutor.ts:89
+executeWarp @ WarpExecutor.ts:114
+performWarpTransition @ performWarpTransitio…?t=1770849074100:97
+ [ScriptRunner] call target not found: Common_EventScript_UpdateBrineyLocation
+overrideMethod @ installHook.js:1
+ [WARP] ON_TRANSITION script executed for MAP_RUSTBORO_CITY_POKEMON_CENTER_1F
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [INPUT] lockInput() called at tile(7,8) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:86
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770849161715:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY_POKEMON_CENTER_1F
+ [WARP] Destination map: MAP_RUSTBORO_CITY
+ [WARP] fromDoor: true
+ [WARP] priorFacing: down
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=2, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [WARP] ON_TRANSITION script executed for MAP_RUSTBORO_CITY
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(8)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(16,39) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770849161715:1203
+ [INPUT] lockInput() called at tile(27,20) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:146
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY
+performWarpTransition.ts:110 [WARP] Destination map: MAP_RUSTBORO_CITY_GYM
+performWarpTransition.ts:111 [WARP] fromDoor: true
+performWarpTransition.ts:112 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_RustboroGym: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_RustboroGym to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(5,19) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+handleDoorExitSequence @ WarpExecutor.ts:288
+executeWarp @ WarpExecutor.ts:359
+performWarpTransition @ performWarpTransition.ts:164
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:306 [WARP] Warp complete
+performWarpTransition.ts:307 [WARP] World bounds: Object
+performWarpTransition.ts:308 [WARP] Loaded maps: Array(1)
+performWarpTransition.ts:309 [WARP] Tileset pairs: Array(1)
+performWarpTransition.ts:310 [WARP] GPU slots: Object
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: RustboroCity_Gym_EventScript_Roxanne
+installHook.js:1 [StoryScript] lockInput caller for: RustboroCity_Gym_EventScript_Roxanne
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+onNpcInteract @ GamePage.tsx:841
+(anonymous) @ useActionInput.ts:127
+down @ useInput.ts:46
+PlayerController.ts:680 [INPUT] lockInput() called at tile(5,3) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+onNpcInteract @ GamePage.tsx:841
+(anonymous) @ useActionInput.ts:127
+down @ useInput.ts:46
+installHook.js:1 [StoryScript] Unmapped trainer battle: TRAINER_ROXANNE_1
+overrideMethod @ installHook.js:1
+installHook.js:1 [ScriptRunner] call target not found: Common_EventScript_PlayGymBadgeFanfare
+overrideMethod @ installHook.js:1
+useHandledStoryScript.ts:538 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:545 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:548 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(5,3) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+(anonymous) @ useHandledStoryScript.ts:549
+PlayerController.ts:680 [INPUT] lockInput() called at tile(5,19) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:141
+handleDirectionInput @ PlayerController.ts:928
+handleInput @ PlayerController.ts:113
+update @ PlayerController.ts:720
+renderLoop @ GamePage.tsx:1424
+performWarpTransition.ts:108 [WARP] ========== WARP START ==========
+performWarpTransition.ts:109 [WARP] Source map: MAP_RUSTBORO_CITY_GYM
+performWarpTransition.ts:110 [WARP] Destination map: MAP_RUSTBORO_CITY
+performWarpTransition.ts:111 [WARP] fromDoor: true
+performWarpTransition.ts:112 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(5)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=2, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:106 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 2
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville NOT in GPU (slot=undefined)
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:281 [WARP] ON_TRANSITION script executed for MAP_RUSTBORO_CITY
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:306 [WARP] Warp complete
+performWarpTransition.ts:307 [WARP] World bounds: Object
+performWarpTransition.ts:308 [WARP] Loaded maps: Array(8)
+performWarpTransition.ts:309 [WARP] Tileset pairs: Array(5)
+performWarpTransition.ts:310 [WARP] GPU slots: Object
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(27,20) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1700
+GamePage.tsx:1514 [CoordEvent] Firing: RustboroCity_EventScript_StolenGoodsTrigger0 at (23,20) var=VAR_RUSTBORO_CITY_STATE=1
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: RustboroCity_EventScript_StolenGoodsTrigger0
+installHook.js:1 [StoryScript] lockInput caller for: RustboroCity_EventScript_StolenGoodsTrigger0
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1515
+PlayerController.ts:680 [INPUT] lockInput() called at tile(23,20) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1515
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(13,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(14,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(15,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(16,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(17,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(18,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(19,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,20)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,19)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,18)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,17)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,16)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,15)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,14)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,13)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(14,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(15,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(16,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(17,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(18,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(19,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=face pos=(20,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,21)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,20)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,19)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,18)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,17)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,16)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,15)
+useHandledStoryScript.ts:538 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:545 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:548 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(23,20) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+(anonymous) @ useHandledStoryScript.ts:549
+GamePage.tsx:1514 [CoordEvent] Firing: RustboroCity_EventScript_HelpGetGoodsTrigger1 at (29,10) var=VAR_RUSTBORO_CITY_STATE=2
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: RustboroCity_EventScript_HelpGetGoodsTrigger1
+installHook.js:1 [StoryScript] lockInput caller for: RustboroCity_EventScript_HelpGetGoodsTrigger1
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1515
+PlayerController.ts:680 [INPUT] lockInput() called at tile(29,10) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1515
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=left mode=face pos=(30,10)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=face pos=(29,10) isMoving=false inputLocked=true
+Load
+Arrow Keys to move. Z to run. X to interact. ` for debug panel.
+Zoom:1x
+2x
+3x
+DEBUG
+Debug Panel
+Press ` to toggle
+Map
+General
+Objects
+Tile
+State
+WebGL
+Tile:
+(29, 10)
+player.y:
+144
+Sprite Center (y+16):
+160
+Feet Y (y+32):
+176
+SortKey Y:
+176
+Subpriority:
+128
+Sort Key:
+45184
+Elevation:
+3
+Formula: sortKey = (feetY << 8) | subpriority = (176 << 8) | 128
+🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
+Player
+45184
++0
+CUTTABLE_TREE
+45184
++0
+BLACK_BELT
+41088
+-4096
+CUTTABLE_TREE
+41088
+-4096
+CUTTABLE_TREE
+49280
++4096
+SCHOOL_KID_M
+36992
+-8192
+WOMAN_2
+36992
+-8192
+item-ball
+36992
+-8192
+item-ball
+53376
++8192
+YOUNGSTER
+32896
+-12288
+item-ball
+32896
+-12288
+FAT_MAN
+57472
++12288
+MANIAC
+57472
++12288
+YOUNGSTER
+57472
++12288
+HIKER
+57472
++12288
+With Player: 107 | Behind Bridge: 0 | Above All: 0
+FISHERMAN[withPlayer] P
+Tile:
+(65, -113)
+FeetY:
+-1808
+SortKeyY:
+-1808
+Elevation:
+SortKey:
+-462720
+item-ball[withPlayer] P
+Tile:
+(47, -113)
+FeetY:
+-1808
+SortKeyY:
+-1808
+Elevation:
+SortKey:
+-462720
+GENTLEMAN[withPlayer] P
+Tile:
+(59, -108)
+FeetY:
+-1728
+SortKeyY:
+-1728
+Elevation:
+SortKey:
+-442240
+FISHERMAN[withPlayer] P
+Tile:
+(68, -103)
+FeetY:
+-1648
+SortKeyY:
+-1648
+Elevation:
+SortKey:
+-421760
+item-ball[withPlayer] P
+Tile:
+(71, -100)
+FeetY:
+-1600
+SortKeyY:
+-1600
+Elevation:
+SortKey:
+-409472
+FISHERMAN[withPlayer] P
+Tile:
+(59, -93)
+FeetY:
+-1488
+SortKeyY:
+-1488
+Elevation:
+SortKey:
+-380800
+item-ball[withPlayer] P
+Tile:
+(51, -82)
+FeetY:
+-1312
+SortKeyY:
+-1312
+Elevation:
+SortKey:
+-335744
+MAN_4[withPlayer] P
+Tile:
+(67, -77)
+FeetY:
+-1232
+SortKeyY:
+-1232
+Elevation:
+SortKey:
+-315264
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(52, -76)
+FeetY:
+-1216
+SortKeyY:
+-1216
+Elevation:
+SortKey:
+-311168
+LASS[withPlayer] P
+Tile:
+(64, -75)
+FeetY:
+-1200
+SortKeyY:
+-1200
+Elevation:
+SortKey:
+-307072
+LASS[withPlayer] P
+Tile:
+(63, -75)
+FeetY:
+-1200
+SortKeyY:
+-1200
+Elevation:
+SortKey:
+-307072
+GIRL_3[withPlayer] P
+Tile:
+(15, -72)
+FeetY:
+-1152
+SortKeyY:
+-1152
+Elevation:
+SortKey:
+-294784
+LASS[withPlayer] P
+Tile:
+(10, -72)
+FeetY:
+-1152
+SortKeyY:
+-1152
+Elevation:
+SortKey:
+-294784
+item-ball[withPlayer] P
+Tile:
+(18, -72)
+FeetY:
+-1152
+SortKeyY:
+-1152
+Elevation:
+SortKey:
+-294784
+NINJA_BOY[withPlayer] P
+Tile:
+(11, -67)
+FeetY:
+-1072
+SortKeyY:
+-1072
+Elevation:
+SortKey:
+-274304
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(69, -66)
+FeetY:
+-1056
+SortKeyY:
+-1056
+Elevation:
+SortKey:
+-270208
+item-ball[withPlayer] P
+Tile:
+(12, -65)
+FeetY:
+-1040
+SortKeyY:
+-1040
+Elevation:
+SortKey:
+-266112
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(70, -65)
+FeetY:
+-1040
+SortKeyY:
+-1040
+Elevation:
+SortKey:
+-266112
+EXPERT_M[withPlayer] P
+Tile:
+(5, -64)
+FeetY:
+-1024
+SortKeyY:
+-1024
+Elevation:
+SortKey:
+-262016
+BLACK_BELT[withPlayer] P
+Tile:
+(17, -64)
+FeetY:
+-1024
+SortKeyY:
+-1024
+Elevation:
+SortKey:
+-262016
+MANIAC[withPlayer] P
+Tile:
+(60, -63)
+FeetY:
+-1008
+SortKeyY:
+-1008
+Elevation:
+SortKey:
+-257920
+RUNNING_TRIATHLETE_F[withPlayer] P
+Tile:
+(10, -61)
+FeetY:
+-976
+SortKeyY:
+-976
+Elevation:
+SortKey:
+-249728
+MAN_5[withPlayer] P
+Tile:
+(70, -61)
+FeetY:
+-976
+SortKeyY:
+-976
+Elevation:
+SortKey:
+-249728
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(51, -55)
+FeetY:
+-880
+SortKeyY:
+-880
+Elevation:
+SortKey:
+-225152
+HIKER[withPlayer] P
+Tile:
+(55, -54)
+FeetY:
+-864
+SortKeyY:
+-864
+Elevation:
+SortKey:
+-221056
+item-ball[withPlayer] P
+Tile:
+(23, -50)
+FeetY:
+-800
+SortKeyY:
+-800
+Elevation:
+SortKey:
+-204672
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(62, -50)
+FeetY:
+-800
+SortKeyY:
+-800
+Elevation:
+SortKey:
+-204672
+HIKER[withPlayer] P
+Tile:
+(70, -47)
+FeetY:
+-752
+SortKeyY:
+-752
+Elevation:
+SortKey:
+-192384
+GIRL_3[withPlayer] P
+Tile:
+(15, -29)
+FeetY:
+-464
+SortKeyY:
+-464
+Elevation:
+SortKey:
+-118656
+BREAKABLE_ROCK[withPlayer] P
+Tile:
+(29, -29)
+FeetY:
+-464
+SortKeyY:
+-464
+Elevation:
+SortKey:
+-118656
+BLACK_BELT[withPlayer] P
+Tile:
+(27, -26)
+FeetY:
+-416
+SortKeyY:
+-416
+Elevation:
+SortKey:
+-106368
+item-ball[withPlayer] P
+Tile:
+(31, -23)
+FeetY:
+-368
+SortKeyY:
+-368
+Elevation:
+SortKey:
+-94080
+item-ball[withPlayer] P
+Tile:
+(20, -19)
+FeetY:
+-304
+SortKeyY:
+-304
+Elevation:
+SortKey:
+-77696
+MANIAC[withPlayer] P
+Tile:
+(24, -17)
+FeetY:
+-272
+SortKeyY:
+-272
+Elevation:
+SortKey:
+-69504
+LASS[withPlayer] P
+Tile:
+(28, -17)
+FeetY:
+-272
+SortKeyY:
+-272
+Elevation:
+SortKey:
+-69504
+item-ball[withPlayer] P
+Tile:
+(26, -12)
+FeetY:
+-192
+SortKeyY:
+-192
+Elevation:
+SortKey:
+-49024
+WOMAN_2[withPlayer] P
+Tile:
+(18, -11)
+FeetY:
+-176
+SortKeyY:
+-176
+Elevation:
+SortKey:
+-44928
+BOY_2[withPlayer] P
+Tile:
+(73, 6)
+FeetY:
+96
+SortKeyY:
+96
+Elevation:
+SortKey:
+24704
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(70, 6)
+FeetY:
+96
+SortKeyY:
+96
+Elevation:
+SortKey:
+24704
+LASS[withPlayer] P
+Tile:
+(66, 7)
+FeetY:
+112
+SortKeyY:
+112
+Elevation:
+SortKey:
+28800
+item-ball[withPlayer] P
+Tile:
+(59, 7)
+FeetY:
+112
+SortKeyY:
+112
+Elevation:
+SortKey:
+28800
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(61, 7)
+FeetY:
+112
+SortKeyY:
+112
+Elevation:
+SortKey:
+28800
+YOUNGSTER[withPlayer] P
+Tile:
+(52, 8)
+FeetY:
+128
+SortKeyY:
+128
+Elevation:
+SortKey:
+32896
+item-ball[withPlayer] P
+Tile:
+(74, 8)
+FeetY:
+128
+SortKeyY:
+128
+Elevation:
+SortKey:
+32896
+SCHOOL_KID_M[withPlayer] P
+Tile:
+(68, 9)
+FeetY:
+144
+SortKeyY:
+144
+Elevation:
+SortKey:
+36992
+WOMAN_2[withPlayer] P
+Tile:
+(73, 9)
+FeetY:
+144
+SortKeyY:
+144
+Elevation:
+SortKey:
+36992
+item-ball[withPlayer] P
+Tile:
+(120, 9)
+FeetY:
+144
+SortKeyY:
+144
+Elevation:
+SortKey:
+36992
+BLACK_BELT[withPlayer] P
+Tile:
+(78, 10)
+FeetY:
+160
+SortKeyY:
+160
+Elevation:
+SortKey:
+41088
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(64, 10)
+FeetY:
+160
+SortKeyY:
+160
+Elevation:
+SortKey:
+41088
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(72, 11)
+FeetY:
+176
+SortKeyY:
+176
+Elevation:
+SortKey:
+45184
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(68, 12)
+FeetY:
+192
+SortKeyY:
+192
+Elevation:
+SortKey:
+49280
+item-ball[withPlayer] P
+Tile:
+(95, 13)
+FeetY:
+208
+SortKeyY:
+208
+Elevation:
+SortKey:
+53376
+FAT_MAN[withPlayer] P
+Tile:
+(19, 14)
+FeetY:
+224
+SortKeyY:
+224
+Elevation:
+SortKey:
+57472
+MANIAC[withPlayer] P
+Tile:
+(114, 14)
+FeetY:
+224
+SortKeyY:
+224
+Elevation:
+SortKey:
+57472
+YOUNGSTER[withPlayer] P
+Tile:
+(76, 14)
+FeetY:
+224
+SortKeyY:
+224
+Elevation:
+SortKey:
+57472
+HIKER[withPlayer] P
+Tile:
+(82, 14)
+FeetY:
+224
+SortKeyY:
+224
+Elevation:
+SortKey:
+57472
+GIRL_3[withPlayer] P
+Tile:
+(62, 17)
+FeetY:
+272
+SortKeyY:
+272
+Elevation:
+SortKey:
+69760
+BUG_CATCHER[withPlayer] P
+Tile:
+(53, 18)
+FeetY:
+288
+SortKeyY:
+288
+Elevation:
+SortKey:
+73856
+HIKER[withPlayer] P
+Tile:
+(76, 18)
+FeetY:
+288
+SortKeyY:
+288
+Elevation:
+SortKey:
+73856
+item-ball[withPlayer] P
+Tile:
+(50, 18)
+FeetY:
+288
+SortKeyY:
+288
+Elevation:
+SortKey:
+73856
+TWIN[withPlayer] P
+Tile:
+(129, 23)
+FeetY:
+368
+SortKeyY:
+368
+Elevation:
+SortKey:
+94336
+MAN_3[withPlayer] P
+Tile:
+(26, 24)
+FeetY:
+384
+SortKeyY:
+384
+Elevation:
+SortKey:
+98432
+MAN_4[withPlayer] P
+Tile:
+(19, 28)
+FeetY:
+448
+SortKeyY:
+448
+Elevation:
+SortKey:
+114816
+BOY_1[withPlayer] P
+Tile:
+(127, 31)
+FeetY:
+496
+SortKeyY:
+496
+Elevation:
+SortKey:
+127104
+WOMAN_5[withPlayer] P
+Tile:
+(22, 35)
+FeetY:
+560
+SortKeyY:
+560
+Elevation:
+SortKey:
+143488
+DEVON_EMPLOYEE[withPlayer] P
+Tile:
+(13, 35)
+FeetY:
+560
+SortKeyY:
+560
+Elevation:
+SortKey:
+143488
+BOY_1[withPlayer] P
+Tile:
+(31, 37)
+FeetY:
+592
+SortKeyY:
+592
+Elevation:
+SortKey:
+151680
+NINJA_BOY[withPlayer] P
+Tile:
+(25, 38)
+FeetY:
+608
+SortKeyY:
+608
+Elevation:
+SortKey:
+155776
+MAN_2[withPlayer] P
+Tile:
+(123, 38)
+FeetY:
+608
+SortKeyY:
+608
+Elevation:
+SortKey:
+155776
+TWIN[withPlayer] P
+Tile:
+(21, 46)
+FeetY:
+736
+SortKeyY:
+736
+Elevation:
+SortKey:
+188544
+BOY_2[withPlayer] P
+Tile:
+(12, 46)
+FeetY:
+736
+SortKeyY:
+736
+Elevation:
+SortKey:
+188544
+LITTLE_BOY[withPlayer] P
+Tile:
+(24, 52)
+FeetY:
+832
+SortKeyY:
+832
+Elevation:
+SortKey:
+213120
+LITTLE_GIRL[withPlayer] P
+Tile:
+(25, 52)
+FeetY:
+832
+SortKeyY:
+832
+Elevation:
+SortKey:
+213120
+item-ball[withPlayer] P
+Tile:
+(36, 52)
+FeetY:
+832
+SortKeyY:
+832
+Elevation:
+SortKey:
+213120
+FISHERMAN[withPlayer] P
+Tile:
+(29, 69)
+FeetY:
+1104
+SortKeyY:
+1104
+Elevation:
+SortKey:
+282752
+EXPERT_F[withPlayer] P
+Tile:
+(37, 69)
+FeetY:
+1104
+SortKeyY:
+1104
+Elevation:
+SortKey:
+282752
+item-ball[withPlayer] P
+Tile:
+(5, 69)
+FeetY:
+1104
+SortKeyY:
+1104
+Elevation:
+SortKey:
+282752
+TWIN[withPlayer] P
+Tile:
+(27, 76)
+FeetY:
+1216
+SortKeyY:
+1216
+Elevation:
+SortKey:
+311424
+TWIN[withPlayer] P
+Tile:
+(28, 76)
+FeetY:
+1216
+SortKeyY:
+1216
+Elevation:
+SortKey:
+311424
+item-ball[withPlayer] P
+Tile:
+(39, 76)
+FeetY:
+1216
+SortKeyY:
+1216
+Elevation:
+SortKey:
+311424
+item-ball[withPlayer] P
+Tile:
+(37, 83)
+FeetY:
+1328
+SortKeyY:
+1328
+Elevation:
+SortKey:
+340096
+CUTTABLE_TREE[withPlayer] P
+Tile:
+(35, 83)
+FeetY:
+1328
+SortKeyY:
+1328
+Elevation:
+SortKey:
+340096
+LASS[withPlayer] P
+Tile:
+(31, 85)
+FeetY:
+1360
+SortKeyY:
+1360
+Elevation:
+SortKey:
+348288
+RICH_BOY[withPlayer] P
+Tile:
+(21, 86)
+FeetY:
+1376
+SortKeyY:
+1376
+Elevation:
+SortKey:
+352384
+BOY_2[withPlayer] P
+Tile:
+(5, 87)
+FeetY:
+1392
+SortKeyY:
+1392
+Elevation:
+SortKey:
+356480
+WOMAN_2[withPlayer] P
+Tile:
+(11, 105)
+FeetY:
+1680
+SortKeyY:
+1680
+Elevation:
+SortKey:
+430208
+GIRL_2[withPlayer] P
+Tile:
+(26, 109)
+FeetY:
+1744
+SortKeyY:
+1744
+Elevation:
+SortKey:
+446592
+WOMAN_2[withPlayer] P
+Tile:
+(30, 110)
+FeetY:
+1760
+SortKeyY:
+1760
+Elevation:
+SortKey:
+450688
+item-ball[withPlayer] P
+Tile:
+(59, 113)
+FeetY:
+1808
+SortKeyY:
+1808
+Elevation:
+SortKey:
+462976
+item-ball[withPlayer] P
+Tile:
+(29, 114)
+FeetY:
+1824
+SortKeyY:
+1824
+Elevation:
+SortKey:
+467072
+FISHERMAN[withPlayer] P
+Tile:
+(15, 120)
+FeetY:
+1920
+SortKeyY:
+1920
+Elevation:
+SortKey:
+491648
+BUG_CATCHER[withPlayer] P
+Tile:
+(15, 121)
+FeetY:
+1936
+SortKeyY:
+1936
+Elevation:
+SortKey:
+495744
+GENTLEMAN[withPlayer] P
+Tile:
+(60, 122)
+FeetY:
+1952
+SortKeyY:
+1952
+Elevation:
+SortKey:
+499840
+BOY_1[withPlayer] P
+Tile:
+(27, 124)
+FeetY:
+1984
+SortKeyY:
+1984
+Elevation:
+SortKey:
+508032
+BOY_2[withPlayer] P
+Tile:
+(52, 126)
+FeetY:
+2016
+SortKeyY:
+2016
+Elevation:
+SortKey:
+516224
+BOY_1[withPlayer] P
+Tile:
+(48, 133)
+FeetY:
+2128
+SortKeyY:
+2128
+Elevation:
+SortKey:
+544896
+YOUNGSTER[withPlayer] P
+Tile:
+(18, 134)
+FeetY:
+2144
+SortKeyY:
+2144
+Elevation:
+SortKey:
+548992
+GIRL_3[withPlayer] P
+Tile:
+(28, 135)
+FeetY:
+2160
+SortKeyY:
+2160
+Elevation:
+SortKey:
+553088
+item-ball[withPlayer] P
+Tile:
+(43, 139)
+FeetY:
+2224
+SortKeyY:
+2224
+Elevation:
+SortKey:
+569472
+SWIMMER_F[withPlayer] P
+Tile:
+(19, 150)
+FeetY:
+2400
+SortKeyY:
+2400
+Elevation:
+SortKey:
+614528
+SWIMMER_M[withPlayer] P
+Tile:
+(27, 177)
+FeetY:
+2832
+SortKeyY:
+2832
+Elevation:
+SortKey:
+725120
+SWIMMER_F[withPlayer] P
+Tile:
+(8, 186)
+FeetY:
+2976
+SortKeyY:
+2976
+Elevation:
+SortKey:
+761984
+HIKER[withPlayer] P
+Tile:
+(17, 192)
+FeetY:
+3080
+SortKeyY:
+3080
+Elevation:
+SortKey:
+788608
+MAN_5[withPlayer] P
+Tile:
+(4, 195)
+FeetY:
+3120
+SortKeyY:
+3120
+Elevation:
+SortKey:
+798848
+HIKER[withPlayer] P
+Tile:
+(4, 199)
+FeetY:
+3184
+SortKeyY:
+3184
+Elevation:
+SortKey:
+815232
+SWIMMER_M[withPlayer] P
+Tile:
+(19, 201)
+FeetY:
+3216
+SortKeyY:
+3216
+Elevation:
+SortKey:
+823424
+item-ball[withPlayer] P
+Tile:
+(8, 214)
+FeetY:
+3424
+SortKeyY:
+3424
+Elevation:
+SortKey:
+876672
+tilesetVersion:
+54
+lastRendered:
+54
+needsFullRender:
+NO
+needsWarmup:
+NO
+hasCachedInstances:
+YES
+tilesetsUploaded:
+YES
+cached bg/tb/ta:
+1992/0/1536
+lastViewHash:
+54:19,0,21,21
+Copy pipeline debug
+Center pixel samples (RGBA):
+BG: 222,230,238,255
+TopBelow: 0,0,0,0
+Recent renders (most recent last):
+ts:
+265052.2 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265063.3 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265079.7 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265097.4 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265113.0 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265131.0 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+yes
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265147.5 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265163.2 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265183.7 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265196.4 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265213.2 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+ts:
+265229.7 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+54
+hadCaches:
+yes
+Last pass renders:
+background:
+1992 inst · 336x336 · 264839.5ms
+topBelow:
+0 inst · 336x336 · 228813.6ms
+topAbove:
+1536 inst · 336x336 · 264839.6ms
+Player:
+(29, 10)
+Dest:
+(29, 10)
+Moving:
+NO
+Reflection State:
+Has Reflection:
+NO
+Type:
+none
+Bridge:
+none
+Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
+699
+-2,-2
+699
+-1,-2
+699
+0,-2
+3
+1,-2
+699
+2,-2
+761
+-2,-1
+761
+-1,-1
+761
+0,-1
+761
+1,-1
+761
+2,-1
+777
+-2,0
+777
+-1,0
+777
+0,0
+777
+1,0
+777
+2,0
+699
+-2,1
+699
+-1,1
+699
+0,1
+699
+1,1
+699
+2,1
+699
+-2,2
+699
+-1,2
+699
+0,2
+699
+1,2
+699
+2,2
+Tiles Below Player (reflection scan area):
+Y+1: (29, 11)
+Metatile:
+699 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+RUSTBORO_CITY
+Y+2: (29, 12)
+Metatile:
+699 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+RUSTBORO_CITY
+Enabled:
+Yes
+GBA Frame:
+15686
+Cycle Frame:
+37/48
+Scale X (M0):
+0.99219
+Scale X (M1):
+0.99219
+Tiles:
+3,528
+FPS:
+50
+Render:
+0.70 ms
+WebGL2:
+Yes
+Viewport:
+20×20
+Camera:
+(312, 8)
+World:
+2240×5440px
+Stitched:
+8 maps
+Intro State:
+7
+Should Run:
+No
+Active:
+No
+Locked:
+No
+Complete:
+Yes
+Door Closed:
+No
+Door Opened:
+No
+Frame:
+0 / 15696
+Camera:
+(0, 0)
+Offsets:
+B1(3,3) B2(0,-3) B3(-3,0)
+Box Runtime:
+LOCALID_TRUCK_BOX_TOP
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_L
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_R
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+Slot 0
+Building + PokemonCenter
+Slot 1
+empty
+Total tileset pairs: 1
+Slot 0 · Building + PokemonCenter
+Animations:
+0
+Destinations:
+0
+Frames:
+0
+Current Map:
+RUSTBORO_CITY_POKEMON_CENTER_1F
+Anchor Map:
+RUSTBORO_CITY_POKEMON_CENTER_1F
+Player:
+(7, 4)
+Version:
+42
+Last Warp:
+RUSTBORO_CITY
+Anchor:
+RUSTBORO_CITY
+World Bounds:
+(0,-120) 140x340
+RUSTBORO_CITY_POKEMON_CENTER_1F
+(0,0) ✓GPU
+General + Rustboro
+→ Slot 0
+General + Fallarbor
+→ Slot 1
+General + Dewford
+→ Slot 2
+General + Petalburg
+→ Slot NONE
+General + Mauville
+→ Slot NON

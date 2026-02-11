@@ -147,6 +147,9 @@ export interface NPCObject {
   visible: boolean;
   /** Whether the sprite is hidden (MOVEMENT_TYPE_INVISIBLE). NPC still blocks tile and responds to interaction. */
   spriteHidden: boolean;
+  /** Whether this NPC was removed at runtime by a script (removeobject/addobject).
+   *  Prevents refreshNPCVisibility from overriding the script's visibility change. */
+  scriptRemoved: boolean;
 
   // Movement state fields (updated by NPCMovementEngine)
 

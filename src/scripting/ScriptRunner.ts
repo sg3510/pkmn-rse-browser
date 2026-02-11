@@ -23,6 +23,9 @@ import { getSpeciesName } from '../data/species';
 import { getItemId, getItemName } from '../data/items';
 import { bagManager } from '../game/BagManager';
 import { saveStateStore } from '../save/SaveStateStore';
+import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags';
+import { getMoveInfo } from '../data/moves';
+import { STATUS } from '../pokemon/types';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -72,6 +75,8 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_PLAYER_TELEPORTED') return 5;
   if (val === 'B_OUTCOME_MON_FLED') return 6;
   if (val === 'B_OUTCOME_CAUGHT') return 7;
+  // Script menu constants (include/constants/script_menu.h)
+  if (val === 'MULTI_B_PRESSED') return 127;
   // Metatile labels
   if (val in METATILE_LABELS) return METATILE_LABELS[val];
   return val;
@@ -571,6 +576,11 @@ export class ScriptRunner {
           break;
 
         // --- Flags ---
+        // C parity: setflag/clearflag only update the flag store. They do NOT
+        // refresh NPC visibility at runtime. In the C source (scrcmd.c),
+        // FlagSet/FlagClear just write to the save block. Visibility changes
+        // happen either on map load (NPCs check flags when spawned) or via
+        // addobject/removeobject (immediate runtime changes).
         case 'setflag':
           gameFlags.set(asString(args[0]));
           break;
@@ -631,7 +641,7 @@ export class ScriptRunner {
           const resolvedId = localId.startsWith('VAR_')
             ? String(this.getVar(localId))
             : localId;
-          this.ctx.setNpcVisible(this.currentMapId, resolvedId, true);
+          this.ctx.setNpcVisible(this.currentMapId, resolvedId, true, true);  // persistent
           break;
         }
 
@@ -640,16 +650,24 @@ export class ScriptRunner {
           const resolvedId = localId.startsWith('VAR_')
             ? String(this.getVar(localId))
             : localId;
-          this.ctx.setNpcVisible(this.currentMapId, resolvedId, false);
+          this.ctx.setNpcVisible(this.currentMapId, resolvedId, false, true);  // persistent
           break;
         }
 
-        case 'setobjectxy':
+        case 'setobjectxy': {
+          const localId = asString(args[0]);
+          const x = asNumber(args[1]);
+          const y = asNumber(args[2]);
+          this.ctx.setNpcPosition(this.currentMapId, localId, x, y);
+          break;
+        }
+
         case 'setobjectxyperm': {
           const localId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
           this.ctx.setNpcPosition(this.currentMapId, localId, x, y);
+          saveStateStore.setObjectEventOverride(this.currentMapId, localId, x, y);
           break;
         }
 
@@ -673,9 +691,14 @@ export class ScriptRunner {
 
         case 'turnobject': {
           const localId = asString(args[0]);
+          const resolvedId = this.resolveObjectId(localId);
           const dir = this.resolveDirection(args[1]);
           if (dir) {
-            this.ctx.moveNpc(this.currentMapId, localId, dir, 'face');
+            if (resolvedId === 'LOCALID_PLAYER' || resolvedId === '255') {
+              this.ctx.setPlayerDirection?.(dir);
+            } else {
+              this.ctx.moveNpc(this.currentMapId, resolvedId, dir, 'face');
+            }
           }
           break;
         }
@@ -696,7 +719,7 @@ export class ScriptRunner {
           const mapId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          this.ctx.queueWarp(mapId, x, y, 'up');
+          this.ctx.queueWarp(mapId, x, y, 'down');
           break;
         }
 
@@ -754,14 +777,14 @@ export class ScriptRunner {
         // --- Special functions ---
         case 'special': {
           const specialName = asString(args[0]);
-          this.executeSpecial(specialName);
+          await this.executeSpecial(specialName);
           break;
         }
 
         case 'specialvar': {
           const destVar = asString(args[0]);
           const specialName = asString(args[1]);
-          const result = this.executeSpecial(specialName);
+          const result = await this.executeSpecial(specialName);
           if (result !== undefined) {
             gameVariables.setVar(destVar, result);
           }
@@ -802,11 +825,18 @@ export class ScriptRunner {
           break;
         }
 
-        // --- hideobjectat: hide NPC at specific map ---
+        // --- hideobjectat / showobjectat: temporary NPC visibility (no flag persistence) ---
         case 'hideobjectat': {
           const localId = asString(args[0]);
           const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
           this.ctx.setNpcVisible(mapId, localId, false);
+          break;
+        }
+
+        case 'showobjectat': {
+          const localId = asString(args[0]);
+          const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
+          this.ctx.setNpcVisible(mapId, localId, true);
           break;
         }
 
@@ -818,6 +848,28 @@ export class ScriptRunner {
             await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
           } else {
             console.warn(`[ScriptRunner] Text not found: ${textLabel}`);
+          }
+          break;
+        }
+
+        // --- pokenavcall: show text in PokéNav-style window (functionally same as message) ---
+        case 'pokenavcall': {
+          const textLabel = asString(args[0]);
+          const rawText = this.findText(textLabel);
+          if (rawText) {
+            await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
+          }
+          break;
+        }
+
+        // --- getplayerxy: read player's map-local tile position into two variables ---
+        case 'getplayerxy': {
+          const xVar = asString(args[0]);
+          const yVar = asString(args[1]);
+          const pos = this.ctx.getPlayerLocalPosition?.();
+          if (pos) {
+            gameVariables.setVar(xVar, pos.x);
+            gameVariables.setVar(yVar, pos.y);
           }
           break;
         }
@@ -879,12 +931,170 @@ export class ScriptRunner {
           break;
         }
 
-        case 'trainerbattle_no_intro': {
+        // --- Trainer flags ---
+        case 'settrainerflag': {
+          const trainerName = asString(args[0]);
+          setTrainerDefeated(trainerName);
+          break;
+        }
+
+        case 'cleartrainerflag': {
+          const trainerName = asString(args[0]);
+          clearTrainerDefeated(trainerName);
+          break;
+        }
+
+        case 'checktrainerflag': {
+          const trainerName = asString(args[0]);
+          gameVariables.setVar('VAR_RESULT', isTrainerDefeated(trainerName) ? 1 : 0);
+          break;
+        }
+
+        // --- trainerbattle variants ---
+        // C ref: public/pokeemerald/src/battle_setup.c
+        // All variants check GetTrainerFlag (TRAINER_FLAGS_START + trainerId).
+        // If defeated → fall through to next command (post-battle code).
+        // If not defeated → show intro, battle, show defeat, set flag, run defeat script.
+        // Until the battle system exists, undefeated trainers auto-win with defeat text.
+
+        case 'trainerbattle_single': {
+          // args: [trainerId, introText, defeatText, defeatScript?, noMusic?]
           const trainerId = asString(args[0]);
+          if (isTrainerDefeated(trainerId)) break; // Already beaten → post-battle code
+
+          // Show intro text
+          const introLabel = asString(args[1]);
+          const introRaw = this.findText(introLabel);
+          if (introRaw) {
+            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
+          }
+
+          // Battle (or auto-win placeholder)
           if (this.ctx.startTrainerBattle) {
             await this.ctx.startTrainerBattle(trainerId);
           } else {
-            console.warn(`[ScriptRunner] trainerbattle_no_intro not available in context: ${trainerId}`);
+            await this.ctx.delayFrames(16);
+          }
+
+          // Show defeat text
+          const defeatLabel = asString(args[2]);
+          const defeatRaw = this.findText(defeatLabel);
+          if (defeatRaw) {
+            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
+          }
+
+          // Set defeated flag
+          setTrainerDefeated(trainerId);
+
+          // Jump to defeat script if provided (4th arg, skipping NO_MUSIC flag)
+          const defeatScriptArg = args.length > 3 ? asString(args[3]) : null;
+          if (defeatScriptArg && defeatScriptArg !== 'NO_MUSIC') {
+            const defeatTarget = this.findScript(defeatScriptArg);
+            if (defeatTarget) {
+              callStack.push({ commands, ip });
+              commands = defeatTarget;
+              ip = 0;
+            }
+          }
+          break;
+        }
+
+        case 'trainerbattle_double': {
+          // args: [trainerId, introText, defeatText, notEnoughText, defeatScript?, noMusic?]
+          const trainerId = asString(args[0]);
+          if (isTrainerDefeated(trainerId)) break;
+
+          const introLabel = asString(args[1]);
+          const introRaw = this.findText(introLabel);
+          if (introRaw) {
+            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
+          }
+
+          if (this.ctx.startTrainerBattle) {
+            await this.ctx.startTrainerBattle(trainerId);
+          } else {
+            await this.ctx.delayFrames(16);
+          }
+
+          const defeatLabel = asString(args[2]);
+          const defeatRaw = this.findText(defeatLabel);
+          if (defeatRaw) {
+            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
+          }
+
+          setTrainerDefeated(trainerId);
+
+          const dblDefeatScript = args.length > 4 ? asString(args[4]) : null;
+          if (dblDefeatScript && dblDefeatScript !== 'NO_MUSIC') {
+            const target = this.findScript(dblDefeatScript);
+            if (target) {
+              callStack.push({ commands, ip });
+              commands = target;
+              ip = 0;
+            }
+          }
+          break;
+        }
+
+        case 'trainerbattle_rematch': {
+          // args: [trainerId, introText, defeatText]
+          // Rematch battles always proceed (the original defeat flag is already set)
+          const trainerId = asString(args[0]);
+
+          const introLabel = asString(args[1]);
+          const introRaw = this.findText(introLabel);
+          if (introRaw) {
+            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
+          }
+
+          if (this.ctx.startTrainerBattle) {
+            await this.ctx.startTrainerBattle(trainerId);
+          } else {
+            await this.ctx.delayFrames(16);
+          }
+
+          const defeatLabel = asString(args[2]);
+          const defeatRaw = this.findText(defeatLabel);
+          if (defeatRaw) {
+            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
+          }
+          break;
+        }
+
+        case 'trainerbattle_rematch_double': {
+          // args: [trainerId, introText, defeatText, notEnoughText]
+          const trainerId = asString(args[0]);
+
+          const introLabel = asString(args[1]);
+          const introRaw = this.findText(introLabel);
+          if (introRaw) {
+            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
+          }
+
+          if (this.ctx.startTrainerBattle) {
+            await this.ctx.startTrainerBattle(trainerId);
+          } else {
+            await this.ctx.delayFrames(16);
+          }
+
+          const defeatLabel = asString(args[2]);
+          const defeatRaw = this.findText(defeatLabel);
+          if (defeatRaw) {
+            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
+          }
+          break;
+        }
+
+        case 'trainerbattle_no_intro': {
+          // args: [trainerId, defeatText]
+          // No intro text, used for scripted encounters (e.g. Team Aqua)
+          const trainerId = asString(args[0]);
+          if (isTrainerDefeated(trainerId)) break;
+
+          if (this.ctx.startTrainerBattle) {
+            await this.ctx.startTrainerBattle(trainerId);
+          } else {
+            await this.ctx.delayFrames(16);
           }
 
           const defeatTextLabel = args.length > 1 ? asString(args[1]) : null;
@@ -894,6 +1104,8 @@ export class ScriptRunner {
               await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
             }
           }
+
+          setTrainerDefeated(trainerId);
           break;
         }
 
@@ -932,7 +1144,6 @@ export class ScriptRunner {
         case 'setstepcallback':
         case 'setrespawn':
         case 'incrementgamestat':
-        case 'trainerbattle':
         case 'multichoice':
         case 'compare':
           // No-ops or logged for future implementation
@@ -1120,7 +1331,7 @@ export class ScriptRunner {
    * Execute a special function by name.
    * Returns a numeric result for specialvar, or undefined.
    */
-  private executeSpecial(name: string): number | undefined {
+  private async executeSpecial(name: string): Promise<number | undefined> {
     switch (name) {
       case 'GetRivalSonDaughterString':
         // Male player → rival is female → "daughter"; Female → "son"
@@ -1132,6 +1343,51 @@ export class ScriptRunner {
       case 'GetBattleOutcome':
         // Return B_OUTCOME_WON (1) — no battle system yet, auto-win
         return 1;
+      case 'ShouldTryRematchBattle':
+        // Rematch system not implemented — always return FALSE (0).
+        // Prevents gym leaders and 70+ rematchable trainers from
+        // incorrectly entering the rematch branch after initial defeat.
+        return 0;
+      case 'ScriptMenu_CreateStartMenuForPokenavTutorial': {
+        // Opens a fake start menu for PokéNav tutorial (RustboroCity scripts.inc:76–101).
+        // The script's switch/case loops back for any selection other than POKéNAV (3).
+        const menuResult = await this.ctx.showChoice(
+          'START MENU',
+          [
+            { label: 'POKéDEX', value: 0 },
+            { label: 'POKéMON', value: 1 },
+            { label: 'BAG', value: 2 },
+            { label: 'POKéNAV', value: 3 },
+            { label: this.playerName, value: 4 },
+            { label: 'SAVE', value: 5 },
+            { label: 'OPTION', value: 6 },
+            { label: 'EXIT', value: 7 },
+          ],
+          { cancelable: true }
+        );
+        gameVariables.setVar('VAR_RESULT', menuResult ?? 127);
+        return undefined;
+      }
+      case 'OpenPokenavForTutorial':
+        // Opens the full PokéNav UI — no-op since we don't have one.
+        return undefined;
+      case 'HealPlayerParty': {
+        const party = this.ctx.getParty?.() ?? [];
+        const healed = party.map((mon) => {
+          if (!mon) return null;
+          return {
+            ...mon,
+            status: STATUS.NONE,
+            stats: { ...mon.stats, hp: mon.stats.maxHp },
+            pp: mon.moves.map((moveId) => {
+              if (moveId === 0) return 0;
+              return getMoveInfo(moveId)?.pp ?? 0;
+            }) as [number, number, number, number],
+          };
+        });
+        this.ctx.setParty(healed);
+        return undefined;
+      }
       default:
         console.warn(`[ScriptRunner] Unimplemented special: ${name}`);
         return undefined;

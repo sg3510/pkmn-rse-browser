@@ -6,6 +6,7 @@ import type { ObjectEventManager } from '../game/ObjectEventManager';
 import type { ScriptObject, NPCObject } from '../types/objectEvents';
 import { saveManager } from '../save/SaveManager';
 import { bagManager } from '../game/BagManager';
+import { MB_COUNTER } from '../utils/metatileBehaviors.generated';
 
 export interface ActionInputDeps {
   playerControllerRef: React.RefObject<PlayerController | null>;
@@ -88,7 +89,57 @@ export function useActionInput({
     else if (player.dir === 'right') facingTileX += 1;
 
     const objectEventManager = objectEventManagerRef.current;
-    const interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
+
+    // Helper: handle an interactable (item/npc/script)
+    const handleInteraction = async (found: NonNullable<ReturnType<typeof objectEventManager.getInteractableAt>>) => {
+      if (found.type === 'item') {
+        const itemBall = found.data;
+        itemPickupInProgressRef.current = true;
+        player.lockInput();
+        try {
+          objectEventManager.collectItem(itemBall.id);
+          bagManager.addItem(itemBall.itemId, 1);
+          const itemName = itemBall.itemName;
+          const playerName = saveManager.getPlayerName();
+          await showMessage(`${playerName} found one ${itemName}!`);
+        } finally {
+          itemPickupInProgressRef.current = false;
+          player.unlockInput();
+        }
+      } else if (found.type === 'npc' && found.data.script && found.data.script !== '0x0' && onNpcInteract) {
+        itemPickupInProgressRef.current = true;
+        try {
+          await onNpcInteract(found.data);
+        } finally {
+          itemPickupInProgressRef.current = false;
+        }
+      } else if (found.type === 'script' && onScriptInteract) {
+        itemPickupInProgressRef.current = true;
+        try {
+          await onScriptInteract(found.data);
+        } finally {
+          itemPickupInProgressRef.current = false;
+        }
+      }
+    };
+
+    let interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
+
+    // C parity: MB_COUNTER extends interaction 1 tile further (field_control_avatar.c:286-314)
+    if (!interactable) {
+      const tileResolver = player.getTileResolver();
+      const facingTileInfo = tileResolver?.(facingTileX, facingTileY);
+      if (facingTileInfo?.attributes?.behavior === MB_COUNTER) {
+        let counterTileX = facingTileX;
+        let counterTileY = facingTileY;
+        if (player.dir === 'up') counterTileY -= 1;
+        else if (player.dir === 'down') counterTileY += 1;
+        else if (player.dir === 'left') counterTileX -= 1;
+        else if (player.dir === 'right') counterTileX += 1;
+        interactable = objectEventManager.getInteractableAt(counterTileX, counterTileY);
+      }
+    }
+
     if (!interactable) {
       // No NPC/item/script — check bg_events (signs, clocks, etc.)
       if (onTileInteract) {
@@ -102,43 +153,7 @@ export function useActionInput({
       return;
     }
 
-    if (interactable.type === 'item') {
-      const itemBall = interactable.data;
-      itemPickupInProgressRef.current = true;
-      player.lockInput();
-
-      try {
-        objectEventManager.collectItem(itemBall.id);
-        // Add item to bag inventory
-        bagManager.addItem(itemBall.itemId, 1);
-        const itemName = itemBall.itemName;
-        const playerName = saveManager.getPlayerName();
-        await showMessage(`${playerName} found one ${itemName}!`);
-      } finally {
-        itemPickupInProgressRef.current = false;
-        player.unlockInput();
-      }
-      return;
-    }
-
-    if (interactable.type === 'npc' && interactable.data.script && interactable.data.script !== '0x0' && onNpcInteract) {
-      itemPickupInProgressRef.current = true;
-      try {
-        await onNpcInteract(interactable.data);
-      } finally {
-        itemPickupInProgressRef.current = false;
-      }
-      return;
-    }
-
-    if (interactable.type === 'script' && onScriptInteract) {
-      itemPickupInProgressRef.current = true;
-      try {
-        await onScriptInteract(interactable.data);
-      } finally {
-        itemPickupInProgressRef.current = false;
-      }
-    }
+    await handleInteraction(interactable);
   }, [enabled, dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef, onScriptInteract, onNpcInteract, onTileInteract]);
 
   useInput({ onKeyDown: handleActionKeyDown });

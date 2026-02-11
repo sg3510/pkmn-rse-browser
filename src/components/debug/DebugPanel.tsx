@@ -1205,6 +1205,8 @@ const StateTab: React.FC = () => {
           placeholder="Filter flags/vars..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          onKeyUp={(e) => e.stopPropagation()}
           style={{
             width: '100%',
             padding: '6px 8px',

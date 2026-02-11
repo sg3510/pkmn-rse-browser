@@ -1,0 +1,1540 @@
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [NPCMovement] Handlers registered
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [StateRenderLoop] Skipping - no stateManager yet
+ [GameStateManager] Entering state: TITLE_SCREEN
+ [TitleScreenState] Entering...
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [TitleScreenState] Loading Rayquaza MTL: 100%
+ [StateRenderLoop] Starting render loop for state: TITLE_SCREEN
+ [StateRenderLoop] First frame rendered
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] 2D assets loaded
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] Loading Rayquaza OBJ: 100%
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] 3D Rayquaza (OBJ Wii) loaded
+ [TitleScreenState] Ready, scale: 1
+ [TitleScreenState] Ready, scale: 1
+ [GamePage] State changed to: TITLE_SCREEN
+ [GamePage] State changed to: TITLE_SCREEN
+ [Gen3Pokemon] Party count: 2
+ [Gen3Pokemon] Parsed party slot 0: 392 Lv.5
+ [Gen3Pokemon] Parsed party slot 1: 277 Lv.12
+ [Gen3SaveParser] Parsed 2 Pokemon in party
+ [Gen3SaveParser] Parsed 205 flags, 24 vars
+ [SaveManager] Loaded 2 Pokemon from .sav file
+ [SaveManager] Parsed native save: Object
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [SaveManager] Imported native save to slot 0
+ [GamePage] Load completed - redirecting to main menu
+ [MenuStateManager] Closed all menus
+ [GameStateManager] Exiting state: TITLE_SCREEN
+ [TitleScreenState] Exiting...
+ [GameStateManager] Entering state: MAIN_MENU
+ [MainMenuState] Entered
+ [MainMenuState] Found save: Object
+ [GamePage] State changed to: MAIN_MENU
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Starting render loop for state: MAIN_MENU
+ [StateRenderLoop] First frame rendered
+ [MainMenuState] Selected: CONTINUE
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [MainMenuState] Continuing game: Object
+ [BagManager] Loaded bag state: Object
+ [SaveManager] Loaded 2 Pokemon from party
+ [SaveManager] Loaded save from slot 0
+ [GameStateManager] Exiting state: MAIN_MENU
+ [MainMenuState] Exited
+ [GameStateManager] Entering state: OVERWORLD
+ [OverworldState] Entered Object
+ [OverworldState] Continuing from saved location: Object
+ [GamePage] State changed to: OVERWORLD
+ [StateRenderLoop] Cleanup
+ [StateRenderLoop] Skipping - in OVERWORLD state
+ [GamePage] Got saved location from Continue: Object
+ [GamePage] Changing map to saved location: MAP_PETALBURG_WOODS
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_CUTTABLE_TREE using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/cuttable_tree.png
+overrideMethod @ installHook.js:1
+ [GamePage] Spawning player at saved position: Object
+ [CoordEvent] Firing: PetalburgWoods_EventScript_DevonResearcherRight at (27,23) var=VAR_PETALBURG_WOODS_STATE=0
+ [StoryScript] ▶ Starting: PetalburgWoods_EventScript_DevonResearcherRight
+ [StoryScript] lockInput caller for: PetalburgWoods_EventScript_DevonResearcherRight
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [INPUT] lockInput() called at tile(27,23) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=left mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=face pos=(26,23)
+ [movePlayerStep] dir=left mode=face pos=(27,23) isMoving=false inputLocked=true
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,17)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,18)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=down mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(26,23)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=walk pos=(26,23)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=right mode=walk pos=(26,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(27,24)
+ [movePlayerStep] dir=up mode=face pos=(27,23) isMoving=false inputLocked=true
+ [StoryScript] Unmapped trainer battle: TRAINER_GRUNT_PETALBURG_WOODS
+overrideMethod @ installHook.js:1
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,18)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_GRUNT dir=up mode=walk pos=(26,17)
+ [movePlayerStep] dir=down mode=face pos=(27,23) isMoving=false inputLocked=true
+ [BagManager] Added 1x item 3 to pokeBalls
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=down mode=face pos=(27,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=face pos=(27,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=left mode=walk pos=(27,24)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,24)
+ [movePlayerStep] dir=up mode=face pos=(27,23) isMoving=false inputLocked=true
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,23)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,22)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,21)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,20)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,19)
+ [moveNpcStep] LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE dir=up mode=walk pos=(26,18)
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(27,23) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [INPUT] lockInput() called at tile(14,5) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:86
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770848084975:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_PETALBURG_WOODS
+ [WARP] Destination map: MAP_ROUTE104
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+ [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_BERRY_TREE (tried /pokeemerald/graphics/object_events/pics/people/berry_tree.png, /pokeemerald/graphics/object_events/pics/misc/berry_tree.png, /pokeemerald/graphics/object_events/pics/pokemon/berry_tree.png)
+overrideMethod @ installHook.js:1
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=2, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=undefined, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [WARP] ON_TRANSITION script executed for MAP_ROUTE104
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(9)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(10,29) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770848084975:1203
+ [StoryScript] ▶ Starting: Route104_EventScript_Winston
+ [StoryScript] lockInput caller for: Route104_EventScript_Winston
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(20,25) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] Unmapped trainer battle: TRAINER_WINSTON_1
+overrideMethod @ installHook.js:1
+ [ScriptRunner] Unimplemented special: PlayerFaceTrainerAfterBattle
+overrideMethod @ installHook.js:1
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(20,25) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [StoryScript] ▶ Starting: Route104_EventScript_ExpertF
+ [StoryScript] lockInput caller for: Route104_EventScript_ExpertF
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(37,7) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [BagManager] Added 1x item 134 to berries
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(37,7) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [StoryScript] ▶ Starting: Route104_EventScript_ExpertF
+ [StoryScript] lockInput caller for: Route104_EventScript_ExpertF
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(37,7) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(37,7) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [NPCSpriteCache] Loaded OBJ_EVENT_GFX_BREAKABLE_ROCK using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/breakable_rock.png
+overrideMethod @ installHook.js:1
+ [INPUT] lockInput() called at tile(16,-14) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:146
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY
+ [WARP] Destination map: MAP_RUSTBORO_CITY_MART
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_Shop: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_Shop to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [INPUT] unlockInput() called at tile(3,7) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitSequence @ WarpExecutor.ts:89
+executeWarp @ WarpExecutor.ts:114
+performWarpTransition @ performWarpTransitio…?t=1770848084975:97
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [INPUT] lockInput() called at tile(3,7) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:58
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770848084975:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY_MART
+ [WARP] Destination map: MAP_RUSTBORO_CITY
+ [WARP] fromDoor: true
+ [WARP] priorFacing: down
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=2, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [ScriptRunner] Unknown command: getplayerxy Array(2)
+overrideMethod @ installHook.js:1
+ [WARP] ON_TRANSITION script executed for MAP_RUSTBORO_CITY
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(8)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(16,46) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770848084975:1203
+ [INPUT] lockInput() called at tile(27,20) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:146
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY
+ [WARP] Destination map: MAP_RUSTBORO_CITY_GYM
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_Building+gTileset_RustboroGym: gpuSlot=0, primarySize=128x256, secondarySize=128x32
+ [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_RustboroGym to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [INPUT] unlockInput() called at tile(5,19) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitSequence @ WarpExecutor.ts:89
+executeWarp @ WarpExecutor.ts:114
+performWarpTransition @ performWarpTransitio…?t=1770848084975:97
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [StoryScript] ▶ Starting: RustboroCity_Gym_EventScript_Roxanne
+ [StoryScript] lockInput caller for: RustboroCity_Gym_EventScript_Roxanne
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(5,3) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] Unmapped trainer battle: TRAINER_ROXANNE_1
+overrideMethod @ installHook.js:1
+ [ScriptRunner] call target not found: Common_EventScript_PlayGymBadgeFanfare
+overrideMethod @ installHook.js:1
+ [ScriptRunner] Unknown command: settrainerflag Array(1)
+overrideMethod @ installHook.js:1
+ [ScriptRunner] Unknown command: settrainerflag Array(1)
+overrideMethod @ installHook.js:1
+ [ScriptRunner] Unknown command: settrainerflag Array(1)
+overrideMethod @ installHook.js:1
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(5,3) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [StoryScript] ▶ Starting: RustboroCity_Gym_EventScript_Marc
+ [StoryScript] lockInput caller for: RustboroCity_Gym_EventScript_Marc
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(1,5) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] Unmapped trainer battle: TRAINER_MARC
+overrideMethod @ installHook.js:1
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(1,5) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [StoryScript] ▶ Starting: RustboroCity_Gym_EventScript_Tommy
+ [StoryScript] lockInput caller for: RustboroCity_Gym_EventScript_Tommy
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(2,9) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+onNpcInteract @ GamePage.tsx?t=1770848084975:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] Unmapped trainer battle: TRAINER_TOMMY
+overrideMethod @ installHook.js:1
+startTrainerBattle @ useHandledStoryScrip…t=1770848084975:274
+runCommands @ ScriptRunner.ts?t=1770848084975:770
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(2,9) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [INPUT] lockInput() called at tile(5,19) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:58
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770848084975:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_RUSTBORO_CITY_GYM
+ [WARP] Destination map: MAP_RUSTBORO_CITY
+ [WARP] fromDoor: true
+ [WARP] priorFacing: down
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=2, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [ScriptRunner] Unknown command: getplayerxy Array(2)
+overrideMethod @ installHook.js:1
+runCommands @ ScriptRunner.ts?t=1770848084975:912
+execute @ ScriptRunner.ts?t=1770848084975:163
+performWarpTransition @ performWarpTransitio…t=1770848084975:203
+ [WARP] ON_TRANSITION script executed for MAP_RUSTBORO_CITY
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(8)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(27,20) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770848084975:1203
+ [CoordEvent] Firing: RustboroCity_EventScript_StolenGoodsTrigger0 at (23,20) var=VAR_RUSTBORO_CITY_STATE=1
+ [StoryScript] ▶ Starting: RustboroCity_EventScript_StolenGoodsTrigger0
+ [StoryScript] lockInput caller for: RustboroCity_EventScript_StolenGoodsTrigger0
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [INPUT] lockInput() called at tile(23,20) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(13,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(14,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(15,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(16,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(17,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(18,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=right mode=walk pos=(19,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,21)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,20)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,19)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,18)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,17)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,16)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,15)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,14)
+ [moveNpcStep] LOCALID_RUSTBORO_GRUNT dir=up mode=walk pos=(20,13)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(14,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(15,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(16,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(17,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(18,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=right mode=walk pos=(19,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=face pos=(20,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,21)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,20)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,19)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,18)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,17)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,16)
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=up mode=walk pos=(20,15)
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(23,20) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [CoordEvent] Firing: RustboroCity_EventScript_HelpGetGoodsTrigger1 at (29,10) var=VAR_RUSTBORO_CITY_STATE=2
+ [StoryScript] ▶ Starting: RustboroCity_EventScript_HelpGetGoodsTrigger1
+ [StoryScript] lockInput caller for: RustboroCity_EventScript_HelpGetGoodsTrigger1
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:50
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [INPUT] lockInput() called at tile(29,10) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848084975:52
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=left mode=face pos=(30,10)
+ [movePlayerStep] dir=right mode=face pos=(29,10) isMoving=false inputLocked=true
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(21,25) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848084975:411
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [INPUT] lockInput() called at tile(15,5) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+startDoorWarpSequence @ DoorActionDispatcher.ts:117
+(anonymous) @ overworldAssets.ts?t=1770846885465:95
+handleDirectionInput @ PlayerController.ts?t=1770846885465:652
+handleInput @ PlayerController.ts?t=1770846885465:86
+update @ PlayerController.ts?t=1770846885465:516
+renderLoop @ GamePage.tsx?t=1770848084975:1010
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_PETALBURG_WOODS
+ [WARP] Destination map: MAP_ROUTE104
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(5)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Dewford: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Dewford to GPU SLOT 1
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=2, primarySize=128x256, secondarySize=128x80
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Petalburg to GPU SLOT 2
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=undefined, primarySize=128x256, secondarySize=128x224
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_Underwater NOT in GPU (slot=undefined)
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [WARP] ON_TRANSITION script executed for MAP_ROUTE104
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(9)
+ [WARP] Tileset pairs: Array(5)
+ [WARP] GPU slots: Object
+ [INPUT] unlockInput() called at tile(11,29) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitAction @ DoorActionDispatcher.ts:73
+runDoorExitUpdate @ DoorSequenceRunner.ts:47
+renderLoop @ GamePage.tsx?t=1770848084975:1203
+ [CoordEvent] Firing: Route116_EventScript_BrineyTrigger at (47,9) var=VAR_ROUTE116_STATE=1
+ [StoryScript] ▶ Starting: Route116_EventScript_BrineyTrigger
+ [StoryScript] lockInput caller for: Route116_EventScript_BrineyTrigger
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:50
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [INPUT] lockInput() called at tile(87,-51) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:52
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [moveNpcStep] LOCALID_ROUTE116_BRINEY dir=right mode=face pos=(86,-51)
+ [movePlayerStep] dir=left mode=face pos=(87,-51) isMoving=false inputLocked=true
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(87,-51) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848589962:418
+ [StoryScript] ▶ Starting: Route116_EventScript_Briney
+ [StoryScript] lockInput caller for: Route116_EventScript_Briney
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:50
+onNpcInteract @ GamePage.tsx?t=1770848589962:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(87,-51) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:52
+onNpcInteract @ GamePage.tsx?t=1770848589962:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(87,-51) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848589962:418
+ [WARP] autoDoorWarp at tile(87,-52) map=MAP_ROUTE116 dest={"kind":"door","sourceMap":{"entry":{"id":"MAP_ROUTE116","name":"Route116","folder":"Route116","layoutId":"LAYOUT_ROUTE116","width":100,"height":20,"layoutPath":"data/layouts/Route116","primaryTilesetId":"gTileset_General","secondaryTilesetId":"gTileset_Rustboro","primaryTilesetPath":"data/tilesets/primary/general","secondaryTilesetPath":"data/tilesets/secondary/rustboro","connections":[{"map":"MAP_VERDANTURF_TOWN","offset":80,"direction":"down"},{"map":"MAP_RUSTBORO_CITY","offset":0,"direction":"left"}],"mapType":"MAP_TYPE_ROUTE","regionMapSection":"MAPSEC_ROUTE_116"},"mapData":{"width":100,"height":20,"layout":[{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":468,"collision":1,"elevation":0},{"metatileId":469,"collision":1,"elevation":0},{"metatileId":1,"collision":0,"elevation":3},{"metatileId":112,"collision":1,"elevation":0},{"metatileId":115,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":115,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":115,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":107,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":182,"collision":1,"elevation":0},{"metatileId":109,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":115,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0},{"metatileId":113,"collision":1,"elevation":0}
+ [INPUT] lockInput() called at tile(87,-52) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+renderLoop @ GamePage.tsx?t=1770848084975:1176
+ [WARP] ========== WARP START ==========
+ [WARP] Source map: MAP_ROUTE116
+ [WARP] Destination map: MAP_RUSTURF_TUNNEL
+ [WARP] fromDoor: true
+ [WARP] priorFacing: up
+ [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+ [TILESET_UPLOAD] Tileset pairs: Array(1)
+ [TILESET_UPLOAD] GPU slot mapping: Object
+ [TILESET_UPLOAD] Pair gTileset_General+gTileset_RusturfTunnel: gpuSlot=0, primarySize=128x256, secondarySize=128x72
+ [TILESET_UPLOAD] Uploading gTileset_General+gTileset_RusturfTunnel to GPU SLOT 0
+ [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+ [INPUT] unlockInput() called at tile(4,10) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+handleDoorExitSequence @ WarpExecutor.ts:89
+executeWarp @ WarpExecutor.ts:114
+performWarpTransition @ performWarpTransitio…?t=1770848084975:97
+ [WARP] ON_TRANSITION script executed for MAP_RUSTURF_TUNNEL
+ [NPCMovement] Engine reset
+ [WARP] Warp complete
+ [WARP] World bounds: Object
+ [WARP] Loaded maps: Array(1)
+ [WARP] Tileset pairs: Array(1)
+ [WARP] GPU slots: Object
+ [CoordEvent] Firing: RusturfTunnel_EventScript_AquaGruntBackUp at (9,4) var=VAR_RUSTURF_TUNNEL_STATE=2
+ [StoryScript] ▶ Starting: RusturfTunnel_EventScript_AquaGruntBackUp
+ [StoryScript] lockInput caller for: RusturfTunnel_EventScript_AquaGruntBackUp
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:50
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [INPUT] lockInput() called at tile(9,4) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:52
+renderLoop @ GamePage.tsx?t=1770848084975:1061
+ [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=right mode=walk pos=(13,5)
+ [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=right mode=walk pos=(13,4)
+ [StoryScript] ✓ Script handled=true
+ [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+ [StoryScript] ■ Unlocking input (no active/pending warp)
+ [INPUT] unlockInput() called at tile(9,4) wasLocked=true
+ [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts?t=1770846885465:503
+(anonymous) @ useHandledStoryScrip…t=1770848589962:418
+ [StoryScript] ▶ Starting: RusturfTunnel_EventScript_Grunt
+ [StoryScript] lockInput caller for: RusturfTunnel_EventScript_Grunt
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:50
+onNpcInteract @ GamePage.tsx?t=1770848589962:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [INPUT] lockInput() called at tile(13,5) wasLocked=false moving=false
+ [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts?t=1770846885465:488
+(anonymous) @ useHandledStoryScrip…?t=1770848589962:52
+onNpcInteract @ GamePage.tsx?t=1770848589962:558
+(anonymous) @ useActionInput.ts?t=1770846444950:85
+down @ useInput.ts:24
+ [StoryScript] Unmapped trainer battle: TRAINER_GRUNT_RUSTURF_TUNNEL
+overrideMethod @ installHook.js:1
+ [BagManager] Added 1x item 269 to keyItems
+ [movePlayerStep] dir=down mode=face pos=(13,5) isMoving=false inputLocked=true
+ [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(14,5)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=up mode=walk pos=(13,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(13,4)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=left mode=face pos=(13,4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(13,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(12,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(11,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(10,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(9,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(8,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(7,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_GRUNT dir=left mode=walk pos=(6,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(5,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(6,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(7,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(8,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(9,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(10,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(11,4)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(13,4) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=right mode=walk pos=(12,4)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(13,5)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=up mode=face pos=(13,5) isMoving=false inputLocked=true
+installHook.js:1 [ScriptRunner] Unknown command: waitbuttonpress Array(0)
+overrideMethod @ installHook.js:1
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(13,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(14,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(12,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(13,4)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=left mode=face pos=(13,5) isMoving=false inputLocked=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(11,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(12,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(10,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(11,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(9,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(10,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(8,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(9,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(7,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(8,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(6,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(7,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(5,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_PEEKO dir=left mode=walk pos=(6,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(4,4)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTURF_TUNNEL_BRINEY dir=left mode=walk pos=(3,4)
+useHandledStoryScript.ts:538 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:545 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:548 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(13,5) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+(anonymous) @ useHandledStoryScript.ts:549
+PlayerController.ts:680 [INPUT] lockInput() called at tile(4,10) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:141
+handleDirectionInput @ PlayerController.ts:928
+handleInput @ PlayerController.ts:151
+update @ PlayerController.ts:720
+renderLoop @ GamePage.tsx:1424
+performWarpTransition.ts:108 [WARP] ========== WARP START ==========
+performWarpTransition.ts:109 [WARP] Source map: MAP_RUSTURF_TUNNEL
+performWarpTransition.ts:110 [WARP] Destination map: MAP_ROUTE116
+performWarpTransition.ts:111 [WARP] fromDoor: true
+performWarpTransition.ts:112 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(3)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Rustboro: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Rustboro to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=1, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Mauville to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=2, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:106 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 2
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+performWarpTransition.ts:275 [WARP] ON_LOAD script executed for MAP_ROUTE116
+installHook.js:1 [ScriptRunner] Unknown command: setweather Array(1)
+overrideMethod @ installHook.js:1
+installHook.js:1 [ScriptRunner] Unknown command: setweather Array(1)
+overrideMethod @ installHook.js:1
+performWarpTransition.ts:281 [WARP] ON_TRANSITION script executed for MAP_ROUTE116
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:306 [WARP] Warp complete
+performWarpTransition.ts:307 [WARP] World bounds: Object
+performWarpTransition.ts:308 [WARP] Loaded maps: Array(6)
+performWarpTransition.ts:309 [WARP] Tileset pairs: Array(3)
+performWarpTransition.ts:310 [WARP] GPU slots: Object
+PlayerController.ts:703 [INPUT] unlockInput() called at tile(47,9) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:704
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1700
+GamePage.tsx:1514 [CoordEvent] Firing: RustboroCity_EventScript_ReturnGoodsTrigger2 at (30,11) var=VAR_RUSTBORO_CITY_STATE=4
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: RustboroCity_EventScript_ReturnGoodsTrigger2
+installHook.js:1 [StoryScript] lockInput caller for: RustboroCity_EventScript_ReturnGoodsTrigger2
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1515
+PlayerController.ts:680 [INPUT] lockInput() called at tile(-10,11) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1515
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_RUSTBORO_DEVON_EMPLOYEE dir=down mode=face pos=(-10,10)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=up mode=face pos=(-10,11) isMoving=false inputLocked=true
+BagManager.ts:76 [BagManager] Added 1x item 3 to pokeBalls (now 2)
+GamePage.tsx:1711 [ScriptedWarp] pending → fading (fadeOut to MAP_RUSTBORO_CITY_DEVON_CORP_3F)
+useHandledStoryScript.ts:538 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:545 [StoryScript] ■ Finally: warpingRef=true pendingScriptedWarp=true inputLocked=true
+GamePage.tsx:1726 [ScriptedWarp] fade complete. activeMapId=MAP_RUSTBORO_CITY targetMapId=MAP_RUSTBORO_CITY_DEVON_CORP_3F
+GamePage.tsx:1744 [ScriptedWarp] different map → loading MAP_RUSTBORO_CITY_DEVON_CORP_3F
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: Array(1)
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: Object
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_Facility: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_Facility to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+loadSelectedOverworldMap.ts:197 [GamePage] Spawning player at saved position: Object
+GamePage.tsx:1383 [ON_FRAME] Triggered: map=MAP_RUSTBORO_CITY_DEVON_CORP_3F script=RustboroCity_DevonCorp_3F_EventScript_MeetPresident var=VAR_DEVON_CORP_3F_STATE value=0
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: RustboroCity_DevonCorp_3F_EventScript_MeetPresident
+installHook.js:1 [StoryScript] lockInput caller for: RustboroCity_DevonCorp_3F_EventScript_MeetPresident
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1387
+PlayerController.ts:680 [INPUT] lockInput() called at tile(2,2) wasLocked=true moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:681
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1387
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(3,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(4,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(5,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=down mode=walk pos=(6,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(6,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(7,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(8,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(9,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(10,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(9,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(8,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(7,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=up mode=walk pos=(6,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(6,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(5,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=walk pos=(4,5)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(3,5)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(2,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=13 isMoving=false pos=(3,2)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(3,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(4,5)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=6 isMoving=false pos=(4,2)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(4,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(5,5)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(5,2)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(5,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=down mode=walk pos=(6,5)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(6,2)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=down mode=walk pos=(6,2) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(6,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(6,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(6,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=11 isMoving=false pos=(7,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(7,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(7,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=12 isMoving=false pos=(8,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(8,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(8,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(9,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(9,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(9,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=10 isMoving=false pos=(10,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(10,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(11,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(11,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(10,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=11 isMoving=false pos=(12,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(12,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(11,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=15 isMoving=false pos=(13,3)
+useHandledStoryScript.ts:209 [movePlayerStep] dir=right mode=walk pos=(13,3) isMoving=false inputLocked=true
+useHandledStoryScript.ts:234 [movePlayerStep] forceMove=true isMoving=true
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(12,6)
+useHandledStoryScript.ts:240 [movePlayerStep] done guard=14 isMoving=false pos=(14,3)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(13,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=right mode=walk pos=(14,6)
+useHandledStoryScript.ts:256 [moveNpcStep] LOCALID_DEVON_CORP_3F_EMPLOYEE dir=left mode=face pos=(15,6)
+Debug Panel
+Press ` to toggle
+Map
+General
+Objects
+Tile
+State
+WebGL
+Tile:
+(14, 3)
+player.y:
+32
+Sprite Center (y+16):
+48
+Feet Y (y+32):
+64
+SortKey Y:
+64
+Subpriority:
+128
+Sort Key:
+16512
+Elevation:
+3
+Formula: sortKey = (feetY << 8) | subpriority = (64 << 8) | 128
+🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
+Player
+16512
++0
+GENTLEMAN
+24704
++8192
+MAN_2
+28800
++12288
+With Player: 2 | Behind Bridge: 0 | Above All: 0
+GENTLEMAN[withPlayer] P
+Tile:
+(17, 6)
+FeetY:
+96
+SortKeyY:
+96
+Elevation:
+SortKey:
+24704
+MAN_2[withPlayer] P
+Tile:
+(15, 7)
+FeetY:
+112
+SortKeyY:
+112
+Elevation:
+SortKey:
+28800
+First = renders first (behind) | Last = renders last (in front)
+0
+Player
+withPlayer
+16512
+1
+GENTLEMAN
+withPlayer
+24704
+2
+MAN_2
+withPlayer
+28800
+tilesetVersion:
+109
+lastRendered:
+109
+needsFullRender:
+NO
+needsWarmup:
+NO
+hasCachedInstances:
+YES
+tilesetsUploaded:
+YES
+cached bg/tb/ta:
+1924/0/1604
+lastViewHash:
+109:-1,-6,21,21
+Copy pipeline debug
+Center pixel samples (RGBA):
+BG: 82,82,106,255
+TopBelow: 0,0,0,0
+Recent renders (most recent last):
+ts:
+754624.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754642.2 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+yes
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754708.4 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754713.0 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754720.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754735.4 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754759.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754768.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754785.1 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754802.9 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+yes
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754817.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+ts:
+754835.2 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+109
+hadCaches:
+yes
+Last pass renders:
+background:
+1924 inst · 336x336 · 754640.7ms
+topBelow:
+0 inst · 336x336 · 686401.5ms
+topAbove:
+1604 inst · 336x336 · 754640.7ms
+Player:
+(14, 3)
+Dest:
+(14, 3)
+Moving:
+NO
+Reflection State:
+Has Reflection:
+NO
+Type:
+none
+Bridge:
+none
+Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
+912
+-2,-2
+913
+-1,-2
+912
+0,-2
+913
+1,-2
+912
+2,-2
+897
+-2,-1
+897
+-1,-1
+897
+0,-1
+897
+1,-1
+897
+2,-1
+896
+-2,0
+896
+-1,0
+896
+0,0
+952
+1,0
+954
+2,0
+896
+-2,1
+896
+-1,1
+896
+0,1
+960
+1,1
+962
+2,1
+896
+-2,2
+896
+-1,2
+896
+0,2
+955
+1,2
+957
+2,2
+Tiles Below Player (reflection scan area):
+Y+1: (14, 4)
+Metatile:
+896 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+RUSTBORO_CITY_DEVON_CORP_3F
+Y+2: (14, 5)
+Metatile:
+896 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+3
+Collision:
+0
+Runtime:
+FOUND
+Map:
+RUSTBORO_CITY_DEVON_CORP_3F
+Enabled:
+Yes
+GBA Frame:
+44582
+Cycle Frame:
+37/48
+Scale X (M0):
+0.99219
+Scale X (M1):
+0.99219
+Tiles:
+3,528
+FPS:
+52
+Render:
+0.40 ms
+WebGL2:
+Yes
+Viewport:
+20×20
+Camera:
+(-8, -88)
+World:
+304×144px
+Intro State:
+7
+Should Run:
+No
+Active:
+No
+Locked:
+No
+Complete:
+Yes
+Door Closed:
+No
+Door Opened:
+No
+Frame:
+0 / 44592
+Camera:
+(0, 0)
+Offsets:
+B1(3,3) B2(0,-3) B3(-3,0)
+Box Runtime:
+LOCALID_TRUCK_BOX_TOP
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_L
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_R
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+Slot 0
+General + Rustboro
+Slot 1
+General + Dewford
+Total tileset pairs: 5
+Slot 0 · General + Rustboro
+Animations:
+7
+Destinations:
+14
+Frames:
+36
+gTileset_General:flower, gTileset_General:water, gTileset_General:sand-water-edge, gTileset_General:land-water-edge, gTileset_General:waterfall, gTileset_Rustboro:windy_water, gTileset_Rustboro:fountain
+Slot 1 · General + Dewford
+Animations:
+6
+Destinations:
+6
+Frames:
+30
+gTileset_General:flower, gTileset_General:water, gTileset_General:sand-water-edge, gTileset_General:land-water-edge, gTileset_General:waterfall, gTileset_Dewford:flag
+Slot 2 · General + Petalburg
+Animations:
+5
+Destinations:
+5
+Frames:
+26
+gTileset_General:flower, gTileset_General:water, gTileset_General:sand-water-edge, gTileset_General:land-water-edge, gTileset_General:waterfall
+Current Map:
+ROUTE104
+Anchor Map:
+ROUTE104
+Player:
+(11, 30)
+Version:
+107
+Last Warp:
+ROUTE116
+Anchor:
+ROUTE116
+World Bounds:
+(-40,-80) 200x220
+ROUTE104
+(0,0) ✓GPU
+RUSTBORO_CITY
+(0,-60) ✓GPU
+ROUTE105
+(0,80) ✓GPU
+PETALBURG_CITY
+(40,50) ✗GPU
+ROUTE115
+(0,-140) ✗GPU
+ROUTE116
+(40,-60) ✓GPU
+ROUTE106
+(0,160) ✓GPU
+UNDERWATER_ROUTE105
+(0,80) ✗GPU
+ROUTE102
+(70,60) ✗GPU
+up
+RUSTBORO_CITY ✓
+down
+ROUTE105 ✓
+right
+PETALBURG_CITY ✓
+@(0,80) horizontal len:40
+@(40,50) vertical len:30
+@(0,-60) horizontal len:40
+Nearby: 0
+General + Rustboro
+→ Slot 0
+General + Mauville
+→ Slot 1
+General + Fallarbor
+→ Slot 2
+
+0x8008
+1
+BIRCH_LAB_STATE
+5
+BRINEY_HOUSE_STATE
+1
+CABLE_CLUB_TUTORIAL_STATE
+1
+DAILY_PICKED_BERRIES
+4
+DAILY_WILDS
+31
+DAYS
+1
+FACING
+4
+FRIENDSHIP_STEP_COUNTER
+114
+FRONTIER_GAMBLER_CHALLENGE
+1
+FRONTIER_MANIAC_FACILITY
+1
+LAST_TALKED
+3
+LITTLEROOT_HOUSES_STATE_BRENDAN
+2
+LITTLEROOT_INTRO_STATE
+7
+LITTLEROOT_RIVAL_STATE
+4
+LITTLEROOT_TOWN_STATE
+4
+LOTAD_SIZE_RECORD
+32768
+MIRAGE_RND_L
+12345
+OLDALE_RIVAL_STATE
+2
+OLDALE_TOWN_STATE
+1
+PETALBURG_CITY_STATE
+3
+PETALBURG_GYM_STATE
+3
+PETALBURG_WOODS_STATE
+1
+POKELOT_RND1
+45143
+POKELOT_RND2
+16436
+RESULT
+1
+ROUTE101_STATE
+3
+ROUTE116_STATE
+2
+RUSTBORO_CITY_STATE
+5
+RUSTURF_TUNNEL_STATE
+3
+SCOTT_PETALBURG_ENCOUNTER
+1
+SCOTT_STATE
+1
+SEEDOT_SIZE_RECORD
+32768
+TEMP_1
+2
+
+Name:
+RustboroCity_DevonCorp_3F
+Size:
+19×9 metatiles
+Tilesets:
+Building / Facility
+World:
+304×144px
