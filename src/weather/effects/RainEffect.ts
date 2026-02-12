@@ -40,7 +40,7 @@ const VARIANT_OPTIONS: Record<RainVariant, RainVariantOptions> = {
     velY: 8.5,
     lightning: false,
     screenTintColor: '#0f1f32',
-    screenTintAlpha: 0.12,
+    screenTintAlpha: 0.18,
   },
   thunderstorm: {
     targetDrops: 16,
@@ -48,7 +48,7 @@ const VARIANT_OPTIONS: Record<RainVariant, RainVariantOptions> = {
     velY: 10,
     lightning: true,
     screenTintColor: '#0c1b2d',
-    screenTintAlpha: 0.15,
+    screenTintAlpha: 0.22,
   },
   downpour: {
     targetDrops: 24,
@@ -56,7 +56,7 @@ const VARIANT_OPTIONS: Record<RainVariant, RainVariantOptions> = {
     velY: 12,
     lightning: true,
     screenTintColor: '#081629',
-    screenTintAlpha: 0.18,
+    screenTintAlpha: 0.26,
   },
 };
 

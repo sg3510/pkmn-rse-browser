@@ -42,6 +42,18 @@ type RenderInfoEntry = {
 };
 
 export class WebGLRenderPipeline {
+  private static readonly FBO_DIAGNOSTIC_SAMPLE_UV: ReadonlyArray<readonly [number, number]> = [
+    [0.2, 0.2],
+    [0.5, 0.2],
+    [0.8, 0.2],
+    [0.2, 0.5],
+    [0.5, 0.5],
+    [0.8, 0.5],
+    [0.2, 0.8],
+    [0.5, 0.8],
+    [0.8, 0.8],
+  ];
+
   private glContext: WebGLContext;
   private tileRenderer: WebGLTileRenderer;
   private framebufferManager: WebGLFramebufferManager;
@@ -76,6 +88,7 @@ export class WebGLRenderPipeline {
 
   // P2 Diagnostic: Track FBO empty state to only log on change
   private lastFBODiagnosticState: string = '';
+  private lastFullRenderEmptyState: 'OK' | 'BUG' = 'OK';
 
   // Cache latest tileset buffers for animation updates
   // (kept in animationManager)
@@ -761,34 +774,50 @@ export class WebGLRenderPipeline {
 
   /**
    * P3 Diagnostic: Check if full render actually produced pixels in FBOs
-   * Only warns if instances exist but pixels don't (empty FBOs with 0 instances are normal)
+   * Only warns when all populated passes look empty across a 3x3 sample grid.
+   * Single-pass emptiness at one fixed pixel is often a false positive.
    */
   private checkFullRenderProducedPixels(): void {
-    const bgPixel = this.passRenderer.sampleFBOPixel('background', 168, 168);
-    const tbPixel = this.passRenderer.sampleFBOPixel('topBelow', 168, 168);
-
     const bgInstances = this.passRenderer.getInstanceCount('background');
     const tbInstances = this.passRenderer.getInstanceCount('topBelow');
+    const taInstances = this.passRenderer.getInstanceCount('topAbove');
 
-    const bgEmpty = bgPixel ? bgPixel[3] === 0 : true;
-    const tbEmpty = tbPixel ? tbPixel[3] === 0 : true;
+    const bgHasPixels = this.passHasVisiblePixels('background');
+    const tbHasPixels = this.passHasVisiblePixels('topBelow');
 
-    // Only warn if instances exist but pixels don't - empty with 0 instances is normal
-    const bgBug = bgEmpty && bgInstances > 0;
-    const tbBug = tbEmpty && tbInstances > 0;
+    const hasPopulatedPass = bgInstances > 0 || tbInstances > 0;
+    const allPopulatedPassesEmpty =
+      (bgInstances === 0 || !bgHasPixels) &&
+      (tbInstances === 0 || !tbHasPixels);
+    const hasBug = hasPopulatedPass && allPopulatedPassesEmpty;
 
-    if (bgBug || tbBug) {
+    if (hasBug && this.lastFullRenderEmptyState !== 'BUG') {
       console.error('[P3-FULL-RENDER-EMPTY] Full render completed but FBO(s) empty despite instances!', {
-        bgEmpty,
-        tbEmpty,
+        bgHasPixels,
+        tbHasPixels,
         bgInstances,
         tbInstances,
-        taInstances: this.passRenderer.getInstanceCount('topAbove'),
-        bgPixel: bgPixel ? Array.from(bgPixel) : null,
-        tbPixel: tbPixel ? Array.from(tbPixel) : null,
+        taInstances,
         tilesetVersion: this.tilesetVersion,
       });
     }
+    this.lastFullRenderEmptyState = hasBug ? 'BUG' : 'OK';
+  }
+
+  private passHasVisiblePixels(pass: 'background' | 'topBelow'): boolean {
+    const width = Math.max(1, this.canvas.width);
+    const height = Math.max(1, this.canvas.height);
+
+    for (const [u, v] of WebGLRenderPipeline.FBO_DIAGNOSTIC_SAMPLE_UV) {
+      const x = Math.min(width - 1, Math.max(0, Math.round(u * (width - 1))));
+      const y = Math.min(height - 1, Math.max(0, Math.round(v * (height - 1))));
+      const pixel = this.passRenderer.sampleFBOPixel(pass, x, y);
+      if (pixel && pixel[3] > 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

@@ -849,6 +849,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         weatherManagerRef.current.doCurrentWeather();
       },
     },
+    time: {
+      runTimeBasedEvents: () => {
+        weatherManagerRef.current.syncWeatherCycleToCurrentDate(Date.now());
+      },
+    },
   }), []);
 
   const runHandledStoryScript = useHandledStoryScript({

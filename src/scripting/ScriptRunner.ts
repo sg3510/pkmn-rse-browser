@@ -37,6 +37,7 @@ import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { BattleCommandRunner } from './BattleCommandRunner';
 import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes';
 import { executeWeatherSpecial } from './specials/weatherSpecials';
+import { executeGabbyAndTySpecial } from './specials/gabbyAndTySpecials';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -229,6 +230,10 @@ export interface ScriptWeatherServices {
   setCurrentMapContext?: (mapId: string) => void;
 }
 
+export interface ScriptTimeServices {
+  runTimeBasedEvents?: () => void | Promise<void>;
+}
+
 export type ScriptFadeDirection = 'in' | 'out';
 
 export interface ScriptFadeServices {
@@ -246,6 +251,7 @@ export interface ScriptRuntimeServices {
   fade?: ScriptFadeServices;
   fieldEffects?: ScriptFieldEffectServices;
   weather?: ScriptWeatherServices;
+  time?: ScriptTimeServices;
   party?: ScriptPartyServices;
 }
 
@@ -580,6 +586,16 @@ export class ScriptRunner {
           break;
         }
 
+        case 'goto_if_le': {
+          const varVal = this.getVar(asString(args[0]));
+          const cmpVal = this.resolveVarOrConst(args[1]);
+          if (varVal <= cmpVal) {
+            const target = this.findScript(asString(args[2]));
+            if (target) { commands = target; ip = 0; }
+          }
+          break;
+        }
+
         case 'goto_if_gt': {
           const varVal = this.getVar(asString(args[0]));
           const cmpVal = this.resolveVarOrConst(args[1]);
@@ -650,6 +666,20 @@ export class ScriptRunner {
           const varVal = this.getVar(asString(args[0]));
           const cmpVal = this.resolveVarOrConst(args[1]);
           if (varVal < cmpVal) {
+            const target = this.findScript(asString(args[2]));
+            if (target) {
+              callStack.push({ commands, ip });
+              commands = target;
+              ip = 0;
+            }
+          }
+          break;
+        }
+
+        case 'call_if_le': {
+          const varVal = this.getVar(asString(args[0]));
+          const cmpVal = this.resolveVarOrConst(args[1]);
+          if (varVal <= cmpVal) {
             const target = this.findScript(asString(args[2]));
             if (target) {
               callStack.push({ commands, ip });
@@ -967,6 +997,10 @@ export class ScriptRunner {
         // --- Wait/delay ---
         case 'delay':
           await this.ctx.delayFrames(asNumber(args[0]));
+          break;
+
+        case 'dotimebasedevents':
+          await this.services.time?.runTimeBasedEvents?.();
           break;
 
         case 'waitstate':
@@ -2078,6 +2112,25 @@ export class ScriptRunner {
    * Returns a numeric result for specialvar, or undefined.
    */
   private async executeSpecial(name: string): Promise<number | undefined> {
+    const setSpecialVar = (varName: string, value: number | string): void => {
+      if (typeof value === 'string') {
+        this.localStringVars.set(varName, value);
+        gameVariables.setVar(varName, 0);
+        return;
+      }
+
+      this.localStringVars.delete(varName);
+      gameVariables.setVar(varName, value);
+    };
+
+    const gabbyAndTyResult = executeGabbyAndTySpecial(name, {
+      getVar: (varName) => gameVariables.getVar(varName),
+      setVar: setSpecialVar,
+    });
+    if (gabbyAndTyResult.handled) {
+      return gabbyAndTyResult.result;
+    }
+
     switch (name) {
       case 'GetRivalSonDaughterString':
         // Male player → rival is female → "daughter"; Female → "son"

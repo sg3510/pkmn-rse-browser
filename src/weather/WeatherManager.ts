@@ -17,6 +17,12 @@ export interface MapWeatherSource {
 export class WeatherManager {
   private static readonly WEATHER_CYCLE_LENGTH = 4;
   private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000;
+  // C parity reference:
+  // - public/pokeemerald/src/clock.c (gLocalTime.days / UpdatePerDay)
+  // - public/pokeemerald/src/field_weather_effect.c (UpdateWeatherPerDay)
+  // We treat this as LOCAL day count since 2000-01-01 (GBA RTC epoch style),
+  // not UTC days since Unix epoch.
+  private static readonly RTC_EPOCH_LOCAL_MS = new Date(2000, 0, 1).getTime();
 
   private mapDefaults = new Map<string, WeatherName>();
 
@@ -28,9 +34,22 @@ export class WeatherManager {
   private effect: WeatherEffect | null = null;
 
   private lastUpdateMs = 0;
+  private lastCycleSyncRtcDay = WeatherManager.resolveRtcDay(Date.now());
 
-  private static defaultWeatherCycleStage(): number {
-    const daysSinceEpoch = Math.floor(Date.now() / WeatherManager.MS_PER_DAY);
+  private static resolveRtcDay(nowMs: number): number {
+    const now = new Date(nowMs);
+    const localMidnightMs = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+    return Math.floor(
+      (localMidnightMs - WeatherManager.RTC_EPOCH_LOCAL_MS) / WeatherManager.MS_PER_DAY
+    );
+  }
+
+  private static defaultWeatherCycleStage(nowMs: number = Date.now()): number {
+    const daysSinceEpoch = WeatherManager.resolveRtcDay(nowMs);
     return ((daysSinceEpoch % WeatherManager.WEATHER_CYCLE_LENGTH) + WeatherManager.WEATHER_CYCLE_LENGTH)
       % WeatherManager.WEATHER_CYCLE_LENGTH;
   }
@@ -77,6 +96,15 @@ export class WeatherManager {
       % WeatherManager.WEATHER_CYCLE_LENGTH;
   }
 
+  syncWeatherCycleToCurrentDate(nowMs: number = Date.now()): void {
+    const rtcDay = WeatherManager.resolveRtcDay(nowMs);
+    if (rtcDay === this.lastCycleSyncRtcDay) return;
+
+    this.lastCycleSyncRtcDay = rtcDay;
+    this.setWeatherCycleStage(WeatherManager.defaultWeatherCycleStage(nowMs));
+    this.doCurrentWeather();
+  }
+
   doCurrentWeather(): void {
     const runtimeWeather = resolveRuntimeWeather(this.savedWeather, this.weatherCycleStage);
     if (runtimeWeather === this.activeWeather) {
@@ -104,6 +132,8 @@ export class WeatherManager {
   }
 
   update(nowMs: number, view: WorldCameraView): void {
+    this.syncWeatherCycleToCurrentDate(nowMs);
+
     const deltaMs = this.lastUpdateMs === 0 ? 0 : Math.max(0, nowMs - this.lastUpdateMs);
     this.lastUpdateMs = nowMs;
 
@@ -130,6 +160,7 @@ export class WeatherManager {
     this.savedWeather = WEATHER_NONE_NAME;
     this.activeWeather = WEATHER_NONE_NAME;
     this.weatherCycleStage = WeatherManager.defaultWeatherCycleStage();
+    this.lastCycleSyncRtcDay = WeatherManager.resolveRtcDay(Date.now());
     this.lastUpdateMs = 0;
   }
 }
