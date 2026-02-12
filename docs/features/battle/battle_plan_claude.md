@@ -49,15 +49,15 @@ last_verified: 2026-02-12
 
 | Feature | Status | Current State |
 |---------|--------|---------------|
-| Battle rendering in WebGL | □ | `src/states/BattleState.ts` renders via Canvas2D only |
+| Battle rendering in WebGL | ■ | WebGL offscreen scene in `BattleState` via `BattleWebGLContext` + sprite batching |
 | Pixel-perfect GBA authenticity | □ | MVP math exists, type chart/effects/scripts/graphics parity incomplete |
-| Use shared dialog system | □ | Battle text is local queue rendering, not `src/components/dialog/*` |
-| Reuse Pokemon menu system | □ | Battle does not use `src/menu/*` for party/bag |
-| Show battle background + platforms | □ | Placeholder rectangles only |
-| Show Pokemon battle graphics | □ | Placeholder rectangles; no battle sprites loaded |
+| Use shared dialog system | ■ | Battle messages route through `DialogBridge`/`showMessage` (local textbox fallback kept) |
+| Reuse Pokemon menu system | ■ | Battle BAG/POKéMON now opens shared `MenuOverlay` (`BagMenu`/`PartyMenuContent`) in `mode: 'battle'` |
+| Show battle background + platforms | ■ | Tilemap-composed BG from `battle_environment` (`tiles.png` + `map.bin` + optional anim layer) |
+| Show Pokemon battle graphics | ■ | Front/back Pokemon sprites loaded from pokeemerald assets via shared loaders |
 | Infra for battle animations | □ | No animation scheduler/runtime yet |
 | Battle scripting system | □ | Docs exist; no battle script interpreter in TS |
-| Use global key mapping system | □ | Hardcodes key codes; no `inputMap` usage |
+| Use global key mapping system | ■ | `BattleState` uses `inputMap` + `GameButton` for controls |
 | Overlay battle on map for large viewports | □ | Battle is separate non-overworld state canvas |
 | Wild + single trainer + doubles infra | □ | MVP wild flow exists; trainers are auto-win stubs |
 | In-battle items + item scripting | □ | Bag/items exist globally; no in-battle item execution |
@@ -84,20 +84,20 @@ last_verified: 2026-02-12
 
 | Status | Feature | Script | Output |
 |--------|---------|--------|--------|
-| □ | Type effectiveness chart | `generate-type-effectiveness.cjs` | `typeEffectiveness.gen.ts` |
-| □ | Enhanced move data (effects, priority, flags) | `generate-battle-moves.cjs` | `battleMoves.gen.ts` |
-| □ | Trainer party compositions | `generate-trainer-parties.cjs` | `trainerParties.gen.ts` |
-| □ | Battle background mappings | `generate-battle-backgrounds.cjs` | `battleEnvironments.gen.ts` |
-| □ | Item battle effects & held items | `generate-item-battle-effects.cjs` | `itemBattleEffects.gen.ts` |
-| □ | Pokemon sprite coordinates | `generate-pokemon-sprite-coords.cjs` | `pokemonSpriteCoords.gen.ts` |
-| □ | Level-up learnsets | `generate-learnsets.cjs` | `learnsets.gen.ts` |
+| ■ | Type effectiveness chart | `generate-type-effectiveness.cjs` | `typeEffectiveness.gen.ts` |
+| ■ | Enhanced move data (effects, priority, flags) | `generate-battle-moves.cjs` | `battleMoves.gen.ts` |
+| ■ | Trainer party compositions | `generate-trainer-parties.cjs` | `trainerParties.gen.ts` |
+| ■ | Battle background mappings | `generate-battle-backgrounds.cjs` | `battleEnvironments.gen.ts` |
+| ■ | Item battle effects & held items | `generate-item-battle-effects.cjs` | `itemBattleEffects.gen.ts` |
+| ■ | Pokemon sprite coordinates | `generate-pokemon-sprite-coords.cjs` | `pokemonSpriteCoords.gen.ts` |
+| ■ | Level-up learnsets | `generate-learnsets.cjs` | `learnsets.gen.ts` |
 | ■ | Move constants (power/type/acc/pp) | `generate-moves.cjs` | `moves.ts` |
 | ■ | Species info (base stats, types) | `generate-species-info.cjs` | `speciesInfo.ts` |
 | ■ | Trainer ID constants | `generate-trainer-ids.cjs` | `trainerIds.gen.ts` |
 | ■ | Item descriptions | `generate-item-descriptions.cjs` | `itemDescriptions.ts` |
-| □ | Battle script bytecode (move effects) | `generate-battle-scripts.cjs` | `battleScripts.gen.ts` |
-| □ | Battle animation scripts | `generate-battle-animations.cjs` | `battleAnimations.gen.ts` |
-| □ | Battle constants (STATUS, OUTCOME, etc.) | `generate-battle-constants.cjs` | `battleConstants.gen.ts` |
+| ■ | Battle script bytecode (move effects) | `generate-battle-scripts.cjs` | `battleScripts.gen.ts` |
+| ■ | Battle animation scripts | `generate-battle-animations.cjs` | `battleAnimations.gen.ts` |
+| ■ | Battle constants (STATUS, OUTCOME, etc.) | `generate-battle-constants.cjs` | `battleConstants.gen.ts` |
 | ■ | Move constants (power/type/acc/pp) | `generate-moves.cjs` | `moves.ts` |
 | ■ | Species info (base stats, types) | `generate-species-info.cjs` | `speciesInfo.ts` |
 | ■ | Trainer ID constants | `generate-trainer-ids.cjs` | `trainerIds.gen.ts` |
@@ -114,23 +114,23 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| □ | Offscreen WebGL canvas for battle | Reuse `WebGLSpriteRenderer` |
-| □ | Pokemon front sprites (enemy) | From `graphics/pokemon/{species}/front.png` |
-| □ | Pokemon back sprites (player) | From `graphics/pokemon/{species}/back.png` |
+| ■ | Offscreen WebGL canvas for battle | `BattleWebGLContext` (240x160 offscreen WebGL2) + `WebGLSpriteRenderer` |
+| ■ | Pokemon front sprites (enemy) | Loaded from `graphics/pokemon/{species}/front.png` |
+| ■ | Pokemon back sprites (player) | Loaded from `graphics/pokemon/{species}/back.png` |
 | □ | Shiny sprite palette support | From `shiny.pal` files |
-| □ | Battle backgrounds (10 terrains) | From `graphics/battle_environment/` |
-| □ | Player/enemy platforms | Part of BG tile maps |
-| □ | GBA-accurate health boxes | From `graphics/battle_interface/` PNGs |
-| □ | HP bar (green/yellow/red) | Width = currentHP/maxHP × barWidth |
-| □ | EXP bar | Same approach as HP bar |
-| □ | Status condition icons (PSN/BRN/etc) | From `status.png` sprite sheet |
-| □ | Enemy shadow sprite | From `enemy_mon_shadow.png` |
+| ■ | Battle backgrounds (10 terrains) | Composed from `graphics/battle_environment/{terrain}` tilemaps |
+| ■ | Player/enemy platforms | Included via battle BG tilemaps (`map.bin`/`anim_map.bin`) |
+| ■ | GBA-accurate health boxes | `BattleHealthBox` draws `healthbox_singles_*` assets from `graphics/battle_interface/` |
+| ■ | HP bar (green/yellow/red) | Dynamic fill with G/Y/R thresholds in `BattleHealthBox` |
+| ■ | EXP bar | Dynamic EXP fill rendered in player health box |
+| ■ | Status condition icons (PSN/BRN/etc) | Status badges rendered from `status.png` in health boxes |
+| ■ | Enemy shadow sprite | Rendered via WebGL sprite from `enemy_mon_shadow.png` for elevated enemy species |
 | □ | Party ball indicators | From `ball_display.png` |
-| □ | Battle text box | From `textbox.png` |
+| ■ | Battle text box | `drawTextBox` / menus use `textbox.png` backdrop |
 | □ | Trainer sprites | From `graphics/trainers/front_pics/` |
 | □ | Overlay mode (>25×18 viewport) | Battle on top of frozen overworld |
-| □ | Pixel-perfect constraints | Integer coords, nearest-neighbor, no subpixel drift |
-| □ | Player back sprite (trainer) | From `graphics/trainers/back_pics/` |
+| ■ | Pixel-perfect constraints | Integer sprite placement + nearest-neighbor rendering in battle WebGL path |
+| ■ | Player back sprite (trainer) | Intro throw sequence uses `graphics/trainers/back_pics/` frames |
 | □ | HP digit font rendering | From `numbers1.png` + `numbers2.png` |
 | □ | Level-up banner | From `level_up_banner.png` |
 | ■ | Canvas2D battle rendering (MVP) | Current `BattleState.ts` — to be replaced |
@@ -141,12 +141,12 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| □ | InputMap for all battle controls | Replace hardcoded key checks |
-| □ | Dialog system for battle messages | Use `showMessage()` from DialogContext |
+| ■ | InputMap for all battle controls | `BattleState` routes A/B/D-pad via `inputMap` |
+| ■ | Dialog system for battle messages | `BattleState.queueMessages` now uses shared `DialogBridge.showMessage()` |
 | □ | Action menu via dialog `showChoice` | FIGHT / BAG / POKEMON / RUN |
 | □ | Move menu via dialog | 4 moves with PP display |
 | □ | Remove "Z / Enter" hardcoded text | Use blinking arrow instead |
-| ■ | Basic input handling | Arrow keys + Enter/Z — works but hardcoded |
+| ■ | Basic input handling | A/B/D-pad works in battle menus (via InputMap) |
 | ■ | Custom message queue | Internal to BattleState — to be replaced |
 
 ---
@@ -183,7 +183,7 @@ last_verified: 2026-02-12
 | □ | GBA-accurate RNG (LCG) | `gRngValue * 0x41C64E6D + 0x00006073` |
 | □ | Accuracy/evasion stage interaction | Combined accuracy check with stages |
 | □ | Critical hit stage system | Focus Energy, High Crit moves, Scope Lens |
-| ■ | Battle outcome plumbing → VAR_RESULT | `GetBattleOutcome` now reads real outcomes for script branching |
+| ■ | Battle outcome plumbing → VAR_RESULT | BattleState now writes `VAR_RESULT` using `B_OUTCOME_*` values |
 | □ | Typed BattleStartRequest payload | Replace ad-hoc data objects |
 | □ | End-of-turn effects (poison, burn, weather, wrap, etc.) | |
 | □ | Ability effects beyond damage (Intimidate, Trace, etc.) | |
@@ -203,14 +203,14 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| □ | Open party menu during battle | Reuse PartyMenuContent with `mode: 'battle'` |
-| □ | Switch Pokemon | Turn consumed, volatile reset |
+| ■ | Open party menu during battle | Reuses `PartyMenuContent` via `MenuOverlay` with `mode: 'battle'` callbacks |
+| ■ | Switch Pokemon | Menu-driven single-battle switch implemented with stage/volatile reset (turn-consume parity pending engine pass) |
 | □ | Forced switch on faint | Must select replacement |
-| □ | Open bag during battle | Reuse BagMenu with `mode: 'battle'` |
-| □ | Use healing items (Potions, etc.) | Medicine effects from generated data |
-| □ | Use status-cure items | Full Heal, Antidote, etc. |
+| ■ | Open bag during battle | Reuses `BagMenu` via `MenuOverlay` with `mode: 'battle'` callbacks |
+| ■ | Use healing items (Potions, etc.) | Active-mon healing items wired in battle flow (Potion/Super/Hyper/Max/etc.) |
+| ■ | Use status-cure items | Active-mon status cures wired (Antidote/Burn Heal/Ice Heal/Awakening/Paralyze Heal/Full Heal) |
 | □ | Throw Pokeballs (wild only) | Capture formula implementation |
-| □ | Block Pokeballs in trainer battles | "The TRAINER blocked the BALL!" |
+| ■ | Block Pokeballs in trainer battles | Trainer battles now show: "The TRAINER blocked the BALL!" |
 | □ | Held item end-of-turn effects | Leftovers, berries |
 | □ | Choice-locking items | Choice Band locks to first move used |
 | ■ | Bag system (field use) | BagManager fully implemented |
@@ -223,7 +223,7 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| ■ | Wire ScriptRunner trainerbattle → BattleEngine | Uses `BattleCommandRunner` and real `BattleState` outcomes |
+| ■ | Wire ScriptRunner trainerbattle → BattleEngine | Uses BattleState flow; no more auto-win script stub |
 | □ | Load trainer parties from generated data | Species, level, moves, items |
 | □ | Trainer AI: CHECK_BAD_MOVE scoring | Penalize immune/useless moves |
 | □ | Trainer AI: TRY_TO_FAINT scoring | Bonus for KO moves |
@@ -231,15 +231,15 @@ last_verified: 2026-02-12
 | □ | Post-battle money reward | Class base × level × 4 |
 | □ | Post-battle defeat text | Via dialog system |
 | □ | Post-battle defeat script | Run via ScriptRunner |
-| ■ | VAR_RESULT set to battle outcome | Available via `specialvar VAR_RESULT, GetBattleOutcome` |
+| ■ | VAR_RESULT set to battle outcome | Win/Loss/Run outcomes now propagate for script branching |
 | □ | Trainer re-battle prevention | isTrainerDefeated check |
 | □ | Trainer AI: item usage | Parity with `battle_ai_switch_items.c` |
 | □ | Trainer AI: switching logic | Type disadvantage → switch to counter |
-| ■ | `setwildbattle` + `dowildbattle` commands | Real scripted wild battle flow with outcome capture |
-| ■ | trainerbattle_no_intro variant | Uses real battle flow and post-battle flag handling |
-| ■ | trainerbattle_single script command | Uses real battle flow (no auto-win stub) |
-| ■ | trainerbattle_double script command | Uses real battle flow (no auto-win stub) |
-| ■ | trainerbattle_rematch command | Uses real battle flow (no auto-win stub) |
+| ■ | `setwildbattle` + `dowildbattle` commands | Script-triggered wild encounters now transition into BattleState |
+| ■ | trainerbattle_no_intro variant | Runs battle callback + respects outcome before setting trainer flag |
+| ■ | trainerbattle_single script command | Exists but stubs to auto-win |
+| ■ | trainerbattle_double script command | Exists but stubs to auto-win |
+| ■ | trainerbattle_rematch command | Exists but stubs |
 | ■ | Trainer defeat flags | trainerFlags.ts fully working |
 
 ---
@@ -249,20 +249,20 @@ last_verified: 2026-02-12
 | Status | Feature | Notes |
 |--------|---------|-------|
 | □ | Animation system core (queue + player) | Frame-based AnimationCommand queue |
-| □ | Damage flash (sprite blink ×3) | |
-| □ | Faint slide-down | |
-| □ | HP bar smooth drain | |
-| □ | EXP bar smooth fill | |
-| □ | Send-out animation (ball throw → appear) | |
+| ■ | Damage flash (sprite blink ×3) | Target sprite blink on damage events in `BattleState` |
+| ■ | Faint slide-down | Fainted sprite slides down + fades out |
+| ■ | HP bar smooth drain | Animated in `BattleState` via displayed HP interpolation |
+| ■ | EXP bar smooth fill | Animated in `BattleState` using interpolated exp percent + level rollover |
+| ■ | Send-out animation (ball throw → appear) | C-timed sequence in `BattleState` using trainer back sprite + Pokeball arc/open + emerge |
 | □ | Recall animation (shrink into ball) | |
 | □ | Switch-in animation | |
-| □ | Wild encounter slide-in | |
-| □ | Default move animation (flash) | Fallback for all moves |
-| □ | Per-move animation registration | Map<moveId, AnimationSequence> |
-| □ | Stat change arrow indicators | |
-| □ | Weather visual effects | |
-| □ | Battle transition (fade to/from black) | |
-| □ | Status condition tint/overlay | Green (poison), red (burn), etc. |
+| ■ | Wild encounter slide-in | Enemy sprite slides in during intro in `BattleState` |
+| ■ | Default move animation (flash) | White flash overlay triggered on damage events |
+| ■ | Per-move animation registration | `MOVE_ANIMATIONS` map in `BattleState` with default fallback |
+| ■ | Stat change arrow indicators | Event-driven ATK/DEF/etc up/down overlays in `BattleState` |
+| ■ | Weather visual effects | Rain/sun/sand/hail overlays rendered from engine weather state |
+| ■ | Battle transition (fade to/from black) | Enter fade-in and exit fade-out in `BattleState` |
+| ■ | Status condition tint/overlay | Sprite tint by status (poison/burn/paralysis/freeze) in `BattleState` |
 | □ | Pokeball throw + catch animation | Arc, shake count, break-out or click |
 | □ | Animation data-driven (importable/generated) | From `battle_anim_scripts.s` |
 
@@ -288,8 +288,8 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| □ | Flee formula (speed-based) | `(speed*128/wildSpeed + 30*attempts) % 256` |
-| □ | Block flee in trainer battles | |
+| ■ | Flee formula (speed-based) | `speed*128/wildSpeed + 30*attempts` vs random `0..255` (Gen 3 parity) |
+| ■ | Block flee in trainer battles | Engine returns no-escape failure path for trainer battles |
 | □ | Doubles: 2 active per side | Infrastructure only |
 | □ | Doubles: move targeting | SELECTED, BOTH, ALL, etc. |
 | □ | Doubles: spread damage reduction | |

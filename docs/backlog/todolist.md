@@ -518,28 +518,28 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
 ### 4.3 Battle Action Menu
 > C ref: `src/battle_controllers_player.c` (`HandleInputChooseAction`)
 
-- [ ] Create action menu: FIGHT / BAG / POKEMON / RUN
+- [x] Create action menu: FIGHT / BAG / POKEMON / RUN
   - FIGHT → show move list (1-2 moves for starters)
   - BAG → "No items" or disabled for first battle
   - POKEMON → party view (only 1 Pokemon)
   - RUN → attempt to flee (may fail for scripted battle)
-- [ ] Move selection submenu: show move name, PP, type
-- [ ] If `BATTLE_TYPE_FIRST_BATTLE`, force BAG/POKEMON/RUN disabled
+- [x] Move selection submenu: show move name, PP, type
+- [x] If `BATTLE_TYPE_FIRST_BATTLE`, force BAG/POKEMON/RUN disabled
 
 ### 4.4 Damage Calculation
 > C ref: `src/pokemon.c` (`CalculateBaseDamage`, lines 3106-3340)
 
-- [ ] Implement Gen 3 damage formula:
+- [x] Implement Gen 3 damage formula:
   ```
   damage = ((2 * level / 5 + 2) * power * atk / def / 50 + 2) * modifier
   modifier = STAB * typeEffectiveness * random(85..100) / 100
   ```
-- [ ] Physical/Special split: Gen 3 uses type-based split (not move-based)
+- [x] Physical/Special split: Gen 3 uses type-based split (not move-based)
   - Physical types: Normal, Fighting, Flying, Poison, Ground, Rock, Bug, Ghost, Steel
   - Special types: Fire, Water, Grass, Electric, Psychic, Ice, Dragon, Dark
-- [ ] Type effectiveness table (at minimum for types used in first battle)
-- [ ] Critical hit chance: stage 0 = 1/16, stage 1 = 1/8
-- [ ] STAB: 1.5x when move type matches Pokemon type
+- [x] Type effectiveness table (at minimum for types used in first battle)
+- [x] Critical hit chance: stage 0 = 1/16, stage 1 = 1/8
+- [x] STAB: 1.5x when move type matches Pokemon type
 
 ### 4.5 Turn Execution
 > C ref: `src/battle_main.c` (`BattleMainCB1`), `src/battle_script_commands.c`
@@ -575,7 +575,7 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
   - If level up: "TREECKO grew to LV. X!" + stat increase display
 - [ ] Defeat condition: player's Pokemon HP reaches 0
   - "TREECKO fainted!" → white out → respawn at last heal point
-- [ ] Run condition: `runChance = (playerSpeed * 128 / wildSpeed + 30 * escapeAttempts) % 256`
+- [x] Run condition: `runChance = (playerSpeed * 128 / wildSpeed + 30 * escapeAttempts) % 256`
   - First battle is scripted — running may be blocked
 - [x] Return to overworld: transition back with battle outcome
 
