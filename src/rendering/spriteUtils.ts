@@ -31,6 +31,7 @@ import {
 } from './fieldEffectUtils';
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../data/largeObjectGraphics.gen';
 import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
+import type { ObjectEventAffineTransform } from '../game/npc/ObjectEventAffineManager';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -126,9 +127,10 @@ export function createReflectionSprite(
   tintG: number,
   tintB: number,
   alpha: number,
-  shimmerScale?: number
+  shimmerScale?: number,
+  inheritBaseTransform: boolean = true
 ): SpriteInstance {
-  return {
+  const reflectionSprite: SpriteInstance = {
     ...baseSprite,
 
     // Position below the character
@@ -151,6 +153,14 @@ export function createReflectionSprite(
     isReflection: true,
     shimmerScale,
   };
+
+  if (!inheritBaseTransform) {
+    reflectionSprite.rotationDeg = undefined;
+    reflectionSprite.scaleX = undefined;
+    reflectionSprite.scaleY = undefined;
+  }
+
+  return reflectionSprite;
 }
 
 /**
@@ -415,7 +425,8 @@ export function createNPCSpriteInstance(
   npc: NPCObject,
   sortKey: number,
   clipToHalf: boolean = false,
-  frameOverride?: { frameIndex: number; flipHorizontal: boolean }
+  frameOverride?: { frameIndex: number; flipHorizontal: boolean },
+  affineTransform?: ObjectEventAffineTransform | null
 ): SpriteInstance | null {
   // Get frame info based on direction and walking state unless an explicit frame is provided.
   const isWalking = npc.isWalking ?? false;
@@ -459,6 +470,9 @@ export function createNPCSpriteInstance(
     atlasHeight: srcHeight,
     flipX: flipHorizontal,
     flipY: false,
+    rotationDeg: affineTransform?.rotationDeg,
+    scaleX: affineTransform?.scaleX,
+    scaleY: affineTransform?.scaleY,
     alpha: 1.0,
     tintR: 1.0,
     tintG: 1.0,
@@ -633,6 +647,8 @@ export function createNPCReflectionSprite(
     shimmerScale = shimmer.getScaleX(matrixNum);
   }
 
+  const inheritAffineTransform = reflectionState.reflectionType !== 'water';
+
   return createReflectionSprite(
     baseSprite,
     reflectionYOffset,
@@ -640,7 +656,8 @@ export function createNPCReflectionSprite(
     tint.g,
     tint.b,
     alpha,
-    shimmerScale
+    shimmerScale,
+    inheritAffineTransform
   );
 }
 

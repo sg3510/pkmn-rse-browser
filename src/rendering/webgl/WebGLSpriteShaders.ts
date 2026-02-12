@@ -36,6 +36,7 @@ in vec4 a_colorMod;      // r, g, b, a (tint color and alpha)
 in float a_flags;        // packed flags: bit 0 = flipX, bit 1 = flipY
 in float a_shimmerScale; // shimmer X-scale for water reflections (1.0 = no shimmer)
 in float a_rotationDeg;  // clockwise rotation in degrees around sprite center
+in vec2 a_scale;         // centered sprite scale (1,1 = no scale)
 
 // Uniforms
 uniform vec2 u_viewportSize;
@@ -53,18 +54,22 @@ void main() {
   bool flipX = mod(flagsVal, 2.0) > 0.5;
   bool flipY = mod(floor(flagsVal / 2.0), 2.0) > 0.5;
 
-  // Calculate screen position with optional center rotation.
-  // Rotation defaults to 0 for all existing sprites.
+  // Calculate screen position with optional centered scale + rotation.
+  // Defaults are a_scale=(1,1), a_rotationDeg=0.
   vec2 localPos = a_position * a_spriteRect.zw;
   vec2 halfSize = a_spriteRect.zw * 0.5;
   vec2 centeredLocal = localPos - halfSize;
+  vec2 scaledLocal = vec2(
+    centeredLocal.x * a_scale.x,
+    centeredLocal.y * a_scale.y
+  );
 
   float rotationRad = radians(a_rotationDeg);
   float sinR = sin(rotationRad);
   float cosR = cos(rotationRad);
   vec2 rotatedLocal = vec2(
-    centeredLocal.x * cosR - centeredLocal.y * sinR,
-    centeredLocal.x * sinR + centeredLocal.y * cosR
+    scaledLocal.x * cosR - scaledLocal.y * sinR,
+    scaledLocal.x * sinR + scaledLocal.y * cosR
   );
 
   vec2 screenPos = a_spriteRect.xy + halfSize + rotatedLocal;

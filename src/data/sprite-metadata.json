@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-12-12T22:16:55.292Z",
+  "generatedAt": "2026-02-12T14:43:37.052Z",
   "sourceFiles": [
     "object_event_graphics_info.h",
     "object_event_pic_tables.h",
@@ -2259,6 +2259,154 @@
       "ANIM_HOOKED_POKEMON_EAST": "sAnim_HookedPokemonEast"
     }
   },
+  "affineAnimations": {
+    "sAffineAnim_KyogreGroudon_GoSouthStart": [
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 1,
+        "duration": 1
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 0,
+        "duration": 1
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 0,
+        "duration": 1
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 0,
+        "duration": 1
+      },
+      {
+        "type": "LOOP",
+        "count": 7
+      },
+      {
+        "type": "JUMP",
+        "target": 0
+      }
+    ],
+    "sAffineAnim_KyogreGroudon_GoSouth": [
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": -1,
+        "duration": 1
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 0,
+        "duration": 1
+      },
+      {
+        "type": "LOOP",
+        "count": 15
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 1,
+        "duration": 1
+      },
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 0,
+        "duration": 1
+      },
+      {
+        "type": "LOOP",
+        "count": 15
+      },
+      {
+        "type": "JUMP",
+        "target": 0
+      }
+    ],
+    "sAffineAnim_KyogreGroudon_AttackEast": [
+      {
+        "type": "FRAME",
+        "xScale": 256,
+        "yScale": 256,
+        "rotation": 10,
+        "duration": 0
+      },
+      {
+        "type": "END"
+      }
+    ],
+    "sAffineAnim_KyogreGroudon_AttackWest": [
+      {
+        "type": "FRAME",
+        "xScale": 256,
+        "yScale": 256,
+        "rotation": 10,
+        "duration": 0
+      },
+      {
+        "type": "END"
+      }
+    ],
+    "sAffineAnim_KyogreGroudon_DipEast": [
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": -1,
+        "duration": 1
+      },
+      {
+        "type": "LOOP",
+        "count": 8
+      },
+      {
+        "type": "END"
+      }
+    ],
+    "sAffineAnim_KyogreGroudon_DipWest": [
+      {
+        "type": "FRAME",
+        "xScale": 0,
+        "yScale": 0,
+        "rotation": 1,
+        "duration": 1
+      },
+      {
+        "type": "LOOP",
+        "count": 8
+      },
+      {
+        "type": "END"
+      }
+    ]
+  },
+  "affineAnimationTables": {
+    "sAffineAnimTable_KyogreGroudon": [
+      "sAffineAnim_KyogreGroudon_GoSouthStart",
+      "sAffineAnim_KyogreGroudon_GoSouth",
+      "sAffineAnim_KyogreGroudon_AttackWest",
+      "sAffineAnim_KyogreGroudon_AttackEast",
+      "sAffineAnim_KyogreGroudon_DipWest",
+      "sAffineAnim_KyogreGroudon_DipEast"
+    ]
+  },
   "sprites": {
     "OBJ_EVENT_GFX_BRENDAN_NORMAL": {
       "graphicsId": "OBJ_EVENT_GFX_BRENDAN_NORMAL",
@@ -2267,6 +2415,7 @@
       "height": 32,
       "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -2298,6 +2447,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/mach_bike.png"
@@ -2309,6 +2459,7 @@
       "height": 32,
       "frameCount": 27,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/acro_bike.png"
@@ -2320,6 +2471,7 @@
       "height": 32,
       "frameCount": 12,
       "animationTable": "sAnimTable_Surfing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -2345,6 +2497,7 @@
       "height": 32,
       "frameCount": 5,
       "animationTable": "sAnimTable_FieldMove",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/field_move.png"
@@ -2356,6 +2509,7 @@
       "height": 32,
       "frameCount": 7,
       "animationTable": "sAnimTable_QuintyPlump",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_L",
       "spritePath": "/people/quinty_plump.png"
@@ -2367,6 +2521,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/ninja_boy.png"
@@ -2378,6 +2533,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/twin.png"
@@ -2389,6 +2545,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/boy_1.png"
@@ -2400,6 +2557,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/girl_1.png"
@@ -2411,6 +2569,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/boy_2.png"
@@ -2422,6 +2581,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/girl_2.png"
@@ -2433,6 +2593,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/little_boy.png"
@@ -2444,6 +2605,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/little_girl.png"
@@ -2455,6 +2617,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/boy_3.png"
@@ -2466,6 +2629,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/girl_3.png"
@@ -2477,6 +2641,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/rich_boy.png"
@@ -2488,6 +2653,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/woman_1.png"
@@ -2499,6 +2665,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/fat_man.png"
@@ -2510,6 +2677,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/pokefan_f.png"
@@ -2521,6 +2689,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/man_1.png"
@@ -2532,6 +2701,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/woman_2.png"
@@ -2543,6 +2713,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/expert_m.png"
@@ -2554,6 +2725,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/expert_f.png"
@@ -2565,6 +2737,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/man_2.png"
@@ -2576,6 +2749,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/woman_3.png"
@@ -2587,6 +2761,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/pokefan_m.png"
@@ -2598,6 +2773,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/woman_4.png"
@@ -2609,6 +2785,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -2631,6 +2808,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/link_receptionist.png"
@@ -2642,6 +2820,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -2664,6 +2843,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/old_woman.png"
@@ -2675,6 +2855,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/camper.png"
@@ -2686,6 +2867,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/picnicker.png"
@@ -2697,6 +2879,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/man_3.png"
@@ -2708,6 +2891,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/woman_5.png"
@@ -2719,6 +2903,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/youngster.png"
@@ -2730,6 +2915,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/bug_catcher.png"
@@ -2741,6 +2927,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/psychic_m.png"
@@ -2752,6 +2939,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/school_kid_m.png"
@@ -2763,6 +2951,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/maniac.png"
@@ -2774,6 +2963,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/hex_maniac.png"
@@ -2785,6 +2975,7 @@
       "height": 64,
       "frameCount": 0,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/rayquaza.png"
@@ -2796,6 +2987,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/swimmer_m.png"
@@ -2807,6 +2999,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/swimmer_f.png"
@@ -2818,6 +3011,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/black_belt.png"
@@ -2829,6 +3023,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/beauty.png"
@@ -2840,6 +3035,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/scientist_1.png"
@@ -2851,6 +3047,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/lass.png"
@@ -2862,6 +3059,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/gentleman.png"
@@ -2873,6 +3071,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/sailor.png"
@@ -2884,6 +3083,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/fisherman.png"
@@ -2895,6 +3095,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/running_triathlete_m.png"
@@ -2906,6 +3107,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/running_triathlete_f.png"
@@ -2917,6 +3119,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/tuber_f.png"
@@ -2928,6 +3131,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/tuber_m.png"
@@ -2939,6 +3143,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/hiker.png"
@@ -2950,6 +3155,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/cycling_triathlete_m.png"
@@ -2961,6 +3167,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/cycling_triathlete_f.png"
@@ -2972,6 +3179,7 @@
       "height": 32,
       "frameCount": 10,
       "animationTable": "sAnimTable_Nurse",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -2995,6 +3203,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/item_ball.png"
@@ -3006,6 +3215,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_BerryTree",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/berry_tree.png"
@@ -3017,6 +3227,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_BerryTree",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/berry_tree_early_stages.png"
@@ -3028,6 +3239,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_BerryTree",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/berry_tree_late_stages.png"
@@ -3039,6 +3251,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/prof_birch.png"
@@ -3050,6 +3263,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/man_4.png"
@@ -3061,6 +3275,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/man_5.png"
@@ -3072,6 +3287,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/reporter_m.png"
@@ -3083,6 +3299,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/reporter_f.png"
@@ -3094,6 +3311,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/bard.png"
@@ -3105,6 +3323,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/hipster.png"
@@ -3116,6 +3335,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/trader.png"
@@ -3127,6 +3347,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/storyteller.png"
@@ -3138,6 +3359,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/giddy.png"
@@ -3149,6 +3371,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/unused_mauville_old_man_1.png"
@@ -3160,6 +3383,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/unused_mauville_old_man_2.png"
@@ -3171,6 +3395,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/unused_natu_doll.png"
@@ -3182,6 +3407,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/unused_magnemite_doll.png"
@@ -3193,6 +3419,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/unused_squirtle_doll.png"
@@ -3204,6 +3431,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/unused_wooper_doll.png"
@@ -3215,6 +3443,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/pikachu.png"
@@ -3226,6 +3455,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/unused_porygon2doll.png"
@@ -3237,6 +3467,7 @@
       "height": 16,
       "frameCount": 4,
       "animationTable": "sAnimTable_CuttableTree",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/cuttable_tree.png"
@@ -3248,6 +3479,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/mart_employee.png"
@@ -3259,6 +3491,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/rooftop_sale_woman.png"
@@ -3270,6 +3503,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/teala.png"
@@ -3281,6 +3515,7 @@
       "height": 16,
       "frameCount": 4,
       "animationTable": "sAnimTable_BreakableRock",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/breakable_rock.png"
@@ -3292,6 +3527,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/pushable_boulder.png"
@@ -3303,6 +3539,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3325,6 +3562,7 @@
       "height": 32,
       "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3356,6 +3594,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/mach_bike.png"
@@ -3367,6 +3606,7 @@
       "height": 32,
       "frameCount": 27,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/acro_bike.png"
@@ -3378,6 +3618,7 @@
       "height": 32,
       "frameCount": 12,
       "animationTable": "sAnimTable_Surfing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3403,6 +3644,7 @@
       "height": 32,
       "frameCount": 5,
       "animationTable": "sAnimTable_FieldMove",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/field_move.png"
@@ -3414,6 +3656,7 @@
       "height": 48,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/truck.png"
@@ -3425,6 +3668,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3447,6 +3691,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3469,6 +3714,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/birchs_bag.png"
@@ -3480,6 +3726,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/zigzagoon.png"
@@ -3491,6 +3738,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/poochyena.png"
@@ -3502,6 +3750,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/artist.png"
@@ -3513,6 +3762,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/rival_normal.png"
@@ -3524,6 +3774,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/rival_mach_bike.png"
@@ -3535,6 +3786,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/rival_acro_bike.png"
@@ -3546,6 +3798,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Surfing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/rival_surfing.png"
@@ -3557,6 +3810,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_FieldMove",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/rival_field_move.png"
@@ -3568,6 +3822,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/rival_normal.png"
@@ -3579,6 +3834,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/rival_mach_bike.png"
@@ -3590,6 +3846,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/rival_acro_bike.png"
@@ -3601,6 +3858,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Surfing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/rival_surfing.png"
@@ -3612,6 +3870,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_FieldMove",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/rival_field_move.png"
@@ -3623,6 +3882,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/cameraman.png"
@@ -3634,6 +3894,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3656,6 +3917,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3678,6 +3940,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/misc/moving_box.png"
@@ -3689,6 +3952,7 @@
       "height": 64,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/cable_car.png"
@@ -3700,6 +3964,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/scientist_2.png"
@@ -3711,6 +3976,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/devon_employee.png"
@@ -3722,6 +3988,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_aqua/aqua_member_m.png"
@@ -3733,6 +4000,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_aqua/aqua_member_f.png"
@@ -3744,6 +4012,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_magma/magma_member_m.png"
@@ -3755,6 +4024,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_magma/magma_member_f.png"
@@ -3766,6 +4036,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3788,6 +4059,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3810,6 +4082,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3832,6 +4105,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3854,6 +4128,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3876,6 +4151,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3898,6 +4174,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3920,6 +4197,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3942,6 +4220,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/gym_leaders/norman.png"
@@ -3953,6 +4232,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3975,6 +4255,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -3997,6 +4278,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4019,6 +4301,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/gym_leaders/wallace.png"
@@ -4030,6 +4313,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/steven.png"
@@ -4041,6 +4325,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/wally.png"
@@ -4052,6 +4337,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/ruby_sapphire_little_boy.png"
@@ -4063,6 +4349,7 @@
       "height": 32,
       "frameCount": 12,
       "animationTable": "sAnimTable_Fishing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/fishing.png"
@@ -4074,6 +4361,7 @@
       "height": 32,
       "frameCount": 12,
       "animationTable": "sAnimTable_Fishing",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/fishing.png"
@@ -4085,6 +4373,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/hot_springs_old_woman.png"
@@ -4096,6 +4385,7 @@
       "height": 40,
       "frameCount": 0,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/ss_tidal.png"
@@ -4107,6 +4397,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/submarine_shadow.png"
@@ -4118,6 +4409,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/pichu_doll.png"
@@ -4129,6 +4421,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/pikachu.png"
@@ -4140,6 +4433,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/marill_doll.png"
@@ -4151,6 +4445,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/togepi_doll.png"
@@ -4162,6 +4457,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/cyndaquil_doll.png"
@@ -4173,6 +4469,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/chikorita_doll.png"
@@ -4184,6 +4481,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/totodile_doll.png"
@@ -4195,6 +4493,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/jigglypuff_doll.png"
@@ -4206,6 +4505,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/meowth_doll.png"
@@ -4217,6 +4517,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/clefairy_doll.png"
@@ -4228,6 +4529,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/ditto_doll.png"
@@ -4239,6 +4541,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/smoochum_doll.png"
@@ -4250,6 +4553,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/treecko_doll.png"
@@ -4261,6 +4565,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/torchic_doll.png"
@@ -4272,6 +4577,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/mudkip_doll.png"
@@ -4283,6 +4589,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/duskull_doll.png"
@@ -4294,6 +4601,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/wynaut_doll.png"
@@ -4305,6 +4613,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/baltoy_doll.png"
@@ -4316,6 +4625,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/kecleon.png"
@@ -4327,6 +4637,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/azurill.png"
@@ -4338,6 +4649,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/skitty.png"
@@ -4349,6 +4661,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/swablu_doll.png"
@@ -4360,6 +4673,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/gulpin_doll.png"
@@ -4371,6 +4685,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/lotad_doll.png"
@@ -4382,6 +4697,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/seedot_doll.png"
@@ -4393,6 +4709,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/pika_cushion.png"
@@ -4404,6 +4721,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/round_cushion.png"
@@ -4415,6 +4733,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/kiss_cushion.png"
@@ -4426,6 +4745,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/zigzag_cushion.png"
@@ -4437,6 +4757,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/spin_cushion.png"
@@ -4448,6 +4769,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/diamond_cushion.png"
@@ -4459,6 +4781,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/ball_cushion.png"
@@ -4470,6 +4793,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/grass_cushion.png"
@@ -4481,6 +4805,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/fire_cushion.png"
@@ -4492,6 +4817,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/water_cushion.png"
@@ -4503,6 +4829,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_snorlax_doll.png"
@@ -4514,6 +4841,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_rhydon_doll.png"
@@ -4525,6 +4853,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_lapras_doll.png"
@@ -4536,6 +4865,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_venusaur_doll.png"
@@ -4547,6 +4877,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_charizard_doll.png"
@@ -4558,6 +4889,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_blastoise_doll.png"
@@ -4569,6 +4901,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_wailmer_doll.png"
@@ -4580,6 +4913,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_regirock_doll.png"
@@ -4591,6 +4925,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_regice_doll.png"
@@ -4602,6 +4937,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/big_registeel_doll.png"
@@ -4613,6 +4949,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/latias.png"
@@ -4624,6 +4961,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/latios.png"
@@ -4635,6 +4973,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4657,6 +4996,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/contest_judge.png"
@@ -4668,6 +5008,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4690,6 +5031,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4712,6 +5054,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/decorating.png"
@@ -4723,6 +5066,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/decorating.png"
@@ -4734,6 +5078,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_aqua/archie.png"
@@ -4745,6 +5090,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/team_magma/maxie.png"
@@ -4756,6 +5102,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4778,6 +5125,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4800,6 +5148,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4822,6 +5171,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_GroudonSide",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4844,6 +5194,7 @@
       "height": 16,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/people/fossil.png"
@@ -4855,6 +5206,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/regirock.png"
@@ -4866,6 +5218,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/regice.png"
@@ -4877,6 +5230,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/registeel.png"
@@ -4888,6 +5242,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4910,6 +5265,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4932,6 +5288,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/kyogre.png"
@@ -4943,6 +5300,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/groudon.png"
@@ -4954,6 +5312,7 @@
       "height": 64,
       "frameCount": 5,
       "animationTable": "sAnimTable_Rayquaza",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/rayquaza.png"
@@ -4965,6 +5324,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -4987,6 +5347,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5009,6 +5370,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5031,6 +5393,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5053,6 +5416,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/kecleon.png"
@@ -5064,6 +5428,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/tuber_m_swimming.png"
@@ -5075,6 +5440,7 @@
       "height": 16,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5097,6 +5463,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/mom.png"
@@ -5108,6 +5475,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/link_brendan.png"
@@ -5119,6 +5487,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_BrendanMayNormal",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/link_may.png"
@@ -5130,6 +5499,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/gym_leaders/juan.png"
@@ -5141,6 +5511,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/scott.png"
@@ -5152,6 +5523,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5174,6 +5546,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/statue.png"
@@ -5185,6 +5558,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_S",
       "spritePath": "/pokemon/kirlia.png"
@@ -5196,6 +5570,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/dusclops.png"
@@ -5207,6 +5582,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5229,6 +5605,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/red.png"
@@ -5240,6 +5617,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/leaf.png"
@@ -5251,6 +5629,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5273,6 +5652,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/mew.png"
@@ -5284,6 +5664,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5306,6 +5687,7 @@
       "height": 32,
       "frameCount": 0,
       "animationTable": "sAnimTable_Inanimate",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/birth_island_stone.png"
@@ -5317,6 +5699,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/anabel.png"
@@ -5328,6 +5711,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/tucker.png"
@@ -5339,6 +5723,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/greta.png"
@@ -5350,6 +5735,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/spenser.png"
@@ -5361,6 +5747,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/noland.png"
@@ -5372,6 +5759,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/lucy.png"
@@ -5383,6 +5771,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/brandon.png"
@@ -5394,6 +5783,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/ruby_sapphire_brendan.png"
@@ -5405,6 +5795,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/may/ruby_sapphire_may.png"
@@ -5416,6 +5807,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [
@@ -5438,6 +5830,7 @@
       "height": 32,
       "frameCount": 9,
       "animationTable": "sAnimTable_HoOh",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "frameMap": [

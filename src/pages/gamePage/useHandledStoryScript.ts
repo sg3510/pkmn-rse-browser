@@ -13,7 +13,13 @@ import type { LocationState } from '../../save/types';
 import { saveManager } from '../../save/SaveManager';
 import type { PartyPokemon } from '../../pokemon/types';
 import { SPECIES } from '../../data/species';
+import { gameVariables } from '../../game/GameVariables';
 import { ScriptRunner } from '../../scripting/ScriptRunner';
+import {
+  BATTLE_OUTCOME,
+  normalizeBattleOutcome,
+  type ScriptBattleResult,
+} from '../../scripting/battleTypes';
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
 
 interface MutableRef<T> {
@@ -422,6 +428,14 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         }
       };
 
+      const readBattleResult = (): ScriptBattleResult => {
+        const outcome = normalizeBattleOutcome(
+          gameVariables.getVar('VAR_BATTLE_OUTCOME'),
+          BATTLE_OUTCOME.WON
+        );
+        return { outcome };
+      };
+
       const scriptCtx: StoryScriptContext = {
         showMessage,
         showChoice,
@@ -443,44 +457,52 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           });
           await waitForBattleToEnd();
         },
-        startTrainerBattle: async (trainerId: string) => {
-          if (!stateManager) return;
+        startTrainerBattle: async (request) => {
+          if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
+          const trainerId = request.trainerId;
           const battle = SCRIPTED_TRAINER_BATTLES[trainerId];
           if (!battle) {
             console.warn(`[StoryScript] Unmapped trainer battle: ${trainerId}`);
-            return;
+            return { outcome: BATTLE_OUTCOME.WON };
           }
 
           const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
           if (!lead) {
             console.warn('[StoryScript] Cannot start trainer battle without a party Pokemon.');
-            return;
+            return { outcome: BATTLE_OUTCOME.WON };
           }
 
+          gameVariables.setVar('VAR_BATTLE_OUTCOME', 0);
           await stateManager.transitionTo(GameState.BATTLE, {
+            battleType: 'trainer',
             playerPokemon: lead,
             wildSpecies: battle.species,
             wildLevel: battle.level,
             returnLocation: buildReturnLocation(),
           });
           await waitForBattleToEnd();
+          return readBattleResult();
         },
-        startWildBattle: async (speciesId: number, level: number) => {
-          if (!stateManager) return;
+        startWildBattle: async (request) => {
+          if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
+          const { speciesId, level } = request;
 
           const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
           if (!lead) {
             console.warn('[StoryScript] Cannot start wild battle without a party Pokemon.');
-            return;
+            return { outcome: BATTLE_OUTCOME.WON };
           }
 
+          gameVariables.setVar('VAR_BATTLE_OUTCOME', 0);
           await stateManager.transitionTo(GameState.BATTLE, {
+            battleType: 'wild',
             playerPokemon: lead,
             wildSpecies: speciesId,
             wildLevel: level,
             returnLocation: buildReturnLocation(),
           });
           await waitForBattleToEnd();
+          return readBattleResult();
         },
         queueWarp: (mapId, x, y, direction) => {
           pendingSavedLocationRef.current = {
@@ -588,6 +610,10 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
           if (!npc) return null;
           return { tileX: npc.tileX, tileY: npc.tileY };
+        },
+        getNpcGraphicsId: (mapId, localId) => {
+          const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+          return npc?.graphicsId ?? null;
         },
         getMapOffset: (mapId) => {
           const map = worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === mapId);

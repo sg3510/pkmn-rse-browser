@@ -32,8 +32,9 @@ import {
 /** Maximum sprites per batch (can be tuned) */
 const MAX_SPRITES_PER_BATCH = 1024;
 
-/** Bytes per sprite instance (4 floats × 4 attributes = 64 bytes) */
-const BYTES_PER_SPRITE = 64;
+/** Packed float count and byte size per sprite instance. */
+const FLOATS_PER_SPRITE = 17;
+const BYTES_PER_SPRITE = FLOATS_PER_SPRITE * 4;
 
 /** Sprite sheet texture info */
 interface SpriteSheetTexture {
@@ -92,7 +93,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
     this.shaders = new WebGLShaders();
-    this.instanceData = new Float32Array(MAX_SPRITES_PER_BATCH * 16); // 16 floats per sprite
+    this.instanceData = new Float32Array(MAX_SPRITES_PER_BATCH * FLOATS_PER_SPRITE);
   }
 
   /**
@@ -455,7 +456,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
     gl.bufferData(gl.ARRAY_BUFFER, MAX_SPRITES_PER_BATCH * BYTES_PER_SPRITE, gl.DYNAMIC_DRAW);
 
-    // Instance attributes (locations 1-4)
+    // Instance attributes
     // a_spriteRect: vec4 (x, y, width, height)
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 4, gl.FLOAT, false, BYTES_PER_SPRITE, 0);
@@ -486,7 +487,10 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.vertexAttribPointer(6, 1, gl.FLOAT, false, BYTES_PER_SPRITE, 56);
     gl.vertexAttribDivisor(6, 1);
 
-    // Padding to 64 bytes (60-64 currently unused)
+    // a_scale: vec2 (centered X/Y scale)
+    gl.enableVertexAttribArray(7);
+    gl.vertexAttribPointer(7, 2, gl.FLOAT, false, BYTES_PER_SPRITE, 60);
+    gl.vertexAttribDivisor(7, 1);
 
     gl.bindVertexArray(null);
   }
@@ -554,7 +558,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
 
       // Upload instance data
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, count * 16));
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, count * FLOATS_PER_SPRITE));
 
       // Draw instanced quads
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
@@ -601,10 +605,11 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       const flags = (sprite.flipX ? 1 : 0) | (sprite.flipY ? 2 : 0);
       data[i++] = flags;
 
-      // a_shimmerScale + a_rotationDeg + padding
+      // a_shimmerScale + a_rotationDeg + a_scale
       data[i++] = sprite.shimmerScale ?? 1.0;
       data[i++] = sprite.rotationDeg ?? 0;
-      data[i++] = 0; // Reserved
+      data[i++] = sprite.scaleX ?? 1.0;
+      data[i++] = sprite.scaleY ?? 1.0;
     }
   }
 }

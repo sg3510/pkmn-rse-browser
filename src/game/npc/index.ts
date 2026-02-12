@@ -24,6 +24,9 @@ export { renderNPCs, renderSingleNPC, renderNPCReflections, renderNPCGrassEffect
 // Animation
 export { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';
 
+// Object-event affine animation manager
+export { objectEventAffineManager, type ObjectEventAffineTransform } from './ObjectEventAffineManager';
+
 // Movement engine
 export {
   npcMovementEngine,

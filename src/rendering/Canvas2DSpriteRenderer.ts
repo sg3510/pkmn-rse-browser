@@ -110,11 +110,16 @@ export class Canvas2DSpriteRenderer implements ISpriteRenderer {
       }
 
       // Handle transforms
+      const scaleX = sprite.scaleX ?? 1;
+      const scaleY = sprite.scaleY ?? 1;
+      const rotationDeg = sprite.rotationDeg ?? 0;
       const needsFlip = sprite.flipX || sprite.flipY;
+      const needsScale = scaleX !== 1 || scaleY !== 1;
+      const needsRotation = rotationDeg !== 0;
       const needsAlpha = sprite.alpha < 1;
       const needsTint = sprite.tintR !== 1 || sprite.tintG !== 1 || sprite.tintB !== 1;
 
-      if (needsFlip || needsAlpha || needsTint) {
+      if (needsFlip || needsScale || needsRotation || needsAlpha || needsTint) {
         ctx.save();
 
         // Apply alpha
@@ -122,14 +127,17 @@ export class Canvas2DSpriteRenderer implements ISpriteRenderer {
           ctx.globalAlpha = sprite.alpha;
         }
 
-        // Handle flips
-        if (needsFlip) {
-          ctx.translate(
-            sprite.flipX ? screenX + sprite.width : screenX,
-            sprite.flipY ? screenY + sprite.height : screenY
-          );
-          ctx.scale(sprite.flipX ? -1 : 1, sprite.flipY ? -1 : 1);
+        // Centered transform: flip/scale/rotate around sprite center.
+        const centerX = screenX + sprite.width / 2;
+        const centerY = screenY + sprite.height / 2;
+        ctx.translate(centerX, centerY);
+        if (needsRotation) {
+          ctx.rotate((rotationDeg * Math.PI) / 180);
         }
+        ctx.scale((sprite.flipX ? -1 : 1) * scaleX, (sprite.flipY ? -1 : 1) * scaleY);
+
+        const drawX = -sprite.width / 2;
+        const drawY = -sprite.height / 2;
 
         // Draw sprite (possibly with tint)
         if (needsTint && sprite.isReflection) {
@@ -140,8 +148,8 @@ export class Canvas2DSpriteRenderer implements ISpriteRenderer {
             sprite.atlasY,
             sprite.atlasWidth,
             sprite.atlasHeight,
-            needsFlip ? 0 : screenX,
-            needsFlip ? 0 : screenY,
+            drawX,
+            drawY,
             sprite.width,
             sprite.height,
             sprite.tintR,
@@ -155,8 +163,8 @@ export class Canvas2DSpriteRenderer implements ISpriteRenderer {
             sprite.atlasY,
             sprite.atlasWidth,
             sprite.atlasHeight,
-            needsFlip ? 0 : screenX,
-            needsFlip ? 0 : screenY,
+            drawX,
+            drawY,
             sprite.width,
             sprite.height
           );

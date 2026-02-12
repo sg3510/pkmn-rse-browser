@@ -57,6 +57,7 @@ import { buildSpriteBatches } from '../rendering/SpriteBatcher';
 import { getReflectionMetaFromSnapshot } from '../game/snapshotUtils';
 import { isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { npcAnimationManager, shouldAnimate } from '../game/npc/NPCAnimationEngine';
+import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { getNPCFrameInfo } from '../game/npc/NPCSpriteLoader';
 
 // =============================================================================
@@ -378,7 +379,14 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         };
       }
 
-      const npcSprite = createNPCSpriteInstance(npc, info.sortKey, isOnLongGrass, frameOverride);
+      const affineTransform = objectEventAffineManager.getRenderTransform(npc.id);
+      const npcSprite = createNPCSpriteInstance(
+        npc,
+        info.sortKey,
+        isOnLongGrass,
+        frameOverride,
+        affineTransform
+      );
       if (!npcSprite) return;
 
       targetArray.push(npcSprite);

@@ -183,7 +183,7 @@ last_verified: 2026-02-12
 | □ | GBA-accurate RNG (LCG) | `gRngValue * 0x41C64E6D + 0x00006073` |
 | □ | Accuracy/evasion stage interaction | Combined accuracy check with stages |
 | □ | Critical hit stage system | Focus Energy, High Crit moves, Scope Lens |
-| □ | Battle outcome plumbing → VAR_RESULT | For post-battle script branching |
+| ■ | Battle outcome plumbing → VAR_RESULT | `GetBattleOutcome` now reads real outcomes for script branching |
 | □ | Typed BattleStartRequest payload | Replace ad-hoc data objects |
 | □ | End-of-turn effects (poison, burn, weather, wrap, etc.) | |
 | □ | Ability effects beyond damage (Intimidate, Trace, etc.) | |
@@ -223,7 +223,7 @@ last_verified: 2026-02-12
 
 | Status | Feature | Notes |
 |--------|---------|-------|
-| □ | Wire ScriptRunner trainerbattle → BattleEngine | Currently auto-win stub |
+| ■ | Wire ScriptRunner trainerbattle → BattleEngine | Uses `BattleCommandRunner` and real `BattleState` outcomes |
 | □ | Load trainer parties from generated data | Species, level, moves, items |
 | □ | Trainer AI: CHECK_BAD_MOVE scoring | Penalize immune/useless moves |
 | □ | Trainer AI: TRY_TO_FAINT scoring | Bonus for KO moves |
@@ -231,15 +231,15 @@ last_verified: 2026-02-12
 | □ | Post-battle money reward | Class base × level × 4 |
 | □ | Post-battle defeat text | Via dialog system |
 | □ | Post-battle defeat script | Run via ScriptRunner |
-| □ | VAR_RESULT set to battle outcome | For script branching |
+| ■ | VAR_RESULT set to battle outcome | Available via `specialvar VAR_RESULT, GetBattleOutcome` |
 | □ | Trainer re-battle prevention | isTrainerDefeated check |
 | □ | Trainer AI: item usage | Parity with `battle_ai_switch_items.c` |
 | □ | Trainer AI: switching logic | Type disadvantage → switch to counter |
-| □ | `setwildbattle` + `dowildbattle` commands | Script-triggered wild encounters |
-| □ | trainerbattle_no_intro variant | Scripted encounters without intro text |
-| ■ | trainerbattle_single script command | Exists but stubs to auto-win |
-| ■ | trainerbattle_double script command | Exists but stubs to auto-win |
-| ■ | trainerbattle_rematch command | Exists but stubs |
+| ■ | `setwildbattle` + `dowildbattle` commands | Real scripted wild battle flow with outcome capture |
+| ■ | trainerbattle_no_intro variant | Uses real battle flow and post-battle flag handling |
+| ■ | trainerbattle_single script command | Uses real battle flow (no auto-win stub) |
+| ■ | trainerbattle_double script command | Uses real battle flow (no auto-win stub) |
+| ■ | trainerbattle_rematch command | Uses real battle flow (no auto-win stub) |
 | ■ | Trainer defeat flags | trainerFlags.ts fully working |
 
 ---

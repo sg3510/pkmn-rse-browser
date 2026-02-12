@@ -36,6 +36,40 @@ interface AnimationTable {
   animations: Record<string, Animation>;
 }
 
+interface AffineCommandFrame {
+  type: 'FRAME';
+  xScale: number;
+  yScale: number;
+  rotation: number;
+  duration: number;
+}
+
+interface AffineCommandLoop {
+  type: 'LOOP';
+  count: number;
+}
+
+interface AffineCommandJump {
+  type: 'JUMP';
+  target: number;
+}
+
+interface AffineCommandEnd {
+  type: 'END';
+}
+
+type AffineCommand = AffineCommandFrame | AffineCommandLoop | AffineCommandJump | AffineCommandEnd;
+
+interface AffineAnimation {
+  name: string;
+  commands: AffineCommand[];
+}
+
+interface AffineAnimationTable {
+  name: string;
+  animations: string[];
+}
+
 interface SpriteMetadata {
   graphicsId: string;
   name: string;
@@ -43,6 +77,7 @@ interface SpriteMetadata {
   height: number;
   frameCount: number;
   animationTable: string;
+  affineAnimationTable?: string;
   inanimate: boolean;
   shadowSize: string;
   spritePath?: string;
@@ -76,6 +111,17 @@ const ANIM_INDICES: Record<string, number> = {
 function readFile(relativePath: string): string {
   const fullPath = path.join(POKEEMERALD_PATH, relativePath);
   return fs.readFileSync(fullPath, 'utf-8');
+}
+
+function parseCInteger(raw: string): number {
+  const trimmed = raw.trim();
+  const sign = trimmed.startsWith('-') ? -1 : 1;
+  const unsigned = trimmed.replace(/^[+-]/, '');
+
+  if (/^0x/i.test(unsigned)) {
+    return sign * parseInt(unsigned, 16);
+  }
+  return sign * parseInt(unsigned, 10);
 }
 
 /**
@@ -162,6 +208,87 @@ function parseAnimationTables(content: string, animations: Record<string, Animat
   return tables;
 }
 
+function parseAffineAnimations(content: string): Record<string, AffineAnimation> {
+  const animations: Record<string, AffineAnimation> = {};
+
+  const affineRegex = /static const union AffineAnimCmd (sAffineAnim_\w+)\[\]\s*=\s*\{([\s\S]*?)\};/g;
+
+  let match;
+  while ((match = affineRegex.exec(content)) !== null) {
+    const name = match[1];
+    const body = match[2];
+    const commands: AffineCommand[] = [];
+
+    const lines = body.split('\n').map((line) => line.trim());
+    for (const line of lines) {
+      const frameMatch = line.match(
+        /AFFINEANIMCMD_FRAME\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)/
+      );
+      if (frameMatch) {
+        commands.push({
+          type: 'FRAME',
+          xScale: parseCInteger(frameMatch[1]),
+          yScale: parseCInteger(frameMatch[2]),
+          rotation: parseCInteger(frameMatch[3]),
+          duration: parseCInteger(frameMatch[4]),
+        });
+        continue;
+      }
+
+      const loopMatch = line.match(/AFFINEANIMCMD_LOOP\(\s*([^)]+)\s*\)/);
+      if (loopMatch) {
+        commands.push({
+          type: 'LOOP',
+          count: parseCInteger(loopMatch[1]),
+        });
+        continue;
+      }
+
+      const jumpMatch = line.match(/AFFINEANIMCMD_JUMP\(\s*([^)]+)\s*\)/);
+      if (jumpMatch) {
+        commands.push({
+          type: 'JUMP',
+          target: parseCInteger(jumpMatch[1]),
+        });
+        continue;
+      }
+
+      if (line.includes('AFFINEANIMCMD_END')) {
+        commands.push({ type: 'END' });
+      }
+    }
+
+    animations[name] = { name, commands };
+  }
+
+  return animations;
+}
+
+function parseAffineAnimationTables(content: string): Record<string, AffineAnimationTable> {
+  const tables: Record<string, AffineAnimationTable> = {};
+
+  const tableRegex = /static const union AffineAnimCmd \*const (sAffineAnimTable_\w+)\[\]\s*=\s*\{([\s\S]*?)\};/g;
+
+  let match;
+  while ((match = tableRegex.exec(content)) !== null) {
+    const name = match[1];
+    const body = match[2];
+    const animations: string[] = [];
+
+    const lines = body.split('\n').map((line) => line.trim());
+    for (const line of lines) {
+      const entryMatch = line.match(/^(sAffineAnim_\w+)\s*,/);
+      if (entryMatch) {
+        animations.push(entryMatch[1]);
+      }
+    }
+
+    tables[name] = { name, animations };
+  }
+
+  return tables;
+}
+
 /**
  * Parse graphics info from object_event_graphics_info.h
  */
@@ -183,6 +310,7 @@ function parseGraphicsInfo(content: string): SpriteMetadata[] {
     const inanimateMatch = body.match(/\.inanimate\s*=\s*(\w+)/);
     const shadowMatch = body.match(/\.shadowSize\s*=\s*(\w+)/);
     const animsMatch = body.match(/\.anims\s*=\s*(\w+)/);
+    const affineAnimsMatch = body.match(/\.affineAnims\s*=\s*(\w+)/);
 
     const sprite: SpriteMetadata = {
       graphicsId: `OBJ_EVENT_GFX_${camelToSnake(name).toUpperCase()}`,
@@ -191,6 +319,7 @@ function parseGraphicsInfo(content: string): SpriteMetadata[] {
       height: heightMatch ? parseInt(heightMatch[1]) : 32,
       frameCount: 9, // Will be updated from pic_tables
       animationTable: animsMatch ? animsMatch[1] : 'sAnimTable_Standard',
+      affineAnimationTable: affineAnimsMatch ? affineAnimsMatch[1] : 'gDummySpriteAffineAnimTable',
       inanimate: inanimateMatch ? inanimateMatch[1] === 'TRUE' : false,
       shadowSize: shadowMatch ? shadowMatch[1] : 'SHADOW_SIZE_M',
     };
@@ -347,6 +476,16 @@ function main() {
   const animationTables = parseAnimationTables(animsContent, animations);
   console.log(`  Found ${Object.keys(animationTables).length} animation tables`);
 
+  // Parse affine animations
+  console.log('Parsing affine animations...');
+  const affineAnimations = parseAffineAnimations(animsContent);
+  console.log(`  Found ${Object.keys(affineAnimations).length} affine animations`);
+
+  // Parse affine animation tables
+  console.log('Parsing affine animation tables...');
+  const affineAnimationTables = parseAffineAnimationTables(animsContent);
+  console.log(`  Found ${Object.keys(affineAnimationTables).length} affine animation tables`);
+
   // Parse graphics info
   console.log('Parsing graphics info...');
   const sprites = parseGraphicsInfo(graphicsInfoContent);
@@ -392,6 +531,12 @@ function main() {
         )
       ])
     ),
+    affineAnimations: Object.fromEntries(
+      Object.entries(affineAnimations).map(([k, v]) => [k, v.commands])
+    ),
+    affineAnimationTables: Object.fromEntries(
+      Object.entries(affineAnimationTables).map(([k, v]) => [k, v.animations])
+    ),
     sprites: Object.fromEntries(
       sprites.map(s => [s.graphicsId, s])
     ),
@@ -405,6 +550,8 @@ function main() {
   console.log(`  Total sprites: ${sprites.length}`);
   console.log(`  Total animations: ${Object.keys(animations).length}`);
   console.log(`  Total animation tables: ${Object.keys(animationTables).length}`);
+  console.log(`  Total affine animations: ${Object.keys(affineAnimations).length}`);
+  console.log(`  Total affine animation tables: ${Object.keys(affineAnimationTables).length}`);
 }
 
 main();

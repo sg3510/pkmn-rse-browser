@@ -18,6 +18,11 @@ import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
 import { MOVES, getMoveInfo } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
+import type {
+  ScriptBattleResult,
+  ScriptTrainerBattleRequest,
+  ScriptWildBattleRequest,
+} from '../scripting/battleTypes';
 
 type ScriptDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptMoveMode =
@@ -48,8 +53,8 @@ export interface StoryScriptContext {
   hasPartyPokemon: () => boolean;
   setParty: (party: (PartyPokemon | null)[]) => void;
   startFirstBattle: (starter: PartyPokemon) => Promise<void>;
-  startTrainerBattle?: (trainerId: string) => Promise<void>;
-  startWildBattle?: (speciesId: number, level: number) => Promise<void>;
+  startTrainerBattle?: (request: ScriptTrainerBattleRequest) => Promise<ScriptBattleResult>;
+  startWildBattle?: (request: ScriptWildBattleRequest) => Promise<ScriptBattleResult>;
   queueWarp: (mapId: string, x: number, y: number, direction: ScriptDirection) => void;
   forcePlayerStep: (direction: ScriptDirection) => void;
   delayFrames: (frames: number) => Promise<void>;
@@ -80,6 +85,8 @@ export interface StoryScriptContext {
   findNpcMapId?: (localId: string) => string | null;
   /** Get NPC's current world position (for copyobjectxytoperm) */
   getNpcPosition?: (mapId: string, localId: string) => { tileX: number; tileY: number } | null;
+  /** Get NPC graphics ID (for object-event affine script commands) */
+  getNpcGraphicsId?: (mapId: string, localId: string) => string | null;
   /** Get map offset for converting world→local coords */
   getMapOffset?: (mapId: string) => { offsetX: number; offsetY: number } | null;
   /** Set the player's facing direction (used by turnobject LOCALID_PLAYER) */

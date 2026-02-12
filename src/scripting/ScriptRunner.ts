@@ -32,6 +32,9 @@ import { METATILE_LABELS } from '../data/metatileLabels.gen';
 import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen';
 import { stepCallbackManager } from '../game/StepCallbackManager';
 import { rotatingGateManager } from '../game/RotatingGateManager';
+import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
+import { BattleCommandRunner } from './BattleCommandRunner';
+import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -124,6 +127,9 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_PLAYER_TELEPORTED') return 5;
   if (val === 'B_OUTCOME_MON_FLED') return 6;
   if (val === 'B_OUTCOME_CAUGHT') return 7;
+  if (val === 'B_OUTCOME_NO_SAFARI_BALLS') return 8;
+  if (val === 'B_OUTCOME_FORFEITED') return 9;
+  if (val === 'B_OUTCOME_MON_TELEPORTED') return 10;
   // Script menu constants (include/constants/script_menu.h)
   if (val === 'MULTI_B_PRESSED') return 127;
   if (val.startsWith('MULTI_')) {
@@ -213,10 +219,11 @@ export class ScriptRunner {
   /** Active movement promises keyed by object ID */
   private pendingMovements = new Map<string, Promise<void>>();
 
-  /** Pending wild battle state (set by setwildbattle) */
-  private wildBattleSpecies: number = 0;
-  private wildBattleLevel: number = 0;
-  private wildBattleItem: number = 0;
+  /** Dedicated battle-command runtime (trainerbattle/setwildbattle/dowildbattle). */
+  private battleCommands: BattleCommandRunner;
+
+  /** Stops current script execution (used for whiteout paths after battle loss). */
+  private abortScriptExecution = false;
 
   /**
    * Local string store for temp variables (VAR_0x8004, VAR_0x8005, etc.).
@@ -238,6 +245,11 @@ export class ScriptRunner {
     this.playerGender = ctx.getPlayerGender();
     const fallbackName = this.playerGender === 1 ? 'MAY' : 'BRENDAN';
     this.playerName = ctx.getPlayerName().trim() || fallbackName;
+    this.battleCommands = new BattleCommandRunner({
+      delayFrames: ctx.delayFrames,
+      startTrainerBattle: ctx.startTrainerBattle,
+      startWildBattle: ctx.startWildBattle,
+    });
   }
 
   /** Look up a script by label across all sources */
@@ -312,6 +324,25 @@ export class ScriptRunner {
       return this.getVar(resolved);
     }
     return asNumber(resolved);
+  }
+
+  private async showTextByLabel(textLabel: string | null): Promise<void> {
+    if (!textLabel) return;
+    const rawText = this.findText(textLabel);
+    if (!rawText) return;
+    await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
+  }
+
+  private async runTrainerBattleCommand(
+    trainerId: string,
+    mode: ScriptTrainerBattleMode
+  ): Promise<boolean> {
+    const result = await this.battleCommands.runTrainerBattle({ trainerId, mode });
+    if (isPlayerDefeatedBattleOutcome(result.outcome)) {
+      // C parity: losing trainer battles white-outs and the current script does not continue.
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -1068,48 +1099,27 @@ export class ScriptRunner {
         }
 
         // --- trainerbattle variants ---
-        // C ref: public/pokeemerald/src/battle_setup.c
-        // All variants check GetTrainerFlag (TRAINER_FLAGS_START + trainerId).
-        // If defeated → fall through to next command (post-battle code).
-        // If not defeated → show intro, battle, show defeat, set flag, run defeat script.
-        // Until the battle system exists, undefeated trainers auto-win with defeat text.
-
+        // C refs:
+        // - public/pokeemerald/src/battle_setup.c (BattleSetup_StartTrainerBattle, IsPlayerDefeated)
+        // - public/pokeemerald/data/scripts/trainer_battle.inc (EventScript_DoTrainerBattle)
         case 'trainerbattle_single': {
           // args: [trainerId, introText, defeatText, defeatScript?, noMusic?]
           const trainerId = asString(args[0]);
-          if (isTrainerDefeated(trainerId)) break; // Already beaten → post-battle code
+          if (isTrainerDefeated(trainerId)) break;
 
-          // Show intro text
-          const introLabel = asString(args[1]);
-          const introRaw = this.findText(introLabel);
-          if (introRaw) {
-            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
-          }
+          await this.showTextByLabel(asString(args[1]));
+          const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
+          if (!wonOrEscaped) return;
 
-          // Battle (or auto-win placeholder)
-          if (this.ctx.startTrainerBattle) {
-            await this.ctx.startTrainerBattle(trainerId);
-          } else {
-            await this.ctx.delayFrames(16);
-          }
-
-          // Show defeat text
-          const defeatLabel = asString(args[2]);
-          const defeatRaw = this.findText(defeatLabel);
-          if (defeatRaw) {
-            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
-          }
-
-          // Set defeated flag
+          await this.showTextByLabel(asString(args[2]));
           setTrainerDefeated(trainerId);
 
-          // Jump to defeat script if provided (4th arg, skipping NO_MUSIC flag)
           const defeatScriptArg = args.length > 3 ? asString(args[3]) : null;
           if (defeatScriptArg && defeatScriptArg !== 'NO_MUSIC') {
-            const defeatTarget = this.findScript(defeatScriptArg);
-            if (defeatTarget) {
+            const target = this.findScript(defeatScriptArg);
+            if (target) {
               callStack.push({ commands, ip });
-              commands = defeatTarget;
+              commands = target;
               ip = 0;
             }
           }
@@ -1121,29 +1131,16 @@ export class ScriptRunner {
           const trainerId = asString(args[0]);
           if (isTrainerDefeated(trainerId)) break;
 
-          const introLabel = asString(args[1]);
-          const introRaw = this.findText(introLabel);
-          if (introRaw) {
-            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
-          }
+          await this.showTextByLabel(asString(args[1]));
+          const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'double');
+          if (!wonOrEscaped) return;
 
-          if (this.ctx.startTrainerBattle) {
-            await this.ctx.startTrainerBattle(trainerId);
-          } else {
-            await this.ctx.delayFrames(16);
-          }
-
-          const defeatLabel = asString(args[2]);
-          const defeatRaw = this.findText(defeatLabel);
-          if (defeatRaw) {
-            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
-          }
-
+          await this.showTextByLabel(asString(args[2]));
           setTrainerDefeated(trainerId);
 
-          const dblDefeatScript = args.length > 4 ? asString(args[4]) : null;
-          if (dblDefeatScript && dblDefeatScript !== 'NO_MUSIC') {
-            const target = this.findScript(dblDefeatScript);
+          const defeatScriptArg = args.length > 4 ? asString(args[4]) : null;
+          if (defeatScriptArg && defeatScriptArg !== 'NO_MUSIC') {
+            const target = this.findScript(defeatScriptArg);
             if (target) {
               callStack.push({ commands, ip });
               commands = target;
@@ -1155,73 +1152,34 @@ export class ScriptRunner {
 
         case 'trainerbattle_rematch': {
           // args: [trainerId, introText, defeatText]
-          // Rematch battles always proceed (the original defeat flag is already set)
           const trainerId = asString(args[0]);
-
-          const introLabel = asString(args[1]);
-          const introRaw = this.findText(introLabel);
-          if (introRaw) {
-            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
-          }
-
-          if (this.ctx.startTrainerBattle) {
-            await this.ctx.startTrainerBattle(trainerId);
-          } else {
-            await this.ctx.delayFrames(16);
-          }
-
-          const defeatLabel = asString(args[2]);
-          const defeatRaw = this.findText(defeatLabel);
-          if (defeatRaw) {
-            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
-          }
+          await this.showTextByLabel(asString(args[1]));
+          const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch');
+          if (!wonOrEscaped) return;
+          await this.showTextByLabel(asString(args[2]));
           break;
         }
 
         case 'trainerbattle_rematch_double': {
           // args: [trainerId, introText, defeatText, notEnoughText]
           const trainerId = asString(args[0]);
-
-          const introLabel = asString(args[1]);
-          const introRaw = this.findText(introLabel);
-          if (introRaw) {
-            await this.ctx.showMessage(formatScriptText(introRaw, this.playerName, this.playerGender));
-          }
-
-          if (this.ctx.startTrainerBattle) {
-            await this.ctx.startTrainerBattle(trainerId);
-          } else {
-            await this.ctx.delayFrames(16);
-          }
-
-          const defeatLabel = asString(args[2]);
-          const defeatRaw = this.findText(defeatLabel);
-          if (defeatRaw) {
-            await this.ctx.showMessage(formatScriptText(defeatRaw, this.playerName, this.playerGender));
-          }
+          await this.showTextByLabel(asString(args[1]));
+          const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch_double');
+          if (!wonOrEscaped) return;
+          await this.showTextByLabel(asString(args[2]));
           break;
         }
 
         case 'trainerbattle_no_intro': {
           // args: [trainerId, defeatText]
-          // No intro text, used for scripted encounters (e.g. Team Aqua)
           const trainerId = asString(args[0]);
           if (isTrainerDefeated(trainerId)) break;
 
-          if (this.ctx.startTrainerBattle) {
-            await this.ctx.startTrainerBattle(trainerId);
-          } else {
-            await this.ctx.delayFrames(16);
-          }
+          const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'no_intro');
+          if (!wonOrEscaped) return;
 
           const defeatTextLabel = args.length > 1 ? asString(args[1]) : null;
-          if (defeatTextLabel) {
-            const rawText = this.findText(defeatTextLabel);
-            if (rawText) {
-              await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
-            }
-          }
-
+          await this.showTextByLabel(defeatTextLabel);
           setTrainerDefeated(trainerId);
           break;
         }
@@ -1291,22 +1249,22 @@ export class ScriptRunner {
           const speciesArg = args[0];
           const levelArg = args[1];
           const itemArg = args.length > 2 ? args[2] : 0;
-          this.wildBattleSpecies = this.resolveVarOrConst(speciesArg);
-          this.wildBattleLevel = this.resolveVarOrConst(levelArg);
-          this.wildBattleItem = this.resolveVarOrConst(itemArg);
-          console.log(`[ScriptRunner] setwildbattle: species=${this.wildBattleSpecies} lv=${this.wildBattleLevel} item=${this.wildBattleItem}`);
+          this.battleCommands.configureWildBattle(
+            this.resolveVarOrConst(speciesArg),
+            this.resolveVarOrConst(levelArg),
+            this.resolveVarOrConst(itemArg)
+          );
           break;
         }
 
         // --- dowildbattle: initiate wild battle ---
-        case 'dowildbattle':
-          if (this.ctx.startWildBattle) {
-            await this.ctx.startWildBattle(this.wildBattleSpecies, this.wildBattleLevel);
-          } else {
-            console.log('[ScriptRunner] dowildbattle: auto-win (no battle system yet)');
-            await this.ctx.delayFrames(16); // Brief pause to simulate battle
+        case 'dowildbattle': {
+          const result = await this.battleCommands.runConfiguredWildBattle('setwildbattle');
+          if (isPlayerDefeatedBattleOutcome(result.outcome)) {
+            return;
           }
           break;
+        }
 
         // --- fadescreenswapbuffers: alias for fadescreen ---
         case 'fadescreenswapbuffers':
@@ -1638,6 +1596,11 @@ export class ScriptRunner {
           console.warn(`[ScriptRunner] Unknown command: ${cmd}`, args);
           break;
       }
+
+      if (this.abortScriptExecution) {
+        this.abortScriptExecution = false;
+        return;
+      }
     }
   }
 
@@ -1684,6 +1647,13 @@ export class ScriptRunner {
   ): Promise<void> {
     const resolvedId = this.resolveObjectId(objectId);
     const isPlayer = resolvedId === 'LOCALID_PLAYER' || resolvedId === '255';
+    const objectEventId = isPlayer ? null : `${objectMapId}_npc_${resolvedId}`;
+    if (objectEventId && this.ctx.getNpcGraphicsId) {
+      const graphicsId = this.ctx.getNpcGraphicsId(objectMapId, resolvedId);
+      if (graphicsId) {
+        objectEventAffineManager.registerObjectEventGraphics(objectEventId, graphicsId);
+      }
+    }
 
     for (const step of steps) {
       // --- Emote commands (bubble animation stand-ins) ---
@@ -1734,13 +1704,30 @@ export class ScriptRunner {
         continue;
       }
 
+      // --- Affine object-event controls ---
+      // C refs:
+      // - MovementAction_InitAffineAnim_Step0
+      // - MovementAction_ClearAffineAnim_Step0
+      // in public/pokeemerald/src/event_object_movement.c.
+      if (step === 'init_affine_anim') {
+        if (objectEventId) {
+          objectEventAffineManager.initAffineAnim(objectEventId);
+        }
+        continue;
+      }
+      if (step === 'clear_affine_anim') {
+        if (objectEventId) {
+          objectEventAffineManager.clearAffineAnim(objectEventId);
+        }
+        continue;
+      }
+
       // --- State flags (no frame consumed) ---
       if (step === 'lock_facing_direction' || step === 'unlock_facing_direction' ||
           step === 'disable_anim' || step === 'restore_anim' ||
           step === 'lock_anim' || step === 'unlock_anim' ||
           step === 'set_fixed_priority' || step === 'clear_fixed_priority' ||
           step === 'enable_jump_landing_ground_effect' || step === 'disable_jump_landing_ground_effect' ||
-          step === 'init_affine_anim' || step === 'clear_affine_anim' ||
           step === 'hide_reflection' || step === 'show_reflection' ||
           step === 'start_anim_in_direction') {
         continue;
@@ -1750,6 +1737,54 @@ export class ScriptRunner {
       if (step.startsWith('delay_')) {
         const frames = parseInt(step.replace('delay_', ''), 10);
         if (!isNaN(frames)) await this.ctx.delayFrames(frames);
+        continue;
+      }
+
+      // --- Affine walk commands ---
+      // C refs:
+      // - MovementAction_WalkDownStartAffine_Step0/1
+      // - MovementAction_WalkDownAffine_Step0/1
+      // - MovementAction_WalkLeftAffine_Step0/1
+      // - MovementAction_WalkRightAffine_Step0/1
+      // in public/pokeemerald/src/event_object_movement.c.
+      if (
+        step === 'walk_down_start_affine' ||
+        step === 'walk_down_affine' ||
+        step === 'walk_left_affine' ||
+        step === 'walk_right_affine'
+      ) {
+        if (objectEventId) {
+          objectEventAffineManager.setAffineAnimPaused(objectEventId, false);
+          if (step === 'walk_down_start_affine') {
+            objectEventAffineManager.startAffineAnimIfDifferent(objectEventId, 0);
+          } else if (step === 'walk_down_affine') {
+            objectEventAffineManager.changeAffineAnimIfDifferent(objectEventId, 1);
+          } else if (step === 'walk_left_affine') {
+            objectEventAffineManager.changeAffineAnimIfDifferent(objectEventId, 2);
+          } else if (step === 'walk_right_affine') {
+            objectEventAffineManager.changeAffineAnimIfDifferent(objectEventId, 3);
+          }
+        }
+
+        const dir: Direction =
+          step === 'walk_left_affine'
+            ? 'left'
+            : step === 'walk_right_affine'
+              ? 'right'
+              : 'down';
+        const mode: ScriptMoveMode =
+          step === 'walk_left_affine' || step === 'walk_right_affine'
+            ? 'walk_fast'
+            : 'walk_slow';
+        if (isPlayer) {
+          await this.ctx.movePlayer(dir, mode);
+        } else {
+          await this.ctx.moveNpc(objectMapId, resolvedId, dir, mode);
+        }
+
+        if (objectEventId) {
+          objectEventAffineManager.setAffineAnimPaused(objectEventId, true);
+        }
         continue;
       }
 
@@ -1776,9 +1811,7 @@ export class ScriptRunner {
           step === 'rock_smash_break' || step === 'cut_tree' ||
           step === 'figure_8' || step === 'fly_up' || step === 'fly_down' ||
           step === 'levitate' || step === 'stop_levitate' ||
-          step === 'destroy_extra_task' ||
-          step.startsWith('walk_down_') && step.includes('affine') ||
-          step === 'walk_left_affine' || step === 'walk_right_affine') {
+          step === 'destroy_extra_task') {
         await this.ctx.delayFrames(8);
         continue;
       }
@@ -1864,8 +1897,7 @@ export class ScriptRunner {
         stringVars['STR_VAR_1'] = this.ctx.getPlayerGender() === 0 ? 'big guy' : 'big girl';
         return undefined;
       case 'GetBattleOutcome':
-        // Read from shared variable set by BattleState. Default to B_OUTCOME_WON (1).
-        return gameVariables.getVar('VAR_BATTLE_OUTCOME') || 1;
+        return this.battleCommands.getLastBattleOutcome();
       case 'ShouldTryRematchBattle':
         // Rematch system not implemented — always return FALSE (0).
         // Prevents gym leaders and 70+ rematchable trainers from
@@ -1904,11 +1936,14 @@ export class ScriptRunner {
       case 'BattleSetup_StartRegiBattle':
       case 'BattleSetup_StartLatiBattle':
       case 'StartGroudonKyogreBattle':
-      case 'StartRegiBattle':
-        if (this.ctx.startWildBattle) {
-          await this.ctx.startWildBattle(this.wildBattleSpecies, this.wildBattleLevel);
+      case 'StartRegiBattle': {
+        const result = await this.battleCommands.runConfiguredWildBattle('special');
+        if (isPlayerDefeatedBattleOutcome(result.outcome)) {
+          // C parity: losing a scripted wild battle white-outs and script continuation stops.
+          this.abortScriptExecution = true;
         }
         return undefined;
+      }
 
       case 'TurnOffTVScreen':
         // TV raster toggle is visual-only in GBA; no-op for browser runtime.

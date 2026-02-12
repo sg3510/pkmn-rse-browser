@@ -38,6 +38,7 @@ export interface LoadSelectedOverworldMapParams {
   viewportTilesWide: number;
   viewportTilesHigh: number;
   pipeline: WebGLRenderPipeline;
+  loadingRef: MutableRef<boolean>;
   worldSnapshotRef: MutableRef<WorldSnapshot | null>;
   playerRef: MutableRef<PlayerController | null>;
   cameraRef: MutableRef<CameraController | null>;
@@ -76,6 +77,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     viewportTilesWide,
     viewportTilesHigh,
     pipeline,
+    loadingRef,
     worldSnapshotRef,
     playerRef,
     cameraRef,
@@ -107,6 +109,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
 
   let cancelled = false;
 
+  loadingRef.current = true;
   setLoading(true);
   setStats((stats) => ({ ...stats, error: null }));
 
@@ -255,11 +258,19 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
             : undefined,
         });
 
-        playerHiddenRef.current = false;
-        storyScriptRunningRef.current = false;
-
         const scriptedWarp = pendingScriptedWarpRef.current;
-        if (scriptedWarp && scriptedWarp.phase === 'loading' && scriptedWarp.mapId === entry.id) {
+        const completingScriptedWarpLoad = Boolean(
+          scriptedWarp
+          && scriptedWarp.phase === 'loading'
+          && scriptedWarp.mapId === entry.id
+        );
+
+        playerHiddenRef.current = false;
+        if (!completingScriptedWarpLoad) {
+          storyScriptRunningRef.current = false;
+        }
+
+        if (completingScriptedWarpLoad && scriptedWarp) {
           pendingScriptedWarpRef.current = null;
           warpingRef.current = false;
           // Pre-seed the warp handler's last checked tile so the warp detector
@@ -296,6 +307,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
       }
     } finally {
       if (!cancelled) {
+        loadingRef.current = false;
         setLoading(false);
       }
     }
@@ -305,6 +317,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
 
   return () => {
     cancelled = true;
+    loadingRef.current = false;
+    setLoading(false);
     lastWorldUpdateRef.current = null;
     if (worldManagerRef.current) {
       worldManagerRef.current.dispose();

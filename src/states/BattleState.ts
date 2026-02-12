@@ -33,6 +33,7 @@ interface BattleStateData {
   playerPokemon?: PartyPokemon;
   wildSpecies?: number;
   wildLevel?: number;
+  battleType?: 'wild' | 'trainer';
   returnLocation?: LocationState;
   firstBattle?: boolean;
 }
@@ -88,15 +89,20 @@ export class BattleState implements StateRenderer {
   private playerMon: BattleMon | null = null;
   private enemyMon: BattleMon | null = null;
   private returnLocation: LocationState | null = null;
+  private battleType: 'wild' | 'trainer' = 'wild';
   private firstBattle = false;
+  private runAttempts = 0;
 
   private pendingTransition: StateTransition | null = null;
 
   async enter(_viewport: ViewportConfig, data?: Record<string, unknown>): Promise<void> {
     const typedData = (data ?? {}) as BattleStateData;
     this.returnLocation = typedData.returnLocation ?? null;
+    this.battleType = typedData.battleType ?? 'wild';
     this.firstBattle = typedData.firstBattle === true;
+    this.runAttempts = 0;
     this.pendingTransition = null;
+    gameVariables.setVar('VAR_BATTLE_OUTCOME', 0);
 
     const playerFromData = typedData.playerPokemon;
     const playerFromSave = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null) ?? null;
@@ -190,11 +196,12 @@ export class BattleState implements StateRenderer {
             this.queueMessages(["There's no time for that!"], () => {
               this.phase = 'action';
             });
-          } else {
-            gameVariables.setVar('VAR_BATTLE_OUTCOME', 4); // B_OUTCOME_RAN
-            this.queueMessages(['Got away safely!'], () => {
-              this.phase = 'finished';
+          } else if (this.battleType === 'trainer') {
+            this.queueMessages(["No! There's no running from a TRAINER battle!"], () => {
+              this.phase = 'action';
             });
+          } else {
+            this.tryRunFromBattle();
           }
         } else if (this.firstBattle) {
           this.queueMessages(["There's no time for that!"], () => {
@@ -465,6 +472,57 @@ export class BattleState implements StateRenderer {
     });
   }
 
+  /**
+   * Gen 3 run logic (wild battles only), based on TryRunFromBattle:
+   * - if player speed >= wild speed: guaranteed success
+   * - else: success if (playerSpeed * 128 / wildSpeed + runAttempts * 30) > rand(0..255)
+   * - runAttempts increments on every attempt
+   */
+  private tryRunFromBattle(): void {
+    const player = this.playerMon;
+    const enemy = this.enemyMon;
+    if (!player || !enemy) return;
+
+    const playerSpeed = Math.max(1, player.pokemon.stats.speed);
+    const enemySpeed = Math.max(1, enemy.pokemon.stats.speed);
+    let escaped = false;
+
+    if (playerSpeed >= enemySpeed) {
+      escaped = true;
+    } else {
+      const runScore = Math.floor((playerSpeed * 128) / enemySpeed) + (this.runAttempts * 30);
+      escaped = runScore > randomIntInclusive(0, 255);
+    }
+
+    this.runAttempts++;
+
+    if (escaped) {
+      gameVariables.setVar('VAR_BATTLE_OUTCOME', 4); // B_OUTCOME_RAN
+      this.queueMessages(['Got away safely!'], () => {
+        this.phase = 'finished';
+      });
+      return;
+    }
+
+    const enemyMoves = this.getEnemyMoveIds();
+    const enemyMoveId = enemyMoves.length > 0
+      ? enemyMoves[randomIntInclusive(0, enemyMoves.length - 1)]
+      : MOVES.TACKLE;
+
+    const turnMessages: string[] = ["Can't escape!"];
+    turnMessages.push(...this.applyMove(enemy, player, enemyMoveId, false));
+
+    if (player.currentHp <= 0) {
+      turnMessages.push(`${player.name} fainted!`);
+      this.handleLoss(turnMessages);
+      return;
+    }
+
+    this.queueMessages(turnMessages, () => {
+      this.phase = 'action';
+    });
+  }
+
   private shouldPlayerActFirst(player: BattleMon, enemy: BattleMon): boolean {
     const playerSpeed = player.pokemon.stats.speed;
     const enemySpeed = enemy.pokemon.stats.speed;
@@ -664,4 +722,3 @@ export class BattleState implements StateRenderer {
 export function createBattleState(): StateRenderer {
   return new BattleState();
 }
-

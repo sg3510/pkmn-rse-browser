@@ -44,6 +44,7 @@ import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../game/loadObjectEventsFromSnapshot';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { npcAnimationManager } from '../game/npc/NPCAnimationEngine';
+import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
@@ -618,12 +619,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const [reflectionTileGridDebug, setReflectionTileGridDebug] = useState<ReflectionTileGridDebugInfo | null>(null);
   const [priorityDebugInfo, setPriorityDebugInfo] = useState<PriorityDebugInfo | null>(null);
 
+  // Controlled by loadSelectedOverworldMap for synchronous scripted-warp gating.
   const loadingRef = useRef(false);
-  loadingRef.current = loading;
   const scriptedWarpLoadMonitorRef = useRef<{
     mapId: string;
     startedAt: number;
     retries: number;
+    fallbackDeferredLogged: boolean;
   } | null>(null);
 
   // Ref for debug options so render loop can access current value
@@ -1380,6 +1382,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       getGlobalShimmer().update(nowTime);
       npcAnimationManager.update();
 
+      // Update overworld object-event affine animation state and prune stale NPC entries.
+      const visibleNpcsForFrame = objectEventManagerRef.current.getVisibleNPCs();
+      objectEventAffineManager.syncNPCs(visibleNpcsForFrame);
+      objectEventAffineManager.update(dt);
+
       const { width, height, minX, minY } = worldBoundsRef.current;
 
       // World bounds are tracked in pixel space.
@@ -1393,14 +1400,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // Update NPC movement (GBA-accurate wandering behavior)
       // Only update when not warping and game is active
       if (!warpingRef.current && !menuStateManager.isMenuOpen()) {
-        // Get visible NPCs and update their movement
-        const npcs = objectEventManagerRef.current.getVisibleNPCs();
-        if (npcs.length > 0) {
-          npcMovement.update(dt, npcs);
+        if (visibleNpcsForFrame.length > 0) {
+          npcMovement.update(dt, visibleNpcsForFrame);
 
           // Set NPC positions for grass effect cleanup
           if (player) {
-            const npcPositions = npcMovement.getNPCOwnerPositions(npcs);
+            const npcPositions = npcMovement.getNPCOwnerPositions(visibleNpcsForFrame);
             player.setAdditionalOwnerPositions(npcPositions);
           }
         }
@@ -1895,6 +1900,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               mapId: scriptedWarp.mapId,
               startedAt: nowTime,
               retries: 0,
+              fallbackDeferredLogged: false,
             };
             selectMapForLoad(scriptedWarp.mapId);
           }
@@ -1906,7 +1912,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
           // Defensive completion: if the map is already active, finish scripted warp
           // even if loadSelectedOverworldMap's completion path was skipped.
-          if (activePlayer && activeMapId === scriptedWarp.mapId) {
+          if (activePlayer && activeMapId === scriptedWarp.mapId && !loadingRef.current) {
             console.warn(`[ScriptedWarp] loading fallback completion on ${scriptedWarp.mapId}`);
             pendingScriptedWarpRef.current = null;
             scriptedWarpLoadMonitorRef.current = null;
@@ -1920,6 +1926,23 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 activePlayer.unlockInput();
               }
             }, FADE_TIMING.DEFAULT_DURATION_MS);
+          } else if (activePlayer && activeMapId === scriptedWarp.mapId && loadingRef.current) {
+            let monitor = scriptedWarpLoadMonitorRef.current;
+            if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
+              monitor = {
+                mapId: scriptedWarp.mapId,
+                startedAt: nowTime,
+                retries: 0,
+                fallbackDeferredLogged: false,
+              };
+              scriptedWarpLoadMonitorRef.current = monitor;
+            }
+            if (!monitor.fallbackDeferredLogged) {
+              console.log(
+                `[ScriptedWarp] fallback deferred: map ${scriptedWarp.mapId} active but loading still in progress`
+              );
+              monitor.fallbackDeferredLogged = true;
+            }
           } else if (!loadingRef.current) {
             let monitor = scriptedWarpLoadMonitorRef.current;
             if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
@@ -1927,6 +1950,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 mapId: scriptedWarp.mapId,
                 startedAt: nowTime,
                 retries: 0,
+                fallbackDeferredLogged: false,
               };
               scriptedWarpLoadMonitorRef.current = monitor;
             }
@@ -2390,6 +2414,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       viewportTilesWide,
       viewportTilesHigh,
       pipeline,
+      loadingRef,
       worldSnapshotRef,
       playerRef,
       cameraRef,

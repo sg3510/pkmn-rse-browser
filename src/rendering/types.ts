@@ -271,6 +271,10 @@ export interface SpriteInstance {
   flipY: boolean;
   /** Optional clockwise rotation in degrees around sprite center */
   rotationDeg?: number;
+  /** Optional X scale around sprite center (1 = no scale) */
+  scaleX?: number;
+  /** Optional Y scale around sprite center (1 = no scale) */
+  scaleY?: number;
 
   // === Appearance ===
   /** Overall opacity (0-1) */

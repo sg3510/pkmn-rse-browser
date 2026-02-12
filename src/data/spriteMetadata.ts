@@ -34,6 +34,26 @@ export interface AnimFrame {
   vFlip?: boolean;
 }
 
+export type AffineAnimCommand =
+  | {
+      type: 'FRAME';
+      xScale: number;
+      yScale: number;
+      rotation: number;
+      duration: number;
+    }
+  | {
+      type: 'LOOP';
+      count: number;
+    }
+  | {
+      type: 'JUMP';
+      target: number;
+    }
+  | {
+      type: 'END';
+    };
+
 export interface SpriteInfo {
   graphicsId: string;
   name: string;
@@ -41,6 +61,7 @@ export interface SpriteInfo {
   height: number;
   frameCount: number;
   animationTable: string;
+  affineAnimationTable?: string;
   inanimate: boolean;
   shadowSize: string;
   spritePath?: string;
@@ -106,6 +127,8 @@ const metadata = spriteData as {
   animationIndices: Record<string, number>;
   animations: Record<string, AnimFrame[]>;
   animationTables: Record<string, Record<string, string>>;
+  affineAnimations: Record<string, AffineAnimCommand[]>;
+  affineAnimationTables: Record<string, string[]>;
   sprites: Record<string, SpriteInfo>;
 };
 
@@ -202,6 +225,46 @@ export function getFrameCount(graphicsId: string): number {
  */
 export function getAnimationFrames(animName: string): AnimFrame[] {
   return metadata.animations[animName] ?? [];
+}
+
+/**
+ * Get affine animation commands by affine animation name.
+ */
+export function getAffineAnimationCommands(animName: string): AffineAnimCommand[] {
+  return metadata.affineAnimations[animName] ?? [];
+}
+
+/**
+ * Get affine animation table by name (index-ordered affine animation names).
+ */
+export function getAffineAnimationTable(tableName: string): string[] {
+  return metadata.affineAnimationTables[tableName] ?? [];
+}
+
+/**
+ * Get the affine animation table name for a sprite graphics ID.
+ */
+export function getAffineAnimationTableNameForSprite(graphicsId: string): string | null {
+  const info = getSpriteInfo(graphicsId);
+  if (!info?.affineAnimationTable) return null;
+  return info.affineAnimationTable;
+}
+
+/**
+ * Get the affine animation commands for a sprite at a specific affine animation index.
+ */
+export function getSpriteAffineAnimationCommands(
+  graphicsId: string,
+  affineAnimIndex: number
+): AffineAnimCommand[] {
+  const tableName = getAffineAnimationTableNameForSprite(graphicsId);
+  if (!tableName) return [];
+
+  const table = getAffineAnimationTable(tableName);
+  const animName = table[affineAnimIndex];
+  if (!animName) return [];
+
+  return getAffineAnimationCommands(animName);
 }
 
 /**
