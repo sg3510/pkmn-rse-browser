@@ -181,19 +181,16 @@ export function useNPCMovement(
     for (const upd of updates) {
       const npc = npcs.find((n) => n.id === upd.npcId);
       if (npc) {
-        // Check if NPC just STARTED walking (was not walking, now is walking)
-        const wasWalking = prevWalkingState.current.get(npc.id) ?? false;
         const nowWalking = upd.isWalking;
         const previousDirection = prevDirectionState.current.get(npc.id) ?? npc.direction;
 
-        // Trigger grass effect when walk starts (on destination tile)
-        // GBA triggers grass effect at the moment object BEGINS stepping onto tile
-        const walkStarted = !wasWalking && nowWalking;
-        // Real stepping actions start with +-16 sub-tile offset.
-        // Walk-in-place/collision animations stay at 0 and must not spawn tracks.
-        const isSteppingBetweenTiles = Math.abs(upd.subTileX) >= 15 || Math.abs(upd.subTileY) >= 15;
+        // GBA parity: begin-step ground effects fire when a real tile step starts.
+        // In this engine, that is the frame where sub-tile offset is initialized to +-16.
+        // This remains reliable even when a step ends and the next step starts in one frame.
+        const isBeginStep = nowWalking
+          && (Math.abs(upd.subTileX) === 16 || Math.abs(upd.subTileY) === 16);
 
-        if (walkStarted && p.fieldEffectManager && p.getTileBehavior) {
+        if (isBeginStep && p.fieldEffectManager && p.getTileBehavior) {
           // The npc.tileX/tileY is already the DESTINATION (set by movement engine)
           const behavior = p.getTileBehavior(npc.tileX, npc.tileY);
           if (behavior !== undefined) {
@@ -205,30 +202,28 @@ export function useNPCMovement(
           }
 
           // C parity: sand/deep-sand tracks are created at previous coords.
-          if (isSteppingBetweenTiles) {
-            const { dx, dy } = directionToOffset(upd.direction);
-            const prevTileX = npc.tileX - dx;
-            const prevTileY = npc.tileY - dy;
-            const prevBehavior = p.getTileBehavior(prevTileX, prevTileY);
+          const { dx, dy } = directionToOffset(upd.direction);
+          const prevTileX = npc.tileX - dx;
+          const prevTileY = npc.tileY - dy;
+          const prevBehavior = p.getTileBehavior(prevTileX, prevTileY);
 
-            if (prevBehavior === MB_SAND || prevBehavior === MB_FOOTPRINTS || prevBehavior === MB_DEEP_SAND) {
-              const bikeTracks = isBikeGraphics(npc.graphicsId);
-              const effectType = bikeTracks
-                ? 'bike_tire_tracks'
-                : (prevBehavior === MB_DEEP_SAND ? 'deep_sand' : 'sand');
-              const direction: FieldEffectDirection = bikeTracks
-                ? getBikeTrackDirection(previousDirection, upd.direction)
-                : upd.direction;
+          if (prevBehavior === MB_SAND || prevBehavior === MB_FOOTPRINTS || prevBehavior === MB_DEEP_SAND) {
+            const bikeTracks = isBikeGraphics(npc.graphicsId);
+            const effectType = bikeTracks
+              ? 'bike_tire_tracks'
+              : (prevBehavior === MB_DEEP_SAND ? 'deep_sand' : 'sand');
+            const direction: FieldEffectDirection = bikeTracks
+              ? getBikeTrackDirection(previousDirection, upd.direction)
+              : upd.direction;
 
-              p.fieldEffectManager.create(
-                prevTileX,
-                prevTileY,
-                effectType,
-                false,
-                npc.id,
-                direction
-              );
-            }
+            p.fieldEffectManager.create(
+              prevTileX,
+              prevTileY,
+              effectType,
+              false,
+              npc.id,
+              direction
+            );
           }
         }
 
