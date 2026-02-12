@@ -214,8 +214,11 @@ export class ObjectEventManager {
       const worldX = mapOffsetX + obj.x;
       const worldY = mapOffsetY + obj.y;
 
-      // Handle large non-NPC objects (e.g. truck)
-      if (isLargeObjectGraphicsId(resolvedGraphicsId)) {
+      // Handle large non-NPC objects (e.g. truck). Briney's boat is special:
+      // it is rendered as a large sprite sheet, but scripted like an NPC
+      // (applymovement LOCALID_*), so it must be parsed in the NPC branch.
+      if (isLargeObjectGraphicsId(resolvedGraphicsId)
+        && resolvedGraphicsId !== 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT') {
         const id = `${mapId}_large_${worldX}_${worldY}`;
         const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
         this.largeObjects.set(id, {

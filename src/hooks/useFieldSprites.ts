@@ -8,6 +8,7 @@
  * - grass: Tall grass animation (stepping into grass)
  * - longGrass: Long grass animation
  * - sand: Sand footprints
+ * - bikeTracks: Bike tire tracks
  * - splash: Water splash effect
  * - ripple: Water ripple effect
  * - itemBall: Item ball sprite
@@ -15,29 +16,30 @@
 
 import { useRef, useCallback, useMemo } from 'react';
 import { loadImageCanvasAsset } from '../utils/assetLoader';
+import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
 
 const PROJECT_ROOT = '/pokeemerald';
 
-/** Sprite paths for field effects */
-const SPRITE_PATHS = {
-  grass: `${PROJECT_ROOT}/graphics/field_effects/pics/tall_grass.png`,
-  longGrass: `${PROJECT_ROOT}/graphics/field_effects/pics/long_grass.png`,
-  sand: `${PROJECT_ROOT}/graphics/field_effects/pics/sand_footprints.png`,
-  splash: `${PROJECT_ROOT}/graphics/field_effects/pics/splash.png`,
-  ripple: `${PROJECT_ROOT}/graphics/field_effects/pics/ripple.png`,
+/** Static assets that aren't in the registry yet */
+const EXTRA_SPRITE_PATHS = {
   itemBall: `${PROJECT_ROOT}/graphics/object_events/pics/misc/item_ball.png`,
 } as const;
 
-export type FieldSpriteKey = keyof typeof SPRITE_PATHS;
+// Keep legacy aliases so existing render paths continue to work unchanged.
+const LEGACY_FIELD_ALIASES = {
+  grass: 'TALL_GRASS',
+  longGrass: 'LONG_GRASS',
+  sand: 'SAND_FOOTPRINTS',
+  bikeTracks: 'BIKE_TIRE_TRACKS',
+  splash: 'SPLASH',
+  ripple: 'RIPPLE',
+} as const;
 
-export interface FieldSprites {
-  grass: HTMLCanvasElement | null;
-  longGrass: HTMLCanvasElement | null;
-  sand: HTMLCanvasElement | null;
-  splash: HTMLCanvasElement | null;
-  ripple: HTMLCanvasElement | null;
-  itemBall: HTMLCanvasElement | null;
-}
+export type FieldSpriteKey = keyof typeof FIELD_EFFECT_REGISTRY | keyof typeof EXTRA_SPRITE_PATHS;
+
+export type FieldSprites = {
+  [K in FieldSpriteKey]?: HTMLCanvasElement | null;
+};
 
 export interface UseFieldSpritesReturn {
   /** Get a loaded sprite (null if not yet loaded) */
@@ -64,33 +66,54 @@ async function loadSpriteWithTransparency(path: string): Promise<HTMLCanvasEleme
  * Hook for loading and caching field effect sprites
  */
 export function useFieldSprites(): UseFieldSpritesReturn {
-  const spritesRef = useRef<FieldSprites>({
-    grass: null,
-    longGrass: null,
-    sand: null,
-    splash: null,
-    ripple: null,
-    itemBall: null,
-  });
+  const spritesRef = useRef<FieldSprites>({});
 
   const getSprite = useCallback((key: FieldSpriteKey): HTMLCanvasElement | null => {
-    return spritesRef.current[key];
+    return spritesRef.current[key] ?? null;
   }, []);
 
   const ensureSprite = useCallback(async (key: FieldSpriteKey): Promise<HTMLCanvasElement> => {
+    const keyString = key as unknown as string;
+    const canonicalKey = (LEGACY_FIELD_ALIASES as Record<string, string>)[keyString] ?? keyString;
+    const canonicalFieldKey = canonicalKey as FieldSpriteKey;
+
+    if (spritesRef.current[canonicalFieldKey]) {
+      const canvas = spritesRef.current[canonicalFieldKey]!;
+      spritesRef.current[key] = canvas;
+      return canvas;
+    }
+
     if (spritesRef.current[key]) {
       return spritesRef.current[key]!;
     }
 
-    const path = SPRITE_PATHS[key];
+    const path =
+      FIELD_EFFECT_REGISTRY[canonicalKey]?.imagePath
+      || EXTRA_SPRITE_PATHS[key as keyof typeof EXTRA_SPRITE_PATHS];
+    if (!path) {
+      throw new Error(`No path found for field sprite: ${key}`);
+    }
+
     const canvas = await loadSpriteWithTransparency(path);
+    spritesRef.current[canonicalFieldKey] = canvas;
     spritesRef.current[key] = canvas;
     return canvas;
   }, []);
 
   const loadAll = useCallback(async (): Promise<FieldSprites> => {
-    const keys: FieldSpriteKey[] = ['grass', 'longGrass', 'sand', 'splash', 'ripple', 'itemBall'];
-    await Promise.all(keys.map((key) => ensureSprite(key)));
+    const registryKeys = Object.keys(FIELD_EFFECT_REGISTRY) as Array<keyof typeof FIELD_EFFECT_REGISTRY>;
+    const extraKeys = Object.keys(EXTRA_SPRITE_PATHS) as Array<keyof typeof EXTRA_SPRITE_PATHS>;
+    const allKeys: FieldSpriteKey[] = [...registryKeys, ...extraKeys];
+    await Promise.all(allKeys.map((key) => ensureSprite(key)));
+
+    // Populate legacy aliases after registry sprites are loaded.
+    for (const [alias, canonical] of Object.entries(LEGACY_FIELD_ALIASES)) {
+      const canvas = spritesRef.current[canonical as FieldSpriteKey];
+      if (canvas) {
+        spritesRef.current[alias as unknown as FieldSpriteKey] = canvas;
+      }
+    }
+
     return spritesRef.current;
   }, [ensureSprite]);
 

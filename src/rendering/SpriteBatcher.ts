@@ -241,8 +241,19 @@ export function buildSpriteBatches(
     let sortKeyY: number;
     let subpriority: number;
 
-    if (ownerNpcInfo && effect.type !== 'sand' && effect.type !== 'deep_sand' &&
-        effect.type !== 'puddle_splash' && effect.type !== 'water_ripple') {
+    const isTrackOrSurfaceEffect =
+      effect.type === 'sand'
+      || effect.type === 'deep_sand'
+      || effect.type === 'bike_tire_tracks'
+      || effect.type === 'puddle_splash'
+      || effect.type === 'water_ripple'
+      || effect.registryKey === 'SAND_FOOTPRINTS'
+      || effect.registryKey === 'DEEP_SAND_FOOTPRINTS'
+      || effect.registryKey === 'BIKE_TIRE_TRACKS'
+      || effect.registryKey === 'SPLASH'
+      || effect.registryKey === 'RIPPLE';
+
+    if (ownerNpcInfo && !isTrackOrSurfaceEffect) {
       // NPC grass effect - sort relative to NPC owner
       // Grass should render ON TOP of NPC (in front) unless renderBehindPlayer is set
       if (effect.renderBehindPlayer) {

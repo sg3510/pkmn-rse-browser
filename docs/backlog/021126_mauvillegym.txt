@@ -1,0 +1,2357 @@
+PlayerController.ts:833 [INPUT] lockInput() called at tile(5,20) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:142
+handleDirectionInput @ PlayerController.ts:1081
+handleInput @ PlayerController.ts:138
+update @ PlayerController.ts:873
+renderLoop @ GamePage.tsx:1425
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+performWarpTransition.ts:104 [WARP] ========== WARP START ==========
+performWarpTransition.ts:105 [WARP] Source map: MAP_MAUVILLE_CITY_GYM
+performWarpTransition.ts:106 [WARP] Destination map: MAP_MAUVILLE_CITY
+performWarpTransition.ts:107 [WARP] fromDoor: true
+performWarpTransition.ts:108 [WARP] priorFacing: down
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_BREAKABLE_ROCK using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/breakable_rock.png
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:552
+await in (anonymous)
+load @ NPCSpriteLoader.ts:568
+(anonymous) @ NPCSpriteLoader.ts:584
+loadMany @ NPCSpriteLoader.ts:584
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:219
+(anonymous) @ GamePage.tsx:1061
+handleMapsChanged @ worldManagerEvents.ts:237
+(anonymous) @ worldManagerEvents.ts:353
+emit @ WorldManager.ts:862
+loadMap @ WorldManager.ts:735
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:562
+await in loadMapsFromAnchor
+initialize @ WorldManager.ts:221
+performWarpTransition @ performWarpTransition.ts:111
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_CUTTABLE_TREE using fallback sprite path: /pokeemerald/graphics/object_events/pics/misc/cuttable_tree.png
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:552
+await in (anonymous)
+load @ NPCSpriteLoader.ts:568
+(anonymous) @ NPCSpriteLoader.ts:584
+loadMany @ NPCSpriteLoader.ts:584
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:219
+(anonymous) @ GamePage.tsx:1061
+handleMapsChanged @ worldManagerEvents.ts:237
+(anonymous) @ worldManagerEvents.ts:353
+emit @ WorldManager.ts:862
+loadMap @ WorldManager.ts:735
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:562
+await in loadMapsFromAnchor
+initialize @ WorldManager.ts:221
+performWarpTransition @ performWarpTransition.ts:111
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+installHook.js:1 [NPCSpriteCache] Loaded OBJ_EVENT_GFX_RIVAL_MAY_NORMAL using fallback sprite path: /pokeemerald/graphics/object_events/pics/people/may/walking.png
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:552
+await in (anonymous)
+load @ NPCSpriteLoader.ts:568
+(anonymous) @ NPCSpriteLoader.ts:584
+loadMany @ NPCSpriteLoader.ts:584
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:219
+(anonymous) @ GamePage.tsx:1061
+handleMapsChanged @ worldManagerEvents.ts:237
+(anonymous) @ worldManagerEvents.ts:353
+emit @ WorldManager.ts:862
+loadMap @ WorldManager.ts:735
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:562
+await in loadMapsFromAnchor
+initialize @ WorldManager.ts:221
+performWarpTransition @ performWarpTransition.ts:111
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_BERRY_TREE (tried /pokeemerald/graphics/object_events/pics/people/berry_tree.png, /pokeemerald/graphics/object_events/pics/misc/berry_tree.png, /pokeemerald/graphics/object_events/pics/pokemon/berry_tree.png)
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:570
+Promise.catch
+load @ NPCSpriteLoader.ts:569
+(anonymous) @ NPCSpriteLoader.ts:584
+loadMany @ NPCSpriteLoader.ts:584
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:219
+(anonymous) @ GamePage.tsx:1061
+handleMapsChanged @ worldManagerEvents.ts:237
+(anonymous) @ worldManagerEvents.ts:353
+emit @ WorldManager.ts:862
+loadMap @ WorldManager.ts:735
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:562
+await in loadMapsFromAnchor
+initialize @ WorldManager.ts:221
+performWarpTransition @ performWarpTransition.ts:111
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+installHook.js:1 [NPCSpriteCache] Failed to load sprite: OBJ_EVENT_GFX_RIVAL_MAY_MACH_BIKE (tried /pokeemerald/graphics/object_events/pics/people/may/rival_mach_bike.png, /pokeemerald/graphics/object_events/pics/people/rival_may_mach_bike.png, /pokeemerald/graphics/object_events/pics/misc/rival_may_mach_bike.png, /pokeemerald/graphics/object_events/pics/pokemon/rival_may_mach_bike.png, /pokeemerald/graphics/object_events/pics/misc/may/rival_mach_bike.png, /pokeemerald/graphics/object_events/pics/pokemon/may/rival_mach_bike.png)
+overrideMethod @ installHook.js:1
+(anonymous) @ NPCSpriteLoader.ts:570
+Promise.catch
+load @ NPCSpriteLoader.ts:569
+(anonymous) @ NPCSpriteLoader.ts:584
+loadMany @ NPCSpriteLoader.ts:584
+loadObjectEventsFromSnapshot @ loadObjectEventsFromSnapshot.ts:219
+(anonymous) @ GamePage.tsx:1061
+handleMapsChanged @ worldManagerEvents.ts:237
+(anonymous) @ worldManagerEvents.ts:353
+emit @ WorldManager.ts:862
+loadMap @ WorldManager.ts:735
+await in loadMap
+loadMapsFromAnchor @ WorldManager.ts:562
+await in loadMapsFromAnchor
+initialize @ WorldManager.ts:221
+performWarpTransition @ performWarpTransition.ts:111
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: (7) ['gTileset_General+gTileset_Mauville', 'gTileset_General+gTileset_Fallarbor', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Slateport', 'gTileset_General+gTileset_Petalburg', 'gTileset_General+gTileset_Fortree', 'gTileset_General+gTileset_Lilycove']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_General+gTileset_Mauville: 0, gTileset_General+gTileset_Fallarbor: 1, gTileset_General+gTileset_Lavaridge: 2}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Mauville to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge: gpuSlot=2, primarySize=128x256, secondarySize=128x232
+TilesetUploader.ts:106 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Lavaridge to GPU SLOT 2
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree: gpuSlot=undefined, primarySize=128x256, secondarySize=128x248
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove: gpuSlot=undefined, primarySize=128x256, secondarySize=128x216
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove NOT in GPU (slot=undefined)
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+runMapEntryScripts.ts:147 [WARP] ON_TRANSITION script executed for MAP_MAUVILLE_CITY
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:208 [WARP] Warp complete
+performWarpTransition.ts:209 [WARP] World bounds: {minX: -100, minY: -140, maxX: 260, maxY: 180, width: 360, …}
+performWarpTransition.ts:210 [WARP] Loaded maps: (12) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_ROUTE113', 'MAP_ROUTE112', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE103', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE119', 'MAP_ROUTE123']
+performWarpTransition.ts:211 [WARP] Tileset pairs: (7) ['gTileset_General+gTileset_Mauville', 'gTileset_General+gTileset_Fallarbor', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Slateport', 'gTileset_General+gTileset_Petalburg', 'gTileset_General+gTileset_Fortree', 'gTileset_General+gTileset_Lilycove']
+performWarpTransition.ts:212 [WARP] GPU slots: {gTileset_General+gTileset_Mauville: 0, gTileset_General+gTileset_Fallarbor: 1, gTileset_General+gTileset_Lavaridge: 2}
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(8,6) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1729
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+PlayerController.ts:833 [INPUT] lockInput() called at tile(8,6) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+startDoorWarpSequence @ DoorActionDispatcher.ts:379
+await in startDoorWarpSequence
+(anonymous) @ overworldAssets.ts:142
+tryInteract @ PlayerController.ts:1597
+handleDirectionInput @ PlayerController.ts:1031
+handleInput @ PlayerController.ts:138
+update @ PlayerController.ts:873
+renderLoop @ GamePage.tsx:1425
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+performWarpTransition.ts:104 [WARP] ========== WARP START ==========
+performWarpTransition.ts:105 [WARP] Source map: MAP_MAUVILLE_CITY
+performWarpTransition.ts:106 [WARP] Destination map: MAP_MAUVILLE_CITY_GYM
+performWarpTransition.ts:107 [WARP] fromDoor: true
+performWarpTransition.ts:108 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_MauvilleGym']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_MauvilleGym: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_MauvilleGym: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_MauvilleGym to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(4,20) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+handleDoorExitSequence @ WarpExecutor.ts:288
+executeWarp @ WarpExecutor.ts:359
+performWarpTransition @ performWarpTransition.ts:160
+await in performWarpTransition
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+runMapEntryScripts.ts:141 [WARP] ON_LOAD script executed for MAP_MAUVILLE_CITY_GYM
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:208 [WARP] Warp complete
+performWarpTransition.ts:209 [WARP] World bounds: {minX: 0, minY: 0, maxX: 10, maxY: 21, width: 10, …}
+performWarpTransition.ts:210 [WARP] Loaded maps: ['MAP_MAUVILLE_CITY_GYM']
+performWarpTransition.ts:211 [WARP] Tileset pairs: ['gTileset_Building+gTileset_MauvilleGym']
+performWarpTransition.ts:212 [WARP] GPU slots: {gTileset_Building+gTileset_MauvilleGym: 0}
+PlayerController.ts:833 [INPUT] lockInput() called at tile(4,20) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+startDoorWarpSequence @ DoorActionDispatcher.ts:343
+(anonymous) @ overworldAssets.ts:142
+handleDirectionInput @ PlayerController.ts:1081
+handleInput @ PlayerController.ts:138
+update @ PlayerController.ts:873
+renderLoop @ GamePage.tsx:1425
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+performWarpTransition.ts:104 [WARP] ========== WARP START ==========
+performWarpTransition.ts:105 [WARP] Source map: MAP_MAUVILLE_CITY_GYM
+performWarpTransition.ts:106 [WARP] Destination map: MAP_MAUVILLE_CITY
+performWarpTransition.ts:107 [WARP] fromDoor: true
+performWarpTransition.ts:108 [WARP] priorFacing: down
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: (7) ['gTileset_General+gTileset_Mauville', 'gTileset_General+gTileset_Fallarbor', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Slateport', 'gTileset_General+gTileset_Petalburg', 'gTileset_General+gTileset_Fortree', 'gTileset_General+gTileset_Lilycove']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_General+gTileset_Mauville: 0, gTileset_General+gTileset_Fallarbor: 1, gTileset_General+gTileset_Lavaridge: 2}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Mauville: gpuSlot=0, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Mauville to GPU SLOT 0
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fallarbor: gpuSlot=1, primarySize=128x256, secondarySize=128x224
+TilesetUploader.ts:103 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Fallarbor to GPU SLOT 1
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lavaridge: gpuSlot=2, primarySize=128x256, secondarySize=128x232
+TilesetUploader.ts:106 [TILESET_UPLOAD] Uploading gTileset_General+gTileset_Lavaridge to GPU SLOT 2
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport: gpuSlot=undefined, primarySize=128x256, secondarySize=128x256
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Slateport NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg: gpuSlot=undefined, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Petalburg NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree: gpuSlot=undefined, primarySize=128x256, secondarySize=128x248
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Fortree NOT in GPU (slot=undefined)
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove: gpuSlot=undefined, primarySize=128x256, secondarySize=128x216
+TilesetUploader.ts:109 [TILESET_UPLOAD] Pair gTileset_General+gTileset_Lilycove NOT in GPU (slot=undefined)
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+runMapEntryScripts.ts:147 [WARP] ON_TRANSITION script executed for MAP_MAUVILLE_CITY
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:208 [WARP] Warp complete
+performWarpTransition.ts:209 [WARP] World bounds: {minX: -100, minY: -140, maxX: 260, maxY: 180, width: 360, …}
+performWarpTransition.ts:210 [WARP] Loaded maps: (12) ['MAP_MAUVILLE_CITY', 'MAP_ROUTE111', 'MAP_ROUTE110', 'MAP_ROUTE117', 'MAP_ROUTE118', 'MAP_ROUTE113', 'MAP_ROUTE112', 'MAP_SLATEPORT_CITY', 'MAP_ROUTE103', 'MAP_VERDANTURF_TOWN', 'MAP_ROUTE119', 'MAP_ROUTE123']
+performWarpTransition.ts:211 [WARP] Tileset pairs: (7) ['gTileset_General+gTileset_Mauville', 'gTileset_General+gTileset_Fallarbor', 'gTileset_General+gTileset_Lavaridge', 'gTileset_General+gTileset_Slateport', 'gTileset_General+gTileset_Petalburg', 'gTileset_General+gTileset_Fortree', 'gTileset_General+gTileset_Lilycove']
+performWarpTransition.ts:212 [WARP] GPU slots: {gTileset_General+gTileset_Mauville: 0, gTileset_General+gTileset_Fallarbor: 1, gTileset_General+gTileset_Lavaridge: 2}
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(8,6) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+handleDoorExitAction @ DoorActionDispatcher.ts:261
+runDoorExitUpdate @ DoorSequenceRunner.ts:146
+renderLoop @ GamePage.tsx:1729
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+PlayerController.ts:833 [INPUT] lockInput() called at tile(8,6) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+startDoorWarpSequence @ DoorActionDispatcher.ts:379
+await in startDoorWarpSequence
+(anonymous) @ overworldAssets.ts:142
+tryInteract @ PlayerController.ts:1597
+handleDirectionInput @ PlayerController.ts:1031
+handleInput @ PlayerController.ts:138
+update @ PlayerController.ts:873
+renderLoop @ GamePage.tsx:1425
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+performWarpTransition.ts:104 [WARP] ========== WARP START ==========
+performWarpTransition.ts:105 [WARP] Source map: MAP_MAUVILLE_CITY
+performWarpTransition.ts:106 [WARP] Destination map: MAP_MAUVILLE_CITY_GYM
+performWarpTransition.ts:107 [WARP] fromDoor: true
+performWarpTransition.ts:108 [WARP] priorFacing: up
+TilesetUploader.ts:85 [TILESET_UPLOAD] ========== UPLOADING TILESETS ==========
+TilesetUploader.ts:86 [TILESET_UPLOAD] Tileset pairs: ['gTileset_Building+gTileset_MauvilleGym']
+TilesetUploader.ts:87 [TILESET_UPLOAD] GPU slot mapping: {gTileset_Building+gTileset_MauvilleGym: 0}
+TilesetUploader.ts:93 [TILESET_UPLOAD] Pair gTileset_Building+gTileset_MauvilleGym: gpuSlot=0, primarySize=128x256, secondarySize=128x80
+TilesetUploader.ts:100 [TILESET_UPLOAD] Uploading gTileset_Building+gTileset_MauvilleGym to GPU SLOT 0
+TilesetUploader.ts:112 [TILESET_UPLOAD] ========== UPLOAD COMPLETE ==========
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(4,20) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+handleDoorExitSequence @ WarpExecutor.ts:288
+executeWarp @ WarpExecutor.ts:359
+performWarpTransition @ performWarpTransition.ts:160
+await in performWarpTransition
+(anonymous) @ GamePage.tsx:1172
+onExecuteWarp @ GamePage.tsx:1724
+handleDoorEntryAction @ DoorActionDispatcher.ts:177
+runDoorEntryUpdate @ DoorSequenceRunner.ts:102
+renderLoop @ GamePage.tsx:1728
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+runMapEntryScripts.ts:141 [WARP] ON_LOAD script executed for MAP_MAUVILLE_CITY_GYM
+useNPCMovement.ts:187 [NPCMovement] Engine reset
+performWarpTransition.ts:208 [WARP] Warp complete
+performWarpTransition.ts:209 [WARP] World bounds: {minX: 0, minY: 0, maxX: 10, maxY: 21, width: 10, …}
+performWarpTransition.ts:210 [WARP] Loaded maps: ['MAP_MAUVILLE_CITY_GYM']
+performWarpTransition.ts:211 [WARP] Tileset pairs: ['gTileset_Building+gTileset_MauvilleGym']
+performWarpTransition.ts:212 [WARP] GPU slots: {gTileset_Building+gTileset_MauvilleGym: 0}
+GamePage.tsx:1543 [CoordEvent] Firing: MauvilleCity_Gym_EventScript_Switch1 at (0,15) var=VAR_TEMP_0=0
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: MauvilleCity_Gym_EventScript_Switch1
+installHook.js:1 [StoryScript] lockInput caller for: MauvilleCity_Gym_EventScript_Switch1
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+PlayerController.ts:833 [INPUT] lockInput() called at tile(0,15) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+useHandledStoryScript.ts:556 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:563 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:566 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(0,15) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+(anonymous) @ useHandledStoryScript.ts:567
+await in (anonymous)
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+GamePage.tsx:1543 [CoordEvent] Firing: MauvilleCity_Gym_EventScript_Switch2 at (4,12) var=VAR_TEMP_0=0
+useHandledStoryScript.ts:101 [StoryScript] ▶ Starting: MauvilleCity_Gym_EventScript_Switch2
+installHook.js:1 [StoryScript] lockInput caller for: MauvilleCity_Gym_EventScript_Switch2
+overrideMethod @ installHook.js:1
+(anonymous) @ useHandledStoryScript.ts:102
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+PlayerController.ts:833 [INPUT] lockInput() called at tile(4,12) wasLocked=false moving=false
+installHook.js:1 [INPUT] lockInput stack
+overrideMethod @ installHook.js:1
+lockInput @ PlayerController.ts:834
+(anonymous) @ useHandledStoryScript.ts:104
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+useHandledStoryScript.ts:556 [StoryScript] ✓ Script handled=true
+useHandledStoryScript.ts:563 [StoryScript] ■ Finally: warpingRef=false pendingScriptedWarp=false inputLocked=true
+useHandledStoryScript.ts:566 [StoryScript] ■ Unlocking input (no active/pending warp)
+PlayerController.ts:856 [INPUT] unlockInput() called at tile(4,12) wasLocked=true
+installHook.js:1 [INPUT] unlockInput stack
+overrideMethod @ installHook.js:1
+unlockInput @ PlayerController.ts:857
+(anonymous) @ useHandledStoryScript.ts:567
+await in (anonymous)
+renderLoop @ GamePage.tsx:1544
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+requestAnimationFrame
+renderLoop @ GamePage.tsx:2087
+Name:
+MauvilleCity_Gym
+Size:
+10×21 metatiles
+Tilesets:
+Building / MauvilleGym
+World:
+160×336px
+Tile:
+(5, 13)
+Pixel:
+(80.0, 192.0)
+Direction:
+down
+Map:
+MAUVILLE_CITY_GYM
+Moving:
+NO
+Surfing:
+NO
+ELEVATION
+Render (prev):
+3
+Collision (cur):
+0
+STATE
+State:
+Normal
+Collision Check:
+ENABLED
+Visible NPCs:
+7
+Total NPCs:
+7
+Visible Items:
+0
+Total Items:
+0
+WATTSON
+(5, 2) E0 P2 D
+MAN_5
+(7, 8) E3 P2 D
+GIRL_3
+(1, 16) E0 P2 U
+YOUNGSTER
+(5, 10) E0 P2 L
+MAN_5
+(1, 13) E0 P2 D
+MAN_2
+(7, 20) E0 P2 L
+MANIAC
+(7, 10) E3 P2 U
+No visible items
+Total NPCs:
+7
+Total Items:
+0{
+  "flags": [
+    "FLAG_ADDED_MATCH_CALL_TO_POKENAV",
+    "FLAG_ADVENTURE_STARTED",
+    "FLAG_ARRIVED_AT_MARINE_CAVE_EMERGE_SPOT",
+    "FLAG_DECORATION_1",
+    "FLAG_DECORATION_10",
+    "FLAG_DECORATION_11",
+    "FLAG_DECORATION_12",
+    "FLAG_DECORATION_13",
+    "FLAG_DECORATION_14",
+    "FLAG_DECORATION_2",
+    "FLAG_DECORATION_3",
+    "FLAG_DECORATION_4",
+    "FLAG_DECORATION_5",
+    "FLAG_DECORATION_6",
+    "FLAG_DECORATION_7",
+    "FLAG_DECORATION_8",
+    "FLAG_DECORATION_9",
+    "FLAG_DEFEATED_DEWFORD_GYM",
+    "FLAG_DEFEATED_RIVAL_ROUTE103",
+    "FLAG_DEFEATED_RIVAL_RUSTBORO",
+    "FLAG_DEFEATED_RUSTBORO_GYM",
+    "FLAG_DELIVERED_DEVON_GOODS",
+    "FLAG_DELIVERED_STEVEN_LETTER",
+    "FLAG_DOCK_REJECTED_DEVON_GOODS",
+    "FLAG_ENABLE_BRAWLY_MATCH_CALL",
+    "FLAG_ENABLE_MR_STONE_POKENAV",
+    "FLAG_ENABLE_NORMAN_MATCH_CALL",
+    "FLAG_ENABLE_RIVAL_MATCH_CALL",
+    "FLAG_ENABLE_ROXANNE_MATCH_CALL",
+    "FLAG_ENABLE_SCOTT_MATCH_CALL",
+    "FLAG_ENABLE_SHIP_FARAWAY_ISLAND",
+    "FLAG_HAS_MATCH_CALL",
+    "FLAG_HIDDEN_ITEM_GRANITE_CAVE_B2F_EVERSTONE_2",
+    "FLAG_HIDDEN_ITEM_PETALBURG_WOODS_POTION",
+    "FLAG_HIDE_BATTLE_TOWER_OPPONENT",
+    "FLAG_HIDE_BRINEYS_HOUSE_MR_BRINEY",
+    "FLAG_HIDE_BRINEYS_HOUSE_PEEKO",
+    "FLAG_HIDE_CHAMPIONS_ROOM_BIRCH",
+    "FLAG_HIDE_CHAMPIONS_ROOM_RIVAL",
+    "FLAG_HIDE_CONTEST_POKE_BALL",
+    "FLAG_HIDE_DEOXYS",
+    "FLAG_HIDE_DESERT_UNDERPASS_FOSSIL",
+    "FLAG_HIDE_DEWFORD_HALL_SLUDGE_BOMB_MAN",
+    "FLAG_HIDE_EVER_GRANDE_POKEMON_CENTER_1F_SCOTT",
+    "FLAG_HIDE_FALLARBOR_HOUSE_PROF_COZMO",
+    "FLAG_HIDE_FALLARBOR_TOWN_BATTLE_TENT_SCOTT",
+    "FLAG_HIDE_FANCLUB_BOY",
+    "FLAG_HIDE_FANCLUB_LADY",
+    "FLAG_HIDE_FANCLUB_LITTLE_BOY",
+    "FLAG_HIDE_FANCLUB_OLD_LADY",
+    "FLAG_HIDE_GRANITE_CAVE_STEVEN",
+    "FLAG_HIDE_LANETTES_HOUSE_LANETTE",
+    "FLAG_HIDE_LAVARIDGE_TOWN_RIVAL",
+    "FLAG_HIDE_LAVARIDGE_TOWN_RIVAL_ON_BIKE",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_BLEND_MASTER",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_CONTEST_ATTENDANT_1",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_CONTEST_ATTENDANT_2",
+    "FLAG_HIDE_LILYCOVE_CONTEST_HALL_REPORTER",
+    "FLAG_HIDE_LILYCOVE_FAN_CLUB_INTERVIEWER",
+    "FLAG_HIDE_LILYCOVE_HARBOR_EVENT_TICKET_TAKER",
+    "FLAG_HIDE_LILYCOVE_HARBOR_FERRY_SAILOR",
+    "FLAG_HIDE_LILYCOVE_HARBOR_SSTIDAL",
+    "FLAG_HIDE_LILYCOVE_MOTEL_GAME_DESIGNERS",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_1",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_2",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_3",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_PATRON_4",
+    "FLAG_HIDE_LILYCOVE_MUSEUM_TOURISTS",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCH",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_CHIKORITA",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_CYNDAQUIL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_POKEBALL_TOTODILE",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_RIVAL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_UNKNOWN_0x380",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_POKE_BALL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_SWABLU_DOLL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_BRENDAN",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_BEDROOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_SIBLING",
+    "FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_PICHU_DOLL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_POKE_BALL",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_MAY",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_RIVAL_BEDROOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK",
+    "FLAG_HIDE_LITTLEROOT_TOWN_MOM_OUTSIDE",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_BEDROOM_MOM",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_1",
+    "FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_2",
+    "FLAG_HIDE_LITTLEROOT_TOWN_RIVAL",
+    "FLAG_HIDE_MAGMA_HIDEOUT_4F_GROUDON",
+    "FLAG_HIDE_MAUVILLE_CITY_SCOTT",
+    "FLAG_HIDE_MAUVILLE_CITY_WATTSON",
+    "FLAG_HIDE_METEOR_FALLS_TEAM_AQUA",
+    "FLAG_HIDE_MOSSDEEP_CITY_HOUSE_2_WINGULL",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_1F_TEAM_MAGMA",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_STEVEN",
+    "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_TEAM_MAGMA",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_BELDUM_POKEBALL",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_INVISIBLE_NINJA_BOY",
+    "FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_STEVEN",
+    "FLAG_HIDE_MOSSDEEP_CITY_TEAM_MAGMA",
+    "FLAG_HIDE_MR_BRINEY_BOAT_DEWFORD_TOWN",
+    "FLAG_HIDE_MR_BRINEY_DEWFORD_TOWN",
+    "FLAG_HIDE_MT_CHIMNEY_LAVA_COOKIE_LADY",
+    "FLAG_HIDE_MT_CHIMNEY_TRAINERS",
+    "FLAG_HIDE_OLDALE_TOWN_RIVAL",
+    "FLAG_HIDE_PETALBURG_CITY_SCOTT",
+    "FLAG_HIDE_PETALBURG_CITY_WALLY",
+    "FLAG_HIDE_PETALBURG_CITY_WALLYS_DAD",
+    "FLAG_HIDE_PETALBURG_CITY_WALLYS_MOM",
+    "FLAG_HIDE_PETALBURG_GYM_GREETER",
+    "FLAG_HIDE_PETALBURG_GYM_WALLY",
+    "FLAG_HIDE_PETALBURG_GYM_WALLYS_DAD",
+    "FLAG_HIDE_PETALBURG_WOODS_AQUA_GRUNT",
+    "FLAG_HIDE_PETALBURG_WOODS_DEVON_EMPLOYEE",
+    "FLAG_HIDE_PLAYERS_HOUSE_DAD",
+    "FLAG_HIDE_ROUTE_101_BIRCH",
+    "FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG",
+    "FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE",
+    "FLAG_HIDE_ROUTE_101_ZIGZAGOON",
+    "FLAG_HIDE_ROUTE_103_BIRCH",
+    "FLAG_HIDE_ROUTE_103_RIVAL",
+    "FLAG_HIDE_ROUTE_104_MR_BRINEY",
+    "FLAG_HIDE_ROUTE_104_MR_BRINEY_BOAT",
+    "FLAG_HIDE_ROUTE_104_RIVAL",
+    "FLAG_HIDE_ROUTE_104_WHITE_HERB_FLORIST",
+    "FLAG_HIDE_ROUTE_110_BIRCH",
+    "FLAG_HIDE_ROUTE_110_RIVAL_ON_BIKE",
+    "FLAG_HIDE_ROUTE_110_TEAM_AQUA",
+    "FLAG_HIDE_ROUTE_111_DESERT_FOSSIL",
+    "FLAG_HIDE_ROUTE_111_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_111_GABBY_AND_TY_3",
+    "FLAG_HIDE_ROUTE_111_PLAYER_DESCENT",
+    "FLAG_HIDE_ROUTE_111_VICKY_WINSTRATE",
+    "FLAG_HIDE_ROUTE_111_VICTORIA_WINSTRATE",
+    "FLAG_HIDE_ROUTE_111_VIVI_WINSTRATE",
+    "FLAG_HIDE_ROUTE_116_MR_BRINEY",
+    "FLAG_HIDE_ROUTE_116_WANDAS_BOYFRIEND",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_1",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_118_GABBY_AND_TY_3",
+    "FLAG_HIDE_ROUTE_119_RIVAL",
+    "FLAG_HIDE_ROUTE_119_RIVAL_ON_BIKE",
+    "FLAG_HIDE_ROUTE_119_SCOTT",
+    "FLAG_HIDE_ROUTE_120_GABBY_AND_TY_1",
+    "FLAG_HIDE_ROUTE_120_GABBY_AND_TY_2",
+    "FLAG_HIDE_ROUTE_128_ARCHIE",
+    "FLAG_HIDE_ROUTE_128_MAXIE",
+    "FLAG_HIDE_ROUTE_128_STEVEN",
+    "FLAG_HIDE_RUSTBORO_CITY_AQUA_GRUNT",
+    "FLAG_HIDE_RUSTBORO_CITY_DEVON_CORP_3F_EMPLOYEE",
+    "FLAG_HIDE_RUSTBORO_CITY_DEVON_EMPLOYEE_1",
+    "FLAG_HIDE_RUSTBORO_CITY_POKEMON_SCHOOL_SCOTT",
+    "FLAG_HIDE_RUSTBORO_CITY_RIVAL",
+    "FLAG_HIDE_RUSTBORO_CITY_SCIENTIST",
+    "FLAG_HIDE_RUSTURF_TUNNEL_AQUA_GRUNT",
+    "FLAG_HIDE_RUSTURF_TUNNEL_BRINEY",
+    "FLAG_HIDE_RUSTURF_TUNNEL_PEEKO",
+    "FLAG_HIDE_SAFARI_ZONE_SOUTH_EAST_EXPANSION",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_ARCHIE",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_KYOGRE",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAGMA_GRUNTS",
+    "FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAXIE",
+    "FLAG_HIDE_SKY_PILLAR_TOP_RAYQUAZA_STILL",
+    "FLAG_HIDE_SKY_PILLAR_WALLACE",
+    "FLAG_HIDE_SLATEPORT_CITY_CAPTAIN_STERN",
+    "FLAG_HIDE_SLATEPORT_CITY_CONTEST_REPORTER",
+    "FLAG_HIDE_SLATEPORT_CITY_GABBY_AND_TY",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_AQUA_GRUNT",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_ARCHIE",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_CAPTAIN_STERN",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_SS_TIDAL",
+    "FLAG_HIDE_SLATEPORT_CITY_HARBOR_SUBMARINE_SHADOW",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_AQUA_GRUNT_1",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_AQUA_GRUNT_2",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_ARCHIE",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_2F_CAPTAIN_STERN",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_AQUA_GRUNTS",
+    "FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_FAMILIAR_AQUA_GRUNT",
+    "FLAG_HIDE_SLATEPORT_CITY_SCOTT",
+    "FLAG_HIDE_SLATEPORT_CITY_STERNS_SHIPYARD_MR_BRINEY",
+    "FLAG_HIDE_SLATEPORT_CITY_TEAM_AQUA",
+    "FLAG_HIDE_SLATEPORT_CITY_TM_SALESMAN",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_ARCHIE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_GROUDON",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_KYOGRE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_MAXIE",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_RAYQUAZA",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_RESIDENTS",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_STEVEN",
+    "FLAG_HIDE_SOOTOPOLIS_CITY_WALLACE",
+    "FLAG_HIDE_SOUTHERN_ISLAND_EON_STONE",
+    "FLAG_HIDE_SOUTHERN_ISLAND_UNCHOSEN_EON_DUO_MON",
+    "FLAG_HIDE_SS_TIDAL_CORRIDOR_MR_BRINEY",
+    "FLAG_HIDE_TRICK_HOUSE_ENTRANCE_MAN",
+    "FLAG_HIDE_VERDANTURF_TOWN_SCOTT",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WALLY",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WALLYS_UNCLE",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WANDA",
+    "FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WANDAS_BOYFRIEND",
+    "FLAG_HIDE_VICTORY_ROAD_ENTRANCE_WALLY",
+    "FLAG_HIDE_VICTORY_ROAD_EXIT_WALLY",
+    "FLAG_HIDE_WEATHER_INSTITUTE_1F_WORKERS",
+    "FLAG_HIDE_WEATHER_INSTITUTE_2F_AQUA_GRUNT_M",
+    "FLAG_INTERACTED_WITH_DEVON_EMPLOYEE_GOODS_STOLEN",
+    "FLAG_ITEM_GRANITE_CAVE_1F_ESCAPE_ROPE",
+    "FLAG_ITEM_PETALBURG_WOODS_ETHER",
+    "FLAG_ITEM_PETALBURG_WOODS_GREAT_BALL",
+    "FLAG_ITEM_PETALBURG_WOODS_PARALYZE_HEAL",
+    "FLAG_ITEM_ROUTE_102_POTION",
+    "FLAG_ITEM_ROUTE_104_POKE_BALL",
+    "FLAG_ITEM_ROUTE_104_POTION",
+    "FLAG_ITEM_ROUTE_104_X_ACCURACY",
+    "FLAG_ITEM_ROUTE_109_POTION",
+    "FLAG_ITEM_ROUTE_115_SUPER_POTION",
+    "FLAG_ITEM_ROUTE_116_ETHER",
+    "FLAG_ITEM_ROUTE_116_POTION",
+    "FLAG_ITEM_ROUTE_116_REPEL",
+    "FLAG_ITEM_ROUTE_116_X_SPECIAL",
+    "FLAG_ITEM_RUSTURF_TUNNEL_POKE_BALL",
+    "FLAG_MET_PRETTY_PETAL_SHOP_OWNER",
+    "FLAG_MET_RIVAL_MOM",
+    "FLAG_MET_RIVAL_RUSTBORO",
+    "FLAG_MET_SLATEPORT_FANCLUB_CHAIRMAN",
+    "FLAG_MR_BRINEY_SAILING_INTRO",
+    "FLAG_RECEIVED_HM_CUT",
+    "FLAG_RECEIVED_HM_FLASH",
+    "FLAG_RECEIVED_MIRACLE_SEED",
+    "FLAG_RECEIVED_POKENAV",
+    "FLAG_RECEIVED_POTION_OLDALE",
+    "FLAG_RECEIVED_RUNNING_SHOES",
+    "FLAG_RECEIVED_SILK_SCARF",
+    "FLAG_RECEIVED_TM_BULK_UP",
+    "FLAG_RECEIVED_TM_BULLET_SEED",
+    "FLAG_RECEIVED_TM_ROCK_TOMB",
+    "FLAG_RECEIVED_TM_THIEF",
+    "FLAG_RECEIVED_WAILMER_PAIL",
+    "FLAG_RECOVERED_DEVON_GOODS",
+    "FLAG_REGISTERED_BRAWLY",
+    "FLAG_REGISTERED_ELLIOT",
+    "FLAG_REGISTERED_STEVEN_POKENAV",
+    "FLAG_REGISTER_RIVAL_POKENAV",
+    "FLAG_RESCUED_BIRCH",
+    "FLAG_RETURNED_DEVON_GOODS",
+    "FLAG_RIVAL_LEFT_FOR_ROUTE103",
+    "FLAG_SET_WALL_CLOCK",
+    "FLAG_SHOWN_BOX_WAS_FULL_MESSAGE",
+    "FLAG_SYS_B_DASH",
+    "FLAG_SYS_CTRL_OBJ_DELETE",
+    "FLAG_SYS_DOME_GOLD",
+    "FLAG_SYS_PALACE_SILVER",
+    "FLAG_SYS_PIKE_GOLD",
+    "FLAG_SYS_POKEDEX_GET",
+    "FLAG_SYS_POKEMON_GET",
+    "FLAG_SYS_POKENAV_GET",
+    "FLAG_SYS_PYRAMID_GOLD",
+    "FLAG_SYS_PYRAMID_SILVER",
+    "FLAG_SYS_RESET_RTC_ENABLE",
+    "FLAG_SYS_TV_START",
+    "FLAG_THANKED_FOR_PLAYING_WITH_WALLY",
+    "FLAG_UNKNOWN_0x363",
+    "FLAG_UNKNOWN_0x393",
+    "FLAG_VISITED_MAUVILLE_CITY"
+  ],
+  "variables": {
+    "VAR_0x8004": 1,
+    "VAR_BRINEY_LOCATION": 1,
+    "VAR_CABLE_CLUB_TUTORIAL_STATE": 2,
+    "VAR_CONTEST_PRIZE_PICKUP": 5,
+    "VAR_CYCLING_ROAD_RECORD_TIME_L": 49154,
+    "VAR_DEVON_CORP_3F_STATE": 1,
+    "VAR_DEWFORD_TOWN_STATE": 35045,
+    "VAR_DEX_UPGRADE_JOHTO_STARTER_STATE": 1,
+    "VAR_ELITE_4_STATE": 2,
+    "VAR_FRONTIER_FACILITY": 1,
+    "VAR_FRONTIER_GAMBLER_CHALLENGE": 3,
+    "VAR_FRONTIER_GAMBLER_SET_CHALLENGE": 1,
+    "VAR_GIFT_UNUSED_3": 1,
+    "VAR_LILYCOVE_FAN_CLUB_STATE": 1,
+    "VAR_LITTLEROOT_INTRO_STATE": 2,
+    "VAR_MAUVILLE_GYM_STATE": 2,
+    "VAR_MOSSDEEP_CITY_STATE": 3,
+    "VAR_MOSSDEEP_SPACE_CENTER_STAIR_GUARD_STATE": 1,
+    "VAR_OLDALE_TOWN_STATE": 19317,
+    "VAR_PACIFIDLOG_TOWN_STATE": 4,
+    "VAR_PETALBURG_CITY_STATE": 1,
+    "VAR_PETALBURG_WOODS_STATE": 7,
+    "VAR_POKELOT_PRIZE_PLACE": 32768,
+    "VAR_ROUTE101_STATE": 8,
+    "VAR_ROUTE107_STATE": 3,
+    "VAR_ROUTE110_STATE": 2,
+    "VAR_ROUTE122_STATE": 2,
+    "VAR_SECRET_BASE_HIGH_TV_FLAGS": 1,
+    "VAR_SECRET_BASE_IS_NOT_LOCAL": 26,
+    "VAR_SECRET_BASE_LAST_ITEM_USED": 159,
+    "VAR_SKY_PILLAR_RAYQUAZA_CRY_DONE": 3,
+    "VAR_SLATEPORT_HARBOR_STATE": 3,
+    "VAR_SOOTOPOLIS_WALLACE_STATE": 3,
+    "VAR_TEMP_1": 1,
+    "VAR_TEMP_CHALLENGE_STATUS": 255,
+    "VAR_VERDANTURF_TOWN_STATE": 32768
+  }
+}Tile:
+(5, 13)
+player.y:
+192
+Sprite Center (y+16):
+208
+Feet Y (y+32):
+224
+SortKey Y:
+224
+Subpriority:
+128
+Sort Key:
+57472
+Elevation:
+3
+Formula: sortKey = (feetY << 8) | subpriority = (224 << 8) | 128
+🔵 Blue = behind player | 🟡 Yellow = same | 🟠 Orange = in front
+Player
+57472
++0
+MAN_5
+57472
++0
+YOUNGSTER
+45184
+-12288
+MANIAC
+45184
+-12288
+GIRL_3
+69760
++12288
+MAN_5
+36992
+-20480
+MAN_2
+86144
++28672
+WATTSON
+12416
+-45056
+With Player: 7 | Behind Bridge: 0 | Above All: 0
+WATTSON[withPlayer] P
+Tile:
+(5, 3)
+FeetY:
+48
+SortKeyY:
+48
+Elevation:
+SortKey:
+12416
+MAN_5[withPlayer] P
+Tile:
+(7, 9)
+FeetY:
+144
+SortKeyY:
+144
+Elevation:
+SortKey:
+36992
+YOUNGSTER[withPlayer] P
+Tile:
+(5, 11)
+FeetY:
+176
+SortKeyY:
+176
+Elevation:
+SortKey:
+45184
+MANIAC[withPlayer] P
+Tile:
+(7, 11)
+FeetY:
+176
+SortKeyY:
+176
+Elevation:
+SortKey:
+45184
+MAN_5[withPlayer] P
+Tile:
+(1, 14)
+FeetY:
+224
+SortKeyY:
+224
+Elevation:
+SortKey:
+57472
+GIRL_3[withPlayer] P
+Tile:
+(1, 17)
+FeetY:
+272
+SortKeyY:
+272
+Elevation:
+SortKey:
+69760
+MAN_2[withPlayer] P
+Tile:
+(7, 21)
+FeetY:
+336
+SortKeyY:
+336
+Elevation:
+SortKey:
+86144
+First = renders first (behind) | Last = renders last (in front)
+0
+WATTSON
+withPlayer
+12416
+1
+MAN_5
+withPlayer
+36992
+2
+YOUNGSTER
+withPlayer
+45184
+3
+MANIAC
+withPlayer
+45184
+4
+Player
+withPlayer
+57472
+5
+MAN_5
+withPlayer
+57472
+6
+GIRL_3
+withPlayer
+69760
+7
+MAN_2
+withPlayer
+86144
+tilesetVersion:
+50
+lastRendered:
+50
+needsFullRender:
+NO
+needsWarmup:
+NO
+hasCachedInstances:
+YES
+tilesetsUploaded:
+YES
+cached bg/tb/ta:
+1920/0/1608
+lastViewHash:
+50:-5,3,21,21
+Copy pipeline debug
+Center pixel samples (RGBA):
+BG: 246,230,65,255
+TopBelow: 0,0,0,0
+Recent renders (most recent last):
+ts:
+101107.3 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101115.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101123.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101169.6 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101177.9 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101184.9 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101190.1 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101199.9 ms
+reason:
+animationOnly
+animOnly:
+yes
+updatedAnim:
+yes
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101207.1 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101215.3 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101223.5 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+ts:
+101231.9 ms
+reason:
+skipped-nochange
+animOnly:
+no
+updatedAnim:
+no
+tilesetVer:
+50
+hadCaches:
+yes
+Last pass renders:
+background:
+1920 inst · 336x336 · 101031.6ms
+topBelow:
+0 inst · 336x336 · 39861.3ms
+topAbove:
+1608 inst · 336x336 · 101031.6ms
+Player:
+(5, 13)
+Dest:
+(5, 13)
+Moving:
+NO
+Reflection State:
+Has Reflection:
+NO
+Type:
+none
+Bridge:
+none
+Grid: Player at center (0,0). Colors: 🟢=reflective, 🔴=not, 🟡=border
+579
+-2,-2
+570
+-1,-2
+571
+0,-2
+536
+1,-2
+570
+2,-2
+538
+-2,-1
+517
+-1,-1
+522
+0,-1
+522
+1,-1
+523
+2,-1
+593
+-2,0
+544
+-1,0
+545
+0,0
+528
+1,0
+535
+2,0
+536
+-2,1
+552
+-1,1
+553
+0,1
+536
+1,1
+543
+2,1
+522
+-2,2
+522
+-1,2
+522
+0,2
+522
+1,2
+591
+2,2
+Tiles Below Player (reflection scan area):
+Y+1: (5, 14)
+Metatile:
+553 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+0
+Collision:
+1
+Runtime:
+FOUND
+Map:
+MAUVILLE_CITY_GYM
+Y+2: (5, 15)
+Metatile:
+522 (2nd)
+Behavior:
+0 (NORMAL)
+Reflective:
+NO
+Pixel Mask:
+0/256 px
+Elevation:
+0
+Collision:
+0
+Runtime:
+FOUND
+Map:
+MAUVILLE_CITY_GYM
+Enabled:
+Yes
+GBA Frame:
+5851
+Cycle Frame:
+42/48
+Scale X (M0):
+1.00000
+Scale X (M1):
+1.00000
+Tiles:
+3,528
+FPS:
+120
+Render:
+0.40 ms
+WebGL2:
+Yes
+Viewport:
+20×20
+Camera:
+(-80, 56)
+World:
+160×336px
+Intro State:
+2
+Should Run:
+No
+Active:
+No
+Locked:
+No
+Complete:
+Yes
+Door Closed:
+No
+Door Opened:
+No
+Frame:
+0 / 5862
+Camera:
+(0, 0)
+Offsets:
+B1(3,3) B2(0,-3) B3(-3,0)
+Box Runtime:
+LOCALID_TRUCK_BOX_TOP
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_L
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+LOCALID_TRUCK_BOX_BOTTOM_R
+missing
+tile=(0,0) sub=(0,0)
+visible=no cached=no failed=no
+Slot 0
+Building + MauvilleGym
+Slot 1
+empty
+Total tileset pairs: 1
+Slot 0 · Building + MauvilleGym
+Animations:
+1
+Destinations:
+1
+Frames:
+2
+gTileset_MauvilleGym:electric_gates
+Current Map:
+MAUVILLE_CITY_GYM
+Anchor Map:
+MAUVILLE_CITY_GYM
+Player:
+(5, 13)
+Version:
+49
+Last Warp:
+MAUVILLE_CITY_GYM
+Anchor:
+MAUVILLE_CITY_GYM
+World Bounds:
+(0,0) 10x21
+MAUVILLE_CITY_GYM
+(0,0) ✓GPU
+Building + MauvilleGym
+→ Slot 0

@@ -11,16 +11,30 @@
 import { gameFlags } from './GameFlags';
 import { gameVariables, GAME_VARS } from './GameVariables';
 import { clearDynamicWarpTarget } from './DynamicWarp';
+import { clearFixedHoleWarpTarget } from './FixedHoleWarp';
 import { resetDynamicObjectGfxVars } from './DynamicObjectGfx';
 import { SPECIES, getSpeciesName } from '../data/species';
 import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
 import { MOVES, getMoveInfo } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
-import { isBrineyBoatScript, executeBrineyBoatScript } from './story/BrineyBoatRide';
 
 type ScriptDirection = 'up' | 'down' | 'left' | 'right';
-type ScriptMoveMode = 'walk' | 'jump' | 'jump_in_place' | 'face';
+type ScriptMoveMode =
+  | 'walk'
+  | 'walk_slow'
+  | 'walk_fast'
+  | 'walk_faster'
+  | 'walk_fastest'
+  | 'ride_water_current'
+  | 'run'
+  | 'walk_in_place'
+  | 'walk_in_place_slow'
+  | 'walk_in_place_fast'
+  | 'walk_in_place_faster'
+  | 'jump'
+  | 'jump_in_place'
+  | 'face';
 
 export interface StoryScriptContext {
   showMessage: (text: string) => Promise<void>;
@@ -35,6 +49,7 @@ export interface StoryScriptContext {
   setParty: (party: (PartyPokemon | null)[]) => void;
   startFirstBattle: (starter: PartyPokemon) => Promise<void>;
   startTrainerBattle?: (trainerId: string) => Promise<void>;
+  startWildBattle?: (speciesId: number, level: number) => Promise<void>;
   queueWarp: (mapId: string, x: number, y: number, direction: ScriptDirection) => void;
   forcePlayerStep: (direction: ScriptDirection) => void;
   delayFrames: (frames: number) => Promise<void>;
@@ -55,12 +70,14 @@ export interface StoryScriptContext {
     direction: 'open' | 'close'
   ) => Promise<void>;
   setPlayerVisible: (visible: boolean) => void;
-  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => void;
+  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   setNpcMovementType?: (mapId: string, localId: string, movementTypeRaw: string) => void;
   setSpriteHidden?: (mapId: string, localId: string, hidden: boolean) => void;
   showYesNo?: (text: string) => Promise<boolean>;
   getParty?: () => (PartyPokemon | null)[];
   hasNpc?: (mapId: string, localId: string) => boolean;
+  /** Resolve which map currently owns a local object ID. */
+  findNpcMapId?: (localId: string) => string | null;
   /** Get NPC's current world position (for copyobjectxytoperm) */
   getNpcPosition?: (mapId: string, localId: string) => { tileX: number; tileY: number } | null;
   /** Get map offset for converting world→local coords */
@@ -91,41 +108,13 @@ const STARTER_CHOICES: StarterChoice[] = [
 ];
 
 // Scripts with hand-coded implementations that override ScriptRunner.
-// These are kept hand-coded because they either:
-// - Need commands not yet in ScriptRunner (wall clock UI, starter/battle)
-// - Have carefully tuned movement timing that differs from generated data
-// - Coordinate parallel movement sequences not expressible in .inc format
-// All other scripts fall through to ScriptRunner using generated data.
+// Keep this list small: only flows that still require custom UI/state handling.
+// All other scripts should run through generated data + ScriptRunner.
 const HANDLED_SCRIPTS = new Set<string>([
-  // Step off truck + mom greeting (complex parallel movements + door animations)
-  'LittlerootTown_EventScript_StepOffTruckMale',
-  'LittlerootTown_EventScript_StepOffTruckFemale',
-  // House 1F cutscenes (warp coordination)
-  'LittlerootTown_BrendansHouse_1F_EventScript_EnterHouseMovingIn',
-  'LittlerootTown_MaysHouse_1F_EventScript_EnterHouseMovingIn',
-  'LittlerootTown_BrendansHouse_1F_EventScript_GoSeeRoom',
-  'LittlerootTown_MaysHouse_1F_EventScript_GoSeeRoom',
-  'LittlerootTown_BrendansHouse_1F_EventScript_GoUpstairsToSetClock',
-  'LittlerootTown_MaysHouse_1F_EventScript_GoUpstairsToSetClock',
-  // Clock: custom simplification (real game has full wall clock UI)
+  // Clock: custom simplification (real game has full wall clock UI).
   'PlayersHouse_2F_EventScript_SimplifiedClock',
-  // TV broadcast (complex cutscenes)
-  'LittlerootTown_BrendansHouse_1F_EventScript_PetalburgGymReport',
-  'LittlerootTown_MaysHouse_1F_EventScript_PetalburgGymReport',
-  // Rival house (complex cutscenes)
-  'LittlerootTown_BrendansHouse_1F_EventScript_YoureNewNeighbor',
-  'LittlerootTown_MaysHouse_1F_EventScript_YoureNewNeighbor',
-  'LittlerootTown_BrendansHouse_1F_EventScript_MeetRival0',
-  'LittlerootTown_BrendansHouse_1F_EventScript_MeetRival1',
-  'LittlerootTown_BrendansHouse_1F_EventScript_MeetRival2',
-  'LittlerootTown_MaysHouse_1F_EventScript_MeetRival0',
-  'LittlerootTown_MaysHouse_1F_EventScript_MeetRival1',
-  'LittlerootTown_MaysHouse_1F_EventScript_MeetRival2',
-  // Route 101: starter selection + battle trigger
+  // Route 101: starter selection + battle trigger (ChooseStarter special).
   'Route101_EventScript_BirchsBag',
-  // Briney boat rides (170+ tile cross-map movement → shortcutted with warp)
-  'Route104_EventScript_StartSailToDewford',
-  'DewfordTown_EventScript_Briney',
 ]);
 
 function buildStarter(choice: StarterChoice): PartyPokemon {
@@ -170,6 +159,7 @@ export function initializeNewGameStoryState(): void {
   gameFlags.reset();
   gameVariables.reset();
   clearDynamicWarpTarget();
+  clearFixedHoleWarpTarget();
   resetDynamicObjectGfxVars();
 
   gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE, 0);
@@ -989,10 +979,6 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
     }
 
     default:
-      // Delegate to boat ride handler if applicable
-      if (isBrineyBoatScript(scriptName)) {
-        return executeBrineyBoatScript(scriptName, ctx);
-      }
       return false;
   }
 }

@@ -12,6 +12,7 @@ import {
   MB_JUMP_SOUTH,
   MB_SAND,
   MB_DEEP_SAND,
+  MB_FOOTPRINTS,
   isDoorBehavior,
   requiresDoorExitSequence,
   isArrowWarpBehavior,
@@ -50,6 +51,11 @@ export type TileResolver = (tileX: number, tileY: number) => ResolvedTileInfo | 
  * Returns true if the tile is blocked by an object
  */
 export type ObjectCollisionChecker = (tileX: number, tileY: number) => boolean;
+export type DynamicCollisionChecker = (
+  tileX: number,
+  tileY: number,
+  direction: 'up' | 'down' | 'left' | 'right'
+) => boolean;
 
 export interface DoorWarpRequest {
   targetX: number;
@@ -562,11 +568,14 @@ export class PlayerController {
   private sprites: { [key: string]: HTMLCanvasElement } = {};
   private keysPressed: { [key: string]: boolean } = {};
   public walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
+  // Scripted applymovement may need per-step speed overrides (C MOVE_SPEED_* parity).
+  private scriptedMoveSpeedPxPerMs: number | null = null;
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   private objectCollisionChecker: ObjectCollisionChecker | null = null;
+  private dynamicCollisionChecker: DynamicCollisionChecker | null = null;
   
   private currentState: PlayerState;
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
@@ -671,6 +680,7 @@ export class PlayerController {
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
     this.isMoving = false;
     this.pixelsMoved = 0;
+    this.scriptedMoveSpeedPxPerMs = null;
     
     // Initialize elevation from spawn tile
     const resolved = this.tileResolver?.(this.tileX, this.tileY);
@@ -725,6 +735,7 @@ export class PlayerController {
     this.prevTileX = -1;
     this.prevTileY = -1;
     this.prevTileBehavior = undefined;
+    this.scriptedMoveSpeedPxPerMs = null;
 
     // 4. Clear field effects (sand footprints, grass, water ripples)
     this.grassEffectManager.clear();
@@ -844,6 +855,7 @@ export class PlayerController {
     }
     this.isMoving = false;
     this.pixelsMoved = 0;
+    this.scriptedMoveSpeedPxPerMs = null;
     // Reset to NormalState so the standing/walking sprite sheet is used for
     // idle frames. Without this, RunningState keeps selecting the running
     // sprite sheet which shows the run pose even when standing still.
@@ -927,7 +939,8 @@ export class PlayerController {
 
     if (this.isMoving) {
       // Continue movement based on time delta
-      const moveAmount = speed * delta;
+      const moveSpeed = this.scriptedMoveSpeedPxPerMs ?? speed;
+      const moveAmount = moveSpeed * delta;
       this.pixelsMoved += moveAmount;
       
       // Check if movement just completed
@@ -937,6 +950,7 @@ export class PlayerController {
         // Movement complete - snap to tile
         this.pixelsMoved = 0;
         this.isMoving = false;
+        this.scriptedMoveSpeedPxPerMs = null;
         
         // Calculate target tile
         let dx = 0;
@@ -1102,7 +1116,11 @@ export class PlayerController {
     this.pixelsMoved = 0;
   }
 
-  public forceMove(direction: 'up' | 'down' | 'left' | 'right', ignoreCollision: boolean = false) {
+  public forceMove(
+    direction: 'up' | 'down' | 'left' | 'right',
+    ignoreCollision: boolean = false,
+    speedOverridePxPerMs?: number
+  ) {
     this.dir = direction;
     const { dx, dy } = directionToOffset(direction);
     const targetTileX = this.tileX + dx;
@@ -1115,6 +1133,7 @@ export class PlayerController {
       this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
       this.isMoving = true;
       this.pixelsMoved = 0;
+      this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
       return true;
     }
 
@@ -1125,8 +1144,10 @@ export class PlayerController {
       this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
       this.isMoving = true;
       this.pixelsMoved = 0;
+      this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
       return true;
     }
+    this.scriptedMoveSpeedPxPerMs = null;
     return false;
   }
 
@@ -1322,6 +1343,13 @@ export class PlayerController {
     if (behavior >= 48 && behavior <= 55) {
       if (isDebugMode()) {
         this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
+      }
+      return true;
+    }
+
+    if (this.dynamicCollisionChecker && this.dynamicCollisionChecker(tileX, tileY, this.dir)) {
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by dynamic collision checker`);
       }
       return true;
     }
@@ -1585,6 +1613,10 @@ export class PlayerController {
     this.objectCollisionChecker = checker;
   }
 
+  public setDynamicCollisionChecker(checker: DynamicCollisionChecker | null) {
+    this.dynamicCollisionChecker = checker;
+  }
+
   public tryInteract(direction: 'up' | 'down' | 'left' | 'right'): boolean {
     const { dx, dy } = directionToOffset(direction);
     const targetTileX = this.tileX + dx;
@@ -1661,14 +1693,14 @@ export class PlayerController {
 
   /**
    * Check if player just left a sand/footprints tile and create footprint effect.
-   * Called at END of movement (pokeemerald: GetGroundEffectFlags_Tracks)
+   * Called at BEGIN step (pokeemerald: GetGroundEffectFlags_Tracks in OnBeginStep)
    * Uses previousMetatileBehavior and previousCoords
    */
   private checkAndTriggerSandFootprints(): void {
     // Check if previous tile was sand (where we're leaving footprints)
     if (this.prevTileBehavior === undefined) return;
     
-    const isSand = this.prevTileBehavior === MB_SAND;
+    const isSand = this.prevTileBehavior === MB_SAND || this.prevTileBehavior === MB_FOOTPRINTS;
     const isDeepSand = this.prevTileBehavior === MB_DEEP_SAND;
     
     if (isSand || isDeepSand) {

@@ -12,7 +12,7 @@ export interface ScriptCommand {
 
 export interface OnFrameEntry {
   var: string;
-  value: number;
+  value: number | string;
   script: string;
 }
 

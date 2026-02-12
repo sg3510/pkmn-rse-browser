@@ -55,7 +55,7 @@ export interface UseHandledStoryScriptParams {
   npcMovement: UseNPCMovementReturn;
   doorAnimations: UseDoorAnimationsReturn;
   gbaFrameMs: number;
-  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
+  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
 }
 
 export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scriptName: string, currentMapId?: string) => Promise<boolean> {
@@ -202,14 +202,60 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         return { dx: 1, dy: 0 };
       };
 
+      // C reference:
+      // public/pokeemerald/src/event_object_movement.c
+      // MOVE_SPEED_* and MovementAction_Walk* / WalkInPlace* implementations
+      type ScriptMoveMode = NonNullable<Parameters<StoryScriptContext['movePlayer']>[1]>;
+      const TILE_PIXELS = 16;
+
+      const getWalkFramesForMode = (mode: ScriptMoveMode): number => {
+        switch (mode) {
+          case 'walk_slow':
+            return 32;
+          case 'walk':
+            return 16;
+          case 'walk_fast':
+          case 'run':
+            return 8;
+          case 'ride_water_current':
+            return 6;
+          case 'walk_faster':
+            return 4;
+          case 'walk_fastest':
+            return 2;
+          default:
+            return 16;
+        }
+      };
+
+      const getWalkInPlaceFramesForMode = (mode: ScriptMoveMode): number | null => {
+        switch (mode) {
+          case 'walk_in_place_slow':
+            return 32;
+          case 'walk_in_place':
+            return 16;
+          case 'walk_in_place_fast':
+            return 8;
+          case 'walk_in_place_faster':
+            return 4;
+          default:
+            return null;
+        }
+      };
+
       const movePlayerStep = async (
         direction: 'up' | 'down' | 'left' | 'right',
-        mode: 'walk' | 'jump' | 'jump_in_place' | 'face' = 'walk'
+        mode: ScriptMoveMode = 'walk'
       ): Promise<void> => {
-        console.log(`[movePlayerStep] dir=${direction} mode=${mode} pos=(${player.tileX},${player.tileY}) isMoving=${player.isMoving} inputLocked=${player.inputLocked}`);
         player.dir = direction;
         if (mode === 'face') {
           await waitFrames(1);
+          return;
+        }
+
+        const walkInPlaceFrames = getWalkInPlaceFramesForMode(mode);
+        if (walkInPlaceFrames !== null) {
+          await waitFrames(walkInPlaceFrames);
           return;
         }
 
@@ -226,25 +272,24 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             await waitFrames(1);
             guard++;
           }
-          console.log(`[movePlayerStep] jump done guard=${guard}`);
           return;
         }
 
-        const forceMoveResult = player.forceMove(direction, true);
-        console.log(`[movePlayerStep] forceMove=${forceMoveResult} isMoving=${player.isMoving}`);
+        const walkFrames = getWalkFramesForMode(mode);
+        const speedPxPerMs = TILE_PIXELS / (walkFrames * gbaFrameMs);
+        player.forceMove(direction, true, speedPxPerMs);
         let guard = 0;
         while (player.isMoving && guard < 120) {
           await waitFrames(1);
           guard++;
         }
-        console.log(`[movePlayerStep] done guard=${guard} isMoving=${player.isMoving} pos=(${player.tileX},${player.tileY})`);
       };
 
       const moveNpcStep = async (
         mapId: string,
         localId: string,
         direction: 'up' | 'down' | 'left' | 'right',
-        mode: 'walk' | 'face' | 'jump' | 'jump_in_place' = 'walk'
+        mode: ScriptMoveMode = 'walk'
       ): Promise<void> => {
         const objectManager = objectEventManagerRef.current;
         const npc = objectManager.getNPCByLocalId(mapId, localId);
@@ -253,7 +298,6 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           await waitFrames(1);
           return;
         }
-        console.log(`[moveNpcStep] ${localId} dir=${direction} mode=${mode} pos=(${npc.tileX},${npc.tileY})`);
 
         npc.direction = direction;
         if (mode === 'face') {
@@ -267,6 +311,20 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             engineState.facingDirection = directionToGBA(direction);
           }
           await waitFrames(1);
+          return;
+        }
+
+        const walkInPlaceFrames = getWalkInPlaceFramesForMode(mode);
+        if (walkInPlaceFrames !== null) {
+          npc.isWalking = true;
+          npc.subTileX = 0;
+          npc.subTileY = 0;
+          for (let frame = 0; frame < walkInPlaceFrames; frame++) {
+            await waitFrames(1);
+          }
+          npc.isWalking = false;
+          npc.subTileX = 0;
+          npc.subTileY = 0;
           return;
         }
 
@@ -287,8 +345,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             npc.spriteYOffset = getJumpYOffset(config, frame);
             if (config.tileDistance > 0) {
               const remaining = config.totalFrames - (frame + 1);
-              npc.subTileX = Math.round(-dx * 16 * remaining / config.totalFrames);
-              npc.subTileY = Math.round(-dy * 16 * remaining / config.totalFrames);
+              npc.subTileX = -dx * TILE_PIXELS * (remaining / config.totalFrames);
+              npc.subTileY = -dy * TILE_PIXELS * (remaining / config.totalFrames);
             }
             await waitFrames(1);
           }
@@ -302,15 +360,24 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         }
 
         // Walk mode
+        const walkFrames = getWalkFramesForMode(mode);
         const { dx, dy } = getDirectionDelta(direction);
+        const walkDurationMs = walkFrames * gbaFrameMs;
+        const walkSpeedPxPerMs = TILE_PIXELS / walkDurationMs;
         npc.isWalking = true;
         npc.tileX += dx;
         npc.tileY += dy;
+        npc.subTileX = -dx * TILE_PIXELS;
+        npc.subTileY = -dy * TILE_PIXELS;
 
-        for (let frame = 1; frame <= 16; frame++) {
-          const remaining = 16 - frame;
-          npc.subTileX = -dx * remaining;
-          npc.subTileY = -dy * remaining;
+        const startMs = performance.now();
+        while (true) {
+          const elapsedMs = Math.min(walkDurationMs, performance.now() - startMs);
+          const movedPx = Math.min(TILE_PIXELS, elapsedMs * walkSpeedPxPerMs);
+          const remainingPx = TILE_PIXELS - movedPx;
+          npc.subTileX = -dx * remainingPx;
+          npc.subTileY = -dy * remainingPx;
+          if (elapsedMs >= walkDurationMs) break;
           await waitFrames(1);
         }
 
@@ -398,6 +465,23 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           });
           await waitForBattleToEnd();
         },
+        startWildBattle: async (speciesId: number, level: number) => {
+          if (!stateManager) return;
+
+          const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
+          if (!lead) {
+            console.warn('[StoryScript] Cannot start wild battle without a party Pokemon.');
+            return;
+          }
+
+          await stateManager.transitionTo(GameState.BATTLE, {
+            playerPokemon: lead,
+            wildSpecies: speciesId,
+            wildLevel: level,
+            returnLocation: buildReturnLocation(),
+          });
+          await waitForBattleToEnd();
+        },
         queueWarp: (mapId, x, y, direction) => {
           pendingSavedLocationRef.current = {
             pos: { x, y },
@@ -477,8 +561,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           playerHiddenRef.current = !visible;
         },
         setMapMetatile: setMapMetatile
-          ? (mapId, tileX, tileY, metatileId) => {
-              setMapMetatile(mapId, tileX, tileY, metatileId);
+          ? (mapId, tileX, tileY, metatileId, collision?) => {
+              setMapMetatile(mapId, tileX, tileY, metatileId, collision);
             }
           : undefined,
         setNpcMovementType: (mapId, localId, movementTypeRaw) => {
@@ -491,6 +575,14 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         getParty: () => saveManager.getParty(),
         hasNpc: (mapId, localId) => {
           return objectEventManagerRef.current.getNPCByLocalId(mapId, localId) != null;
+        },
+        findNpcMapId: (localId) => {
+          const allNpcs = objectEventManagerRef.current.getAllNPCs();
+          const hit = allNpcs.find((npc) => npc.localId === localId);
+          if (!hit) return null;
+          const marker = '_npc_';
+          const idx = hit.id.indexOf(marker);
+          return idx > 0 ? hit.id.slice(0, idx) : null;
         },
         getNpcPosition: (mapId, localId) => {
           const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);

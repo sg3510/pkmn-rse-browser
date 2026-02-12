@@ -149,6 +149,22 @@ export const SAVE_LAYOUT_PROFILE_BY_ID: ReadonlyMap<SaveLayoutId, SaveLayoutProf
   BUILTIN_SAVE_LAYOUT_PROFILES.map((profile) => [profile.id, profile])
 );
 
+function mergeNumericRecord(
+  base: Record<number, number>,
+  override?: Partial<Record<number, number>>
+): Record<number, number> {
+  const merged: Record<number, number> = { ...base };
+  if (!override) return merged;
+
+  for (const [key, value] of Object.entries(override)) {
+    if (value !== undefined) {
+      merged[Number(key)] = value;
+    }
+  }
+
+  return merged;
+}
+
 export function buildSaveLayoutProfile(
   override: SaveLayoutProfileOverride,
   baseProfiles: readonly SaveLayoutProfile[] = BUILTIN_SAVE_LAYOUT_PROFILES
@@ -163,7 +179,7 @@ export function buildSaveLayoutProfile(
     game: override.game ?? baseProfile.game,
     displayName: override.displayName ?? `${baseProfile.displayName} (override)`,
     encryption: override.encryption ?? baseProfile.encryption,
-    sectionSizes: { ...baseProfile.sectionSizes, ...(override.sectionSizes ?? {}) },
+    sectionSizes: mergeNumericRecord(baseProfile.sectionSizes, override.sectionSizes),
     saveBlock1: { ...baseProfile.saveBlock1, ...(override.saveBlock1 ?? {}) },
     saveBlock2: { ...baseProfile.saveBlock2, ...(override.saveBlock2 ?? {}) },
     source: override.source ?? 'custom',

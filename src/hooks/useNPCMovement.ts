@@ -16,8 +16,9 @@ import {
   type CollisionContext,
 } from '../game/npc';
 import { getCollisionInDirection } from '../game/npc/NPCCollision';
-import type { FieldEffectManager } from '../game/FieldEffectManager';
-import { isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
+import type { FieldEffectDirection, FieldEffectManager } from '../game/FieldEffectManager';
+import { directionToOffset } from '../utils/direction';
+import { MB_DEEP_SAND, MB_FOOTPRINTS, MB_SAND, isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
 
 /**
  * Context providers for collision detection
@@ -68,6 +69,37 @@ export interface UseNPCMovementReturn {
 
 // Track if handlers have been registered (module-level to avoid re-registration)
 let handlersRegistered = false;
+
+function isBikeGraphics(graphicsId: string): boolean {
+  return (
+    graphicsId.includes('MACH_BIKE')
+    || graphicsId.includes('ACRO_BIKE')
+    || graphicsId.includes('CYCLING_TRIATHLETE')
+  );
+}
+
+function getBikeTrackDirection(
+  previousDirection: 'up' | 'down' | 'left' | 'right',
+  currentDirection: 'up' | 'down' | 'left' | 'right'
+): FieldEffectDirection {
+  if (previousDirection === currentDirection) {
+    return currentDirection;
+  }
+
+  // Mirrors bikeTireTracks_Transitions from pokeemerald.
+  const transitions: Record<string, FieldEffectDirection> = {
+    'up:right': 'turn_se',
+    'up:left': 'turn_sw',
+    'down:right': 'turn_ne',
+    'down:left': 'turn_nw',
+    'left:up': 'turn_se',
+    'left:down': 'turn_ne',
+    'right:up': 'turn_sw',
+    'right:down': 'turn_nw',
+  };
+
+  return transitions[`${previousDirection}:${currentDirection}`] ?? currentDirection;
+}
 
 /**
  * Hook for managing NPC movement in the game loop.
@@ -133,6 +165,7 @@ export function useNPCMovement(
 
   // Track previous walking state to detect walk start
   const prevWalkingState = useRef<Map<string, boolean>>(new Map());
+  const prevDirectionState = useRef<Map<string, 'up' | 'down' | 'left' | 'right'>>(new Map());
 
   /**
    * Update NPC movement
@@ -151,10 +184,16 @@ export function useNPCMovement(
         // Check if NPC just STARTED walking (was not walking, now is walking)
         const wasWalking = prevWalkingState.current.get(npc.id) ?? false;
         const nowWalking = upd.isWalking;
+        const previousDirection = prevDirectionState.current.get(npc.id) ?? npc.direction;
 
         // Trigger grass effect when walk starts (on destination tile)
         // GBA triggers grass effect at the moment object BEGINS stepping onto tile
-        if (!wasWalking && nowWalking && p.fieldEffectManager && p.getTileBehavior) {
+        const walkStarted = !wasWalking && nowWalking;
+        // Real stepping actions start with +-16 sub-tile offset.
+        // Walk-in-place/collision animations stay at 0 and must not spawn tracks.
+        const isSteppingBetweenTiles = Math.abs(upd.subTileX) >= 15 || Math.abs(upd.subTileY) >= 15;
+
+        if (walkStarted && p.fieldEffectManager && p.getTileBehavior) {
           // The npc.tileX/tileY is already the DESTINATION (set by movement engine)
           const behavior = p.getTileBehavior(npc.tileX, npc.tileY);
           if (behavior !== undefined) {
@@ -162,6 +201,33 @@ export function useNPCMovement(
               p.fieldEffectManager.create(npc.tileX, npc.tileY, 'tall', false, npc.id);
             } else if (isLongGrassBehavior(behavior)) {
               p.fieldEffectManager.create(npc.tileX, npc.tileY, 'long', false, npc.id);
+            }
+          }
+
+          // C parity: sand/deep-sand tracks are created at previous coords.
+          if (isSteppingBetweenTiles) {
+            const { dx, dy } = directionToOffset(upd.direction);
+            const prevTileX = npc.tileX - dx;
+            const prevTileY = npc.tileY - dy;
+            const prevBehavior = p.getTileBehavior(prevTileX, prevTileY);
+
+            if (prevBehavior === MB_SAND || prevBehavior === MB_FOOTPRINTS || prevBehavior === MB_DEEP_SAND) {
+              const bikeTracks = isBikeGraphics(npc.graphicsId);
+              const effectType = bikeTracks
+                ? 'bike_tire_tracks'
+                : (prevBehavior === MB_DEEP_SAND ? 'deep_sand' : 'sand');
+              const direction: FieldEffectDirection = bikeTracks
+                ? getBikeTrackDirection(previousDirection, upd.direction)
+                : upd.direction;
+
+              p.fieldEffectManager.create(
+                prevTileX,
+                prevTileY,
+                effectType,
+                false,
+                npc.id,
+                direction
+              );
             }
           }
         }
@@ -174,6 +240,8 @@ export function useNPCMovement(
         npc.subTileY = upd.subTileY;
         npc.isWalking = upd.isWalking;
         // tileX/tileY are updated inside the movement engine
+
+        prevDirectionState.current.set(npc.id, upd.direction);
       }
     }
   }, [createContext]);
@@ -184,6 +252,7 @@ export function useNPCMovement(
   const reset = useCallback(() => {
     npcMovementEngine.clear();
     prevWalkingState.current.clear();
+    prevDirectionState.current.clear();
     console.log('[NPCMovement] Engine reset');
   }, []);
 

@@ -175,13 +175,14 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
       // Sprite cache for field effects
       const fieldSpriteCache = {
-        grass: fieldSprites.sprites.grass,
-        longGrass: fieldSprites.sprites.longGrass,
-        sand: fieldSprites.sprites.sand,
-        splash: fieldSprites.sprites.splash,
-        ripple: fieldSprites.sprites.ripple,
+        grass: fieldSprites.sprites.grass ?? null,
+        longGrass: fieldSprites.sprites.longGrass ?? null,
+        sand: fieldSprites.sprites.sand ?? null,
+        bikeTracks: fieldSprites.sprites.bikeTracks ?? null,
+        splash: fieldSprites.sprites.splash ?? null,
+        ripple: fieldSprites.sprites.ripple ?? null,
         arrow: arrowOverlay.getSprite(),
-        itemBall: fieldSprites.sprites.itemBall,
+        itemBall: fieldSprites.sprites.itemBall ?? null,
       };
 
       // Build set of NPC IDs for separating player vs NPC effects
@@ -197,9 +198,24 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
           }
         }
 
+        // Render NPC-owned effects that belong to the behind-player layer
+        // (sand/deep-sand footprints and bike tire tracks are always 'behind').
+        const bottomNpcEffects = spriteBatches.ySorted.filter(
+          info =>
+            info.type === 'fieldEffect' &&
+            info.effectLayer === 'behind' &&
+            info.fieldEffect &&
+            npcIds.has(info.fieldEffect.ownerObjectId)
+        );
+        for (const info of bottomNpcEffects) {
+          if (info.fieldEffect) {
+            ObjectRenderer.renderSingleFieldEffect(mainCtx, info.fieldEffect, fieldSpriteCache, view, ctx);
+          }
+        }
+
         // Render item balls behind player
         const itemBalls = refs.objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'bottom');
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall ?? null, view, player.tileY, 'bottom');
 
         // Render NPCs at player's priority behind player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', playerPriority);
@@ -283,7 +299,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
         // Render item balls in front of player
         const itemBalls = refs.objectEventManagerRef.current.getVisibleItemBalls();
-        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall, view, player.tileY, 'top');
+        ObjectRenderer.renderItemBalls(mainCtx, itemBalls, fieldSprites.sprites.itemBall ?? null, view, player.tileY, 'top');
 
         // Render NPCs at player's priority in front of player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top', playerPriority);

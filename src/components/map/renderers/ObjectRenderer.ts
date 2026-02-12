@@ -33,6 +33,7 @@ interface SpriteCache {
   grass: HTMLCanvasElement | null;
   longGrass: HTMLCanvasElement | null;
   sand: HTMLCanvasElement | null;
+  bikeTracks: HTMLCanvasElement | null;
   splash: HTMLCanvasElement | null;
   ripple: HTMLCanvasElement | null;
   arrow: HTMLImageElement | HTMLCanvasElement | null;
@@ -101,6 +102,7 @@ export class ObjectRenderer {
       if (effect.type === 'tall') sprite = sprites.grass;
       else if (effect.type === 'long') sprite = sprites.longGrass;
       else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
+      else if (effect.type === 'bike_tire_tracks') sprite = sprites.bikeTracks;
       else if (effect.type === 'puddle_splash') sprite = sprites.splash;
       else if (effect.type === 'water_ripple') sprite = sprites.ripple;
 
@@ -212,11 +214,14 @@ export class ObjectRenderer {
           // Draw the masked ripple to main canvas
           ctx.drawImage(tempCanvas, screenX, screenY);
         }
-      } else if (effect.flipHorizontal) {
-        // Flip horizontally for East-facing sand footprints
+      } else if (effect.flipHorizontal || effect.flipVertical) {
+        // Direction-specific tracks can flip horizontally and/or vertically.
         ctx.save();
-        ctx.translate(screenX + frameWidth, screenY);
-        ctx.scale(-1, 1);
+        ctx.translate(
+          screenX + (effect.flipHorizontal ? frameWidth : 0),
+          screenY + (effect.flipVertical ? frameHeight : 0)
+        );
+        ctx.scale(effect.flipHorizontal ? -1 : 1, effect.flipVertical ? -1 : 1);
         ctx.drawImage(
           sprite,
           sx,
@@ -266,6 +271,7 @@ export class ObjectRenderer {
     if (effect.type === 'tall') sprite = sprites.grass;
     else if (effect.type === 'long') sprite = sprites.longGrass;
     else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
+    else if (effect.type === 'bike_tire_tracks') sprite = sprites.bikeTracks;
     else if (effect.type === 'puddle_splash') sprite = sprites.splash;
     else if (effect.type === 'water_ripple') sprite = sprites.ripple;
 
@@ -335,10 +341,13 @@ export class ObjectRenderer {
         tempCtx.putImageData(imageData, 0, 0);
         ctx.drawImage(tempCanvas, screenX, screenY);
       }
-    } else if (effect.flipHorizontal) {
+    } else if (effect.flipHorizontal || effect.flipVertical) {
       ctx.save();
-      ctx.translate(screenX + frameWidth, screenY);
-      ctx.scale(-1, 1);
+      ctx.translate(
+        screenX + (effect.flipHorizontal ? frameWidth : 0),
+        screenY + (effect.flipVertical ? frameHeight : 0)
+      );
+      ctx.scale(effect.flipHorizontal ? -1 : 1, effect.flipVertical ? -1 : 1);
       ctx.drawImage(sprite, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
       ctx.restore();
     } else {
@@ -521,6 +530,5 @@ export class ObjectRenderer {
     }
   }
 }
-
 
 

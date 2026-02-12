@@ -86,7 +86,10 @@ export interface WorldManagerEventDeps {
   isCancelled: () => boolean;
 
   /** Optional: Reload object events (NPCs, items) when maps change */
-  loadObjectEventsFromSnapshot?: (snapshot: WorldSnapshot) => Promise<void>;
+  loadObjectEventsFromSnapshot?: (
+    snapshot: WorldSnapshot,
+    options?: { preserveExistingMapRuntimeState?: boolean }
+  ) => Promise<void>;
 
   /** Ref indicating a story script is currently running */
   storyScriptRunningRef?: React.MutableRefObject<boolean>;
@@ -230,11 +233,14 @@ function handleMapsChanged(
   updateWorldBounds(snapshot, worldBoundsRef, setWorldSize, setStitchedMapCount);
 
   // Reload object events (NPCs, items) for the new set of maps.
-  // Skip if a story script is running — scripts may have repositioned or
-  // toggled NPCs, and a full reload would reset that runtime state.
+  // While a script is running, preserve runtime state on already-parsed maps
+  // but still parse newly loaded maps so long scripted movement (Briney boat)
+  // does not arrive in maps with missing NPCs.
   const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
-  if (loadObjectEventsFromSnapshot && !scriptRunning) {
-    loadObjectEventsFromSnapshot(snapshot).catch((err) => {
+  if (loadObjectEventsFromSnapshot) {
+    loadObjectEventsFromSnapshot(snapshot, {
+      preserveExistingMapRuntimeState: scriptRunning,
+    }).catch((err) => {
       console.warn('[WorldManager] Failed to reload object events:', err);
     });
   }

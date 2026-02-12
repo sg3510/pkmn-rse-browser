@@ -6,7 +6,7 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "Route110_TrickHousePuzzle6_OnTransition",
     onWarpInto: [
-      { var: "VAR_TEMP_0", value: 16384, script: "Route110_TrickHousePuzzle6_EventScript_InitPuzzle" },
+      { var: "VAR_TEMP_0", value: "VAR_TEMP_0", script: "Route110_TrickHousePuzzle6_EventScript_InitPuzzle" },
     ],
   },
   scripts: {

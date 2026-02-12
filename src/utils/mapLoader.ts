@@ -174,10 +174,16 @@ export async function loadMetatileDefinitions(url: string): Promise<Metatile[]> 
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
   const metatiles: Metatile[] = [];
-  const numMetatiles = view.byteLength / 16; // 16 bytes per metatile
+  const bytesPerMetatile = 16; // 8 * u16 entries
+  if (view.byteLength % bytesPerMetatile !== 0) {
+    throw new Error(
+      `Invalid metatile definition size for ${url}: ${view.byteLength} bytes (expected multiple of ${bytesPerMetatile})`
+    );
+  }
+  const numMetatiles = view.byteLength / bytesPerMetatile;
 
   for (let i = 0; i < numMetatiles; i++) {
-    const offset = i * 16;
+    const offset = i * bytesPerMetatile;
     const tiles: Tile[] = [];
     for (let j = 0; j < 8; j++) {
       const raw = view.getUint16(offset + j * 2, true); // Little Endian
@@ -197,6 +203,9 @@ export async function loadMetatileAttributes(url: string): Promise<MetatileAttri
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
   const attributes: MetatileAttributes[] = [];
+  if (view.byteLength % 2 !== 0) {
+    throw new Error(`Invalid metatile attributes size for ${url}: ${view.byteLength} bytes (expected even length)`);
+  }
   const numMetatiles = view.byteLength / 2; // 2 bytes per metatile
 
   for (let i = 0; i < numMetatiles; i++) {
@@ -226,6 +235,10 @@ export async function loadMapLayout(url: string, width: number, height: number):
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
   const layout: MapTileData[] = [];
+  const expectedBytes = width * height * 2;
+  if (view.byteLength < expectedBytes) {
+    throw new Error(`Invalid map layout size for ${url}: ${view.byteLength} bytes (expected at least ${expectedBytes})`);
+  }
   
   // Parse each 16-bit value into structured tile data
   for (let i = 0; i < width * height; i++) {
@@ -240,6 +253,9 @@ export async function loadMapLayout(url: string, width: number, height: number):
 export async function loadBorderMetatiles(url: string): Promise<number[]> {
   const buffer = await loadBinary(url);
   const view = new DataView(buffer);
+  if (view.byteLength % 2 !== 0) {
+    throw new Error(`Invalid border metatile data size for ${url}: ${view.byteLength} bytes (expected even length)`);
+  }
   const metatiles: number[] = [];
   for (let i = 0; i < view.byteLength; i += 2) {
     metatiles.push(view.getUint16(i, true));

@@ -12,6 +12,9 @@ import { ScriptRunner } from '../../scripting/ScriptRunner';
 import type { StoryScriptContext } from '../../game/NewGameFlow';
 import { saveManager } from '../../save/SaveManager';
 import { gameVariables } from '../../game/GameVariables';
+import { gameFlags } from '../../game/GameFlags';
+import { stepCallbackManager } from '../../game/StepCallbackManager';
+import { clearFixedHoleWarpTarget } from '../../game/FixedHoleWarp';
 import type { WorldSnapshot } from '../../game/WorldManager';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
 import type { PlayerController } from '../../game/PlayerController';
@@ -29,7 +32,47 @@ export interface RunMapEntryScriptsParams {
   playerHiddenRef: MutableRef<boolean>;
   pipeline: WebGLRenderPipeline;
   mapScriptCache?: Map<string, MapScriptData | null>;
-  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => void;
+  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
+}
+
+const TEMP_VAR_NAMES = [
+  'VAR_TEMP_0',
+  'VAR_TEMP_1',
+  'VAR_TEMP_2',
+  'VAR_TEMP_3',
+  'VAR_TEMP_4',
+  'VAR_TEMP_5',
+  'VAR_TEMP_6',
+  'VAR_TEMP_7',
+  'VAR_TEMP_8',
+  'VAR_TEMP_9',
+  'VAR_TEMP_A',
+  'VAR_TEMP_B',
+  'VAR_TEMP_C',
+  'VAR_TEMP_D',
+  'VAR_TEMP_E',
+  'VAR_TEMP_F',
+] as const;
+
+function resolveMapScriptCompareValue(value: number | string): number {
+  if (typeof value === 'number') return value;
+  if (value.startsWith('VAR_')) return gameVariables.getVar(value);
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function clearTempFieldEventDataLikeC(): void {
+  // C parity: ClearTempFieldEventData() runs on map load/warp.
+  for (const name of TEMP_VAR_NAMES) {
+    gameVariables.setVar(name, 0);
+  }
+
+  gameFlags.clear('FLAG_SYS_ENC_UP_ITEM');
+  gameFlags.clear('FLAG_SYS_ENC_DOWN_ITEM');
+  gameFlags.clear('FLAG_SYS_USE_STRENGTH');
+  gameFlags.clear('FLAG_SYS_CTRL_OBJ_DELETE');
+  gameFlags.clear('FLAG_NURSE_UNION_ROOM_REMINDER');
 }
 
 export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Promise<void> {
@@ -45,6 +88,10 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
   } = params;
 
   try {
+    clearTempFieldEventDataLikeC();
+    stepCallbackManager.reset();
+    clearFixedHoleWarpTarget();
+
     const [mapData, commonData] = await Promise.all([
       getMapScripts(currentMapId),
       getCommonScripts(),
@@ -106,8 +153,8 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
         playerHiddenRef.current = !visible;
       },
       setMapMetatile: setMapMetatile
-        ? (mapId, tileX, tileY, metatileId) => {
-            setMapMetatile(mapId, tileX, tileY, metatileId);
+        ? (mapId, tileX, tileY, metatileId, collision?) => {
+            setMapMetatile(mapId, tileX, tileY, metatileId, collision);
           }
         : undefined,
       getMapMetatile: (mapId, tileX, tileY) => {
@@ -125,6 +172,11 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       getParty: () => [],
       setPlayerDirection: (dir) => {
         player.dir = dir;
+      },
+      getPlayerLocalPosition: () => {
+        const map = snapshot.maps.find((m) => m.entry.id === currentMapId);
+        if (!map) return null;
+        return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
       },
     };
 
@@ -150,7 +202,8 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     // ON_WARP_INTO: one-shot setup scripts (check var == value)
     if (mapData.mapScripts.onWarpInto?.length) {
       for (const entry of mapData.mapScripts.onWarpInto) {
-        if (gameVariables.getVar(entry.var) === entry.value) {
+        const expected = resolveMapScriptCompareValue(entry.value);
+        if (gameVariables.getVar(entry.var) === expected) {
           await runner.execute(entry.script);
           console.log(`[WARP] ON_WARP_INTO script executed: ${entry.script}`);
         }

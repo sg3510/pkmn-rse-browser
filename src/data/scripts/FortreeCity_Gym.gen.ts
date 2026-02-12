@@ -6,7 +6,7 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "FortreeCity_Gym_OnTransition",
     onWarpInto: [
-      { var: "VAR_TEMP_0", value: 16384, script: "FortreeCity_Gym_EventScript_InitRotatingGates" },
+      { var: "VAR_TEMP_0", value: "VAR_TEMP_0", script: "FortreeCity_Gym_EventScript_InitRotatingGates" },
     ],
   },
   scripts: {

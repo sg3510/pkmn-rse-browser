@@ -233,7 +233,6 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only start/stop on state.type change, not every progress update
   }, [state.type, config.scrollDurationMs, dispatch]);
 
   // Auto-advance effect

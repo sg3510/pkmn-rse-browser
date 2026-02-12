@@ -8,6 +8,7 @@
 
 import type { WorldCameraView } from '../rendering/types';
 import type { ObjectEventManager } from './ObjectEventManager';
+import type { CameraController } from './CameraController';
 import { TruckSequence, type TruckSequenceOutput } from './TruckSequence';
 
 export const METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP = 0x20d;
@@ -133,6 +134,7 @@ export interface ApplyTruckSequenceFrameParams {
   runtime: TruckSequenceRuntime;
   gbaFrame: number;
   view: WorldCameraView;
+  camera?: CameraController | null;
   objectEventManager: ObjectEventManager;
   setMapMetatileLocal: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
   invalidateMap: () => void;
@@ -142,7 +144,7 @@ export function applyTruckSequenceFrame(params: ApplyTruckSequenceFrameParams): 
   const {
     runtime,
     gbaFrame,
-    view,
+    camera,
     objectEventManager,
     setMapMetatileLocal,
     invalidateMap,
@@ -167,16 +169,12 @@ export function applyTruckSequenceFrame(params: ApplyTruckSequenceFrameParams): 
 
   const output = runtime.lastOutput;
   if (!output.complete) {
-    if (output.cameraOffsetX !== 0) {
-      view.cameraX += output.cameraOffsetX;
-      view.cameraWorldX += output.cameraOffsetX;
-      view.subTileOffsetX += output.cameraOffsetX;
+    if (camera) {
+      camera.setPanning(output.cameraOffsetX, output.cameraOffsetY);
     }
-    if (output.cameraOffsetY !== 0) {
-      view.cameraY += output.cameraOffsetY;
-      view.cameraWorldY += output.cameraOffsetY;
-      view.subTileOffsetY += output.cameraOffsetY;
-    }
+  } else {
+    // Ensure panning is reset when sequence completes
+    camera?.resetPanning();
   }
 
   applyTruckBoxOffsets(objectEventManager, output);

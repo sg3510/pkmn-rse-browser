@@ -269,6 +269,8 @@ export interface SpriteInstance {
   flipX: boolean;
   /** Vertical flip (reflections) */
   flipY: boolean;
+  /** Optional clockwise rotation in degrees around sprite center */
+  rotationDeg?: number;
 
   // === Appearance ===
   /** Overall opacity (0-1) */

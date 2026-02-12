@@ -71,6 +71,7 @@ import { FADE_TIMING, type CardinalDirection } from '../field/types';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
+import { useLavaridgeWarpSequencer } from '../hooks/useLavaridgeWarpSequencer';
 import { useWebGLSpriteBuilder } from '../hooks/useWebGLSpriteBuilder';
 import { compositeWebGLFrame } from '../rendering/compositeWebGLFrame';
 import {
@@ -138,6 +139,9 @@ import {
   METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM,
 } from '../game/TruckSequenceRunner';
 import { stepCallbackManager } from '../game/StepCallbackManager';
+import { rotatingGateManager } from '../game/RotatingGateManager';
+import { startSpecialWalkOverWarp } from '../game/SpecialWarpBehaviorRegistry';
+import { calculateSortKey, getRotatingGateAtlasName } from '../rendering/spriteUtils';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -145,6 +149,14 @@ const gamePageLogger = createLogger('GamePage');
 // C reference: public/pokeemerald/include/constants/metatile_labels.h
 const METATILE_HOUSE_MOVING_BOX_CLOSED = 0x268;
 const METATILE_HOUSE_MOVING_BOX_OPEN = 0x270;
+
+function resolveMapScriptCompareValue(value: number | string): number {
+  if (typeof value === 'number') return value;
+  if (value.startsWith('VAR_')) return gameVariables.getVar(value);
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
 
 type ScriptedWarpDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptedWarpPhase = 'pending' | 'fading' | 'loading';
@@ -156,6 +168,9 @@ type PendingScriptedWarp = {
   direction: ScriptedWarpDirection;
   phase: ScriptedWarpPhase;
 };
+
+const SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS = 1500;
+const SCRIPTED_WARP_MAX_LOAD_RETRIES = 3;
 
 type RenderStats = {
   webgl2Supported: boolean;
@@ -246,7 +261,6 @@ export function GamePage() {
       manager.dispose();
       setStateManager(null);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only initialize once - viewport changes handled separately
 
   // Update state manager when viewport changes (without resetting state)
@@ -369,6 +383,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const doorAnimations = useDoorAnimations();
   const arrowOverlay = useArrowOverlay();
   const doorSequencer = useDoorSequencer({ warpHandler: warpHandlerRef.current });
+  const lavaridgeWarpSequencer = useLavaridgeWarpSequencer();
 
   // Field sprites (grass, sand, etc.)
   const fieldSprites = useFieldSprites();
@@ -536,10 +551,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const [selectedMapId, setSelectedMapId] = useState<string>(defaultMap?.id ?? '');
   // Display-only map ID for the debug panel. Updated by warps without triggering the map-load effect.
   const [displayMapId, setDisplayMapId] = useState<string>(defaultMap?.id ?? '');
+  // Incremented for every explicit map-load request so callers can force a reload
+  // even when the requested map ID matches the current selectedMapId.
+  const [mapLoadRequestId, setMapLoadRequestId] = useState(0);
   // Wrapper that updates both map-load state AND debug display (for user-driven map changes).
   const selectMapForLoad = useCallback((mapId: string) => {
     setSelectedMapId(mapId);
     setDisplayMapId(mapId);
+    setMapLoadRequestId((id) => id + 1);
   }, []);
   const [stitchedMapCount, setStitchedMapCount] = useState<number>(1);
   const [worldSize, setWorldSize] = useState<{ width: number; height: number }>({
@@ -599,6 +618,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const [reflectionTileGridDebug, setReflectionTileGridDebug] = useState<ReflectionTileGridDebugInfo | null>(null);
   const [priorityDebugInfo, setPriorityDebugInfo] = useState<PriorityDebugInfo | null>(null);
 
+  const loadingRef = useRef(false);
+  loadingRef.current = loading;
+  const scriptedWarpLoadMonitorRef = useRef<{
+    mapId: string;
+    startedAt: number;
+    retries: number;
+  } | null>(null);
+
   // Ref for debug options so render loop can access current value
   const debugOptionsRef = useRef<DebugOptions>(debugOptions);
   debugOptionsRef.current = debugOptions;
@@ -611,7 +638,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     mapId: string,
     tileX: number,
     tileY: number,
-    metatileId: number
+    metatileId: number,
+    collision?: number
   ): boolean => {
     const snapshot = worldSnapshotRef.current;
     if (!snapshot) return false;
@@ -625,11 +653,18 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     const index = tileY * map.mapData.width + tileX;
     const tile = map.mapData.layout[index];
-    if (!tile || tile.metatileId === metatileId) {
-      return false;
-    }
+    if (!tile) return false;
+
+    const changed = tile.metatileId !== metatileId || (collision !== undefined && tile.collision !== collision);
+    if (!changed) return false;
 
     tile.metatileId = metatileId;
+    // C parity: MapGridSetMetatileIdAt always overwrites collision bits.
+    // When collision is provided, update it. Default to 0 (passable) matching C behavior
+    // when the caller sets a metatile without MAPGRID_IMPASSABLE.
+    if (collision !== undefined) {
+      tile.collision = collision;
+    }
     return true;
   }, []);
 
@@ -769,8 +804,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     npcMovement,
     doorAnimations,
     gbaFrameMs: GBA_FRAME_MS,
-    setMapMetatile: (mapId, tileX, tileY, metatileId) => {
-      const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId);
+    setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
+      const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
       if (changed) {
         pipelineRef.current?.invalidate();
       }
@@ -1026,7 +1061,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         debugTilesRef.current = collected;
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debugOptions.enabled, playerDebugInfo]);
 
   // Copy tile debug info to clipboard
@@ -1057,7 +1091,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   }, []);
 
   // Load object events from snapshot (object events are now included in LoadedMapInstance)
-  const loadObjectEventsFromSnapshot = useCallback(async (snapshot: WorldSnapshot): Promise<void> => {
+  const loadObjectEventsFromSnapshot = useCallback(async (
+    snapshot: WorldSnapshot,
+    options?: { preserveExistingMapRuntimeState?: boolean }
+  ): Promise<void> => {
     await loadObjectEventsFromSnapshotUtil({
       snapshot,
       objectEventManager: objectEventManagerRef.current,
@@ -1065,6 +1102,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       spriteRenderer: spriteRendererRef.current,
       uploadedSpriteIds: npcSpritesLoadedRef.current,
       clearAnimations: () => npcAnimationManager.clear(),
+      preserveExistingMapRuntimeState: options?.preserveExistingMapRuntimeState,
       debugLog: isDebugMode()
         ? (message) => {
           gamePageLogger.debug(message);
@@ -1169,7 +1207,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   ) => {
     // Clear ON_FRAME suppression — new map visit should re-evaluate frame scripts
     onFrameSuppressedRef.current.clear();
-    await performWarpTransition({
+    return performWarpTransition({
       trigger,
       options,
       worldManager: worldManagerRef.current,
@@ -1184,6 +1222,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpHandler: warpHandlerRef.current,
       playerHiddenRef,
       doorAnimations,
+      lavaridgeWarpSequencer,
       applyStoryTransitionObjectParity,
       npcMovement,
       setWarpDebugInfo,
@@ -1193,8 +1232,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       },
       warpingRef,
       resolveDynamicWarpTarget: () => getDynamicWarpTarget(),
-      setMapMetatile: (mapId, tileX, tileY, metatileId) => {
-        const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId);
+      setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
+        const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
         if (changed) {
           pipelineRef.current?.invalidate();
         }
@@ -1263,6 +1302,40 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Initialize player controller
     const player = new PlayerController();
     playerRef.current = player;
+    player.setDynamicCollisionChecker((targetTileX, targetTileY, direction) => {
+      const worldManager = worldManagerRef.current;
+      const snapshot = worldSnapshotRef.current;
+      const mapAtTarget = worldManager?.findMapAtPosition(targetTileX, targetTileY)
+        ?? snapshot?.maps.find((map) =>
+          targetTileX >= map.offsetX
+          && targetTileX < map.offsetX + map.entry.width
+          && targetTileY >= map.offsetY
+          && targetTileY < map.offsetY + map.entry.height
+        );
+
+      if (!mapAtTarget) return false;
+
+      const localX = targetTileX - mapAtTarget.offsetX;
+      const localY = targetTileY - mapAtTarget.offsetY;
+      const tileResolver = player.getTileResolver();
+      if (!tileResolver) return false;
+
+      return rotatingGateManager.checkCollision({
+        mapId: mapAtTarget.entry.id,
+        localX,
+        localY,
+        direction,
+        nowMs: performance.now(),
+        isFast: player.isRunning() || player.isSurfing(),
+        getCollisionAtLocal: (gateLocalX, gateLocalY) => {
+          const resolved = tileResolver(
+            mapAtTarget.offsetX + gateLocalX,
+            mapAtTarget.offsetY + gateLocalY
+          );
+          return resolved?.mapTile.collision ?? 1;
+        },
+      });
+    });
 
     let frameCount = 0;
     let fpsTime = performance.now();
@@ -1377,13 +1450,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             if (cachedData?.mapScripts.onFrame) {
               for (const entry of cachedData.mapScripts.onFrame) {
                 const currentVarValue = gameVariables.getVar(entry.var);
-                if (currentVarValue === entry.value) {
+                const expectedValue = resolveMapScriptCompareValue(entry.value);
+                if (currentVarValue === expectedValue) {
                   // Check if suppressed at this exact value
                   const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
-                  if (suppressedValue === entry.value) continue;
-                  console.log(`[ON_FRAME] Triggered: map=${currentMapId} script=${entry.script} var=${entry.var} value=${entry.value}`);
+                  if (suppressedValue === expectedValue) continue;
+                  console.log(`[ON_FRAME] Triggered: map=${currentMapId} script=${entry.script} var=${entry.var} value=${expectedValue}`);
                   // Suppress until var changes or warp occurs (prevents loops from unimplemented cmds)
-                  onFrameSuppressedRef.current.set(entry.script, entry.value);
+                  onFrameSuppressedRef.current.set(entry.script, expectedValue);
                   preInputOnFrameTriggered = true;
                   void runHandledStoryScriptRef.current(entry.script, currentMapId);
                   break;
@@ -1594,10 +1668,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 if (onFrameEntries) {
                   for (const entry of onFrameEntries) {
                     const currentVarValue = gameVariables.getVar(entry.var);
-                    if (currentVarValue === entry.value) {
+                    const expectedValue = resolveMapScriptCompareValue(entry.value);
+                    if (currentVarValue === expectedValue) {
                       const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
-                      if (suppressedValue === entry.value) continue;
-                      onFrameSuppressedRef.current.set(entry.script, entry.value);
+                      if (suppressedValue === expectedValue) continue;
+                      onFrameSuppressedRef.current.set(entry.script, expectedValue);
                       void runHandledStoryScriptRef.current(entry.script, currentMapId);
                       break;
                     } else {
@@ -1694,12 +1769,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 player.lockInput();
               } else if (action.type === 'walkOverWarp') {
                 console.log(`[WARP] walkOverWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
-                // Other walk-over warps: simple warp
-                warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
-                pendingWarpRef.current = action.trigger;
-                warpingRef.current = true;
-                player.lockInput();
-                fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+
+                const currentMapId = warpResult.currentTile?.mapId;
+                const handledSpecialWarp = currentMapId
+                  ? startSpecialWalkOverWarp({
+                      trigger: action.trigger,
+                      now: nowTime,
+                      currentMapId,
+                      player,
+                      warpHandler: warpHandlerRef.current,
+                      setPendingWarp: (triggerForWarp) => {
+                        pendingWarpRef.current = triggerForWarp;
+                      },
+                      lavaridgeWarpSequencer,
+                    })
+                  : false;
+
+                if (!handledSpecialWarp) {
+                  // Other walk-over warps: simple warp
+                  warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
+                  pendingWarpRef.current = action.trigger;
+                  warpingRef.current = true;
+                  player.lockInput();
+                  fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+                }
               }
             }
           }
@@ -1729,8 +1822,33 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         runDoorExitUpdate(doorDeps, nowTime);
       }
 
+      // Advance Lavaridge warp sequences
+      if (player && cameraRef.current) {
+        lavaridgeWarpSequencer.update(
+          nowTime,
+          player,
+          cameraRef.current,
+          player.getGrassEffectManager(),
+          fadeControllerRef.current,
+          () => {
+            // Callback when special pre-warp animation completes.
+            const trigger = pendingWarpRef.current;
+            if (trigger && !warpingRef.current) {
+              warpingRef.current = true;
+              fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+            }
+          },
+          () => {
+            playerHiddenRef.current = false;
+          },
+        );
+      }
+
       // Handle scripted (warpsilent-style) warps from story scripts.
       const scriptedWarp = pendingScriptedWarpRef.current;
+      if (!scriptedWarp) {
+        scriptedWarpLoadMonitorRef.current = null;
+      }
       if (warpingRef.current && scriptedWarp) {
         const fade = fadeControllerRef.current;
         if (scriptedWarp.phase === 'pending') {
@@ -1773,7 +1891,73 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             console.log(`[ScriptedWarp] different map → loading ${scriptedWarp.mapId}`);
             scriptedWarp.phase = 'loading';
             pendingScriptedWarpRef.current = scriptedWarp;
+            scriptedWarpLoadMonitorRef.current = {
+              mapId: scriptedWarp.mapId,
+              startedAt: nowTime,
+              retries: 0,
+            };
             selectMapForLoad(scriptedWarp.mapId);
+          }
+        } else if (scriptedWarp.phase === 'loading') {
+          const activePlayer = playerRef.current;
+          const activeMapId = activePlayer
+            ? worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY)?.entry.id ?? null
+            : null;
+
+          // Defensive completion: if the map is already active, finish scripted warp
+          // even if loadSelectedOverworldMap's completion path was skipped.
+          if (activePlayer && activeMapId === scriptedWarp.mapId) {
+            console.warn(`[ScriptedWarp] loading fallback completion on ${scriptedWarp.mapId}`);
+            pendingScriptedWarpRef.current = null;
+            scriptedWarpLoadMonitorRef.current = null;
+            warpingRef.current = false;
+            warpHandlerRef.current.updateLastCheckedTile(activePlayer.tileX, activePlayer.tileY, scriptedWarp.mapId);
+            if (fade.getDirection() !== 'in' || !fade.isActive()) {
+              fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+            }
+            setTimeout(() => {
+              if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+                activePlayer.unlockInput();
+              }
+            }, FADE_TIMING.DEFAULT_DURATION_MS);
+          } else if (!loadingRef.current) {
+            let monitor = scriptedWarpLoadMonitorRef.current;
+            if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
+              monitor = {
+                mapId: scriptedWarp.mapId,
+                startedAt: nowTime,
+                retries: 0,
+              };
+              scriptedWarpLoadMonitorRef.current = monitor;
+            }
+
+            const elapsed = nowTime - monitor.startedAt;
+            if (elapsed >= SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS) {
+              if (monitor.retries < SCRIPTED_WARP_MAX_LOAD_RETRIES) {
+                monitor.retries += 1;
+                monitor.startedAt = nowTime;
+                console.warn(
+                  `[ScriptedWarp] loading timeout retry ${monitor.retries}/${SCRIPTED_WARP_MAX_LOAD_RETRIES} `
+                  + `for ${scriptedWarp.mapId}`
+                );
+                selectMapForLoad(scriptedWarp.mapId);
+              } else {
+                console.error(`[ScriptedWarp] aborting stuck load for ${scriptedWarp.mapId}`);
+                pendingScriptedWarpRef.current = null;
+                scriptedWarpLoadMonitorRef.current = null;
+                warpingRef.current = false;
+                if (fade.getDirection() !== 'in' || !fade.isActive()) {
+                  fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+                }
+                if (activePlayer) {
+                  setTimeout(() => {
+                    if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
+                      activePlayer.unlockInput();
+                    }
+                  }, FADE_TIMING.DEFAULT_DURATION_MS);
+                }
+              }
+            }
           }
         }
       }
@@ -1785,8 +1969,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           // Fade out complete, execute warp
           const trigger = pendingWarpRef.current;
           pendingWarpRef.current = null;
-          void performWarp(trigger).then(() => {
+          void performWarp(trigger).then((result) => {
             warpingRef.current = false;
+            if (result.managesInputUnlock) {
+              return;
+            }
             // Unlock player input after fade in starts
             const player = playerRef.current;
             if (player) {
@@ -1843,6 +2030,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           runtime: truckRuntimeRef.current,
           gbaFrame: gbaFrameRef.current,
           view,
+          camera: cameraRef.current,
           objectEventManager: objectEventManagerRef.current,
           setMapMetatileLocal,
           invalidateMap: () => pipeline.invalidate(),
@@ -1982,9 +2170,62 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             }
 
             // Extract sprite groups from result
-            const { lowPrioritySprites: builtLowPriority, allSprites, priority0Sprites: builtP0, doorSprites, arrowSprite, surfBlobSprite } = spriteBuildResult;
+            const {
+              lowPrioritySprites: builtLowPriority,
+              allSprites: builtAllSprites,
+              priority0Sprites: builtP0,
+              doorSprites,
+              arrowSprite,
+              surfBlobSprite,
+            } = spriteBuildResult;
             lowPrioritySprites = builtLowPriority;
             priority0Sprites = builtP0;
+
+            let allSprites = builtAllSprites;
+            const playerMap = worldManagerRef.current?.findMapAtPosition(player.tileX, player.tileY);
+            if (playerMap) {
+              const rotatingGateSprites = rotatingGateManager.getSpritesForRendering(
+                playerMap.entry.id,
+                playerMap.offsetX,
+                playerMap.offsetY,
+                nowTime
+              );
+
+              if (rotatingGateSprites.length > 0) {
+                const gateSpriteInstances: SpriteInstance[] = [];
+                for (const gateSprite of rotatingGateSprites) {
+                  const atlasName = getRotatingGateAtlasName(gateSprite.shapeKey);
+                  if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
+
+                  gateSpriteInstances.push({
+                    worldX: gateSprite.worldX,
+                    worldY: gateSprite.worldY,
+                    width: gateSprite.width,
+                    height: gateSprite.height,
+                    atlasName,
+                    atlasX: 0,
+                    atlasY: 0,
+                    atlasWidth: gateSprite.width,
+                    atlasHeight: gateSprite.height,
+                    flipX: false,
+                    flipY: false,
+                    rotationDeg: gateSprite.rotationDeg,
+                    alpha: 1.0,
+                    tintR: 1.0,
+                    tintG: 1.0,
+                    tintB: 1.0,
+                    // Sort by gate pivot (hinge) Y, not sprite bottom.
+                    // Using bottom made 64x64 gates render over the player too aggressively.
+                    sortKey: calculateSortKey(gateSprite.worldY + gateSprite.height / 2, 0),
+                    isReflection: false,
+                  });
+                }
+
+                if (gateSpriteInstances.length > 0) {
+                  allSprites = [...allSprites, ...gateSpriteInstances].sort((a, b) => a.sortKey - b.sortKey);
+                }
+              }
+            }
 
             // Collect priority debug info if debug panel is enabled (throttled to ~10fps)
             if (debugOptionsRef.current.enabled && player && gbaFrameRef.current % 6 === 0) {
@@ -2175,10 +2416,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       loadObjectEventsFromSnapshot,
       initializeWorldFromSnapshot,
       applyStoryTransitionObjectParity,
+      setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
+        const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
+        if (changed) {
+          pipelineRef.current?.invalidate();
+        }
+        return changed;
+      },
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedMap,
+    mapLoadRequestId,
     currentState,
     overworldEntryReady,
     // NOTE: viewportTilesWide/viewportTilesHigh intentionally excluded.

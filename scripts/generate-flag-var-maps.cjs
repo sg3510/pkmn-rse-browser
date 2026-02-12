@@ -85,7 +85,6 @@ function evaluateExpression(expr, symbols) {
 
   try {
     // Safe eval: only arithmetic on numbers
-    // eslint-disable-next-line no-eval
     const result = Function(`"use strict"; return (${simplified})`)();
     if (typeof result === 'number' && isFinite(result)) {
       return result;

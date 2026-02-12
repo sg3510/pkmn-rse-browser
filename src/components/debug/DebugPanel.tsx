@@ -1152,7 +1152,6 @@ const StateTab: React.FC = () => {
     return Object.entries(raw)
       .filter(([, v]) => v !== 0)
       .sort(([a], [b]) => a.localeCompare(b));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   const lowerSearch = search.toLowerCase();

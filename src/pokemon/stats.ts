@@ -293,7 +293,6 @@ export function boxToParty(box: BoxPokemon): PartyPokemon {
  * Convert PartyPokemon to BoxPokemon (strip calculated stats)
  */
 export function partyToBox(party: PartyPokemon): BoxPokemon {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { level, status, stats, mail, ...box } = party;
   return box;
 }

@@ -23,7 +23,8 @@
     "generate:flags": "node scripts/generate-flag-var-maps.cjs",
     "generate:metatile-labels": "node scripts/generate-metatile-labels.cjs",
     "generate:multichoice": "node scripts/generate-multichoice.cjs",
-    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:trainers && npm run generate:large-objects && npm run generate:new-game-flags && npm run generate:flags && npm run generate:metatile-labels && npm run generate:multichoice",
+    "generate:field-effects": "node scripts/generate-field-effects.cjs",
+    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:trainers && npm run generate:large-objects && npm run generate:new-game-flags && npm run generate:flags && npm run generate:metatile-labels && npm run generate:multichoice && npm run generate:field-effects",
     "save:audit-layouts": "node --experimental-strip-types scripts/audit-save-layouts.ts"
   },
   "dependencies": {

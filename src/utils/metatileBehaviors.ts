@@ -15,6 +15,11 @@ import {
   MB_WALK_WEST,
   MB_WALK_NORTH,
   MB_WALK_SOUTH,
+  MB_STAIRS_OUTSIDE_ABANDONED_SHIP,
+  MB_SHOAL_CAVE_ENTRANCE,
+  MB_UP_ESCALATOR,
+  MB_DOWN_ESCALATOR,
+  MB_CRACKED_FLOOR_HOLE,
 } from './metatileBehaviors.generated';
 
 export {
@@ -33,10 +38,16 @@ export {
   MB_WALK_WEST,
   MB_WALK_NORTH,
   MB_WALK_SOUTH,
+  MB_STAIRS_OUTSIDE_ABANDONED_SHIP,
+  MB_SHOAL_CAVE_ENTRANCE,
+  MB_UP_ESCALATOR,
+  MB_DOWN_ESCALATOR,
+  MB_CRACKED_FLOOR_HOLE,
 };
 
 export const MB_DEEP_SAND = 6;
 export const MB_SAND = 33;  // 0x21 - Regular sand (footprints behavior)
+export const MB_FOOTPRINTS = 37; // 0x25 - Generic footprint-producing terrain
 
 export const MB_POND_WATER = 16;
 export const MB_INTERIOR_DEEP_WATER = 17;
@@ -84,8 +95,6 @@ export const MB_PETALBURG_GYM_DOOR = 141;  // 0x8D - Same behavior as animated d
 export const MB_WATER_DOOR = 108;
 export const MB_WATER_SOUTH_ARROW_WARP = 109;
 export const MB_DEEP_SOUTH_WARP = 110;
-export const MB_SHOAL_CAVE_ENTRANCE = 102;  // 0x66 - Treated as south arrow warp
-export const MB_STAIRS_OUTSIDE_ABANDONED_SHIP = 107;  // 0x6B - Treated as north arrow warp
 
 const REFLECTIVE_BEHAVIORS = new Set([
   MB_POND_WATER,
@@ -176,6 +185,10 @@ const TELEPORT_PAD_BEHAVIORS = new Set<number>([
   MB_MOSSDEEP_GYM_WARP,
   MB_DEEP_SOUTH_WARP,
   MB_MT_PYRE_HOLE,
+  MB_LADDER,
+  MB_UP_ESCALATOR,
+  MB_DOWN_ESCALATOR,
+  MB_CRACKED_FLOOR_HOLE,
 ]);
 
 const ARROW_WARP_BEHAVIORS = new Set<number>([
@@ -237,6 +250,14 @@ export function requiresDoorExitSequence(behavior: number): boolean {
 
 export function isTeleportWarpBehavior(behavior: number): boolean {
   return TELEPORT_PAD_BEHAVIORS.has(behavior);
+}
+
+export function isLavaridgeGymWarpBehavior(behavior: number): boolean {
+  return behavior === MB_LAVARIDGE_GYM_1F_WARP || behavior === MB_LAVARIDGE_GYM_B1F_WARP;
+}
+
+export function isLavaridgeB1FTo1FWarpPair(sourceBehavior: number, destinationBehavior: number): boolean {
+  return sourceBehavior === MB_LAVARIDGE_GYM_B1F_WARP && destinationBehavior === MB_LAVARIDGE_GYM_1F_WARP;
 }
 
 export function isArrowWarpBehavior(behavior: number): boolean {

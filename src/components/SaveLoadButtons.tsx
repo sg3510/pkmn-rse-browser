@@ -67,11 +67,19 @@ export function SaveLoadButtons({
   const handleExportJson = useCallback(() => {
     setShowSaveMenu(false);
 
-    if (!canSave) {
-      // For export, first save current state
+    // When gameplay is in a saveable state, capture current runtime state
+    // before exporting so the file reflects latest map/flags/vars.
+    if (canSave) {
       const locationState = getLocationState();
-      if (locationState) {
-        saveManager.save(0, locationState);
+      if (!locationState) {
+        onError?.('No location data to export');
+        return;
+      }
+
+      const snapshotResult = saveManager.save(0, locationState);
+      if (!snapshotResult.success) {
+        onError?.(snapshotResult.error ?? 'Failed to capture current state before export');
+        return;
       }
     }
 

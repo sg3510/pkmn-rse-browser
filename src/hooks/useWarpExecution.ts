@@ -47,7 +47,6 @@ import { isDebugMode } from '../utils/debug';
 
 function logDoor(...args: unknown[]) {
   if (isDebugMode()) {
-    // eslint-disable-next-line no-console
     console.log('[door]', ...args);
   }
 }

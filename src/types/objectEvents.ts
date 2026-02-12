@@ -264,7 +264,6 @@ export function isNPCGraphicsId(graphicsId: string): boolean {
   if (graphicsId.includes('TRUCK')) return false;
   if (graphicsId.includes('SS_TIDAL')) return false;
   if (graphicsId.includes('CABLE_CAR')) return false;
-  if (graphicsId.includes('BOAT')) return false;
   if (graphicsId.includes('SUBMARINE')) return false;
   if (graphicsId.includes('DOLL')) return false;
   if (graphicsId.includes('CUSHION')) return false;

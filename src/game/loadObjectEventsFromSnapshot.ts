@@ -25,6 +25,11 @@ export interface LoadObjectEventsFromSnapshotParams {
   clearAnimations?: () => void;
   debugLog?: (message: string) => void;
   spritePreloadScope?: 'all' | 'anchor-and-neighbors';
+  /**
+   * When true, keep runtime state for already-parsed maps (scriptRemoved,
+   * temporary visibility/position changes) and only parse newly loaded maps.
+   */
+  preserveExistingMapRuntimeState?: boolean;
 }
 
 function getMapIdFromNpcObjectId(id: string): string | null {
@@ -113,6 +118,7 @@ export async function loadObjectEventsFromSnapshot(
     uploadedSpriteIds,
     debugLog,
     spritePreloadScope = 'anchor-and-neighbors',
+    preserveExistingMapRuntimeState = false,
   } = params;
 
   // Incremental update: only add/remove maps that changed.
@@ -140,15 +146,17 @@ export async function loadObjectEventsFromSnapshot(
         }
       }
 
-      // Map persisted across warp — simulate C's "respawn NPCs from flags"
-      objectEventManager.resetScriptRemovedState(mapInst.entry.id);
+      if (!preserveExistingMapRuntimeState) {
+        // Map persisted across warp — simulate C's "respawn NPCs from flags"
+        objectEventManager.resetScriptRemovedState(mapInst.entry.id);
 
-      // Re-apply persistent position overrides (setobjectxyperm)
-      const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
-      for (const override of overrides) {
-        const worldX = mapInst.offsetX + override.x;
-        const worldY = mapInst.offsetY + override.y;
-        objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
+        // Re-apply persistent position overrides (setobjectxyperm)
+        const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
+        for (const override of overrides) {
+          const worldX = mapInst.offsetX + override.x;
+          const worldY = mapInst.offsetY + override.y;
+          objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
+        }
       }
 
       continue;

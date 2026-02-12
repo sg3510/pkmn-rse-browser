@@ -481,7 +481,12 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.vertexAttribPointer(5, 1, gl.FLOAT, false, BYTES_PER_SPRITE, 52);
     gl.vertexAttribDivisor(5, 1);
 
-    // Padding to 64 bytes (56-64 unused, reserved for future expansion)
+    // a_rotationDeg: float (clockwise rotation around sprite center)
+    gl.enableVertexAttribArray(6);
+    gl.vertexAttribPointer(6, 1, gl.FLOAT, false, BYTES_PER_SPRITE, 56);
+    gl.vertexAttribDivisor(6, 1);
+
+    // Padding to 64 bytes (60-64 currently unused)
 
     gl.bindVertexArray(null);
   }
@@ -596,9 +601,9 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       const flags = (sprite.flipX ? 1 : 0) | (sprite.flipY ? 2 : 0);
       data[i++] = flags;
 
-      // Padding (3 floats to reach 16 floats per sprite)
-      data[i++] = sprite.shimmerScale ?? 1.0; // Reserved for shimmer
-      data[i++] = 0; // Reserved
+      // a_shimmerScale + a_rotationDeg + padding
+      data[i++] = sprite.shimmerScale ?? 1.0;
+      data[i++] = sprite.rotationDeg ?? 0;
       data[i++] = 0; // Reserved
     }
   }

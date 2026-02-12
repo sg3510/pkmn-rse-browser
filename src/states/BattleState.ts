@@ -185,6 +185,17 @@ export class BattleState implements StateRenderer {
         if (action === 'FIGHT') {
           this.phase = 'move';
           this.moveIndex = 0;
+        } else if (action === 'RUN') {
+          if (this.firstBattle) {
+            this.queueMessages(["There's no time for that!"], () => {
+              this.phase = 'action';
+            });
+          } else {
+            gameVariables.setVar('VAR_BATTLE_OUTCOME', 4); // B_OUTCOME_RAN
+            this.queueMessages(['Got away safely!'], () => {
+              this.phase = 'finished';
+            });
+          }
         } else if (this.firstBattle) {
           this.queueMessages(["There's no time for that!"], () => {
             this.phase = 'action';
@@ -628,6 +639,7 @@ export class BattleState implements StateRenderer {
       saveManager.setParty(party);
     }
 
+    gameVariables.setVar('VAR_BATTLE_OUTCOME', 1); // B_OUTCOME_WON
     this.queueMessages(turnMessages, () => {
       this.phase = 'finished';
     });
@@ -641,6 +653,7 @@ export class BattleState implements StateRenderer {
     }
     saveManager.setParty(party);
 
+    gameVariables.setVar('VAR_BATTLE_OUTCOME', 2); // B_OUTCOME_LOST
     turnMessages.push('You lost the battle...');
     this.queueMessages(turnMessages, () => {
       this.phase = 'finished';

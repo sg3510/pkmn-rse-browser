@@ -18,10 +18,13 @@ import {
   getPlayerAtlasName,
   getFieldEffectAtlasName,
   getLargeObjectAtlasName,
+  getRotatingGateAtlasName,
   ITEM_BALL_ATLAS_NAME,
 } from '../../rendering/spriteUtils';
 import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../../data/largeObjectGraphics.gen';
+import { FIELD_EFFECT_REGISTRY } from '../../data/fieldEffects.gen';
+import { ROTATING_GATE_SHAPE_ASSET_PATHS } from '../../game/RotatingGateManager';
 
 type MutableRef<T> = { current: T };
 
@@ -201,8 +204,8 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
         await fieldSprites.loadAll();
         const spriteRenderer = spriteRendererRef.current;
         if (spriteRenderer) {
-          const fieldSpriteKeys = ['grass', 'longGrass', 'sand', 'splash', 'ripple'] as const;
-          for (const key of fieldSpriteKeys) {
+          // Upload all field effects from registry
+          for (const key of Object.keys(FIELD_EFFECT_REGISTRY) as Array<keyof typeof FIELD_EFFECT_REGISTRY>) {
             const canvas = fieldSprites.sprites[key];
             if (canvas) {
               const atlasName = getFieldEffectAtlasName(key);
@@ -221,6 +224,21 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
               isDebugMode,
               `[WebGL] Uploaded item ball sprite: ${ITEM_BALL_ATLAS_NAME} (${itemBallCanvas.width}x${itemBallCanvas.height})`
             );
+          }
+
+          for (const [shapeKey, imagePath] of Object.entries(ROTATING_GATE_SHAPE_ASSET_PATHS)) {
+            try {
+              const img = await loadImageAsset(imagePath);
+              const canvas = makeTransparentCanvas(img, { type: 'top-left' });
+              const atlasName = getRotatingGateAtlasName(shapeKey);
+              spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
+                frameWidth: canvas.width,
+                frameHeight: canvas.height,
+              });
+              debugLog(isDebugMode, `[WebGL] Uploaded rotating gate sprite: ${atlasName} (${canvas.width}x${canvas.height})`);
+            } catch (err) {
+              console.warn(`Failed to load rotating gate sprite (${shapeKey}):`, err);
+            }
           }
 
           for (const [graphicsId, info] of Object.entries(LARGE_OBJECT_GRAPHICS_INFO)) {

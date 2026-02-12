@@ -443,6 +443,9 @@ function buildMapScriptHeader(mapScriptEntries) {
 
 function tryParseInt(val) {
   if (typeof val === 'number') return val;
+  // map_script_2 supports var-vs-var compares (e.g. VAR_TEMP_0, VAR_TEMP_0).
+  // Keep variable references as strings so runtime can dereference them.
+  if (/^VAR_[A-Z0-9_]+$/.test(val)) return val;
   if (/^-?\d+$/.test(val)) return parseInt(val, 10);
   if (/^0x[0-9a-fA-F]+$/i.test(val)) return parseInt(val, 16);
   // Try resolving as a C constant

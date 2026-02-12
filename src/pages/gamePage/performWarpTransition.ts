@@ -9,9 +9,11 @@ import type { WarpHandler } from '../../field/WarpHandler';
 import type { FadeController } from '../../field/FadeController';
 import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
 import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
+import type { LavaridgeWarpSequencer } from '../../game/LavaridgeWarpSequencer';
 import type { WarpDebugInfo } from '../../components/debug';
 import type { MapScriptData } from '../../data/scripts/types';
 import { runMapEntryScripts } from './runMapEntryScripts';
+import { handleSpecialWarpArrival } from '../../game/SpecialWarpBehaviorRegistry';
 
 interface MutableRef<T> {
   current: T;
@@ -36,6 +38,7 @@ export interface PerformWarpTransitionParams {
   warpHandler: WarpHandler;
   playerHiddenRef: MutableRef<boolean>;
   doorAnimations: UseDoorAnimationsReturn;
+  lavaridgeWarpSequencer: LavaridgeWarpSequencer;
   applyStoryTransitionObjectParity: (mapId: string) => void;
   npcMovement: NpcMovementLike;
   setWarpDebugInfo: (info: WarpDebugInfo) => void;
@@ -43,14 +46,20 @@ export interface PerformWarpTransitionParams {
   setLastCoordTriggerTile: (tile: { mapId: string; x: number; y: number }) => void;
   warpingRef: MutableRef<boolean>;
   resolveDynamicWarpTarget: () => { mapId: string; x: number; y: number } | null;
-  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
+  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   /** Pre-populate frame table cache so ON_FRAME scripts fire on the first frame */
   mapScriptCache?: Map<string, MapScriptData | null>;
   /** Called after a warp completes with the new anchor map ID */
   onMapChanged?: (mapId: string) => void;
 }
 
-export async function performWarpTransition(params: PerformWarpTransitionParams): Promise<void> {
+export interface PerformWarpTransitionResult {
+  managesInputUnlock: boolean;
+}
+
+export async function performWarpTransition(
+  params: PerformWarpTransitionParams
+): Promise<PerformWarpTransitionResult> {
   const {
     trigger,
     options,
@@ -66,6 +75,7 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
     warpHandler,
     playerHiddenRef,
     doorAnimations,
+    lavaridgeWarpSequencer,
     applyStoryTransitionObjectParity,
     npcMovement,
     setWarpDebugInfo,
@@ -81,7 +91,7 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
   if (!worldManager || !player || !pipeline) {
     console.warn('[WARP] Missing dependencies, aborting warp:', { worldManager: !!worldManager, player: !!player, pipeline: !!pipeline });
     warpingRef.current = false;
-    return;
+    return { managesInputUnlock: false };
   }
 
   let destMapId = trigger.warpEvent.destMap;
@@ -92,7 +102,7 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
     if (!dynamicWarp) {
       console.warn('[WARP] MAP_DYNAMIC encountered, but no dynamic warp target is set.');
       warpingRef.current = false;
-      return;
+      return { managesInputUnlock: false };
     }
 
     destMapId = dynamicWarp.mapId;
@@ -108,6 +118,9 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
   console.log('[WARP] priorFacing:', priorFacing);
 
   try {
+    let managesInputUnlock = false;
+    let managesVisibility = false;
+
     const snapshot = await worldManager.initialize(destMapId);
 
     await initializeWorldFromSnapshot(snapshot, pipeline);
@@ -123,7 +136,7 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
     const destMap = snapshot.maps.find((map) => map.entry.id === destMapId);
     if (!destMap) {
       console.error('[WARP] Destination map not found in snapshot:', destMapId);
-      return;
+      return { managesInputUnlock: false };
     }
 
     const renderContext = getRenderContextFromSnapshot(snapshot);
@@ -162,6 +175,21 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
       priorFacing,
     });
 
+    if (!options?.fromDoor) {
+      const currentResolved = destination.resolveTileAt(player.tileX, player.tileY);
+      const currentBehavior = currentResolved?.attributes?.behavior ?? -1;
+      const arrivalResult = handleSpecialWarpArrival({
+        trigger,
+        destinationBehavior: currentBehavior,
+        now: performance.now(),
+        player,
+        playerHiddenRef,
+        lavaridgeWarpSequencer,
+      });
+      managesInputUnlock = arrivalResult.managesInputUnlock;
+      managesVisibility = arrivalResult.managesVisibility;
+    }
+
     if (dynamicWarpOverride) {
       player.setPosition(dynamicWarpOverride.x, dynamicWarpOverride.y);
       // Dynamic warp overrides the warp-event position; cancel any door-exit
@@ -193,11 +221,13 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
       player,
       playerHiddenRef,
       pipeline,
-      mapScriptCache: mapScriptCache as Map<string, any> | undefined,
+      mapScriptCache,
       setMapMetatile,
     });
 
-    playerHiddenRef.current = false;
+    if (!managesVisibility) {
+      playerHiddenRef.current = false;
+    }
 
     pipeline.invalidate();
     npcMovement.reset();
@@ -224,9 +254,11 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
     if (options?.fromDoor) {
       warpingRef.current = false;
     }
+    return { managesInputUnlock };
   } catch (err) {
     console.error('[WARP] Failed to perform warp:', err);
     warpHandler.setInProgress(false);
     warpingRef.current = false;
+    return { managesInputUnlock: false };
   }
 }

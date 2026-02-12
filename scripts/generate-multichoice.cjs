@@ -118,6 +118,24 @@ function generate() {
   lines.push('  return MULTICHOICE_LISTS[id];');
   lines.push('}');
   lines.push('');
+  lines.push('/**');
+  lines.push(' * Multichoice constant name to numeric ID map.');
+  lines.push(' * C reference: public/pokeemerald/include/constants/script_menu.h');
+  lines.push(' */');
+  lines.push('export const MULTICHOICE_ID_BY_NAME: Record<string, number> = {');
+  for (const [name, id] of [...multiIds.entries()].sort((a, b) => a[1] - b[1])) {
+    lines.push(`  ${JSON.stringify(name)}: ${id},`);
+  }
+  lines.push('};');
+  lines.push('');
+  lines.push('/**');
+  lines.push(' * Resolve a MULTI_* constant name to its numeric ID.');
+  lines.push(' * Returns undefined when the constant is unknown.');
+  lines.push(' */');
+  lines.push('export function getMultichoiceIdByName(name: string): number | undefined {');
+  lines.push('  return MULTICHOICE_ID_BY_NAME[name];');
+  lines.push('}');
+  lines.push('');
 
   fs.writeFileSync(OUTPUT, lines.join('\n'));
   console.log(`Generated ${multichoiceLists.size} multichoice lists (max ID ${maxId}) → ${OUTPUT}`);

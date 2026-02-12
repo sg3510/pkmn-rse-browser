@@ -66,6 +66,8 @@ export interface CameraTarget {
 export class CameraController {
   private x: number = 0;
   private y: number = 0;
+  private panningX: number = 0;
+  private panningY: number = 0;
   private config: CameraConfig;
   private bounds: WorldBounds | null = null;
 
@@ -74,10 +76,10 @@ export class CameraController {
   }
 
   /**
-   * Get current camera position
+   * Get current camera position (including panning)
    */
   getPosition(): { x: number; y: number } {
-    return { x: this.x, y: this.y };
+    return { x: this.x + this.panningX, y: this.y + this.panningY };
   }
 
   /**
@@ -167,6 +169,22 @@ export class CameraController {
   }
 
   /**
+   * Set camera panning offset (for shake effects)
+   */
+  setPanning(x: number, y: number): void {
+    this.panningX = x;
+    this.panningY = y;
+  }
+
+  /**
+   * Reset camera panning to zero
+   */
+  resetPanning(): void {
+    this.panningX = 0;
+    this.panningY = 0;
+  }
+
+  /**
    * Adjust camera position by an offset (used for world re-anchoring)
    * When the world re-anchors, coordinates shift and camera needs to compensate
    */
@@ -185,15 +203,18 @@ export class CameraController {
     const viewportWidth = this.config.viewportTilesWide * METATILE_SIZE;
     const viewportHeight = this.config.viewportTilesHigh * METATILE_SIZE;
 
+    const pannedX = this.x + this.panningX;
+    const pannedY = this.y + this.panningY;
+
     // Calculate starting tile and sub-tile offset
-    const startTileX = Math.floor(this.x / METATILE_SIZE);
-    const startTileY = Math.floor(this.y / METATILE_SIZE);
-    const subTileOffsetX = this.x - startTileX * METATILE_SIZE;
-    const subTileOffsetY = this.y - startTileY * METATILE_SIZE;
+    const startTileX = Math.floor(pannedX / METATILE_SIZE);
+    const startTileY = Math.floor(pannedY / METATILE_SIZE);
+    const subTileOffsetX = pannedX - startTileX * METATILE_SIZE;
+    const subTileOffsetY = pannedY - startTileY * METATILE_SIZE;
 
     return {
-      x: this.x,
-      y: this.y,
+      x: pannedX,
+      y: pannedY,
       startTileX,
       startTileY,
       subTileOffsetX,

@@ -61,9 +61,13 @@ export interface LoadSelectedOverworldMapParams {
   setStitchedMapCount: (count: number) => void;
   createSnapshotTileResolver: (snapshot: WorldSnapshot) => TileResolverFn;
   createSnapshotPlayerTileResolver: (snapshot: WorldSnapshot) => PlayerTileResolver;
-  loadObjectEventsFromSnapshot: (snapshot: WorldSnapshot) => Promise<void>;
+  loadObjectEventsFromSnapshot: (
+    snapshot: WorldSnapshot,
+    options?: { preserveExistingMapRuntimeState?: boolean }
+  ) => Promise<void>;
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
   applyStoryTransitionObjectParity: (mapId: string) => void;
+  setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
 }
 
 export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams): () => void {
@@ -98,6 +102,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     loadObjectEventsFromSnapshot,
     initializeWorldFromSnapshot,
     applyStoryTransitionObjectParity,
+    setMapMetatile,
   } = params;
 
   let cancelled = false;
@@ -243,6 +248,11 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           playerHiddenRef,
           pipeline,
           mapScriptCache: mapScriptCacheRef.current as Map<string, any> | undefined,
+          setMapMetatile: setMapMetatile
+            ? (mapId, tileX, tileY, metatileId, collision?) => {
+                setMapMetatile(mapId, tileX, tileY, metatileId, collision);
+              }
+            : undefined,
         });
 
         playerHiddenRef.current = false;

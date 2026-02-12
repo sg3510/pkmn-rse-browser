@@ -24,8 +24,11 @@ export const FIELD_EFFECT_DIMENSIONS: Readonly<Record<string, { width: number; h
   long: { width: 16, height: 16 },
   sand: { width: 16, height: 16 },
   deep_sand: { width: 16, height: 16 },
+  bike_tire_tracks: { width: 16, height: 16 },
   puddle_splash: { width: 16, height: 8 },
   water_ripple: { width: 16, height: 16 },
+  ash_launch: { width: 16, height: 16 },
+  ash_puff: { width: 16, height: 16 },
 };
 
 /**
@@ -66,6 +69,10 @@ export function computeFieldEffectLayer(
   if (
     effect.type === 'sand' ||
     effect.type === 'deep_sand' ||
+    effect.type === 'bike_tire_tracks' ||
+    effect.registryKey === 'SAND_FOOTPRINTS' ||
+    effect.registryKey === 'DEEP_SAND_FOOTPRINTS' ||
+    effect.registryKey === 'BIKE_TIRE_TRACKS' ||
     effect.type === 'puddle_splash' ||
     effect.type === 'water_ripple'
   ) {
@@ -83,6 +90,11 @@ export function computeFieldEffectLayer(
   // If subpriority offset is high (4), it means "lower priority" relative to player
   if (effect.subpriorityOffset > 0) {
     return 'behind';
+  }
+
+  // Ash effects also render in front (they pop out of the ground)
+  if (effect.type === 'ash_launch' || effect.type === 'ash_puff') {
+    return 'front';
   }
 
   // Standard Y-sorting: effects at or below player Y render in front

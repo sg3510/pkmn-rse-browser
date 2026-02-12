@@ -35,6 +35,7 @@ in vec4 a_atlasRect;     // x, y, width, height (normalized atlas coordinates 0-
 in vec4 a_colorMod;      // r, g, b, a (tint color and alpha)
 in float a_flags;        // packed flags: bit 0 = flipX, bit 1 = flipY
 in float a_shimmerScale; // shimmer X-scale for water reflections (1.0 = no shimmer)
+in float a_rotationDeg;  // clockwise rotation in degrees around sprite center
 
 // Uniforms
 uniform vec2 u_viewportSize;
@@ -52,9 +53,21 @@ void main() {
   bool flipX = mod(flagsVal, 2.0) > 0.5;
   bool flipY = mod(floor(flagsVal / 2.0), 2.0) > 0.5;
 
-  // Calculate screen position (no shimmer here - done in fragment shader)
-  vec2 localPos = a_position;
-  vec2 screenPos = a_spriteRect.xy + localPos * a_spriteRect.zw;
+  // Calculate screen position with optional center rotation.
+  // Rotation defaults to 0 for all existing sprites.
+  vec2 localPos = a_position * a_spriteRect.zw;
+  vec2 halfSize = a_spriteRect.zw * 0.5;
+  vec2 centeredLocal = localPos - halfSize;
+
+  float rotationRad = radians(a_rotationDeg);
+  float sinR = sin(rotationRad);
+  float cosR = cos(rotationRad);
+  vec2 rotatedLocal = vec2(
+    centeredLocal.x * cosR - centeredLocal.y * sinR,
+    centeredLocal.x * sinR + centeredLocal.y * cosR
+  );
+
+  vec2 screenPos = a_spriteRect.xy + halfSize + rotatedLocal;
 
   // Convert to clip space (-1 to 1)
   vec2 clipPos = (screenPos / u_viewportSize) * 2.0 - 1.0;

@@ -27,10 +27,10 @@ import { METATILE_SIZE } from '../utils/mapLoader';
 import { calculateSortKey } from '../game/playerCoords';
 import {
   computeFieldEffectLayer,
-  getFieldEffectDimensions,
   getFieldEffectYOffset,
 } from './fieldEffectUtils';
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../data/largeObjectGraphics.gen';
+import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -208,25 +208,17 @@ export function createPlayerReflectionSprite(
   );
 }
 
-/** Map field effect type to atlas name */
-const FIELD_EFFECT_ATLAS_NAMES: Record<string, string> = {
-  tall: 'field-grass',
-  long: 'field-longGrass',
-  sand: 'field-sand',
-  deep_sand: 'field-sand',
-  puddle_splash: 'field-splash',
-  water_ripple: 'field-ripple',
-};
-
 /**
- * Create a SpriteInstance from a FieldEffectForRendering
- *
- * @param effect - Field effect data from FieldEffectManager
- * @param playerWorldY - Player's Y position for sorting (unused if preComputedLayer provided)
- * @param layer - 'bottom' or 'top' layer (used for filtering when preComputedLayer not provided)
- * @param preComputedLayer - Optional pre-computed layer from SpriteBatcher (skips filtering and re-computation)
- * @returns SpriteInstance or null if effect should not render in this layer
+ * Get atlas name for a field effect sprite sheet
  */
+export function getFieldEffectAtlasName(spriteKey: string): string {
+  return `field-${spriteKey}`;
+}
+
+export function getRotatingGateAtlasName(shapeKey: string): string {
+  return `rotating-gate-${shapeKey}`;
+}
+
 export function createFieldEffectSprite(
   effect: FieldEffectForRendering,
   playerWorldY: number,
@@ -235,9 +227,10 @@ export function createFieldEffectSprite(
 ): SpriteInstance | null {
   if (!effect.visible) return null;
 
-  const dims = getFieldEffectDimensions(effect.type);
-  const atlasName = FIELD_EFFECT_ATLAS_NAMES[effect.type];
-  if (!atlasName) return null;
+  const metadata = FIELD_EFFECT_REGISTRY[effect.registryKey];
+  if (!metadata) return null;
+
+  const atlasName = getFieldEffectAtlasName(effect.registryKey);
 
   // Use pre-computed layer from SpriteBatcher if provided (handles NPC effects correctly)
   // Otherwise compute based on player position (legacy behavior)
@@ -253,14 +246,14 @@ export function createFieldEffectSprite(
 
   // Calculate world position (convert from center to top-left)
   // FieldEffectManager returns center coordinates (tile*16 + 8)
-  const worldX = effect.worldX - dims.width / 2;
+  const worldX = effect.worldX - metadata.width / 2;
 
   // Y offset from shared utility (water effects are offset downward to appear at feet)
   const yOffset = getFieldEffectYOffset(effect.type);
-  const worldY = effect.worldY + yOffset - dims.height / 2;
+  const worldY = effect.worldY + yOffset - metadata.height / 2;
 
   // Calculate atlas coordinates
-  const atlasX = effect.frame * dims.width;
+  const atlasX = effect.frame * metadata.width;
   const atlasY = 0;
 
   // Sort key: lower values render first (behind)
@@ -273,20 +266,20 @@ export function createFieldEffectSprite(
   // Water surface effects (puddle_splash, water_ripple) render in the reflection layer
   // between BG0 and BG1, just like reflections. They use water mask clipping but
   // NO shimmer effect. On GBA these render at OAM priority 3.
-  const isWaterEffect = effect.type === 'puddle_splash' || effect.type === 'water_ripple';
+  const isWaterEffect = effect.registryKey === 'SPLASH' || effect.registryKey === 'RIPPLE';
 
   return {
     worldX,
     worldY,
-    width: dims.width,
-    height: dims.height,
+    width: metadata.width,
+    height: metadata.height,
     atlasName,
     atlasX,
     atlasY,
-    atlasWidth: dims.width,
-    atlasHeight: dims.height,
+    atlasWidth: metadata.width,
+    atlasHeight: metadata.height,
     flipX: effect.flipHorizontal ?? false,
-    flipY: false,
+    flipY: effect.flipVertical ?? false,
     alpha: 1.0,
     tintR: 1.0,
     tintG: 1.0,
@@ -295,13 +288,6 @@ export function createFieldEffectSprite(
     isReflection: false,
     isReflectionLayer: isWaterEffect,
   };
-}
-
-/**
- * Get atlas name for a field effect sprite sheet
- */
-export function getFieldEffectAtlasName(spriteKey: string): string {
-  return `field-${spriteKey}`;
 }
 
 // Re-export calculateSortKey from playerCoords for backwards compatibility

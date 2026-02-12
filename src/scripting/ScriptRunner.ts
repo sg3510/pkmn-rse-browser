@@ -14,12 +14,13 @@ import type { StoryScriptContext } from '../game/NewGameFlow';
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { setDynamicWarpTarget } from '../game/DynamicWarp';
+import { getFixedHoleWarpTarget, setFixedHoleWarpTarget } from '../game/FixedHoleWarp';
 import {
   setDynamicObjectGfxVar,
   getDynamicObjectGfxVar,
   clearDynamicObjectGfxVar,
 } from '../game/DynamicObjectGfx';
-import { getSpeciesName } from '../data/species';
+import { SPECIES, getSpeciesName } from '../data/species';
 import { getItemId, getItemName } from '../data/items';
 import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
@@ -28,11 +29,13 @@ import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './t
 import { getMoveInfo } from '../data/moves';
 import { STATUS } from '../pokemon/types';
 import { METATILE_LABELS } from '../data/metatileLabels.gen';
-import { getMultichoiceList } from '../data/multichoice.gen';
+import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen';
 import { stepCallbackManager } from '../game/StepCallbackManager';
+import { rotatingGateManager } from '../game/RotatingGateManager';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
+type ScriptMoveMode = NonNullable<Parameters<StoryScriptContext['movePlayer']>[1]>;
 
 // --- Rotating tile puzzle state (Mossdeep Gym / Trick House) ---
 // C ref: public/pokeemerald/src/rotating_tile_puzzle.c
@@ -85,14 +88,6 @@ function rotateCCW(dir: Direction): Direction {
   }
 }
 
-function directionToDelta(dir: Direction): { dx: number; dy: number } {
-  switch (dir) {
-    case 'up': return { dx: 0, dy: -1 };
-    case 'down': return { dx: 0, dy: 1 };
-    case 'left': return { dx: -1, dy: 0 };
-    case 'right': return { dx: 1, dy: 0 };
-  }
-}
 
 /** Constants that the C source uses but we resolve at runtime */
 const GENDER_MALE = 0;
@@ -104,6 +99,11 @@ const GENDER_FEMALE = 1;
  */
 function resolveConstant(val: string | number): string | number {
   if (typeof val === 'number') return val;
+  if (val in SPECIES) return SPECIES[val as keyof typeof SPECIES];
+  if (val.startsWith('SPECIES_')) {
+    const speciesKey = val.replace('SPECIES_', '');
+    if (speciesKey in SPECIES) return SPECIES[speciesKey as keyof typeof SPECIES];
+  }
   if (val === 'MALE') return GENDER_MALE;
   if (val === 'FEMALE') return GENDER_FEMALE;
   if (val === 'TRUE' || val === 'YES') return 1;
@@ -126,6 +126,10 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_CAUGHT') return 7;
   // Script menu constants (include/constants/script_menu.h)
   if (val === 'MULTI_B_PRESSED') return 127;
+  if (val.startsWith('MULTI_')) {
+    const multichoiceId = getMultichoiceIdByName(val);
+    if (multichoiceId !== undefined) return multichoiceId;
+  }
   // Step callback constants (include/constants/field_tasks.h)
   if (val === 'STEP_CB_DUMMY') return 0;
   if (val === 'STEP_CB_ASH') return 1;
@@ -209,6 +213,11 @@ export class ScriptRunner {
   /** Active movement promises keyed by object ID */
   private pendingMovements = new Map<string, Promise<void>>();
 
+  /** Pending wild battle state (set by setwildbattle) */
+  private wildBattleSpecies: number = 0;
+  private wildBattleLevel: number = 0;
+  private wildBattleItem: number = 0;
+
   /**
    * Local string store for temp variables (VAR_0x8004, VAR_0x8005, etc.).
    * In the C source, setvar stores numeric values, but our generated scripts
@@ -237,6 +246,26 @@ export class ScriptRunner {
       if (label in src.scripts) return src.scripts[label];
     }
     // Built-in scripts not in generated data (from event_scripts.s)
+    if (label === 'EventScript_BackupMrBrineyLocation') {
+      return [
+        { cmd: 'copyvar', args: ['VAR_0x8008', 'VAR_BRINEY_LOCATION'] },
+        { cmd: 'setvar', args: ['VAR_BRINEY_LOCATION', 0] },
+        { cmd: 'return' },
+      ];
+    }
+    if (label === 'Common_EventScript_PlayBrineysBoatMusic') {
+      return [
+        // Audio is not implemented yet; keep script flow and flag behavior.
+        { cmd: 'setflag', args: ['FLAG_DONT_TRANSITION_MUSIC'] },
+        { cmd: 'return' },
+      ];
+    }
+    if (label === 'Common_EventScript_StopBrineysBoatMusic') {
+      return [
+        { cmd: 'clearflag', args: ['FLAG_DONT_TRANSITION_MUSIC'] },
+        { cmd: 'return' },
+      ];
+    }
     if (label === 'Common_EventScript_RemoveStaticPokemon') {
       return [
         { cmd: 'fadescreen', args: [1] },
@@ -652,11 +681,15 @@ export class ScriptRunner {
           const objectId = asString(args[0]);
           const movementLabel = asString(args[1]);
           const resolvedObjId = this.resolveObjectId(objectId);
+          const objectMapId = this.resolveObjectMapId(
+            objectId,
+            args.length > 2 ? asString(args[2]) : undefined
+          );
           const isPlayerObj = resolvedObjId === 'LOCALID_PLAYER' || resolvedObjId === '255';
           // Pre-check: if targeting an NPC that doesn't exist, skip entirely
           if (!isPlayerObj && this.ctx.hasNpc) {
-            if (!this.ctx.hasNpc(this.currentMapId, resolvedObjId)) {
-              console.warn(`[ScriptRunner] applymovement skipped: NPC ${resolvedObjId} not found on ${this.currentMapId}`);
+            if (!this.ctx.hasNpc(objectMapId, resolvedObjId)) {
+              console.warn(`[ScriptRunner] applymovement skipped: NPC ${resolvedObjId} not found on ${objectMapId}`);
               // Store a resolved promise so waitmovement doesn't hang
               this.pendingMovements.set(objectId, Promise.resolve());
               break;
@@ -668,7 +701,7 @@ export class ScriptRunner {
             break;
           }
           // Start movement asynchronously — will be awaited by waitmovement
-          const promise = this.executeMovement(objectId, steps);
+          const promise = this.executeMovement(objectId, steps, objectMapId);
           this.pendingMovements.set(objectId, promise);
           break;
         }
@@ -699,7 +732,8 @@ export class ScriptRunner {
           const resolvedId = localId.startsWith('VAR_')
             ? String(this.getVar(localId))
             : localId;
-          this.ctx.setNpcVisible(this.currentMapId, resolvedId, true, true);  // persistent
+          const objectMapId = this.resolveObjectMapId(resolvedId);
+          this.ctx.setNpcVisible(objectMapId, resolvedId, true, true);  // persistent
           break;
         }
 
@@ -708,7 +742,8 @@ export class ScriptRunner {
           const resolvedId = localId.startsWith('VAR_')
             ? String(this.getVar(localId))
             : localId;
-          this.ctx.setNpcVisible(this.currentMapId, resolvedId, false, true);  // persistent
+          const objectMapId = this.resolveObjectMapId(resolvedId);
+          this.ctx.setNpcVisible(objectMapId, resolvedId, false, true);  // persistent
           break;
         }
 
@@ -716,7 +751,8 @@ export class ScriptRunner {
           const localId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          this.ctx.setNpcPosition(this.currentMapId, localId, x, y);
+          const objectMapId = this.resolveObjectMapId(localId);
+          this.ctx.setNpcPosition(objectMapId, localId, x, y);
           break;
         }
 
@@ -724,8 +760,9 @@ export class ScriptRunner {
           const localId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          this.ctx.setNpcPosition(this.currentMapId, localId, x, y);
-          saveStateStore.setObjectEventOverride(this.currentMapId, localId, x, y);
+          const objectMapId = this.resolveObjectMapId(localId);
+          this.ctx.setNpcPosition(objectMapId, localId, x, y);
+          saveStateStore.setObjectEventOverride(objectMapId, localId, x, y);
           break;
         }
 
@@ -734,14 +771,15 @@ export class ScriptRunner {
           // Copies NPC's current runtime position back to the persistent template
           // so the NPC stays at the new position across save/load.
           const localId = this.resolveObjectId(asString(args[0]));
+          const objectMapId = this.resolveObjectMapId(localId);
           if (this.ctx.getNpcPosition && this.ctx.getMapOffset) {
-            const worldPos = this.ctx.getNpcPosition(this.currentMapId, localId);
-            const mapOffset = this.ctx.getMapOffset(this.currentMapId);
+            const worldPos = this.ctx.getNpcPosition(objectMapId, localId);
+            const mapOffset = this.ctx.getMapOffset(objectMapId);
             if (worldPos && mapOffset) {
               // Convert world coords back to map-local (subtract map offset)
               const localX = worldPos.tileX - mapOffset.offsetX;
               const localY = worldPos.tileY - mapOffset.offsetY;
-              saveStateStore.setObjectEventOverride(this.currentMapId, localId, localX, localY);
+              saveStateStore.setObjectEventOverride(objectMapId, localId, localX, localY);
             }
           }
           break;
@@ -750,12 +788,13 @@ export class ScriptRunner {
         case 'turnobject': {
           const localId = asString(args[0]);
           const resolvedId = this.resolveObjectId(localId);
+          const objectMapId = this.resolveObjectMapId(resolvedId);
           const dir = this.resolveDirection(args[1]);
           if (dir) {
             if (resolvedId === 'LOCALID_PLAYER' || resolvedId === '255') {
               this.ctx.setPlayerDirection?.(dir);
             } else {
-              this.ctx.moveNpc(this.currentMapId, resolvedId, dir, 'face');
+              this.ctx.moveNpc(objectMapId, resolvedId, dir, 'face');
             }
           }
           break;
@@ -786,6 +825,14 @@ export class ScriptRunner {
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
           setDynamicWarpTarget(mapId, x, y);
+          break;
+        }
+
+        case 'setholewarp': {
+          const mapId = asString(args[0]);
+          if (mapId && mapId !== 'MAP_UNDEFINED') {
+            setFixedHoleWarpTarget(mapId);
+          }
           break;
         }
 
@@ -854,8 +901,12 @@ export class ScriptRunner {
           const x = this.resolveVarOrConst(args[0]);
           const y = this.resolveVarOrConst(args[1]);
           const metatileId = this.resolveVarOrConst(args[2]);
+          // 4th arg = collision flag: TRUE → impassable (1), FALSE/omitted → passable (0)
+          // C parity: MapGridSetMetatileIdAt always sets collision bits from the argument.
+          const collisionFlag = args.length > 3 ? this.resolveVarOrConst(args[3]) : 0;
+          const collision = collisionFlag ? 1 : 0;
           if (this.ctx.setMapMetatile) {
-            this.ctx.setMapMetatile(this.currentMapId, x, y, metatileId);
+            this.ctx.setMapMetatile(this.currentMapId, x, y, metatileId, collision);
           }
           break;
         }
@@ -887,14 +938,22 @@ export class ScriptRunner {
         case 'hideobjectat': {
           const localId = asString(args[0]);
           const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
-          this.ctx.setNpcVisible(mapId, localId, false);
+          if (localId === 'LOCALID_PLAYER' || localId === '255') {
+            this.ctx.setPlayerVisible(false);
+          } else {
+            this.ctx.setNpcVisible(mapId, localId, false);
+          }
           break;
         }
 
         case 'showobjectat': {
           const localId = asString(args[0]);
           const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
-          this.ctx.setNpcVisible(mapId, localId, true);
+          if (localId === 'LOCALID_PLAYER' || localId === '255') {
+            this.ctx.setPlayerVisible(true);
+          } else {
+            this.ctx.setNpcVisible(mapId, localId, true);
+          }
           break;
         }
 
@@ -1229,16 +1288,24 @@ export class ScriptRunner {
 
         // --- setwildbattle: store species/level for upcoming wild battle ---
         case 'setwildbattle': {
-          const species = asString(args[0]);
-          const level = asNumber(args[1]);
-          console.log(`[ScriptRunner] setwildbattle: ${species} lv${level} (stub — no battle system)`);
+          const speciesArg = args[0];
+          const levelArg = args[1];
+          const itemArg = args.length > 2 ? args[2] : 0;
+          this.wildBattleSpecies = this.resolveVarOrConst(speciesArg);
+          this.wildBattleLevel = this.resolveVarOrConst(levelArg);
+          this.wildBattleItem = this.resolveVarOrConst(itemArg);
+          console.log(`[ScriptRunner] setwildbattle: species=${this.wildBattleSpecies} lv=${this.wildBattleLevel} item=${this.wildBattleItem}`);
           break;
         }
 
-        // --- dowildbattle: initiate wild battle (stub: auto-win) ---
+        // --- dowildbattle: initiate wild battle ---
         case 'dowildbattle':
-          console.log('[ScriptRunner] dowildbattle: auto-win (no battle system yet)');
-          await this.ctx.delayFrames(16); // Brief pause to simulate battle
+          if (this.ctx.startWildBattle) {
+            await this.ctx.startWildBattle(this.wildBattleSpecies, this.wildBattleLevel);
+          } else {
+            console.log('[ScriptRunner] dowildbattle: auto-win (no battle system yet)');
+            await this.ctx.delayFrames(16); // Brief pause to simulate battle
+          }
           break;
 
         // --- fadescreenswapbuffers: alias for fadescreen ---
@@ -1316,25 +1383,38 @@ export class ScriptRunner {
         // But some scripts use: compare VAR, value → goto_if_eq <label>
         // We implement by storing in VAR_RESULT-like mechanism.
         case 'compare': {
-          const varName = asString(args[0]);
-          const cmpVal = this.resolveVarOrConst(args[1]);
-          const varVal = this.getVar(varName);
           // Store comparison result: 0=equal, 1=greater, 2=less
           // Actually in pokeemerald, compare just stores the values and
           // goto_if_eq/ne/lt/gt checks them. Our goto_if_* already reads
           // the var directly with inline comparison. So compare is a no-op
           // for our architecture.
+          void args;
           break;
         }
 
         // --- warphole: warp with falling animation ---
-        // C ref: scrcmd.c ScrCmd_warphole — warps to (mapId, -1, -1) using WARP_FLAG_NO_ANIMATION
+        // C ref: scrcmd.c ScrCmd_warphole — uses player's current map-local tile
+        // as destination coordinates. MAP_UNDEFINED resolves via setholewarp.
         case 'warphole': {
-          const mapId = args.length > 0 ? asString(args[0]) : '';
-          if (mapId && mapId !== 'MAP_UNDEFINED') {
-            // Warp to the destination map at default position
-            this.ctx.queueWarp(mapId, -1, -1, 'down');
+          const argMapId = args.length > 0 ? asString(args[0]) : '';
+          let targetMapId = argMapId;
+          if (argMapId === 'MAP_UNDEFINED') {
+            targetMapId = getFixedHoleWarpTarget()?.mapId ?? '';
           }
+
+          if (!targetMapId) {
+            console.warn('[ScriptRunner] warphole: missing target map');
+            break;
+          }
+
+          const playerLocal = this.ctx.getPlayerLocalPosition?.();
+          if (!playerLocal) {
+            console.warn('[ScriptRunner] warphole: player local position unavailable, falling back to (-1,-1)');
+            this.ctx.queueWarp(targetMapId, -1, -1, 'down');
+            break;
+          }
+
+          this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down');
           break;
         }
 
@@ -1495,19 +1575,14 @@ export class ScriptRunner {
             const dir = getArrowDirection(metatile, base);
             if (!dir) continue;
 
-            // Save previous position for potential undo
+            // Save previous position for turn phase (CCW rotation reads arrow from old tile)
             rotatingTilePuzzle.movedObjects.push({
               localId,
               prevTileX: pos.tileX,
               prevTileY: pos.tileY,
             });
 
-            // Move the NPC one tile in the arrow direction (world coords)
-            const { dx, dy } = directionToDelta(dir);
-            const newWorldX = pos.tileX + dx;
-            const newWorldY = pos.tileY + dy;
-
-            // Start NPC movement as a pending animation
+            // Start NPC walk animation in the arrow direction
             const promise = this.ctx.moveNpc(this.currentMapId, localId, dir, 'walk');
             this.pendingMovements.set(localId, promise);
           }
@@ -1585,7 +1660,28 @@ export class ScriptRunner {
     return val;
   }
 
-  private async executeMovement(objectId: string, steps: string[]): Promise<void> {
+  /**
+   * Resolve the map context for an object command.
+   * Scripts can reference LOCALID_* from a non-anchor map during long scripted
+   * movement (e.g. Briney's boat ride), so we infer by localId when possible.
+   */
+  private resolveObjectMapId(objectId: string, explicitMapId?: string): string {
+    if (explicitMapId && explicitMapId.startsWith('MAP_')) {
+      return explicitMapId;
+    }
+    const resolvedId = this.resolveObjectId(objectId);
+    if (resolvedId === 'LOCALID_PLAYER' || resolvedId === '255') {
+      return this.currentMapId;
+    }
+    const inferredMapId = this.ctx.findNpcMapId?.(resolvedId);
+    return inferredMapId ?? this.currentMapId;
+  }
+
+  private async executeMovement(
+    objectId: string,
+    steps: string[],
+    objectMapId: string = this.resolveObjectMapId(objectId)
+  ): Promise<void> {
     const resolvedId = this.resolveObjectId(objectId);
     const isPlayer = resolvedId === 'LOCALID_PLAYER' || resolvedId === '255';
 
@@ -1599,7 +1695,7 @@ export class ScriptRunner {
       // --- face_player: NPC turns toward player ---
       if (step === 'face_player') {
         if (!isPlayer) {
-          this.ctx.faceNpcToPlayer(this.currentMapId, resolvedId);
+          this.ctx.faceNpcToPlayer(objectMapId, resolvedId);
         }
         await this.ctx.delayFrames(1);
         continue;
@@ -1609,7 +1705,7 @@ export class ScriptRunner {
       if (step === 'face_away_player') {
         // Approximate: face toward player (should be reverse, but needs player pos)
         if (!isPlayer) {
-          this.ctx.faceNpcToPlayer(this.currentMapId, resolvedId);
+          this.ctx.faceNpcToPlayer(objectMapId, resolvedId);
         }
         await this.ctx.delayFrames(1);
         continue;
@@ -1627,14 +1723,14 @@ export class ScriptRunner {
       // For player, toggle full visibility.
       if (step === 'set_invisible') {
         if (isPlayer) this.ctx.setPlayerVisible(false);
-        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(this.currentMapId, resolvedId, true);
-        else this.ctx.setNpcVisible(this.currentMapId, resolvedId, false);
+        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(objectMapId, resolvedId, true);
+        else this.ctx.setNpcVisible(objectMapId, resolvedId, false);
         continue;
       }
       if (step === 'set_visible') {
         if (isPlayer) this.ctx.setPlayerVisible(true);
-        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(this.currentMapId, resolvedId, false);
-        else this.ctx.setNpcVisible(this.currentMapId, resolvedId, true);
+        else if (this.ctx.setSpriteHidden) this.ctx.setSpriteHidden(objectMapId, resolvedId, false);
+        else this.ctx.setNpcVisible(objectMapId, resolvedId, true);
         continue;
       }
 
@@ -1669,7 +1765,7 @@ export class ScriptRunner {
         if (isPlayer) {
           await this.ctx.movePlayer(firstDir as Direction, 'face');
         } else {
-          await this.ctx.moveNpc(this.currentMapId, resolvedId, firstDir as Direction, 'face');
+          await this.ctx.moveNpc(objectMapId, resolvedId, firstDir as Direction, 'face');
         }
         await this.ctx.delayFrames(8);
         continue;
@@ -1692,14 +1788,19 @@ export class ScriptRunner {
       const dir = movementToDirection(step);
       if (dir) {
         // Determine the movement mode from the command prefix
-        let mode: 'walk' | 'face' | 'jump' | 'jump_in_place';
+        let mode: ScriptMoveMode;
 
         if (step.startsWith('face_')) {
           // face_right, face_down, face_up, face_left — turn without moving
           mode = 'face';
-        } else if (step.startsWith('walk_in_place') || step.startsWith('walk_in_place_slow_') ||
-            step.startsWith('walk_in_place_fast_') || step.startsWith('walk_in_place_faster_')) {
-          mode = 'face';
+        } else if (step.startsWith('walk_in_place_slow_')) {
+          mode = 'walk_in_place_slow';
+        } else if (step.startsWith('walk_in_place_fast_')) {
+          mode = 'walk_in_place_fast';
+        } else if (step.startsWith('walk_in_place_faster_')) {
+          mode = 'walk_in_place_faster';
+        } else if (step.startsWith('walk_in_place_')) {
+          mode = 'walk_in_place';
         } else if (step.startsWith('acro_wheelie_face_') || step.startsWith('acro_end_wheelie_face_') ||
                    step.startsWith('acro_wheelie_in_place_') || step.startsWith('acro_wheelie_hop_face_') ||
                    step.startsWith('acro_pop_wheelie_') && !step.startsWith('acro_pop_wheelie_move_')) {
@@ -1710,6 +1811,18 @@ export class ScriptRunner {
                    step.startsWith('jump_special_') ||
                    step.startsWith('acro_wheelie_jump_')) {
           mode = 'jump';
+        } else if (step.startsWith('slide_')) {
+          mode = 'walk_fastest';
+        } else if (step.startsWith('ride_water_current_')) {
+          mode = 'ride_water_current';
+        } else if (step.startsWith('player_run_')) {
+          mode = 'run';
+        } else if (step.startsWith('walk_slow_')) {
+          mode = 'walk_slow';
+        } else if (step.startsWith('walk_fast_')) {
+          mode = 'walk_fast';
+        } else if (step.startsWith('walk_faster_')) {
+          mode = 'walk_faster';
         } else {
           // walk_*, walk_fast_*, walk_faster_*, walk_slow_*, slide_*,
           // player_run_*, ride_water_current_*, acro_wheelie_hop_*,
@@ -1720,7 +1833,7 @@ export class ScriptRunner {
         if (isPlayer) {
           await this.ctx.movePlayer(dir, mode);
         } else {
-          await this.ctx.moveNpc(this.currentMapId, resolvedId, dir, mode);
+          await this.ctx.moveNpc(objectMapId, resolvedId, dir, mode);
         }
         continue;
       }
@@ -1751,8 +1864,8 @@ export class ScriptRunner {
         stringVars['STR_VAR_1'] = this.ctx.getPlayerGender() === 0 ? 'big guy' : 'big girl';
         return undefined;
       case 'GetBattleOutcome':
-        // Return B_OUTCOME_WON (1) — no battle system yet, auto-win
-        return 1;
+        // Read from shared variable set by BattleState. Default to B_OUTCOME_WON (1).
+        return gameVariables.getVar('VAR_BATTLE_OUTCOME') || 1;
       case 'ShouldTryRematchBattle':
         // Rematch system not implemented — always return FALSE (0).
         // Prevents gym leaders and 70+ rematchable trainers from
@@ -1780,6 +1893,29 @@ export class ScriptRunner {
       }
       case 'OpenPokenavForTutorial':
         // Opens the full PokéNav UI — no-op since we don't have one.
+        return undefined;
+
+      // --- Wild battle setup specials ---
+      // These all functionally trigger a wild battle using the parameters from setwildbattle.
+      case 'BattleSetup_StartLegendaryBattle':
+      case 'BattleSetup_StartGroudonBattle':
+      case 'BattleSetup_StartKyogreBattle':
+      case 'BattleSetup_StartRayquazaBattle':
+      case 'BattleSetup_StartRegiBattle':
+      case 'BattleSetup_StartLatiBattle':
+      case 'StartGroudonKyogreBattle':
+      case 'StartRegiBattle':
+        if (this.ctx.startWildBattle) {
+          await this.ctx.startWildBattle(this.wildBattleSpecies, this.wildBattleLevel);
+        }
+        return undefined;
+
+      case 'TurnOffTVScreen':
+        // TV raster toggle is visual-only in GBA; no-op for browser runtime.
+        return undefined;
+      case 'StartWallClock':
+      case 'Special_ViewWallClock':
+        // Wall clock UI is not implemented yet; keep scripts flowing.
         return undefined;
       case 'HealPlayerParty': {
         const party = this.ctx.getParty?.() ?? [];
@@ -1839,6 +1975,12 @@ export class ScriptRunner {
         }
         return undefined;
       }
+      case 'RotatingGate_InitPuzzle':
+        rotatingGateManager.initPuzzle(this.currentMapId);
+        return undefined;
+      case 'RotatingGate_InitPuzzleAndGraphics':
+        rotatingGateManager.initPuzzleAndGraphics(this.currentMapId);
+        return undefined;
 
       default:
         console.warn(`[ScriptRunner] Unimplemented special: ${name}`);
@@ -1856,19 +1998,21 @@ export class ScriptRunner {
     }
     const mapId = this.currentMapId;
     const get = (x: number, y: number) => this.ctx.getMapMetatile!(mapId, x, y);
-    const set = (x: number, y: number, id: number) => this.ctx.setMapMetatile!(mapId, x, y, id);
+    const set = (x: number, y: number, id: number, impassable?: boolean) =>
+      this.ctx.setMapMetatile!(mapId, x, y, id, impassable ? 1 : 0);
 
     const ML = METATILE_LABELS;
 
     if (name === 'MauvilleGymPressSwitch') {
       // C ref: field_specials.c — press one switch, raise others
+      // C source uses MAP_OFFSET (7) for border tiles, but our map data has no border.
+      // Coordinates are map-local content coordinates (0-indexed).
       const switchIdx = gameVariables.getVar('VAR_0x8004');
-      const MAP_OFFSET = 7; // pokeemerald MAP_OFFSET for border tiles
       const switchCoords = [
-        { x: 0 + MAP_OFFSET, y: 15 + MAP_OFFSET },
-        { x: 4 + MAP_OFFSET, y: 12 + MAP_OFFSET },
-        { x: 3 + MAP_OFFSET, y: 9 + MAP_OFFSET },
-        { x: 8 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+        { x: 0, y: 15 },
+        { x: 4, y: 12 },
+        { x: 3, y: 9 },
+        { x: 8, y: 9 },
       ];
       for (let i = 0; i < switchCoords.length; i++) {
         const metatile = i === switchIdx
@@ -1878,102 +2022,120 @@ export class ScriptRunner {
       }
     } else if (name === 'MauvilleGymSetDefaultBarriers') {
       // C ref: field_specials.c — toggles all barriers on↔off
-      const MAP_OFFSET = 7;
-      for (let y = 5 + MAP_OFFSET; y < 17 + MAP_OFFSET; y++) {
-        for (let x = 0 + MAP_OFFSET; x < 9 + MAP_OFFSET; x++) {
+      // C source uses MAP_OFFSET (7) for border tiles, but our map data has no border.
+      for (let y = 5; y < 17; y++) {
+        for (let x = 0; x < 9; x++) {
           const tile = get(x, y);
+          // FloorTile is context-dependent: check tile above to pick beam color
+          // C: FloorTile → BeamV2_On | MAPGRID_IMPASSABLE
+          if (tile === ML['METATILE_MauvilleGym_FloorTile']) {
+            const above = get(x, y - 1);
+            if (above === ML['METATILE_MauvilleGym_GreenBeamV1_On']) {
+              set(x, y, ML['METATILE_MauvilleGym_GreenBeamV2_On'], true);
+            } else {
+              set(x, y, ML['METATILE_MauvilleGym_RedBeamV2_On'], true);
+            }
+            continue;
+          }
           const swapped = this.mauvilleToggleBarrier(tile);
           if (swapped !== null) {
-            set(x, y, swapped);
+            set(x, y, swapped.metatile, swapped.impassable);
           }
         }
       }
     } else if (name === 'MauvilleGymDeactivatePuzzle') {
       // C ref: field_specials.c — press all switches, turn off all beams
-      const MAP_OFFSET = 7;
       const switchCoords = [
-        { x: 0 + MAP_OFFSET, y: 15 + MAP_OFFSET },
-        { x: 4 + MAP_OFFSET, y: 12 + MAP_OFFSET },
-        { x: 3 + MAP_OFFSET, y: 9 + MAP_OFFSET },
-        { x: 8 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+        { x: 0, y: 15 },
+        { x: 4, y: 12 },
+        { x: 3, y: 9 },
+        { x: 8, y: 9 },
       ];
       for (const coord of switchCoords) {
         set(coord.x, coord.y, ML['METATILE_MauvilleGym_PressedSwitch']);
       }
-      for (let y = 5 + MAP_OFFSET; y < 17 + MAP_OFFSET; y++) {
-        for (let x = 0 + MAP_OFFSET; x < 9 + MAP_OFFSET; x++) {
+      for (let y = 5; y < 17; y++) {
+        for (let x = 0; x < 9; x++) {
           const tile = get(x, y);
           const off = this.mauvilleDeactivateBarrier(tile);
           if (off !== null) {
-            set(x, y, off);
+            set(x, y, off.metatile, off.impassable);
           }
         }
       }
     }
   }
 
-  /** Toggle a Mauville Gym barrier tile between on/off states. */
-  private mauvilleToggleBarrier(tile: number): number | null {
+  /**
+   * Toggle a Mauville Gym barrier tile between on/off states.
+   * Returns { metatile, impassable } matching C source collision flags.
+   * C ref: field_specials.c MauvilleGymSetDefaultBarriers()
+   */
+  private mauvilleToggleBarrier(tile: number): { metatile: number; impassable: boolean } | null {
     const ML = METATILE_LABELS;
-    // Horizontal beams — On → Off
+    // Horizontal beams — On → Off (passable)
     switch (tile) {
-      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return ML['METATILE_MauvilleGym_GreenBeamH1_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return ML['METATILE_MauvilleGym_GreenBeamH2_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return ML['METATILE_MauvilleGym_GreenBeamH3_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return ML['METATILE_MauvilleGym_GreenBeamH4_Off'];
-      // Horizontal beams — Off → On
-      case ML['METATILE_MauvilleGym_GreenBeamH1_Off']: return ML['METATILE_MauvilleGym_GreenBeamH1_On'];
-      case ML['METATILE_MauvilleGym_GreenBeamH2_Off']: return ML['METATILE_MauvilleGym_GreenBeamH2_On'];
-      case ML['METATILE_MauvilleGym_GreenBeamH3_Off']: return ML['METATILE_MauvilleGym_GreenBeamH3_On'];
-      case ML['METATILE_MauvilleGym_GreenBeamH4_Off']: return ML['METATILE_MauvilleGym_GreenBeamH4_On'];
-      // Red horizontal beams
-      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return ML['METATILE_MauvilleGym_RedBeamH1_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return ML['METATILE_MauvilleGym_RedBeamH2_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return ML['METATILE_MauvilleGym_RedBeamH3_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return ML['METATILE_MauvilleGym_RedBeamH4_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH1_Off']: return ML['METATILE_MauvilleGym_RedBeamH1_On'];
-      case ML['METATILE_MauvilleGym_RedBeamH2_Off']: return ML['METATILE_MauvilleGym_RedBeamH2_On'];
-      case ML['METATILE_MauvilleGym_RedBeamH3_Off']: return ML['METATILE_MauvilleGym_RedBeamH3_On'];
-      case ML['METATILE_MauvilleGym_RedBeamH4_Off']: return ML['METATILE_MauvilleGym_RedBeamH4_On'];
-      // Vertical beams — green on → pole bottom on
-      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_On'];
-      case ML['METATILE_MauvilleGym_GreenBeamV2_On']: return ML['METATILE_MauvilleGym_FloorTile'];
-      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamV2_On']: return ML['METATILE_MauvilleGym_FloorTile'];
-      // Pole bottom on → green vertical beam on
-      case ML['METATILE_MauvilleGym_PoleBottom_On']: return ML['METATILE_MauvilleGym_GreenBeamV1_On'];
-      // Pole bottom off → red vertical beam on
-      case ML['METATILE_MauvilleGym_PoleBottom_Off']: return ML['METATILE_MauvilleGym_RedBeamV1_On'];
+      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH1_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH2_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH3_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH4_Off'], impassable: false };
+      // Horizontal beams — Off → On (H1/H2 passable, H3/H4 impassable)
+      case ML['METATILE_MauvilleGym_GreenBeamH1_Off']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH1_On'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH2_Off']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH2_On'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH3_Off']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH3_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_GreenBeamH4_Off']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH4_On'], impassable: true };
+      // Red horizontal beams — On → Off (passable)
+      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH1_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH2_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH3_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH4_Off'], impassable: false };
+      // Red horizontal beams — Off → On (H1/H2 passable, H3/H4 impassable)
+      case ML['METATILE_MauvilleGym_RedBeamH1_Off']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH1_On'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH2_Off']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH2_On'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH3_Off']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH3_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_RedBeamH4_Off']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH4_On'], impassable: true };
+      // Vertical beams — on → pole bottom (impassable) / floor (passable)
+      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return { metatile: ML['METATILE_MauvilleGym_PoleBottom_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_GreenBeamV2_On']: return { metatile: ML['METATILE_MauvilleGym_FloorTile'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return { metatile: ML['METATILE_MauvilleGym_PoleBottom_Off'], impassable: true };
+      case ML['METATILE_MauvilleGym_RedBeamV2_On']: return { metatile: ML['METATILE_MauvilleGym_FloorTile'], impassable: false };
+      // Pole bottom → vertical beam on (impassable)
+      case ML['METATILE_MauvilleGym_PoleBottom_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamV1_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_PoleBottom_Off']: return { metatile: ML['METATILE_MauvilleGym_RedBeamV1_On'], impassable: true };
       // Pole top toggle
-      case ML['METATILE_MauvilleGym_PoleTop_Off']: return ML['METATILE_MauvilleGym_PoleTop_On'];
-      case ML['METATILE_MauvilleGym_PoleTop_On']: return ML['METATILE_MauvilleGym_PoleTop_Off'];
+      case ML['METATILE_MauvilleGym_PoleTop_Off']: return { metatile: ML['METATILE_MauvilleGym_PoleTop_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_PoleTop_On']: return { metatile: ML['METATILE_MauvilleGym_PoleTop_Off'], impassable: false };
       // FloorTile — needs context check (above tile) — handled specially
       case ML['METATILE_MauvilleGym_FloorTile']: return null; // context-dependent, skip
       default: return null;
     }
   }
 
-  /** Deactivate a Mauville Gym barrier tile (turn beams off). */
-  private mauvilleDeactivateBarrier(tile: number): number | null {
+  /**
+   * Deactivate a Mauville Gym barrier tile (turn beams off).
+   * Returns { metatile, impassable } matching C source collision flags.
+   * C ref: field_specials.c MauvilleGymDeactivatePuzzle()
+   */
+  private mauvilleDeactivateBarrier(tile: number): { metatile: number; impassable: boolean } | null {
     const ML = METATILE_LABELS;
     switch (tile) {
-      // All horizontal beams → Off
-      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return ML['METATILE_MauvilleGym_GreenBeamH1_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return ML['METATILE_MauvilleGym_GreenBeamH2_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return ML['METATILE_MauvilleGym_GreenBeamH3_Off'];
-      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return ML['METATILE_MauvilleGym_GreenBeamH4_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return ML['METATILE_MauvilleGym_RedBeamH1_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return ML['METATILE_MauvilleGym_RedBeamH2_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return ML['METATILE_MauvilleGym_RedBeamH3_Off'];
-      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return ML['METATILE_MauvilleGym_RedBeamH4_Off'];
-      // Vertical beams → poles/floor
-      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_On'];
-      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_Off'];
+      // All horizontal beams → Off (passable)
+      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH1_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH2_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH3_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return { metatile: ML['METATILE_MauvilleGym_GreenBeamH4_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH1_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH2_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH3_Off'], impassable: false };
+      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return { metatile: ML['METATILE_MauvilleGym_RedBeamH4_Off'], impassable: false };
+      // Vertical beams → poles (impassable) / floor (passable)
+      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return { metatile: ML['METATILE_MauvilleGym_PoleBottom_On'], impassable: true };
+      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return { metatile: ML['METATILE_MauvilleGym_PoleBottom_Off'], impassable: true };
       case ML['METATILE_MauvilleGym_GreenBeamV2_On']:
       case ML['METATILE_MauvilleGym_RedBeamV2_On']:
-        return ML['METATILE_MauvilleGym_FloorTile'];
-      // Pole top → off
-      case ML['METATILE_MauvilleGym_PoleTop_On']: return ML['METATILE_MauvilleGym_PoleTop_Off'];
+        return { metatile: ML['METATILE_MauvilleGym_FloorTile'], impassable: false };
+      // Pole top → off (passable)
+      case ML['METATILE_MauvilleGym_PoleTop_On']: return { metatile: ML['METATILE_MauvilleGym_PoleTop_Off'], impassable: false };
       default: return null;
     }
   }
@@ -1987,14 +2149,15 @@ export class ScriptRunner {
       return;
     }
     const mapId = this.currentMapId;
-    const set = (x: number, y: number, id: number) => this.ctx.setMapMetatile!(mapId, x, y, id);
+    // C ref: PetalburgGymSetDoorMetatiles always uses MAPGRID_IMPASSABLE
+    const set = (x: number, y: number, id: number) => this.ctx.setMapMetatile!(mapId, x, y, id, 1);
     const ML = METATILE_LABELS;
-    const MAP_OFFSET = 7;
-    const METATILE_ROW_WIDTH = 8; // Standard metatile row width
+    const METATILE_ROW_WIDTH_PET = 8; // Standard metatile row width
 
     const roomNumber = gameVariables.getVar('VAR_0x8004');
 
-    // Door coordinates per room (from C source)
+    // Door coordinates per room (from C source sPetalburgGymSlidingDoorCoords).
+    // C source stores content coordinates (no MAP_OFFSET); our map data is also content-only.
     interface DoorCoord { x: number; y: number }
     const doorCoords: DoorCoord[] = [];
     switch (roomNumber) {
@@ -2020,15 +2183,15 @@ export class ScriptRunner {
       // Instant: set to final frame
       const finalFrame = slidingDoorFrames[4];
       for (const door of doorCoords) {
-        set(door.x + MAP_OFFSET, door.y + MAP_OFFSET, finalFrame);
-        set(door.x + MAP_OFFSET, door.y + MAP_OFFSET + 1, finalFrame + METATILE_ROW_WIDTH);
+        set(door.x, door.y, finalFrame);
+        set(door.x, door.y + 1, finalFrame + METATILE_ROW_WIDTH_PET);
       }
     } else if (name === 'PetalburgGymSlideOpenRoomDoors') {
       // Animated: cycle through 5 frames
       for (const frame of slidingDoorFrames) {
         for (const door of doorCoords) {
-          set(door.x + MAP_OFFSET, door.y + MAP_OFFSET, frame);
-          set(door.x + MAP_OFFSET, door.y + MAP_OFFSET + 1, frame + METATILE_ROW_WIDTH);
+          set(door.x, door.y, frame);
+          set(door.x, door.y + 1, frame + METATILE_ROW_WIDTH_PET);
         }
         await this.ctx.delayFrames(4); // ~4 frame delay between animation frames
       }

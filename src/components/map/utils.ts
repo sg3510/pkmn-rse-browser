@@ -167,7 +167,8 @@ export function detectWarpTrigger(ctx: RenderContext, player: PlayerController):
   const warpEvent = findWarpEventAt(resolved.map, player.tileX, player.tileY);
   if (!warpEvent) return null;
   const metatileId = resolved.mapTile.metatileId;
-  const kind = classifyWarpKind(behavior) ?? 'teleport';
+  const kind = classifyWarpKind(behavior);
+  if (!kind) return null;
   
   if (isDebugMode('map')) {
     console.log('[DETECT_WARP_TRIGGER]', {

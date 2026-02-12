@@ -299,13 +299,7 @@ class NPCMovementEngineClass {
       for (let frame = 0; frame < framesToProcess; frame++) {
         // If walking, update position
         if (state.isWalking) {
-          if (state.walkInPlace) {
-            // Animation-only "walk in place": no tile/sub-tile displacement.
-            state.subTileX = 0;
-            state.subTileY = 0;
-          } else {
-            this.updateWalkProgress(npc, state);
-          }
+          this.updateWalkProgress(npc, state);
         }
 
         // Run movement state machine
@@ -344,6 +338,21 @@ class NPCMovementEngineClass {
    * when walk started, so we're moving subTile from -16 toward 0.
    */
   private updateWalkProgress(_npc: NPCObject, state: NPCMovementState): void {
+    if (state.walkInPlace) {
+      // Match GBA single movement timing for walk-in-place actions:
+      // they complete after one standard movement action window.
+      state.walkProgress++;
+      state.subTileX = 0;
+      state.subTileY = 0;
+      if (state.walkProgress >= WALK_FRAMES_PER_TILE) {
+        state.walkProgress = 0;
+        state.isWalking = false;
+        state.walkInPlace = false;
+        state.singleMovementActive = false;
+      }
+      return;
+    }
+
     state.walkProgress++;
 
     const { dx, dy } = getDirectionDeltas(state.movementDirection);
