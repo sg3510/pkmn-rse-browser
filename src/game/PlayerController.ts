@@ -28,6 +28,11 @@ import {
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
+import {
+  getPlayerSpriteFrameMetrics,
+  resolvePlayerSpriteFrameIndex,
+  type PlayerSpriteKey,
+} from './playerSprites';
 import { getShadowPosition } from '../rendering/spriteUtils';
 import { loadImageCanvasAsset } from '../utils/assetLoader';
 import { createLogger } from '../utils/logger';
@@ -36,6 +41,8 @@ import { directionToOffset } from '../utils/direction';
 import { areElevationsCompatible } from '../utils/elevation';
 import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL } from './jumpArc';
 import { inputMap, GameButton } from '../core/InputMap';
+import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing';
+import { getSurfingFrameSelection } from './playerFrameSelection';
 
 const playerLogger = createLogger('PlayerController');
 
@@ -64,6 +71,7 @@ export interface DoorWarpRequest {
 }
 
 export interface FrameInfo {
+  spriteKey: PlayerSpriteKey;
   sprite: HTMLCanvasElement;
   sx: number;
   sy: number;
@@ -73,6 +81,8 @@ export interface FrameInfo {
   renderY: number;
   flip: boolean;
 }
+
+export type TraversalMode = 'land' | 'surf' | 'underwater';
 
 // Jump Physics Constants (arc tables imported from jumpArc.ts)
 const JUMP_DISTANCE_FAR = 32;    // 2-tile ledge jump (pixels)
@@ -326,15 +336,49 @@ class SurfingState implements PlayerState {
   }
 
   getFrameInfo(controller: PlayerController): FrameInfo | null {
-    if (controller.isUnderwater()) {
-      return controller.calculateFrameInfo('underwater');
-    }
     // Use surfing sprite (32x32 frames)
     const frame = controller.calculateSurfingFrameInfo();
     if (frame) {
       // Apply player bob offset (uses getPlayerBobOffset which respects BOB_JUST_MON mode)
       const bobOffset = controller.getSurfingController().getBlobRenderer().getPlayerBobOffset();
       frame.renderY += bobOffset;
+    }
+    return frame;
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+class UnderwaterState implements PlayerState {
+  private readonly SPEED = 0.06;
+
+  enter(_controller: PlayerController): void {}
+  exit(_controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    controller.updateUnderwaterBob(delta);
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+    if (wasMoving && !controller.isMoving) {
+      if (controller.checkAndHandleSpecialTile()) return true;
+    }
+    return result;
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // C parity: no B-button running while underwater.
+    if (controller.checkForLedgeJump(keys)) {
+      return;
+    }
+    controller.handleDirectionInput(keys);
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    const frame = controller.calculateFrameInfo('underwater');
+    if (frame) {
+      frame.renderY += controller.getUnderwaterBobOffset();
     }
     return frame;
   }
@@ -395,6 +439,7 @@ class SurfJumpingState implements PlayerState {
           controller.y = result.newTileY * 16 - 16;
         }
         controller.updateElevation();
+        controller.setTraversalMode('surf');
         controller.changeState(new SurfingState());
       } else {
         // Dismount complete - switch to normal state
@@ -405,6 +450,7 @@ class SurfJumpingState implements PlayerState {
           controller.y = result.newTileY * 16 - 16;
         }
         controller.updateElevation();
+        controller.setTraversalMode('land');
         controller.changeState(new NormalState());
       }
       return true;
@@ -584,7 +630,8 @@ export class PlayerController {
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
   private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
   private surfingController: SurfingController = new SurfingController();
-  private underwaterMode: boolean = false;
+  private traversalMode: TraversalMode = 'land';
+  private underwaterBobElapsedMs: number = 0;
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
   private prevTileX: number;
@@ -615,9 +662,6 @@ export class PlayerController {
   private previousTileElevation: number = 0;
 
   private readonly TILE_PIXELS = 16;
-  private readonly SPRITE_WIDTH = 16;
-  private readonly SPRITE_HEIGHT = 32;
-
   // Keys that should have their default browser behavior prevented.
   // Derived from InputMap bindings (uses e.code values).
   private static readonly GAME_CONTROL_KEYS = inputMap.getAllCodes();
@@ -746,7 +790,7 @@ export class PlayerController {
 
     // 5. Reset surfing controller if mid-animation
     this.surfingController.reset();
-    this.underwaterMode = false;
+    this.setTraversalMode('land');
   }
 
   /**
@@ -861,10 +905,10 @@ export class PlayerController {
     this.isMoving = false;
     this.pixelsMoved = 0;
     this.scriptedMoveSpeedPxPerMs = null;
-    // Reset to NormalState so the standing/walking sprite sheet is used for
-    // idle frames. Without this, RunningState keeps selecting the running
-    // sprite sheet which shows the run pose even when standing still.
-    if (!(this.currentState instanceof NormalState)) {
+    // Preserve traversal sprite domain during modal prompts.
+    // Surf/underwater prompts should not force walking state, or frame/atlas
+    // selection can desync in the renderer.
+    if (this.traversalMode === 'land' && !(this.currentState instanceof NormalState)) {
       this.changeState(new NormalState());
     }
   }
@@ -1249,7 +1293,56 @@ export class PlayerController {
     // === SURFING COLLISION LOGIC ===
     // Reference: pokeemerald/src/field_player_avatar.c - CheckForObjectEventCollision
     // When surfing, water is passable but land (elevation 3) triggers dismount check
-    const currentlySurfing = this.surfingController.isSurfing();
+    const currentlySurfing = this.isCurrentlySurfing();
+
+    if (this.traversalMode === 'underwater') {
+      if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event while underwater - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} has collision bit=${collision}, behavior=${behavior} - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (!options?.ignoreElevation && this.isElevationMismatchAt(tileX, tileY)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH while underwater`);
+        }
+        return true;
+      }
+
+      if (behavior === 1) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is SECRET_BASE_WALL - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (behavior >= 48 && behavior <= 55) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (this.dynamicCollisionChecker && this.dynamicCollisionChecker(tileX, tileY, this.dir)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by dynamic collision checker`);
+        }
+        return true;
+      }
+
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE (underwater)`);
+      }
+      return false;
+    }
 
     if (currentlySurfing) {
       // While surfing: check if target is surfable water
@@ -1365,18 +1458,27 @@ export class PlayerController {
     return false; // Passable
   }
 
+  private isCurrentlySurfing(): boolean {
+    return (this.traversalMode === 'surf' || this.surfingController.isSurfing()) && !this.isUnderwater();
+  }
+
   public getFrameInfo(): FrameInfo | null {
     return this.currentState.getFrameInfo(this);
   }
 
+  private getSpriteFrameMetrics(spriteKey: PlayerSpriteKey): ReturnType<typeof getPlayerSpriteFrameMetrics> {
+    return getPlayerSpriteFrameMetrics(spriteKey);
+  }
+
   // Helper to calculate frame info based on sprite key and current state
-  public calculateFrameInfo(spriteKey: string, forceWalkFrame: boolean = false): FrameInfo | null {
+  public calculateFrameInfo(spriteKey: PlayerSpriteKey, forceWalkFrame: boolean = false): FrameInfo | null {
     const sprite = this.sprites[spriteKey];
     if (!sprite) return null;
+    const { frameWidth, frameHeight, renderXOffset } = this.getSpriteFrameMetrics(spriteKey);
 
     // Preserve subpixel position; final rounding happens in render() alongside camera coordinates
     // (Flooring here causes 1px shiver when combined with round() in render())
-    const renderX = this.x;
+    const renderX = this.x + renderXOffset;
     const renderY = this.y + this.spriteYOffset;
 
     let srcIndex = 0;
@@ -1408,15 +1510,18 @@ export class PlayerController {
       }
     }
 
-    const srcX = srcIndex * this.SPRITE_WIDTH;
+    srcIndex = resolvePlayerSpriteFrameIndex(spriteKey, srcIndex);
+
+    const srcX = srcIndex * frameWidth;
     const srcY = 0;
 
     return {
+      spriteKey,
       sprite: sprite,
       sx: srcX,
       sy: srcY,
-      sw: this.SPRITE_WIDTH,
-      sh: this.SPRITE_HEIGHT,
+      sw: frameWidth,
+      sh: frameHeight,
       renderX,
       renderY,
       flip,
@@ -1425,10 +1530,12 @@ export class PlayerController {
 
   /**
    * Calculate frame info for surfing sprite (32x32 frames)
-   * Surfing sprite layout: 6 frames of 32x32
-   * - Frame 0-1: Down (idle, walk)
-   * - Frame 2-3: Up (idle, walk)
-   * - Frame 4-5: Left/Right (idle, walk) - flip for right
+   *
+   * C parity references:
+   * - public/pokeemerald/src/data/object_events/object_event_pic_tables.h
+   *   (sPicTable_BrendanSurfing frameMap)
+   * - public/pokeemerald/src/data/object_events/object_event_anims.h
+   *   (ANIM_GET_ON_OFF_POKEMON_* uses logical 9/10/11)
    */
   public calculateSurfingFrameInfo(): FrameInfo | null {
     const sprite = this.sprites['surfing'];
@@ -1437,52 +1544,32 @@ export class PlayerController {
       return this.calculateFrameInfo('walking');
     }
 
-    const SURF_FRAME_WIDTH = 32;
-    const SURF_FRAME_HEIGHT = 32;
-
     // DO NOT floor here - allow smooth sub-pixel positioning during movement.
     // Rounding will be applied in the render function AFTER adding bob offset
     // to ensure player and blob use the same final integer positions.
-    // Center 32px sprite horizontally on 16px player position: offset by (32-16)/2 = 8
-    const renderX = this.x - 8;
+    const { frameWidth, frameHeight, renderXOffset } = this.getSpriteFrameMetrics('surfing');
+    const renderX = this.x + renderXOffset;
     // player.y is already set so feet are at tile bottom for 32px tall sprite
     // Surfing sprite is also 32px tall, so just use player.y directly
     const renderY = this.y;
 
-    let srcIndex = 0;
-    let flip = false;
-
-    // Surfing sprite layout (6 frames):
-    // 0: down idle, 1: down walk (mount/dismount only)
-    // 2: up idle, 3: up walk (mount/dismount only)
-    // 4: left/right idle, 5: left/right walk (mount/dismount only)
-    //
-    // GBA behavior during CONTINUOUS SURFING:
-    // - Player sprite stays on STATIC IDLE frame (no animation)
-    // - Only the Y-position bobs up/down with the surf blob
-    // - Walk frames (1, 3, 5) are ONLY used during mount/dismount jump sequences
-
-    // Use walk frames during mount/dismount, idle frames during normal surfing
     const isJumping = this.surfingController.isJumping();
-    const frameOffset = isJumping ? 1 : 0; // +1 for walk frame
+    const frameSelection = getSurfingFrameSelection(this.dir, isJumping);
+    const srcIndex = resolvePlayerSpriteFrameIndex('surfing', frameSelection.logicalFrame);
 
-    if (this.dir === 'down') srcIndex = 0 + frameOffset;
-    else if (this.dir === 'up') srcIndex = 2 + frameOffset;
-    else if (this.dir === 'left') srcIndex = 4 + frameOffset;
-    else if (this.dir === 'right') { srcIndex = 4 + frameOffset; flip = true; }
-
-    const srcX = srcIndex * SURF_FRAME_WIDTH;
+    const srcX = srcIndex * frameWidth;
     const srcY = 0;
 
     return {
+      spriteKey: 'surfing',
       sprite: sprite,
       sx: srcX,
       sy: srcY,
-      sw: SURF_FRAME_WIDTH,
-      sh: SURF_FRAME_HEIGHT,
+      sw: frameWidth,
+      sh: frameHeight,
       renderX,
       renderY,
-      flip,
+      flip: frameSelection.flip,
     };
   }
 
@@ -1543,7 +1630,14 @@ export class PlayerController {
   }
 
   public getSpriteSize() {
-    return { width: this.SPRITE_WIDTH, height: this.SPRITE_HEIGHT };
+    const frame = this.getFrameInfo();
+    if (frame) {
+      return { width: frame.sw, height: frame.sh };
+    }
+
+    const spriteKey = this.getCurrentSpriteKey();
+    const { frameWidth, frameHeight } = this.getSpriteFrameMetrics(spriteKey);
+    return { width: frameWidth, height: frameHeight };
   }
 
   /**
@@ -1991,6 +2085,14 @@ export class PlayerController {
     this.surfingController.updateBlobDirection(this.dir);
   }
 
+  public updateUnderwaterBob(deltaMs: number): void {
+    this.underwaterBobElapsedMs += deltaMs;
+  }
+
+  public getUnderwaterBobOffset(): number {
+    return getUnderwaterBobOffsetAtTime(this.underwaterBobElapsedMs);
+  }
+
   /**
    * Handle input while surfing.
    * Surfing movement is similar to walking but restricted to water tiles.
@@ -2104,6 +2206,7 @@ export class PlayerController {
     if (isDebugMode()) {
       this.debugLog(`[SURF] Starting surf sequence to (${check.targetX}, ${check.targetY})`);
     }
+    this.setTraversalMode('surf', this.dir);
 
     this.surfingController.startSurfSequence(
       check.targetX,
@@ -2117,25 +2220,57 @@ export class PlayerController {
   }
 
   public isUnderwater(): boolean {
-    return this.underwaterMode;
+    return this.traversalMode === 'underwater';
   }
 
-  public setTraversalState(state: { surfing: boolean; underwater: boolean }): void {
-    this.underwaterMode = state.underwater;
-    this.surfingController.setSurfingActive(state.surfing, this.dir);
+  public getTraversalMode(): TraversalMode {
+    return this.traversalMode;
+  }
+
+  public setTraversalMode(
+    mode: TraversalMode,
+    direction: 'up' | 'down' | 'left' | 'right' = this.dir
+  ): void {
+    const previousMode = this.traversalMode;
+    this.traversalMode = mode;
+    this.surfingController.setSurfingActive(mode === 'surf', direction);
+
+    if (mode !== 'underwater') {
+      this.underwaterBobElapsedMs = 0;
+    } else if (previousMode !== 'underwater') {
+      this.underwaterBobElapsedMs = 0;
+    }
 
     this.isMoving = false;
     this.pixelsMoved = 0;
     this.spriteYOffset = 0;
     this.scriptedMoveSpeedPxPerMs = null;
 
-    if (state.surfing) {
+    if (mode === 'surf') {
       if (!(this.currentState instanceof SurfingState)) {
         this.changeState(new SurfingState());
       }
-    } else if (!(this.currentState instanceof NormalState)) {
+      return;
+    }
+
+    if (mode === 'underwater') {
+      if (!(this.currentState instanceof UnderwaterState)) {
+        this.changeState(new UnderwaterState());
+      }
+      return;
+    }
+
+    if (!(this.currentState instanceof NormalState)) {
       this.changeState(new NormalState());
     }
+  }
+
+  public setTraversalState(state: { surfing: boolean; underwater: boolean }): void {
+    if (state.underwater) {
+      this.setTraversalMode('underwater');
+      return;
+    }
+    this.setTraversalMode(state.surfing ? 'surf' : 'land');
   }
 
   /**
@@ -2156,8 +2291,8 @@ export class PlayerController {
    * Get the current sprite sheet key for WebGL rendering.
    * Returns 'surfing', 'running', or 'walking'.
    */
-  public getCurrentSpriteKey(): string {
-    if (this.underwaterMode) return 'underwater';
+  public getCurrentSpriteKey(): PlayerSpriteKey {
+    if (this.traversalMode === 'underwater') return 'underwater';
     // Check for surfing OR mount/dismount jump (which also uses surfing sprite)
     if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';
     if (this.isRunning()) return 'running';

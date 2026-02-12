@@ -242,7 +242,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
     // === Build surf blob sprite (if surfing or mounting/dismounting) ===
     if (playerLoaded && !playerHidden && spriteRenderer.hasSpriteSheet('surf-blob')) {
       const surfCtrl = player.getSurfingController();
-      const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
+      const shouldRenderBlob = !player.isUnderwater() && (player.isSurfing() || surfCtrl.isJumping());
 
       if (shouldRenderBlob) {
         const blobRenderer = surfCtrl.getBlobRenderer();
@@ -433,12 +433,11 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         const frameInfo = info.player.getFrameInfo();
         if (!frameInfo) continue;
 
-        const spriteKey = info.player.getCurrentSpriteKey();
-        const atlasName = getPlayerAtlasName(spriteKey);
+        const atlasName = getPlayerAtlasName(frameInfo.spriteKey);
         if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
 
         const clipToHalf = info.player.isOnLongGrass();
-        const playerSprite = createSpriteFromFrameInfo(frameInfo, atlasName, info.sortKey, clipToHalf);
+        const playerSprite = createSpriteFromFrameInfo(frameInfo, info.sortKey, clipToHalf);
 
         // Note: Bob offset for surfing is already applied in SurfingState.getFrameInfo()
         // (see PlayerController.ts line 304-305), so we don't apply it here
@@ -447,7 +446,8 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
 
         // Add player reflection
         if (snapshot) {
-          const { width: spriteWidth, height: spriteHeight } = info.player.getSpriteSize();
+          const spriteWidth = frameInfo.sw;
+          const spriteHeight = frameInfo.sh;
           const destTile = info.player.getDestinationTile();
           const reflectionState = computeReflectionState(
             snapshot,

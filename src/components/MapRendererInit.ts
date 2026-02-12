@@ -32,6 +32,7 @@ import { findPlayerSpawnPosition } from '../game/findPlayerSpawnPosition';
 import { saveManager } from '../save/SaveManager';
 import type { CardinalDirection } from '../field/types';
 import type { WorldCameraView } from '../rendering/types';
+import { getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../game/playerSprites';
 
 // WorldCameraView is imported from src/rendering/types.ts (canonical definition)
 export type { WorldCameraView };
@@ -293,12 +294,9 @@ export async function initializeGame({
       return;
     }
 
-    // Load player sprite
-    const player = new PlayerController();
-    await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
-    await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
-    await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
-    await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+        // Load player sprite
+        const player = new PlayerController();
+        await loadPlayerSpriteSheets(player, getPlayerSpriteLoadOrder());
 
     // Load field effect sprites (grass, sand, splash, etc.)
     await hooks.fieldSpritesLoadAll();

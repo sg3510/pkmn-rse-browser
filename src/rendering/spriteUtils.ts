@@ -52,17 +52,17 @@ const REFLECTION_TINT_COLORS = {
  * Create a SpriteInstance from PlayerController's FrameInfo
  *
  * @param frameInfo - Frame info from player.getFrameInfo()
- * @param atlasName - Name of the sprite sheet (e.g., 'player-walking')
  * @param sortKey - Y-sort key for depth ordering
  * @param clipToHalf - If true, only show top half of sprite (for long grass)
  * @returns SpriteInstance ready for rendering
  */
 export function createSpriteFromFrameInfo(
   frameInfo: FrameInfo,
-  atlasName: string,
   sortKey: number,
   clipToHalf: boolean = false
 ): SpriteInstance {
+  const atlasName = getPlayerAtlasName(frameInfo.spriteKey);
+
   // For long grass clipping, only show top half of sprite
   const displayHeight = clipToHalf ? Math.floor(frameInfo.sh / 2) : frameInfo.sh;
   const srcHeight = clipToHalf ? Math.floor(frameInfo.sh / 2) : frameInfo.sh;

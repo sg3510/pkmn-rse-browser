@@ -1,5 +1,6 @@
 import type { WorldCameraView } from '../rendering/types';
 import type { WeatherName } from '../data/weather.gen';
+import type { TransparencyMode } from '../utils/assetLoader';
 
 export interface WeatherUpdateContext {
   nowMs: number;
@@ -24,4 +25,10 @@ export interface WeatherStateSnapshot {
   currentMapId: string | null;
   savedWeather: WeatherName;
   activeWeather: WeatherName;
+}
+
+export interface WeatherAssetDescriptor {
+  key: string;
+  path: string;
+  transparency?: TransparencyMode;
 }

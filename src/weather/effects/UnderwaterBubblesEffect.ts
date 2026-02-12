@@ -2,11 +2,13 @@
  * WEATHER_UNDERWATER_BUBBLES visual effect.
  *
  * C references:
- * - public/pokeemerald/src/field_weather_effect.c (Bubbles_*)
+ * - public/pokeemerald/src/field_weather_effect.c (FogHorizontal_* and Bubbles_*)
  */
 
-import { loadImageAsset } from '../../utils/assetLoader';
-import type { WeatherEffect, WeatherRenderContext, WeatherUpdateContext } from '../types';
+import type { WeatherAssetDescriptor, WeatherEffect, WeatherRenderContext, WeatherUpdateContext } from '../types';
+import { loadWeatherAssets } from '../assets';
+import { TiledLayerRenderer } from './primitives/TiledLayerRenderer';
+import { SpriteParticleEmitter } from './primitives/SpriteParticleEmitter';
 
 interface BubbleParticle {
   x: number;
@@ -38,32 +40,48 @@ const BUBBLE_START_COORDS = [
   [256, 160],
 ] as const;
 
+const UNDERWATER_ASSETS: readonly WeatherAssetDescriptor[] = [
+  {
+    key: 'fog',
+    path: '/pokeemerald/graphics/weather/fog_horizontal.png',
+    transparency: { type: 'top-left' },
+  },
+  {
+    key: 'bubble',
+    path: '/pokeemerald/graphics/weather/bubble.png',
+    transparency: { type: 'top-left' },
+  },
+] as const;
+
 export class UnderwaterBubblesEffect implements WeatherEffect {
-  private fogImage: HTMLImageElement | null = null;
-  private bubbleImage: HTMLImageElement | null = null;
+  private fogCanvas: HTMLCanvasElement | null = null;
+  private bubbleCanvas: HTMLCanvasElement | null = null;
   private assetsPromise: Promise<void> | null = null;
 
-  private bubbles: BubbleParticle[] = [];
+  private readonly bubbles = new SpriteParticleEmitter<BubbleParticle>();
+  private readonly fogRenderer = new TiledLayerRenderer();
 
   private bubbleDelayIndex = 0;
   private bubbleDelayCounter: number = BUBBLE_START_DELAYS[0];
   private bubbleCoordsIndex = 0;
 
   private frameAccumulator = 0;
-  private fogScrollX = 0;
+  private fogScrollOffset = 0;
+  private fogScrollCounter = 0;
 
   onEnter(): void {
-    this.bubbles = [];
+    this.bubbles.clear();
     this.bubbleDelayIndex = 0;
     this.bubbleDelayCounter = BUBBLE_START_DELAYS[0];
     this.bubbleCoordsIndex = 0;
     this.frameAccumulator = 0;
-    this.fogScrollX = 0;
+    this.fogScrollOffset = 0;
+    this.fogScrollCounter = 0;
     void this.ensureAssetsLoaded();
   }
 
   onExit(): void {
-    this.bubbles = [];
+    this.bubbles.clear();
   }
 
   update(context: WeatherUpdateContext): void {
@@ -80,73 +98,58 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     const { ctx2d, view } = context;
-    const scaleX = view.pixelWidth / BASE_WIDTH;
-    const scaleY = view.pixelHeight / BASE_HEIGHT;
 
-    if (this.fogImage) {
-      const fogTileWidth = this.fogImage.width * scaleX;
-      const fogTileHeight = this.fogImage.height * scaleY;
-      const wrappedScroll = ((this.fogScrollX % fogTileWidth) + fogTileWidth) % fogTileWidth;
-
-      ctx2d.save();
-      ctx2d.globalAlpha = 0.24;
-
-      for (let drawY = 0; drawY < view.pixelHeight + fogTileHeight; drawY += fogTileHeight) {
-        for (let drawX = -wrappedScroll - fogTileWidth; drawX < view.pixelWidth + fogTileWidth; drawX += fogTileWidth) {
-          ctx2d.drawImage(
-            this.fogImage,
-            Math.floor(drawX),
-            Math.floor(drawY),
-            Math.ceil(fogTileWidth),
-            Math.ceil(fogTileHeight)
-          );
-        }
-      }
-
-      ctx2d.restore();
+    if (this.fogCanvas) {
+      this.fogRenderer.render(ctx2d, this.fogCanvas, view, {
+        alpha: 0.24,
+        scrollX: this.fogScrollOffset,
+      });
     }
 
-    const bubbleSize = Math.max(1, Math.round(8 * Math.min(scaleX, scaleY)));
-
-    if (this.bubbleImage) {
-      for (const bubble of this.bubbles) {
+    if (this.bubbleCanvas) {
+      const prevSmoothing = ctx2d.imageSmoothingEnabled;
+      ctx2d.imageSmoothingEnabled = false;
+      this.bubbles.forEach((bubble) => {
         const frame = Math.floor(bubble.ageFrames / 16) % 2;
         const drawX = Math.round(bubble.x + bubble.xOffset);
         const drawY = Math.round(bubble.y);
 
         ctx2d.drawImage(
-          this.bubbleImage,
+          this.bubbleCanvas as HTMLCanvasElement,
           0,
           frame * 8,
           8,
           8,
           drawX,
           drawY,
-          bubbleSize,
-          bubbleSize
+          8,
+          8
         );
-      }
+      });
+      ctx2d.imageSmoothingEnabled = prevSmoothing;
       return;
     }
 
-    // Fallback while the bubble sprite is loading.
+    // Fallback while bubble sheet is loading.
     ctx2d.save();
     ctx2d.fillStyle = 'rgba(220, 240, 255, 0.75)';
-    for (const bubble of this.bubbles) {
+    this.bubbles.forEach((bubble) => {
       const drawX = Math.round(bubble.x + bubble.xOffset);
       const drawY = Math.round(bubble.y);
       ctx2d.beginPath();
-      ctx2d.arc(drawX + bubbleSize / 2, drawY + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+      ctx2d.arc(drawX + 4, drawY + 4, 4, 0, Math.PI * 2);
       ctx2d.fill();
-    }
+    });
     ctx2d.restore();
   }
 
   private stepFrame(view: WeatherUpdateContext['view']): void {
-    const scaleX = view.pixelWidth / BASE_WIDTH;
-    const scaleY = view.pixelHeight / BASE_HEIGHT;
-
-    this.fogScrollX += 0.35 * scaleX;
+    // C parity: fog horizontal scroll advances by 1 every 4 frames.
+    this.fogScrollCounter += 1;
+    if (this.fogScrollCounter > 3) {
+      this.fogScrollCounter = 0;
+      this.fogScrollOffset += 1;
+    }
 
     this.bubbleDelayCounter += 1;
     if (this.bubbleDelayCounter > BUBBLE_START_DELAYS[this.bubbleDelayIndex]) {
@@ -156,18 +159,13 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
       this.bubbleCoordsIndex = (this.bubbleCoordsIndex + 1) % BUBBLE_START_COORDS.length;
     }
 
-    const riseSpeed = 3 * scaleY;
-    const maxWobble = 4 * scaleX;
-
-    const nextBubbles: BubbleParticle[] = [];
-    for (const bubble of this.bubbles) {
-      // C parity: tScrollXCounter increments twice per frame in UpdateBubbleSprite.
+    this.bubbles.update((bubble) => {
       bubble.scrollCounter += 2;
       if (bubble.scrollCounter > 8) {
         bubble.scrollCounter = 0;
         if (bubble.scrollDir === 0) {
           bubble.xOffset += 1;
-          if (bubble.xOffset > maxWobble) {
+          if (bubble.xOffset > 4) {
             bubble.scrollDir = 1;
           }
         } else {
@@ -178,25 +176,18 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
         }
       }
 
-      bubble.y -= riseSpeed;
+      bubble.y -= 3;
       bubble.ageFrames += 1;
-
-      if (bubble.ageFrames < 120) {
-        nextBubbles.push(bubble);
-      }
-    }
-
-    this.bubbles = nextBubbles;
+      return bubble.ageFrames < 120;
+    });
   }
 
   private spawnBubble(view: WeatherUpdateContext['view']): void {
     const [rawX, rawY] = BUBBLE_START_COORDS[this.bubbleCoordsIndex];
-    const scaleX = view.pixelWidth / BASE_WIDTH;
-    const scaleY = view.pixelHeight / BASE_HEIGHT;
 
-    this.bubbles.push({
-      x: (rawX % BASE_WIDTH) * scaleX,
-      y: rawY * scaleY,
+    this.bubbles.add({
+      x: (rawX % BASE_WIDTH) + Math.floor((view.pixelWidth - BASE_WIDTH) / 2),
+      y: rawY + Math.floor((view.pixelHeight - BASE_HEIGHT) / 2),
       xOffset: 0,
       scrollCounter: 0,
       scrollDir: 0,
@@ -205,20 +196,19 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
   }
 
   private async ensureAssetsLoaded(): Promise<void> {
-    if (this.fogImage && this.bubbleImage) {
+    if (this.fogCanvas && this.bubbleCanvas) {
       return;
     }
 
     if (!this.assetsPromise) {
-      this.assetsPromise = Promise.all([
-        loadImageAsset('/pokeemerald/graphics/weather/fog_horizontal.png'),
-        loadImageAsset('/pokeemerald/graphics/weather/bubble.png'),
-      ]).then(([fogImage, bubbleImage]) => {
-        this.fogImage = fogImage;
-        this.bubbleImage = bubbleImage;
-      }).finally(() => {
-        this.assetsPromise = null;
-      });
+      this.assetsPromise = loadWeatherAssets(UNDERWATER_ASSETS)
+        .then((assets) => {
+          this.fogCanvas = assets.get('fog') ?? null;
+          this.bubbleCanvas = assets.get('bubble') ?? null;
+        })
+        .finally(() => {
+          this.assetsPromise = null;
+        });
     }
 
     await this.assetsPromise;

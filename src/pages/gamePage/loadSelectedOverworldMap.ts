@@ -9,6 +9,7 @@ import {
 import { setupObjectCollisionChecker } from '../../game/setupObjectCollisionChecker';
 import { findPlayerSpawnPosition } from '../../game/findPlayerSpawnPosition';
 import type { PlayerController, TileResolver as PlayerTileResolver } from '../../game/PlayerController';
+import { isSurfableBehavior } from '../../utils/metatileBehaviors';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
 import type { TileResolverFn } from '../../rendering/types';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
@@ -223,8 +224,16 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           }
           const savedUnderwater = savedLocation.isUnderwater
             ?? isUnderwaterMapType(savedMap?.entry.mapType ?? null);
+
+          const resolvedSaveTile = player.getTileResolver()?.(player.tileX, player.tileY);
+          const saveTileBehavior = resolvedSaveTile?.attributes?.behavior;
+          const canSurfaceByTile =
+            saveTileBehavior === undefined
+              ? savedLocation.isSurfing
+              : isSurfableBehavior(saveTileBehavior);
+
           player.setTraversalState({
-            surfing: savedLocation.isSurfing || savedUnderwater,
+            surfing: !savedUnderwater && savedLocation.isSurfing && canSurfaceByTile,
             underwater: savedUnderwater,
           });
         } else {
@@ -245,7 +254,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           );
           player.setPosition(spawnResult.x, spawnResult.y);
           const spawnUnderwater = isUnderwaterMapType(anchorMap.entry.mapType);
-          player.setTraversalState({ surfing: spawnUnderwater, underwater: spawnUnderwater });
+          player.setTraversalState({ surfing: false, underwater: spawnUnderwater });
         }
 
         const playerMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? entry.id;

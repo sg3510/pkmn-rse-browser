@@ -32,6 +32,7 @@ import { computeReflectionState, type ReflectionMetaProvider } from '../field/Re
 import { getReflectionMetaFromSnapshot, buildTilesetRuntimesForSnapshot, createRenderContextFromSnapshot } from '../game/snapshotUtils';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { resolveTileAt } from '../components/map/utils';
+import { getPlayerSpriteFrameMetrics, getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../game/playerSprites';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize } from '../config/viewport';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import { DebugPanel, DEFAULT_DEBUG_OPTIONS, type DebugOptions, type DebugState } from './debug';
@@ -254,10 +255,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
         }
 
         // Load player sprites
-        await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
-        await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
-        await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
-        await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+        await loadPlayerSpriteSheets(player, getPlayerSpriteLoadOrder());
         if (disposed) return;
 
         // Upload player sprites for WebGL
@@ -268,7 +266,11 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
           const spriteSheets = player.getSpriteSheets();
           for (const [key, canvas] of spriteSheets) {
             const atlasName = getPlayerAtlasName(key);
-            spriteRenderer.uploadSpriteSheet(atlasName, canvas);
+            const { frameWidth, frameHeight } = getPlayerSpriteFrameMetrics(key);
+            spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
+              frameWidth,
+              frameHeight,
+            });
           }
 
           // Load and upload object events (NPCs)

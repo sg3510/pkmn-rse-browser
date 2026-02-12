@@ -240,7 +240,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       if (player && !refs.playerHiddenRef.current) {
         const surfCtrl = player.getSurfingController();
         const blobRenderer = surfCtrl.getBlobRenderer();
-        const shouldRenderBlob = player.isSurfing() || surfCtrl.isJumping();
+        const shouldRenderBlob = !player.isUnderwater() && (player.isSurfing() || surfCtrl.isJumping());
 
         if (shouldRenderBlob && blobRenderer.isReady()) {
           const bobOffset = blobRenderer.getBobOffset();

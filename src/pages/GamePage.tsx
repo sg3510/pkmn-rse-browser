@@ -900,6 +900,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const destinationUnderwater = isUnderwaterMapType(destinationEntry?.mapType ?? null);
     const facingDirection = player.getFacingDirection();
 
+    const destinationIsSurfing = !destinationUnderwater;
+
     pendingSavedLocationRef.current = {
       pos: { x: destination.x, y: destination.y },
       location: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
@@ -908,7 +910,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       direction: facingDirection,
       elevation: player.getElevation(),
-      isSurfing: true,
+      isSurfing: destinationIsSurfing,
       isUnderwater: destinationUnderwater,
     };
 
@@ -919,7 +921,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       direction: facingDirection,
       phase: 'pending',
       traversal: {
-        surfing: true,
+        surfing: destinationIsSurfing,
         underwater: destinationUnderwater,
       },
     };
@@ -2105,7 +2107,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             activePlayer.setPosition(targetWorldX, targetWorldY);
             activePlayer.dir = scriptedWarp.direction;
             if (scriptedWarp.traversal) {
-              activePlayer.setTraversalState(scriptedWarp.traversal);
+              const traversal = { ...scriptedWarp.traversal };
+
+              if (!traversal.underwater) {
+                const resolved = activePlayer.getTileResolver()?.(targetWorldX, targetWorldY);
+                const behavior = resolved?.attributes?.behavior;
+                if (behavior !== undefined) {
+                  traversal.surfing = isSurfableBehavior(behavior);
+                }
+              }
+
+              activePlayer.setTraversalState(traversal);
             }
             fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
             pendingSavedLocationRef.current = null;

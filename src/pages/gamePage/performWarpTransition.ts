@@ -214,7 +214,7 @@ export async function performWarpTransition(
     const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
     const destinationUnderwater = isUnderwaterMapType(destMap.entry.mapType);
     player.setTraversalState({
-      surfing: destinationUnderwater,
+      surfing: false,
       underwater: destinationUnderwater,
     });
     setLastCoordTriggerTile({

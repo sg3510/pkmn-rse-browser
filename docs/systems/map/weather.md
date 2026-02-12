@@ -23,6 +23,9 @@ This document describes the Pokemon Emerald weather system from the C source cod
 - Implemented visual effect in this milestone: `WEATHER_UNDERWATER_BUBBLES` (`src/weather/effects/UnderwaterBubblesEffect.ts`) using:
   - `/pokeemerald/graphics/weather/fog_horizontal.png`
   - `/pokeemerald/graphics/weather/bubble.png`
+- Weather assets now load through shared keyed-transparency loader primitives (`loadImageCanvasAsset(..., { transparency: { type: 'top-left' } })`) to avoid opaque backgrounds on indexed PNGs.
+- Underwater fog now renders with integer 64x64 tiling + integer scroll steps (no viewport scaling), eliminating seam-grid stitching artifacts.
+- Underwater player bobbing parity is handled by shared player-render helpers (`src/game/playerBobbing.ts`), not weather effect code.
 
 ## Current Scope
 

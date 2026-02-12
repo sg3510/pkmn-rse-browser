@@ -58,6 +58,16 @@ function getSlotKey(slot: number): string {
   return `${SAVE_STORAGE_KEY}-slot-${slot}`;
 }
 
+function normalizeLocationTraversal(location: LocationState & { isUnderwater?: boolean }): void {
+  if (typeof location.isUnderwater !== 'boolean') {
+    location.isUnderwater = false;
+  }
+  // Backward compatibility: old saves could persist underwater + surfing at once.
+  if (location.isUnderwater) {
+    location.isSurfing = false;
+  }
+}
+
 /**
  * SaveManager singleton class
  */
@@ -178,9 +188,7 @@ class SaveManagerClass {
       }
 
       const locationWithMigration = data.location as LocationState & { isUnderwater?: boolean };
-      if (typeof locationWithMigration.isUnderwater !== 'boolean') {
-        locationWithMigration.isUnderwater = false;
-      }
+      normalizeLocationTraversal(locationWithMigration);
 
       // Prefer raw event state if present so unknown IDs are preserved.
       if (Array.isArray(data.rawFlags) && Array.isArray(data.rawVars)) {
@@ -549,7 +557,7 @@ class SaveManagerClass {
       escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
       direction,
       elevation: 3, // Default elevation
-      isSurfing,
+      isSurfing: isSurfing && !isUnderwater,
       isUnderwater,
     };
 
@@ -661,9 +669,7 @@ class SaveManagerClass {
       }
 
       const importedLocation = data.location as LocationState & { isUnderwater?: boolean };
-      if (typeof importedLocation.isUnderwater !== 'boolean') {
-        importedLocation.isUnderwater = false;
-      }
+      normalizeLocationTraversal(importedLocation);
 
       // Save to localStorage
       const key = getSlotKey(slot);

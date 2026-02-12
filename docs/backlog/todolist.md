@@ -230,6 +230,11 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [x] Persist and restore underwater traversal state across scripted warps and save/load
 - [x] Add scalable weather runtime (`WeatherManager` + registry) wired to script commands (`setweather` / `resetweather` / `doweather`)
 - [x] Implement `WEATHER_UNDERWATER_BUBBLES` visual effect (horizontal fog + bubble sprites)
+- [x] Separate underwater traversal mode from surfing runtime state (`land`/`surf`/`underwater`)
+- [x] Prevent surf blob rendering while underwater in both Canvas and WebGL pipelines
+- [x] Normalize old saves where `isUnderwater=true && isSurfing=true` to underwater traversal on load/import
+- [x] Move underwater weather sprites to shared keyed-transparency loading and integer fog tiling primitives
+- [x] Fix surf/dive sprite regressions: logical surfing frame mapping, traversal-safe input locking, frame-driven WebGL atlas selection, runtime underwater bobbing parity
 
 ### 0.12 Scripted Object Events (Non-NPC)
 > C ref: `event_object_movement.c` (object events are more than NPCs)

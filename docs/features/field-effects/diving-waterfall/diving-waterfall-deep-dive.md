@@ -19,6 +19,13 @@ This document provides a comprehensive analysis of how diving and waterfall mech
 - [x] Underwater player sprite atlas is loaded and selected at runtime
 - [x] Underwater weather is implemented as weather (not hardcoded tint), using `WEATHER_UNDERWATER_BUBBLES` with fog + bubble sprites
 - [x] Script command parity added for Dive/weather path: `setdivewarp`, `checkpartymove`, `setfieldeffectargument`, `dofieldeffect`, `waitfieldeffect`, `setweather`, `resetweather`, `doweather`
+- [x] Underwater traversal is now a distinct runtime mode (not treated as surfing), matching `PLAYER_AVATAR_FLAG_UNDERWATER` semantics
+- [x] Underwater movement uses normal directional/warp flow (arrow/door warp paths reachable while underwater)
+- [x] Surf blob rendering is explicitly suppressed while underwater across both Canvas and WebGL paths
+- [x] Surfing direction and mount/dismount frame mapping now use logical frame indices (single remap), matching `sPicTable_BrendanSurfing`
+- [x] Player frame payload now carries `spriteKey`, and WebGL atlas selection is derived from that payload (prevents frame/atlas desync during prompts)
+- [x] `lockInput` preserves surf/underwater state during modal prompts (no forced land-state sprite domain switch)
+- [x] Runtime underwater bobbing now follows `SpriteCB_UnderwaterSurfBlob` timing (shared helper used by game + debug page)
 - [ ] Full Dive field-move Pokemon animation parity is still pending (current transition is fade-warp parity first)
 - [ ] Waterfall ascent mechanics are still tracked separately from this Dive milestone
 

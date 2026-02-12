@@ -25,6 +25,7 @@ import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../../data/largeObjectGraphics.gen';
 import { FIELD_EFFECT_REGISTRY } from '../../data/fieldEffects.gen';
 import { ROTATING_GATE_SHAPE_ASSET_PATHS } from '../../game/RotatingGateManager';
+import { getPlayerSpriteFrameMetrics, getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../../game/playerSprites';
 
 type MutableRef<T> = { current: T };
 
@@ -71,11 +72,7 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
   if (!playerLoadedRef.current && !playerSpritesLoadPromiseRef.current) {
     playerSpritesLoadPromiseRef.current = (async () => {
       try {
-        await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
-        await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
-        await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
-        await player.loadSprite('underwater', '/pokeemerald/graphics/object_events/pics/people/brendan/underwater.png');
-        await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
+        await loadPlayerSpriteSheets(player, getPlayerSpriteLoadOrder());
 
         // Set up door warp handler for animated door and arrow warp entry.
         player.setDoorWarpHandler(async (request) => {
@@ -160,15 +157,7 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
           const spriteSheets = player.getSpriteSheets();
           for (const [key, canvas] of spriteSheets) {
             const atlasName = getPlayerAtlasName(key);
-            let frameWidth = 16;
-            let frameHeight = 32;
-            if (key === 'shadow') {
-              frameWidth = 16;
-              frameHeight = 8;
-            } else if (key === 'surfing') {
-              frameWidth = 32;
-              frameHeight = 32;
-            }
+            const { frameWidth, frameHeight } = getPlayerSpriteFrameMetrics(key);
             spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
               frameWidth,
               frameHeight,
