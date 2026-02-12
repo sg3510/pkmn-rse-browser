@@ -14,6 +14,7 @@ import { getSpeciesName } from '../../data/species';
 import type { PartyPokemon } from '../../pokemon/types';
 import { STATUS } from '../../pokemon/types';
 import { getAbility } from '../../pokemon/stats';
+import { battleRandomInt } from './BattleRng';
 import { executeMove } from './MoveEffects';
 import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus } from './StatusEffects';
 import type {
@@ -106,11 +107,13 @@ export class BattleEngine {
       if (this.outcome !== null) break;
       if (turnAction.actor.currentHp <= 0 || turnAction.target.currentHp <= 0) continue;
 
-      const preCheck = checkPreMoveStatus(turnAction.actor);
-      events.push(...preCheck.events);
-      if (!preCheck.canAct) {
-        this.resolveOutcome();
-        continue;
+      if (turnAction.action.type === 'fight') {
+        const preCheck = checkPreMoveStatus(turnAction.actor);
+        events.push(...preCheck.events);
+        if (!preCheck.canAct) {
+          this.resolveOutcome();
+          continue;
+        }
       }
 
       this.executeAction(turnAction, events);
@@ -154,7 +157,7 @@ export class BattleEngine {
       };
     }
 
-    const picked = usableMoves[randomInt(0, usableMoves.length - 1)];
+    const picked = usableMoves[battleRandomInt(0, usableMoves.length - 1)];
     return {
       type: 'fight',
       moveId: picked.moveId,
@@ -195,7 +198,7 @@ export class BattleEngine {
         : [enemyOrdered, playerOrdered];
     }
 
-    return randomInt(0, 1) === 0
+    return battleRandomInt(0, 1) === 0
       ? [playerOrdered, enemyOrdered]
       : [enemyOrdered, playerOrdered];
   }
@@ -278,11 +281,8 @@ export class BattleEngine {
       }
       case 'switch':
       case 'item': {
-        events.push({
-          type: 'message',
-          battler: step.actor.isPlayer ? 0 : 1,
-          message: 'But it failed!',
-        });
+        // Switch/item action effects are applied by the caller.
+        // Engine still consumes turn order so the opponent can act.
         return;
       }
       case 'run': {
@@ -322,7 +322,7 @@ export class BattleEngine {
       escaped = true;
     } else {
       const chance = Math.floor((playerSpeed * 128) / Math.max(1, enemySpeed)) + (this.escapeAttempts * 30);
-      const roll = randomInt(0, 255);
+      const roll = battleRandomInt(0, 255);
       escaped = chance > roll;
     }
 
@@ -433,6 +433,11 @@ export class BattleEngine {
     const playerDown = this.player.currentHp <= 0;
     const enemyDown = this.enemy.currentHp <= 0;
 
+    if (playerDown && enemyDown) {
+      this.outcome = 'draw';
+      return;
+    }
+
     if (enemyDown && !playerDown) {
       this.outcome = 'win';
       return;
@@ -465,8 +470,4 @@ function getActionPriority(action: BattleAction): number {
     case 'fight':
       return getBattleMoveData(action.moveId)?.priority ?? 0;
   }
-}
-
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

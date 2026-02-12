@@ -3,18 +3,28 @@ import { useInput } from './useInput';
 import { inputMap, GameButton } from '../core/InputMap';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
+import type { WorldManager } from '../game/WorldManager';
 import type { ScriptObject, NPCObject } from '../types/objectEvents';
 import { saveManager } from '../save/SaveManager';
 import { bagManager } from '../game/BagManager';
 import { MB_COUNTER } from '../utils/metatileBehaviors.generated';
+import {
+  DEFAULT_FIELD_ACTION_POLICY,
+  type DiveActionResolution,
+  type FieldActionResolverPolicy,
+  resolveFieldActions,
+} from '../game/fieldActions/FieldActionResolver';
 
 export interface ActionInputDeps {
   playerControllerRef: React.RefObject<PlayerController | null>;
   objectEventManagerRef: React.RefObject<ObjectEventManager>;
+  worldManagerRef?: React.RefObject<WorldManager | null>;
   enabled?: boolean;
   dialogIsOpen: boolean;
   showMessage: (text: string) => Promise<void>;
   showYesNo: (text: string) => Promise<boolean>;
+  onDiveFieldAction?: (request: DiveActionResolution) => Promise<boolean>;
+  fieldActionPolicy?: FieldActionResolverPolicy;
   onScriptInteract?: (scriptObject: ScriptObject) => Promise<void>;
   /** Called when the player presses A facing an NPC with a script */
   onNpcInteract?: (npc: NPCObject) => Promise<void>;
@@ -30,20 +40,26 @@ export interface ActionInputDeps {
 export function useActionInput({
   playerControllerRef,
   objectEventManagerRef,
+  worldManagerRef,
   enabled = true,
   dialogIsOpen,
   showMessage,
   showYesNo,
+  onDiveFieldAction,
+  fieldActionPolicy = DEFAULT_FIELD_ACTION_POLICY,
   onScriptInteract,
   onNpcInteract,
   onTileInteract,
 }: ActionInputDeps) {
   const surfPromptInProgressRef = useRef<boolean>(false);
+  const divePromptInProgressRef = useRef<boolean>(false);
   const itemPickupInProgressRef = useRef<boolean>(false);
 
   const handleActionKeyDown = useCallback(async (e: KeyboardEvent) => {
     if (!enabled) return;
-    if (!inputMap.matchesCode(e.code, GameButton.A)) return;
+    const isA = inputMap.matchesCode(e.code, GameButton.A);
+    const isB = inputMap.matchesCode(e.code, GameButton.B);
+    if (!isA && !isB) return;
 
     const player = playerControllerRef.current;
     if (!player) return;
@@ -53,32 +69,93 @@ export function useActionInput({
     // Respect script/warp locks owned outside this hook.
     if (player.inputLocked) return;
 
-    // Surf prompt takes priority when available
-    if (!surfPromptInProgressRef.current && !player.isMoving && !player.isSurfing()) {
-      const surfCheck = player.canInitiateSurf();
-      if (surfCheck.canSurf) {
-        surfPromptInProgressRef.current = true;
+    const actions = resolveFieldActions({
+      player,
+      worldManager: worldManagerRef?.current ?? null,
+      policy: fieldActionPolicy,
+    });
+
+    // B button: underwater surface prompt when valid
+    if (isB) {
+      if (
+        onDiveFieldAction
+        && actions.diveEmerge
+        && !divePromptInProgressRef.current
+        && !itemPickupInProgressRef.current
+        && !player.isMoving
+      ) {
+        divePromptInProgressRef.current = true;
         player.lockInput();
-
         try {
-          const wantsToSurf = await showYesNo(
-            "The water is dyed a deep blue...\nWould you like to SURF?"
+          const wantsToSurface = await showYesNo(
+            'Light is filtering from above.\nWould you like to use DIVE?'
           );
-
-          if (wantsToSurf) {
-            await showMessage("You used SURF!");
-            player.startSurfing();
+          if (wantsToSurface) {
+            await showMessage('You used DIVE!');
+            await onDiveFieldAction(actions.diveEmerge);
           }
         } finally {
-          surfPromptInProgressRef.current = false;
+          divePromptInProgressRef.current = false;
           player.unlockInput();
         }
-        return; // Don't process other actions on the same key press
       }
+      return;
+    }
+
+    // A button: Surf prompt takes priority when available
+    if (!surfPromptInProgressRef.current && !player.isMoving && actions.surf) {
+      surfPromptInProgressRef.current = true;
+      player.lockInput();
+
+      try {
+        const wantsToSurf = await showYesNo(
+          "The water is dyed a deep blue...\nWould you like to SURF?"
+        );
+
+        if (wantsToSurf) {
+          await showMessage("You used SURF!");
+          player.startSurfing();
+        }
+      } finally {
+        surfPromptInProgressRef.current = false;
+        player.unlockInput();
+      }
+      return; // Don't process other actions on the same key press
+    }
+
+    // A button: Dive-down prompt when surfing on diveable tile
+    if (
+      onDiveFieldAction
+      && actions.diveDown
+      && !divePromptInProgressRef.current
+      && !itemPickupInProgressRef.current
+      && !player.isMoving
+    ) {
+      divePromptInProgressRef.current = true;
+      player.lockInput();
+      try {
+        const wantsToDive = await showYesNo(
+          'The sea is deep here...\nWould you like to use DIVE?'
+        );
+        if (wantsToDive) {
+          await showMessage('You used DIVE!');
+          await onDiveFieldAction(actions.diveDown);
+        }
+      } finally {
+        divePromptInProgressRef.current = false;
+        player.unlockInput();
+      }
+      return;
     }
 
     // Item pickup flow
-    if (surfPromptInProgressRef.current || itemPickupInProgressRef.current || player.isMoving || player.isSurfing()) return;
+    if (
+      surfPromptInProgressRef.current
+      || divePromptInProgressRef.current
+      || itemPickupInProgressRef.current
+      || player.isMoving
+      || player.isSurfing()
+    ) return;
 
     // Calculate the tile the player is facing
     let facingTileX = player.tileX;
@@ -154,12 +231,26 @@ export function useActionInput({
     }
 
     await handleInteraction(interactable);
-  }, [enabled, dialogIsOpen, showMessage, showYesNo, playerControllerRef, objectEventManagerRef, onScriptInteract, onNpcInteract, onTileInteract]);
+  }, [
+    enabled,
+    dialogIsOpen,
+    showMessage,
+    showYesNo,
+    playerControllerRef,
+    objectEventManagerRef,
+    worldManagerRef,
+    onDiveFieldAction,
+    fieldActionPolicy,
+    onScriptInteract,
+    onNpcInteract,
+    onTileInteract,
+  ]);
 
   useInput({ onKeyDown: handleActionKeyDown });
 
   return {
     surfPromptInProgressRef,
+    divePromptInProgressRef,
     itemPickupInProgressRef,
   };
 }

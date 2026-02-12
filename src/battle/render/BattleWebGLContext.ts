@@ -23,13 +23,17 @@ function createBattleCameraView(): WorldCameraView {
     worldStartTileY: 0,
     cameraWorldX: 0,
     cameraWorldY: 0,
+    cameraX: 0,
+    cameraY: 0,
+    subTileOffsetX: 0,
+    subTileOffsetY: 0,
     pixelWidth: BATTLE_WIDTH,
     pixelHeight: BATTLE_HEIGHT,
-    // These aren't used for battle but are needed by the interface
+    // These are fixed for battle rendering but required by CameraView.
     startTileX: 0,
     startTileY: 0,
-    widthInTiles: BATTLE_WIDTH / 16,
-    heightInTiles: BATTLE_HEIGHT / 16,
+    tilesWide: BATTLE_WIDTH / 16,
+    tilesHigh: BATTLE_HEIGHT / 16,
   };
 }
 

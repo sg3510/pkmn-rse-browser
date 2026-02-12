@@ -14,13 +14,15 @@ import { saveManager } from '../../save/SaveManager';
 import type { PartyPokemon } from '../../pokemon/types';
 import { SPECIES } from '../../data/species';
 import { gameVariables } from '../../game/GameVariables';
-import { ScriptRunner } from '../../scripting/ScriptRunner';
+import { ScriptRunner, type ScriptRuntimeServices } from '../../scripting/ScriptRunner';
 import {
   BATTLE_OUTCOME,
   normalizeBattleOutcome,
   type ScriptBattleResult,
+  type ScriptWildBattleRequest,
 } from '../../scripting/battleTypes';
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
+import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
 
 interface MutableRef<T> {
   current: T;
@@ -32,6 +34,10 @@ interface PendingScriptedWarpLike {
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
   phase: 'pending' | 'fading' | 'loading';
+  traversal?: {
+    surfing: boolean;
+    underwater: boolean;
+  };
 }
 
 const SCRIPTED_TRAINER_BATTLES: Record<string, { species: number; level: number }> = {
@@ -62,6 +68,8 @@ export interface UseHandledStoryScriptParams {
   doorAnimations: UseDoorAnimationsReturn;
   gbaFrameMs: number;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  scriptRuntimeServices?: ScriptRuntimeServices;
+  getSavedWeather?: () => string | number | null;
 }
 
 export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scriptName: string, currentMapId?: string) => Promise<boolean> {
@@ -84,6 +92,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     doorAnimations,
     gbaFrameMs,
     setMapMetatile,
+    scriptRuntimeServices,
+    getSavedWeather,
   } = params;
 
   return useCallback(async (scriptName: string, currentMapId?: string): Promise<boolean> => {
@@ -430,10 +440,25 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
 
       const readBattleResult = (): ScriptBattleResult => {
         const outcome = normalizeBattleOutcome(
-          gameVariables.getVar('VAR_BATTLE_OUTCOME'),
+          gameVariables.getVar('VAR_RESULT'),
           BATTLE_OUTCOME.WON
         );
         return { outcome };
+      };
+
+      const resolveBackgroundProfile = (
+        wildBattle?: Pick<ScriptWildBattleRequest, 'source' | 'speciesId'>,
+      ) => {
+        const snapshot = worldManagerRef.current?.getSnapshot() ?? null;
+        return resolveBattleBackgroundProfile({
+          snapshot,
+          playerTileX: player.tileX,
+          playerTileY: player.tileY,
+          mapIdHint: effectiveMapId,
+          playerIsSurfing: player.isSurfing(),
+          savedWeather: getSavedWeather?.() ?? null,
+          wildBattle: wildBattle ?? null,
+        });
       };
 
       const scriptCtx: StoryScriptContext = {
@@ -449,10 +474,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           if (!stateManager) return;
 
           await stateManager.transitionTo(GameState.BATTLE, {
+            battleType: 'wild',
             playerPokemon: starter,
             wildSpecies: SPECIES.POOCHYENA,
             wildLevel: 2,
             firstBattle: true,
+            backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
           });
           await waitForBattleToEnd();
@@ -472,13 +499,13 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             return { outcome: BATTLE_OUTCOME.WON };
           }
 
-          gameVariables.setVar('VAR_BATTLE_OUTCOME', 0);
+          gameVariables.setVar('VAR_RESULT', 0);
           await stateManager.transitionTo(GameState.BATTLE, {
             battleType: 'trainer',
             playerPokemon: lead,
-            battleType: 'trainer',
             wildSpecies: battle.species,
             wildLevel: battle.level,
+            backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
           });
           await waitForBattleToEnd();
@@ -486,7 +513,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         },
         startWildBattle: async (request) => {
           if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
-          const { speciesId, level } = request;
+          const speciesId = Number(request.speciesId);
+          const level = Number(request.level);
+          if (!Number.isFinite(speciesId) || speciesId <= 0 || !Number.isFinite(level) || level <= 0) {
+            console.warn('[StoryScript] Invalid wild battle request payload:', request);
+            return { outcome: BATTLE_OUTCOME.WON };
+          }
 
           const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
           if (!lead) {
@@ -494,34 +526,20 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             return { outcome: BATTLE_OUTCOME.WON };
           }
 
-          gameVariables.setVar('VAR_BATTLE_OUTCOME', 0);
+          gameVariables.setVar('VAR_RESULT', 0);
           await stateManager.transitionTo(GameState.BATTLE, {
             battleType: 'wild',
             playerPokemon: lead,
-            wildSpecies: speciesId,
-            wildLevel: level,
+            wildSpecies: Math.trunc(speciesId),
+            wildLevel: Math.trunc(level),
+            backgroundProfile: resolveBackgroundProfile({
+              source: request.source,
+              speciesId: Math.trunc(speciesId),
+            }),
             returnLocation: buildReturnLocation(),
           });
           await waitForBattleToEnd();
           return readBattleResult();
-        },
-        startWildBattle: async (speciesId: number, level: number) => {
-          if (!stateManager) return;
-
-          const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
-          if (!lead) {
-            console.warn('[StoryScript] Cannot start wild battle without a party Pokemon.');
-            return;
-          }
-
-          await stateManager.transitionTo(GameState.BATTLE, {
-            playerPokemon: lead,
-            battleType: 'wild',
-            wildSpecies: speciesId,
-            wildLevel: level,
-            returnLocation: buildReturnLocation(),
-          });
-          await waitForBattleToEnd();
         },
         queueWarp: (mapId, x, y, direction) => {
           pendingSavedLocationRef.current = {
@@ -532,7 +550,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
             direction,
             elevation: player.getElevation(),
-            isSurfing: false,
+            isSurfing: player.isSurfing(),
+            isUnderwater: player.isUnderwater(),
           };
 
           pendingScriptedWarpRef.current = {
@@ -684,12 +703,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           { mapData, commonData },
           scriptCtx,
           effectiveMapId,
+          scriptRuntimeServices,
         );
         handled = await runner.execute(scriptName);
       }
 
-      objectEventManagerRef.current.refreshCollectedState();
-      objectEventManagerRef.current.respawnFlagClearedNPCs();
+      objectEventManagerRef.current.refreshPostScriptState();
       console.log(`[StoryScript] ✓ Script handled=${handled}`);
       return handled;
     } finally {
@@ -724,5 +743,6 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     doorAnimations,
     gbaFrameMs,
     setMapMetatile,
+    scriptRuntimeServices,
   ]);
 }

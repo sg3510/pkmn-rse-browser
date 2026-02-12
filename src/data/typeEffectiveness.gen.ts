@@ -25,8 +25,8 @@ export const TYPE_NAMES = [
 
 /** Sparse type chart — only non-1.0x entries stored. */
 export const TYPE_CHART: Record<string, Record<string, number>> = {
-  NORMAL: { ROCK: 0.5, STEEL: 0.5 },
-  FIGHTING: { NORMAL: 2, FLYING: 0.5, POISON: 0.5, ROCK: 2, BUG: 0.5, STEEL: 2, PSYCHIC: 0.5, ICE: 2, DARK: 2 },
+  NORMAL: { ROCK: 0.5, GHOST: 0, STEEL: 0.5 },
+  FIGHTING: { NORMAL: 2, FLYING: 0.5, POISON: 0.5, ROCK: 2, BUG: 0.5, GHOST: 0, STEEL: 2, PSYCHIC: 0.5, ICE: 2, DARK: 2 },
   FLYING: { FIGHTING: 2, ROCK: 0.5, BUG: 2, STEEL: 0.5, GRASS: 2, ELECTRIC: 0.5 },
   POISON: { POISON: 0.5, GROUND: 0.5, ROCK: 0.5, GHOST: 0.5, STEEL: 0, GRASS: 2 },
   GROUND: { FLYING: 0, POISON: 2, ROCK: 2, BUG: 0.5, STEEL: 2, FIRE: 2, GRASS: 0.5, ELECTRIC: 2 },

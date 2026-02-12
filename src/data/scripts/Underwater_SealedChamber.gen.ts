@@ -4,6 +4,7 @@ import type { MapScriptData } from './types';
 
 export const data: MapScriptData = {
   mapScripts: {
+    onDive: "Underwater_SealedChamber_OnDive",
   },
   scripts: {
     "Underwater_SealedChamber_OnDive": [

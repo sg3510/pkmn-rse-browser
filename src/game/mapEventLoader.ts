@@ -43,13 +43,22 @@ export interface BgEvent {
  * Coordinate trigger event from map.json
  */
 export interface CoordEvent {
-  type: string;
+  type: 'trigger' | 'script' | 'weather';
   x: number;
   y: number;
   elevation: number;
+}
+
+export interface ScriptCoordEvent extends CoordEvent {
+  type: 'trigger' | 'script';
   var: string;
   varValue: number;
   script: string;
+}
+
+export interface WeatherCoordEvent extends CoordEvent {
+  type: 'weather';
+  weather: string;
 }
 
 /**
@@ -58,8 +67,9 @@ export interface CoordEvent {
 export interface MapEventsData {
   warpEvents: WarpEvent[];
   objectEvents: ObjectEventData[];
-  coordEvents: CoordEvent[];
+  coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;
   bgEvents: BgEvent[];
+  mapWeather: string | null;
 }
 
 /**
@@ -117,32 +127,53 @@ export function parseObjectEvents(objectEventsRaw: Array<Record<string, unknown>
 /**
  * Parse coordinate trigger events from raw JSON array
  */
-export function parseCoordEvents(coordEventsRaw: Array<Record<string, unknown>>): CoordEvent[] {
+export function parseCoordEvents(
+  coordEventsRaw: Array<Record<string, unknown>>
+): Array<ScriptCoordEvent | WeatherCoordEvent> {
   return coordEventsRaw
     .map((coordEvent) => {
+      const rawType = String(coordEvent.type ?? '').toLowerCase();
       const x = Number(coordEvent.x ?? 0);
       const y = Number(coordEvent.y ?? 0);
       const elevation = Number(coordEvent.elevation ?? 0);
+
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+      }
+
+      if (rawType === 'weather') {
+        const weather = String(coordEvent.weather ?? '');
+        if (!weather) return null;
+        return {
+          type: 'weather',
+          x,
+          y,
+          elevation,
+          weather,
+        } satisfies WeatherCoordEvent;
+      }
+
       const variable = String(coordEvent.var ?? '');
       const script = String(coordEvent.script ?? '');
       const parsedVarValue = Number.parseInt(String(coordEvent.var_value ?? '0'), 10);
       const varValue = Number.isFinite(parsedVarValue) ? parsedVarValue : 0;
-
-      if (!script || !variable || !Number.isFinite(x) || !Number.isFinite(y)) {
+      if (!script || !variable) {
         return null;
       }
 
       return {
-        type: String(coordEvent.type ?? ''),
+        type: rawType === 'script' ? 'script' : 'trigger',
         x,
         y,
         elevation,
         var: variable,
         varValue,
         script,
-      } satisfies CoordEvent;
+      } satisfies ScriptCoordEvent;
     })
-    .filter((coordEvent): coordEvent is CoordEvent => coordEvent !== null);
+    .filter(
+      (coordEvent): coordEvent is ScriptCoordEvent | WeatherCoordEvent => coordEvent !== null
+    );
 }
 
 /**
@@ -182,6 +213,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
   try {
     const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${mapFolder}/map.json`);
     const data = JSON.parse(jsonText) as {
+      weather?: unknown;
       warp_events?: Array<Record<string, unknown>>;
       object_events?: Array<Record<string, unknown>>;
       coord_events?: Array<Record<string, unknown>>;
@@ -198,9 +230,16 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       objectEvents: parseObjectEvents(objectEventsRaw),
       coordEvents: parseCoordEvents(coordEventsRaw),
       bgEvents: parseBgEvents(bgEventsRaw),
+      mapWeather: typeof data.weather === 'string' ? data.weather : null,
     };
   } catch {
-    return { warpEvents: [], objectEvents: [], coordEvents: [], bgEvents: [] };
+    return {
+      warpEvents: [],
+      objectEvents: [],
+      coordEvents: [],
+      bgEvents: [],
+      mapWeather: null,
+    };
   }
 }
 
@@ -224,7 +263,9 @@ export async function loadObjectEvents(mapFolder: string): Promise<ObjectEventDa
 /**
  * Load only coordinate events from a map's map.json file
  */
-export async function loadCoordEvents(mapFolder: string): Promise<CoordEvent[]> {
+export async function loadCoordEvents(
+  mapFolder: string
+): Promise<Array<ScriptCoordEvent | WeatherCoordEvent>> {
   const { coordEvents } = await loadMapEvents(mapFolder);
   return coordEvents;
 }

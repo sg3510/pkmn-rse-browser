@@ -288,6 +288,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         direction: player.dir,
         elevation: 3,
         isSurfing: player.isSurfing(),
+        isUnderwater: player.isUnderwater(),
       };
 
       return saveManager.save(0, locationState);
@@ -304,6 +305,10 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
           saveData.location.pos.y,
           saveData.location.direction
         );
+        player.setTraversalState({
+          surfing: saveData.location.isSurfing,
+          underwater: saveData.location.isUnderwater ?? false,
+        });
         objectEventManagerRef.current.refreshCollectedState();
       }
 

@@ -5,7 +5,7 @@
  * These are WebGL-specific utilities that work with the snapshot-based world state.
  */
 
-import type { WorldSnapshot, TilesetPairInfo } from './WorldManager';
+import type { LoadedMapInstance, WorldSnapshot, TilesetPairInfo } from './WorldManager';
 import { buildTilesetRuntime, type TilesetRuntime, type ReflectionMeta } from '../utils/tilesetUtils';
 import type { TilesetResources } from '../services/MapManager';
 import type { RenderContext } from '../components/map/types';
@@ -24,6 +24,74 @@ function getSnapshotSpatialIndex(snapshot: WorldSnapshot): SnapshotSpatialIndex 
   const built = buildSnapshotSpatialIndex(snapshot);
   snapshotSpatialIndexCache.set(snapshot, built);
   return built;
+}
+
+function isTileInMapBounds(map: LoadedMapInstance, tileX: number, tileY: number): boolean {
+  return (
+    tileX >= map.offsetX
+    && tileX < map.offsetX + map.mapData.width
+    && tileY >= map.offsetY
+    && tileY < map.offsetY + map.mapData.height
+  );
+}
+
+export function findSnapshotMapAtTile(
+  snapshot: WorldSnapshot,
+  tileX: number,
+  tileY: number,
+  mapIdHint?: string,
+): LoadedMapInstance | null {
+  if (mapIdHint) {
+    const hinted = snapshot.maps.find((map) => map.entry.id === mapIdHint) ?? null;
+    if (hinted && isTileInMapBounds(hinted, tileX, tileY)) {
+      return hinted;
+    }
+  }
+
+  const spatialIndex = getSnapshotSpatialIndex(snapshot);
+  const byPosition = spatialIndex.getMapAt(tileX, tileY);
+  if (byPosition) {
+    return byPosition;
+  }
+
+  if (mapIdHint) {
+    return snapshot.maps.find((map) => map.entry.id === mapIdHint) ?? null;
+  }
+
+  return null;
+}
+
+export function getSnapshotTileBehavior(
+  snapshot: WorldSnapshot,
+  tileX: number,
+  tileY: number,
+  mapIdHint?: string,
+): { map: LoadedMapInstance | null; behavior: number } {
+  const map = findSnapshotMapAtTile(snapshot, tileX, tileY, mapIdHint);
+  if (!map || !isTileInMapBounds(map, tileX, tileY)) {
+    return { map, behavior: 0 };
+  }
+
+  const localX = tileX - map.offsetX;
+  const localY = tileY - map.offsetY;
+  const tileIndex = localY * map.mapData.width + localX;
+  const mapTile = map.mapData.layout[tileIndex];
+  if (!mapTile) {
+    return { map, behavior: 0 };
+  }
+
+  const pairIndex = snapshot.mapTilesetPairIndex.get(map.entry.id) ?? map.tilesetPairIndex;
+  const tilesetPair = snapshot.tilesetPairs[pairIndex];
+  if (!tilesetPair) {
+    return { map, behavior: 0 };
+  }
+
+  const { isSecondary, index } = resolveMetatileIndex(mapTile.metatileId);
+  const attributes = isSecondary
+    ? tilesetPair.secondaryAttributes[index]
+    : tilesetPair.primaryAttributes[index];
+
+  return { map, behavior: attributes?.behavior ?? 0 };
 }
 
 /**
@@ -284,6 +352,7 @@ export function createRenderContextFromSnapshot(
       objectEvents: [],
       coordEvents: [],
       bgEvents: [],
+      mapWeather: m.mapWeather ?? null,
     };
   });
 

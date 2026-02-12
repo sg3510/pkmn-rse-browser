@@ -173,7 +173,7 @@ export function drawEnemyHealthBox(
   level: number,
   currentHp: number,
   maxHp: number,
-  status = STATUS.NONE,
+  status: number = STATUS.NONE,
 ): void {
   const x = offsetX + 16;
   const y = offsetY + 8;
@@ -231,7 +231,7 @@ export function drawPlayerHealthBox(
   currentHp: number,
   maxHp: number,
   expPercent = 0,
-  status = STATUS.NONE,
+  status: number = STATUS.NONE,
 ): void {
   const x = offsetX + 128;
   const y = offsetY + 76;

@@ -13,11 +13,12 @@
  */
 
 import { STATUS } from '../../pokemon/types';
-import { getSpeciesInfo } from '../../data/speciesInfo';
 import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen';
 import { getBattleMoveData } from '../../data/battleMoves.gen';
 import { getItemBattleEffect, HOLD_EFFECTS } from '../../data/itemBattleEffects.gen';
 import { getMoveInfo } from '../../data/moves';
+import { battleRandomInt } from './BattleRng';
+import { getSpeciesTypes } from './speciesTypes';
 import type { BattlePokemon, WeatherType } from './types';
 import type { SideState } from './types';
 import { applyStatStage, isPhysicalType } from './types';
@@ -55,10 +56,8 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
     return { damage: 0, critical: false, effectiveness: 1, hits: 0 };
   }
 
-  const attackerInfo = getSpeciesInfo(attacker.pokemon.species);
-  const defenderInfo = getSpeciesInfo(defender.pokemon.species);
-  const attackerTypes = attackerInfo?.types ?? ['NORMAL', 'NORMAL'];
-  const defenderTypes = defenderInfo?.types ?? ['NORMAL', 'NORMAL'];
+  const attackerTypes = getSpeciesTypes(attacker.pokemon.species);
+  const defenderTypes = getSpeciesTypes(defender.pokemon.species);
 
   const moveType = moveInfo.type;
   const isPhysical = isPhysicalType(moveType);
@@ -169,7 +168,7 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
   damage = applyItemTypeDamageBoost(attacker, damage, moveType);
 
   // ── Random factor (85-100) ──
-  const randomFactor = randomIntInclusive(85, 100);
+  const randomFactor = battleRandomInt(85, 100);
   damage = Math.floor(damage * randomFactor / 100);
 
   // ── Minimum 1 damage ──
@@ -215,7 +214,7 @@ function rollCritical(attacker: BattlePokemon, moveEffect: number): boolean {
   const chances = [16, 8, 4, 3, 2];
   const threshold = chances[stage];
 
-  return randomIntInclusive(1, threshold) === 1;
+  return battleRandomInt(1, threshold) === 1;
 }
 
 // ── Ability modifiers ──
@@ -378,8 +377,4 @@ function applyItemTypeDamageBoost(
   }
 
   return damage;
-}
-
-function randomIntInclusive(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

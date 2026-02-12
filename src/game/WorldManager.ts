@@ -16,7 +16,12 @@
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry, WarpEvent } from '../types/maps';
 import type { ObjectEventData } from '../types/objectEvents';
-import { loadMapEvents, type CoordEvent, type BgEvent } from './mapEventLoader';
+import {
+  loadMapEvents,
+  type ScriptCoordEvent,
+  type WeatherCoordEvent,
+  type BgEvent,
+} from './mapEventLoader';
 import {
   loadMapLayout,
   loadTilesetImage,
@@ -36,6 +41,10 @@ import { isDebugMode } from '../utils/debug';
 import type { LoadedAnimation } from '../rendering/types';
 import { TilesetPairScheduler } from './TilesetPairScheduler';
 import { loadTilesetAnimations } from './loadTilesetAnimations';
+import {
+  computeSpatialConnectionOffset,
+  isSpatialConnectionDirection,
+} from './mapConnections';
 
 const PROJECT_ROOT = '/pokeemerald';
 const NUM_PALS_IN_PRIMARY = 6;
@@ -86,8 +95,9 @@ export interface LoadedMapInstance {
   borderMetatiles: number[];  // Per-map border metatiles from border.bin
   warpEvents: WarpEvent[];  // Warp events from map.json
   objectEvents: ObjectEventData[];  // Object events (NPCs, items) from map.json
-  coordEvents: CoordEvent[];  // Coordinate trigger events from map.json
+  coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;  // Coordinate events from map.json
   bgEvents: BgEvent[];  // Background events (signs, hidden items) from map.json
+  mapWeather: string | null;  // Map default weather from map.json
 }
 
 /**
@@ -421,7 +431,9 @@ export class WorldManager {
     const MAX_CONNECTION_DEPTH = 2;
 
     // Only log if there are unloaded connections (reduce log noise)
-    const connections = fromMap.entry.connections ?? [];
+    const connections = (fromMap.entry.connections ?? []).filter((connection) =>
+      isSpatialConnectionDirection(connection.direction)
+    );
     const unloadedConnections = connections.filter(c =>
       !this.maps.has(c.map) && !this.loadingMaps.has(c.map)
     );
@@ -442,7 +454,9 @@ export class WorldManager {
         continue;
       }
 
-      const connections = currentMap.entry.connections || [];
+      const connections = (currentMap.entry.connections || []).filter((connection) =>
+        isSpatialConnectionDirection(connection.direction)
+      );
 
       for (const connection of connections) {
         if (visited.has(connection.map)) continue;
@@ -461,13 +475,17 @@ export class WorldManager {
         if (!neighborEntry) continue;
 
         // Calculate offset for connected map
-        const { offsetX, offsetY } = this.computeConnectionOffset(
+        const connectionOffset = this.computeConnectionOffset(
           currentMap.entry,
           neighborEntry,
           connection,
           currentMap.offsetX,
           currentMap.offsetY
         );
+        if (!connectionOffset) {
+          continue;
+        }
+        const { offsetX, offsetY } = connectionOffset;
 
         // Check tileset pair limit - but prioritize maps that share our current tileset
         const pairId = this.getTilesetPairId(neighborEntry.primaryTilesetId, neighborEntry.secondaryTilesetId);
@@ -570,16 +588,23 @@ export class WorldManager {
       // Queue connected maps if not at max depth
       if (current.depth < maxDepth) {
         for (const connection of current.entry.connections || []) {
+          if (!isSpatialConnectionDirection(connection.direction)) {
+            continue;
+          }
           const neighborEntry = mapIndexData.find(m => m.id === connection.map);
           if (!neighborEntry || this.maps.has(neighborEntry.id)) continue;
 
-          const { offsetX, offsetY } = this.computeConnectionOffset(
+          const connectionOffset = this.computeConnectionOffset(
             current.entry,
             neighborEntry,
             connection,
             current.offsetX,
             current.offsetY
           );
+          if (!connectionOffset) {
+            continue;
+          }
+          const { offsetX, offsetY } = connectionOffset;
 
           queue.push({
             entry: neighborEntry,
@@ -701,6 +726,12 @@ export class WorldManager {
             sourceMap.offsetX,
             sourceMap.offsetY
           );
+          if (!recalculated) {
+            this.debugWarn(
+              `[LOAD_MAP] Connection became non-spatial while recalculating offset for ${entry.id}`
+            );
+            return;
+          }
 
           // Check if offset changed (indicates reanchor happened during load)
           if (recalculated.offsetX !== offsetX || recalculated.offsetY !== offsetY) {
@@ -725,6 +756,7 @@ export class WorldManager {
         objectEvents: mapEvents.objectEvents,
         coordEvents: mapEvents.coordEvents,
         bgEvents: mapEvents.bgEvents,
+        mapWeather: mapEvents.mapWeather,
       };
 
       this.maps.set(entry.id, mapInstance);
@@ -801,21 +833,14 @@ export class WorldManager {
     connection: { direction: string; offset: number },
     baseOffsetX: number,
     baseOffsetY: number
-  ): { offsetX: number; offsetY: number } {
-    const dir = connection.direction.toLowerCase();
-    if (dir === 'up' || dir === 'north') {
-      return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY - neighborEntry.height };
-    }
-    if (dir === 'down' || dir === 'south') {
-      return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY + baseEntry.height };
-    }
-    if (dir === 'left' || dir === 'west') {
-      return { offsetX: baseOffsetX - neighborEntry.width, offsetY: baseOffsetY + connection.offset };
-    }
-    if (dir === 'right' || dir === 'east') {
-      return { offsetX: baseOffsetX + baseEntry.width, offsetY: baseOffsetY + connection.offset };
-    }
-    return { offsetX: baseOffsetX, offsetY: baseOffsetY };
+  ): { offsetX: number; offsetY: number } | null {
+    return computeSpatialConnectionOffset(
+      { width: baseEntry.width, height: baseEntry.height },
+      { width: neighborEntry.width, height: neighborEntry.height },
+      connection,
+      baseOffsetX,
+      baseOffsetY
+    );
   }
 
   /**

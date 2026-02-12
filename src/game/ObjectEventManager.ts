@@ -66,12 +66,33 @@ function isDecorationSlotPlaceholder(obj: ObjectEventData): boolean {
   return obj.script === '0x0' || obj.script === '0';
 }
 
+// C parity refs:
+// - public/pokeemerald/include/fieldmap.h (MAP_OFFSET, MAP_OFFSET_W, MAP_OFFSET_H)
+// - public/pokeemerald/src/event_object_movement.c
+//   - TrySpawnObjectEvents
+//   - RemoveObjectEventsOutsideView
+const MAP_OFFSET = 7;
+const MAP_OFFSET_W = MAP_OFFSET * 2 + 1;
+const MAP_OFFSET_H = MAP_OFFSET * 2;
+
+interface ObjectEventViewWindow {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
   private npcs: Map<string, NPCObject> = new Map();
   private scriptObjects: Map<string, ScriptObject> = new Map();
   private largeObjects: Map<string, LargeObject> = new Map();
   private bgEvents: Map<string, ProcessedBgEvent> = new Map();
+  private offscreenDespawnedNpcIds: Set<string> = new Set();
+  private offscreenDespawnedItemIds: Set<string> = new Set();
+  private offscreenDespawnedScriptObjectIds: Set<string> = new Set();
+  private offscreenDespawnedLargeObjectIds: Set<string> = new Set();
+  private lastObjectEventViewWindow: ObjectEventViewWindow | null = null;
   private tileElevationResolver: TileElevationResolver | null = null;
   private parsedMapIds: Set<string> = new Set();
   private parsedMapOffsets = new Map<string, { x: number; y: number }>();
@@ -97,6 +118,11 @@ export class ObjectEventManager {
     this.scriptObjects.clear();
     this.largeObjects.clear();
     this.bgEvents.clear();
+    this.offscreenDespawnedNpcIds.clear();
+    this.offscreenDespawnedItemIds.clear();
+    this.offscreenDespawnedScriptObjectIds.clear();
+    this.offscreenDespawnedLargeObjectIds.clear();
+    this.lastObjectEventViewWindow = null;
     this.parsedMapIds.clear();
     this.parsedMapOffsets.clear();
   }
@@ -183,6 +209,7 @@ export class ObjectEventManager {
     for (const key of [...this.bgEvents.keys()]) {
       if (key.startsWith(prefix)) this.bgEvents.delete(key);
     }
+    this.clearOffscreenStateForMap(mapId);
     this.parsedMapIds.delete(mapId);
     this.parsedMapOffsets.delete(mapId);
   }
@@ -230,6 +257,7 @@ export class ObjectEventManager {
           flag: obj.flag,
           visible: !isHidden,
         });
+        this.offscreenDespawnedLargeObjectIds.delete(id);
         continue;
       }
 
@@ -258,6 +286,7 @@ export class ObjectEventManager {
           script: obj.script,
           collected,
         });
+        this.offscreenDespawnedItemIds.delete(id);
       }
       // Handle NPCs
       else if (isNPCGraphicsId(resolvedGraphicsId)) {
@@ -300,6 +329,7 @@ export class ObjectEventManager {
           initialTileX: worldX,
           initialTileY: worldY,
         });
+        this.offscreenDespawnedNpcIds.delete(id);
       }
       // Handle scripted non-NPC objects (e.g. Birch's bag)
       else if (obj.script && obj.script !== '0x0') {
@@ -321,6 +351,7 @@ export class ObjectEventManager {
           flag: obj.flag,
           visible: !isHidden,
         });
+        this.offscreenDespawnedScriptObjectIds.delete(id);
       }
       // Future: handle other object types (berry trees, etc.)
     }
@@ -330,7 +361,9 @@ export class ObjectEventManager {
    * Get all visible (not collected) item balls
    */
   getVisibleItemBalls(): ItemBallObject[] {
-    return [...this.itemBalls.values()].filter((ball) => !ball.collected);
+    return [...this.itemBalls.values()].filter(
+      (ball) => !ball.collected && !this.offscreenDespawnedItemIds.has(ball.id)
+    );
   }
 
   /**
@@ -346,7 +379,12 @@ export class ObjectEventManager {
    */
   getItemBallAt(tileX: number, tileY: number): ItemBallObject | null {
     for (const ball of this.itemBalls.values()) {
-      if (ball.tileX === tileX && ball.tileY === tileY && !ball.collected) {
+      if (
+        ball.tileX === tileX
+        && ball.tileY === tileY
+        && !ball.collected
+        && !this.offscreenDespawnedItemIds.has(ball.id)
+      ) {
         return ball;
       }
     }
@@ -364,6 +402,7 @@ export class ObjectEventManager {
 
     // Mark as collected
     ball.collected = true;
+    this.offscreenDespawnedItemIds.delete(id);
 
     // Set the flag if it exists
     if (ball.flag && ball.flag !== '0') {
@@ -414,17 +453,99 @@ export class ObjectEventManager {
   }
 
   /**
-   * Refresh collected state from flags (call after flag reset)
+   * Reconcile object state from flags after load/save boundaries.
+   *
+   * C refs:
+   * - public/pokeemerald/src/scrcmd.c (ScrCmd_setflag / ScrCmd_clearflag only mutate flags)
+   * - public/pokeemerald/src/event_object_movement.c (TrySpawnObjectEvents checks hide flags on spawn)
+   *
+   * Use this for load/reconcile boundaries (map load, save load).
+   * Runtime script completion should call refreshPostScriptState(), not this method.
    */
   refreshCollectedState(): void {
     for (const ball of this.itemBalls.values()) {
       ball.collected = ball.flag && ball.flag !== '0' ? gameFlags.isSet(ball.flag) : false;
+      if (ball.collected) {
+        this.offscreenDespawnedItemIds.delete(ball.id);
+      }
     }
-    // C parity: setflag/clearflag during a script does NOT immediately change
-    // already-spawned object visibility. Objects only check their hide flags
-    // on map load (when first created). Scripts use addobject/removeobject
-    // for immediate visibility changes.
     this.refreshBgEventState();
+  }
+
+  /**
+   * Reconcile one map from flags at map-entry boundaries.
+   *
+   * C refs:
+   * - public/pokeemerald/src/overworld.c
+   *   - RunOnTransitionMapScript executes before object spawning on map entry.
+   * - public/pokeemerald/src/event_object_movement.c
+   *   - TrySpawnObjectEvents / TrySpawnObjectEventTemplate derive object presence from flags.
+   *
+   * This lets ON_TRANSITION setflag/clearflag changes affect the freshly entered
+   * map before runtime spawning logic runs for that map.
+   */
+  refreshMapLoadState(mapId: string): void {
+    const itemPrefix = `${mapId}_item_`;
+    const npcPrefix = `${mapId}_npc_`;
+    const scriptPrefix = `${mapId}_script_`;
+    const largePrefix = `${mapId}_large_`;
+    const bgPrefix = `${mapId}_bg_`;
+
+    for (const [id, ball] of this.itemBalls) {
+      if (!id.startsWith(itemPrefix)) continue;
+      ball.collected = ball.flag && ball.flag !== '0' ? gameFlags.isSet(ball.flag) : false;
+      if (ball.collected) {
+        this.offscreenDespawnedItemIds.delete(ball.id);
+      }
+    }
+
+    for (const [id, bg] of this.bgEvents) {
+      if (!id.startsWith(bgPrefix)) continue;
+      if (bg.type === 'hidden_item') {
+        bg.collected = bg.flag && bg.flag !== '0' ? gameFlags.isSet(bg.flag) : false;
+      }
+    }
+
+    for (const [id, npc] of this.npcs) {
+      if (!id.startsWith(npcPrefix)) continue;
+      // Preserve runtime removeobject/addobject state while map is still live.
+      if (npc.scriptRemoved) continue;
+      npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      if (!npc.visible) {
+        this.offscreenDespawnedNpcIds.delete(npc.id);
+        npcMovementEngine.removeNPC(npc.id);
+      }
+    }
+
+    for (const [id, scriptObject] of this.scriptObjects) {
+      if (!id.startsWith(scriptPrefix)) continue;
+      scriptObject.visible = !(scriptObject.flag && scriptObject.flag !== '0' ? gameFlags.isSet(scriptObject.flag) : false);
+      if (!scriptObject.visible) {
+        this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+      }
+    }
+
+    for (const [id, largeObject] of this.largeObjects) {
+      if (!id.startsWith(largePrefix)) continue;
+      largeObject.visible = !(largeObject.flag && largeObject.flag !== '0' ? gameFlags.isSet(largeObject.flag) : false);
+      if (!largeObject.visible) {
+        this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
+      }
+    }
+  }
+
+  /**
+   * Runtime-safe post-script refresh.
+   *
+   * C parity:
+   * - setflag/clearflag (ScrCmd_setflag/ScrCmd_clearflag) do not immediately
+   *   despawn already-spawned object events.
+   * - removeobject/addobject flow and per-frame TrySpawnObjectEvents drive
+   *   immediate runtime object presence changes.
+   */
+  refreshPostScriptState(): void {
+    this.refreshBgEventState();
+    this.respawnFlagClearedNPCs();
   }
 
   // === NPC Methods ===
@@ -433,7 +554,9 @@ export class ObjectEventManager {
    * Get all visible NPCs
    */
   getVisibleNPCs(): NPCObject[] {
-    return [...this.npcs.values()].filter((npc) => npc.visible);
+    return [...this.npcs.values()].filter(
+      (npc) => npc.visible && !this.offscreenDespawnedNpcIds.has(npc.id)
+    );
   }
 
   /**
@@ -476,11 +599,14 @@ export class ObjectEventManager {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.visible = visible;
+    this.offscreenDespawnedNpcIds.delete(npc.id);
+    if (!visible) {
+      npcMovementEngine.removeNPC(npc.id);
+    }
     // Track runtime script removal so refreshNPCVisibility won't undo it.
-    // addobject (visible=true) clears the flag; removeobject (visible=false) sets it.
     npc.scriptRemoved = !visible;
-    // C parity: removeobject sets FLAG_HIDE_*, addobject clears it,
-    // so the NPC stays hidden/visible across map reloads.
+    // Optional persistent sync for callers that explicitly want visibility
+    // written to FLAG_HIDE_* for map reload behavior.
     if (persistent && npc.flag && npc.flag !== '0') {
       if (visible) gameFlags.clear(npc.flag);
       else gameFlags.set(npc.flag);
@@ -566,7 +692,12 @@ export class ObjectEventManager {
    */
   getNPCAt(tileX: number, tileY: number): NPCObject | null {
     for (const npc of this.npcs.values()) {
-      if (npc.tileX === tileX && npc.tileY === tileY && npc.visible) {
+      if (
+        npc.tileX === tileX
+        && npc.tileY === tileY
+        && npc.visible
+        && !this.offscreenDespawnedNpcIds.has(npc.id)
+      ) {
         return npc;
       }
     }
@@ -625,7 +756,12 @@ export class ObjectEventManager {
    */
   getItemBallAtWithElevation(tileX: number, tileY: number, playerElevation: number): ItemBallObject | null {
     for (const ball of this.itemBalls.values()) {
-      if (ball.tileX === tileX && ball.tileY === tileY && !ball.collected) {
+      if (
+        ball.tileX === tileX
+        && ball.tileY === tileY
+        && !ball.collected
+        && !this.offscreenDespawnedItemIds.has(ball.id)
+      ) {
         // Ground level (0) or universal (15) can interact with any elevation
         if (playerElevation === 0 || playerElevation === 15) return ball;
         if (ball.elevation === 0 || ball.elevation === 15) return ball;
@@ -675,6 +811,9 @@ export class ObjectEventManager {
       if (npc.scriptRemoved) continue;
       // NPCs with FLAG_HIDE_* are hidden when the flag IS set
       npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      if (!npc.visible) {
+        this.offscreenDespawnedNpcIds.delete(npc.id);
+      }
     }
   }
 
@@ -686,6 +825,7 @@ export class ObjectEventManager {
    */
   resetScriptRemovedState(mapId: string): void {
     const prefix = `${mapId}_npc_`;
+    this.clearOffscreenStateForMap(mapId);
     for (const [key, npc] of this.npcs) {
       if (!key.startsWith(prefix)) continue;
       npc.scriptRemoved = false;
@@ -694,19 +834,23 @@ export class ObjectEventManager {
   }
 
   /**
-   * C parity: TrySpawnObjectEvents respawn check.
-   * After a script runs, check NPCs removed via removeobject whose hide flag
-   * has since been cleared (by clearflag). Re-show them.
-   * In the C engine this runs every frame; we run it after each script.
+   * C parity respawn check for removeobject + clearflag flow.
+   * Ref: TrySpawnObjectEvents in event_object_movement.c.
    */
   respawnFlagClearedNPCs(): void {
+    const viewWindow = this.lastObjectEventViewWindow;
     for (const npc of this.npcs.values()) {
       if (!npc.scriptRemoved) continue;
       // If the flag is clear (or NPC has no flag), it should be visible
       const shouldBeHidden = npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false;
       if (!shouldBeHidden) {
+        if (viewWindow && !this.isWithinObjectEventView(npc.initialTileX, npc.initialTileY, viewWindow)) {
+          continue;
+        }
+        this.resetNpcRuntimeSpawnState(npc);
         npc.visible = true;
         npc.scriptRemoved = false;
+        this.offscreenDespawnedNpcIds.delete(npc.id);
       }
     }
   }
@@ -715,7 +859,9 @@ export class ObjectEventManager {
    * Get all visible scripted objects.
    */
   getVisibleScriptObjects(): ScriptObject[] {
-    return [...this.scriptObjects.values()].filter((obj) => obj.visible);
+    return [...this.scriptObjects.values()].filter(
+      (obj) => obj.visible && !this.offscreenDespawnedScriptObjectIds.has(obj.id)
+    );
   }
 
   /**
@@ -723,7 +869,12 @@ export class ObjectEventManager {
    */
   getScriptObjectAt(tileX: number, tileY: number): ScriptObject | null {
     for (const scriptObject of this.scriptObjects.values()) {
-      if (scriptObject.visible && scriptObject.tileX === tileX && scriptObject.tileY === tileY) {
+      if (
+        scriptObject.visible
+        && scriptObject.tileX === tileX
+        && scriptObject.tileY === tileY
+        && !this.offscreenDespawnedScriptObjectIds.has(scriptObject.id)
+      ) {
         return scriptObject;
       }
     }
@@ -750,6 +901,9 @@ export class ObjectEventManager {
   refreshScriptObjectVisibility(): void {
     for (const scriptObject of this.scriptObjects.values()) {
       scriptObject.visible = !(scriptObject.flag && scriptObject.flag !== '0' ? gameFlags.isSet(scriptObject.flag) : false);
+      if (!scriptObject.visible) {
+        this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+      }
     }
   }
 
@@ -759,7 +913,22 @@ export class ObjectEventManager {
    * Get all visible large objects (e.g. truck)
    */
   getVisibleLargeObjects(): LargeObject[] {
-    return [...this.largeObjects.values()].filter((obj) => obj.visible);
+    return [...this.largeObjects.values()].filter(
+      (obj) => obj.visible && !this.offscreenDespawnedLargeObjectIds.has(obj.id)
+    );
+  }
+
+  /**
+   * Per-frame C-style object-event spawn/despawn scheduling based on view bounds.
+   *
+   * Ref: UpdateObjectEventsForCameraUpdate -> TrySpawnObjectEvents +
+   * RemoveObjectEventsOutsideView in event_object_movement.c.
+   */
+  updateObjectEventSpawnDespawn(playerTileX: number, playerTileY: number): void {
+    const viewWindow = this.getObjectEventViewWindowForPlayer(playerTileX, playerTileY);
+    this.lastObjectEventViewWindow = viewWindow;
+    this.trySpawnObjectsInView(viewWindow);
+    this.removeObjectsOutsideView(viewWindow);
   }
 
   /**
@@ -768,6 +937,9 @@ export class ObjectEventManager {
   refreshLargeObjectVisibility(): void {
     for (const obj of this.largeObjects.values()) {
       obj.visible = !(obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false);
+      if (!obj.visible) {
+        this.offscreenDespawnedLargeObjectIds.delete(obj.id);
+      }
     }
   }
 
@@ -865,6 +1037,157 @@ export class ObjectEventManager {
     for (const bg of this.bgEvents.values()) {
       if (bg.type === 'hidden_item') {
         bg.collected = bg.flag && bg.flag !== '0' ? gameFlags.isSet(bg.flag) : false;
+      }
+    }
+  }
+
+  private getObjectEventViewWindowForPlayer(playerTileX: number, playerTileY: number): ObjectEventViewWindow {
+    // C formulas use gSaveBlock1Ptr->pos (camera origin):
+    // left = pos.x - 2
+    // right = pos.x + MAP_OFFSET_W + 2
+    // top = pos.y
+    // bottom = pos.y + MAP_OFFSET_H + 2
+    // with pos = player - MAP_OFFSET.
+    return {
+      left: playerTileX - (MAP_OFFSET + 2),
+      right: playerTileX + (MAP_OFFSET_W - MAP_OFFSET + 2),
+      top: playerTileY - MAP_OFFSET,
+      bottom: playerTileY + (MAP_OFFSET_H - MAP_OFFSET + 2),
+    };
+  }
+
+  private isWithinObjectEventView(tileX: number, tileY: number, viewWindow: ObjectEventViewWindow): boolean {
+    return (
+      tileX >= viewWindow.left
+      && tileX <= viewWindow.right
+      && tileY >= viewWindow.top
+      && tileY <= viewWindow.bottom
+    );
+  }
+
+  private clearOffscreenStateForMap(mapId: string): void {
+    const prefix = `${mapId}_`;
+    for (const key of [...this.offscreenDespawnedNpcIds]) {
+      if (key.startsWith(prefix)) this.offscreenDespawnedNpcIds.delete(key);
+    }
+    for (const key of [...this.offscreenDespawnedItemIds]) {
+      if (key.startsWith(prefix)) this.offscreenDespawnedItemIds.delete(key);
+    }
+    for (const key of [...this.offscreenDespawnedScriptObjectIds]) {
+      if (key.startsWith(prefix)) this.offscreenDespawnedScriptObjectIds.delete(key);
+    }
+    for (const key of [...this.offscreenDespawnedLargeObjectIds]) {
+      if (key.startsWith(prefix)) this.offscreenDespawnedLargeObjectIds.delete(key);
+    }
+  }
+
+  private resetNpcRuntimeSpawnState(npc: NPCObject): void {
+    npc.tileX = npc.initialTileX;
+    npc.tileY = npc.initialTileY;
+    npc.subTileX = 0;
+    npc.subTileY = 0;
+    npc.isWalking = false;
+    npc.direction = getInitialDirection(npc.movementTypeRaw);
+    npcMovementEngine.removeNPC(npc.id);
+  }
+
+  private trySpawnObjectsInView(viewWindow: ObjectEventViewWindow): void {
+    for (const npc of this.npcs.values()) {
+      const shouldBeHidden = npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false;
+      const canSpawnHere = this.isWithinObjectEventView(npc.initialTileX, npc.initialTileY, viewWindow);
+      if (shouldBeHidden || !canSpawnHere) continue;
+
+      if (!npc.visible || this.offscreenDespawnedNpcIds.has(npc.id)) {
+        this.resetNpcRuntimeSpawnState(npc);
+        npc.visible = true;
+        npc.scriptRemoved = false;
+      }
+      this.offscreenDespawnedNpcIds.delete(npc.id);
+    }
+
+    for (const ball of this.itemBalls.values()) {
+      const shouldBeHidden = ball.flag && ball.flag !== '0' ? gameFlags.isSet(ball.flag) : false;
+      const canSpawnHere = this.isWithinObjectEventView(ball.tileX, ball.tileY, viewWindow);
+      if (shouldBeHidden || !canSpawnHere) continue;
+
+      if (ball.collected) {
+        ball.collected = false;
+      }
+      this.offscreenDespawnedItemIds.delete(ball.id);
+    }
+
+    for (const scriptObject of this.scriptObjects.values()) {
+      const shouldBeHidden = scriptObject.flag && scriptObject.flag !== '0'
+        ? gameFlags.isSet(scriptObject.flag)
+        : false;
+      const canSpawnHere = this.isWithinObjectEventView(scriptObject.tileX, scriptObject.tileY, viewWindow);
+      if (shouldBeHidden || !canSpawnHere) continue;
+
+      scriptObject.visible = true;
+      this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+    }
+
+    for (const largeObject of this.largeObjects.values()) {
+      const shouldBeHidden = largeObject.flag && largeObject.flag !== '0'
+        ? gameFlags.isSet(largeObject.flag)
+        : false;
+      const canSpawnHere = this.isWithinObjectEventView(largeObject.tileX, largeObject.tileY, viewWindow);
+      if (shouldBeHidden || !canSpawnHere) continue;
+
+      largeObject.visible = true;
+      this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
+    }
+  }
+
+  private removeObjectsOutsideView(viewWindow: ObjectEventViewWindow): void {
+    for (const npc of this.npcs.values()) {
+      if (!npc.visible) {
+        this.offscreenDespawnedNpcIds.delete(npc.id);
+        continue;
+      }
+      if (this.offscreenDespawnedNpcIds.has(npc.id)) continue;
+
+      const currentInView = this.isWithinObjectEventView(npc.tileX, npc.tileY, viewWindow);
+      const initialInView = this.isWithinObjectEventView(npc.initialTileX, npc.initialTileY, viewWindow);
+      if (!currentInView && !initialInView) {
+        this.offscreenDespawnedNpcIds.add(npc.id);
+        npcMovementEngine.removeNPC(npc.id);
+      }
+    }
+
+    for (const ball of this.itemBalls.values()) {
+      if (ball.collected) {
+        this.offscreenDespawnedItemIds.delete(ball.id);
+        continue;
+      }
+      if (this.offscreenDespawnedItemIds.has(ball.id)) continue;
+
+      if (!this.isWithinObjectEventView(ball.tileX, ball.tileY, viewWindow)) {
+        this.offscreenDespawnedItemIds.add(ball.id);
+      }
+    }
+
+    for (const scriptObject of this.scriptObjects.values()) {
+      if (!scriptObject.visible) {
+        this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+        continue;
+      }
+      if (this.offscreenDespawnedScriptObjectIds.has(scriptObject.id)) continue;
+
+      if (!this.isWithinObjectEventView(scriptObject.tileX, scriptObject.tileY, viewWindow)) {
+        this.offscreenDespawnedScriptObjectIds.add(scriptObject.id);
+      }
+    }
+
+    for (const largeObject of this.largeObjects.values()) {
+      if (!largeObject.visible) {
+        this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
+        continue;
+      }
+      if (this.offscreenDespawnedLargeObjectIds.has(largeObject.id)) continue;
+
+      if (!this.isWithinObjectEventView(largeObject.tileX, largeObject.tileY, viewWindow)) {
+        this.offscreenDespawnedLargeObjectIds.add(largeObject.id);
       }
     }
   }

@@ -12,11 +12,12 @@
 import { MOVE_EFFECTS, getBattleMoveData } from '../../data/battleMoves.gen';
 import { getMoveInfo, getMoveName } from '../../data/moves';
 import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen';
-import { getSpeciesInfo } from '../../data/speciesInfo';
 import { STATUS } from '../../pokemon/types';
-import type { BattlePokemon, BattleEvent, WeatherType, SideState, StatStageId } from './types';
-import { isPhysicalType, applyStatStage, clampStage, getAccuracyMultiplier } from './types';
+import { battleRandomChance, battleRandomInt } from './BattleRng';
+import type { BattlePokemon, BattleEvent, SideState, StatStageId } from './types';
+import { isPhysicalType, clampStage, getAccuracyMultiplier } from './types';
 import { calculateDamage, type DamageResult } from './DamageCalculator';
+import { getBattlePokemonTypes } from './speciesTypes';
 import { tryApplyStatus, applyConfusion, hasStatus } from './StatusEffects';
 import { setWeather, getWeatherStartMessage, getWeatherAccuracyOverride } from './Weather';
 import type { WeatherState } from './types';
@@ -43,7 +44,7 @@ export interface MoveResult {
  * Execute a move with its effect. Returns battle events.
  */
 export function executeMove(ctx: MoveContext): MoveResult {
-  const { attacker, defender, moveId } = ctx;
+  const { attacker, moveId } = ctx;
   const events: BattleEvent[] = [];
   const moveName = getMoveName(moveId);
   const moveInfo = getMoveInfo(moveId);
@@ -109,7 +110,7 @@ function checkAccuracy(ctx: MoveContext, events: BattleEvent[]): boolean {
     accuracy = Math.floor(accuracy * 0.8);
   }
 
-  const roll = randomInt(1, 100);
+  const roll = battleRandomInt(1, 100);
   if (roll > accuracy) {
     events.push({
       type: 'miss',
@@ -128,7 +129,11 @@ function handleDamagingMove(ctx: MoveContext, events: BattleEvent[]): MoveResult
   return { events, success: result.damage > 0 || result.effectiveness === 0 };
 }
 
-function doDamage(ctx: MoveContext, events: BattleEvent[]): DamageResult {
+interface DamageOptions {
+  minRemainingHp?: number;
+}
+
+function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOptions = {}): DamageResult {
   const { attacker, defender, moveId } = ctx;
   const result = calculateDamage({
     attacker,
@@ -151,13 +156,19 @@ function doDamage(ctx: MoveContext, events: BattleEvent[]): DamageResult {
     return result;
   }
 
-  defender.currentHp = Math.max(0, defender.currentHp - result.damage);
-  events.push({
-    type: 'damage',
-    battler: defBattler,
-    value: result.damage,
-    moveId,
-  });
+  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0);
+  const maxDamage = Math.max(0, defender.currentHp - minRemainingHp);
+  const appliedDamage = Math.min(result.damage, maxDamage);
+  defender.currentHp = Math.max(0, defender.currentHp - appliedDamage);
+
+  if (appliedDamage > 0) {
+    events.push({
+      type: 'damage',
+      battler: defBattler,
+      value: appliedDamage,
+      moveId,
+    });
+  }
 
   if (result.critical) {
     events.push({ type: 'critical', battler: defBattler, message: 'A critical hit!' });
@@ -173,7 +184,54 @@ function doDamage(ctx: MoveContext, events: BattleEvent[]): DamageResult {
     events.push({ type: 'faint', battler: defBattler, message: `${defender.name} fainted!` });
   }
 
-  return result;
+  return { ...result, damage: appliedDamage };
+}
+
+interface FixedDamageOptions {
+  moveType?: string;
+  minRemainingHp?: number;
+}
+
+function doFixedDamage(
+  ctx: MoveContext,
+  events: BattleEvent[],
+  baseDamage: number,
+  options: FixedDamageOptions = {},
+): { success: boolean; damage: number } {
+  const moveType = options.moveType;
+  const [type1, type2] = getBattlePokemonTypes(ctx.defender);
+  if (moveType && getTypeEffectiveness(moveType, type1, type2) === 0) {
+    events.push({
+      type: 'effectiveness',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      value: 0,
+      message: `It doesn't affect ${ctx.defender.name}...`,
+    });
+    return { success: false, damage: 0 };
+  }
+
+  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0);
+  const maxDamage = Math.max(0, ctx.defender.currentHp - minRemainingHp);
+  const damage = Math.min(Math.max(0, baseDamage), maxDamage);
+  ctx.defender.currentHp = Math.max(0, ctx.defender.currentHp - damage);
+
+  if (damage > 0) {
+    events.push({
+      type: 'damage',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      value: damage,
+    });
+  }
+
+  if (ctx.defender.currentHp <= 0) {
+    events.push({
+      type: 'faint',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} fainted!`,
+    });
+  }
+
+  return { success: true, damage };
 }
 
 // ── Stat change helper ──
@@ -258,7 +316,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_POISON_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       tryApplyStatus(ctx.defender, STATUS.POISON, events);
     }
   }
@@ -289,7 +347,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_BURN_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       tryApplyStatus(ctx.defender, STATUS.BURN, events);
     }
   }
@@ -301,7 +359,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_FREEZE_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       tryApplyStatus(ctx.defender, STATUS.FREEZE, events);
     }
   }
@@ -313,7 +371,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_PARALYZE_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       tryApplyStatus(ctx.defender, STATUS.PARALYSIS, events);
     }
   }
@@ -394,7 +452,7 @@ function makeDamageStatDownHitHandler(stat: StatStageId): EffectHandler {
     const dmg = doDamage(ctx, events);
     if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
       const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-      if (chance > 0 && randomInt(1, 100) <= chance) {
+      if (chance > 0 && battleRandomInt(1, 100) <= chance) {
         applyStatChange(ctx.defender, stat, -1, events);
       }
     }
@@ -415,7 +473,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_FLINCH_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       ctx.defender.volatile.flinch = true;
     }
   }
@@ -425,7 +483,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_FLINCH_HIT, (ctx, events) => {
 // ── EFFECT_MULTI_HIT (29) — Hit 2-5 times ──
 registerEffect(MOVE_EFFECTS.EFFECT_MULTI_HIT, (ctx, events) => {
   // GBA distribution: 2(37.5%), 3(37.5%), 4(12.5%), 5(12.5%)
-  const roll = randomInt(1, 8);
+  const roll = battleRandomInt(1, 8);
   let hitCount: number;
   if (roll <= 3) hitCount = 2;
   else if (roll <= 6) hitCount = 3;
@@ -522,7 +580,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_CONFUSE_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       applyConfusion(ctx.defender, events);
     }
   }
@@ -623,7 +681,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_PROTECT, (ctx, events) => {
   // Successive uses have decreasing chance: 1/1, 1/2, 1/4, 1/8, ...
   const count = ctx.attacker.volatile.protectSuccessCount;
   const chance = count === 0 ? 1 : Math.pow(0.5, count);
-  if (Math.random() < chance) {
+  if (battleRandomChance(chance)) {
     ctx.attacker.volatile.protect = true;
     ctx.attacker.volatile.protectSuccessCount++;
     events.push({ type: 'message', message: `${ctx.attacker.name} protected itself!` });
@@ -717,75 +775,41 @@ registerEffect(MOVE_EFFECTS.EFFECT_OHKO, (ctx, events) => {
 // ── EFFECT_SUPER_FANG (40) — Halve HP ──
 registerEffect(MOVE_EFFECTS.EFFECT_SUPER_FANG, (ctx, events) => {
   const damage = Math.max(1, Math.floor(ctx.defender.currentHp / 2));
-  ctx.defender.currentHp -= damage;
-  events.push({ type: 'damage', battler: ctx.defender.isPlayer ? 0 : 1, value: damage });
-  if (ctx.defender.currentHp <= 0) {
-    events.push({ type: 'faint', battler: ctx.defender.isPlayer ? 0 : 1, message: `${ctx.defender.name} fainted!` });
-  }
-  return { events, success: true };
+  const result = doFixedDamage(ctx, events, damage, { moveType: 'NORMAL' });
+  return { events, success: result.success };
 });
 
 // ── EFFECT_DRAGON_RAGE (41) — Fixed 40 damage ──
 registerEffect(MOVE_EFFECTS.EFFECT_DRAGON_RAGE, (ctx, events) => {
-  const defTypes = getSpeciesInfo(ctx.defender.pokemon.species)?.types ?? ['NORMAL', 'NORMAL'];
-  const eff = getTypeEffectiveness('DRAGON', defTypes[0], defTypes[1]);
-  if (eff === 0) {
-    events.push({ type: 'effectiveness', message: `It doesn't affect ${ctx.defender.name}...` });
-    return { events, success: false };
-  }
-  const damage = 40;
-  ctx.defender.currentHp = Math.max(0, ctx.defender.currentHp - damage);
-  events.push({ type: 'damage', battler: ctx.defender.isPlayer ? 0 : 1, value: damage });
-  if (ctx.defender.currentHp <= 0) {
-    events.push({ type: 'faint', battler: ctx.defender.isPlayer ? 0 : 1, message: `${ctx.defender.name} fainted!` });
-  }
-  return { events, success: true };
+  const result = doFixedDamage(ctx, events, 40, { moveType: 'DRAGON' });
+  return { events, success: result.success };
 });
 
 // ── EFFECT_SONICBOOM (130) — Fixed 20 damage ──
 registerEffect(MOVE_EFFECTS.EFFECT_SONICBOOM, (ctx, events) => {
-  const damage = 20;
-  ctx.defender.currentHp = Math.max(0, ctx.defender.currentHp - damage);
-  events.push({ type: 'damage', battler: ctx.defender.isPlayer ? 0 : 1, value: damage });
-  if (ctx.defender.currentHp <= 0) {
-    events.push({ type: 'faint', battler: ctx.defender.isPlayer ? 0 : 1, message: `${ctx.defender.name} fainted!` });
-  }
-  return { events, success: true };
+  const result = doFixedDamage(ctx, events, 20, { moveType: 'NORMAL' });
+  return { events, success: result.success };
 });
 
 // ── EFFECT_LEVEL_DAMAGE (87) — Damage = level (Night Shade, Seismic Toss) ──
 registerEffect(MOVE_EFFECTS.EFFECT_LEVEL_DAMAGE, (ctx, events) => {
   const moveInfo = getMoveInfo(ctx.moveId);
   const moveType = moveInfo?.type ?? 'NORMAL';
-  const defTypes = getSpeciesInfo(ctx.defender.pokemon.species)?.types ?? ['NORMAL', 'NORMAL'];
-  const eff = getTypeEffectiveness(moveType, defTypes[0], defTypes[1]);
-  if (eff === 0) {
-    events.push({ type: 'effectiveness', message: `It doesn't affect ${ctx.defender.name}...` });
-    return { events, success: false };
-  }
-  const damage = ctx.attacker.pokemon.level;
-  ctx.defender.currentHp = Math.max(0, ctx.defender.currentHp - damage);
-  events.push({ type: 'damage', battler: ctx.defender.isPlayer ? 0 : 1, value: damage });
-  if (ctx.defender.currentHp <= 0) {
-    events.push({ type: 'faint', battler: ctx.defender.isPlayer ? 0 : 1, message: `${ctx.defender.name} fainted!` });
-  }
-  return { events, success: true };
+  const result = doFixedDamage(ctx, events, ctx.attacker.pokemon.level, { moveType });
+  return { events, success: result.success };
 });
 
 // ── EFFECT_FALSE_SWIPE (101) — Cannot KO (leave at 1 HP) ──
 registerEffect(MOVE_EFFECTS.EFFECT_FALSE_SWIPE, (ctx, events) => {
-  const dmg = doDamage(ctx, events);
-  if (ctx.defender.currentHp <= 0) {
-    ctx.defender.currentHp = 1;
-  }
-  return { events, success: dmg.damage > 0 };
+  const dmg = doDamage(ctx, events, { minRemainingHp: 1 });
+  return { events, success: dmg.effectiveness !== 0 };
 });
 
 // ── EFFECT_TRAP (42) — Damage + trap 4-5 turns (Wrap, Bind, etc.) ──
 registerEffect(MOVE_EFFECTS.EFFECT_TRAP, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0 && ctx.defender.volatile.trapped === 0) {
-    ctx.defender.volatile.trapped = randomInt(4, 5);
+    ctx.defender.volatile.trapped = battleRandomInt(4, 5);
     events.push({
       type: 'message',
       message: `${ctx.defender.name} was trapped!`,
@@ -796,7 +820,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_TRAP, (ctx, events) => {
 
 // ── EFFECT_LEECH_SEED (84) ──
 registerEffect(MOVE_EFFECTS.EFFECT_LEECH_SEED, (ctx, events) => {
-  const defTypes = getSpeciesInfo(ctx.defender.pokemon.species)?.types ?? ['NORMAL', 'NORMAL'];
+  const defTypes = getBattlePokemonTypes(ctx.defender);
   if (defTypes.includes('GRASS')) {
     events.push({ type: 'message', message: `It doesn't affect ${ctx.defender.name}...` });
     return { events, success: false };
@@ -811,7 +835,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_LEECH_SEED, (ctx, events) => {
 });
 
 // ── EFFECT_SPLASH (85) ──
-registerEffect(MOVE_EFFECTS.EFFECT_SPLASH, (ctx, events) => {
+registerEffect(MOVE_EFFECTS.EFFECT_SPLASH, (_ctx, events) => {
   events.push({ type: 'message', message: 'But nothing happened!' });
   return { events, success: false };
 });
@@ -831,7 +855,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_THAW_HIT, (ctx, events) => {
   // Chance to burn
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       tryApplyStatus(ctx.defender, STATUS.BURN, events);
     }
   }
@@ -843,8 +867,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_TRI_ATTACK, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
-      const effect = randomInt(1, 3);
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
+      const effect = battleRandomInt(1, 3);
       if (effect === 1) tryApplyStatus(ctx.defender, STATUS.BURN, events);
       else if (effect === 2) tryApplyStatus(ctx.defender, STATUS.FREEZE, events);
       else tryApplyStatus(ctx.defender, STATUS.PARALYSIS, events);
@@ -860,7 +884,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_DEFENSE_UP_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance === 0 || randomInt(1, 100) <= chance) {
+    if (chance === 0 || battleRandomInt(1, 100) <= chance) {
       applyStatChange(ctx.attacker, 'defense', 1, events);
     }
   }
@@ -872,7 +896,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_ATTACK_UP_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance === 0 || randomInt(1, 100) <= chance) {
+    if (chance === 0 || battleRandomInt(1, 100) <= chance) {
       applyStatChange(ctx.attacker, 'attack', 1, events);
     }
   }
@@ -884,7 +908,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_ALL_STATS_UP_HIT, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
-    if (chance > 0 && randomInt(1, 100) <= chance) {
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       applyStatChange(ctx.attacker, 'attack', 1, events);
       applyStatChange(ctx.attacker, 'defense', 1, events);
       applyStatChange(ctx.attacker, 'speed', 1, events);
@@ -996,8 +1020,4 @@ function consumePP(attacker: BattlePokemon, moveSlot: number): void {
   if (moveSlot >= 0 && moveSlot < 4) {
     attacker.pokemon.pp[moveSlot] = Math.max(0, attacker.pokemon.pp[moveSlot] - 1) as 0;
   }
-}
-
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

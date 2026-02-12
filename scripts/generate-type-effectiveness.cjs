@@ -103,12 +103,12 @@ for (let i = 0; i + 2 < tokens.length; i += 3) {
   const atkName = typeName(atk);
   const defName = typeName(def);
 
+  if (!chart[atkName]) chart[atkName] = {};
+  chart[atkName][defName] = multiplier;
+  normalCount++;
+
   if (pastForesight) {
     foresight.push({ attack: atkName, defense: defName, multiplier });
-  } else {
-    if (!chart[atkName]) chart[atkName] = {};
-    chart[atkName][defName] = multiplier;
-    normalCount++;
   }
 }
 

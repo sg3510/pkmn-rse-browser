@@ -59,6 +59,7 @@ export interface VolatileStatus {
   rage: boolean;
   rollout: number;            // consecutive uses (0-4)
   furyCutter: number;         // consecutive uses (0-4)
+  toxicCounter: number;       // bad poison counter (increments each end turn while toxic)
 }
 
 export function createDefaultVolatile(): VolatileStatus {
@@ -93,6 +94,7 @@ export function createDefaultVolatile(): VolatileStatus {
     rage: false,
     rollout: 0,
     furyCutter: 0,
+    toxicCounter: 0,
   };
 }
 
@@ -251,7 +253,7 @@ export interface BattleEvent {
 
 // ── Battle outcome ──
 
-export type BattleOutcome = 'win' | 'lose' | 'flee' | 'capture';
+export type BattleOutcome = 'win' | 'lose' | 'draw' | 'flee' | 'capture';
 
 // ── Turn result ──
 
@@ -289,7 +291,7 @@ export function applyStatStage(stat: number, stage: number): number {
  * Accuracy/evasion stage ratios (different from stat stages in GBA).
  * C ref: public/pokeemerald/src/battle_util.c (gAccuracyStageRatios)
  */
-const ACC_NUMERATORS =   [33, 36, 43, 50, 60, 75, 100, 133, 166, 200, 250, 266, 300];
+const ACC_NUMERATORS =   [33, 36, 43, 50, 60, 75, 100, 133, 166, 200, 233, 266, 300];
 const ACC_DENOMINATORS = [100,100,100,100,100,100,100, 100, 100, 100, 100, 100, 100];
 
 export function getAccuracyMultiplier(accuracyStage: number, evasionStage: number): number {

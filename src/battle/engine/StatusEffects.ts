@@ -13,6 +13,8 @@
  */
 
 import { STATUS } from '../../pokemon/types';
+import { battleRandomInt } from './BattleRng';
+import { getBattlePokemonTypes } from './speciesTypes';
 import type { BattlePokemon, BattleEvent } from './types';
 
 // ── Primary status helpers ──
@@ -44,7 +46,7 @@ export function tryApplyStatus(
   }
 
   // Type immunities
-  const types = getTypes(target);
+  const types = getBattlePokemonTypes(target);
   if (status === STATUS.POISON || status === STATUS.TOXIC) {
     if (types.includes('POISON') || types.includes('STEEL')) {
       return false;
@@ -65,11 +67,15 @@ export function tryApplyStatus(
   }
 
   if (status === STATUS.SLEEP) {
-    // Random 1-7 turns (GBA: 1-3 for early gens, but Emerald is 1-7)
-    const turns = randomInt(1, 7);
+    // Move-induced sleep in Emerald lasts 2-5 turns.
+    const turns = battleRandomInt(2, 5);
     target.pokemon.status = turns; // sleep stored in bottom 3 bits
+  } else if (status === STATUS.TOXIC) {
+    target.pokemon.status = status;
+    target.volatile.toxicCounter = 0;
   } else {
     target.pokemon.status = status;
+    target.volatile.toxicCounter = 0;
   }
 
   const battler = target.isPlayer ? 0 : 1;
@@ -89,6 +95,7 @@ export function cureStatus(target: BattlePokemon, events: BattleEvent[]): void {
 
   const oldStatus = target.pokemon.status;
   target.pokemon.status = STATUS.NONE;
+  target.volatile.toxicCounter = 0;
 
   events.push({
     type: 'status_cured',
@@ -137,7 +144,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
 
   // Freeze check (20% chance to thaw each turn)
   if (hasStatus(mon, STATUS.FREEZE)) {
-    if (randomInt(1, 5) === 1) {
+    if (battleRandomInt(1, 5) === 1) {
       mon.pokemon.status = STATUS.NONE;
       events.push({
         type: 'thaw',
@@ -156,7 +163,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
 
   // Paralysis check (25% chance can't move)
   if (hasStatus(mon, STATUS.PARALYSIS)) {
-    if (randomInt(1, 4) === 1) {
+    if (battleRandomInt(1, 4) === 1) {
       events.push({
         type: 'fully_paralyzed',
         battler,
@@ -193,7 +200,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
         message: `${mon.name} is confused!`,
       });
       // 50% chance to hit self
-      if (randomInt(1, 2) === 1) {
+      if (battleRandomInt(1, 2) === 1) {
         const selfDamage = calculateConfusionDamage(mon);
         mon.currentHp = Math.max(0, mon.currentHp - selfDamage);
         events.push({
@@ -214,7 +221,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
       battler,
       message: `${mon.name} is in love!`,
     });
-    if (randomInt(1, 2) === 1) {
+    if (battleRandomInt(1, 2) === 1) {
       events.push({
         type: 'message',
         battler,
@@ -234,6 +241,9 @@ export function applyEndOfTurnStatus(mon: BattlePokemon): BattleEvent[] {
   if (mon.currentHp <= 0) return events;
 
   const battler = mon.isPlayer ? 0 : 1;
+  if (!hasStatus(mon, STATUS.TOXIC)) {
+    mon.volatile.toxicCounter = 0;
+  }
 
   // Poison: 1/8 max HP per turn
   if (hasStatus(mon, STATUS.POISON)) {
@@ -250,11 +260,9 @@ export function applyEndOfTurnStatus(mon: BattlePokemon): BattleEvent[] {
   // Toxic (bad poison): damage increases each turn (1/16, 2/16, 3/16, ...)
   // We track the toxic counter in the upper bits — for simplicity, use a volatile counter
   if (hasStatus(mon, STATUS.TOXIC)) {
-    // Toxic counter stored as part of volatile for turn-based tracking
-    // In GBA: STATUS3_TOXIC_COUNTER, increases each turn
-    // Simplified: use 1/8 like regular poison for now
-    // TODO: track toxic counter properly
-    const damage = Math.max(1, Math.floor(mon.maxHp / 8));
+    mon.volatile.toxicCounter = Math.min(15, mon.volatile.toxicCounter + 1);
+    const baseDamage = Math.max(1, Math.floor(mon.maxHp / 16));
+    const damage = baseDamage * Math.max(1, mon.volatile.toxicCounter);
     mon.currentHp = Math.max(0, mon.currentHp - damage);
     events.push({
       type: 'hurt_by_status',
@@ -329,17 +337,6 @@ export function applyEndOfTurnStatus(mon: BattlePokemon): BattleEvent[] {
 
 // ── Helpers ──
 
-function getTypes(mon: BattlePokemon): string[] {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getSpeciesInfo } = require('../../data/speciesInfo');
-    const info = getSpeciesInfo(mon.pokemon.species);
-    return info?.types ?? ['NORMAL', 'NORMAL'];
-  } catch {
-    return ['NORMAL', 'NORMAL'];
-  }
-}
-
 /**
  * Confusion self-hit damage: 40 base power typeless physical attack against self.
  * C ref: battle_script_commands.c (confusion damage)
@@ -376,15 +373,11 @@ function getStatusApplyMessage(name: string, status: number): string {
   return `${name} was afflicted!`;
 }
 
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
 /** Apply confusion to a battler. */
 export function applyConfusion(target: BattlePokemon, events: BattleEvent[]): boolean {
   if (target.volatile.confusion > 0) return false; // already confused
 
-  target.volatile.confusion = randomInt(2, 5); // GBA: 2-5 turns
+  target.volatile.confusion = battleRandomInt(2, 5); // GBA: 2-5 turns
   events.push({
     type: 'status_applied',
     battler: target.isPlayer ? 0 : 1,

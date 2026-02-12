@@ -326,6 +326,9 @@ class SurfingState implements PlayerState {
   }
 
   getFrameInfo(controller: PlayerController): FrameInfo | null {
+    if (controller.isUnderwater()) {
+      return controller.calculateFrameInfo('underwater');
+    }
     // Use surfing sprite (32x32 frames)
     const frame = controller.calculateSurfingFrameInfo();
     if (frame) {
@@ -581,6 +584,7 @@ export class PlayerController {
   private grassEffectManager: FieldEffectManager = new FieldEffectManager();
   private currentGrassType: 'long' | null = null; // Track if on long grass (for clipping)
   private surfingController: SurfingController = new SurfingController();
+  private underwaterMode: boolean = false;
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
   private prevTileX: number;
@@ -742,6 +746,7 @@ export class PlayerController {
 
     // 5. Reset surfing controller if mid-animation
     this.surfingController.reset();
+    this.underwaterMode = false;
   }
 
   /**
@@ -2111,6 +2116,28 @@ export class PlayerController {
     this.changeState(new SurfJumpingState(true));
   }
 
+  public isUnderwater(): boolean {
+    return this.underwaterMode;
+  }
+
+  public setTraversalState(state: { surfing: boolean; underwater: boolean }): void {
+    this.underwaterMode = state.underwater;
+    this.surfingController.setSurfingActive(state.surfing, this.dir);
+
+    this.isMoving = false;
+    this.pixelsMoved = 0;
+    this.spriteYOffset = 0;
+    this.scriptedMoveSpeedPxPerMs = null;
+
+    if (state.surfing) {
+      if (!(this.currentState instanceof SurfingState)) {
+        this.changeState(new SurfingState());
+      }
+    } else if (!(this.currentState instanceof NormalState)) {
+      this.changeState(new NormalState());
+    }
+  }
+
   /**
    * Check if currently surfing.
    */
@@ -2130,6 +2157,7 @@ export class PlayerController {
    * Returns 'surfing', 'running', or 'walking'.
    */
   public getCurrentSpriteKey(): string {
+    if (this.underwaterMode) return 'underwater';
     // Check for surfing OR mount/dismount jump (which also uses surfing sprite)
     if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';
     if (this.isRunning()) return 'running';

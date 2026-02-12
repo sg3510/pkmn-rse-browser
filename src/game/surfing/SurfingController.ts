@@ -315,6 +315,34 @@ export class SurfingController {
   }
 
   /**
+   * Force surfing state on/off without playing mount/dismount animations.
+   * Used for map load/warp restore paths.
+   */
+  public setSurfingActive(
+    isSurfing: boolean,
+    direction: 'up' | 'down' | 'left' | 'right' = this.state.blobDirection
+  ): void {
+    if (!isSurfing) {
+      this.state = createInitialSurfingState();
+      this.blobRenderer.setBobState('BOB_NONE');
+      this.isAnimating = false;
+      return;
+    }
+
+    this.state = {
+      ...createInitialSurfingState(),
+      animationPhase: 'SURFING',
+      isSurfing: true,
+      blobBobState: 'BOB_PLAYER_AND_MON',
+      blobDirection: direction,
+      startTime: Date.now(),
+    };
+    this.blobRenderer.resetBob();
+    this.blobRenderer.setBobState('BOB_PLAYER_AND_MON');
+    this.isAnimating = false;
+  }
+
+  /**
    * Force stop surfing (emergency reset)
    */
   public reset(): void {

@@ -115,9 +115,14 @@ import { saveManager } from '../save/SaveManager';
 import { bagManager } from '../game/BagManager';
 import { getItemId, getItemName } from '../data/items';
 import { getDynamicWarpTarget } from '../game/DynamicWarp';
+import { clearFixedDiveWarpTarget, setFixedDiveWarpTarget } from '../game/FixedDiveWarp';
 import { shouldRunCoordEvent } from '../game/NewGameFlow';
+import type { ScriptCoordEvent } from '../game/mapEventLoader';
 import { getMapScripts } from '../data/scripts';
 import type { MapScriptData } from '../data/scripts/types';
+import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
+import { resolveDiveWarp } from '../game/dive/DiveWarpResolver';
+import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
 import { ensureOverworldRuntimeAssets as ensureOverworldRuntimeAssetsUtil } from './gamePage/overworldAssets';
 import { buildWebGLDebugState } from './gamePage/buildWebGLDebugState';
 import { buildDebugState } from './gamePage/buildDebugState';
@@ -126,6 +131,8 @@ import { useStateMachineRenderLoop } from './gamePage/useStateMachineRenderLoop'
 import { useOverworldContinueLocation } from './gamePage/useOverworldContinueLocation';
 import { performWarpTransition } from './gamePage/performWarpTransition';
 import { loadSelectedOverworldMap } from './gamePage/loadSelectedOverworldMap';
+import { runMapEntryScripts } from './gamePage/runMapEntryScripts';
+import { runMapDiveScript } from './gamePage/runMapDiveScript';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
 import {
   applyTruckSequenceFrame,
@@ -143,6 +150,7 @@ import { stepCallbackManager } from '../game/StepCallbackManager';
 import { rotatingGateManager } from '../game/RotatingGateManager';
 import { startSpecialWalkOverWarp } from '../game/SpecialWarpBehaviorRegistry';
 import { calculateSortKey, getRotatingGateAtlasName } from '../rendering/spriteUtils';
+import { WeatherManager } from '../weather/WeatherManager';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -159,6 +167,10 @@ function resolveMapScriptCompareValue(value: number | string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function isUnderwaterMapType(mapType: string | null): boolean {
+  return mapType === 'MAP_TYPE_UNDERWATER';
+}
+
 type ScriptedWarpDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptedWarpPhase = 'pending' | 'fading' | 'loading';
 
@@ -168,6 +180,10 @@ type PendingScriptedWarp = {
   y: number;
   direction: ScriptedWarpDirection;
   phase: ScriptedWarpPhase;
+  traversal?: {
+    surfing: boolean;
+    underwater: boolean;
+  };
 };
 
 const SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS = 1500;
@@ -415,11 +431,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
   const mapScriptLoadingRef = useRef<Set<string>>(new Set());
+  const weatherManagerRef = useRef<WeatherManager>(new WeatherManager());
+  const weatherDefaultsSnapshotRef = useRef<WorldSnapshot | null>(null);
 
   // Safety net: suppress ON_FRAME scripts that ran but didn't change their trigger var.
   // Keyed by "scriptName" → trigger value when suppressed. Only un-suppress when var changes.
   // Cleared on warp. Prevents infinite loops from unimplemented cmds.
   const onFrameSuppressedRef = useRef<Map<string, number>>(new Map());
+  const seamTransitionScriptsInFlightRef = useRef<Set<string>>(new Set());
 
   // NPC movement hook - provides collision-aware movement updates
   // The providers object uses closure over refs so it always has fresh data
@@ -785,8 +804,31 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
+      isUnderwater: player.isUnderwater(),
     };
   }, []);
+
+  const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(() => ({
+    setDiveWarp: (mapId, x, y, warpId = 0) => {
+      setFixedDiveWarpTarget(mapId, x, y, warpId);
+    },
+    fieldEffects: {
+      setArgument: () => {},
+      run: async () => {},
+      wait: async () => {},
+    },
+    weather: {
+      setSavedWeather: (weather) => {
+        weatherManagerRef.current.setSavedWeather(weather);
+      },
+      resetSavedWeather: () => {
+        weatherManagerRef.current.setSavedWeatherToMapDefault();
+      },
+      applyCurrentWeather: () => {
+        weatherManagerRef.current.doCurrentWeather();
+      },
+    },
+  }), []);
 
   const runHandledStoryScript = useHandledStoryScript({
     showMessage,
@@ -813,19 +855,140 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       }
       return changed;
     },
+    scriptRuntimeServices,
+    getSavedWeather: () => weatherManagerRef.current.getStateSnapshot().savedWeather,
   });
 
   const runHandledStoryScriptRef = useRef(runHandledStoryScript);
   runHandledStoryScriptRef.current = runHandledStoryScript;
 
+  const handleDiveFieldAction = useCallback(async (request: DiveActionResolution): Promise<boolean> => {
+    const player = playerRef.current;
+    const snapshot = worldSnapshotRef.current;
+    if (!player || !snapshot) return false;
+
+    const resolution = await resolveDiveWarp(
+      {
+        mapId: request.mapId,
+        mode: request.mode,
+        localX: request.localX,
+        localY: request.localY,
+      },
+      {
+        runMapDiveScript: async (mapId) => runMapDiveScript({
+          mapId,
+          snapshot,
+          objectEventManager: objectEventManagerRef.current,
+          player,
+          playerHiddenRef,
+          mapScriptCache: mapScriptCacheRef.current,
+          setMapMetatile: (targetMapId, tileX, tileY, metatileId, collision) => {
+            setMapMetatileLocal(targetMapId, tileX, tileY, metatileId, collision);
+          },
+          scriptRuntimeServices,
+        }),
+      }
+    );
+
+    if (!resolution.ok || !resolution.destination) {
+      await showMessage(request.mode === 'dive' ? "Can't dive here." : "Can't surface here.");
+      return false;
+    }
+
+    const destination = resolution.destination;
+    const destinationEntry = mapIndexData.find((entry) => entry.id === destination.mapId) ?? null;
+    const destinationUnderwater = isUnderwaterMapType(destinationEntry?.mapType ?? null);
+    const facingDirection = player.getFacingDirection();
+
+    pendingSavedLocationRef.current = {
+      pos: { x: destination.x, y: destination.y },
+      location: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
+      continueGameWarp: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
+      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      direction: facingDirection,
+      elevation: player.getElevation(),
+      isSurfing: true,
+      isUnderwater: destinationUnderwater,
+    };
+
+    pendingScriptedWarpRef.current = {
+      mapId: destination.mapId,
+      x: destination.x,
+      y: destination.y,
+      direction: facingDirection,
+      phase: 'pending',
+      traversal: {
+        surfing: true,
+        underwater: destinationUnderwater,
+      },
+    };
+    clearFixedDiveWarpTarget();
+    warpingRef.current = true;
+    return true;
+  }, [scriptRuntimeServices, setMapMetatileLocal, showMessage]);
+
+  const runSeamTransitionScripts = useCallback(async (mapId: string): Promise<void> => {
+    if (seamTransitionScriptsInFlightRef.current.has(mapId)) {
+      return;
+    }
+
+    const snapshot = worldSnapshotRef.current;
+    const player = playerRef.current;
+    const pipeline = pipelineRef.current;
+    if (!snapshot || !player || !pipeline) {
+      return;
+    }
+
+    seamTransitionScriptsInFlightRef.current.add(mapId);
+    onFrameSuppressedRef.current.clear();
+
+    try {
+      // Ensure newly entered seam maps are parsed before ON_TRANSITION scripts
+      // attempt object commands like setobjectxyperm LOCALID_*.
+      await loadObjectEventsFromSnapshotUtil({
+        snapshot,
+        objectEventManager: objectEventManagerRef.current,
+        spriteCache: npcSpriteCache,
+        spriteRenderer: spriteRendererRef.current,
+        uploadedSpriteIds: npcSpritesLoadedRef.current,
+        clearAnimations: () => npcAnimationManager.clear(),
+        preserveExistingMapRuntimeState: true,
+      });
+      applyStoryTransitionObjectParity(mapId);
+      await runMapEntryScripts({
+        currentMapId: mapId,
+        snapshot,
+        objectEventManager: objectEventManagerRef.current,
+        player,
+        playerHiddenRef,
+        pipeline,
+        mapScriptCache: mapScriptCacheRef.current,
+        setMapMetatile: (targetMapId, tileX, tileY, metatileId, collision?) => {
+          const changed = setMapMetatileLocal(targetMapId, tileX, tileY, metatileId, collision);
+          if (changed) {
+            pipelineRef.current?.invalidate();
+          }
+        },
+        scriptRuntimeServices,
+        mode: 'camera-transition',
+      });
+    } finally {
+      seamTransitionScriptsInFlightRef.current.delete(mapId);
+      pipelineRef.current?.invalidate();
+    }
+  }, [applyStoryTransitionObjectParity, scriptRuntimeServices, setMapMetatileLocal]);
+
   // Action input hook (handles X key for surf/item pickup dialogs)
   useActionInput({
     playerControllerRef: playerRef,
     objectEventManagerRef,
+    worldManagerRef,
     enabled: currentState === GameState.OVERWORLD,
     dialogIsOpen,
     showMessage,
     showYesNo,
+    onDiveFieldAction: handleDiveFieldAction,
     onScriptInteract: async (scriptObject) => {
       const player = playerRef.current;
       const wm = worldManagerRef.current;
@@ -1121,6 +1284,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Update snapshot ref
     worldSnapshotRef.current = snapshot;
     renderContextCacheRef.current = null;
+    weatherManagerRef.current.setMapDefaultsFromSources(
+      snapshot.maps.map((map) => ({ mapId: map.entry.id, mapWeather: map.mapWeather }))
+    );
+    weatherDefaultsSnapshotRef.current = snapshot;
 
     // Build tileset runtimes for reflection detection
     buildTilesetRuntimesFromSnapshot(snapshot);
@@ -1231,6 +1398,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       resolverVersion: resolverIdRef.current,
       setLastCoordTriggerTile: (tile) => {
         lastCoordTriggerTileRef.current = tile;
+        lastPlayerMapIdRef.current = tile.mapId;
       },
       warpingRef,
       resolveDynamicWarpTarget: () => getDynamicWarpTarget(),
@@ -1242,6 +1410,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         return changed;
       },
       mapScriptCache: mapScriptCacheRef.current,
+      scriptRuntimeServices,
       onMapChanged: (mapId: string) => {
         setDisplayMapId(mapId);
       },
@@ -1254,6 +1423,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     doorAnimations,
     applyStoryTransitionObjectParity,
     npcMovement,
+    scriptRuntimeServices,
   ]);
 
   // Initialize WebGL pipeline and player once
@@ -1382,6 +1552,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       getGlobalShimmer().update(nowTime);
       npcAnimationManager.update();
 
+      const player = playerRef.current;
+      if (player) {
+        objectEventManagerRef.current.updateObjectEventSpawnDespawn(player.tileX, player.tileY);
+      }
+      const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
+
       // Update overworld object-event affine animation state and prune stale NPC entries.
       const visibleNpcsForFrame = objectEventManagerRef.current.getVisibleNPCs();
       objectEventAffineManager.syncNPCs(visibleNpcsForFrame);
@@ -1392,7 +1568,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // World bounds are tracked in pixel space.
       const worldMinX = minX;
       const worldMinY = minY;
-      const player = playerRef.current;
 
       // Update warp handler cooldown
       warpHandlerRef.current.update(dt);
@@ -1438,10 +1613,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         // GBA-style priority: run ON_FRAME scripts before free movement input.
         // This prevents held keys from moving the player out of scripted start positions.
-        if (!storyScriptRunningRef.current && worldManager && !doorSequencer.isActive()) {
+        if (!storyScriptRunningRef.current && !seamTransitionScriptsRunning && worldManager && !doorSequencer.isActive()) {
           const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
           if (currentMap) {
             const currentMapId = currentMap.entry.id;
+            const mapObjectsReady =
+              currentMap.objectEvents.length === 0
+              || objectEventManagerRef.current.hasMapObjects(currentMapId);
             const cachedData = mapScriptCacheRef.current.get(currentMapId);
 
             if (cachedData === undefined && !mapScriptLoadingRef.current.has(currentMapId)) {
@@ -1452,7 +1630,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               });
             }
 
-            if (cachedData?.mapScripts.onFrame) {
+            if (mapObjectsReady && cachedData?.mapScripts.onFrame) {
               for (const entry of cachedData.mapScripts.onFrame) {
                 const currentVarValue = gameVariables.getVar(entry.var);
                 const expectedValue = resolveMapScriptCompareValue(entry.value);
@@ -1476,7 +1654,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             // Safety net for Route 101 intro: run ON_FRAME hide-map-name script immediately
             // if script cache is not ready yet. This matches the C on-frame gate at map entry
             // and prevents missing the first coord trigger tile while cache loads.
-            if (!preInputOnFrameTriggered && currentMapId === 'MAP_ROUTE101') {
+            if (!preInputOnFrameTriggered && mapObjectsReady && currentMapId === 'MAP_ROUTE101') {
               const route101State = gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE);
               if (route101State === 0) {
                 preInputOnFrameTriggered = true;
@@ -1485,7 +1663,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             }
 
             // Safety net for the truck exit cutscene if ON_FRAME data is not cached yet.
-            if (!preInputOnFrameTriggered && currentMapId === 'MAP_LITTLEROOT_TOWN') {
+            if (!preInputOnFrameTriggered && mapObjectsReady && currentMapId === 'MAP_LITTLEROOT_TOWN') {
               const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
               if (introState === 1 || introState === 2) {
                 preInputOnFrameTriggered = true;
@@ -1500,7 +1678,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           }
         }
 
-        if (!preInputOnFrameTriggered) {
+        if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning) {
           player.update(dt);
         }
 
@@ -1534,6 +1712,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         // Update world manager with player position and direction (triggers dynamic map loading)
           if (worldManager) {
+            const liveSnapshot = worldSnapshotRef.current;
+            if (liveSnapshot && weatherDefaultsSnapshotRef.current !== liveSnapshot) {
+              weatherManagerRef.current.setMapDefaultsFromSources(
+                liveSnapshot.maps.map((map) => ({ mapId: map.entry.id, mapWeather: map.mapWeather }))
+              );
+              weatherDefaultsSnapshotRef.current = liveSnapshot;
+            }
             // Get player's current facing direction for predictive tileset loading
             const playerDirection = player.getFacingDirection();
             const lastWorldUpdate = lastWorldUpdateRef.current;
@@ -1553,6 +1738,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
           const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
           if (currentMap) {
+            weatherManagerRef.current.setCurrentMap(currentMap.entry.id);
             const tileChanged =
               !lastCoordTriggerTileRef.current ||
               lastCoordTriggerTileRef.current.mapId !== currentMap.entry.id ||
@@ -1585,14 +1771,27 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                     + `seamOffsets=${seamMaps || 'missing'}`
                   );
                 }
+
+                const isSeamMapTransition =
+                  previousMapId !== null
+                  && previousMapId !== currentMap.entry.id
+                  && !warpingRef.current;
+                if (isSeamMapTransition && !storyScriptRunningRef.current) {
+                  void runSeamTransitionScripts(currentMap.entry.id);
+                }
               }
               lastPlayerMapIdRef.current = currentMap.entry.id;
 
+              const mapObjectsReady =
+                currentMap.objectEvents.length === 0
+                || objectEventManagerRef.current.hasMapObjects(currentMap.entry.id);
               const canProcessCoordEvents =
                 !storyScriptRunningRef.current
                 && !dialogIsOpenRef.current
                 && !warpingRef.current
-                && !doorSequencer.isActive();
+                && !doorSequencer.isActive()
+                && seamTransitionScriptsInFlightRef.current.size === 0
+                && mapObjectsReady;
 
               if (canProcessCoordEvents) {
                 const playerElevation = player.getCurrentElevation();
@@ -1613,8 +1812,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                   );
                 });
 
-                let firedCoordEvent = false;
+                const scriptCoordEventsAtTile: ScriptCoordEvent[] = [];
+                let sawWeatherCoordEvent = false;
                 for (const coordEvent of coordEventsAtTile) {
+                  if (coordEvent.type === 'weather') {
+                    weatherManagerRef.current.applyCoordWeather(coordEvent.weather);
+                    sawWeatherCoordEvent = true;
+                    continue;
+                  }
+                  scriptCoordEventsAtTile.push(coordEvent);
+                }
+
+                let firedCoordEvent = false;
+                for (const coordEvent of scriptCoordEventsAtTile) {
                   if (!shouldRunCoordEvent(coordEvent.var, coordEvent.varValue)) {
                     continue;
                   }
@@ -1625,7 +1835,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                   break;
                 }
 
-                const pendingRescueEvents = coordEventsAtTile.filter(
+                const pendingRescueEvents = scriptCoordEventsAtTile.filter(
                   (coordEvent) => coordEvent.script === 'Route101_EventScript_StartBirchRescue'
                 );
                 if (!firedCoordEvent && pendingRescueEvents.length > 0) {
@@ -1640,10 +1850,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                   );
                 }
 
-                // Consume this tile only if there are no coord events here, or one fired.
-                // If events exist but vars are not ready yet (e.g. pending ON_FRAME setvar),
-                // leave tile "pending" so we retry next frame without requiring movement.
-                if (firedCoordEvent || coordEventsAtTile.length === 0) {
+                // Consume this tile when no script events are pending. If script coord events
+                // are present but their vars are not ready yet, keep retrying on this tile.
+                const hasPendingScriptEvents = scriptCoordEventsAtTile.length > 0 && !firedCoordEvent;
+                if (firedCoordEvent || coordEventsAtTile.length === 0 || (sawWeatherCoordEvent && !hasPendingScriptEvents)) {
                   lastCoordTriggerTileRef.current = {
                     mapId: currentMap.entry.id,
                     x: player.tileX,
@@ -1655,7 +1865,18 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
             // Data-driven ON_FRAME table: check generated mapScripts.onFrame entries
             // Skip if pre-input ON_FRAME already triggered this frame (prevents double-fire for sync scripts)
-            if (!preInputOnFrameTriggered && !storyScriptRunningRef.current && !dialogIsOpenRef.current && !warpingRef.current && !doorSequencer.isActive()) {
+            if (
+              !preInputOnFrameTriggered
+              && !storyScriptRunningRef.current
+              && !dialogIsOpenRef.current
+              && !warpingRef.current
+              && !doorSequencer.isActive()
+              && seamTransitionScriptsInFlightRef.current.size === 0
+              && (
+                currentMap.objectEvents.length === 0
+                || objectEventManagerRef.current.hasMapObjects(currentMap.entry.id)
+              )
+            ) {
               const currentMapId = currentMap.entry.id;
 
               // Load map script data (async, cached after first load)
@@ -1883,7 +2104,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             console.log(`[ScriptedWarp] same map reposition to local=(${scriptedWarp.x},${scriptedWarp.y}) world=(${targetWorldX},${targetWorldY})`);
             activePlayer.setPosition(targetWorldX, targetWorldY);
             activePlayer.dir = scriptedWarp.direction;
+            if (scriptedWarp.traversal) {
+              activePlayer.setTraversalState(scriptedWarp.traversal);
+            }
             fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+            pendingSavedLocationRef.current = null;
             pendingScriptedWarpRef.current = null;
             warpingRef.current = false;
             warpHandlerRef.current.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
@@ -2059,6 +2284,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           setMapMetatileLocal,
           invalidateMap: () => pipeline.invalidate(),
         });
+
+        weatherManagerRef.current.update(nowTime, view);
 
         // Get player elevation for layer splitting (same as useCompositeScene)
         const playerElevation = player && playerLoadedRef.current ? player.getElevation() : 0;
@@ -2291,6 +2518,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               view: spriteView,
               snapshot: currentSnapshot,
               tilesetRuntimes: tilesetRuntimesRef.current,
+              renderWeather: (weatherCtx, weatherView, weatherNowMs) => {
+                weatherManagerRef.current.render(weatherCtx, weatherView, weatherNowMs);
+              },
             },
             {
               lowPrioritySprites,
@@ -2300,7 +2530,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               arrowSprite,
               surfBlobSprite,
             },
-            { fadeAlpha, scanlineIntensity, zoom: zoomRef.current }
+            { fadeAlpha, scanlineIntensity, zoom: zoomRef.current, nowMs: nowTime }
           );
         }
       }
@@ -2372,6 +2602,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       fieldSpritesLoadPromiseRef.current = null;
       lastWorldUpdateRef.current = null;
       renderContextCacheRef.current = null;
+      weatherManagerRef.current.clear();
       worldManagerRef.current?.dispose();
       worldManagerRef.current = null;
     };
@@ -2428,6 +2659,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       storyScriptRunningRef,
       mapScriptCacheRef,
       lastCoordTriggerTileRef,
+      lastPlayerMapIdRef,
       warpHandlerRef,
       lastWorldUpdateRef,
       fadeControllerRef,
@@ -2448,6 +2680,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         }
         return changed;
       },
+      scriptRuntimeServices,
     });
   }, [
     selectedMap,
@@ -2462,6 +2695,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
     applyStoryTransitionObjectParity,
+    scriptRuntimeServices,
   ]);
 
   // Update camera controller when viewport config changes
@@ -2504,6 +2738,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
+      isUnderwater: player.isUnderwater(),
     };
   }, [mapDebugInfo?.currentMap, selectedMap.id]);
 

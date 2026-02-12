@@ -19,7 +19,7 @@ import type { PartyPokemon } from '../pokemon/types';
 /**
  * Current save format version. Increment when making breaking changes.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /**
  * Storage key prefix for localStorage
@@ -117,6 +117,8 @@ export interface LocationState {
   elevation: number;
   /** Whether currently surfing */
   isSurfing: boolean;
+  /** Whether currently in underwater traversal mode */
+  isUnderwater: boolean;
 }
 
 /**

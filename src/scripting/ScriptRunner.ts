@@ -14,6 +14,7 @@ import type { StoryScriptContext } from '../game/NewGameFlow';
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { setDynamicWarpTarget } from '../game/DynamicWarp';
+import { setFixedDiveWarpTarget } from '../game/FixedDiveWarp';
 import { getFixedHoleWarpTarget, setFixedHoleWarpTarget } from '../game/FixedHoleWarp';
 import {
   setDynamicObjectGfxVar,
@@ -26,8 +27,8 @@ import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
 import { saveStateStore } from '../save/SaveStateStore';
 import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags';
-import { getMoveInfo } from '../data/moves';
-import { STATUS } from '../pokemon/types';
+import { MOVES, getMoveInfo } from '../data/moves';
+import { STATUS, type PartyPokemon } from '../pokemon/types';
 import { METATILE_LABELS } from '../data/metatileLabels.gen';
 import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen';
 import { stepCallbackManager } from '../game/StepCallbackManager';
@@ -111,6 +112,7 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'FEMALE') return GENDER_FEMALE;
   if (val === 'TRUE' || val === 'YES') return 1;
   if (val === 'FALSE' || val === 'NO') return 0;
+  if (val === 'PARTY_SIZE') return 6;
   if (val === 'FADE_TO_BLACK') return 1;
   if (val === 'FADE_FROM_BLACK') return 0;
   // GBA direction constants (from include/constants/event_object_movement.h)
@@ -209,9 +211,36 @@ export interface ScriptDataSources {
   commonData: MapScriptData;
 }
 
+export interface ScriptFieldEffectServices {
+  setArgument?: (index: number, value: string | number) => void;
+  run?: (
+    effectName: string,
+    args: ReadonlyMap<number, string | number>
+  ) => void | Promise<void>;
+  wait?: (effectName: string) => void | Promise<void>;
+}
+
+export interface ScriptWeatherServices {
+  setSavedWeather: (weather: string | number) => void;
+  resetSavedWeather: () => void;
+  applyCurrentWeather: () => void;
+}
+
+export interface ScriptPartyServices {
+  findFirstPartyIndexWithMove?: (moveId: number, party: (PartyPokemon | null)[]) => number;
+}
+
+export interface ScriptRuntimeServices {
+  setDiveWarp?: (mapId: string, x: number, y: number, warpId?: number) => void;
+  fieldEffects?: ScriptFieldEffectServices;
+  weather?: ScriptWeatherServices;
+  party?: ScriptPartyServices;
+}
+
 export class ScriptRunner {
   private sources: MapScriptData[];
   private ctx: StoryScriptContext;
+  private services: ScriptRuntimeServices;
   private playerName: string;
   private playerGender: number;
   private currentMapId: string;
@@ -231,16 +260,19 @@ export class ScriptRunner {
    * store symbolic LOCALID_ strings. We preserve these for applymovement/etc.
    */
   private localStringVars = new Map<string, string>();
+  private fieldEffectArguments = new Map<number, string | number>();
 
   constructor(
     dataSources: ScriptDataSources,
     ctx: StoryScriptContext,
     currentMapId: string,
+    services: ScriptRuntimeServices = {},
   ) {
     this.sources = [];
     if (dataSources.mapData) this.sources.push(dataSources.mapData);
     this.sources.push(dataSources.commonData);
     this.ctx = ctx;
+    this.services = services;
     this.currentMapId = currentMapId;
     this.playerGender = ctx.getPlayerGender();
     const fallbackName = this.playerGender === 1 ? 'MAY' : 'BRENDAN';
@@ -343,6 +375,43 @@ export class ScriptRunner {
       return false;
     }
     return true;
+  }
+
+  private resolveMoveId(moveArg: string | number): number {
+    if (typeof moveArg === 'number') return moveArg;
+    const moveName = moveArg.startsWith('MOVE_') ? moveArg.slice('MOVE_'.length) : moveArg;
+    const moveId = (MOVES as Record<string, number>)[moveName];
+    if (typeof moveId === 'number') return moveId;
+    return this.resolveVarOrConst(moveArg);
+  }
+
+  private findFirstPartyIndexWithMove(moveId: number): number {
+    const party = this.ctx.getParty?.() ?? [];
+    const customResolver = this.services.party?.findFirstPartyIndexWithMove;
+    if (customResolver) {
+      const idx = customResolver(moveId, party);
+      return Number.isFinite(idx) && idx >= 0 ? Math.floor(idx) : 6;
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const mon = party[i];
+      if (!mon) continue;
+      if (mon.moves.includes(moveId)) {
+        return i;
+      }
+    }
+    return 6;
+  }
+
+  private resolveFieldEffectArgument(rawValue: string | number): string | number {
+    if (typeof rawValue === 'number') return rawValue;
+    if (rawValue.startsWith('VAR_')) {
+      const localValue = this.localStringVars.get(rawValue);
+      if (localValue !== undefined) return localValue;
+      return this.getVar(rawValue);
+    }
+    const resolved = resolveConstant(rawValue);
+    return typeof resolved === 'number' ? resolved : String(resolved);
   }
 
   /**
@@ -650,6 +719,22 @@ export class ScriptRunner {
           break;
         }
 
+        case 'bufferpartymonnick': {
+          const destArg = asString(args[0]);
+          const destKey = destArg.startsWith('STR_VAR_')
+            ? destArg
+            : `STR_VAR_${asNumber(args[0]) + 1}`;
+          const slot = this.resolveVarOrConst(args[1]);
+          const party = this.ctx.getParty?.() ?? [];
+          const mon = slot >= 0 && slot < party.length ? party[slot] : null;
+          if (mon) {
+            stringVars[destKey] = mon.nickname?.trim() || getSpeciesName(mon.species);
+          } else {
+            stringVars[destKey] = '';
+          }
+          break;
+        }
+
         // --- Variables ---
         case 'setvar': {
           const varName = asString(args[0]);
@@ -764,7 +849,8 @@ export class ScriptRunner {
             ? String(this.getVar(localId))
             : localId;
           const objectMapId = this.resolveObjectMapId(resolvedId);
-          this.ctx.setNpcVisible(objectMapId, resolvedId, true, true);  // persistent
+          // C parity: addobject spawns immediately but does not clear FLAG_HIDE_*.
+          this.ctx.setNpcVisible(objectMapId, resolvedId, true, false);
           break;
         }
 
@@ -866,6 +952,56 @@ export class ScriptRunner {
           }
           break;
         }
+
+        case 'setdivewarp': {
+          const mapId = asString(args[0]);
+          if (mapId && mapId !== 'MAP_UNDEFINED') {
+            const x = asNumber(args[1]);
+            const y = asNumber(args[2]);
+            const warpId = args.length > 3 ? asNumber(args[3]) : 0;
+            const setDiveWarp = this.services.setDiveWarp
+              ?? ((targetMapId: string, targetX: number, targetY: number, targetWarpId: number) => {
+                setFixedDiveWarpTarget(targetMapId, targetX, targetY, targetWarpId);
+              });
+            setDiveWarp(mapId, x, y, warpId);
+          }
+          break;
+        }
+
+        case 'setfieldeffectargument': {
+          const index = asNumber(args[0]);
+          const value = this.resolveFieldEffectArgument(args[1]);
+          this.fieldEffectArguments.set(index, value);
+          this.services.fieldEffects?.setArgument?.(index, value);
+          break;
+        }
+
+        case 'dofieldeffect': {
+          const effectName = asString(args[0]);
+          await this.services.fieldEffects?.run?.(effectName, this.fieldEffectArguments);
+          break;
+        }
+
+        case 'waitfieldeffect': {
+          const effectName = asString(args[0]);
+          await this.services.fieldEffects?.wait?.(effectName);
+          break;
+        }
+
+        case 'setweather': {
+          if (args.length > 0) {
+            this.services.weather?.setSavedWeather(args[0]);
+          }
+          break;
+        }
+
+        case 'resetweather':
+          this.services.weather?.resetSavedWeather();
+          break;
+
+        case 'doweather':
+          this.services.weather?.applyCurrentWeather();
+          break;
 
         // --- Visual ---
         case 'fadescreen':
@@ -1181,6 +1317,13 @@ export class ScriptRunner {
           const defeatTextLabel = args.length > 1 ? asString(args[1]) : null;
           await this.showTextByLabel(defeatTextLabel);
           setTrainerDefeated(trainerId);
+          break;
+        }
+
+        // --- checkpartymove: store first matching party slot index in VAR_RESULT ---
+        case 'checkpartymove': {
+          const moveId = this.resolveMoveId(args[0]);
+          gameVariables.setVar('VAR_RESULT', this.findFirstPartyIndexWithMove(moveId));
           break;
         }
 

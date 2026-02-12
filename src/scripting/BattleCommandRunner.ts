@@ -11,7 +11,7 @@
  * - public/pokeemerald/src/battle_setup.c (BattleSetup_StartTrainerBattle, BattleSetup_StartScriptedWildBattle)
  */
 
-import { gameVariables } from '../game/GameVariables';
+import { gameVariables, GAME_VARS } from '../game/GameVariables';
 import {
   BATTLE_OUTCOME,
   normalizeBattleOutcome,
@@ -32,20 +32,22 @@ interface PendingWildBattle {
   heldItemId: number;
 }
 
-const OUTCOME_VAR = 'VAR_BATTLE_OUTCOME';
+const OUTCOME_VAR = GAME_VARS.VAR_RESULT;
 
 export class BattleCommandRunner {
+  private readonly ctx: BattleCommandContext;
   private pendingWildBattle: PendingWildBattle = { speciesId: 0, level: 0, heldItemId: 0 };
-  private lastOutcome = gameVariables.getVar(OUTCOME_VAR);
 
-  constructor(private readonly ctx: BattleCommandContext) {}
+  constructor(ctx: BattleCommandContext) {
+    this.ctx = ctx;
+  }
 
   configureWildBattle(speciesId: number, level: number, heldItemId: number): void {
     this.pendingWildBattle = { speciesId, level, heldItemId };
   }
 
   getLastBattleOutcome(): number {
-    return this.lastOutcome;
+    return normalizeBattleOutcome(gameVariables.getVar(OUTCOME_VAR), BATTLE_OUTCOME.WON);
   }
 
   async runTrainerBattle(request: ScriptTrainerBattleRequest): Promise<ScriptBattleResult> {
@@ -83,7 +85,6 @@ export class BattleCommandRunner {
   }
 
   private commitOutcome(outcome: ScriptBattleResult['outcome']): ScriptBattleResult {
-    this.lastOutcome = outcome;
     gameVariables.setVar(OUTCOME_VAR, outcome);
     return { outcome };
   }

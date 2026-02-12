@@ -46,6 +46,8 @@ export interface CompositeFrameContext {
   snapshot: WorldSnapshot | null;
   /** Tileset runtimes for reflection detection */
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
+  /** Optional weather renderer (runs below scanline/fade overlays) */
+  renderWeather?: (ctx2d: CanvasRenderingContext2D, view: WorldCameraView, nowMs: number) => void;
 }
 
 export interface SpriteGroups {
@@ -70,6 +72,8 @@ export interface CompositeFrameOptions {
   scanlineIntensity?: number;
   /** Display zoom level for scanline scaling */
   zoom?: number;
+  /** Frame timestamp from the game loop */
+  nowMs?: number;
 }
 
 // =============================================================================
@@ -96,8 +100,9 @@ export function compositeWebGLFrame(
   options: CompositeFrameOptions
 ): void {
   const { pipeline, spriteRenderer, fadeRenderer, scanlineRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
+  const { renderWeather } = ctx;
   const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
-  const { fadeAlpha, scanlineIntensity = 0, zoom = 1 } = options;
+  const { fadeAlpha, scanlineIntensity = 0, zoom = 1, nowMs = performance.now() } = options;
 
   const gl = pipeline.getGL();
 
@@ -150,6 +155,9 @@ export function compositeWebGLFrame(
     spriteRenderer.renderBatch(priority0Sprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
+
+  // Weather renders as a post-composite field layer, below scanline/fade overlays.
+  renderWeather?.(ctx2d, view, nowMs);
 
   // Scanline overlay (CRT effect when menu is open)
   if (scanlineIntensity > 0 && scanlineRenderer) {

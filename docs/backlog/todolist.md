@@ -215,10 +215,21 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 > C ref: `include/global.fieldmap.h`, map `.json` data
 
 - [x] Extend map event loader to parse `coord_events` (trigger tiles with var + value)
+- [x] Extend map event loader to parse coord weather events (`type: "weather"`) and map default weather (`map.json.weather`)
 - [ ] Extend map event loader to parse `bg_events` (signs and background interactions)
 - [x] Ensure coordinate events respect elevation and trigger only on step-in
 - [ ] Wire `bg_events` to A-button interaction (signs use `MSGBOX_SIGN`)
 - [ ] Respect `player_facing_dir` constraints for `bg_events`
+
+### 0.16 Dive + Underwater Weather Parity
+> C ref: `src/field_control_avatar.c`, `src/overworld.c`, `src/field_weather_effect.c`
+
+- [x] Add bidirectional Dive field action flow (surface dive + underwater emerge) with temporary HM/badge bypass
+- [x] Match Dive warp destination order: connection (`dive`/`emerge`) -> `MAP_SCRIPT_ON_DIVE_WARP` -> `setdivewarp` fallback
+- [x] Reuse fade warp transition pipeline for Dive warp execution
+- [x] Persist and restore underwater traversal state across scripted warps and save/load
+- [x] Add scalable weather runtime (`WeatherManager` + registry) wired to script commands (`setweather` / `resetweather` / `doweather`)
+- [x] Implement `WEATHER_UNDERWATER_BUBBLES` visual effect (horizontal fog + bubble sprites)
 
 ### 0.12 Scripted Object Events (Non-NPC)
 > C ref: `event_object_movement.c` (object events are more than NPCs)
@@ -540,11 +551,15 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
 - [x] Type effectiveness table (at minimum for types used in first battle)
 - [x] Critical hit chance: stage 0 = 1/16, stage 1 = 1/8
 - [x] STAB: 1.5x when move type matches Pokemon type
+- [x] Fixed-damage parity for `Super Fang` / `Sonic Boom` / level-damage moves now respects type immunity checks
+- [x] False Swipe now pre-clamps damage to leave target at 1 HP with no faint event emission
 
 ### 4.5 Turn Execution
 > C ref: `src/battle_main.c` (`BattleMainCB1`), `src/battle_script_commands.c`
 
 - [x] Turn order: compare Speed stats, higher goes first (ties: random)
+- [x] Item and manual switch actions now consume turn order and still allow enemy response
+- [x] Accuracy/evasion stage table aligned for Emerald (`+4 = 233/100`)
 - [ ] Execute moves in order:
   - Accuracy check (hit/miss)
   - Damage calculation
@@ -577,6 +592,8 @@ The first battle is a scripted wild encounter: player's Level 5 starter vs Level
   - "TREECKO fainted!" → white out → respawn at last heal point
 - [x] Run condition: `runChance = (playerSpeed * 128 / wildSpeed + 30 * escapeAttempts) % 256`
   - First battle is scripted — running may be blocked
+- [x] Simultaneous faint now resolves as draw and maps to `B_OUTCOME_DREW` (player-defeated script path)
+- [x] Toxic end-turn damage now scales correctly (1/16, 2/16, …) and sleep infliction uses Emerald 2–5 turns
 - [x] Return to overworld: transition back with battle outcome
 
 ### 4.8 Post-Battle Return

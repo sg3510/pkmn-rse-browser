@@ -973,6 +973,7 @@ export function parseGen3Save(
     direction: 'down', // Default direction (TODO: parse from save)
     elevation: 3, // Default elevation
     isSurfing: false,
+    isUnderwater: false,
   };
 
   const moneyState: MoneyState = {

@@ -202,6 +202,7 @@ const MAP_SCRIPT_TYPES = {
   'MAP_SCRIPT_ON_LOAD': 'onLoad',
   'MAP_SCRIPT_ON_TRANSITION': 'onTransition',
   'MAP_SCRIPT_ON_RESUME': 'onResume',
+  'MAP_SCRIPT_ON_DIVE_WARP': 'onDive',
   'MAP_SCRIPT_ON_FRAME_TABLE': 'onFrame',
   'MAP_SCRIPT_ON_WARP_INTO_MAP_TABLE': 'onWarpInto',
 };
@@ -401,7 +402,7 @@ function buildMapScriptHeader(mapScriptEntries) {
     if (entry.type === '__table__') continue;
 
     const key = MAP_SCRIPT_TYPES[entry.type];
-    if (key && (key === 'onLoad' || key === 'onTransition' || key === 'onResume')) {
+    if (key && (key === 'onLoad' || key === 'onTransition' || key === 'onResume' || key === 'onDive')) {
       header[key] = entry.label;
     }
     // Frame tables and warp-into tables are resolved from __table__ entries
@@ -480,6 +481,9 @@ function generateTsFile(mapName, data) {
   }
   if (mapScripts.onResume) {
     lines.push(`    onResume: ${JSON.stringify(mapScripts.onResume)},`);
+  }
+  if (mapScripts.onDive) {
+    lines.push(`    onDive: ${JSON.stringify(mapScripts.onDive)},`);
   }
   if (mapScripts.onFrame && mapScripts.onFrame.length > 0) {
     lines.push('    onFrame: [');

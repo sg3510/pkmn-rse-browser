@@ -30,10 +30,23 @@ import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
 import type { SpriteInstance } from '../rendering/types';
 import { BattleEngine } from '../battle/engine/BattleEngine';
-import { createDefaultStages, createDefaultVolatile, type BattleEvent, type BattlePokemon } from '../battle/engine/types';
+import {
+  createDefaultStages,
+  createDefaultVolatile,
+  type BattleAction,
+  type BattleEvent,
+  type BattlePokemon,
+  type BattleOutcome,
+} from '../battle/engine/types';
 import { B_OUTCOME } from '../data/battleConstants.gen';
 import { getDialogBridge } from '../components/dialog/DialogBridge';
 import { menuStateManager } from '../menu';
+import {
+  clearBattleStatusMask,
+  getBattleHealAmount,
+  getBattleStatusCureMask,
+  isBattlePokeBallItem,
+} from '../battle/items/battleItemRules';
 
 // WebGL rendering
 import { BattleWebGLContext, BATTLE_WIDTH, BATTLE_HEIGHT } from '../battle/render/BattleWebGLContext';
@@ -47,7 +60,12 @@ import {
   createTrainerBackSprite,
   createPokeballSprite,
 } from '../battle/render/BattleSpriteLoader';
-import { loadBattleBackground, createBackgroundSprite, type BattleTerrain } from '../battle/render/BattleBackground';
+import {
+  loadBattleBackground,
+  createBackgroundSprite,
+  type BattleTerrain,
+  type BattleBackgroundProfile,
+} from '../battle/render/BattleBackground';
 import type { PokemonSpriteCoords } from '../data/pokemonSpriteCoords.gen';
 
 // Health box rendering (ctx2d overlay)
@@ -112,6 +130,7 @@ interface BattleStateData {
   wildSpecies?: number;
   wildLevel?: number;
   terrain?: BattleTerrain;
+  backgroundProfile?: BattleBackgroundProfile;
   battleType?: 'wild' | 'trainer';
   returnLocation?: LocationState;
   firstBattle?: boolean;
@@ -208,8 +227,43 @@ export class BattleState implements StateRenderer {
     this.playerPartyIndex = playerIndex >= 0 ? playerIndex : 0;
     this.playerGender = saveManager.getProfile().gender;
 
-    const wildSpecies = typedData.wildSpecies ?? SPECIES.POOCHYENA;
-    const wildLevel = typedData.wildLevel ?? 2;
+    if (
+      typedData.wildSpecies !== undefined
+      && (!Number.isFinite(typedData.wildSpecies) || typedData.wildSpecies <= 0)
+    ) {
+      console.warn('[BattleState] Invalid wildSpecies payload, falling back to SPECIES.POOCHYENA:', {
+        wildSpecies: typedData.wildSpecies,
+        battleType: typedData.battleType,
+        payload: typedData,
+      });
+    }
+    if (
+      typedData.wildLevel !== undefined
+      && (!Number.isFinite(typedData.wildLevel) || typedData.wildLevel <= 0)
+    ) {
+      console.warn('[BattleState] Invalid wildLevel payload, falling back to level 2:', {
+        wildLevel: typedData.wildLevel,
+        battleType: typedData.battleType,
+        payload: typedData,
+      });
+    }
+
+    const wildSpecies = (
+      Number.isFinite(typedData.wildSpecies)
+      && (typedData.wildSpecies as number) > 0
+    )
+      ? Math.trunc(typedData.wildSpecies as number)
+      : SPECIES.POOCHYENA;
+    const wildLevel = (
+      Number.isFinite(typedData.wildLevel)
+      && (typedData.wildLevel as number) > 0
+    )
+      ? Math.trunc(typedData.wildLevel as number)
+      : 2;
+    const backgroundProfile: BattleBackgroundProfile = typedData.backgroundProfile ?? {
+      terrain: typedData.terrain ?? 'tall_grass',
+      variant: 'default',
+    };
     const wildPokemon = createTestPokemon({
       species: wildSpecies,
       level: wildLevel,
@@ -257,7 +311,7 @@ export class BattleState implements StateRenderer {
       const [playerCoords, enemyCoords] = await Promise.all([
         loadPokemonBattleSprites(this.webgl, playerPokemon.species),
         loadPokemonBattleSprites(this.webgl, wildSpecies),
-        loadBattleBackground(this.webgl, typedData.terrain ?? 'tall_grass'),
+        loadBattleBackground(this.webgl, backgroundProfile),
         loadBattleIntroSprites(this.webgl, this.playerGender),
         loadBattleMiscSprites(this.webgl),
         preloadBattleInterfaceAssets(),
@@ -536,11 +590,7 @@ export class BattleState implements StateRenderer {
       this.webgl.renderSprites(sprites);
 
       // Composite WebGL onto ctx2d
-      if (viewportWidth > BATTLE_WIDTH || viewportHeight > BATTLE_HEIGHT) {
-        ctx2d.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
-      }
-      ctx2d.drawImage(this.webgl.canvas, offsetX, offsetY);
+      this.webgl.compositeOnto(ctx2d, viewportWidth, viewportHeight);
     } else {
       // Fallback: solid color fill
       ctx2d.fillStyle = '#88c070';
@@ -764,7 +814,7 @@ export class BattleState implements StateRenderer {
       return;
     }
 
-    if (isPokeballItem(itemId)) {
+    if (isBattlePokeBallItem(itemId)) {
       if (this.battleType === 'trainer') {
         this.queueMessages(['The TRAINER blocked the BALL!'], () => {
           this.phase = 'action';
@@ -793,13 +843,10 @@ export class BattleState implements StateRenderer {
       return;
     }
 
-    this.persistPlayerBattleState();
-    this.queueMessages([
-      `${saveManager.getPlayerName()} used ${getItemName(itemId)}!`,
-      applied.message,
-    ], () => {
-      this.phase = 'action';
-    });
+    this.executePlayerAction(
+      { type: 'item', itemId },
+      [`${saveManager.getPlayerName()} used ${getItemName(itemId)}!`, applied.message],
+    );
   }
 
   private applyItemToActivePokemon(itemId: number): { used: boolean; message: string } {
@@ -845,9 +892,12 @@ export class BattleState implements StateRenderer {
       player.pokemon.status = STATUS.NONE;
       curedAnyStatus = true;
     } else if (cureMask !== 0) {
-      const nextStatus = clearStatusMask(player.pokemon.status, cureMask);
+      const nextStatus = clearBattleStatusMask(player.pokemon.status, cureMask);
       curedAnyStatus = nextStatus !== player.pokemon.status;
       player.pokemon.status = nextStatus;
+    }
+    if (curedAnyStatus) {
+      player.volatile.toxicCounter = 0;
     }
 
     if (healAmount !== null && (player.currentHp > 0)) {
@@ -916,14 +966,10 @@ export class BattleState implements StateRenderer {
     this.displayedPlayerHp = player.currentHp;
     this.displayedPlayerExpLevel = player.pokemon.level;
     this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
-    this.persistPlayerBattleState();
-
-    this.queueMessages([
-      `${currentName}, that's enough! Come back!`,
-      `Go! ${targetName}!`,
-    ], () => {
-      this.phase = 'action';
-    });
+    this.executePlayerAction(
+      { type: 'switch', partyIndex },
+      [`${currentName}, that's enough! Come back!`, `Go! ${targetName}!`],
+    );
   }
 
   private async ensurePlayerSpriteLoaded(species: number): Promise<void> {
@@ -936,51 +982,58 @@ export class BattleState implements StateRenderer {
   }
 
   private executeRunAction(): void {
-    if (!this.engine) return;
-
-    const result = this.engine.executeTurn({ type: 'run' });
-    this.syncFromEngine();
-    this.persistPlayerBattleState();
-
-    const turnMessages = this.eventsToMessages(result.events);
-    if (result.outcome === 'flee') {
-      this.setScriptBattleResult('B_OUTCOME_RAN');
-      this.queueMessages(turnMessages, () => {
-        this.phase = 'finished';
-      });
-      return;
-    }
-
-    this.queueMessages(turnMessages, () => {
-      this.phase = 'action';
-    });
+    this.executePlayerAction({ type: 'run' });
   }
 
   private executeTurn(playerMoveId: number, playerMoveSlot: number): void {
     if (!this.engine) return;
-
-    const result = this.engine.executeTurn({
+    this.executePlayerAction({
       type: 'fight',
       moveId: playerMoveId,
       moveSlot: playerMoveSlot,
     });
+  }
+
+  private executePlayerAction(action: BattleAction, prefixMessages: string[] = []): void {
+    if (!this.engine) return;
+
+    const result = this.engine.executeTurn(action);
     this.applyMoveAnimationFromEvents(result.events);
     this.applyStatIndicatorsFromEvents(result.events);
     this.syncFromEngine();
     this.persistPlayerBattleState();
 
-    const turnMessages = this.eventsToMessages(result.events);
-    if (result.outcome === 'win') {
+    const turnMessages = this.collectTurnMessages(result.events, prefixMessages);
+    this.handleTurnOutcome(result.outcome, turnMessages);
+  }
+
+  private collectTurnMessages(events: BattleEvent[], prefixMessages: string[]): string[] {
+    const messages = events
+      .map((event) => event.message?.trim() ?? '')
+      .filter((message) => message.length > 0);
+    if (messages.length > 0) {
+      return [...prefixMessages, ...messages];
+    }
+    if (prefixMessages.length > 0) {
+      return [...prefixMessages];
+    }
+    return ['...'];
+  }
+
+  private handleTurnOutcome(outcome: BattleOutcome | null, turnMessages: string[]): void {
+    if (outcome === 'win') {
       this.handleWin(turnMessages);
       return;
     }
-
-    if (result.outcome === 'lose') {
-      this.handleLoss(turnMessages);
+    if (outcome === 'lose') {
+      this.handleLoss(turnMessages, 'B_OUTCOME_LOST');
       return;
     }
-
-    if (result.outcome === 'flee') {
+    if (outcome === 'draw') {
+      this.handleLoss(turnMessages, 'B_OUTCOME_DREW');
+      return;
+    }
+    if (outcome === 'flee') {
       this.setScriptBattleResult('B_OUTCOME_RAN');
       this.queueMessages(turnMessages, () => {
         this.phase = 'finished';
@@ -991,13 +1044,6 @@ export class BattleState implements StateRenderer {
     this.queueMessages(turnMessages, () => {
       this.phase = 'action';
     });
-  }
-
-  private eventsToMessages(events: BattleEvent[]): string[] {
-    const messages = events
-      .map((event) => event.message?.trim() ?? '')
-      .filter((message) => message.length > 0);
-    return messages.length > 0 ? messages : ['...'];
   }
 
   private applyMoveAnimationFromEvents(events: BattleEvent[]): void {
@@ -1368,7 +1414,7 @@ export class BattleState implements StateRenderer {
   }
 
   private setScriptBattleResult(
-    outcome: 'B_OUTCOME_WON' | 'B_OUTCOME_LOST' | 'B_OUTCOME_RAN' | 'B_OUTCOME_CAUGHT',
+    outcome: 'B_OUTCOME_WON' | 'B_OUTCOME_LOST' | 'B_OUTCOME_DREW' | 'B_OUTCOME_RAN' | 'B_OUTCOME_CAUGHT',
   ): void {
     const value = B_OUTCOME[outcome];
     if (typeof value === 'number') {
@@ -1436,7 +1482,10 @@ export class BattleState implements StateRenderer {
     });
   }
 
-  private handleLoss(turnMessages: string[]): void {
+  private handleLoss(
+    turnMessages: string[],
+    outcome: 'B_OUTCOME_LOST' | 'B_OUTCOME_DREW',
+  ): void {
     const party = saveManager.getParty();
     const active = party[this.playerPartyIndex];
     if (active) {
@@ -1450,8 +1499,12 @@ export class BattleState implements StateRenderer {
     }
     saveManager.setParty(party);
 
-    this.setScriptBattleResult('B_OUTCOME_LOST');
-    turnMessages.push('You lost the battle...');
+    this.setScriptBattleResult(outcome);
+    turnMessages.push(
+      outcome === 'B_OUTCOME_DREW'
+        ? 'The battle ended in a draw...'
+        : 'You lost the battle...',
+    );
     this.queueMessages(turnMessages, () => {
       this.phase = 'finished';
     });
@@ -1468,57 +1521,4 @@ function lerp(start: number, end: number, t: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function isPokeballItem(itemId: number): boolean {
-  return itemId >= ITEMS.ITEM_MASTER_BALL && itemId <= ITEMS.ITEM_PREMIER_BALL;
-}
-
-function getBattleHealAmount(itemId: number): number | 'full' | null {
-  const amounts = new Map<number, number | 'full'>([
-    [ITEMS.ITEM_POTION, 20],
-    [ITEMS.ITEM_SUPER_POTION, 50],
-    [ITEMS.ITEM_HYPER_POTION, 200],
-    [ITEMS.ITEM_MAX_POTION, 'full'],
-    [ITEMS.ITEM_FULL_RESTORE, 'full'],
-    [ITEMS.ITEM_FRESH_WATER, 50],
-    [ITEMS.ITEM_SODA_POP, 60],
-    [ITEMS.ITEM_LEMONADE, 80],
-    [ITEMS.ITEM_MOOMOO_MILK, 100],
-    [ITEMS.ITEM_ENERGY_POWDER, 50],
-    [ITEMS.ITEM_ENERGY_ROOT, 200],
-    [ITEMS.ITEM_BERRY_JUICE, 20],
-  ]);
-  return amounts.get(itemId) ?? null;
-}
-
-function getBattleStatusCureMask(itemId: number): number {
-  const maskByItem = new Map<number, number>([
-    [ITEMS.ITEM_ANTIDOTE, STATUS.POISON | STATUS.TOXIC],
-    [ITEMS.ITEM_BURN_HEAL, STATUS.BURN],
-    [ITEMS.ITEM_ICE_HEAL, STATUS.FREEZE],
-    [ITEMS.ITEM_AWAKENING, STATUS.SLEEP],
-    [ITEMS.ITEM_PARALYZE_HEAL, STATUS.PARALYSIS],
-  ]);
-  return maskByItem.get(itemId) ?? 0;
-}
-
-function clearStatusMask(status: number, mask: number): number {
-  let nextStatus = status;
-  if ((mask & (STATUS.POISON | STATUS.TOXIC)) !== 0) {
-    nextStatus &= ~(STATUS.POISON | STATUS.TOXIC);
-  }
-  if ((mask & STATUS.BURN) !== 0) {
-    nextStatus &= ~STATUS.BURN;
-  }
-  if ((mask & STATUS.FREEZE) !== 0) {
-    nextStatus &= ~STATUS.FREEZE;
-  }
-  if ((mask & STATUS.PARALYSIS) !== 0) {
-    nextStatus &= ~STATUS.PARALYSIS;
-  }
-  if ((mask & STATUS.SLEEP) !== 0) {
-    nextStatus &= ~STATUS.SLEEP;
-  }
-  return nextStatus;
 }

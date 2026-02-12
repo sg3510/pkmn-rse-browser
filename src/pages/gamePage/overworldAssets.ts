@@ -74,6 +74,7 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
         await player.loadSprite('walking', '/pokeemerald/graphics/object_events/pics/people/brendan/walking.png');
         await player.loadSprite('running', '/pokeemerald/graphics/object_events/pics/people/brendan/running.png');
         await player.loadSprite('surfing', '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png');
+        await player.loadSprite('underwater', '/pokeemerald/graphics/object_events/pics/people/brendan/underwater.png');
         await player.loadSprite('shadow', '/pokeemerald/graphics/field_effects/pics/shadow_medium.png');
 
         // Set up door warp handler for animated door and arrow warp entry.

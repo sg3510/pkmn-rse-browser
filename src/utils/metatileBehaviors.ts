@@ -2,6 +2,9 @@
 import {
   MB_TALL_GRASS,
   MB_LONG_GRASS,
+  MB_INDOOR_ENCOUNTER,
+  MB_MOUNTAIN_TOP,
+  MB_UNUSED_BRIDGE,
   MB_SECRET_BASE_WALL,
   MB_IMPASSABLE_EAST,
   MB_IMPASSABLE_SOUTH_AND_NORTH,
@@ -149,6 +152,17 @@ export function getBridgeTypeFromBehavior(behavior: number): BridgeType {
     default:
       return 'none';
   }
+}
+
+/**
+ * C-parity helper for battle environment selection.
+ *
+ * MetatileBehavior_GetBridgeType defaults to BRIDGE_TYPE_OCEAN for non-bridge
+ * tiles, while our general bridge helper uses 'none' for rendering workflows.
+ */
+export function getBattleBridgeTypeFromBehavior(behavior: number): Exclude<BridgeType, 'none'> {
+  const bridgeType = getBridgeTypeFromBehavior(behavior);
+  return bridgeType === 'none' ? 'ocean' : bridgeType;
 }
 
 /**
@@ -312,6 +326,49 @@ export function isLongGrassBehavior(behavior: number): boolean {
 }
 
 /**
+ * C ref: MetatileBehavior_IsSandOrDeepSand (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isSandOrDeepSandBehavior(behavior: number): boolean {
+  return behavior === MB_SAND || behavior === MB_DEEP_SAND;
+}
+
+/**
+ * C ref: MetatileBehavior_IsIndoorEncounter (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isIndoorEncounterBehavior(behavior: number): boolean {
+  return behavior === MB_INDOOR_ENCOUNTER;
+}
+
+/**
+ * C ref: MetatileBehavior_IsMountain (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isMountainBehavior(behavior: number): boolean {
+  return behavior === MB_MOUNTAIN_TOP;
+}
+
+/**
+ * C ref: MetatileBehavior_IsDeepOrOceanWater (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isDeepOrOceanWaterBehavior(behavior: number): boolean {
+  return behavior === MB_OCEAN_WATER
+    || behavior === MB_INTERIOR_DEEP_WATER
+    || behavior === MB_DEEP_WATER;
+}
+
+/**
+ * C ref: MetatileBehavior_IsBridgeOverWater (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isBridgeOverWaterBehavior(behavior: number): boolean {
+  return (
+    (behavior >= MB_BRIDGE_OVER_OCEAN && behavior <= MB_BRIDGE_OVER_POND_HIGH)
+    || behavior === MB_BRIDGE_OVER_POND_HIGH_EDGE_1
+    || behavior === MB_BRIDGE_OVER_POND_HIGH_EDGE_2
+    || behavior === MB_UNUSED_BRIDGE
+    || behavior === MB_BIKE_BRIDGE_OVER_BARRIER
+  );
+}
+
+/**
  * Surfable water behaviors that allow using Surf
  * Based on pokeemerald MetatileBehavior_IsSurfableWaterOrUnderwater
  */
@@ -331,6 +388,31 @@ const SURFABLE_BEHAVIORS = new Set([
 
 export function isSurfableBehavior(behavior: number): boolean {
   return SURFABLE_BEHAVIORS.has(behavior);
+}
+
+/**
+ * C ref: MetatileBehavior_IsSurfableWaterOrUnderwater (metatile_behavior.c)
+ */
+export function MetatileBehavior_IsSurfableWaterOrUnderwater(behavior: number): boolean {
+  return isSurfableBehavior(behavior);
+}
+
+/**
+ * C ref: MetatileBehavior_IsDiveable (metatile_behavior.c)
+ */
+export function MetatileBehavior_IsDiveable(behavior: number): boolean {
+  return (
+    behavior === MB_INTERIOR_DEEP_WATER
+    || behavior === MB_DEEP_WATER
+    || behavior === MB_SOOTOPOLIS_DEEP_WATER
+  );
+}
+
+/**
+ * C ref: MetatileBehavior_IsUnableToEmerge (metatile_behavior.c, vanilla behavior)
+ */
+export function MetatileBehavior_IsUnableToEmerge(behavior: number): boolean {
+  return behavior === MB_NO_SURFACING || behavior === MB_SEAWEED_NO_SURFACING;
 }
 
 /**

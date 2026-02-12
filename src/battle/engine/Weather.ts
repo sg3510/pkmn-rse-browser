@@ -10,6 +10,7 @@
  */
 
 import type { WeatherState, WeatherType, BattlePokemon, BattleEvent } from './types';
+import { getBattlePokemonTypes } from './speciesTypes';
 
 export function createDefaultWeather(): WeatherState {
   return { type: 'none', turnsRemaining: 0, permanent: false };
@@ -17,7 +18,7 @@ export function createDefaultWeather(): WeatherState {
 
 /** Set weather. Duration = 5 for moves, 0 for permanent (ability). */
 export function setWeather(
-  state: WeatherState,
+  _state: WeatherState,
   type: WeatherType,
   permanent: boolean,
 ): WeatherState {
@@ -83,7 +84,7 @@ export function tickWeather(
 }
 
 function isWeatherImmune(mon: BattlePokemon, weather: WeatherType): boolean {
-  const info = getSpeciesTypes(mon);
+  const info = getBattlePokemonTypes(mon);
   if (weather === 'sandstorm') {
     return info.includes('ROCK') || info.includes('GROUND') || info.includes('STEEL');
   }
@@ -91,20 +92,6 @@ function isWeatherImmune(mon: BattlePokemon, weather: WeatherType): boolean {
     return info.includes('ICE');
   }
   return true;
-}
-
-function getSpeciesTypes(mon: BattlePokemon): string[] {
-  // Import dynamically to avoid circular deps — we use a lightweight approach
-  // The species info is stored on the pokemon itself indirectly through types
-  // For now, access via the speciesInfo module
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getSpeciesInfo } = require('../../data/speciesInfo');
-    const info = getSpeciesInfo(mon.pokemon.species);
-    return info?.types ?? ['NORMAL', 'NORMAL'];
-  } catch {
-    return ['NORMAL', 'NORMAL'];
-  }
 }
 
 function getWeatherEndMessage(type: WeatherType): string {

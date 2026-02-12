@@ -53,7 +53,7 @@ last_verified: 2026-02-12
 | Pixel-perfect GBA authenticity | □ | MVP math exists, type chart/effects/scripts/graphics parity incomplete |
 | Use shared dialog system | ■ | Battle messages route through `DialogBridge`/`showMessage` (local textbox fallback kept) |
 | Reuse Pokemon menu system | ■ | Battle BAG/POKéMON now opens shared `MenuOverlay` (`BagMenu`/`PartyMenuContent`) in `mode: 'battle'` |
-| Show battle background + platforms | ■ | Tilemap-composed BG from `battle_environment` (`tiles.png` + `map.bin` + optional anim layer) |
+| Show battle background + platforms | ■ | Tilemap-composed BG from `battle_environment` now uses screenblock-correct map indexing + palette-bank rendering (`tiles.png`/`anim_tiles.png` + `map.bin`/`anim_map.bin`) |
 | Show Pokemon battle graphics | ■ | Front/back Pokemon sprites loaded from pokeemerald assets via shared loaders |
 | Infra for battle animations | □ | No animation scheduler/runtime yet |
 | Battle scripting system | □ | Docs exist; no battle script interpreter in TS |
@@ -61,6 +61,24 @@ last_verified: 2026-02-12
 | Overlay battle on map for large viewports | □ | Battle is separate non-overworld state canvas |
 | Wild + single trainer + doubles infra | □ | MVP wild flow exists; trainers are auto-win stubs |
 | In-battle items + item scripting | □ | Bag/items exist globally; no in-battle item execution |
+
+## 2026-02-12 Recovery Pass (Implemented)
+
+- ■ Fixed scripted wild battle payload corruption in `src/pages/gamePage/useHandledStoryScript.ts`:
+  - Removed duplicate `startWildBattle` context key (positional signature no longer overrides request signature).
+  - Added guards for malformed wild battle requests (`speciesId`/`level` must be numeric and > 0).
+  - Removed duplicate `battleType` key in trainer battle transition payload.
+- ■ Added reusable battle environment resolver in `src/battle/render/battleEnvironmentResolver.ts` (C parity oriented):
+  - Resolves terrain from map type + metatile behavior using `BattleSetup_GetEnvironmentId` logic.
+  - Supports special legendary profile variants for Kyogre/Groudon/Rayquaza based on scripted `source/species`.
+- ■ Reworked battle background rendering:
+  - `src/rendering/gbaTilemap.ts` now supports explicit GBA screenblock indexing (64x32/32x32 text BG layouts).
+  - Added indexed-color draw path with palette-bank handling from tilemap entry palette bits.
+  - `src/battle/render/BattleBackground.ts` now composes from indexed tiles + JASC palette (`parsePalette`), including special variant palettes (`kyogre.pal`, `groudon.pal`, `sky/palette.pal`).
+  - Entry layer now uses color-index-0 transparency during composition.
+- ■ Battle state integration:
+  - `BattleStateData` now accepts `backgroundProfile`.
+  - `BattleState` consumes profile-based background loading and logs malformed wild payloads defensively before mon creation.
 
 ## Current Foundation Already In Repo
 
@@ -118,7 +136,7 @@ last_verified: 2026-02-12
 | ■ | Pokemon front sprites (enemy) | Loaded from `graphics/pokemon/{species}/front.png` |
 | ■ | Pokemon back sprites (player) | Loaded from `graphics/pokemon/{species}/back.png` |
 | □ | Shiny sprite palette support | From `shiny.pal` files |
-| ■ | Battle backgrounds (10 terrains) | Composed from `graphics/battle_environment/{terrain}` tilemaps |
+| ■ | Battle backgrounds (10 terrains) | Indexed + palette-bank composition from `graphics/battle_environment/{terrain}` with screenblock-correct tilemap decoding |
 | ■ | Player/enemy platforms | Included via battle BG tilemaps (`map.bin`/`anim_map.bin`) |
 | ■ | GBA-accurate health boxes | `BattleHealthBox` draws `healthbox_singles_*` assets from `graphics/battle_interface/` |
 | ■ | HP bar (green/yellow/red) | Dynamic fill with G/Y/R thresholds in `BattleHealthBox` |
@@ -159,8 +177,8 @@ last_verified: 2026-02-12
 | □ | Complete type effectiveness (18×18) | Currently stubbed to 1 |
 | □ | Full damage formula (all modifiers) | Currently basic — missing abilities, items, weather, screens |
 | □ | All 7 stat stages (atk/def/spa/spd/spe/acc/eva) | Currently only atk + def |
-| □ | Status: Sleep | |
-| □ | Status: Poison / Toxic | |
+| ■ | Status: Sleep | Move-induced sleep now uses Emerald 2–5 turn duration |
+| ■ | Status: Poison / Toxic | Toxic now uses progressive counter damage (1/16, 2/16, …) with cure reset |
 | □ | Status: Burn (atk halve + residual) | |
 | □ | Status: Freeze | |
 | □ | Status: Paralysis (speed + skip chance) | |
@@ -181,9 +199,9 @@ last_verified: 2026-02-12
 | □ | Recoil moves | |
 | □ | Two-turn moves (Fly, Dig, Solar Beam) | |
 | □ | GBA-accurate RNG (LCG) | `gRngValue * 0x41C64E6D + 0x00006073` |
-| □ | Accuracy/evasion stage interaction | Combined accuracy check with stages |
+| ■ | Accuracy/evasion stage interaction | Emerald ratio table aligned (+4 stage = 233/100) |
 | □ | Critical hit stage system | Focus Energy, High Crit moves, Scope Lens |
-| ■ | Battle outcome plumbing → VAR_RESULT | BattleState now writes `VAR_RESULT` using `B_OUTCOME_*` values |
+| ■ | Battle outcome plumbing → VAR_RESULT | Battle script flow now reads/writes only `VAR_RESULT` (`GetBattleOutcome` aligned) |
 | □ | Typed BattleStartRequest payload | Replace ad-hoc data objects |
 | □ | End-of-turn effects (poison, burn, weather, wrap, etc.) | |
 | □ | Ability effects beyond damage (Intimidate, Trace, etc.) | |
@@ -204,11 +222,11 @@ last_verified: 2026-02-12
 | Status | Feature | Notes |
 |--------|---------|-------|
 | ■ | Open party menu during battle | Reuses `PartyMenuContent` via `MenuOverlay` with `mode: 'battle'` callbacks |
-| ■ | Switch Pokemon | Menu-driven single-battle switch implemented with stage/volatile reset (turn-consume parity pending engine pass) |
+| ■ | Switch Pokemon | Menu-driven switch now consumes turn order and still allows enemy response |
 | □ | Forced switch on faint | Must select replacement |
 | ■ | Open bag during battle | Reuses `BagMenu` via `MenuOverlay` with `mode: 'battle'` callbacks |
-| ■ | Use healing items (Potions, etc.) | Active-mon healing items wired in battle flow (Potion/Super/Hyper/Max/etc.) |
-| ■ | Use status-cure items | Active-mon status cures wired (Antidote/Burn Heal/Ice Heal/Awakening/Paralyze Heal/Full Heal) |
+| ■ | Use healing items (Potions, etc.) | Active-mon healing items wired and now resolved through turn order (enemy can act) |
+| ■ | Use status-cure items | Active-mon cures wired and now resolved through turn order (enemy can act) |
 | □ | Throw Pokeballs (wild only) | Capture formula implementation |
 | ■ | Block Pokeballs in trainer battles | Trainer battles now show: "The TRAINER blocked the BALL!" |
 | □ | Held item end-of-turn effects | Leftovers, berries |
@@ -231,7 +249,7 @@ last_verified: 2026-02-12
 | □ | Post-battle money reward | Class base × level × 4 |
 | □ | Post-battle defeat text | Via dialog system |
 | □ | Post-battle defeat script | Run via ScriptRunner |
-| ■ | VAR_RESULT set to battle outcome | Win/Loss/Run outcomes now propagate for script branching |
+| ■ | VAR_RESULT set to battle outcome | Win/Loss/Draw/Run outcomes now propagate for script branching |
 | □ | Trainer re-battle prevention | isTrainerDefeated check |
 | □ | Trainer AI: item usage | Parity with `battle_ai_switch_items.c` |
 | □ | Trainer AI: switching logic | Type disadvantage → switch to counter |

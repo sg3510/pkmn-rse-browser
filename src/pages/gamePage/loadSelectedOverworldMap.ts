@@ -16,6 +16,7 @@ import type { FadeController } from '../../field/FadeController';
 import type { WarpHandler } from '../../field/WarpHandler';
 import { FADE_TIMING } from '../../field/types';
 import type { LocationState } from '../../save/types';
+import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
 import { runMapEntryScripts } from './runMapEntryScripts';
 
 interface MutableRef<T> {
@@ -31,6 +32,10 @@ interface LastWorldUpdate {
   tileX: number;
   tileY: number;
   direction: 'up' | 'down' | 'left' | 'right';
+}
+
+function isUnderwaterMapType(mapType: string | null): boolean {
+  return mapType === 'MAP_TYPE_UNDERWATER';
 }
 
 export interface LoadSelectedOverworldMapParams {
@@ -52,6 +57,7 @@ export interface LoadSelectedOverworldMapParams {
   storyScriptRunningRef: MutableRef<boolean>;
   mapScriptCacheRef: MutableRef<Map<string, unknown> | null>;
   lastCoordTriggerTileRef: MutableRef<{ mapId: string; x: number; y: number } | null>;
+  lastPlayerMapIdRef: MutableRef<string | null>;
   warpHandlerRef: MutableRef<WarpHandler>;
   lastWorldUpdateRef: MutableRef<LastWorldUpdate | null>;
   fadeControllerRef: MutableRef<FadeController>;
@@ -69,6 +75,7 @@ export interface LoadSelectedOverworldMapParams {
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
   applyStoryTransitionObjectParity: (mapId: string) => void;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  scriptRuntimeServices?: ScriptRuntimeServices;
 }
 
 export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams): () => void {
@@ -91,6 +98,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     storyScriptRunningRef,
     mapScriptCacheRef,
     lastCoordTriggerTileRef,
+    lastPlayerMapIdRef,
     warpHandlerRef,
     lastWorldUpdateRef,
     fadeControllerRef,
@@ -105,6 +113,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     initializeWorldFromSnapshot,
     applyStoryTransitionObjectParity,
     setMapMetatile,
+    scriptRuntimeServices,
   } = params;
 
   let cancelled = false;
@@ -212,6 +221,12 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           if (savedLocation.direction) {
             player.dir = savedLocation.direction;
           }
+          const savedUnderwater = savedLocation.isUnderwater
+            ?? isUnderwaterMapType(savedMap?.entry.mapType ?? null);
+          player.setTraversalState({
+            surfing: savedLocation.isSurfing || savedUnderwater,
+            underwater: savedUnderwater,
+          });
         } else {
           const anchorMap = snapshot.maps.find((map) => map.entry.id === entry.id) ?? snapshot.maps[0];
           const tilesetPairIndex = snapshot.mapTilesetPairIndex.get(anchorMap.entry.id);
@@ -229,6 +244,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
             }
           );
           player.setPosition(spawnResult.x, spawnResult.y);
+          const spawnUnderwater = isUnderwaterMapType(anchorMap.entry.mapType);
+          player.setTraversalState({ surfing: spawnUnderwater, underwater: spawnUnderwater });
         }
 
         const playerMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? entry.id;
@@ -237,6 +254,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           x: player.tileX,
           y: player.tileY,
         };
+        lastPlayerMapIdRef.current = playerMapId;
 
         applyStoryTransitionObjectParity(playerMapId);
 
@@ -256,6 +274,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
                 setMapMetatile(mapId, tileX, tileY, metatileId, collision);
               }
             : undefined,
+          scriptRuntimeServices,
         });
 
         const scriptedWarp = pendingScriptedWarpRef.current;

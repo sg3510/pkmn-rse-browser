@@ -52,6 +52,7 @@ function createInitialLocationState(): LocationState {
     direction: 'down',
     elevation: 3,
     isSurfing: false,
+    isUnderwater: false,
   };
 }
 

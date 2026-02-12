@@ -1,7 +1,7 @@
 ---
 title: Diving & Waterfall Systems - Deep Dive Analysis
-status: research
-last_verified: 2026-01-13
+status: reference
+last_verified: 2026-02-12
 ---
 
 # Diving & Waterfall Systems - Deep Dive Analysis
@@ -9,6 +9,18 @@ last_verified: 2026-01-13
 ## Overview
 
 This document provides a comprehensive analysis of how diving and waterfall mechanics work in Pokemon Emerald's decompiled source code (`public/pokeemerald/`) and proposes a modular React implementation for `src/`.
+
+## Current TypeScript Implementation Status (2026-02-12)
+
+- [x] Bidirectional Dive flow (surface -> underwater, underwater -> surface) with HM/badge gating intentionally bypassed for this milestone
+- [x] Dive destination resolution parity order: connection (`dive`/`emerge`) -> map script (`MAP_SCRIPT_ON_DIVE_WARP`) -> fixed dive warp (`setdivewarp`) -> fail
+- [x] Dive transition uses existing fade warp pipeline (fade out, warp during black, fade in)
+- [x] Underwater traversal state (`isUnderwater`) persists through scripted warp, save/load, and map reload paths
+- [x] Underwater player sprite atlas is loaded and selected at runtime
+- [x] Underwater weather is implemented as weather (not hardcoded tint), using `WEATHER_UNDERWATER_BUBBLES` with fog + bubble sprites
+- [x] Script command parity added for Dive/weather path: `setdivewarp`, `checkpartymove`, `setfieldeffectargument`, `dofieldeffect`, `waitfieldeffect`, `setweather`, `resetweather`, `doweather`
+- [ ] Full Dive field-move Pokemon animation parity is still pending (current transition is fade-warp parity first)
+- [ ] Waterfall ascent mechanics are still tracked separately from this Dive milestone
 
 ---
 

@@ -1,7 +1,12 @@
 import mapIndexJson from '../data/mapIndex.json';
-import type { MapIndexEntry, MapConnection, WarpEvent } from '../types/maps';
+import type { MapIndexEntry, WarpEvent } from '../types/maps';
 import type { ObjectEventData } from '../types/objectEvents';
-import { loadMapEvents, type CoordEvent, type BgEvent } from '../game/mapEventLoader';
+import {
+  loadMapEvents,
+  type ScriptCoordEvent,
+  type WeatherCoordEvent,
+  type BgEvent,
+} from '../game/mapEventLoader';
 export type { WarpEvent, ObjectEventData };
 import {
   loadBorderMetatiles,
@@ -18,6 +23,10 @@ import {
 } from '../utils/mapLoader';
 import type { LoadedAnimation } from '../utils/tilesetUtils';
 import { isDebugMode } from '../utils/debug';
+import {
+  computeSpatialConnectionOffset,
+  isSpatialConnectionDirection,
+} from '../game/mapConnections';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -47,8 +56,9 @@ export interface LoadedMapData {
   tilesets: TilesetResources;
   warpEvents: WarpEvent[];
   objectEvents: ObjectEventData[];
-  coordEvents: CoordEvent[];
+  coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;
   bgEvents: BgEvent[];
+  mapWeather: string | null;
 }
 
 export interface WorldMapInstance extends LoadedMapData {
@@ -155,33 +165,11 @@ export class MapManager {
       objectEvents: mapEvents.objectEvents,
       coordEvents: mapEvents.coordEvents,
       bgEvents: mapEvents.bgEvents,
+      mapWeather: mapEvents.mapWeather,
     };
 
     this.mapCache.set(mapId, loaded);
     return loaded;
-  }
-
-  private static computeOffset(
-    base: LoadedMapData,
-    neighbor: LoadedMapData,
-    connection: MapConnection,
-    baseOffsetX = 0,
-    baseOffsetY = 0
-  ): { offsetX: number; offsetY: number } {
-    const dir = connection.direction.toLowerCase();
-    if (dir === 'up' || dir === 'north') {
-      return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY - neighbor.mapData.height };
-    }
-    if (dir === 'down' || dir === 'south') {
-      return { offsetX: baseOffsetX + connection.offset, offsetY: baseOffsetY + base.mapData.height };
-    }
-    if (dir === 'left' || dir === 'west') {
-      return { offsetX: baseOffsetX - neighbor.mapData.width, offsetY: baseOffsetY + connection.offset };
-    }
-    if (dir === 'right' || dir === 'east') {
-      return { offsetX: baseOffsetX + base.mapData.width, offsetY: baseOffsetY + connection.offset };
-    }
-    return { offsetX: baseOffsetX, offsetY: baseOffsetY };
   }
 
   /**
@@ -205,15 +193,18 @@ export class MapManager {
       if (current.depth >= maxDepth) continue;
 
       for (const connection of current.map.entry.connections || []) {
+        if (!isSpatialConnectionDirection(connection.direction)) continue;
         try {
           const neighbor = await this.loadMap(connection.map);
-          const { offsetX, offsetY } = MapManager.computeOffset(
-            current.map,
-            neighbor,
+          const connectionOffset = computeSpatialConnectionOffset(
+            { width: current.map.mapData.width, height: current.map.mapData.height },
+            { width: neighbor.mapData.width, height: neighbor.mapData.height },
             connection,
             current.offsetX,
             current.offsetY
           );
+          if (!connectionOffset) continue;
+          const { offsetX, offsetY } = connectionOffset;
           queue.push({ map: neighbor, offsetX, offsetY, depth: current.depth + 1 });
         } catch (err) {
           if (isDebugMode()) {

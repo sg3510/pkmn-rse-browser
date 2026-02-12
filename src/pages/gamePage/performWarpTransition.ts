@@ -14,6 +14,7 @@ import type { WarpDebugInfo } from '../../components/debug';
 import type { MapScriptData } from '../../data/scripts/types';
 import { runMapEntryScripts } from './runMapEntryScripts';
 import { handleSpecialWarpArrival } from '../../game/SpecialWarpBehaviorRegistry';
+import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
 
 interface MutableRef<T> {
   current: T;
@@ -49,12 +50,17 @@ export interface PerformWarpTransitionParams {
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   /** Pre-populate frame table cache so ON_FRAME scripts fire on the first frame */
   mapScriptCache?: Map<string, MapScriptData | null>;
+  scriptRuntimeServices?: ScriptRuntimeServices;
   /** Called after a warp completes with the new anchor map ID */
   onMapChanged?: (mapId: string) => void;
 }
 
 export interface PerformWarpTransitionResult {
   managesInputUnlock: boolean;
+}
+
+function isUnderwaterMapType(mapType: string | null): boolean {
+  return mapType === 'MAP_TYPE_UNDERWATER';
 }
 
 export async function performWarpTransition(
@@ -85,6 +91,7 @@ export async function performWarpTransition(
     resolveDynamicWarpTarget,
     setMapMetatile,
     mapScriptCache,
+    scriptRuntimeServices,
     onMapChanged,
   } = params;
 
@@ -205,6 +212,11 @@ export async function performWarpTransition(
     }
 
     const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
+    const destinationUnderwater = isUnderwaterMapType(destMap.entry.mapType);
+    player.setTraversalState({
+      surfing: destinationUnderwater,
+      underwater: destinationUnderwater,
+    });
     setLastCoordTriggerTile({
       mapId: currentMapId,
       x: player.tileX,
@@ -223,6 +235,7 @@ export async function performWarpTransition(
       pipeline,
       mapScriptCache,
       setMapMetatile,
+      scriptRuntimeServices,
     });
 
     if (!managesVisibility) {

@@ -177,6 +177,11 @@ class SaveManagerClass {
         // Add migration logic here when needed
       }
 
+      const locationWithMigration = data.location as LocationState & { isUnderwater?: boolean };
+      if (typeof locationWithMigration.isUnderwater !== 'boolean') {
+        locationWithMigration.isUnderwater = false;
+      }
+
       // Prefer raw event state if present so unknown IDs are preserved.
       if (Array.isArray(data.rawFlags) && Array.isArray(data.rawVars)) {
         saveStateStore.replaceRawEventState(data.rawFlags, data.rawVars);
@@ -251,7 +256,7 @@ class SaveManagerClass {
       this.activeSlot = slot;
       this.profile = data.profile;
       this.playTime = data.playTime;
-      this.currentMapId = data.location.location.mapId;
+      this.currentMapId = locationWithMigration.location.mapId;
 
       console.log(`[SaveManager] Loaded save from slot ${slot}`);
       return data;
@@ -528,7 +533,14 @@ class SaveManagerClass {
   /**
    * Quick save to slot 0 with current location
    */
-  quickSave(tileX: number, tileY: number, direction: 'up' | 'down' | 'left' | 'right', mapId: string, isSurfing: boolean = false): SaveResult {
+  quickSave(
+    tileX: number,
+    tileY: number,
+    direction: 'up' | 'down' | 'left' | 'right',
+    mapId: string,
+    isSurfing: boolean = false,
+    isUnderwater: boolean = false
+  ): SaveResult {
     const locationState: LocationState = {
       pos: { x: tileX, y: tileY },
       location: { mapId, warpId: 0, x: tileX, y: tileY },
@@ -538,6 +550,7 @@ class SaveManagerClass {
       direction,
       elevation: 3, // Default elevation
       isSurfing,
+      isUnderwater,
     };
 
     return this.save(0, locationState);
@@ -645,6 +658,11 @@ class SaveManagerClass {
       if (data.version < SAVE_VERSION) {
         console.log(`[SaveManager] Migrating imported save from v${data.version} to v${SAVE_VERSION}`);
         data.version = SAVE_VERSION;
+      }
+
+      const importedLocation = data.location as LocationState & { isUnderwater?: boolean };
+      if (typeof importedLocation.isUnderwater !== 'boolean') {
+        importedLocation.isUnderwater = false;
       }
 
       // Save to localStorage

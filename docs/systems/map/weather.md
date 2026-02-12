@@ -1,12 +1,34 @@
 ---
 title: Weather System
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-12
 ---
 
 # Weather System
 
 This document describes the Pokemon Emerald weather system from the C source code and proposes a modular React implementation.
+
+## Current TypeScript Runtime (2026-02-12)
+
+- `src/weather/registry.ts` is generated-data-driven and resolves weather/coord-weather names and aliases without per-weather hardcoding.
+- `src/weather/WeatherManager.ts` provides script-facing semantics parity for:
+  - `setweather` -> set saved weather
+  - `resetweather` -> restore current map default
+  - `doweather` -> apply current saved weather
+- `src/game/mapEventLoader.ts` parses both map default weather and coord weather events (`type: "weather"`).
+- `src/pages/GamePage.tsx` integrates weather into the main render/update loop:
+  - map change -> default weather sync
+  - coord weather -> runtime override
+  - compositing stage render hook (below fade/scanline overlays)
+- Implemented visual effect in this milestone: `WEATHER_UNDERWATER_BUBBLES` (`src/weather/effects/UnderwaterBubblesEffect.ts`) using:
+  - `/pokeemerald/graphics/weather/fog_horizontal.png`
+  - `/pokeemerald/graphics/weather/bubble.png`
+
+## Current Scope
+
+- [x] Scalable weather runtime and generated weather constants (`npm run generate:weather`)
+- [x] Underwater bubbles parity path (fog + bubble cadence/wobble behavior)
+- [ ] Remaining non-underwater weather visuals (rain/sand/ash/etc.) are pending
 
 ## Overview
 
