@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useMenuInput } from '../hooks/useMenuState';
+import { useMenuState, useMenuInput } from '../hooks/useMenuState';
 import { menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
 import { getItemName, getItemIconPath, getItemDescription } from '../../data/items';
@@ -44,10 +44,13 @@ const BAG_FRAME_WIDTH = 59;  // bag-icon-pockets.png frame width
 const ICON_NATIVE_SIZE = 26; // bag-icons.png icon size
 
 export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
+  const { isOpen, currentMenu, data } = useMenuState();
   const [currentPocket, setCurrentPocket] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState<number[]>([0, 0, 0, 0, 0]);
   const [scrollPosition, setScrollPosition] = useState<number[]>([0, 0, 0, 0, 0]);
+  const battleMode = data.mode === 'battle';
+  const onBattleItemSelected = data.onBattleItemSelected as ((itemId: number | null) => void) | undefined;
 
   const MAX_VISIBLE_ITEMS = 6;
 
@@ -105,8 +108,13 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   }, [currentPocket, items.length, cursorPosition]);
 
   const handleClose = useCallback(() => {
+    if (battleMode) {
+      onBattleItemSelected?.(null);
+      menuStateManager.close();
+      return;
+    }
     menuStateManager.back();
-  }, []);
+  }, [battleMode, onBattleItemSelected]);
 
   const handleSelectItem = useCallback((index: number) => {
     setCursorPosition((prev) => {
@@ -124,11 +132,15 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     onRight: () => switchPocket(1),
     onCancel: handleClose,
     onConfirm: () => {
-      if (selectedItem) {
-        console.log('[BagMenu] Selected item:', getItemName(selectedItem.itemId));
+      if (!selectedItem) return;
+      if (battleMode) {
+        onBattleItemSelected?.(selectedItem.itemId);
+        menuStateManager.close();
+        return;
       }
+      console.log('[BagMenu] Selected item:', getItemName(selectedItem.itemId));
     },
-    enabled: true,
+    enabled: isOpen && currentMenu === 'bag',
   });
 
   // Calculate sprite positions using native sizes (CSS scales via background-size)

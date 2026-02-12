@@ -20,7 +20,7 @@ import '../styles/party-menu-content.css';
 type PartyMode = 'select' | 'swap';
 
 export function PartyMenuContent() {
-  const { cursorIndex, isOpen, currentMenu } = useMenuState();
+  const { cursorIndex, isOpen, currentMenu, data } = useMenuState();
   const partyContext = usePartyOptional();
 
   // Local state for modes
@@ -54,6 +54,9 @@ export function PartyMenuContent() {
 
   const party = localParty;
   const partyCount = party.filter(p => p !== null).length;
+  const battleMode = data.mode === 'battle';
+  const activePartyIndex = typeof data.activePartyIndex === 'number' ? data.activePartyIndex : 0;
+  const onBattlePartySelected = data.onBattlePartySelected as ((partyIndex: number | null) => void) | undefined;
 
   // Reset mode when menu opens
   useEffect(() => {
@@ -69,6 +72,15 @@ export function PartyMenuContent() {
 
     if (mode === 'select') {
       if (pokemon) {
+        if (battleMode) {
+          if (cursorIndex === activePartyIndex || pokemon.stats.hp <= 0) {
+            return;
+          }
+          onBattlePartySelected?.(cursorIndex);
+          menuStateManager.close();
+          return;
+        }
+
         // Navigate to summary screen via MenuStateManager
         menuStateManager.open('pokemonSummary', {
           pokemon,
@@ -95,18 +107,31 @@ export function PartyMenuContent() {
       setMode('select');
       setSwapSourceIndex(null);
     }
-  }, [mode, cursorIndex, swapSourceIndex, party, partyContext, localParty]);
+  }, [
+    mode,
+    cursorIndex,
+    swapSourceIndex,
+    party,
+    partyContext,
+    localParty,
+    battleMode,
+    activePartyIndex,
+    onBattlePartySelected,
+  ]);
 
   const handleCancel = useCallback(() => {
     if (mode === 'swap') {
       // Cancel swap mode
       setMode('select');
       setSwapSourceIndex(null);
+    } else if (battleMode) {
+      onBattlePartySelected?.(null);
+      menuStateManager.close();
     } else {
       // Go back via MenuStateManager
       menuStateManager.back();
     }
-  }, [mode]);
+  }, [mode, battleMode, onBattlePartySelected]);
 
   const handleUp = useCallback(() => {
     const newIndex = navigateGrid(cursorIndex, 'up', 2, 6);
@@ -174,7 +199,7 @@ export function PartyMenuContent() {
           <span className="party-hint">Select slot or B: Cancel</span>
         ) : (
           <span className="party-hint">
-            {partyCount === 0 ? 'No POKéMON' : 'A: View  B: Back'}
+            {partyCount === 0 ? 'No POKéMON' : (battleMode ? 'A: Switch  B: Cancel' : 'A: View  B: Back')}
           </span>
         )}
       </div>

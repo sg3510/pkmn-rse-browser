@@ -476,6 +476,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           await stateManager.transitionTo(GameState.BATTLE, {
             battleType: 'trainer',
             playerPokemon: lead,
+            battleType: 'trainer',
             wildSpecies: battle.species,
             wildLevel: battle.level,
             returnLocation: buildReturnLocation(),
@@ -503,6 +504,24 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           });
           await waitForBattleToEnd();
           return readBattleResult();
+        },
+        startWildBattle: async (speciesId: number, level: number) => {
+          if (!stateManager) return;
+
+          const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
+          if (!lead) {
+            console.warn('[StoryScript] Cannot start wild battle without a party Pokemon.');
+            return;
+          }
+
+          await stateManager.transitionTo(GameState.BATTLE, {
+            playerPokemon: lead,
+            battleType: 'wild',
+            wildSpecies: speciesId,
+            wildLevel: level,
+            returnLocation: buildReturnLocation(),
+          });
+          await waitForBattleToEnd();
         },
         queueWarp: (mapId, x, y, direction) => {
           pendingSavedLocationRef.current = {
