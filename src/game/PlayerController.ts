@@ -1213,10 +1213,14 @@ export class PlayerController {
   }
 
   public getCameraFocus() {
-    const { width, height } = this.getSpriteSize();
+    const spriteKey = this.getCurrentSpriteKey();
+    const { frameWidth, frameHeight, renderXOffset } = this.getSpriteFrameMetrics(spriteKey);
+    // Keep camera anchoring tied to world feet position, not raw frame width.
+    // Surf/underwater sprites are 32px wide with -8 render offset, which should
+    // still focus at the same tile center as 16px walking/running sprites.
     return {
-      x: this.x + width / 2,
-      y: this.y + height - this.TILE_PIXELS / 2,
+      x: this.x + renderXOffset + frameWidth / 2,
+      y: this.y + frameHeight - this.TILE_PIXELS / 2,
     };
   }
 

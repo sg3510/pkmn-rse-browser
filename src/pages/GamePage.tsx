@@ -812,6 +812,24 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     setDiveWarp: (mapId, x, y, warpId = 0) => {
       setFixedDiveWarpTarget(mapId, x, y, warpId);
     },
+    fade: {
+      start: (direction, durationMs) => {
+        const now = performance.now();
+        if (direction === 'out') {
+          fadeControllerRef.current.startFadeOut(durationMs, now);
+          return;
+        }
+        fadeControllerRef.current.startFadeIn(durationMs, now);
+      },
+      wait: async (durationMs) => {
+        const delayMs = Math.max(1, Math.round(durationMs));
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      },
+      framesToMs: (frames) => {
+        const frameCount = Math.max(1, Math.round(frames));
+        return Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
+      },
+    },
     fieldEffects: {
       setArgument: () => {},
       run: async () => {},
@@ -2080,13 +2098,22 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       if (warpingRef.current && scriptedWarp) {
         const fade = fadeControllerRef.current;
         if (scriptedWarp.phase === 'pending') {
-          // Start fade-out if no fade is running, OR if a previous fade already completed
-          const fadeReady = !fade.isActive() || fade.isComplete(nowTime);
-          if (fadeReady) {
-            console.log(`[ScriptedWarp] pending → fading (fadeOut to ${scriptedWarp.mapId})`);
-            fade.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+          const fadeComplete = fade.isComplete(nowTime);
+          const fadeDirection = fade.getDirection();
+          const hasCompletedFadeOut = fadeDirection === 'out' && fadeComplete;
+          // Reuse already-completed script fade-outs so we don't restart from alpha=0.
+          if (hasCompletedFadeOut) {
+            console.log(`[ScriptedWarp] pending → fading (reuse fadeOut to ${scriptedWarp.mapId})`);
             scriptedWarp.phase = 'fading';
             pendingScriptedWarpRef.current = scriptedWarp;
+          } else {
+            const canStartFadeOut = !fade.isActive() || fadeComplete;
+            if (canStartFadeOut) {
+              console.log(`[ScriptedWarp] pending → fading (fadeOut to ${scriptedWarp.mapId})`);
+              fade.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+              scriptedWarp.phase = 'fading';
+              pendingScriptedWarpRef.current = scriptedWarp;
+            }
           }
         } else if (
           scriptedWarp.phase === 'fading'
@@ -2503,15 +2530,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         // Use extracted compositing function for GBA-accurate layer ordering
         const webglCanvas = webglCanvasRef.current;
         if (webglCanvas) {
-          // Fade barrier: keep screen fully black while warping to prevent
-          // flashing the new map before transition scripts have finished.
+          // Keep screen black during scripted-warp load gaps (after fade-out, before fade-in).
+          // Do not clamp during active fade-out/fade-in, or transitions look instant/cut.
           const fade = fadeControllerRef.current;
           let fadeAlpha = fade.isActive() ? fade.getAlpha(nowTime) : 0;
           if (warpingRef.current && fadeAlpha < 1.0) {
-            // During warp, if fade-out is complete or fade-in hasn't progressed,
-            // keep the screen black until warp finishes.
             const pendingScriptedWarp = pendingScriptedWarpRef.current;
-            if (pendingScriptedWarp && pendingScriptedWarp.phase !== 'pending') {
+            const isScriptedWarpLoading = pendingScriptedWarp?.phase === 'loading';
+            const fadeDirection = fade.getDirection();
+            const shouldClampToBlack = isScriptedWarpLoading
+              && (fadeDirection !== 'in' || fade.isComplete(nowTime));
+            if (shouldClampToBlack) {
               fadeAlpha = 1.0;
             }
           }

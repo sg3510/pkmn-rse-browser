@@ -96,6 +96,7 @@ function rotateCCW(dir: Direction): Direction {
 /** Constants that the C source uses but we resolve at runtime */
 const GENDER_MALE = 0;
 const GENDER_FEMALE = 1;
+const DEFAULT_SCRIPT_FADE_FRAMES = 16;
 
 /**
  * Resolve a constant name to its numeric value.
@@ -226,12 +227,21 @@ export interface ScriptWeatherServices {
   applyCurrentWeather: () => void;
 }
 
+export type ScriptFadeDirection = 'in' | 'out';
+
+export interface ScriptFadeServices {
+  start: (direction: ScriptFadeDirection, durationMs: number) => void;
+  wait?: (durationMs: number, direction: ScriptFadeDirection) => void | Promise<void>;
+  framesToMs?: (frames: number) => number;
+}
+
 export interface ScriptPartyServices {
   findFirstPartyIndexWithMove?: (moveId: number, party: (PartyPokemon | null)[]) => number;
 }
 
 export interface ScriptRuntimeServices {
   setDiveWarp?: (mapId: string, x: number, y: number, warpId?: number) => void;
+  fade?: ScriptFadeServices;
   fieldEffects?: ScriptFieldEffectServices;
   weather?: ScriptWeatherServices;
   party?: ScriptPartyServices;
@@ -412,6 +422,40 @@ export class ScriptRunner {
     }
     const resolved = resolveConstant(rawValue);
     return typeof resolved === 'number' ? resolved : String(resolved);
+  }
+
+  private resolveFadeDirection(modeArg: string | number | undefined): ScriptFadeDirection {
+    const modeValue = modeArg === undefined ? 1 : this.resolveVarOrConst(modeArg);
+    return modeValue === 0 ? 'in' : 'out';
+  }
+
+  private resolveFadeFrameCount(defaultFrames: number, speedArg?: string | number): number {
+    if (speedArg === undefined) return defaultFrames;
+    const speed = this.resolveVarOrConst(speedArg);
+    return Math.max(1, speed);
+  }
+
+  private async runFadeCommand(
+    modeArg: string | number | undefined,
+    defaultFrames: number,
+    speedArg?: string | number
+  ): Promise<void> {
+    const fadeFrames = this.resolveFadeFrameCount(defaultFrames, speedArg);
+    const fadeDirection = this.resolveFadeDirection(modeArg);
+    const fadeServices = this.services.fade;
+    if (!fadeServices) {
+      await this.ctx.delayFrames(fadeFrames);
+      return;
+    }
+
+    const durationMs = fadeServices.framesToMs?.(fadeFrames)
+      ?? Math.max(1, Math.round(fadeFrames * (1000 / 60)));
+    fadeServices.start(fadeDirection, durationMs);
+    if (fadeServices.wait) {
+      await fadeServices.wait(durationMs, fadeDirection);
+    } else {
+      await this.ctx.delayFrames(fadeFrames);
+    }
   }
 
   /**
@@ -1005,7 +1049,12 @@ export class ScriptRunner {
 
         // --- Visual ---
         case 'fadescreen':
-          await this.ctx.delayFrames(16);
+        case 'fadescreenswapbuffers':
+          await this.runFadeCommand(args[0], DEFAULT_SCRIPT_FADE_FRAMES);
+          break;
+
+        case 'fadescreenspeed':
+          await this.runFadeCommand(args[0], DEFAULT_SCRIPT_FADE_FRAMES, args[1]);
           break;
 
         case 'opendoor': {
@@ -1408,11 +1457,6 @@ export class ScriptRunner {
           }
           break;
         }
-
-        // --- fadescreenswapbuffers: alias for fadescreen ---
-        case 'fadescreenswapbuffers':
-          await this.ctx.delayFrames(16);
-          break;
 
         // --- Visual priority (no-ops — z-ordering not critical for browser) ---
         case 'setobjectsubpriority':
