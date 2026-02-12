@@ -865,6 +865,15 @@ export function parseGen3Save(
     coins ^= (encryptionKey & 0xFFFF);
   }
 
+  // Registered item (u16, NOT encrypted)
+  const registeredItem = readFromSaveBlock1(
+    data,
+    selectedSaveBlock1.REGISTERED_ITEM,
+    activeSectionMap,
+    sectionSizes,
+    (o) => data.getUint16(o, true)
+  );
+
   // PC Items (NOT encrypted)
   const pcItems = readItemSlots(
     data,
@@ -1010,6 +1019,7 @@ export function parseGen3Save(
     money: moneyState,
     bag,
     pcItems: pcItemsState,
+    registeredItem,
     party: partyState,
     partyFull,
     flags: parsedFlags,

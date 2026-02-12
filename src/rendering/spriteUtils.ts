@@ -30,6 +30,7 @@ import {
   getFieldEffectDimensions,
   getFieldEffectYOffset,
 } from './fieldEffectUtils';
+import { LARGE_OBJECT_GRAPHICS_INFO } from '../data/largeObjectGraphics.gen';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -569,11 +570,8 @@ export function getLargeObjectAtlasName(graphicsId: string): string {
   return `large-${graphicsId}`;
 }
 
-/** Truck sprite is 48×48 */
-const TRUCK_SPRITE_SIZE = 48;
-
 /**
- * Create a SpriteInstance for a large object (e.g. truck)
+ * Create a SpriteInstance for a large object (e.g. truck, boat)
  *
  * C parity: object-event coordinates are anchored to the object's "feet tile"
  * center, then converted to top-left via center-to-corner vectors.
@@ -587,19 +585,20 @@ export function createLargeObjectSpriteInstance(
   obj: LargeObject,
   sortKey: number
 ): SpriteInstance {
-  const worldX = obj.tileX * METATILE_SIZE + Math.floor(METATILE_SIZE / 2) - Math.floor(TRUCK_SPRITE_SIZE / 2);
-  const worldY = obj.tileY * METATILE_SIZE + METATILE_SIZE - TRUCK_SPRITE_SIZE;
+  const info = LARGE_OBJECT_GRAPHICS_INFO[obj.graphicsId];
+  const worldX = obj.tileX * METATILE_SIZE + Math.floor(METATILE_SIZE / 2) - Math.floor(info.width / 2);
+  const worldY = obj.tileY * METATILE_SIZE + METATILE_SIZE - info.height;
 
   return {
     worldX,
     worldY,
-    width: TRUCK_SPRITE_SIZE,
-    height: TRUCK_SPRITE_SIZE,
+    width: info.width,
+    height: info.height,
     atlasName: getLargeObjectAtlasName(obj.graphicsId),
     atlasX: 0,
     atlasY: 0,
-    atlasWidth: TRUCK_SPRITE_SIZE,
-    atlasHeight: TRUCK_SPRITE_SIZE,
+    atlasWidth: info.width,
+    atlasHeight: info.height,
     flipX: false,
     flipY: false,
     alpha: 1.0,

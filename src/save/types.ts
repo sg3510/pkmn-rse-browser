@@ -260,6 +260,8 @@ export interface SaveData {
   bag?: BagState;
   /** PC item storage */
   pcItems?: PCItemsState;
+  /** SELECT button registered item */
+  registeredItem?: number;
   /** Pokemon party */
   party?: PartyState;
   /** Runtime battle-ready party payload */

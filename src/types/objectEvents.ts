@@ -217,6 +217,26 @@ export const OBJ_EVENT_GFX_ITEM_BALL = 'OBJ_EVENT_GFX_ITEM_BALL';
 export const OBJ_EVENT_GFX_TRUCK = 'OBJ_EVENT_GFX_TRUCK';
 
 /**
+ * Exhaustive list of large (non-NPC) object graphics IDs currently supported by
+ * the renderer/object manager pipeline.
+ */
+export const LARGE_OBJECT_GRAPHICS_IDS = [
+  'OBJ_EVENT_GFX_TRUCK',
+  'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
+  'OBJ_EVENT_GFX_SS_TIDAL',
+  'OBJ_EVENT_GFX_SUBMARINE_SHADOW',
+  'OBJ_EVENT_GFX_CABLE_CAR',
+] as const;
+
+export type LargeObjectGraphicsId = (typeof LARGE_OBJECT_GRAPHICS_IDS)[number];
+
+const LARGE_OBJECT_GRAPHICS_ID_SET: ReadonlySet<string> = new Set(LARGE_OBJECT_GRAPHICS_IDS);
+
+export function isLargeObjectGraphicsId(graphicsId: string): graphicsId is LargeObjectGraphicsId {
+  return LARGE_OBJECT_GRAPHICS_ID_SET.has(graphicsId);
+}
+
+/**
  * Large (non-NPC) rendered object like the moving truck
  */
 export interface LargeObject {
@@ -224,7 +244,7 @@ export interface LargeObject {
   tileX: number;
   tileY: number;
   elevation: number;
-  graphicsId: string;
+  graphicsId: LargeObjectGraphicsId;
   flag: string;
   visible: boolean;
 }

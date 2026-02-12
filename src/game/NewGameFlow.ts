@@ -17,6 +17,7 @@ import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
 import { MOVES, getMoveInfo } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
+import { isBrineyBoatScript, executeBrineyBoatScript } from './story/BrineyBoatRide';
 
 type ScriptDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptMoveMode = 'walk' | 'jump' | 'jump_in_place' | 'face';
@@ -116,6 +117,9 @@ const HANDLED_SCRIPTS = new Set<string>([
   'LittlerootTown_MaysHouse_1F_EventScript_MeetRival2',
   // Route 101: starter selection + battle trigger
   'Route101_EventScript_BirchsBag',
+  // Briney boat rides (170+ tile cross-map movement → shortcutted with warp)
+  'Route104_EventScript_StartSailToDewford',
+  'DewfordTown_EventScript_Briney',
 ]);
 
 function buildStarter(choice: StarterChoice): PartyPokemon {
@@ -979,6 +983,10 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
     }
 
     default:
+      // Delegate to boat ride handler if applicable
+      if (isBrineyBoatScript(scriptName)) {
+        return executeBrineyBoatScript(scriptName, ctx);
+      }
       return false;
   }
 }

@@ -145,6 +145,9 @@ export const SAVEBLOCK1 = {
   /** Game Corner coins (XOR encrypted in Emerald) */
   COINS: 0x494, // u16
 
+  /** Registered item for SELECT button (u16) */
+  REGISTERED_ITEM: 0x496, // u16
+
   /** PC items (NOT encrypted) */
   PC_ITEMS: 0x498,
   PC_ITEMS_COUNT: 50,

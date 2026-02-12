@@ -16,6 +16,7 @@ import type { FadeController } from '../../field/FadeController';
 import type { WarpHandler } from '../../field/WarpHandler';
 import { FADE_TIMING } from '../../field/types';
 import type { LocationState } from '../../save/types';
+import { runMapEntryScripts } from './runMapEntryScripts';
 
 interface MutableRef<T> {
   current: T;
@@ -230,6 +231,20 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         };
 
         applyStoryTransitionObjectParity(playerMapId);
+
+        // Run ON_LOAD / ON_TRANSITION / ON_WARP_INTO scripts so that
+        // scripted warps (e.g. warp command) get the same map-entry
+        // script treatment as door warps (performWarpTransition).
+        await runMapEntryScripts({
+          currentMapId: playerMapId,
+          snapshot,
+          objectEventManager: objectEventManagerRef.current,
+          player,
+          playerHiddenRef,
+          pipeline,
+          mapScriptCache: mapScriptCacheRef.current as Map<string, any> | undefined,
+        });
+
         playerHiddenRef.current = false;
         storyScriptRunningRef.current = false;
 

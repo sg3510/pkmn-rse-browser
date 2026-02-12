@@ -21,6 +21,7 @@ import {
   ITEM_BALL_ATLAS_NAME,
 } from '../../rendering/spriteUtils';
 import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
+import { LARGE_OBJECT_GRAPHICS_INFO } from '../../data/largeObjectGraphics.gen';
 
 type MutableRef<T> = { current: T };
 
@@ -222,17 +223,22 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
             );
           }
 
-          try {
-            const truckImg = await loadImageAsset('/pokeemerald/graphics/object_events/pics/misc/truck.png');
-            const truckCanvas = makeTransparentCanvas(truckImg, { type: 'top-left' });
-            const atlasName = getLargeObjectAtlasName('OBJ_EVENT_GFX_TRUCK');
-            spriteRenderer.uploadSpriteSheet(atlasName, truckCanvas, {
-              frameWidth: 48,
-              frameHeight: 48,
-            });
-            debugLog(isDebugMode, `[WebGL] Uploaded truck sprite: ${atlasName} (${truckCanvas.width}x${truckCanvas.height})`);
-          } catch (err) {
-            console.warn('Failed to load truck sprite:', err);
+          for (const [graphicsId, info] of Object.entries(LARGE_OBJECT_GRAPHICS_INFO)) {
+            try {
+              const img = await loadImageAsset(info.imagePath);
+              const canvas = makeTransparentCanvas(img, { type: 'top-left' });
+              const atlasName = getLargeObjectAtlasName(graphicsId);
+              spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
+                frameWidth: info.width,
+                frameHeight: info.height,
+              });
+              debugLog(
+                isDebugMode,
+                `[WebGL] Uploaded large object sprite: ${atlasName} (${canvas.width}x${canvas.height})`
+              );
+            } catch (err) {
+              console.warn(`Failed to load large object sprite (${graphicsId}):`, err);
+            }
           }
         }
 

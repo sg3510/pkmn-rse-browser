@@ -10,12 +10,8 @@ import type { FadeController } from '../../field/FadeController';
 import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
 import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
 import type { WarpDebugInfo } from '../../components/debug';
-import { getMapScripts, getCommonScripts } from '../../data/scripts';
 import type { MapScriptData } from '../../data/scripts/types';
-import { ScriptRunner } from '../../scripting/ScriptRunner';
-import type { StoryScriptContext } from '../../game/NewGameFlow';
-import { saveManager } from '../../save/SaveManager';
-import { gameVariables } from '../../game/GameVariables';
+import { runMapEntryScripts } from './runMapEntryScripts';
 
 interface MutableRef<T> {
   current: T;
@@ -189,111 +185,17 @@ export async function performWarpTransition(params: PerformWarpTransitionParams)
 
     applyStoryTransitionObjectParity(currentMapId);
 
-    // Run generated ON_LOAD and ON_TRANSITION scripts for the destination map.
-    try {
-      const [mapData, commonData] = await Promise.all([
-        getMapScripts(currentMapId),
-        getCommonScripts(),
-      ]);
-      // Pre-populate the frame table cache so ON_FRAME scripts fire on the first render frame
-      if (mapScriptCache) {
-        mapScriptCache.set(currentMapId, mapData);
-      }
-      if (mapData) {
-        // C parity: script commands like setobjectxy use map-local coordinates.
-        const mapLocalToWorld = (mapId: string, tileX: number, tileY: number): { x: number; y: number } => {
-          const map = snapshot.maps.find((m) => m.entry.id === mapId);
-          if (!map) {
-            return { x: tileX, y: tileY };
-          }
-          return {
-            x: map.offsetX + tileX,
-            y: map.offsetY + tileY,
-          };
-        };
-
-        const isPlayerLocalId = (localId: string): boolean =>
-          localId === 'LOCALID_PLAYER' || localId === '255';
-
-        const scriptCtx: StoryScriptContext = {
-          showMessage: async () => {},
-          showChoice: async () => null,
-          getPlayerGender: () => saveManager.getProfile().gender,
-          getPlayerName: () => saveManager.getPlayerName(),
-          hasPartyPokemon: () => saveManager.hasParty(),
-          setParty: () => {},
-          startFirstBattle: async () => {},
-          queueWarp: () => {},
-          forcePlayerStep: () => {},
-          delayFrames: async () => {},
-          movePlayer: async () => {},
-          moveNpc: async (_mapId, localId, direction, mode) => {
-            if (mode === 'face') {
-              objectEventManager.setNPCDirectionByLocalId(_mapId, localId, direction);
-            }
-          },
-          faceNpcToPlayer: () => {},
-          setNpcPosition: (mapId, localId, tileX, tileY) => {
-            const worldPos = mapLocalToWorld(mapId, tileX, tileY);
-            if (isPlayerLocalId(localId)) {
-              player.setPosition(worldPos.x, worldPos.y);
-              return;
-            }
-            objectEventManager.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
-          },
-          setNpcVisible: (mapId, localId, visible, persistent) => {
-            objectEventManager.setNPCVisibilityByLocalId(mapId, localId, visible, persistent);
-          },
-          playDoorAnimation: async () => {},
-          setPlayerVisible: (visible) => {
-            playerHiddenRef.current = !visible;
-          },
-          setMapMetatile: setMapMetatile
-            ? (mapId, tileX, tileY, metatileId) => {
-                setMapMetatile(mapId, tileX, tileY, metatileId);
-              }
-            : undefined,
-          setNpcMovementType: (mapId, localId, movementTypeRaw) => {
-            objectEventManager.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
-          },
-          showYesNo: async () => false,
-          getParty: () => [],
-          setPlayerDirection: (dir) => {
-            player.dir = dir;
-          },
-        };
-        const runner = new ScriptRunner(
-          { mapData, commonData },
-          scriptCtx,
-          currentMapId,
-        );
-
-        // ON_LOAD: metatile changes (moving boxes, etc.)
-        if (mapData.mapScripts.onLoad) {
-          await runner.execute(mapData.mapScripts.onLoad);
-          pipeline.invalidate();
-          console.log(`[WARP] ON_LOAD script executed for ${currentMapId}`);
-        }
-
-        // ON_TRANSITION: NPC repositioning
-        if (mapData.mapScripts.onTransition) {
-          await runner.execute(mapData.mapScripts.onTransition);
-          console.log(`[WARP] ON_TRANSITION script executed for ${currentMapId}`);
-        }
-
-        // ON_WARP_INTO: one-shot setup scripts (check var == value)
-        if (mapData.mapScripts.onWarpInto?.length) {
-          for (const entry of mapData.mapScripts.onWarpInto) {
-            if (gameVariables.getVar(entry.var) === entry.value) {
-              await runner.execute(entry.script);
-              console.log(`[WARP] ON_WARP_INTO script executed: ${entry.script}`);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[WARP] ON_TRANSITION script failed:', err);
-    }
+    // Run generated ON_LOAD, ON_TRANSITION, and ON_WARP_INTO scripts for the destination map.
+    await runMapEntryScripts({
+      currentMapId,
+      snapshot,
+      objectEventManager,
+      player,
+      playerHiddenRef,
+      pipeline,
+      mapScriptCache: mapScriptCache as Map<string, any> | undefined,
+      setMapMetatile,
+    });
 
     playerHiddenRef.current = false;
 

@@ -35,6 +35,7 @@ import {
   SAVE_STORAGE_KEY,
   DEFAULT_PROFILE,
   DEFAULT_PLAY_TIME,
+  DEFAULT_OPTIONS,
 } from './types';
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
@@ -205,6 +206,35 @@ class SaveManagerClass {
         bagManager.reset();
       }
 
+      // Load money, coins, registered item
+      if (data.money) {
+        saveStateStore.setMoney(data.money.money);
+        saveStateStore.setCoins(data.money.coins);
+      }
+      if (data.registeredItem != null) {
+        saveStateStore.setRegisteredItem(data.registeredItem);
+      }
+
+      // Load PC items
+      if (data.pcItems) {
+        saveStateStore.setPCItems(data.pcItems.items);
+      }
+
+      // Load options
+      if (data.options) {
+        saveStateStore.setOptions(data.options);
+      }
+
+      // Load stats
+      if (data.stats) {
+        saveStateStore.setStats(data.stats);
+      }
+
+      // Load pokedex
+      if (data.pokedex) {
+        saveStateStore.setPokedex(data.pokedex);
+      }
+
       // Load object event overrides (copyobjectxytoperm)
       if (data.objectEventOverrides) {
         saveStateStore.setAllObjectEventOverrides(data.objectEventOverrides);
@@ -254,6 +284,12 @@ class SaveManagerClass {
       vars: gameVariables.getAllVars(),
       rawVars: saveStateStore.getRawVars(),
       bag: bagManager.getBagState(),
+      money: { money: saveStateStore.getMoney(), coins: saveStateStore.getCoins() },
+      registeredItem: saveStateStore.getRegisteredItem(),
+      pcItems: { items: saveStateStore.getPCItems() },
+      options: saveStateStore.getOptions(),
+      stats: saveStateStore.getStats(),
+      pokedex: saveStateStore.getPokedex(),
       partyFull,
       objectEventOverrides: saveStateStore.getAllObjectEventOverrides(),
     };
@@ -323,6 +359,15 @@ class SaveManagerClass {
 
     // Reset bag
     bagManager.reset();
+
+    // Reset money, coins, registered item, PC items, options, stats, pokedex
+    saveStateStore.setMoney(3000);
+    saveStateStore.setCoins(0);
+    saveStateStore.setRegisteredItem(0);
+    saveStateStore.setPCItems([]);
+    saveStateStore.setOptions({ ...DEFAULT_OPTIONS });
+    saveStateStore.setStats({ pokemonCaught: 0, trainersDefeated: 0, stepCount: 0, pokemonBattles: 0, wildBattles: 0 });
+    saveStateStore.setPokedex({ seen: [], caught: [], nationalDex: false });
 
     // Reset party
     saveStateStore.setParty(createEmptyParty().pokemon);

@@ -129,12 +129,18 @@ function step1(
   const { directions, skipIndex, checkAxis } = getSequenceData(npc.movementTypeRaw);
 
   // C: reset index to 0 when at end of sequence and back at start
+  // Use >= to catch overflow from step2 increment (index can be 4 after completing direction[3])
   if (
-    state.directionSequenceIndex === 3 &&
+    state.directionSequenceIndex >= directions.length - 1 &&
     npc.tileX === state.initialTileX &&
     npc.tileY === state.initialTileY
   ) {
     state.directionSequenceIndex = 0;
+  }
+
+  // C parity: clamp index to valid range (prevents undefined direction)
+  if (state.directionSequenceIndex >= directions.length) {
+    state.directionSequenceIndex = directions.length - 1;
   }
 
   // C: variant-specific mid-cycle skip
@@ -183,6 +189,11 @@ function step1(
 
 /**
  * Step 2: Wait for walk/walk-in-place to complete, then loop back.
+ *
+ * C parity: step2 does NOT increment directionSequenceIndex.
+ * The index only advances in step1 when the NPC hits outside_range,
+ * which is the natural trigger for changing direction at the edge
+ * of the movement rectangle.
  */
 function step2(
   _npc: NPCObject,
@@ -191,8 +202,6 @@ function step2(
 ): MovementStepResult {
   if (!state.isWalking) {
     state.singleMovementActive = false;
-    // Advance to next direction in sequence after completing a step
-    state.directionSequenceIndex++;
     return { nextStep: 1, continueImmediately: true };
   }
   return { nextStep: 2, continueImmediately: false };

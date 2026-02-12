@@ -22,6 +22,7 @@ import {
 import { getSpeciesName } from '../data/species';
 import { getItemId, getItemName } from '../data/items';
 import { bagManager } from '../game/BagManager';
+import { moneyManager } from '../game/MoneyManager';
 import { saveStateStore } from '../save/SaveStateStore';
 import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags';
 import { getMoveInfo } from '../data/moves';
@@ -1121,6 +1122,54 @@ export class ScriptRunner {
           break;
         }
 
+        // --- Money commands ---
+        // C ref: public/pokeemerald/src/scrcmd.c — ScrCmd_givemoney, ScrCmd_paymoney, ScrCmd_checkmoney
+        case 'givemoney':
+        case 'addmoney': {
+          const amount = this.resolveVarOrConst(args[0]);
+          moneyManager.addMoney(amount);
+          break;
+        }
+
+        case 'removemoney':
+        case 'paymoney': {
+          const amount = this.resolveVarOrConst(args[0]);
+          moneyManager.removeMoney(amount);
+          break;
+        }
+
+        case 'checkmoney': {
+          const amount = this.resolveVarOrConst(args[0]);
+          gameVariables.setVar('VAR_RESULT', moneyManager.isEnoughMoney(amount) ? 1 : 0);
+          break;
+        }
+
+        case 'showmoneybox':
+        case 'hidemoneybox':
+        case 'updatemoneybox':
+          // UI no-ops until money box overlay is implemented
+          break;
+
+        // --- Coin commands ---
+        // C ref: public/pokeemerald/src/scrcmd.c — ScrCmd_checkcoins, ScrCmd_addcoins, ScrCmd_removecoins
+        case 'checkcoins': {
+          const destVar = asString(args[0]);
+          gameVariables.setVar(destVar, moneyManager.getCoins());
+          break;
+        }
+
+        case 'addcoins': {
+          const amount = this.resolveVarOrConst(args[0]);
+          moneyManager.addCoins(amount);
+          break;
+        }
+
+        case 'removecoins': {
+          const amount = this.resolveVarOrConst(args[0]);
+          moneyManager.removeCoins(amount);
+          break;
+        }
+
         // --- setwildbattle: store species/level for upcoming wild battle ---
         case 'setwildbattle': {
           const species = asString(args[0]);
@@ -1140,12 +1189,19 @@ export class ScriptRunner {
           await this.ctx.delayFrames(16);
           break;
 
+        // --- Visual priority (no-ops — z-ordering not critical for browser) ---
+        case 'setobjectsubpriority':
+        case 'resetobjectsubpriority':
+          break;
+
         // --- Commands that are parsed but not yet implemented ---
         case 'setstepcallback':
         case 'setrespawn':
         case 'incrementgamestat':
         case 'multichoice':
+        case 'multichoicedefault':
         case 'compare':
+        case 'register_matchcall':
           // No-ops or logged for future implementation
           break;
 

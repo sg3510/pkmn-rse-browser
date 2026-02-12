@@ -12,7 +12,7 @@
 
 import {
   OBJ_EVENT_GFX_ITEM_BALL,
-  OBJ_EVENT_GFX_TRUCK,
+  isLargeObjectGraphicsId,
   isNPCGraphicsId,
   parseMovementType,
   parseTrainerType,
@@ -28,6 +28,7 @@ import { getItemIdFromScript } from '../data/itemScripts.ts';
 import { getItemName } from '../data/items.ts';
 import { gameFlags } from './GameFlags.ts';
 import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
+import { npcMovementEngine } from './npc';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -51,9 +52,6 @@ export interface ProcessedBgEvent {
  * Returns the tile's elevation at given world coordinates
  */
 export type TileElevationResolver = (tileX: number, tileY: number) => number | null;
-
-/** Set of graphics IDs treated as large (non-NPC) rendered objects */
-const LARGE_OBJECT_GFX_IDS = new Set([OBJ_EVENT_GFX_TRUCK]);
 
 /**
  * Player room decoration placeholders are map object slots backed by
@@ -217,7 +215,7 @@ export class ObjectEventManager {
       const worldY = mapOffsetY + obj.y;
 
       // Handle large non-NPC objects (e.g. truck)
-      if (LARGE_OBJECT_GFX_IDS.has(resolvedGraphicsId)) {
+      if (isLargeObjectGraphicsId(resolvedGraphicsId)) {
         const id = `${mapId}_large_${worldX}_${worldY}`;
         const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
         this.largeObjects.set(id, {
@@ -549,6 +547,13 @@ export class ObjectEventManager {
     npc.isWalking = false;
     npc.subTileX = 0;
     npc.subTileY = 0;
+    // Update initial position to current position so movement range
+    // is centered on where the NPC actually is (not the original spawn).
+    npc.initialTileX = npc.tileX;
+    npc.initialTileY = npc.tileY;
+    // Reset the movement engine's cached state so it re-initializes
+    // with the new movement type and position on next update.
+    npcMovementEngine.removeNPC(npc.id);
     return true;
   }
 

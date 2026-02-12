@@ -18,9 +18,10 @@
     "generate:abilities": "node scripts/generate-abilities.cjs",
     "generate:scripts": "node scripts/generate-scripts.cjs",
     "generate:trainers": "node scripts/generate-trainer-ids.cjs",
+    "generate:large-objects": "node scripts/generate-large-object-graphics.cjs",
     "generate:new-game-flags": "node scripts/generate-new-game-flags.cjs",
     "generate:flags": "node scripts/generate-flag-var-maps.cjs",
-    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:trainers && npm run generate:new-game-flags && npm run generate:flags",
+    "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:trainers && npm run generate:large-objects && npm run generate:new-game-flags && npm run generate:flags",
     "save:audit-layouts": "node --experimental-strip-types scripts/audit-save-layouts.ts"
   },
   "dependencies": {

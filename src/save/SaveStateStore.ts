@@ -5,7 +5,8 @@
  * This centralizes flag/var/bag/party ownership so subsystems do not drift.
  */
 
-import type { BagState, GameVars } from './types';
+import type { BagState, GameVars, GameOptions, GameStats, PokedexState, ItemSlot } from './types';
+import { DEFAULT_OPTIONS } from './types';
 import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types.ts';
 import { FLAG_ID_TO_NAME, VAR_ID_TO_NAME } from '../data/flagVarMaps.gen.ts';
@@ -49,6 +50,13 @@ class SaveStateStore {
   private rawVars = new Uint16Array(RAW_VAR_COUNT);
   private bag: BagState = createEmptyBagState();
   private party: (PartyPokemon | null)[] = createEmptyParty().pokemon;
+  private money: number = 3000;
+  private coins: number = 0;
+  private registeredItem: number = 0;
+  private pcItems: ItemSlot[] = [];
+  private options: GameOptions = { ...DEFAULT_OPTIONS };
+  private stats: GameStats = { pokemonCaught: 0, trainersDefeated: 0, stepCount: 0, pokemonBattles: 0, wildBattles: 0 };
+  private pokedex: PokedexState = { seen: [], caught: [], nationalDex: false };
 
   isRawFlagSet(flagId: number): boolean {
     if (flagId < 0) return false;
@@ -280,6 +288,37 @@ class SaveStateStore {
     return this.party.some((p) => p !== null);
   }
 
+  // === Money / Coins / Registered Item ===
+
+  getMoney(): number { return this.money; }
+  setMoney(n: number): void { this.money = Math.max(0, Math.min(999999, n)); }
+
+  getCoins(): number { return this.coins; }
+  setCoins(n: number): void { this.coins = Math.max(0, Math.min(9999, n)); }
+
+  getRegisteredItem(): number { return this.registeredItem; }
+  setRegisteredItem(itemId: number): void { this.registeredItem = itemId; }
+
+  // === PC Items ===
+
+  getPCItems(): ItemSlot[] { return [...this.pcItems]; }
+  setPCItems(items: ItemSlot[]): void { this.pcItems = [...items]; }
+
+  // === Options ===
+
+  getOptions(): GameOptions { return { ...this.options }; }
+  setOptions(opts: GameOptions): void { this.options = { ...opts }; }
+
+  // === Stats ===
+
+  getStats(): GameStats { return { ...this.stats }; }
+  setStats(s: GameStats): void { this.stats = { ...s }; }
+
+  // === Pokedex ===
+
+  getPokedex(): PokedexState { return { seen: [...this.pokedex.seen], caught: [...this.pokedex.caught], nationalDex: this.pokedex.nationalDex }; }
+  setPokedex(p: PokedexState): void { this.pokedex = { seen: [...p.seen], caught: [...p.caught], nationalDex: p.nationalDex }; }
+
   // === Object Event Template Overrides ===
   // Stores permanent NPC position overrides from copyobjectxytoperm.
   // Key: "mapId:localId", Value: {x, y} in map-local coordinates.
@@ -327,6 +366,13 @@ class SaveStateStore {
     this.rawVars.fill(0);
     this.bag = createEmptyBagState();
     this.party = createEmptyParty().pokemon;
+    this.money = 3000;
+    this.coins = 0;
+    this.registeredItem = 0;
+    this.pcItems = [];
+    this.options = { ...DEFAULT_OPTIONS };
+    this.stats = { pokemonCaught: 0, trainersDefeated: 0, stepCount: 0, pokemonBattles: 0, wildBattles: 0 };
+    this.pokedex = { seen: [], caught: [], nationalDex: false };
     this.objectEventOverrides.clear();
   }
 }
