@@ -110,6 +110,14 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
             setMapMetatile(mapId, tileX, tileY, metatileId);
           }
         : undefined,
+      getMapMetatile: (mapId, tileX, tileY) => {
+        const map = snapshot.maps.find((m) => m.entry.id === mapId);
+        if (!map) return 0;
+        if (tileX < 0 || tileY < 0 || tileX >= map.mapData.width || tileY >= map.mapData.height) return 0;
+        const index = tileY * map.mapData.width + tileX;
+        const tile = map.mapData.layout[index];
+        return tile?.metatileId ?? 0;
+      },
       setNpcMovementType: (mapId, localId, movementTypeRaw) => {
         objectEventManager.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
       },
@@ -127,6 +135,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     );
 
     // ON_LOAD: metatile changes (moving boxes, etc.)
+    if (mapData.mapScripts.onLoad) {
       await runner.execute(mapData.mapScripts.onLoad);
       pipeline.invalidate();
       console.log(`[WARP] ON_LOAD script executed for ${currentMapId}`);
@@ -146,6 +155,14 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
           console.log(`[WARP] ON_WARP_INTO script executed: ${entry.script}`);
         }
       }
+    }
+
+    // ON_RESUME: persistent setup scripts (step callbacks, etc.)
+    // In the GBA, ON_RESUME fires at end of initial map load AND on return to field.
+    // This re-activates per-step callbacks (e.g. Sootopolis ice).
+    if (mapData.mapScripts.onResume) {
+      await runner.execute(mapData.mapScripts.onResume);
+      console.log(`[WARP] ON_RESUME script executed for ${currentMapId}`);
     }
   } catch (err) {
     console.warn('[WARP] Map entry script failed:', err);

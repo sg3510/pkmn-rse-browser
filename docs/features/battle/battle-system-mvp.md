@@ -1,6 +1,7 @@
 ---
 title: Battle System MVP Reference
 status: planned
+written_on: 2026-02-06
 last_verified: 2026-02-06
 ---
 

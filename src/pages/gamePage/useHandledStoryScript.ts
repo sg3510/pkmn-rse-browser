@@ -512,6 +512,22 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           if (!map) return null;
           return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
         },
+        getMapMetatile: (mapId, tileX, tileY) => {
+          const snapshot = worldManagerRef.current?.getSnapshot();
+          if (!snapshot) return 0;
+          const map = snapshot.maps.find((m) => m.entry.id === mapId);
+          if (!map) return 0;
+          if (tileX < 0 || tileY < 0 || tileX >= map.mapData.width || tileY >= map.mapData.height) return 0;
+          const index = tileY * map.mapData.width + tileX;
+          const tile = map.mapData.layout[index];
+          return tile?.metatileId ?? 0;
+        },
+        getAllNpcLocalIds: (mapId) => {
+          const allNpcs = objectEventManagerRef.current.getAllNPCs();
+          return allNpcs
+            .filter((npc) => npc.id.startsWith(`${mapId}_npc_`) && npc.localId != null)
+            .map((npc) => npc.localId!);
+        },
       };
 
       let handled = false;

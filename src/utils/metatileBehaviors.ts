@@ -7,6 +7,14 @@ import {
   MB_IMPASSABLE_SOUTH_AND_NORTH,
   MB_IMPASSABLE_WEST_AND_EAST,
   MB_JUMP_SOUTHWEST,
+  MB_SLIDE_EAST,
+  MB_SLIDE_WEST,
+  MB_SLIDE_NORTH,
+  MB_SLIDE_SOUTH,
+  MB_WALK_EAST,
+  MB_WALK_WEST,
+  MB_WALK_NORTH,
+  MB_WALK_SOUTH,
 } from './metatileBehaviors.generated';
 
 export {
@@ -17,6 +25,14 @@ export {
   MB_IMPASSABLE_SOUTH_AND_NORTH,
   MB_IMPASSABLE_WEST_AND_EAST,
   MB_JUMP_SOUTHWEST,
+  MB_SLIDE_EAST,
+  MB_SLIDE_WEST,
+  MB_SLIDE_NORTH,
+  MB_SLIDE_SOUTH,
+  MB_WALK_EAST,
+  MB_WALK_WEST,
+  MB_WALK_NORTH,
+  MB_WALK_SOUTH,
 };
 
 export const MB_DEEP_SAND = 6;
@@ -320,4 +336,41 @@ export function hasRipplesBehavior(behavior: number): boolean {
   return behavior === MB_POND_WATER ||
          behavior === MB_PUDDLE ||
          behavior === MB_SOOTOPOLIS_DEEP_WATER;
+}
+
+/**
+ * Forced slide behavior (MB_SLIDE_EAST/WEST/NORTH/SOUTH).
+ * Player slides in the tile's direction until reaching a non-slide tile or wall.
+ * Used for Mossdeep Gym arrows and Trick House spinners.
+ */
+export function isForcedSlideBehavior(behavior: number): boolean {
+  return behavior === MB_SLIDE_EAST ||
+         behavior === MB_SLIDE_WEST ||
+         behavior === MB_SLIDE_NORTH ||
+         behavior === MB_SLIDE_SOUTH;
+}
+
+/**
+ * Forced walk behavior (MB_WALK_EAST/WEST/NORTH/SOUTH).
+ * Player is forced to walk one tile in the tile's direction.
+ * Used for Pacifidlog Town currents.
+ */
+export function isForceWalkBehavior(behavior: number): boolean {
+  return behavior === MB_WALK_EAST ||
+         behavior === MB_WALK_WEST ||
+         behavior === MB_WALK_NORTH ||
+         behavior === MB_WALK_SOUTH;
+}
+
+/**
+ * Get the direction a slide or forced-walk tile pushes the player.
+ */
+export function getSlideDirection(behavior: number): CardinalDirection | null {
+  switch (behavior) {
+    case MB_SLIDE_EAST:  case MB_WALK_EAST:  return 'right';
+    case MB_SLIDE_WEST:  case MB_WALK_WEST:  return 'left';
+    case MB_SLIDE_NORTH: case MB_WALK_NORTH: return 'up';
+    case MB_SLIDE_SOUTH: case MB_WALK_SOUTH: return 'down';
+    default: return null;
+  }
 }

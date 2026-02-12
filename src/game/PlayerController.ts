@@ -20,6 +20,10 @@ import {
   isSurfableBehavior,
   isPuddleBehavior,
   hasRipplesBehavior,
+  isIceBehavior,
+  isForcedSlideBehavior,
+  isForceWalkBehavior,
+  getSlideDirection,
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
@@ -95,10 +99,31 @@ class NormalState implements PlayerState {
   exit(_controller: PlayerController): void {}
 
   update(controller: PlayerController, delta: number): boolean {
-    return controller.processMovement(delta, this.SPEED);
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+    // After movement completes, check for special tile behaviors (ice, slide, forced walk)
+    if (wasMoving && !controller.isMoving) {
+      if (controller.checkAndHandleSpecialTile()) return true;
+    }
+    return result;
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    // On ice: directional input starts a slide, no running/normal walking
+    const currentBehavior = controller.getCurrentTileBehavior();
+    if (currentBehavior !== undefined && isIceBehavior(currentBehavior)) {
+      let newDir: 'up' | 'down' | 'left' | 'right' | null = null;
+      if (inputMap.isHeldInRecord(keys, GameButton.UP)) newDir = 'up';
+      else if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) newDir = 'down';
+      else if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) newDir = 'left';
+      else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) newDir = 'right';
+      if (newDir) {
+        controller.dir = newDir;
+        controller.changeState(new IceSlidingState());
+      }
+      return;
+    }
+
     // Check for transition to running (B held, disabled on long grass)
     if (inputMap.isHeldInRecord(keys, GameButton.B) && !controller.isOnLongGrass()) {
       controller.changeState(new RunningState());
@@ -133,7 +158,13 @@ class RunningState implements PlayerState {
   exit(_controller: PlayerController): void {}
 
   update(controller: PlayerController, delta: number): boolean {
-    return controller.processMovement(delta, this.SPEED);
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+    // After movement completes, check for special tile behaviors (ice, slide, forced walk)
+    if (wasMoving && !controller.isMoving) {
+      if (controller.checkAndHandleSpecialTile()) return true;
+    }
+    return result;
   }
 
   handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
@@ -385,6 +416,128 @@ class SurfJumpingState implements PlayerState {
       frame.renderY += controller.spriteYOffset;
     }
     return frame;
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+/**
+ * Ice sliding state - player auto-slides in their current direction on ice tiles.
+ * Continues until hitting a wall or leaving ice.
+ * Reference: Sootopolis Gym ice floor puzzle.
+ */
+class IceSlidingState implements PlayerState {
+  private readonly SPEED = 0.06; // Same as walking
+
+  enter(controller: PlayerController): void {
+    // Start sliding in the player's current facing direction
+    if (!controller.forceMove(controller.dir)) {
+      // Immediately blocked (wall right next to player) - stop
+      controller.changeState(new NormalState());
+    }
+  }
+
+  exit(_controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+
+    if (wasMoving && !controller.isMoving) {
+      // Tile movement completed - check if we should continue sliding
+      const behavior = controller.getCurrentTileBehavior();
+      if (behavior !== undefined && isIceBehavior(behavior)) {
+        // Still on ice - try to continue sliding in the same direction
+        if (!controller.forceMove(controller.dir)) {
+          // Hit a wall - stop on this ice tile
+          controller.changeState(new NormalState());
+        }
+      } else {
+        // Slid off ice onto non-ice tile - check for other special tiles first
+        if (!controller.checkAndHandleSpecialTile()) {
+          controller.changeState(new NormalState());
+        }
+      }
+    }
+
+    return result;
+  }
+
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
+    // Input locked during ice sliding
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('walking', true);
+  }
+
+  getSpeed(): number {
+    return this.SPEED;
+  }
+}
+
+/**
+ * Forced slide state - player slides in the direction specified by the tile.
+ * Continues on subsequent slide tiles; stops on non-slide tiles or walls.
+ * Reference: Mossdeep Gym arrow tiles, Trick House spinners.
+ */
+class ForcedSlideState implements PlayerState {
+  private readonly SPEED = 0.06; // Same as walking
+  private slideDirection: 'up' | 'down' | 'left' | 'right';
+
+  constructor(direction: 'up' | 'down' | 'left' | 'right') {
+    this.slideDirection = direction;
+  }
+
+  enter(controller: PlayerController): void {
+    // Face and start moving in the tile's specified direction
+    controller.dir = this.slideDirection;
+    if (!controller.forceMove(this.slideDirection)) {
+      // Immediately blocked - stop
+      controller.changeState(new NormalState());
+    }
+  }
+
+  exit(_controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    const wasMoving = controller.isMoving;
+    const result = controller.processMovement(delta, this.SPEED);
+
+    if (wasMoving && !controller.isMoving) {
+      // Tile movement completed - check if new tile is also a forced slide
+      const behavior = controller.getCurrentTileBehavior();
+      if (behavior !== undefined && isForcedSlideBehavior(behavior)) {
+        const newDir = getSlideDirection(behavior);
+        if (newDir) {
+          this.slideDirection = newDir;
+          controller.dir = newDir;
+          if (!controller.forceMove(newDir)) {
+            // Blocked - stop
+            controller.changeState(new NormalState());
+          }
+        } else {
+          controller.changeState(new NormalState());
+        }
+      } else {
+        // No longer on slide tile - check for other special tiles first
+        if (!controller.checkAndHandleSpecialTile()) {
+          controller.changeState(new NormalState());
+        }
+      }
+    }
+
+    return result;
+  }
+
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
+    // Input locked during forced slide
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('walking', true);
   }
 
   getSpeed(): number {
@@ -1963,6 +2116,51 @@ export class PlayerController {
    */
   public getStateName(): string {
     return this.currentState.constructor.name;
+  }
+
+  /**
+   * Get the metatile behavior of the player's current tile.
+   */
+  public getCurrentTileBehavior(): number | undefined {
+    const resolved = this.tileResolver?.(this.tileX, this.tileY);
+    return resolved?.attributes?.behavior;
+  }
+
+  /**
+   * Check if the current tile has a special behavior (ice, forced slide, forced walk)
+   * and transition to the appropriate state if so.
+   * Called after movement completes in NormalState/RunningState/IceSlidingState/ForcedSlideState.
+   * @returns true if state was changed
+   */
+  public checkAndHandleSpecialTile(): boolean {
+    const behavior = this.getCurrentTileBehavior();
+    if (behavior === undefined) return false;
+
+    // Ice sliding - auto-slide in current direction
+    if (isIceBehavior(behavior)) {
+      this.changeState(new IceSlidingState());
+      return true;
+    }
+
+    // Forced slide (MB_SLIDE_*) - slide in tile's direction
+    if (isForcedSlideBehavior(behavior)) {
+      const dir = getSlideDirection(behavior);
+      if (dir) {
+        this.changeState(new ForcedSlideState(dir));
+        return true;
+      }
+    }
+
+    // Forced walk (MB_WALK_*) - force one step in tile's direction
+    if (isForceWalkBehavior(behavior)) {
+      const dir = getSlideDirection(behavior);
+      if (dir) {
+        this.forceStep(dir);
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

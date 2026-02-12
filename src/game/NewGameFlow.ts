@@ -69,6 +69,12 @@ export interface StoryScriptContext {
   setPlayerDirection?: (dir: 'up' | 'down' | 'left' | 'right') => void;
   /** Get the player's map-local tile position (used by getplayerxy) */
   getPlayerLocalPosition?: () => { x: number; y: number } | null;
+  /** Set flash/darkness level (0=bright, 7=darkest) for Dewford Gym etc. */
+  setFlashLevel?: (level: number) => void;
+  /** Get metatile ID at a map-local tile position (used by gym puzzle specials) */
+  getMapMetatile?: (mapId: string, tileX: number, tileY: number) => number;
+  /** Get all NPC local IDs on a given map (used by rotating tile puzzle) */
+  getAllNpcLocalIds?: (mapId: string) => string[];
 }
 
 type StarterChoice = {

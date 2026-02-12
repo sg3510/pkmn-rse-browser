@@ -1,6 +1,7 @@
 ---
 title: Switch & Item Logic
 status: reference
+written_on: 2025-11-26
 last_verified: 2026-01-13
 ---
 

@@ -137,6 +137,7 @@ import {
   METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID,
   METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM,
 } from '../game/TruckSequenceRunner';
+import { stepCallbackManager } from '../game/StepCallbackManager';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -1422,6 +1423,34 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         if (!preInputOnFrameTriggered) {
           player.update(dt);
+        }
+
+        // Run per-step callback (Sootopolis ice, ash grass, etc.)
+        // Must run after player.update so position is current, before ON_FRAME so
+        // variable changes (e.g. VAR_ICE_STEP_COUNT) are visible to frame scripts.
+        if (!storyScriptRunningRef.current && worldManager) {
+          const cbMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+          if (cbMap) {
+            const offsetX = cbMap.offsetX;
+            const offsetY = cbMap.offsetY;
+            stepCallbackManager.update({
+              playerLocalX: player.tileX - offsetX,
+              playerLocalY: player.tileY - offsetY,
+              currentMapId: cbMap.entry.id,
+              getTileBehaviorLocal: (localX, localY) => {
+                const resolver = player.getTileResolver();
+                if (!resolver) return undefined;
+                const resolved = resolver(localX + offsetX, localY + offsetY);
+                return resolved?.attributes?.behavior;
+              },
+              setMapMetatile: (localX, localY, metatileId) => {
+                setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId);
+              },
+              invalidateView: () => {
+                pipelineRef.current?.invalidate();
+              },
+            });
+          }
         }
 
         // Update world manager with player position and direction (triggers dynamic map loading)

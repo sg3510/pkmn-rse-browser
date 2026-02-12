@@ -27,28 +27,76 @@ import { saveStateStore } from '../save/SaveStateStore';
 import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags';
 import { getMoveInfo } from '../data/moves';
 import { STATUS } from '../pokemon/types';
+import { METATILE_LABELS } from '../data/metatileLabels.gen';
+import { getMultichoiceList } from '../data/multichoice.gen';
+import { stepCallbackManager } from '../game/StepCallbackManager';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
 
+// --- Rotating tile puzzle state (Mossdeep Gym / Trick House) ---
+// C ref: public/pokeemerald/src/rotating_tile_puzzle.c
+interface RotatingTilePuzzleObject {
+  localId: string;
+  prevTileX: number;  // world coords
+  prevTileY: number;
+}
+
+interface RotatingTilePuzzleState {
+  isTrickHouse: boolean;
+  movedObjects: RotatingTilePuzzleObject[];
+}
+
+let rotatingTilePuzzle: RotatingTilePuzzleState | null = null;
+
+// Base metatile IDs for arrow tiles
+const MOSSDEEP_GYM_ARROW_BASE = 0x250;  // METATILE_RSMossdeepGym_YellowArrow_Right
+const TRICK_HOUSE_ARROW_BASE = 0x298;   // METATILE_TrickHousePuzzle_Arrow_YellowOnWhite_Right
+const METATILE_ROW_WIDTH = 8;
+
+// Arrow direction from metatile offset: 0=right, 1=down, 2=left, 3=up (wraps every 8)
+function getArrowDirection(metatile: number, base: number): Direction | null {
+  const offset = metatile - base;
+  if (offset < 0 || offset >= 5 * METATILE_ROW_WIDTH) return null; // 5 color rows
+  const dirIndex = offset % METATILE_ROW_WIDTH;
+  if (dirIndex >= 4) return null; // only 4 directions per row (indices 0-3)
+  switch (dirIndex) {
+    case 0: return 'right';
+    case 1: return 'down';
+    case 2: return 'left';
+    case 3: return 'up';
+    default: return null;
+  }
+}
+
+// Get color row index (0=Yellow, 1=Blue, 2=Green, 3=Purple, 4=Red)
+function getArrowColorRow(metatile: number, base: number): number {
+  const offset = metatile - base;
+  return Math.floor(offset / METATILE_ROW_WIDTH);
+}
+
+// Rotate direction counterclockwise: right→up→left→down→right
+function rotateCCW(dir: Direction): Direction {
+  switch (dir) {
+    case 'right': return 'up';
+    case 'up': return 'left';
+    case 'left': return 'down';
+    case 'down': return 'right';
+  }
+}
+
+function directionToDelta(dir: Direction): { dx: number; dy: number } {
+  switch (dir) {
+    case 'up': return { dx: 0, dy: -1 };
+    case 'down': return { dx: 0, dy: 1 };
+    case 'left': return { dx: -1, dy: 0 };
+    case 'right': return { dx: 1, dy: 0 };
+  }
+}
+
 /** Constants that the C source uses but we resolve at runtime */
 const GENDER_MALE = 0;
 const GENDER_FEMALE = 1;
-
-/**
- * Metatile label → numeric ID mapping.
- * C reference: public/pokeemerald/include/constants/metatile_labels.h
- */
-const METATILE_LABELS: Record<string, number> = {
-  'METATILE_BrendansMaysHouse_MovingBox_Closed': 0x268,
-  'METATILE_BrendansMaysHouse_MovingBox_Open': 0x270,
-  'METATILE_InsideOfTruck_ExitLight_Top': 0x208,
-  'METATILE_InsideOfTruck_ExitLight_Mid': 0x210,
-  'METATILE_InsideOfTruck_ExitLight_Bottom': 0x218,
-  'METATILE_InsideOfTruck_DoorClosedFloor_Top': 0x20D,
-  'METATILE_InsideOfTruck_DoorClosedFloor_Mid': 0x215,
-  'METATILE_InsideOfTruck_DoorClosedFloor_Bottom': 0x21D,
-};
 
 /**
  * Resolve a constant name to its numeric value.
@@ -78,6 +126,15 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_CAUGHT') return 7;
   // Script menu constants (include/constants/script_menu.h)
   if (val === 'MULTI_B_PRESSED') return 127;
+  // Step callback constants (include/constants/field_tasks.h)
+  if (val === 'STEP_CB_DUMMY') return 0;
+  if (val === 'STEP_CB_ASH') return 1;
+  if (val === 'STEP_CB_FORTREE_BRIDGE') return 2;
+  if (val === 'STEP_CB_PACIFIDLOG_BRIDGE') return 3;
+  if (val === 'STEP_CB_SOOTOPOLIS_ICE') return 4;
+  if (val === 'STEP_CB_TRUCK') return 5;
+  if (val === 'STEP_CB_SECRET_BASE') return 6;
+  if (val === 'STEP_CB_CRACKED_FLOOR') return 7;
   // Metatile labels
   if (val in METATILE_LABELS) return METATILE_LABELS[val];
   return val;
@@ -1194,13 +1251,310 @@ export class ScriptRunner {
         case 'resetobjectsubpriority':
           break;
 
+        // --- goto_if_defeated / call_if_defeated ---
+        // C ref: scrcmd.c — checks TRAINER_FLAGS_START + trainerId
+        case 'goto_if_defeated': {
+          const trainerId = asString(args[0]);
+          if (isTrainerDefeated(trainerId)) {
+            const target = this.findScript(asString(args[1]));
+            if (target) { commands = target; ip = 0; }
+          }
+          break;
+        }
+
+        case 'call_if_defeated': {
+          const trainerId = asString(args[0]);
+          if (isTrainerDefeated(trainerId)) {
+            const target = this.findScript(asString(args[1]));
+            if (target) {
+              callStack.push({ commands, ip });
+              commands = target;
+              ip = 0;
+            }
+          }
+          break;
+        }
+
+        case 'goto_if_undefeated': {
+          const trainerId = asString(args[0]);
+          if (!isTrainerDefeated(trainerId)) {
+            const target = this.findScript(asString(args[1]));
+            if (target) { commands = target; ip = 0; }
+          }
+          break;
+        }
+
+        case 'call_if_undefeated': {
+          const trainerId = asString(args[0]);
+          if (!isTrainerDefeated(trainerId)) {
+            const target = this.findScript(asString(args[1]));
+            if (target) {
+              callStack.push({ commands, ip });
+              commands = target;
+              ip = 0;
+            }
+          }
+          break;
+        }
+
+        // --- setorcopyvar: if source >= VARS_START (0x4000), copy var; else set literal ---
+        // C ref: scrcmd.c ScrCmd_setorcopyvar
+        case 'setorcopyvar': {
+          const dest = asString(args[0]);
+          const src = args[1];
+          if (typeof src === 'string' && src.startsWith('VAR_')) {
+            gameVariables.setVar(dest, this.getVar(src));
+          } else {
+            gameVariables.setVar(dest, this.resolveVarOrConst(src));
+          }
+          break;
+        }
+
+        // --- compare: compare var to value, set condition for goto_if ---
+        // C ref: sets sScriptConditionValue used by conditional gotos
+        // Our goto_if_* commands read vars directly, so compare is mostly a no-op.
+        // But some scripts use: compare VAR, value → goto_if_eq <label>
+        // We implement by storing in VAR_RESULT-like mechanism.
+        case 'compare': {
+          const varName = asString(args[0]);
+          const cmpVal = this.resolveVarOrConst(args[1]);
+          const varVal = this.getVar(varName);
+          // Store comparison result: 0=equal, 1=greater, 2=less
+          // Actually in pokeemerald, compare just stores the values and
+          // goto_if_eq/ne/lt/gt checks them. Our goto_if_* already reads
+          // the var directly with inline comparison. So compare is a no-op
+          // for our architecture.
+          break;
+        }
+
+        // --- warphole: warp with falling animation ---
+        // C ref: scrcmd.c ScrCmd_warphole — warps to (mapId, -1, -1) using WARP_FLAG_NO_ANIMATION
+        case 'warphole': {
+          const mapId = args.length > 0 ? asString(args[0]) : '';
+          if (mapId && mapId !== 'MAP_UNDEFINED') {
+            // Warp to the destination map at default position
+            this.ctx.queueWarp(mapId, -1, -1, 'down');
+          }
+          break;
+        }
+
+        // --- warpmossdeepgym: warp preserving object events ---
+        case 'warpmossdeepgym': {
+          const mapId = asString(args[0]);
+          const x = asNumber(args[1]);
+          const y = asNumber(args[2]);
+          this.ctx.queueWarp(mapId, x, y, 'down');
+          break;
+        }
+
+        // --- multichoice / multichoicedefault ---
+        // C ref: scrcmd.c ScrCmd_multichoice — shows menu from sMultichoiceLists[id]
+        // args: [left, top, multichoiceId, ignoreBPress]
+        case 'multichoice':
+        case 'multichoicedefault': {
+          const multichoiceId = asNumber(args[2]);
+          const ignoreBPress = asNumber(args[3]) === 1;
+          const defaultChoice = cmd === 'multichoicedefault' ? asNumber(args[3]) : 0;
+          const ignoreBForDefault = cmd === 'multichoicedefault' ? asNumber(args[4]) === 1 : ignoreBPress;
+
+          const choices = getMultichoiceList(multichoiceId);
+          if (choices) {
+            const result = await this.ctx.showChoice(
+              '',
+              choices.map((label, i) => ({ label, value: i })),
+              { cancelable: !ignoreBForDefault, defaultIndex: defaultChoice }
+            );
+            gameVariables.setVar('VAR_RESULT', result ?? 127); // 127 = MULTI_B_PRESSED
+          } else {
+            console.warn(`[ScriptRunner] Unknown multichoice ID: ${multichoiceId}`);
+            gameVariables.setVar('VAR_RESULT', 0);
+          }
+          break;
+        }
+
+        // --- bufferspeciesname: store species name in STR_VAR_N ---
+        case 'bufferspeciesname': {
+          const destIdx = asNumber(args[0]);
+          const species = asString(args[1]);
+          const destKey = `STR_VAR_${destIdx + 1}`;
+          // Species arg could be a VAR_ reference or a constant name
+          let speciesId: number;
+          if (species.startsWith('VAR_')) {
+            speciesId = this.getVar(species);
+          } else {
+            speciesId = this.resolveVarOrConst(species);
+          }
+          stringVars[destKey] = getSpeciesName(speciesId) || 'POKéMON';
+          break;
+        }
+
+        // --- buffernumberstring: store number as string in STR_VAR_N ---
+        case 'buffernumberstring': {
+          const destIdx = asNumber(args[0]);
+          const numVal = this.resolveVarOrConst(args[1]);
+          stringVars[`STR_VAR_${destIdx + 1}`] = String(numVal);
+          break;
+        }
+
+        // --- bufferitemname: store item name in STR_VAR_N ---
+        case 'bufferitemname': {
+          const destIdx = asNumber(args[0]);
+          const itemArg = args[1];
+          let itemId: number;
+          if (typeof itemArg === 'string' && itemArg.startsWith('VAR_')) {
+            itemId = this.getVar(itemArg);
+          } else {
+            const resolved = typeof itemArg === 'string' ? getItemId(itemArg) : itemArg;
+            itemId = resolved ?? 0;
+          }
+          stringVars[`STR_VAR_${destIdx + 1}`] = getItemName(itemId) || 'ITEM';
+          break;
+        }
+
+        // --- bufferstdstring: store standard string in STR_VAR_N ---
+        case 'bufferstdstring': {
+          const destIdx = asNumber(args[0]);
+          const stdId = this.resolveVarOrConst(args[1]);
+          // Standard strings are indexed references; use numeric fallback
+          stringVars[`STR_VAR_${destIdx + 1}`] = `STD_${stdId}`;
+          break;
+        }
+
+        // --- bufferstring: copy raw text label into STR_VAR_N ---
+        case 'bufferstring': {
+          const destIdx = asNumber(args[0]);
+          const textLabel = asString(args[1]);
+          const rawText = this.findText(textLabel);
+          if (rawText) {
+            stringVars[`STR_VAR_${destIdx + 1}`] = formatScriptText(rawText, this.playerName, this.playerGender);
+          }
+          break;
+        }
+
+        // --- setflashlevel: set darkness radius (0=bright, 7=darkest) ---
+        case 'setflashlevel': {
+          const level = asNumber(args[0]);
+          if (this.ctx.setFlashLevel) {
+            this.ctx.setFlashLevel(level);
+          }
+          break;
+        }
+
+        // --- animateflash: animate flash level transition ---
+        case 'animateflash': {
+          const targetLevel = asNumber(args[0]);
+          if (this.ctx.setFlashLevel) {
+            this.ctx.setFlashLevel(targetLevel);
+          }
+          await this.ctx.delayFrames(16);
+          break;
+        }
+
+        // --- setstepcallback: activate per-step callback ---
+        case 'setstepcallback': {
+          const callbackId = asNumber(args[0]);
+          stepCallbackManager.setCallback(callbackId);
+          break;
+        }
+
+        // --- Rotating tile puzzle (Mossdeep Gym / Trick House) ---
+        // C ref: rotating_tile_puzzle.c
+        case 'initrotatingtilepuzzle': {
+          const isTrickHouse = asNumber(args[0]) === 1;
+          rotatingTilePuzzle = { isTrickHouse, movedObjects: [] };
+          break;
+        }
+
+        case 'moverotatingtileobjects': {
+          if (!rotatingTilePuzzle) break;
+          const colorRow = asNumber(args[0]);
+          const base = rotatingTilePuzzle.isTrickHouse
+            ? TRICK_HOUSE_ARROW_BASE
+            : MOSSDEEP_GYM_ARROW_BASE;
+
+          // Get all NPC local IDs on this map
+          const npcIds = this.ctx.getAllNpcLocalIds?.(this.currentMapId) ?? [];
+          const mapOffset = this.ctx.getMapOffset?.(this.currentMapId);
+          if (!mapOffset) break;
+
+          rotatingTilePuzzle.movedObjects = [];
+
+          for (const localId of npcIds) {
+            const pos = this.ctx.getNpcPosition?.(this.currentMapId, localId);
+            if (!pos) continue;
+
+            // Convert world → map-local to read metatile
+            const localX = pos.tileX - mapOffset.offsetX;
+            const localY = pos.tileY - mapOffset.offsetY;
+            const metatile = this.ctx.getMapMetatile?.(this.currentMapId, localX, localY) ?? 0;
+
+            // Check if this NPC is on an arrow tile of the matching color row
+            const row = getArrowColorRow(metatile, base);
+            if (row !== colorRow) continue;
+
+            const dir = getArrowDirection(metatile, base);
+            if (!dir) continue;
+
+            // Save previous position for potential undo
+            rotatingTilePuzzle.movedObjects.push({
+              localId,
+              prevTileX: pos.tileX,
+              prevTileY: pos.tileY,
+            });
+
+            // Move the NPC one tile in the arrow direction (world coords)
+            const { dx, dy } = directionToDelta(dir);
+            const newWorldX = pos.tileX + dx;
+            const newWorldY = pos.tileY + dy;
+
+            // Start NPC movement as a pending animation
+            const promise = this.ctx.moveNpc(this.currentMapId, localId, dir, 'walk');
+            this.pendingMovements.set(localId, promise);
+          }
+          break;
+        }
+
+        case 'turnrotatingtileobjects': {
+          if (!rotatingTilePuzzle) break;
+
+          for (const obj of rotatingTilePuzzle.movedObjects) {
+            const pos = this.ctx.getNpcPosition?.(this.currentMapId, obj.localId);
+            if (!pos) continue;
+
+            // Get current facing direction and rotate CCW
+            // We need to read the NPC's current direction — use moveNpc face mode
+            // Since the C code rotates the NPC's facing direction CCW,
+            // we approximate by getting current tile's arrow direction from *previous* position
+            // and rotating that. In C, it reads the NPC's movement direction field.
+
+            // Simpler approach: face the NPC in the CCW direction of where they just moved FROM
+            const mapOffset = this.ctx.getMapOffset?.(this.currentMapId);
+            if (!mapOffset) continue;
+
+            const prevLocalX = obj.prevTileX - mapOffset.offsetX;
+            const prevLocalY = obj.prevTileY - mapOffset.offsetY;
+            const base = rotatingTilePuzzle.isTrickHouse
+              ? TRICK_HOUSE_ARROW_BASE
+              : MOSSDEEP_GYM_ARROW_BASE;
+            const prevMetatile = this.ctx.getMapMetatile?.(this.currentMapId, prevLocalX, prevLocalY) ?? 0;
+            const prevDir = getArrowDirection(prevMetatile, base);
+
+            if (prevDir) {
+              const newFacing = rotateCCW(prevDir);
+              const promise = this.ctx.moveNpc(this.currentMapId, obj.localId, newFacing, 'face');
+              this.pendingMovements.set(obj.localId, promise);
+            }
+          }
+          break;
+        }
+
+        case 'freerotatingtilepuzzle':
+          rotatingTilePuzzle = null;
+          break;
+
         // --- Commands that are parsed but not yet implemented ---
-        case 'setstepcallback':
         case 'setrespawn':
         case 'incrementgamestat':
-        case 'multichoice':
-        case 'multichoicedefault':
-        case 'compare':
         case 'register_matchcall':
           // No-ops or logged for future implementation
           break;
@@ -1444,9 +1798,240 @@ export class ScriptRunner {
         this.ctx.setParty(healed);
         return undefined;
       }
+      // --- DrawWholeMapView: refresh entire map rendering after batch setmetatile ---
+      // C ref: field_camera.c — redraws all visible tiles from map grid
+      case 'DrawWholeMapView':
+        // Our setMapMetatile already calls pipeline.invalidate() per-tile.
+        // This special just ensures a full refresh after batch operations.
+        // Calling setMapMetatile with the same tile triggers re-render.
+        // No additional action needed — pipeline already invalidated.
+        return undefined;
+
+      // --- Gym puzzle specials (dispatched to dedicated modules) ---
+      case 'MauvilleGymSetDefaultBarriers':
+        this.executeMauvilleGymSpecial(name);
+        return undefined;
+      case 'MauvilleGymPressSwitch':
+        this.executeMauvilleGymSpecial(name);
+        return undefined;
+      case 'MauvilleGymDeactivatePuzzle':
+        this.executeMauvilleGymSpecial(name);
+        return undefined;
+      case 'PetalburgGymSlideOpenRoomDoors':
+        await this.executePetalburgGymSpecial(name);
+        return undefined;
+      case 'PetalburgGymUnlockRoomDoors':
+        this.executePetalburgGymSpecial(name);
+        return undefined;
+
+      // --- Sootopolis Gym: restore cracked ice tiles from saved state ---
+      case 'SetSootopolisGymCrackedIceMetatiles': {
+        if (this.ctx.setMapMetatile) {
+          const mapId = this.currentMapId;
+          stepCallbackManager.setSootopolisGymCrackedIceMetatiles({
+            setMapMetatile: (localX, localY, metatileId) => {
+              this.ctx.setMapMetatile!(mapId, localX, localY, metatileId);
+            },
+            invalidateView: () => {
+              // Pipeline invalidation handled by caller after ON_LOAD
+            },
+          });
+        }
+        return undefined;
+      }
+
       default:
         console.warn(`[ScriptRunner] Unimplemented special: ${name}`);
         return undefined;
+    }
+  }
+
+  /**
+   * Dispatch Mauville Gym specials.
+   */
+  private executeMauvilleGymSpecial(name: string): void {
+    if (!this.ctx.setMapMetatile || !this.ctx.getMapMetatile) {
+      console.warn(`[ScriptRunner] ${name}: setMapMetatile/getMapMetatile not available`);
+      return;
+    }
+    const mapId = this.currentMapId;
+    const get = (x: number, y: number) => this.ctx.getMapMetatile!(mapId, x, y);
+    const set = (x: number, y: number, id: number) => this.ctx.setMapMetatile!(mapId, x, y, id);
+
+    const ML = METATILE_LABELS;
+
+    if (name === 'MauvilleGymPressSwitch') {
+      // C ref: field_specials.c — press one switch, raise others
+      const switchIdx = gameVariables.getVar('VAR_0x8004');
+      const MAP_OFFSET = 7; // pokeemerald MAP_OFFSET for border tiles
+      const switchCoords = [
+        { x: 0 + MAP_OFFSET, y: 15 + MAP_OFFSET },
+        { x: 4 + MAP_OFFSET, y: 12 + MAP_OFFSET },
+        { x: 3 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+        { x: 8 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+      ];
+      for (let i = 0; i < switchCoords.length; i++) {
+        const metatile = i === switchIdx
+          ? ML['METATILE_MauvilleGym_PressedSwitch']
+          : ML['METATILE_MauvilleGym_RaisedSwitch'];
+        set(switchCoords[i].x, switchCoords[i].y, metatile);
+      }
+    } else if (name === 'MauvilleGymSetDefaultBarriers') {
+      // C ref: field_specials.c — toggles all barriers on↔off
+      const MAP_OFFSET = 7;
+      for (let y = 5 + MAP_OFFSET; y < 17 + MAP_OFFSET; y++) {
+        for (let x = 0 + MAP_OFFSET; x < 9 + MAP_OFFSET; x++) {
+          const tile = get(x, y);
+          const swapped = this.mauvilleToggleBarrier(tile);
+          if (swapped !== null) {
+            set(x, y, swapped);
+          }
+        }
+      }
+    } else if (name === 'MauvilleGymDeactivatePuzzle') {
+      // C ref: field_specials.c — press all switches, turn off all beams
+      const MAP_OFFSET = 7;
+      const switchCoords = [
+        { x: 0 + MAP_OFFSET, y: 15 + MAP_OFFSET },
+        { x: 4 + MAP_OFFSET, y: 12 + MAP_OFFSET },
+        { x: 3 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+        { x: 8 + MAP_OFFSET, y: 9 + MAP_OFFSET },
+      ];
+      for (const coord of switchCoords) {
+        set(coord.x, coord.y, ML['METATILE_MauvilleGym_PressedSwitch']);
+      }
+      for (let y = 5 + MAP_OFFSET; y < 17 + MAP_OFFSET; y++) {
+        for (let x = 0 + MAP_OFFSET; x < 9 + MAP_OFFSET; x++) {
+          const tile = get(x, y);
+          const off = this.mauvilleDeactivateBarrier(tile);
+          if (off !== null) {
+            set(x, y, off);
+          }
+        }
+      }
+    }
+  }
+
+  /** Toggle a Mauville Gym barrier tile between on/off states. */
+  private mauvilleToggleBarrier(tile: number): number | null {
+    const ML = METATILE_LABELS;
+    // Horizontal beams — On → Off
+    switch (tile) {
+      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return ML['METATILE_MauvilleGym_GreenBeamH1_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return ML['METATILE_MauvilleGym_GreenBeamH2_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return ML['METATILE_MauvilleGym_GreenBeamH3_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return ML['METATILE_MauvilleGym_GreenBeamH4_Off'];
+      // Horizontal beams — Off → On
+      case ML['METATILE_MauvilleGym_GreenBeamH1_Off']: return ML['METATILE_MauvilleGym_GreenBeamH1_On'];
+      case ML['METATILE_MauvilleGym_GreenBeamH2_Off']: return ML['METATILE_MauvilleGym_GreenBeamH2_On'];
+      case ML['METATILE_MauvilleGym_GreenBeamH3_Off']: return ML['METATILE_MauvilleGym_GreenBeamH3_On'];
+      case ML['METATILE_MauvilleGym_GreenBeamH4_Off']: return ML['METATILE_MauvilleGym_GreenBeamH4_On'];
+      // Red horizontal beams
+      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return ML['METATILE_MauvilleGym_RedBeamH1_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return ML['METATILE_MauvilleGym_RedBeamH2_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return ML['METATILE_MauvilleGym_RedBeamH3_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return ML['METATILE_MauvilleGym_RedBeamH4_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH1_Off']: return ML['METATILE_MauvilleGym_RedBeamH1_On'];
+      case ML['METATILE_MauvilleGym_RedBeamH2_Off']: return ML['METATILE_MauvilleGym_RedBeamH2_On'];
+      case ML['METATILE_MauvilleGym_RedBeamH3_Off']: return ML['METATILE_MauvilleGym_RedBeamH3_On'];
+      case ML['METATILE_MauvilleGym_RedBeamH4_Off']: return ML['METATILE_MauvilleGym_RedBeamH4_On'];
+      // Vertical beams — green on → pole bottom on
+      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_On'];
+      case ML['METATILE_MauvilleGym_GreenBeamV2_On']: return ML['METATILE_MauvilleGym_FloorTile'];
+      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamV2_On']: return ML['METATILE_MauvilleGym_FloorTile'];
+      // Pole bottom on → green vertical beam on
+      case ML['METATILE_MauvilleGym_PoleBottom_On']: return ML['METATILE_MauvilleGym_GreenBeamV1_On'];
+      // Pole bottom off → red vertical beam on
+      case ML['METATILE_MauvilleGym_PoleBottom_Off']: return ML['METATILE_MauvilleGym_RedBeamV1_On'];
+      // Pole top toggle
+      case ML['METATILE_MauvilleGym_PoleTop_Off']: return ML['METATILE_MauvilleGym_PoleTop_On'];
+      case ML['METATILE_MauvilleGym_PoleTop_On']: return ML['METATILE_MauvilleGym_PoleTop_Off'];
+      // FloorTile — needs context check (above tile) — handled specially
+      case ML['METATILE_MauvilleGym_FloorTile']: return null; // context-dependent, skip
+      default: return null;
+    }
+  }
+
+  /** Deactivate a Mauville Gym barrier tile (turn beams off). */
+  private mauvilleDeactivateBarrier(tile: number): number | null {
+    const ML = METATILE_LABELS;
+    switch (tile) {
+      // All horizontal beams → Off
+      case ML['METATILE_MauvilleGym_GreenBeamH1_On']: return ML['METATILE_MauvilleGym_GreenBeamH1_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH2_On']: return ML['METATILE_MauvilleGym_GreenBeamH2_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH3_On']: return ML['METATILE_MauvilleGym_GreenBeamH3_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamH4_On']: return ML['METATILE_MauvilleGym_GreenBeamH4_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH1_On']: return ML['METATILE_MauvilleGym_RedBeamH1_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH2_On']: return ML['METATILE_MauvilleGym_RedBeamH2_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH3_On']: return ML['METATILE_MauvilleGym_RedBeamH3_Off'];
+      case ML['METATILE_MauvilleGym_RedBeamH4_On']: return ML['METATILE_MauvilleGym_RedBeamH4_Off'];
+      // Vertical beams → poles/floor
+      case ML['METATILE_MauvilleGym_GreenBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_On'];
+      case ML['METATILE_MauvilleGym_RedBeamV1_On']: return ML['METATILE_MauvilleGym_PoleBottom_Off'];
+      case ML['METATILE_MauvilleGym_GreenBeamV2_On']:
+      case ML['METATILE_MauvilleGym_RedBeamV2_On']:
+        return ML['METATILE_MauvilleGym_FloorTile'];
+      // Pole top → off
+      case ML['METATILE_MauvilleGym_PoleTop_On']: return ML['METATILE_MauvilleGym_PoleTop_Off'];
+      default: return null;
+    }
+  }
+
+  /**
+   * Dispatch Petalburg Gym specials.
+   */
+  private async executePetalburgGymSpecial(name: string): Promise<void> {
+    if (!this.ctx.setMapMetatile) {
+      console.warn(`[ScriptRunner] ${name}: setMapMetatile not available`);
+      return;
+    }
+    const mapId = this.currentMapId;
+    const set = (x: number, y: number, id: number) => this.ctx.setMapMetatile!(mapId, x, y, id);
+    const ML = METATILE_LABELS;
+    const MAP_OFFSET = 7;
+    const METATILE_ROW_WIDTH = 8; // Standard metatile row width
+
+    const roomNumber = gameVariables.getVar('VAR_0x8004');
+
+    // Door coordinates per room (from C source)
+    interface DoorCoord { x: number; y: number }
+    const doorCoords: DoorCoord[] = [];
+    switch (roomNumber) {
+      case 1: doorCoords.push({ x: 1, y: 104 }, { x: 7, y: 104 }); break;
+      case 2: doorCoords.push({ x: 1, y: 78 }, { x: 7, y: 78 }); break;
+      case 3: doorCoords.push({ x: 1, y: 91 }, { x: 7, y: 91 }); break;
+      case 4: doorCoords.push({ x: 7, y: 39 }); break;
+      case 5: doorCoords.push({ x: 1, y: 52 }, { x: 7, y: 52 }); break;
+      case 6: doorCoords.push({ x: 1, y: 65 }); break;
+      case 7: doorCoords.push({ x: 7, y: 13 }); break;
+      case 8: doorCoords.push({ x: 1, y: 26 }); break;
+    }
+
+    const slidingDoorFrames = [
+      ML['METATILE_PetalburgGym_SlidingDoor_Frame0'],
+      ML['METATILE_PetalburgGym_SlidingDoor_Frame1'],
+      ML['METATILE_PetalburgGym_SlidingDoor_Frame2'],
+      ML['METATILE_PetalburgGym_SlidingDoor_Frame3'],
+      ML['METATILE_PetalburgGym_SlidingDoor_Frame4'],
+    ];
+
+    if (name === 'PetalburgGymUnlockRoomDoors') {
+      // Instant: set to final frame
+      const finalFrame = slidingDoorFrames[4];
+      for (const door of doorCoords) {
+        set(door.x + MAP_OFFSET, door.y + MAP_OFFSET, finalFrame);
+        set(door.x + MAP_OFFSET, door.y + MAP_OFFSET + 1, finalFrame + METATILE_ROW_WIDTH);
+      }
+    } else if (name === 'PetalburgGymSlideOpenRoomDoors') {
+      // Animated: cycle through 5 frames
+      for (const frame of slidingDoorFrames) {
+        for (const door of doorCoords) {
+          set(door.x + MAP_OFFSET, door.y + MAP_OFFSET, frame);
+          set(door.x + MAP_OFFSET, door.y + MAP_OFFSET + 1, frame + METATILE_ROW_WIDTH);
+        }
+        await this.ctx.delayFrames(4); // ~4 frame delay between animation frames
+      }
     }
   }
 
