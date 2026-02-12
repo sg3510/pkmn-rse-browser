@@ -233,6 +233,7 @@ export async function performWarpTransition(
       player,
       playerHiddenRef,
       pipeline,
+      lastUsedWarpMapType: trigger.sourceMap.entry.mapType,
       mapScriptCache,
       setMapMetatile,
       scriptRuntimeServices,

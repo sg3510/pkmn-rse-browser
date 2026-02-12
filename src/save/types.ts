@@ -15,6 +15,7 @@
  */
 
 import type { PartyPokemon } from '../pokemon/types';
+import type { ObjectEventRuntimeState } from '../types/objectEvents';
 
 /**
  * Current save format version. Increment when making breaking changes.
@@ -282,6 +283,8 @@ export interface SaveData {
   stats?: GameStats;
   /** Permanent NPC position overrides from copyobjectxytoperm */
   objectEventOverrides?: Record<string, { x: number; y: number }>;
+  /** Runtime object-event snapshot (temporary NPC/item/script state) */
+  objectEventRuntimeState?: ObjectEventRuntimeState;
 }
 
 // ============================================================================

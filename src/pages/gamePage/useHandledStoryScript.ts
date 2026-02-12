@@ -59,6 +59,7 @@ export interface UseHandledStoryScriptParams {
   playerRef: MutableRef<PlayerController | null>;
   worldManagerRef: MutableRef<WorldManager | null>;
   pendingSavedLocationRef: MutableRef<LocationState | null>;
+  overworldLoadingRef: MutableRef<boolean>;
   pendingScriptedWarpRef: MutableRef<PendingScriptedWarpLike | null>;
   warpingRef: MutableRef<boolean>;
   playerHiddenRef: MutableRef<boolean>;
@@ -83,6 +84,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     playerRef,
     worldManagerRef,
     pendingSavedLocationRef,
+    overworldLoadingRef,
     pendingScriptedWarpRef,
     warpingRef,
     playerHiddenRef,
@@ -407,6 +409,16 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       const mapLocalToWorld = (mapId: string, tileX: number, tileY: number): { x: number; y: number } => {
         const map = worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === mapId);
         if (!map) {
+          // During async map stitching/re-anchor boundaries, the snapshot can momentarily
+          // miss a map that still has parsed object events. Fall back to object manager
+          // offsets before giving up to avoid setobjectxy placing NPCs at raw coords.
+          const fallbackOffset = objectEventManagerRef.current.getMapOffset(mapId);
+          if (fallbackOffset) {
+            return {
+              x: fallbackOffset.x + tileX,
+              y: fallbackOffset.y + tileY,
+            };
+          }
           console.warn(`[StoryScript] mapLocalToWorld: map ${mapId} not in snapshot, using raw coords`);
           return { x: tileX, y: tileY };
         }
@@ -435,6 +447,15 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         }
         if (guard >= 72000) {
           console.warn('[StoryScript] Timed out waiting for battle to end.');
+        }
+
+        let loadGuard = 0;
+        while (overworldLoadingRef.current && loadGuard < 72000) {
+          await waitFrames(1);
+          loadGuard++;
+        }
+        if (loadGuard >= 72000) {
+          console.warn('[StoryScript] Timed out waiting for overworld map load after battle.');
         }
       };
 
@@ -481,6 +502,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             firstBattle: true,
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
+            returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
           });
           await waitForBattleToEnd();
         },
@@ -507,6 +529,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             wildLevel: battle.level,
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
+            returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
           });
           await waitForBattleToEnd();
           return readBattleResult();
@@ -537,6 +560,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
               speciesId: Math.trunc(speciesId),
             }),
             returnLocation: buildReturnLocation(),
+            returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
           });
           await waitForBattleToEnd();
           return readBattleResult();
@@ -734,6 +758,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     playerRef,
     worldManagerRef,
     pendingSavedLocationRef,
+    overworldLoadingRef,
     pendingScriptedWarpRef,
     warpingRef,
     playerHiddenRef,

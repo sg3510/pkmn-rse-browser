@@ -250,6 +250,38 @@ export interface LargeObject {
 }
 
 /**
+ * Runtime snapshot payload for object event state.
+ * Used to preserve script-driven temporary object positions/visibility across saves.
+ */
+export interface ObjectEventRuntimeState {
+  version: 1;
+  npcs: Record<string, {
+    tileX: number;
+    tileY: number;
+    initialTileX: number;
+    initialTileY: number;
+    direction: NPCDirection;
+    visible: boolean;
+    spriteHidden: boolean;
+    scriptRemoved: boolean;
+    movementTypeRaw: string;
+  }>;
+  itemBalls: Record<string, {
+    collected: boolean;
+  }>;
+  scriptObjects: Record<string, {
+    visible: boolean;
+  }>;
+  largeObjects: Record<string, {
+    visible: boolean;
+  }>;
+  offscreenDespawnedNpcIds: string[];
+  offscreenDespawnedItemIds: string[];
+  offscreenDespawnedScriptObjectIds: string[];
+  offscreenDespawnedLargeObjectIds: string[];
+}
+
+/**
  * Check if a graphics ID represents an NPC (person/character)
  * Excludes items, misc objects, berry trees, etc.
  */

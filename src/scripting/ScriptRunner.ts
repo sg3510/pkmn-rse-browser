@@ -36,6 +36,7 @@ import { rotatingGateManager } from '../game/RotatingGateManager';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { BattleCommandRunner } from './BattleCommandRunner';
 import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes';
+import { executeWeatherSpecial } from './specials/weatherSpecials';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -225,6 +226,7 @@ export interface ScriptWeatherServices {
   setSavedWeather: (weather: string | number) => void;
   resetSavedWeather: () => void;
   applyCurrentWeather: () => void;
+  setCurrentMapContext?: (mapId: string) => void;
 }
 
 export type ScriptFadeDirection = 'in' | 'out';
@@ -922,7 +924,8 @@ export class ScriptRunner {
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
           const objectMapId = this.resolveObjectMapId(localId);
-          this.ctx.setNpcPosition(objectMapId, localId, x, y);
+          // C parity: setobjectxyperm updates template coords only.
+          // Runtime/current position is not changed immediately.
           saveStateStore.setObjectEventOverride(objectMapId, localId, x, y);
           break;
         }
@@ -2112,6 +2115,15 @@ export class ScriptRunner {
       }
       case 'OpenPokenavForTutorial':
         // Opens the full PokéNav UI — no-op since we don't have one.
+        return undefined;
+
+      // --- Weather specials ---
+      case 'SetRoute119Weather':
+      case 'SetRoute123Weather':
+        executeWeatherSpecial(name, {
+          weather: this.services.weather,
+          lastUsedWarpMapType: this.ctx.getLastUsedWarpMapType?.() ?? null,
+        });
         return undefined;
 
       // --- Wild battle setup specials ---

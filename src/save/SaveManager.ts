@@ -44,6 +44,7 @@ import { parseGen3Save, isValidGen3Save } from './native';
 import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types';
 import { saveStateStore } from './SaveStateStore';
+import type { ObjectEventRuntimeState } from '../types/objectEvents';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -87,6 +88,7 @@ class SaveManagerClass {
   /** Play time tracking */
   private playTimeStartMs: number = 0;
   private isPlayTimerRunning: boolean = false;
+  private pendingObjectEventRuntimeState: ObjectEventRuntimeState | null = null;
 
   constructor() {
     // Try to auto-load most recent save on construction
@@ -167,6 +169,7 @@ class SaveManagerClass {
   load(slot: number): SaveData | null {
     if (slot < 0 || slot >= NUM_SAVE_SLOTS) {
       console.error(`[SaveManager] Invalid slot: ${slot}`);
+      this.pendingObjectEventRuntimeState = null;
       return null;
     }
 
@@ -175,6 +178,7 @@ class SaveManagerClass {
 
     if (!stored) {
       console.log(`[SaveManager] Slot ${slot} is empty`);
+      this.pendingObjectEventRuntimeState = null;
       return null;
     }
 
@@ -265,11 +269,13 @@ class SaveManagerClass {
       this.profile = data.profile;
       this.playTime = data.playTime;
       this.currentMapId = locationWithMigration.location.mapId;
+      this.pendingObjectEventRuntimeState = data.objectEventRuntimeState ?? null;
 
       console.log(`[SaveManager] Loaded save from slot ${slot}`);
       return data;
     } catch (err) {
       console.error(`[SaveManager] Failed to load slot ${slot}:`, err);
+      this.pendingObjectEventRuntimeState = null;
       return null;
     }
   }
@@ -277,7 +283,7 @@ class SaveManagerClass {
   /**
    * Save current game state to a slot
    */
-  save(slot: number, locationState: LocationState): SaveResult {
+  save(slot: number, locationState: LocationState, objectEventRuntimeState?: ObjectEventRuntimeState): SaveResult {
     if (slot < 0 || slot >= NUM_SAVE_SLOTS) {
       return { success: false, error: `Invalid slot: ${slot}` };
     }
@@ -305,6 +311,7 @@ class SaveManagerClass {
       pokedex: saveStateStore.getPokedex(),
       partyFull,
       objectEventOverrides: saveStateStore.getAllObjectEventOverrides(),
+      objectEventRuntimeState,
     };
 
     try {
@@ -334,6 +341,7 @@ class SaveManagerClass {
 
       if (this.activeSlot === slot) {
         this.activeSlot = -1;
+        this.pendingObjectEventRuntimeState = null;
       }
 
       console.log(`[SaveManager] Deleted slot ${slot}`);
@@ -365,6 +373,7 @@ class SaveManagerClass {
     this.playTime = { ...DEFAULT_PLAY_TIME };
     this.currentMapId = 'MAP_LITTLEROOT_TOWN';
     this.activeSlot = -1;
+    this.pendingObjectEventRuntimeState = null;
 
     // Reset game flags
     gameFlags.reset();
@@ -497,6 +506,16 @@ class SaveManagerClass {
    */
   getActiveSlot(): number {
     return this.activeSlot;
+  }
+
+  stagePendingObjectEventRuntimeState(state: ObjectEventRuntimeState | null): void {
+    this.pendingObjectEventRuntimeState = state;
+  }
+
+  consumePendingObjectEventRuntimeState(): ObjectEventRuntimeState | null {
+    const state = this.pendingObjectEventRuntimeState;
+    this.pendingObjectEventRuntimeState = null;
+    return state;
   }
 
   /**

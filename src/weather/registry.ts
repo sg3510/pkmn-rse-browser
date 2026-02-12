@@ -8,17 +8,71 @@ import {
   type CoordEventWeatherName,
 } from '../data/weather.gen';
 import type { WeatherEffect } from './types';
+import {
+  WEATHER_EFFECT_KEYS_BY_WEATHER,
+  WEATHER_CYCLES_BY_WEATHER,
+  RUNTIME_WEATHER_ALIASES,
+  type RuntimeWeatherEffectKey,
+} from './runtime.gen';
+import { AbnormalWeatherEffect } from './effects/AbnormalWeatherEffect';
+import { AshEffect } from './effects/AshEffect';
+import { CloudLayerEffect } from './effects/CloudLayerEffect';
+import { ColorTintEffect } from './effects/ColorTintEffect';
+import { FogLayerEffect } from './effects/FogLayerEffect';
+import { RainEffect } from './effects/RainEffect';
+import { SandstormEffect } from './effects/SandstormEffect';
+import { SnowEffect } from './effects/SnowEffect';
 import { UnderwaterBubblesEffect } from './effects/UnderwaterBubblesEffect';
 
 export type WeatherEffectFactory = () => WeatherEffect;
 
-const WEATHER_EFFECT_FACTORIES: Partial<Record<WeatherName, WeatherEffectFactory>> = {
-  WEATHER_UNDERWATER_BUBBLES: () => new UnderwaterBubblesEffect(),
-};
-
-const RUNTIME_WEATHER_ALIASES: Partial<Record<WeatherName, WeatherName>> = {
-  WEATHER_ROUTE119_CYCLE: 'WEATHER_SUNNY',
-  WEATHER_ROUTE123_CYCLE: 'WEATHER_SUNNY',
+const WEATHER_EFFECT_FACTORIES_BY_KEY: Partial<
+  Record<RuntimeWeatherEffectKey, WeatherEffectFactory>
+> = {
+  abnormal: () => new AbnormalWeatherEffect(),
+  clouds: () => new CloudLayerEffect(),
+  downpour: () => new RainEffect('downpour'),
+  drought: () =>
+    new ColorTintEffect({
+      color: '#ffb060',
+      alpha: 0.16,
+      pulseAmplitude: 0.03,
+      pulseHz: 0.9,
+    }),
+  fog_diagonal: () =>
+    new FogLayerEffect({
+      assetPath: '/pokeemerald/graphics/weather/fog_diagonal.png',
+      alpha: 0.28,
+      scrollXStepFrames: 3,
+      scrollYStepFrames: 5,
+      scrollXDirection: 1,
+      scrollYDirection: 1,
+    }),
+  fog_horizontal: () =>
+    new FogLayerEffect({
+      assetPath: '/pokeemerald/graphics/weather/fog_horizontal.png',
+      alpha: 0.24,
+      scrollXStepFrames: 4,
+      scrollXDirection: 1,
+    }),
+  rain: () => new RainEffect('rain'),
+  sandstorm: () => new SandstormEffect(),
+  shade: () =>
+    new ColorTintEffect({
+      color: '#102030',
+      alpha: 0.14,
+    }),
+  snow: () => new SnowEffect(),
+  sunny: () =>
+    new ColorTintEffect({
+      color: '#fff0a0',
+      alpha: 0.06,
+      pulseAmplitude: 0.015,
+      pulseHz: 0.7,
+    }),
+  thunderstorm: () => new RainEffect('thunderstorm'),
+  underwater_bubbles: () => new UnderwaterBubblesEffect(),
+  volcanic_ash: () => new AshEffect(),
 };
 
 const WEATHER_NAME_SET = new Set(Object.keys(WEATHER_CONSTANTS) as WeatherName[]);
@@ -29,11 +83,29 @@ const COORD_EVENT_WEATHER_NAME_SET = new Set(
 export function getWeatherEffectFactory(
   weather: WeatherName
 ): WeatherEffectFactory | null {
-  return WEATHER_EFFECT_FACTORIES[weather] ?? null;
+  const effectKey = WEATHER_EFFECT_KEYS_BY_WEATHER[weather];
+  if (!effectKey) return null;
+  return WEATHER_EFFECT_FACTORIES_BY_KEY[effectKey] ?? null;
 }
 
-export function getRuntimeWeatherAlias(weather: WeatherName): WeatherName {
-  return RUNTIME_WEATHER_ALIASES[weather] ?? weather;
+export function resolveRuntimeWeather(
+  weather: WeatherName,
+  weatherCycleStage: number = 0
+): WeatherName {
+  let resolvedWeather: WeatherName = weather;
+  const cycle = WEATHER_CYCLES_BY_WEATHER[weather];
+  if (cycle && cycle.length > 0) {
+    const normalizedStage = Number.isFinite(weatherCycleStage)
+      ? Math.floor(weatherCycleStage)
+      : 0;
+    const cycleIndex = ((normalizedStage % cycle.length) + cycle.length) % cycle.length;
+    const cycleWeather = resolveWeatherName(cycle[cycleIndex]);
+    if (cycleWeather) {
+      resolvedWeather = cycleWeather;
+    }
+  }
+
+  return RUNTIME_WEATHER_ALIASES[resolvedWeather] ?? resolvedWeather;
 }
 
 export function resolveWeatherName(value: string | number): WeatherName | null {

@@ -41,6 +41,7 @@ import {
 import { B_OUTCOME } from '../data/battleConstants.gen';
 import { getDialogBridge } from '../components/dialog/DialogBridge';
 import { menuStateManager } from '../menu';
+import type { ObjectEventRuntimeState } from '../types/objectEvents';
 import {
   clearBattleStatusMask,
   getBattleHealAmount,
@@ -133,6 +134,7 @@ interface BattleStateData {
   backgroundProfile?: BattleBackgroundProfile;
   battleType?: 'wild' | 'trainer';
   returnLocation?: LocationState;
+  returnObjectEventRuntimeState?: ObjectEventRuntimeState;
   firstBattle?: boolean;
 }
 
@@ -187,6 +189,7 @@ export class BattleState implements StateRenderer {
   private fadeAlpha = 0;
   private transitionReady = false;
   private returnLocation: LocationState | null = null;
+  private returnObjectEventRuntimeState: ObjectEventRuntimeState | null = null;
   private firstBattle = false;
   private battleType: 'wild' | 'trainer' = 'wild';
   private playerPartyIndex = 0;
@@ -204,6 +207,7 @@ export class BattleState implements StateRenderer {
   async enter(_viewport: ViewportConfig, data?: Record<string, unknown>): Promise<void> {
     const typedData = (data ?? {}) as BattleStateData;
     this.returnLocation = typedData.returnLocation ?? null;
+    this.returnObjectEventRuntimeState = typedData.returnObjectEventRuntimeState ?? null;
     this.firstBattle = typedData.firstBattle === true;
     this.battleType = typedData.battleType ?? 'wild';
     this.pendingTransition = null;
@@ -484,6 +488,7 @@ export class BattleState implements StateRenderer {
 
     if (this.phase === 'finished' && confirmPressed) {
       if (this.fadeState !== 'out') {
+        saveManager.stagePendingObjectEventRuntimeState(this.returnObjectEventRuntimeState);
         this.pendingTransition = {
           to: GameState.OVERWORLD,
           data: {

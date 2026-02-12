@@ -8,9 +8,11 @@ import type { ItemBallObject, NPCObject } from '../../types/objectEvents';
 export interface BuildDebugStateParams {
   player: PlayerDebugInfo | null;
   visibleNPCs: NPCObject[];
+  allNPCs?: NPCObject[];
   visibleItems: ItemBallObject[];
   totalNPCCount: number;
   totalItemCount: number;
+  offscreenDespawnedNpcIds?: string[];
 }
 
 function getObjectsAtTile(
@@ -50,9 +52,11 @@ export function buildDebugState(params: BuildDebugStateParams): DebugState {
   const {
     player,
     visibleNPCs,
+    allNPCs,
     visibleItems,
     totalNPCCount,
     totalItemCount,
+    offscreenDespawnedNpcIds,
   } = params;
 
   const playerTileX = player?.tileX ?? 0;
@@ -74,5 +78,7 @@ export function buildDebugState(params: BuildDebugStateParams): DebugState {
     allVisibleItems: visibleItems,
     totalNPCCount,
     totalItemCount,
+    allNPCs: allNPCs ?? visibleNPCs,
+    offscreenDespawnedNpcIds: offscreenDespawnedNpcIds ?? [],
   };
 }

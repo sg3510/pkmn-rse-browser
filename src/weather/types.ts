@@ -25,6 +25,7 @@ export interface WeatherStateSnapshot {
   currentMapId: string | null;
   savedWeather: WeatherName;
   activeWeather: WeatherName;
+  weatherCycleStage: number;
 }
 
 export interface WeatherAssetDescriptor {

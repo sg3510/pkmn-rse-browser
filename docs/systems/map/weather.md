@@ -31,7 +31,8 @@ This document describes the Pokemon Emerald weather system from the C source cod
 
 - [x] Scalable weather runtime and generated weather constants (`npm run generate:weather`)
 - [x] Underwater bubbles parity path (fog + bubble cadence/wobble behavior)
-- [ ] Remaining non-underwater weather visuals (rain/sand/ash/etc.) are pending
+- [x] Runtime weather mapping generator from C callback table (`npm run generate:weather-runtime`)
+- [x] Non-underwater weather visuals (rain, thunderstorm/downpour, snow, ash, sandstorm, fog variants, clouds, shade, drought, abnormal cycle)
 
 ## Overview
 

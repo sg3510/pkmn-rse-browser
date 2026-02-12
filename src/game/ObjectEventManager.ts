@@ -22,6 +22,7 @@ import {
   type NPCObject,
   type ScriptObject,
   type LargeObject,
+  type ObjectEventRuntimeState,
 } from '../types/objectEvents.ts';
 import type { BgEvent } from './mapEventLoader';
 import { getItemIdFromScript } from '../data/itemScripts.ts';
@@ -74,6 +75,7 @@ function isDecorationSlotPlaceholder(obj: ObjectEventData): boolean {
 const MAP_OFFSET = 7;
 const MAP_OFFSET_W = MAP_OFFSET * 2 + 1;
 const MAP_OFFSET_H = MAP_OFFSET * 2;
+const VIEWPORT_SPAWN_MARGIN_TILES = 2;
 
 interface ObjectEventViewWindow {
   left: number;
@@ -577,15 +579,25 @@ export class ObjectEventManager {
   /**
    * Set an NPC's tile position by map-local ID.
    */
-  setNPCPositionByLocalId(mapId: string, localId: string, tileX: number, tileY: number): boolean {
+  setNPCPositionByLocalId(
+    mapId: string,
+    localId: string,
+    tileX: number,
+    tileY: number,
+    options?: { updateInitialPosition?: boolean }
+  ): boolean {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
 
     npc.tileX = tileX;
     npc.tileY = tileY;
-    // Also update initial position (used by movement engine for wander bounds)
-    npc.initialTileX = tileX;
-    npc.initialTileY = tileY;
+    // C parity:
+    // - setobjectxy moves runtime/current coords only.
+    // - template coords (spawn/initial) are only changed by setobjectxyperm/copyobjectxytoperm.
+    if (options?.updateInitialPosition) {
+      npc.initialTileX = tileX;
+      npc.initialTileY = tileY;
+    }
     npc.subTileX = 0;
     npc.subTileY = 0;
     npc.isWalking = false;
@@ -924,8 +936,18 @@ export class ObjectEventManager {
    * Ref: UpdateObjectEventsForCameraUpdate -> TrySpawnObjectEvents +
    * RemoveObjectEventsOutsideView in event_object_movement.c.
    */
-  updateObjectEventSpawnDespawn(playerTileX: number, playerTileY: number): void {
-    const viewWindow = this.getObjectEventViewWindowForPlayer(playerTileX, playerTileY);
+  updateObjectEventSpawnDespawn(
+    playerTileX: number,
+    playerTileY: number,
+    viewportTilesWide?: number,
+    viewportTilesHigh?: number
+  ): void {
+    const viewWindow = this.getObjectEventViewWindowForPlayer(
+      playerTileX,
+      playerTileY,
+      viewportTilesWide,
+      viewportTilesHigh
+    );
     this.lastObjectEventViewWindow = viewWindow;
     this.trySpawnObjectsInView(viewWindow);
     this.removeObjectsOutsideView(viewWindow);
@@ -958,6 +980,133 @@ export class ObjectEventManager {
       ids.add(obj.graphicsId);
     }
     return [...ids];
+  }
+
+  /**
+   * Capture mutable object-event runtime state for save/load.
+   *
+   * Includes temporary script-driven changes (setobjectxy/removeobject/etc.)
+   * that are not represented by persistent FLAG_HIDE_* data alone.
+   */
+  getRuntimeState(): ObjectEventRuntimeState {
+    const npcs: ObjectEventRuntimeState['npcs'] = {};
+    for (const [id, npc] of this.npcs) {
+      npcs[id] = {
+        tileX: npc.tileX,
+        tileY: npc.tileY,
+        initialTileX: npc.initialTileX,
+        initialTileY: npc.initialTileY,
+        direction: npc.direction,
+        visible: npc.visible,
+        spriteHidden: npc.spriteHidden,
+        scriptRemoved: npc.scriptRemoved,
+        movementTypeRaw: npc.movementTypeRaw,
+      };
+    }
+
+    const itemBalls: ObjectEventRuntimeState['itemBalls'] = {};
+    for (const [id, ball] of this.itemBalls) {
+      itemBalls[id] = { collected: ball.collected };
+    }
+
+    const scriptObjects: ObjectEventRuntimeState['scriptObjects'] = {};
+    for (const [id, scriptObject] of this.scriptObjects) {
+      scriptObjects[id] = { visible: scriptObject.visible };
+    }
+
+    const largeObjects: ObjectEventRuntimeState['largeObjects'] = {};
+    for (const [id, largeObject] of this.largeObjects) {
+      largeObjects[id] = { visible: largeObject.visible };
+    }
+
+    return {
+      version: 1,
+      npcs,
+      itemBalls,
+      scriptObjects,
+      largeObjects,
+      offscreenDespawnedNpcIds: [...this.offscreenDespawnedNpcIds],
+      offscreenDespawnedItemIds: [...this.offscreenDespawnedItemIds],
+      offscreenDespawnedScriptObjectIds: [...this.offscreenDespawnedScriptObjectIds],
+      offscreenDespawnedLargeObjectIds: [...this.offscreenDespawnedLargeObjectIds],
+    };
+  }
+
+  /**
+   * Restore previously captured runtime state after map/object parsing.
+   */
+  applyRuntimeState(state: ObjectEventRuntimeState): void {
+    if (!state || state.version !== 1) return;
+
+    for (const [id, snapshot] of Object.entries(state.npcs ?? {})) {
+      const npc = this.npcs.get(id);
+      if (!npc) continue;
+
+      if (typeof snapshot.tileX === 'number') npc.tileX = snapshot.tileX;
+      if (typeof snapshot.tileY === 'number') npc.tileY = snapshot.tileY;
+      if (typeof snapshot.initialTileX === 'number') npc.initialTileX = snapshot.initialTileX;
+      if (typeof snapshot.initialTileY === 'number') npc.initialTileY = snapshot.initialTileY;
+      if (
+        snapshot.direction === 'up'
+        || snapshot.direction === 'down'
+        || snapshot.direction === 'left'
+        || snapshot.direction === 'right'
+      ) {
+        npc.direction = snapshot.direction;
+      }
+      npc.visible = snapshot.visible !== false;
+      npc.spriteHidden = snapshot.spriteHidden === true;
+      npc.scriptRemoved = snapshot.scriptRemoved === true;
+      if (typeof snapshot.movementTypeRaw === 'string') {
+        npc.movementTypeRaw = snapshot.movementTypeRaw;
+        npc.movementType = parseMovementType(snapshot.movementTypeRaw);
+      }
+      npc.subTileX = 0;
+      npc.subTileY = 0;
+      npc.isWalking = false;
+
+      if (!npc.visible) {
+        npcMovementEngine.removeNPC(npc.id);
+      }
+    }
+
+    for (const [id, snapshot] of Object.entries(state.itemBalls ?? {})) {
+      const ball = this.itemBalls.get(id);
+      if (!ball) continue;
+      ball.collected = snapshot.collected === true;
+    }
+
+    for (const [id, snapshot] of Object.entries(state.scriptObjects ?? {})) {
+      const scriptObject = this.scriptObjects.get(id);
+      if (!scriptObject) continue;
+      scriptObject.visible = snapshot.visible !== false;
+    }
+
+    for (const [id, snapshot] of Object.entries(state.largeObjects ?? {})) {
+      const largeObject = this.largeObjects.get(id);
+      if (!largeObject) continue;
+      largeObject.visible = snapshot.visible !== false;
+    }
+
+    this.offscreenDespawnedNpcIds.clear();
+    for (const id of state.offscreenDespawnedNpcIds ?? []) {
+      if (this.npcs.has(id)) this.offscreenDespawnedNpcIds.add(id);
+    }
+
+    this.offscreenDespawnedItemIds.clear();
+    for (const id of state.offscreenDespawnedItemIds ?? []) {
+      if (this.itemBalls.has(id)) this.offscreenDespawnedItemIds.add(id);
+    }
+
+    this.offscreenDespawnedScriptObjectIds.clear();
+    for (const id of state.offscreenDespawnedScriptObjectIds ?? []) {
+      if (this.scriptObjects.has(id)) this.offscreenDespawnedScriptObjectIds.add(id);
+    }
+
+    this.offscreenDespawnedLargeObjectIds.clear();
+    for (const id of state.offscreenDespawnedLargeObjectIds ?? []) {
+      if (this.largeObjects.has(id)) this.offscreenDespawnedLargeObjectIds.add(id);
+    }
   }
 
   // === Background Event Methods ===
@@ -1041,7 +1190,31 @@ export class ObjectEventManager {
     }
   }
 
-  private getObjectEventViewWindowForPlayer(playerTileX: number, playerTileY: number): ObjectEventViewWindow {
+  private getObjectEventViewWindowForPlayer(
+    playerTileX: number,
+    playerTileY: number,
+    viewportTilesWide?: number,
+    viewportTilesHigh?: number
+  ): ObjectEventViewWindow {
+    if (
+      typeof viewportTilesWide === 'number'
+      && typeof viewportTilesHigh === 'number'
+      && viewportTilesWide > 0
+      && viewportTilesHigh > 0
+    ) {
+      const halfLeft = Math.floor(viewportTilesWide / 2);
+      const halfRight = Math.ceil(viewportTilesWide / 2) - 1;
+      const halfTop = Math.floor(viewportTilesHigh / 2);
+      const halfBottom = Math.ceil(viewportTilesHigh / 2) - 1;
+
+      return {
+        left: playerTileX - halfLeft - VIEWPORT_SPAWN_MARGIN_TILES,
+        right: playerTileX + halfRight + VIEWPORT_SPAWN_MARGIN_TILES,
+        top: playerTileY - halfTop - VIEWPORT_SPAWN_MARGIN_TILES,
+        bottom: playerTileY + halfBottom + VIEWPORT_SPAWN_MARGIN_TILES,
+      };
+    }
+
     // C formulas use gSaveBlock1Ptr->pos (camera origin):
     // left = pos.x - 2
     // right = pos.x + MAP_OFFSET_W + 2

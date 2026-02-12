@@ -41,15 +41,25 @@ export function useOverworldContinueLocation(params: UseOverworldContinueLocatio
       return;
     }
 
-    const state = overworldState as { consumeSavedLocation?: () => LocationState | null };
+    const state = overworldState as {
+      consumeSavedLocation?: () => LocationState | null;
+      isContinue?: () => boolean;
+      isNewGame?: () => boolean;
+    };
     if (typeof state.consumeSavedLocation !== 'function') {
       setOverworldEntryReady(true);
       return;
     }
 
+    const entryReason = state.isContinue?.() === true
+      ? 'continue'
+      : state.isNewGame?.() === true
+        ? 'new-game'
+        : 'state-transition';
+
     const savedLocation = state.consumeSavedLocation();
     if (savedLocation) {
-      console.log('[GamePage] Got saved location from Continue:', {
+      console.log(`[GamePage] Got saved location for OVERWORLD entry (${entryReason}):`, {
         mapId: savedLocation.location.mapId,
         pos: savedLocation.pos,
       });

@@ -50,7 +50,7 @@ import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
-import { isNPCGraphicsId, type NPCObject, type ItemBallObject } from '../types/objectEvents';
+import { isNPCGraphicsId, type NPCObject, type ItemBallObject, type ObjectEventRuntimeState } from '../types/objectEvents';
 import { METATILE_SIZE, isCollisionPassable } from '../utils/mapLoader';
 import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
@@ -836,6 +836,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       wait: async () => {},
     },
     weather: {
+      setCurrentMapContext: (mapId) => {
+        weatherManagerRef.current.setCurrentMap(mapId);
+      },
       setSavedWeather: (weather) => {
         weatherManagerRef.current.setSavedWeather(weather);
       },
@@ -858,6 +861,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     playerRef,
     worldManagerRef,
     pendingSavedLocationRef,
+    overworldLoadingRef: loadingRef,
     pendingScriptedWarpRef,
     warpingRef,
     playerHiddenRef,
@@ -1154,13 +1158,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const debugState = useMemo<DebugState>(() => {
     const npcs = visibleNPCsRef.current;
     const items = visibleItemsRef.current;
+    const allNpcs = objectEventManagerRef.current.getAllNPCs();
+    const objectRuntimeState = objectEventManagerRef.current.getRuntimeState();
 
     return buildDebugState({
       player: playerDebugInfo,
       visibleNPCs: npcs,
+      allNPCs: allNpcs,
       visibleItems: items,
-      totalNPCCount: objectEventManagerRef.current.getAllNPCs().length,
+      totalNPCCount: allNpcs.length,
       totalItemCount: objectEventManagerRef.current.getAllItemBalls().length,
+      offscreenDespawnedNpcIds: objectRuntimeState.offscreenDespawnedNpcIds,
     });
   }, [playerDebugInfo]);
 
@@ -1574,7 +1582,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       const player = playerRef.current;
       if (player) {
-        objectEventManagerRef.current.updateObjectEventSpawnDespawn(player.tileX, player.tileY);
+        objectEventManagerRef.current.updateObjectEventSpawnDespawn(
+          player.tileX,
+          player.tileY,
+          viewportTilesWide,
+          viewportTilesHigh
+        );
       }
       const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
 
@@ -2694,6 +2707,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       worldManagerRef,
       objectEventManagerRef,
       pendingSavedLocationRef,
+      consumePendingObjectEventRuntimeState: () => saveManager.consumePendingObjectEventRuntimeState(),
       pendingScriptedWarpRef,
       warpingRef,
       playerHiddenRef,
@@ -2783,6 +2797,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     };
   }, [mapDebugInfo?.currentMap, selectedMap.id]);
 
+  const getObjectEventRuntimeState = useCallback((): ObjectEventRuntimeState | null => {
+    return objectEventManagerRef.current.getRuntimeState();
+  }, []);
+
   // Handle save completion - show feedback
   const handleSaveComplete = useCallback(() => {
     gamePageLogger.info('Save completed');
@@ -2848,6 +2866,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           <SaveLoadButtons
             canSave={currentState === GameState.OVERWORLD && playerLoadedRef.current}
             getLocationState={getLocationState}
+            getObjectEventRuntimeState={getObjectEventRuntimeState}
             onSave={handleSaveComplete}
             onLoad={handleLoadComplete}
             onError={handleSaveError}

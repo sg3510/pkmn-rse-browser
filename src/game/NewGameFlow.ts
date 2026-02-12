@@ -93,6 +93,8 @@ export interface StoryScriptContext {
   setPlayerDirection?: (dir: 'up' | 'down' | 'left' | 'right') => void;
   /** Get the player's map-local tile position (used by getplayerxy) */
   getPlayerLocalPosition?: () => { x: number; y: number } | null;
+  /** Previous map type from last used warp (C: GetLastUsedWarpMapType). */
+  getLastUsedWarpMapType?: () => string | null;
   /** Set flash/darkness level (0=bright, 7=darkest) for Dewford Gym etc. */
   setFlashLevel?: (level: number) => void;
   /** Get metatile ID at a map-local tile position (used by gym puzzle specials) */

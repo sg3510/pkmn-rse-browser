@@ -9,12 +9,15 @@
 import { useCallback, useRef, useState } from 'react';
 import { saveManager } from '../save/SaveManager';
 import type { LocationState } from '../save/types';
+import type { ObjectEventRuntimeState } from '../types/objectEvents';
 
 interface SaveLoadButtonsProps {
   /** Whether the game is ready for saving (in overworld, player loaded) */
   canSave: boolean;
   /** Get current location state for saving */
   getLocationState: () => LocationState | null;
+  /** Get current object-event runtime state for saving */
+  getObjectEventRuntimeState?: () => ObjectEventRuntimeState | null;
   /** Callback after successful save */
   onSave?: () => void;
   /** Callback after successful load */
@@ -26,6 +29,7 @@ interface SaveLoadButtonsProps {
 export function SaveLoadButtons({
   canSave,
   getLocationState,
+  getObjectEventRuntimeState,
   onSave,
   onLoad,
   onError,
@@ -50,7 +54,8 @@ export function SaveLoadButtons({
     }
 
     setSaveStatus('saving');
-    const result = saveManager.save(0, locationState);
+    const runtimeState = getObjectEventRuntimeState?.() ?? undefined;
+    const result = saveManager.save(0, locationState, runtimeState);
 
     if (result.success) {
       setSaveStatus('success');
@@ -61,7 +66,7 @@ export function SaveLoadButtons({
       onError?.(result.error ?? 'Save failed');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
-  }, [canSave, getLocationState, onSave, onError]);
+  }, [canSave, getLocationState, getObjectEventRuntimeState, onSave, onError]);
 
   // Handle export to JSON
   const handleExportJson = useCallback(() => {
@@ -76,7 +81,8 @@ export function SaveLoadButtons({
         return;
       }
 
-      const snapshotResult = saveManager.save(0, locationState);
+      const runtimeState = getObjectEventRuntimeState?.() ?? undefined;
+      const snapshotResult = saveManager.save(0, locationState, runtimeState);
       if (!snapshotResult.success) {
         onError?.(snapshotResult.error ?? 'Failed to capture current state before export');
         return;
@@ -87,7 +93,7 @@ export function SaveLoadButtons({
     if (!result.success) {
       onError?.(result.error ?? 'Export failed');
     }
-  }, [canSave, getLocationState, onError]);
+  }, [canSave, getLocationState, getObjectEventRuntimeState, onError]);
 
   // Handle file input change (load)
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -11,6 +11,7 @@ import { findPlayerSpawnPosition } from '../../game/findPlayerSpawnPosition';
 import type { PlayerController, TileResolver as PlayerTileResolver } from '../../game/PlayerController';
 import { isSurfableBehavior } from '../../utils/metatileBehaviors';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
+import type { ObjectEventRuntimeState } from '../../types/objectEvents';
 import type { TileResolverFn } from '../../rendering/types';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
 import type { FadeController } from '../../field/FadeController';
@@ -52,6 +53,7 @@ export interface LoadSelectedOverworldMapParams {
   worldManagerRef: MutableRef<WorldManager | null>;
   objectEventManagerRef: MutableRef<ObjectEventManager>;
   pendingSavedLocationRef: MutableRef<LocationState | null>;
+  consumePendingObjectEventRuntimeState?: () => ObjectEventRuntimeState | null;
   pendingScriptedWarpRef: MutableRef<PendingScriptedWarpLike | null>;
   warpingRef: MutableRef<boolean>;
   playerHiddenRef: MutableRef<boolean>;
@@ -93,6 +95,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     worldManagerRef,
     objectEventManagerRef,
     pendingSavedLocationRef,
+    consumePendingObjectEventRuntimeState,
     pendingScriptedWarpRef,
     warpingRef,
     playerHiddenRef,
@@ -184,6 +187,9 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
 
         const savedLocation = pendingSavedLocationRef.current;
         pendingSavedLocationRef.current = null;
+        const pendingObjectEventRuntimeState = savedLocation
+          ? (consumePendingObjectEventRuntimeState?.() ?? null)
+          : null;
 
         if (savedLocation) {
           const savedMapId = savedLocation.location.mapId;
@@ -285,6 +291,10 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
             : undefined,
           scriptRuntimeServices,
         });
+
+        if (pendingObjectEventRuntimeState) {
+          objectEventManagerRef.current.applyRuntimeState(pendingObjectEventRuntimeState);
+        }
 
         const scriptedWarp = pendingScriptedWarpRef.current;
         const completingScriptedWarpLoad = Boolean(

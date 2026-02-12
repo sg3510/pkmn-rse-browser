@@ -230,6 +230,8 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [x] Persist and restore underwater traversal state across scripted warps and save/load
 - [x] Add scalable weather runtime (`WeatherManager` + registry) wired to script commands (`setweather` / `resetweather` / `doweather`)
 - [x] Implement `WEATHER_UNDERWATER_BUBBLES` visual effect (horizontal fog + bubble sprites)
+- [x] Implement remaining field weather visuals (rain/thunder/downpour, snow, ash, sandstorm, fog variants, sunny clouds, shade, drought, abnormal cycle)
+- [x] Add weather runtime generator (`npm run generate:weather-runtime`) to map C callback table to TS weather effect keys in one pass
 - [x] Separate underwater traversal mode from surfing runtime state (`land`/`surf`/`underwater`)
 - [x] Prevent surf blob rendering while underwater in both Canvas and WebGL pipelines
 - [x] Normalize old saves where `isUnderwater=true && isSurfing=true` to underwater traversal on load/import

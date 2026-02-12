@@ -117,6 +117,10 @@ export interface DebugState {
   allVisibleItems: ItemBallObject[];
   totalNPCCount: number;
   totalItemCount: number;
+  /** Optional full NPC list (including hidden/despawned) for runtime debugging */
+  allNPCs?: NPCObject[];
+  /** Optional list of NPC IDs currently despawned by offscreen culling */
+  offscreenDespawnedNpcIds?: string[];
 }
 
 // =============================================================================

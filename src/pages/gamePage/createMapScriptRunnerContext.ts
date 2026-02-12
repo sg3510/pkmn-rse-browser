@@ -15,6 +15,7 @@ interface CreateMapScriptRunnerContextParams {
   player: PlayerController;
   playerHiddenRef: MutableRef<boolean>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
+  lastUsedWarpMapType?: string | null;
 }
 
 export function createMapScriptRunnerContext(
@@ -27,6 +28,7 @@ export function createMapScriptRunnerContext(
     player,
     playerHiddenRef,
     setMapMetatile,
+    lastUsedWarpMapType = null,
   } = params;
 
   const mapLocalToWorld = (
@@ -106,6 +108,6 @@ export function createMapScriptRunnerContext(
       if (!map) return null;
       return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
     },
+    getLastUsedWarpMapType: () => lastUsedWarpMapType,
   };
 }
-

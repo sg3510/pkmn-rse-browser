@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { saveManager } from './SaveManager';
 import type { LocationState } from './types';
+import type { ObjectEventRuntimeState } from '../types/objectEvents';
 
 /** Auto-save interval in milliseconds (60 seconds) */
 const AUTO_SAVE_INTERVAL_MS = 60 * 1000;
@@ -30,6 +31,8 @@ export interface AutoSaveConfig {
 export interface AutoSaveCallbacks {
   /** Get current location state for saving */
   getLocationState: () => LocationState | null;
+  /** Get current object-event runtime state for saving */
+  getObjectEventRuntimeState?: () => ObjectEventRuntimeState | null;
   /** Called after successful save */
   onSave?: () => void;
   /** Called on save error */
@@ -77,7 +80,7 @@ export function useAutoSave(
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { enabled, isOverworld, isReady } = config;
-  const { getLocationState, onSave, onError } = callbacks;
+  const { getLocationState, getObjectEventRuntimeState, onSave, onError } = callbacks;
 
   /**
    * Check if enough time has passed since last save
@@ -107,7 +110,8 @@ export function useAutoSave(
       return false;
     }
 
-    const result = saveManager.save(0, locationState);
+    const runtimeState = getObjectEventRuntimeState?.() ?? undefined;
+    const result = saveManager.save(0, locationState, runtimeState);
 
     if (result.success) {
       lastSaveTimeRef.current = Date.now();
@@ -120,7 +124,7 @@ export function useAutoSave(
       onError?.(result.error ?? 'Unknown error');
       return false;
     }
-  }, [isReady, canSave, getLocationState, onSave, onError]);
+  }, [isReady, canSave, getLocationState, getObjectEventRuntimeState, onSave, onError]);
 
   /**
    * Manual save trigger

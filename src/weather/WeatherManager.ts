@@ -1,7 +1,7 @@
 import type { WorldCameraView } from '../rendering/types';
 import type { WeatherName } from '../data/weather.gen';
 import {
-  getRuntimeWeatherAlias,
+  resolveRuntimeWeather,
   getWeatherEffectFactory,
   resolveCoordEventWeatherToWeatherName,
   resolveWeatherName,
@@ -15,15 +15,25 @@ export interface MapWeatherSource {
 }
 
 export class WeatherManager {
+  private static readonly WEATHER_CYCLE_LENGTH = 4;
+  private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000;
+
   private mapDefaults = new Map<string, WeatherName>();
 
   private currentMapId: string | null = null;
   private savedWeather: WeatherName = WEATHER_NONE_NAME;
   private activeWeather: WeatherName = WEATHER_NONE_NAME;
+  private weatherCycleStage = WeatherManager.defaultWeatherCycleStage();
 
   private effect: WeatherEffect | null = null;
 
   private lastUpdateMs = 0;
+
+  private static defaultWeatherCycleStage(): number {
+    const daysSinceEpoch = Math.floor(Date.now() / WeatherManager.MS_PER_DAY);
+    return ((daysSinceEpoch % WeatherManager.WEATHER_CYCLE_LENGTH) + WeatherManager.WEATHER_CYCLE_LENGTH)
+      % WeatherManager.WEATHER_CYCLE_LENGTH;
+  }
 
   setMapDefaultsFromSources(sources: MapWeatherSource[]): void {
     this.mapDefaults.clear();
@@ -59,8 +69,16 @@ export class WeatherManager {
     this.savedWeather = this.mapDefaults.get(mapId) ?? WEATHER_NONE_NAME;
   }
 
+  setWeatherCycleStage(stage: number): void {
+    if (!Number.isFinite(stage)) return;
+    const normalized = Math.floor(stage);
+    this.weatherCycleStage =
+      ((normalized % WeatherManager.WEATHER_CYCLE_LENGTH) + WeatherManager.WEATHER_CYCLE_LENGTH)
+      % WeatherManager.WEATHER_CYCLE_LENGTH;
+  }
+
   doCurrentWeather(): void {
-    const runtimeWeather = getRuntimeWeatherAlias(this.savedWeather);
+    const runtimeWeather = resolveRuntimeWeather(this.savedWeather, this.weatherCycleStage);
     if (runtimeWeather === this.activeWeather) {
       return;
     }
@@ -101,6 +119,7 @@ export class WeatherManager {
       currentMapId: this.currentMapId,
       savedWeather: this.savedWeather,
       activeWeather: this.activeWeather,
+      weatherCycleStage: this.weatherCycleStage,
     };
   }
 
@@ -110,6 +129,7 @@ export class WeatherManager {
     this.currentMapId = null;
     this.savedWeather = WEATHER_NONE_NAME;
     this.activeWeather = WEATHER_NONE_NAME;
+    this.weatherCycleStage = WeatherManager.defaultWeatherCycleStage();
     this.lastUpdateMs = 0;
   }
 }

@@ -617,6 +617,11 @@ const ObjectsTab: React.FC<{ state: DebugState }> = ({ state }) => {
   // Get player position for reference
   const playerPos = state.player ? `(${state.player.tileX}, ${state.player.tileY})` : 'N/A';
   const facingDir = state.player?.direction ?? 'unknown';
+  const allNpcs = state.allNPCs ?? state.allVisibleNPCs;
+  const offscreenNpcIds = new Set(state.offscreenDespawnedNpcIds ?? []);
+  const hiddenNpcCount = allNpcs.filter((npc) => !npc.visible).length;
+  const offscreenNpcCount = allNpcs.filter((npc) => offscreenNpcIds.has(npc.id)).length;
+  const scriptRemovedNpcCount = allNpcs.filter((npc) => npc.scriptRemoved).length;
 
   // Check if any adjacent tile has objects
   const adj = state.adjacentObjects;
@@ -677,6 +682,23 @@ const ObjectsTab: React.FC<{ state: DebugState }> = ({ state }) => {
         )}
       </Section>
 
+      {/* All NPC Runtime State (including hidden/despawned) */}
+      <Section title={`All NPC Runtime (${allNpcs.length})`} collapsible defaultCollapsed>
+        {allNpcs.length === 0 ? (
+          <div style={{ color: '#666', fontStyle: 'italic' }}>No NPCs loaded</div>
+        ) : (
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {allNpcs.map((npc) => (
+              <NPCRuntimeDisplay
+                key={npc.id}
+                npc={npc}
+                offscreenDespawned={offscreenNpcIds.has(npc.id)}
+              />
+            ))}
+          </div>
+        )}
+      </Section>
+
       {/* All Visible Items */}
       <Section title={`All Visible Items (${state.allVisibleItems.length})`}>
         {state.allVisibleItems.length === 0 ? (
@@ -693,6 +715,9 @@ const ObjectsTab: React.FC<{ state: DebugState }> = ({ state }) => {
       {/* Summary */}
       <Section title="Summary">
         <InfoRow label="Total NPCs" value={state.totalNPCCount} />
+        <InfoRow label="Hidden NPCs" value={hiddenNpcCount} />
+        <InfoRow label="Offscreen NPCs" value={offscreenNpcCount} />
+        <InfoRow label="Script Removed NPCs" value={scriptRemovedNpcCount} />
         <InfoRow label="Total Items" value={state.totalItemCount} />
       </Section>
     </>
@@ -1138,6 +1163,21 @@ const PriorityDebugPanel: React.FC<{ priority: PriorityDebugInfo }> = ({ priorit
   );
 };
 
+const STATE_WATCH_FLAGS = [
+  'FLAG_RESCUED_BIRCH',
+  'FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE',
+  'FLAG_HIDE_ROUTE_101_ZIGZAGOON',
+  'FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG',
+  'FLAG_HIDE_ROUTE_101_BIRCH',
+];
+
+const STATE_WATCH_VARS = [
+  'VAR_ROUTE101_STATE',
+  'VAR_BIRCH_STATE',
+  'VAR_LITTLEROOT_TOWN_STATE',
+  'VAR_LITTLEROOT_INTRO_STATE',
+];
+
 // State tab — flags and variables inspector
 const StateTab: React.FC = () => {
   const [search, setSearch] = useState('');
@@ -1153,6 +1193,14 @@ const StateTab: React.FC = () => {
       .filter(([, v]) => v !== 0)
       .sort(([a], [b]) => a.localeCompare(b));
   }, [refreshKey]);
+  const watchedFlags = useMemo(
+    () => STATE_WATCH_FLAGS.map((flag) => ({ flag, set: gameFlags.isSet(flag) })),
+    [refreshKey]
+  );
+  const watchedVars = useMemo(
+    () => STATE_WATCH_VARS.map((variable) => ({ variable, value: gameVariables.getVar(variable) })),
+    [refreshKey]
+  );
 
   const lowerSearch = search.toLowerCase();
   const filteredFlags = lowerSearch
@@ -1219,6 +1267,31 @@ const StateTab: React.FC = () => {
             boxSizing: 'border-box',
           }}
         />
+      </Section>
+
+      <Section title="Runtime Watch" collapsible>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <div style={{ color: '#888', fontSize: '9px', marginBottom: 4 }}>Variables</div>
+            {watchedVars.map(({ variable, value }) => (
+              <div key={variable} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                <span style={{ color: '#4a9eff', marginRight: 8 }}>{variable.replace('VAR_', '')}</span>
+                <span style={{ color: '#fff', fontWeight: 'bold' }}>{value}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div style={{ color: '#888', fontSize: '9px', marginBottom: 4 }}>Flags</div>
+            {watchedFlags.map(({ flag, set }) => (
+              <div key={flag} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                <span style={{ color: '#4f4', marginRight: 8 }}>{flag.replace('FLAG_', '')}</span>
+                <span style={{ color: set ? '#4f4' : '#666', fontWeight: 'bold' }}>
+                  {set ? 'SET' : 'UNSET'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </Section>
 
       {/* Variables */}
@@ -2020,6 +2093,46 @@ const NPCCompactDisplay: React.FC<{ npc: NPCObject }> = ({ npc }) => {
         <span style={{ color: priorityColor }}>P{priority}</span>{' '}
         {npc.direction[0].toUpperCase()}
       </span>
+    </div>
+  );
+};
+
+const NPCRuntimeDisplay: React.FC<{ npc: NPCObject; offscreenDespawned: boolean }> = ({
+  npc,
+  offscreenDespawned,
+}) => {
+  const hiddenByFlag = Boolean(npc.flag && npc.flag !== '0' && gameFlags.isSet(npc.flag));
+  const states: string[] = [];
+  if (npc.visible) {
+    states.push('VISIBLE');
+  } else if (hiddenByFlag) {
+    states.push('FLAG_HIDDEN');
+  } else {
+    states.push('HIDDEN');
+  }
+  if (offscreenDespawned) states.push('OFFSCREEN');
+  if (npc.scriptRemoved) states.push('SCRIPT_REMOVED');
+  if (npc.spriteHidden) states.push('SPRITE_HIDDEN');
+
+  return (
+    <div
+      style={{
+        padding: '4px 0',
+        borderBottom: '1px solid #333',
+        fontSize: '9px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ color: '#4a9eff' }}>
+          {npc.localId ?? npc.id}
+        </span>
+        <span style={{ color: '#888' }}>
+          ({npc.tileX}, {npc.tileY}) init({npc.initialTileX}, {npc.initialTileY})
+        </span>
+      </div>
+      <div style={{ marginTop: 2, color: '#ccc' }}>
+        {states.join(' | ')}
+      </div>
     </div>
   );
 };

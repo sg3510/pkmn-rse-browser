@@ -30,6 +30,7 @@ export interface RunMapEntryScriptsParams {
   player: PlayerController;
   playerHiddenRef: MutableRef<boolean>;
   pipeline: WebGLRenderPipeline;
+  lastUsedWarpMapType?: string | null;
   mapScriptCache?: Map<string, MapScriptData | null>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   scriptRuntimeServices?: ScriptRuntimeServices;
@@ -84,6 +85,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     player,
     playerHiddenRef,
     pipeline,
+    lastUsedWarpMapType,
     mapScriptCache,
     setMapMetatile,
     scriptRuntimeServices,
@@ -92,6 +94,10 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
   const logPrefix = mode === 'warp' ? '[WARP]' : '[SEAM]';
 
   try {
+    // Synchronize weather manager to destination map before entry scripts run.
+    // This prevents first-frame map-change reset from overriding script weather.
+    scriptRuntimeServices?.weather?.setCurrentMapContext?.(currentMapId);
+
     clearTempFieldEventDataLikeC();
     stepCallbackManager.reset();
     clearFixedHoleWarpTarget();
@@ -115,6 +121,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       player,
       playerHiddenRef,
       setMapMetatile,
+      lastUsedWarpMapType,
     });
 
     const runner = new ScriptRunner(
@@ -167,6 +174,9 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       await runner.execute(mapData.mapScripts.onResume);
       console.log(`${logPrefix} ON_RESUME script executed for ${currentMapId}`);
     }
+
+    // C parity for map-entry scripts that call setweather without explicit doweather.
+    scriptRuntimeServices?.weather?.applyCurrentWeather?.();
   } catch (err) {
     console.warn(`${logPrefix} Map entry script failed:`, err);
   }

@@ -155,7 +155,13 @@ export async function loadObjectEventsFromSnapshot(
         for (const override of overrides) {
           const worldX = mapInst.offsetX + override.x;
           const worldY = mapInst.offsetY + override.y;
-          objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
+          objectEventManager.setNPCPositionByLocalId(
+            mapInst.entry.id,
+            override.localId,
+            worldX,
+            worldY,
+            { updateInitialPosition: true }
+          );
         }
       }
 
@@ -187,7 +193,13 @@ export async function loadObjectEventsFromSnapshot(
     for (const override of overrides) {
       const worldX = mapInst.offsetX + override.x;
       const worldY = mapInst.offsetY + override.y;
-      objectEventManager.setNPCPositionByLocalId(mapInst.entry.id, override.localId, worldX, worldY);
+      objectEventManager.setNPCPositionByLocalId(
+        mapInst.entry.id,
+        override.localId,
+        worldX,
+        worldY,
+        { updateInitialPosition: true }
+      );
     }
   }
 
