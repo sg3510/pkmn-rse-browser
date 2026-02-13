@@ -1,7 +1,7 @@
 ---
 title: Elevation Rendering & NPC Collision Bug Analysis
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-13
 ---
 
 # Elevation Rendering & NPC Collision Bug Analysis
@@ -13,6 +13,12 @@ last_verified: 2026-01-13
 **User Reports:**
 1. **NPC Collision Bug:** Player on a bridge (elevation 4) cannot walk over an NPC below the bridge (elevation 3). GBA allows this.
 2. **Rendering Bug:** Player on a platform (elevation 4) is covered by the platform surface instead of appearing on top of it.
+
+## 2026-02-13 Parity Update
+
+- Moving object collision now checks both object-event `currentCoords` and `previousCoords` for occupancy, matching `DoesObjectCollideWithObjectAt`.
+- NPC-vs-player and NPC-vs-NPC movement collision now treat moving actors as dual-tile occupants (origin + destination while in motion).
+- Elevation compatibility is still evaluated against each object's current elevation (GBA parity).
 
 ---
 

@@ -53,6 +53,12 @@ static void Task_RunPerStepCallback(u8 taskId) {
 
 Maps activate specific callbacks via `ActivatePerStepCallback(callbackId)`.
 
+### TypeScript parity note (2026-02-13)
+
+- `runStepCallbacks` now feeds per-step callbacks from player object-event coords, not manual `tile + direction` math.
+- Callback destination fields (`playerDestLocalX/Y`) use object-event `currentCoords` parity (`PlayerGetDestCoords` behavior).
+- This fixes ledge-jump callback targeting issues where ash/ice effects could briefly target the wrong jumped-over tile.
+
 ---
 
 ## Ash Grass System (Route 113)
