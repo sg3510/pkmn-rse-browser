@@ -1814,7 +1814,33 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         className="game-footer"
         style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
       >
-      Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from <a href="https://github.com/pret/pokeemerald" target="_blank" rel="noopener noreferrer">pret/pokeemerald</a>'s decompile in typescript - with added features like viewport change to be able to play it on a much bigger screen that was possilbe on GBA! There is still a lot to do like battle system!
+        <p>
+          Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from{' '}
+          <a href="https://github.com/pret/pokeemerald" target="_blank" rel="noopener noreferrer">pret/pokeemerald</a>
+          {' '}decompile in typescript - with added features like viewport change to be able to play it on a much bigger
+          screen that was possible on GBA! There is still a lot to do like battle system!
+        </p>
+        <a
+          className="game-footer-repo-link"
+          href="https://github.com/sg3510/pkmn-rse-browser"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open repository: sg3510/pkmn-rse-browser"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+            <path
+              fill="currentColor"
+              d="M12 0.3C5.4 0.3 0 5.7 0 12.4c0 5.3 3.4 9.8 8.2 11.4 0.6 0.1 0.8-0.2 0.8-0.6
+                 0-0.3 0-1.1 0-2.2-3.4 0.8-4.1-1.5-4.1-1.5-0.6-1.4-1.3-1.8-1.3-1.8-1.1-0.8 0.1-0.8 0.1-0.8
+                 1.2 0.1 1.9 1.3 1.9 1.3 1.1 1.9 2.8 1.3 3.5 1 0.1-0.8 0.4-1.3 0.7-1.6-2.7-0.3-5.6-1.4-5.6-6
+                 0-1.3 0.5-2.4 1.2-3.3-0.1-0.3-0.5-1.5 0.1-3.1 0 0 1-0.3 3.3 1.2a11.5 11.5 0 0 1 6 0
+                 c2.3-1.5 3.3-1.2 3.3-1.2 0.6 1.6 0.2 2.8 0.1 3.1 0.8 0.9 1.2 2 1.2 3.3 0 4.7-2.9 5.7-5.7 6
+                 0.5 0.4 0.8 1.1 0.8 2.3 0 1.6 0 2.9 0 3.3 0 0.3 0.2 0.7 0.8 0.6 4.8-1.6 8.2-6.1 8.2-11.4
+                 C24 5.7 18.6 0.3 12 0.3z"
+            />
+          </svg>
+          <span>Repo: sg3510/pkmn-rse-browser</span>
+        </a>
       </footer>
 
       {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}

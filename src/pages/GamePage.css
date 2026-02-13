@@ -125,3 +125,22 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+.game-footer p {
+  margin: 0;
+}
+
+.game-footer-repo-link {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b8d5ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.game-footer-repo-link:hover {
+  color: #d4e4ff;
+  text-decoration: underline;
+}
