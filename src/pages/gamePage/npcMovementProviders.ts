@@ -13,10 +13,8 @@ import {
   isDoorBehavior,
   isSurfableBehavior,
 } from '../../utils/metatileBehaviors';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
 /**
  * Creates NPC movement provider callbacks that close over player/OEM refs.

@@ -7,10 +7,8 @@
 import type { PlayerController, DynamicCollisionChecker } from '../../game/PlayerController';
 import type { WorldManager, WorldSnapshot } from '../../game/WorldManager';
 import type { RotatingGateManager } from '../../game/RotatingGateManager';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
 export function createRotatingGateCollisionChecker(
   playerRef: MutableRef<PlayerController | null>,

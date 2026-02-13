@@ -144,6 +144,9 @@ import {
   incrementRuntimePerfCounter,
   recordRuntimePerfSection,
 } from '../game/perf/runtimePerfRecorder';
+import { useIsTouchMobile } from '../hooks/useIsTouchMobile';
+import { useVirtualKeyboardBridge } from '../hooks/useVirtualKeyboardBridge';
+import { MobileControlDeck } from '../components/controls/MobileControlDeck';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -219,6 +222,22 @@ const EMPTY_DEBUG_STATE: DebugState = {
   allNPCs: [],
   offscreenDespawnedNpcIds: [],
 };
+const MOBILE_MIN_VIEWPORT_TILES_WIDE = 14;
+const MOBILE_MAX_VIEWPORT_TILES_WIDE = 42;
+const MOBILE_MIN_VIEWPORT_TILES_HIGH = 12;
+const MOBILE_MAX_VIEWPORT_TILES_HIGH = 30;
+const MOBILE_MIN_SCREEN_ASPECT = 0.75;
+const MOBILE_MAX_SCREEN_ASPECT = 2.1;
+const MOBILE_MIN_VIEWPORT_ASPECT = 1.0;
+const MOBILE_MAX_VIEWPORT_ASPECT = 16 / 9;
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function lerp(start: number, end: number, amount: number): number {
+  return start + (end - start) * amount;
+}
 
 /**
  * GamePage wrapper - provides DialogProvider context and state machine
@@ -226,16 +245,103 @@ const EMPTY_DEBUG_STATE: DebugState = {
 export function GamePage() {
   const [zoom, setZoom] = useState(2); // Default to 2x zoom for better visibility
   const [currentState, setCurrentState] = useState<GameState>(GameState.TITLE_SCREEN);
+  const isTouchMobile = useIsTouchMobile();
   // Viewport configuration - can be changed via debug panel
   const [viewportConfig, setViewportConfig] = useState<ViewportConfig>(DEFAULT_VIEWPORT_CONFIG);
   // Use state instead of ref so child re-renders when manager is ready
   const [stateManager, setStateManager] = useState<GameStateManager | null>(null);
+  const [windowMetrics, setWindowMetrics] = useState<{ width: number; height: number }>(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+  }));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateWindowMetrics = () => {
+      setWindowMetrics({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    const viewport = window.visualViewport;
+    window.addEventListener('resize', updateWindowMetrics);
+    window.addEventListener('orientationchange', updateWindowMetrics);
+    viewport?.addEventListener('resize', updateWindowMetrics);
+
+    return () => {
+      window.removeEventListener('resize', updateWindowMetrics);
+      window.removeEventListener('orientationchange', updateWindowMetrics);
+      viewport?.removeEventListener('resize', updateWindowMetrics);
+    };
+  }, []);
+
+  const mobileLayout = useMemo(() => {
+    const isLandscape = windowMetrics.width > windowMetrics.height;
+    // Reserve shell + controls area before fitting viewport.
+    const horizontalReservePx = isLandscape ? 360 : 72;
+    const verticalReservePx = isLandscape ? 32 : 290;
+    const fitWidth = Math.max(180, windowMetrics.width - horizontalReservePx);
+    const fitHeight = Math.max(180, windowMetrics.height - verticalReservePx);
+
+    const screenAspect = windowMetrics.width / Math.max(1, windowMetrics.height);
+    const aspectLerp = clampNumber(
+      (screenAspect - MOBILE_MIN_SCREEN_ASPECT) / (MOBILE_MAX_SCREEN_ASPECT - MOBILE_MIN_SCREEN_ASPECT),
+      0,
+      1
+    );
+    // Smoothly shift viewport shape from square-ish to cinema-like as the screen gets wider.
+    const targetViewportAspect = lerp(MOBILE_MIN_VIEWPORT_ASPECT, MOBILE_MAX_VIEWPORT_ASPECT, aspectLerp);
+
+    const maxScreenAxis = Math.max(windowMetrics.width, windowMetrics.height);
+    const targetZoom = clampNumber(1.9 + ((maxScreenAxis - 640) / 900) * 0.8, 1.8, 2.7);
+
+    const maxTilesWideAtTargetZoom = Math.max(
+      MOBILE_MIN_VIEWPORT_TILES_WIDE,
+      Math.floor(fitWidth / (METATILE_SIZE * targetZoom))
+    );
+    const maxTilesHighAtTargetZoom = Math.max(
+      MOBILE_MIN_VIEWPORT_TILES_HIGH,
+      Math.floor(fitHeight / (METATILE_SIZE * targetZoom))
+    );
+
+    let tilesHigh = clampNumber(
+      maxTilesHighAtTargetZoom,
+      MOBILE_MIN_VIEWPORT_TILES_HIGH,
+      MOBILE_MAX_VIEWPORT_TILES_HIGH
+    );
+    let tilesWide = Math.round(tilesHigh * targetViewportAspect);
+
+    if (tilesWide > maxTilesWideAtTargetZoom) {
+      tilesWide = maxTilesWideAtTargetZoom;
+      tilesHigh = Math.round(tilesWide / targetViewportAspect);
+    }
+
+    tilesWide = clampNumber(tilesWide, MOBILE_MIN_VIEWPORT_TILES_WIDE, MOBILE_MAX_VIEWPORT_TILES_WIDE);
+    tilesHigh = clampNumber(tilesHigh, MOBILE_MIN_VIEWPORT_TILES_HIGH, MOBILE_MAX_VIEWPORT_TILES_HIGH);
+
+    const viewportWidthPx = tilesWide * METATILE_SIZE;
+    const viewportHeightPx = tilesHigh * METATILE_SIZE;
+    const fitZoom = Math.min(fitWidth / viewportWidthPx, fitHeight / viewportHeightPx);
+    const zoomForViewport = clampNumber(fitZoom, 0.3, 2.8);
+
+    return {
+      viewportConfig: {
+        tilesWide,
+        tilesHigh,
+      } satisfies ViewportConfig,
+      zoom: zoomForViewport,
+    };
+  }, [windowMetrics.height, windowMetrics.width]);
+
+  const activeViewportConfig = isTouchMobile ? mobileLayout.viewportConfig : viewportConfig;
 
   // Initialize state manager once
   useEffect(() => {
     const manager = new GameStateManager({
       initialState: GameState.TITLE_SCREEN,
-      viewport: viewportConfig,
+      viewport: isTouchMobile ? mobileLayout.viewportConfig : viewportConfig,
       onStateChange: (_from, to) => {
         gamePageLogger.info('State changed to:', to);
         setCurrentState(to);
@@ -264,12 +370,14 @@ export function GamePage() {
   // Update state manager when viewport changes (without resetting state)
   useEffect(() => {
     if (stateManager) {
-      stateManager.setViewport(viewportConfig);
+      stateManager.setViewport(activeViewportConfig);
     }
-  }, [stateManager, viewportConfig]);
+  }, [activeViewportConfig, stateManager]);
 
   // Compute viewport pixel size for responsive menus
-  const viewportPixelSize = getViewportPixelSize(viewportConfig);
+  const viewportPixelSize = getViewportPixelSize(activeViewportConfig);
+  const activeZoom = isTouchMobile ? mobileLayout.zoom : zoom;
+
   const dialogConfig = useMemo(
     () => ({
       // C source passes `canABSpeedUpPrint = TRUE` for Birch speech text
@@ -281,14 +389,15 @@ export function GamePage() {
   );
 
   return (
-    <DialogProvider zoom={zoom} viewport={viewportPixelSize} config={dialogConfig}>
+    <DialogProvider zoom={activeZoom} viewport={viewportPixelSize} config={dialogConfig}>
       <GamePageContent
-        zoom={zoom}
+        zoom={activeZoom}
         onZoomChange={setZoom}
         currentState={currentState}
         stateManager={stateManager}
-        viewportConfig={viewportConfig}
-        onViewportChange={setViewportConfig}
+        viewportConfig={activeViewportConfig}
+        onViewportChange={isTouchMobile ? undefined : setViewportConfig}
+        isTouchMobile={isTouchMobile}
       />
     </DialogProvider>
   );
@@ -300,13 +409,16 @@ interface GamePageContentProps {
   currentState: GameState;
   stateManager: GameStateManager | null;
   viewportConfig: ViewportConfig;
-  onViewportChange: (config: ViewportConfig) => void;
+  onViewportChange?: (config: ViewportConfig) => void;
+  isTouchMobile: boolean;
 }
 
 /**
  * GamePageContent - main game rendering and logic
  */
-function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewportConfig, onViewportChange }: GamePageContentProps) {
+function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewportConfig, onViewportChange, isTouchMobile }: GamePageContentProps) {
+  const { pressButton, releasePointer, releaseAll } = useVirtualKeyboardBridge();
+
   // Compute viewport dimensions from config
   const viewportTilesWide = viewportConfig.tilesWide;
   const viewportTilesHigh = viewportConfig.tilesHigh;
@@ -468,6 +580,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     isOpen: dialogIsOpen,
   } = useDialog();
   dialogIsOpenRef.current = dialogIsOpen;
+
+  useEffect(() => {
+    if (!isTouchMobile) {
+      releaseAll();
+    }
+  }, [isTouchMobile, releaseAll]);
 
   // Expose dialog API to non-React state renderers (e.g. Birch intro state).
   useEffect(() => {
@@ -1701,6 +1819,86 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     height: viewportDisplayHeight,
   };
 
+  const viewportStack = (
+    <div style={{ position: 'relative' }}>
+      {/* WebGL canvas for overworld rendering */}
+      <canvas
+        ref={displayCanvasRef}
+        className="game-canvas"
+        style={{
+          width: viewportDisplayWidth,
+          height: viewportDisplayHeight,
+          imageRendering: 'pixelated',
+          display: currentState === GameState.OVERWORLD ? 'block' : 'none',
+        }}
+      />
+      {/* 2D canvas for state machine rendering (title screen, menus) */}
+      <canvas
+        ref={stateCanvasRef}
+        className="game-canvas"
+        width={viewportPixelSize.width}
+        height={viewportPixelSize.height}
+        style={{
+          width: viewportDisplayWidth,
+          height: viewportDisplayHeight,
+          imageRendering: 'pixelated',
+          display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
+        }}
+      />
+      {/* Dialog box overlay - positioned within viewport */}
+      <DialogBox
+        viewportWidth={defaultDialogViewport.width}
+        viewportHeight={defaultDialogViewport.height}
+      />
+      {/* Menu overlay */}
+      <MenuOverlay />
+    </div>
+  );
+
+  if (isTouchMobile) {
+    return (
+      <div className="game-page game-page--mobile">
+        {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
+
+        <div className="mobile-shell" data-orientation-shell>
+          <div className="mobile-shell__screen-frame">
+            <div className="map-canvas-wrapper map-canvas-wrapper--mobile">
+              {viewportStack}
+            </div>
+          </div>
+          <div className="mobile-shell__hinge" />
+          <div className="mobile-shell__controls-frame">
+            <MobileControlDeck
+              enabled
+              onPress={pressButton}
+              onReleasePointer={releasePointer}
+            />
+          </div>
+        </div>
+
+        {/* Debug Panel - remains available on mobile */}
+        <DebugPanel
+          options={debugOptions}
+          onChange={setDebugOptions}
+          state={debugState}
+          debugCanvasRef={debugCanvasRef}
+          centerTileInfo={getCenterTileInfo()}
+          bottomLayerCanvasRef={bottomLayerCanvasRef}
+          topLayerCanvasRef={topLayerCanvasRef}
+          compositeLayerCanvasRef={compositeLayerCanvasRef}
+          onCopyTileDebug={handleCopyTileDebug}
+          webglState={webglDebugState}
+          maps={renderableMaps}
+          selectedMapId={displayMapId}
+          onMapChange={selectMapForLoad}
+          mapLoading={loading}
+          viewportConfig={viewportConfig}
+          onViewportChange={onViewportChange}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="game-page">
       <div className="game-header">
@@ -1749,39 +1947,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       <div className="map-card">
         <div className="map-canvas-wrapper">
-          <div style={{ position: 'relative' }}>
-            {/* WebGL canvas for overworld rendering */}
-            <canvas
-              ref={displayCanvasRef}
-              className="game-canvas"
-              style={{
-                width: viewportDisplayWidth,
-                height: viewportDisplayHeight,
-                imageRendering: 'pixelated',
-                display: currentState === GameState.OVERWORLD ? 'block' : 'none',
-              }}
-            />
-            {/* 2D canvas for state machine rendering (title screen, menus) */}
-            <canvas
-              ref={stateCanvasRef}
-              className="game-canvas"
-              width={viewportPixelSize.width}
-              height={viewportPixelSize.height}
-              style={{
-                width: viewportDisplayWidth,
-                height: viewportDisplayHeight,
-                imageRendering: 'pixelated',
-                display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
-              }}
-            />
-            {/* Dialog box overlay - positioned within viewport */}
-            <DialogBox
-              viewportWidth={defaultDialogViewport.width}
-              viewportHeight={defaultDialogViewport.height}
-            />
-            {/* Menu overlay */}
-            <MenuOverlay />
-          </div>
+          {viewportStack}
         </div>
         <div className="map-stats">
           <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>

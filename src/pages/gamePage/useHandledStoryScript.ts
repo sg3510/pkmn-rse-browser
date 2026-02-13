@@ -23,10 +23,8 @@ import {
 } from '../../scripting/battleTypes';
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
 import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
 interface PendingScriptedWarpLike {
   mapId: string;

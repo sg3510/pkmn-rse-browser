@@ -11,12 +11,10 @@ import { gameVariables, GAME_VARS } from '../../game/GameVariables';
 import { getItemId, getItemName } from '../../data/items';
 import { bagManager } from '../../game/BagManager';
 import { saveManager } from '../../save/SaveManager';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
-export interface ActionCallbackDeps {
+interface ActionCallbackDeps {
   playerRef: MutableRef<PlayerController | null>;
   worldManagerRef: MutableRef<WorldManager | null>;
   objectEventManagerRef: MutableRef<ObjectEventManager>;

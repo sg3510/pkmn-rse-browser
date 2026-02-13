@@ -1,17 +1,15 @@
-#root {
+.legacy-canvas-page {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-}
-
-.legacy-canvas-page {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   color: #0f1419;
 }
 
-.selector {
+.legacy-canvas-page .selector {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -21,14 +19,14 @@
   padding: 0.9rem 1.1rem;
 }
 
-.selector label {
+.legacy-canvas-page .selector label {
   font-weight: 600;
   font-size: 0.95rem;
   color: #2b3746;
 }
 
-.selector input,
-.selector select {
+.legacy-canvas-page .selector input,
+.legacy-canvas-page .selector select {
   width: 100%;
   padding: 0.55rem 0.65rem;
   border-radius: 8px;
@@ -39,18 +37,18 @@
   font-size: 0.95rem;
 }
 
-.selector select option {
+.legacy-canvas-page .selector select option {
   color: #2b3746;
   background: #fff;
 }
 
-.selector__meta {
+.legacy-canvas-page .selector__meta {
   font-size: 0.95rem;
   color: #2b3746;
   font-family: 'Pokemon Emerald Pro', system-ui, sans-serif;
 }
 
-.card {
+.legacy-canvas-page .card {
   padding: 1rem;
   border-radius: 12px;
   border: 1px solid #d8dee6;
@@ -59,7 +57,7 @@
   justify-content: center;
 }
 
-h1 {
+.legacy-canvas-page h1 {
   margin: 0;
   font-size: 2.2rem;
   font-family: 'Pokemon Emerald Pro', system-ui, sans-serif;

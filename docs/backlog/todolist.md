@@ -209,6 +209,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 - [ ] Define input mapping for A/B/Start/Select with keyboard + gamepad + touch
 - [ ] Ensure input is fully locked during scripts, fades, and modal dialogs
 - [ ] Unify action input (NPC talk, sign read, item pickup) under A-button mapping
+- [x] Add mobile virtual controls (D-pad/A/B/Start/Select) via InputMap-backed synthetic keyboard events with portrait/landscape shell layouts
 
 ### 0.8 Camera Effects & Per-Step Callbacks
 > C ref: `src/field_camera.c`, `src/field_tasks.c`, `src/field_special_scene.c`

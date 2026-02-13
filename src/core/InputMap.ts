@@ -31,7 +31,7 @@ const DEFAULT_BINDINGS: Record<GameButton, string[]> = {
   [GameButton.A]:      ['Enter', 'KeyX', 'Space'],
   [GameButton.B]:      ['KeyZ', 'Escape'],
   [GameButton.START]:  ['Backspace'],
-  [GameButton.SELECT]: [],
+  [GameButton.SELECT]: ['ShiftRight'],
   [GameButton.UP]:     ['ArrowUp', 'KeyW'],
   [GameButton.DOWN]:   ['ArrowDown', 'KeyS'],
   [GameButton.LEFT]:   ['ArrowLeft', 'KeyA'],
@@ -120,6 +120,20 @@ class InputMap {
   /** Get all bound codes (for preventDefault sets). */
   getAllCodes(): Set<string> {
     return new Set(this.reverseMap.keys());
+  }
+
+  /** Get all bound codes for a button. */
+  getBindings(button: GameButton): string[] {
+    const codes = this.bindings.get(button);
+    return codes ? Array.from(codes) : [];
+  }
+
+  /** Get the first bound code for a button (or null if unbound). */
+  getPrimaryBinding(button: GameButton): string | null {
+    const codes = this.bindings.get(button);
+    if (!codes) return null;
+    const first = codes.values().next();
+    return first.done ? null : first.value;
   }
 
   /** Rebind a button to new codes. */

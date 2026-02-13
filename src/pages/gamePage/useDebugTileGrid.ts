@@ -6,9 +6,7 @@ import type { CameraController } from '../../game/CameraController';
 import { describeTile } from '../../components/map/utils';
 import type { DebugTileInfo, DebugOptions, PlayerDebugInfo } from '../../components/debug';
 
-interface MutableRef<T> {
-  current: T;
-}
+import type { MutableRef } from './types';
 
 interface UseDebugTileGridDeps {
   debugOptions: DebugOptions;

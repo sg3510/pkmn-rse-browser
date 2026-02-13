@@ -33,10 +33,8 @@ import type { DebugOptions, PlayerDebugInfo } from '../../components/debug';
 import { createLogger } from '../../utils/logger';
 import { isDebugMode } from '../../utils/debug';
 import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
 const overworldUpdateLogger = createLogger('OVERWORLD_UPDATE');
 

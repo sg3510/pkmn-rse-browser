@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 import { GameState, type GameStateManager } from '../../core';
 import type { LocationState } from '../../save/types';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
-export interface UseOverworldContinueLocationParams {
+interface UseOverworldContinueLocationParams {
   currentState: GameState;
   stateManager: GameStateManager | null;
   selectedMapId: string;

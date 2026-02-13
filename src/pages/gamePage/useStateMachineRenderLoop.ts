@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
 import { GameState, type GameStateManager } from '../../core';
+import type { MutableRef } from './types';
 
-interface MutableRef<T> {
-  current: T;
-}
 
-export interface UseStateMachineRenderLoopParams {
+interface UseStateMachineRenderLoopParams {
   currentState: GameState;
   stateManager: GameStateManager | null;
   zoom: number;

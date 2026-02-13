@@ -27,9 +27,9 @@ import { FIELD_EFFECT_REGISTRY } from '../../data/fieldEffects.gen';
 import { ROTATING_GATE_SHAPE_ASSET_PATHS } from '../../game/RotatingGateManager';
 import { getPlayerSpriteFrameMetrics, getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../../game/playerSprites';
 
-type MutableRef<T> = { current: T };
+import type { MutableRef } from './types';
 
-export interface EnsureOverworldRuntimeAssetsParams {
+interface EnsureOverworldRuntimeAssetsParams {
   player: PlayerController;
   isDebugMode: () => boolean;
   playerLoadedRef: MutableRef<boolean>;
