@@ -26,6 +26,7 @@ export interface ScriptLegendarySpecialServices {
     level: number;
     x: number;
     y: number;
+    // C parity: maps to Task_MoveDeoxysRock tMoveSteps (interpolation frame count).
     stepDelayFrames: number;
     failedReset: boolean;
   }) => void | Promise<void>;
@@ -78,6 +79,9 @@ async function applyDeoxysRockLevel(
 ): Promise<void> {
   await ctx.legendary?.setDeoxysRockPalette?.(level);
   const coords = DEOXYS_ROCK_COORDS[level] ?? DEOXYS_ROCK_COORDS[0];
+  // C parity from ChangeDeoxysRockLevel:
+  // - failure reset uses 60 interpolation frames
+  // - successful movement uses 5 interpolation frames
   const stepDelayFrames = level === 0 ? 60 : 5;
   await ctx.legendary?.setDeoxysRockLevel?.({
     level,

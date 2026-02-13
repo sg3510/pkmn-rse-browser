@@ -884,14 +884,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       return 1;
     };
 
-    const waitRenderFrame = async (): Promise<void> => {
-      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        await new Promise<void>((resolve) => {
-          window.requestAnimationFrame(() => resolve());
-        });
+    const waitForRenderFrame = async (): Promise<void> => {
+      if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
         return;
       }
-      await waitScriptFrames(1);
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
     };
 
     const setRockTintFallbackForLevel = (level: number): void => {
@@ -1121,7 +1120,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           const startPixelY = startTileY * 16 + (npc.subTileY ?? 0);
           const targetPixelX = targetCoords.x * 16;
           const targetPixelY = targetCoords.y * 16;
-          let remainingSteps = Math.max(1, Math.round(request.stepDelayFrames));
+          const deltaPixelsX = targetPixelX - startPixelX;
+          const deltaPixelsY = targetPixelY - startPixelY;
+          const requestedSteps = Math.max(1, Math.round(request.stepDelayFrames));
+          // Keep successful movement quick, but scale interpolation by travel distance so
+          // long jumps do not appear as teleports in the browser runtime.
+          const travelPixels = Math.max(Math.abs(deltaPixelsX), Math.abs(deltaPixelsY));
+          const minimumVisibleSteps = Math.min(28, Math.max(12, Math.ceil(travelPixels / 3)));
+          const interpolatedSteps = request.failedReset
+            ? requestedSteps
+            : Math.max(requestedSteps, minimumVisibleSteps);
+          let remainingSteps = interpolatedSteps;
 
           // C parity with Task_MoveDeoxysRock: fixed-point interpolation over tMoveSteps.
           let curX = startPixelX << 4;
@@ -1136,8 +1145,25 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           npc.isWalking = true;
           npc.renderAboveGrass = true;
 
+          const startedAtMs = performance.now();
+          console.log('[Legendary] Deoxys rock move start', {
+            level: request.level,
+            failedReset: request.failedReset,
+            requestedSteps,
+            interpolatedSteps,
+            startTileX,
+            startTileY,
+            targetTileX: targetCoords.x,
+            targetTileY: targetCoords.y,
+            dxPixels: deltaPixelsX,
+            dyPixels: deltaPixelsY,
+          });
+
+          let stepIndex = 0;
+          let previousStepMs = startedAtMs;
           while (remainingSteps > 0) {
             remainingSteps--;
+            stepIndex++;
             curX += velocityX;
             curY += velocityY;
             const pixelX = curX >> 4;
@@ -1145,7 +1171,24 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             npc.subTileX = pixelX - startTileX * 16;
             npc.subTileY = pixelY - startTileY * 16;
             pipelineRef.current?.invalidate();
-            await waitRenderFrame();
+            // C parity timing: move one interpolation step per GBA frame (60 fps),
+            // independent of display refresh rate.
+            await waitScriptFrames(1);
+            // Ensure the interpolated position is presented in at least one render frame.
+            await waitForRenderFrame();
+
+            const nowMs = performance.now();
+            const stepDeltaMs = Math.round(nowMs - previousStepMs);
+            previousStepMs = nowMs;
+            if (stepIndex === 1 || stepIndex === interpolatedSteps || stepIndex % 4 === 0) {
+              console.log('[Legendary] Deoxys rock move frame', {
+                step: stepIndex,
+                totalSteps: interpolatedSteps,
+                subTileX: npc.subTileX,
+                subTileY: npc.subTileY,
+                stepDeltaMs,
+              });
+            }
           }
 
           npc.tileX = targetCoords.x;
@@ -1156,6 +1199,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           npc.subTileY = 0;
           npc.isWalking = false;
           pipelineRef.current?.invalidate();
+
+          const durationMs = Math.round(performance.now() - startedAtMs);
+          console.log('[Legendary] Deoxys rock move end', {
+            tileX: npc.tileX,
+            tileY: npc.tileY,
+            durationMs,
+          });
         },
         setMewAboveGrass: async (mode) => {
           const mapId = 'MAP_FARAWAY_ISLAND_INTERIOR';
@@ -3224,9 +3274,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Could show a toast notification here
   }, []);
 
+  const viewportDisplayWidth = viewportPixelSize.width * zoom;
+  const viewportDisplayHeight = viewportPixelSize.height * zoom;
+
   const defaultDialogViewport = {
-    width: viewportPixelSize.width * zoom,
-    height: viewportPixelSize.height * zoom,
+    width: viewportDisplayWidth,
+    height: viewportDisplayHeight,
   };
 
   return (
@@ -3283,8 +3336,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               ref={displayCanvasRef}
               className="game-canvas"
               style={{
-                width: viewportPixelSize.width * zoom,
-                height: viewportPixelSize.height * zoom,
+                width: viewportDisplayWidth,
+                height: viewportDisplayHeight,
                 imageRendering: 'pixelated',
                 display: currentState === GameState.OVERWORLD ? 'block' : 'none',
               }}
@@ -3296,8 +3349,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               width={viewportPixelSize.width}
               height={viewportPixelSize.height}
               style={{
-                width: viewportPixelSize.width * zoom,
-                height: viewportPixelSize.height * zoom,
+                width: viewportDisplayWidth,
+                height: viewportDisplayHeight,
                 imageRendering: 'pixelated',
                 display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
               }}
@@ -3338,10 +3391,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         </div>
       </div>
 
-      <footer className="game-footer">
-        Pokemon Emerald TypeScript is a modern browser implementation inspired by the pret pokeemerald
-        decompilation. It includes multiple viewports to explore how Emerald's world is rendered in modern
-        TypeScript.
+      <footer
+        className="game-footer"
+        style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
+      >
+      Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from pret/pokeemerald's decompile in typescript - with added features like viewport change to be able to play it on a much bigger screen that was possilbe on GBA! There is still a lot to do like battle system!
       </footer>
 
       {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}

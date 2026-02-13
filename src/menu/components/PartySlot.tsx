@@ -12,6 +12,7 @@ import { getSpeciesName, getPokemonIconPath } from '../../data/species';
 import { getSpeciesInfo } from '../../data/speciesInfo';
 import { getGenderFromPersonality } from '../../pokemon/stats';
 import { formatLevel } from '../../pokemon/icons';
+import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
 
 export interface PartySlotProps {
   pokemon: PartyPokemon | null;
@@ -73,7 +74,7 @@ export function PartySlot({
   }
 
   const displayName = pokemon.nickname || getSpeciesName(pokemon.species);
-  const iconPath = getPokemonIconPath(pokemon.species);
+  const iconPath = toPublicAssetUrl(getPokemonIconPath(pokemon.species));
   const info = getSpeciesInfo(pokemon.species);
   const gender = info ? getGenderFromPersonality(pokemon.personality, info.genderRatio) : 'genderless';
   const genderSymbol = gender === 'male' ? '♂' : gender === 'female' ? '♀' : '';

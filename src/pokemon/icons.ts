@@ -8,6 +8,7 @@
 import { getPokemonIconPath as getIconPath, hasSpeciesIcon } from '../data/species';
 import { getSpeciesInfo } from '../data/speciesInfo';
 import { getGenderFromPersonality } from './stats';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 // Re-export the basic icon path function
 export { getPokemonIconPath, hasSpeciesIcon } from '../data/species';
@@ -30,7 +31,7 @@ export function getPokemonIconStyle(
 ): React.CSSProperties {
   const { animated = true, grayscale = false, size = 32 } = config;
 
-  const iconPath = getIconPath(speciesId);
+  const iconPath = toPublicAssetUrl(getIconPath(speciesId));
 
   return {
     width: `${size}px`,
@@ -101,7 +102,7 @@ export function hasIcon(speciesId: number): boolean {
 /**
  * Fallback icon path (egg icon)
  */
-export const FALLBACK_ICON = '/pokeemerald/graphics/pokemon/egg/icon.png';
+export const FALLBACK_ICON = toPublicAssetUrl('/pokeemerald/graphics/pokemon/egg/icon.png');
 
 /**
  * Get type color for display

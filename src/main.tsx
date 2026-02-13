@@ -48,16 +48,8 @@ function ensurePublicAssetFontFaces(): void {
 }
 
 @font-face {
-  font-family: 'PKMN RSEU';
-  src: url('${toPublicAssetUrl('/fonts/PKMNRSEU.FON')}');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Pokemon GB';
-  src: url('${toPublicAssetUrl('/fonts/PKMNRSEU.FON')}');
+  src: url('${toPublicAssetUrl('/fonts/pokemon-rs.otf')}') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;

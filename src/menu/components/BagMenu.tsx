@@ -214,7 +214,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
                 >
                   <img
                     className="item-icon"
-                    src={getItemIconPath(item.itemId) ?? fallbackItemIconPath}
+                    src={toPublicAssetUrl(getItemIconPath(item.itemId) ?? fallbackItemIconPath)}
                     alt=""
                   />
                   <span className="item-name">{getItemName(item.itemId)}</span>
