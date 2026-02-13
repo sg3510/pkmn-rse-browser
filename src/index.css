@@ -20,6 +20,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   overflow-x: hidden;
+  background: #0f1115;
 }
 
 a {
