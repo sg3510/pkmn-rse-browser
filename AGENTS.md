@@ -1,26 +1,43 @@
 # AGENT INSTRUCTIONS
 
-## Scope
-This README is agent-facing. Follow these instructions when working in this repo.
+Agent-facing instructions for working in this repo. See [docs/README.md](docs/README.md) for project overview.
+
+## Key paths
+
+| Path | Description |
+|---|---|
+| `docs/` | All documentation (features, guides, architecture, backlog) |
+| `docs/README.md` | Project README |
+| `docs/backlog/todolist.md` | Master backlog |
+| `public/pokeemerald/` | Original C source (read-only reference — **never edit**) |
+| `src/` | TypeScript source |
 
 ## Documentation-first workflow
-- Explore `docs/` before implementing or changing behavior.
-- Use the doc status frontmatter to understand what is implemented vs planned.
 
-## GBA C parity (1:1 features)
-- When implementing a feature that should match the original game 1:1, read the base C source in `public/pokeemerald/` first.
-- Understand how the C code behaves before translating to TypeScript.
-- The C code is also the primary reference when debugging TypeScript for 1:1 features.
+- Read `docs/` before implementing or changing behavior.
+- Use doc frontmatter (`status`, `last_verified`) to distinguish implemented vs planned.
+- When referencing docs from code comments or other docs, use `docs/` paths.
 
-## Translation guidance (C -> TypeScript)
-- When writing TypeScript that is a translation of C, add a short comment at the top of the file that points to the original C files.
-- Prefer the original hierarchy and structure from the C code unless it clearly does not make sense in TypeScript.
+## C-to-TypeScript parity
+
+For any feature that should match the original GBA game 1:1:
+
+1. Read the C source in `public/pokeemerald/` first — understand behavior before translating.
+2. Use the C code as the primary debugging reference.
+3. Prefer the original hierarchy and structure unless it clearly doesn't fit TypeScript.
+4. Add a comment at the top of translated files pointing to the original C source.
+
+## Code reuse
+
+- Search the whole codebase (`src/utils/`, `src/scripting/`, existing managers) before writing new code.
+- Use generators (e.g. `scripts/generate-scripts.cjs`) for data-driven output.
+- Prefer modular, scalable abstractions over one-off implementations.
+
+## Save compatibility
+
+- When implementing a feature that uses persistent state from the original C code, ensure it can be saved to and loaded from save files.
+- Purely temporary runtime state does not need save support.
 
 ## Task tracking
-- When working from any TODO list, always mark tasks as complete when finished.
 
-## Docs location
-- All documentation lives under `docs/`.
-- If you reference a doc from code comments or other docs, use the `docs/` path.
-- the main readme is in docs/README.md
-- the main backlog is in docs/backlog/todolist.md
+- When working from any TODO list, mark tasks as complete when finished.

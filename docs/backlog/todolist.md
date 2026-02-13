@@ -5,6 +5,8 @@ last_verified: 2026-02-13
 goal: "Make the game playable from pressing NEW GAME through choosing a starter and winning the first battle"
 ---
 
+Status markers: done [x], part done [-], not done [ ]     
+
 # New Game to First Pokemon - Master Backlog
 
 ## Goal
