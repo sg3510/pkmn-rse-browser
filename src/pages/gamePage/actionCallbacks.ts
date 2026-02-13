@@ -20,7 +20,7 @@ export interface ActionCallbackDeps {
   playerRef: MutableRef<PlayerController | null>;
   worldManagerRef: MutableRef<WorldManager | null>;
   objectEventManagerRef: MutableRef<ObjectEventManager>;
-  runHandledStoryScript: (script: string, mapId?: string) => Promise<void>;
+  runHandledStoryScript: (script: string, mapId?: string) => Promise<boolean | void>;
   showMessage: (message: string) => Promise<void>;
 }
 

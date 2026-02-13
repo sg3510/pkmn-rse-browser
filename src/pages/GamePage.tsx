@@ -806,20 +806,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     });
   }, [playerDebugInfo]);
 
-  // Debug tile grid (3x3 canvas, center tile info, copy to clipboard)
-  const { getCenterTileInfo, handleCopyTileDebug } = useDebugTileGrid({
-    debugOptions,
-    playerDebugInfo,
-    playerRef,
-    worldSnapshotRef,
-    cameraRef,
-    viewportPixelSizeRef,
-    debugCanvasRef,
-    webglCanvasRef,
-    debugTilesRef,
-    getRenderContextFromSnapshot,
-  });
-
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
 
@@ -928,6 +914,20 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     renderContextCacheRef.current = { snapshot, context };
     return context;
   }, []);
+
+  // Debug tile grid (3x3 canvas, center tile info, copy to clipboard)
+  const { getCenterTileInfo, handleCopyTileDebug } = useDebugTileGrid({
+    debugOptions,
+    playerDebugInfo,
+    playerRef,
+    worldSnapshotRef,
+    cameraRef,
+    viewportPixelSizeRef,
+    debugCanvasRef,
+    webglCanvasRef,
+    debugTilesRef,
+    getRenderContextFromSnapshot,
+  });
 
   const ensureOverworldRuntimeAssets = useCallback(() => {
     const player = playerRef.current;
@@ -1247,42 +1247,41 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           });
         }
 
-          // Update arrow overlay based on current tile behavior
-          const snapshot = worldSnapshotRef.current;
-          if (snapshot && !warpHandlerRef.current.isInProgress()) {
-            const renderContext = getRenderContextFromSnapshot(snapshot);
-            if (renderContext) {
-              const resolved = resolveTileAt(renderContext, player.tileX, player.tileY);
-              const behavior = resolved?.attributes?.behavior ?? 0;
-              arrowOverlay.update(
-                player.dir as CardinalDirection,
-                player.tileX,
-                player.tileY,
-                behavior,
-                nowTime,
-                doorSequencer.isActive()
-              );
-            }
+        // Update arrow overlay based on current tile behavior
+        const snapshot = worldSnapshotRef.current;
+        if (snapshot && !warpHandlerRef.current.isInProgress()) {
+          const renderContext = getRenderContextFromSnapshot(snapshot);
+          if (renderContext) {
+            const resolved = resolveTileAt(renderContext, player.tileX, player.tileY);
+            const behavior = resolved?.attributes?.behavior ?? 0;
+            arrowOverlay.update(
+              player.dir as CardinalDirection,
+              player.tileX,
+              player.tileY,
+              behavior,
+              nowTime,
+              doorSequencer.isActive()
+            );
           }
-
-          // Check for warps using shared WarpTriggerProcessor
-          checkWarpTriggers({
-            player,
-            snapshot,
-            nowTime,
-            storyScriptRunningRef,
-            dialogIsOpenRef,
-            pendingScriptedWarpRef,
-            warpHandlerRef,
-            warpingRef,
-            pendingWarpRef,
-            fadeControllerRef,
-            getRenderContextFromSnapshot,
-            doorSequencer,
-            arrowOverlay,
-            lavaridgeWarpSequencer,
-          });
         }
+
+        // Check for warps using shared WarpTriggerProcessor
+        checkWarpTriggers({
+          player,
+          snapshot,
+          nowTime,
+          storyScriptRunningRef,
+          dialogIsOpenRef,
+          pendingScriptedWarpRef,
+          warpHandlerRef,
+          warpingRef,
+          pendingWarpRef,
+          fadeControllerRef,
+          getRenderContextFromSnapshot,
+          doorSequencer,
+          arrowOverlay,
+          lavaridgeWarpSequencer,
+        });
       }
 
       // Advance door sequences, Lavaridge warps, scripted warps, and pending warp execution

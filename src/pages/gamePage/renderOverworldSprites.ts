@@ -12,7 +12,7 @@ import type { WebGLFadeRenderer } from '../../rendering/webgl/WebGLFadeRenderer'
 import type { WebGLScanlineRenderer } from '../../rendering/webgl/WebGLScanlineRenderer';
 import type { FadeController } from '../../field/FadeController';
 import type { DoorAnimationManager } from '../../field/DoorAnimationManager';
-import type { DoorSequencer } from '../../field/DoorSequencer';
+import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
 import type { ArrowWarpOverlay } from '../../field/ArrowWarpOverlay';
 import type { RotatingGateManager } from '../../field/RotatingGateManager';
 import type { WorldManager } from '../../game/WorldManager';
@@ -72,7 +72,7 @@ export interface RenderOverworldSpritesParams {
 
   // Overlays & animations
   doorAnimations: DoorAnimationManager;
-  doorSequencer: DoorSequencer;
+  doorSequencer: UseDoorSequencerReturn;
   arrowOverlay: ArrowWarpOverlay;
 
   // Functions
