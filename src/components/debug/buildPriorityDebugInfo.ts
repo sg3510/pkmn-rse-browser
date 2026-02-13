@@ -6,7 +6,7 @@ import {
   getPlayerSortKey,
 } from '../../game/playerCoords';
 import type { SpriteInstance } from '../../rendering/types';
-import type { PriorityDebugInfo, SpriteSortDebugInfo } from '../../components/debug';
+import type { PriorityDebugInfo, SpriteSortDebugInfo } from './types';
 
 export interface BuildPriorityDebugInfoParams {
   player: PlayerController;

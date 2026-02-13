@@ -1,7 +1,5 @@
-import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
-import type { WorldSnapshot } from '../../game/WorldManager';
-import type { PlayerController } from '../../game/PlayerController';
-import { FADE_TIMING } from '../../field/types';
+import type { WebGLRenderPipeline } from '../../../rendering/webgl/WebGLRenderPipeline';
+import type { WorldSnapshot } from '../../WorldManager';
 
 interface MutableRef<T> {
   current: T;
@@ -80,30 +78,4 @@ export function setMapMetatileInSnapshot(
     tile.collision = collision;
   }
   return true;
-}
-
-export interface InputUnlockGuards {
-  warpingRef: MutableRef<boolean>;
-  storyScriptRunningRef: MutableRef<boolean>;
-  dialogIsOpenRef: MutableRef<boolean>;
-}
-
-/**
- * Schedules player input unlock after a delay, guarded by warp/script/dialog state.
- * Replaces 4 identical setTimeout + guard blocks.
- */
-export function scheduleInputUnlock(
-  player: PlayerController,
-  guards: InputUnlockGuards,
-  delayMs: number = FADE_TIMING.DEFAULT_DURATION_MS
-): void {
-  setTimeout(() => {
-    if (
-      !guards.warpingRef.current
-      && !guards.storyScriptRunningRef.current
-      && !guards.dialogIsOpenRef.current
-    ) {
-      player.unlockInput();
-    }
-  }, delayMs);
 }

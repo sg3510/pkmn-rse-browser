@@ -1,25 +1,25 @@
-import type { MapIndexEntry } from '../../types/maps';
-import type { CameraController } from '../../game/CameraController';
-import { createWebGLCameraController } from '../../game/CameraController';
-import { WorldManager, type WorldSnapshot } from '../../game/WorldManager';
+import type { MapIndexEntry } from '../../../types/maps';
+import type { CameraController } from '../../CameraController';
+import { createWebGLCameraController } from '../../CameraController';
+import { WorldManager, type WorldSnapshot } from '../../WorldManager';
 import {
   createWorldManagerEventHandler,
   createGpuUploadCallback,
-} from '../../game/worldManagerEvents';
-import { setupObjectCollisionChecker } from '../../game/setupObjectCollisionChecker';
-import { findPlayerSpawnPosition } from '../../game/findPlayerSpawnPosition';
-import type { PlayerController, TileResolver as PlayerTileResolver } from '../../game/PlayerController';
-import { isSurfableBehavior } from '../../utils/metatileBehaviors';
-import type { ObjectEventManager } from '../../game/ObjectEventManager';
-import type { ObjectEventRuntimeState } from '../../types/objectEvents';
-import type { TileResolverFn } from '../../rendering/types';
-import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
-import type { FadeController } from '../../field/FadeController';
-import type { WarpHandler } from '../../field/WarpHandler';
-import { FADE_TIMING } from '../../field/types';
-import type { LocationState } from '../../save/types';
-import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
-import { runMapEntryScripts } from './runMapEntryScripts';
+} from '../../worldManagerEvents';
+import { setupObjectCollisionChecker } from '../../setupObjectCollisionChecker';
+import { findPlayerSpawnPosition } from '../../findPlayerSpawnPosition';
+import type { PlayerController, TileResolver as PlayerTileResolver } from '../../PlayerController';
+import { isSurfableBehavior } from '../../../utils/metatileBehaviors';
+import type { ObjectEventManager } from '../../ObjectEventManager';
+import type { ObjectEventRuntimeState } from '../../../types/objectEvents';
+import type { TileResolverFn } from '../../../rendering/types';
+import type { WebGLRenderPipeline } from '../../../rendering/webgl/WebGLRenderPipeline';
+import type { FadeController } from '../../../field/FadeController';
+import type { WarpHandler } from '../../../field/WarpHandler';
+import { FADE_TIMING } from '../../../field/types';
+import type { LocationState } from '../../../save/types';
+import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
+import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
 
 interface MutableRef<T> {
   current: T;
@@ -76,7 +76,6 @@ export interface LoadSelectedOverworldMapParams {
     options?: { preserveExistingMapRuntimeState?: boolean }
   ) => Promise<void>;
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
-  applyStoryTransitionObjectParity: (mapId: string) => void;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   scriptRuntimeServices?: ScriptRuntimeServices;
 }
@@ -115,7 +114,6 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
     initializeWorldFromSnapshot,
-    applyStoryTransitionObjectParity,
     setMapMetatile,
     scriptRuntimeServices,
   } = params;
@@ -270,8 +268,6 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           y: player.tileY,
         };
         lastPlayerMapIdRef.current = playerMapId;
-
-        applyStoryTransitionObjectParity(playerMapId);
 
         // Run ON_LOAD / ON_TRANSITION / ON_WARP_INTO scripts so that
         // scripted warps (e.g. warp command) get the same map-entry

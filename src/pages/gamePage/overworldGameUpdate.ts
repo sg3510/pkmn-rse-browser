@@ -23,7 +23,7 @@ import { isSurfableBehavior } from '../../utils/metatileBehaviors';
 import { gameVariables, GAME_VARS } from '../../game/GameVariables';
 import { getMapScripts } from '../../data/scripts';
 import { shouldRunCoordEvent } from '../../game/NewGameFlow';
-import { scheduleInputUnlock, type InputUnlockGuards } from './mapMetatileUtils';
+import { scheduleInputUnlock, type InputUnlockGuards } from '../../game/overworld/inputLock/scheduleInputUnlock';
 import type { WeatherManager } from '../../weather/WeatherManager';
 import { stepCallbackManager } from '../../game/StepCallbackManager';
 import { processWarpTrigger, updateWarpHandlerTile } from '../../game/WarpTriggerProcessor';

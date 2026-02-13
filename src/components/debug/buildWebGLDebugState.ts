@@ -11,7 +11,7 @@ import type {
   TruckBoxRuntimeDebugInfo,
   WarpDebugInfo,
   WebGLDebugState,
-} from '../../components/debug/types';
+} from './types';
 
 const TRUCK_MAP_ID = 'MAP_INSIDE_OF_TRUCK';
 const TRUCK_BOX_LOCAL_IDS = [

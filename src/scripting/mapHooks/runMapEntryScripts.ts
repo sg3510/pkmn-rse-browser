@@ -18,6 +18,7 @@ import type { ObjectEventManager } from '../../game/ObjectEventManager';
 import type { PlayerController } from '../../game/PlayerController';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
 import { createMapScriptRunnerContext } from './createMapScriptRunnerContext';
+import { applyObjectEventOverridesForMap } from '../../game/overworld/applyObjectEventOverridesForMap';
 
 interface MutableRef<T> {
   current: T;
@@ -153,6 +154,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     // Our object events are already parsed, so reconcile this map from flags
     // at this boundary to mirror spawn-time flag checks.
     if (ranPreSpawnMapScript) {
+      applyObjectEventOverridesForMap(currentMapId, snapshot, objectEventManager);
       objectEventManager.refreshMapLoadState(currentMapId);
     }
 

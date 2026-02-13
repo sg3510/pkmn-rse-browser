@@ -4,17 +4,17 @@
  *
  * Extracted from GamePage.tsx to reduce file size.
  */
-import type { WorldSnapshot } from '../../game/WorldManager';
-import type { ObjectEventManager } from '../../game/ObjectEventManager';
-import type { PlayerController } from '../../game/PlayerController';
-import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
-import type { WebGLSpriteRenderer } from '../../rendering/webgl/WebGLSpriteRenderer';
-import type { MapScriptData } from '../../data/scripts/types';
-import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
-import { npcSpriteCache } from '../../game/npc/NPCSpriteLoader';
-import { npcAnimationManager } from '../../game/npc/NPCAnimationEngine';
-import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../../game/loadObjectEventsFromSnapshot';
-import { runMapEntryScripts } from './runMapEntryScripts';
+import type { WorldSnapshot } from '../../WorldManager';
+import type { ObjectEventManager } from '../../ObjectEventManager';
+import type { PlayerController } from '../../PlayerController';
+import type { WebGLRenderPipeline } from '../../../rendering/webgl/WebGLRenderPipeline';
+import type { WebGLSpriteRenderer } from '../../../rendering/webgl/WebGLSpriteRenderer';
+import type { MapScriptData } from '../../../data/scripts/types';
+import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
+import { npcSpriteCache } from '../../npc/NPCSpriteLoader';
+import { npcAnimationManager } from '../../npc/NPCAnimationEngine';
+import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../../loadObjectEventsFromSnapshot';
+import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
 
 interface MutableRef<T> {
   current: T;
@@ -34,7 +34,6 @@ export interface SeamTransitionScriptsParams {
   seamTransitionScriptsInFlightRef: MutableRef<Set<string>>;
   setMapMetatile: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   scriptRuntimeServices: ScriptRuntimeServices;
-  applyStoryTransitionObjectParity: (mapId: string) => void;
 }
 
 export async function executeSeamTransitionScripts(params: SeamTransitionScriptsParams): Promise<void> {
@@ -52,7 +51,6 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
     seamTransitionScriptsInFlightRef,
     setMapMetatile,
     scriptRuntimeServices,
-    applyStoryTransitionObjectParity,
   } = params;
 
   if (seamTransitionScriptsInFlightRef.current.has(mapId)) {
@@ -81,7 +79,6 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
       clearAnimations: () => npcAnimationManager.clear(),
       preserveExistingMapRuntimeState: true,
     });
-    applyStoryTransitionObjectParity(mapId);
     await runMapEntryScripts({
       currentMapId: mapId,
       snapshot,

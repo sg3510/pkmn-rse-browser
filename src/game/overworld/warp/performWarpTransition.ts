@@ -1,21 +1,21 @@
-import type { PlayerController, TileResolver as PlayerTileResolver } from '../../game/PlayerController';
-import { executeWarp, type WarpExecutorDeps, type WarpDestination } from '../../game/WarpExecutor';
-import { resolveTileAt, type WarpTrigger } from '../../components/map/utils';
-import type { WorldManager, WorldSnapshot } from '../../game/WorldManager';
-import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
-import type { ObjectEventManager } from '../../game/ObjectEventManager';
-import type { RenderContext } from '../../rendering/types';
-import type { WarpHandler } from '../../field/WarpHandler';
-import type { FadeController } from '../../field/FadeController';
-import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
-import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
-import type { LavaridgeWarpSequencer } from '../../game/LavaridgeWarpSequencer';
-import type { WarpDebugInfo } from '../../components/debug';
-import type { MapScriptData } from '../../data/scripts/types';
-import { runMapEntryScripts } from './runMapEntryScripts';
-import { handleSpecialWarpArrival } from '../../game/SpecialWarpBehaviorRegistry';
-import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
-import { isSurfableBehavior } from '../../utils/metatileBehaviors';
+import type { PlayerController, TileResolver as PlayerTileResolver } from '../../PlayerController';
+import { executeWarp, type WarpExecutorDeps, type WarpDestination } from '../../WarpExecutor';
+import { resolveTileAt, type WarpTrigger } from '../../../components/map/utils';
+import type { WorldManager, WorldSnapshot } from '../../WorldManager';
+import type { WebGLRenderPipeline } from '../../../rendering/webgl/WebGLRenderPipeline';
+import type { ObjectEventManager } from '../../ObjectEventManager';
+import type { RenderContext } from '../../../rendering/types';
+import type { WarpHandler } from '../../../field/WarpHandler';
+import type { FadeController } from '../../../field/FadeController';
+import type { UseDoorAnimationsReturn } from '../../../hooks/useDoorAnimations';
+import type { UseDoorSequencerReturn } from '../../../hooks/useDoorSequencer';
+import type { LavaridgeWarpSequencer } from '../../LavaridgeWarpSequencer';
+import type { WarpDebugInfo } from '../../../components/debug';
+import type { MapScriptData } from '../../../data/scripts/types';
+import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
+import { handleSpecialWarpArrival } from '../../SpecialWarpBehaviorRegistry';
+import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
+import { isSurfableBehavior } from '../../../utils/metatileBehaviors';
 
 interface MutableRef<T> {
   current: T;
@@ -41,7 +41,6 @@ export interface PerformWarpTransitionParams {
   playerHiddenRef: MutableRef<boolean>;
   doorAnimations: UseDoorAnimationsReturn;
   lavaridgeWarpSequencer: LavaridgeWarpSequencer;
-  applyStoryTransitionObjectParity: (mapId: string) => void;
   npcMovement: NpcMovementLike;
   setWarpDebugInfo: (info: WarpDebugInfo) => void;
   resolverVersion: number;
@@ -83,7 +82,6 @@ export async function performWarpTransition(
     playerHiddenRef,
     doorAnimations,
     lavaridgeWarpSequencer,
-    applyStoryTransitionObjectParity,
     npcMovement,
     setWarpDebugInfo,
     resolverVersion,
@@ -225,8 +223,6 @@ export async function performWarpTransition(
       x: player.tileX,
       y: player.tileY,
     });
-
-    applyStoryTransitionObjectParity(currentMapId);
 
     // Run generated ON_LOAD, ON_TRANSITION, and ON_WARP_INTO scripts for the destination map.
     await runMapEntryScripts({

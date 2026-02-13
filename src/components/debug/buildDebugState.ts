@@ -2,7 +2,7 @@ import type {
   DebugState,
   PlayerDebugInfo,
   ObjectsAtTileInfo,
-} from '../../components/debug';
+} from './types';
 import type { ItemBallObject, NPCObject } from '../../types/objectEvents';
 
 export interface BuildDebugStateParams {

@@ -2,31 +2,30 @@
  * Extracted sprite rendering + compositing from the GamePage render loop.
  * Builds sprite batches, handles rotating gates, and composites the final WebGL frame.
  */
-import type { SpriteInstance } from '../../rendering/types';
+import type { SpriteInstance, WorldCameraView } from '../types';
 import type { WorldSnapshot } from '../../game/WorldManager';
 import type { PlayerController } from '../../game/PlayerController';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
-import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
-import type { WebGLSpriteRenderer } from '../../rendering/webgl/WebGLSpriteRenderer';
-import type { WebGLFadeRenderer } from '../../rendering/webgl/WebGLFadeRenderer';
-import type { WebGLScanlineRenderer } from '../../rendering/webgl/WebGLScanlineRenderer';
+import type { WebGLRenderPipeline } from '../webgl/WebGLRenderPipeline';
+import type { WebGLSpriteRenderer } from '../webgl/WebGLSpriteRenderer';
+import type { WebGLFadeRenderer } from '../webgl/WebGLFadeRenderer';
+import type { WebGLScanlineRenderer } from '../webgl/WebGLScanlineRenderer';
 import type { FadeController } from '../../field/FadeController';
-import type { DoorAnimationManager } from '../../field/DoorAnimationManager';
+import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
 import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
-import type { ArrowWarpOverlay } from '../../field/ArrowWarpOverlay';
-import type { RotatingGateManager } from '../../field/RotatingGateManager';
+import type { UseArrowOverlayReturn } from '../../hooks/useArrowOverlay';
+import type { RotatingGateManager } from '../../game/RotatingGateManager';
 import type { WorldManager } from '../../game/WorldManager';
 import type { WeatherManager } from '../../weather/WeatherManager';
-import type { TilesetRuntime } from '../../game/TilesetRuntime';
-import type { WorldCameraView } from '../../game/buildWorldCameraView';
-import type { ReflectionState } from '../../rendering/reflectionState';
-import type { ReflectionTileGridDebugInfo, PriorityDebugInfo } from '../../components/debug';
-import { calculateSortKey, getRotatingGateAtlasName } from '../../rendering/spriteUtils';
+import type { TilesetRuntime } from '../../utils/tilesetUtils';
+import type { ReflectionState } from '../../components/map/types';
+import type { ReflectionTileGridDebugInfo, PriorityDebugInfo } from '../../components/debug/types';
+import { calculateSortKey, getRotatingGateAtlasName } from '../spriteUtils';
 import { getReflectionTileGridDebug } from '../../components/debug';
-import { compositeWebGLFrame } from '../../rendering/compositeWebGLFrame';
-import { buildPriorityDebugInfo } from './buildPriorityDebugInfo';
+import { compositeWebGLFrame } from '../compositeWebGLFrame';
+import { buildPriorityDebugInfo } from '../../components/debug/buildPriorityDebugInfo';
 import { menuStateManager } from '../../menu';
-import type { PendingScriptedWarp } from './overworldGameUpdate';
+import type { PendingScriptedWarp } from '../../pages/gamePage/overworldGameUpdate';
 
 interface MutableRef<T> {
   current: T;
@@ -71,9 +70,9 @@ export interface RenderOverworldSpritesParams {
   }>;
 
   // Overlays & animations
-  doorAnimations: DoorAnimationManager;
+  doorAnimations: UseDoorAnimationsReturn;
   doorSequencer: UseDoorSequencerReturn;
-  arrowOverlay: ArrowWarpOverlay;
+  arrowOverlay: UseArrowOverlayReturn;
 
   // Functions
   buildSprites: (params: any) => any;

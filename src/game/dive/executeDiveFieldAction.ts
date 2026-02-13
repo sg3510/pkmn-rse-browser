@@ -2,22 +2,33 @@
  * Extracted dive field action handler from GamePage.
  * Resolves dive warp destination, builds saved location state, and queues a scripted warp.
  */
-import type { DiveActionResolution } from '../../game/fieldActions/FieldActionResolver';
-import type { PlayerController } from '../../game/PlayerController';
-import type { WorldSnapshot } from '../../game/WorldManager';
-import type { ObjectEventManager } from '../../game/ObjectEventManager';
+import type { DiveActionResolution } from '../fieldActions/FieldActionResolver';
+import type { PlayerController } from '../PlayerController';
+import type { WorldSnapshot } from '../WorldManager';
+import type { ObjectEventManager } from '../ObjectEventManager';
 import type { MapScriptData } from '../../data/scripts/types';
 import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
 import type { MapIndexEntry } from '../../types/maps';
 import type { LocationState } from '../../save/types';
-import { resolveDiveWarp } from '../../game/dive/DiveWarpResolver';
-import { clearFixedDiveWarpTarget } from '../../game/FixedDiveWarp';
-import { runMapDiveScript } from './runMapDiveScript';
-import type { PendingScriptedWarp } from './overworldGameUpdate';
-import type { SetMapMetatileAndInvalidateFn } from './mapMetatileUtils';
+import { resolveDiveWarp } from './DiveWarpResolver';
+import { clearFixedDiveWarpTarget } from '../FixedDiveWarp';
+import { runMapDiveScript } from '../../scripting/mapHooks/runMapDiveScript';
+import type { SetMapMetatileAndInvalidateFn } from '../overworld/metatile/mapMetatileUtils';
 
 interface MutableRef<T> {
   current: T;
+}
+
+interface PendingScriptedWarpLike {
+  mapId: string;
+  x: number;
+  y: number;
+  direction: 'up' | 'down' | 'left' | 'right';
+  phase: 'pending' | 'fading' | 'loading';
+  traversal?: {
+    surfing: boolean;
+    underwater: boolean;
+  };
 }
 
 function isUnderwaterMapType(mapType: string | null): boolean {
@@ -34,7 +45,7 @@ export interface ExecuteDiveFieldActionParams {
   setMapMetatileAndInvalidate: SetMapMetatileAndInvalidateFn;
   scriptRuntimeServices: ScriptRuntimeServices;
   pendingSavedLocationRef: MutableRef<LocationState | null>;
-  pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null>;
+  pendingScriptedWarpRef: MutableRef<PendingScriptedWarpLike | null>;
   warpingRef: MutableRef<boolean>;
   mapIndexData: MapIndexEntry[];
   showMessage: (msg: string) => Promise<void>;

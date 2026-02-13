@@ -100,20 +100,21 @@ import type { MapScriptData } from '../data/scripts/types';
 import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
 import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
 import { ensureOverworldRuntimeAssets as ensureOverworldRuntimeAssetsUtil } from './gamePage/overworldAssets';
-import { executeDiveFieldAction } from './gamePage/diveFieldAction';
-import { buildWebGLDebugState } from './gamePage/buildWebGLDebugState';
-import { buildDebugState } from './gamePage/buildDebugState';
+import { executeDiveFieldAction } from '../game/dive/executeDiveFieldAction';
+import { buildWebGLDebugState } from '../components/debug/buildWebGLDebugState';
+import { buildDebugState } from '../components/debug/buildDebugState';
 import { useStateMachineRenderLoop } from './gamePage/useStateMachineRenderLoop';
 import { useOverworldContinueLocation } from './gamePage/useOverworldContinueLocation';
-import { performWarpTransition } from './gamePage/performWarpTransition';
-import { loadSelectedOverworldMap } from './gamePage/loadSelectedOverworldMap';
+import { performWarpTransition } from '../game/overworld/warp/performWarpTransition';
+import { loadSelectedOverworldMap } from '../game/overworld/load/loadSelectedOverworldMap';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
-import { setMapMetatileInSnapshot, createMetatileUpdater, type InputUnlockGuards } from './gamePage/mapMetatileUtils';
-import { applyStoryOnLoadMetatileParity, applyStoryTransitionObjectParityForMap } from './gamePage/storyParity';
+import { setMapMetatileInSnapshot, createMetatileUpdater } from '../game/overworld/metatile/mapMetatileUtils';
+import type { InputUnlockGuards } from '../game/overworld/inputLock/scheduleInputUnlock';
+import { applyTruckOnLoadMetatileCompatibility } from '../game/overworld/load/storyCompatibility';
 import { createNPCMovementProviders } from './gamePage/npcMovementProviders';
 import { useDebugTileGrid } from './gamePage/useDebugTileGrid';
-import { createScriptRuntimeServices } from './gamePage/createScriptRuntimeServices';
-import { renderOverworldSprites } from './gamePage/renderOverworldSprites';
+import { createScriptRuntimeServices } from '../scripting/runtime/createScriptRuntimeServices';
+import { renderOverworldSprites } from '../rendering/overworld/renderOverworldSprites';
 import {
   evaluateOnFrameScripts,
   evaluateOnFrameSafetyNets,
@@ -127,7 +128,7 @@ import {
   type FrameCounter,
 } from './gamePage/overworldGameUpdate';
 import { createRotatingGateCollisionChecker } from './gamePage/collisionChecker';
-import { executeSeamTransitionScripts } from './gamePage/seamTransitionScripts';
+import { executeSeamTransitionScripts } from '../game/overworld/seam/seamTransitionScripts';
 import { createActionCallbacks } from './gamePage/actionCallbacks';
 import {
   applyTruckSequenceFrame,
@@ -596,16 +597,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     dialogIsOpenRef: dialogIsOpenRef,
   }), []);
 
-  const applyStoryOnLoadMetatileParityLocal = useCallback((): void => {
-    const changed = applyStoryOnLoadMetatileParity(worldSnapshotRef.current, setMapMetatileLocal);
+  const applyTruckOnLoadMetatileCompatibilityLocal = useCallback((): void => {
+    const changed = applyTruckOnLoadMetatileCompatibility(worldSnapshotRef.current, setMapMetatileLocal);
     if (changed) {
       pipelineRef.current?.invalidate();
     }
   }, [setMapMetatileLocal]);
-
-  const applyStoryTransitionObjectParity = useCallback((mapId: string): void => {
-    applyStoryTransitionObjectParityForMap(mapId, worldSnapshotRef.current, objectEventManagerRef.current);
-  }, []);
 
   const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
     const worldManager = worldManagerRef.current;
@@ -720,9 +717,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       seamTransitionScriptsInFlightRef,
       setMapMetatile: setMapMetatileAndInvalidate,
       scriptRuntimeServices,
-      applyStoryTransitionObjectParity,
     });
-  }, [applyStoryTransitionObjectParity, scriptRuntimeServices, setMapMetatileLocal]);
+  }, [scriptRuntimeServices, setMapMetatileLocal]);
 
   // Action input hook (handles X key for surf/item pickup dialogs)
   const actionCallbacks = useMemo(() => createActionCallbacks({
@@ -879,13 +875,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     // Load object events (NPCs, items) and upload sprites to WebGL
     await loadObjectEventsFromSnapshot(snapshot);
-    applyStoryOnLoadMetatileParityLocal();
+    applyTruckOnLoadMetatileCompatibilityLocal();
   }, [
     buildTilesetRuntimesFromSnapshot,
     createSnapshotTileResolver,
     uploadTilesetsFromSnapshot,
     loadObjectEventsFromSnapshot,
-    applyStoryOnLoadMetatileParityLocal,
+    applyTruckOnLoadMetatileCompatibilityLocal,
   ]);
 
   // Compute reflection state for an object at a tile position using shared function
@@ -978,7 +974,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       playerHiddenRef,
       doorAnimations,
       lavaridgeWarpSequencer,
-      applyStoryTransitionObjectParity,
       npcMovement,
       setWarpDebugInfo,
       resolverVersion: resolverIdRef.current,
@@ -1001,7 +996,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     getRenderContextFromSnapshot,
     doorSequencer,
     doorAnimations,
-    applyStoryTransitionObjectParity,
     npcMovement,
     scriptRuntimeServices,
   ]);
@@ -1558,7 +1552,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       createSnapshotPlayerTileResolver,
       loadObjectEventsFromSnapshot,
       initializeWorldFromSnapshot,
-      applyStoryTransitionObjectParity,
       setMapMetatile: setMapMetatileAndInvalidate,
       scriptRuntimeServices,
     });
@@ -1574,7 +1567,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     createSnapshotTileResolver,
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
-    applyStoryTransitionObjectParity,
     scriptRuntimeServices,
   ]);
 
@@ -1770,7 +1762,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         className="game-footer"
         style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
       >
-      Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from pret/pokeemerald's decompile in typescript - with added features like viewport change to be able to play it on a much bigger screen that was possilbe on GBA! There is still a lot to do like battle system!
+      Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from <a href="https://github.com/pret/pokeemerald" target="_blank" rel="noopener noreferrer">pret/pokeemerald</a>'s decompile in typescript - with added features like viewport change to be able to play it on a much bigger screen that was possilbe on GBA! There is still a lot to do like battle system!
       </footer>
 
       {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}

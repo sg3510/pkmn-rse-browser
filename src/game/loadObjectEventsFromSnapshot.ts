@@ -3,7 +3,7 @@ import type { WorldSnapshot } from './WorldManager';
 import type { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { getNPCAtlasName } from '../rendering/spriteUtils';
 import { saveManager } from '../save/SaveManager';
-import { saveStateStore } from '../save/SaveStateStore';
+import { applyObjectEventOverridesForMap } from './overworld/applyObjectEventOverridesForMap';
 
 interface SpriteDimensionsLike {
   frameWidth: number;
@@ -150,19 +150,8 @@ export async function loadObjectEventsFromSnapshot(
         // Map persisted across warp — simulate C's "respawn NPCs from flags"
         objectEventManager.resetScriptRemovedState(mapInst.entry.id);
 
-        // Re-apply persistent position overrides (setobjectxyperm)
-        const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
-        for (const override of overrides) {
-          const worldX = mapInst.offsetX + override.x;
-          const worldY = mapInst.offsetY + override.y;
-          objectEventManager.setNPCPositionByLocalId(
-            mapInst.entry.id,
-            override.localId,
-            worldX,
-            worldY,
-            { updateInitialPosition: true }
-          );
-        }
+        // Re-apply persistent position overrides (setobjectxyperm).
+        applyObjectEventOverridesForMap(mapInst.entry.id, snapshot, objectEventManager);
       }
 
       continue;
@@ -188,19 +177,7 @@ export async function loadObjectEventsFromSnapshot(
     }
 
     // Apply persistent NPC position overrides (from copyobjectxytoperm).
-    // These are stored in map-local coords; convert to world coords.
-    const overrides = saveStateStore.getObjectEventOverridesForMap(mapInst.entry.id);
-    for (const override of overrides) {
-      const worldX = mapInst.offsetX + override.x;
-      const worldY = mapInst.offsetY + override.y;
-      objectEventManager.setNPCPositionByLocalId(
-        mapInst.entry.id,
-        override.localId,
-        worldX,
-        worldY,
-        { updateInitialPosition: true }
-      );
-    }
+    applyObjectEventOverridesForMap(mapInst.entry.id, snapshot, objectEventManager);
   }
 
   const preloadMapIds = getPreloadMapIds(snapshot, spritePreloadScope);
