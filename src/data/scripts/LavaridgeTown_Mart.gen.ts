@@ -15,18 +15,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "LavaridgeTown_Mart_Pokemart": [
-      { cmd: ".2byte", args: ["ITEM_GREAT_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_SUPER_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_ANTIDOTE"] },
-      { cmd: ".2byte", args: ["ITEM_PARALYZE_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_AWAKENING"] },
-      { cmd: ".2byte", args: ["ITEM_BURN_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_REVIVE"] },
-      { cmd: ".2byte", args: ["ITEM_SUPER_REPEL"] },
-      { cmd: ".2byte", args: ["ITEM_X_SPEED"] },
       { cmd: "pokemartlistend" },
     ],
     "LavaridgeTown_Mart_EventScript_ExpertM": [

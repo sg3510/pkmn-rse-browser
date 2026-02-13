@@ -53,15 +53,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "Route104_PrettyPetalFlowerShop_Pokemart_Plants": [
-      { cmd: ".2byte", args: ["DECOR_RED_PLANT"] },
-      { cmd: ".2byte", args: ["DECOR_TROPICAL_PLANT"] },
-      { cmd: ".2byte", args: ["DECOR_PRETTY_FLOWERS"] },
-      { cmd: ".2byte", args: ["DECOR_COLORFUL_PLANT"] },
-      { cmd: ".2byte", args: ["DECOR_BIG_PLANT"] },
-      { cmd: ".2byte", args: ["DECOR_GORGEOUS_PLANT"] },
       { cmd: "pokemartlistend" },
     ],
     "Route104_PrettyPetalFlowerShop_EventScript_WailmerPailGirl": [

@@ -383,11 +383,15 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       const npcSprite = createNPCSpriteInstance(
         npc,
         info.sortKey,
-        isOnLongGrass,
+        isOnLongGrass && !npc.renderAboveGrass,
         frameOverride,
         affineTransform
       );
       if (!npcSprite) return;
+
+      npcSprite.tintR = npc.tintR ?? 1.0;
+      npcSprite.tintG = npc.tintG ?? 1.0;
+      npcSprite.tintB = npc.tintB ?? 1.0;
 
       targetArray.push(npcSprite);
 

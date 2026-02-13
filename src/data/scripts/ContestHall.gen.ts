@@ -6,6 +6,7 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "ContestHall_OnTransition",
     onResume: "ContestHall_OnResume",
+    onReturnToField: "ContestHall_OnReturn",
     onFrame: [
       { var: "VAR_CONTEST_HALL_STATE", value: 1, script: "ContestHall_EventScript_Contest" },
     ],

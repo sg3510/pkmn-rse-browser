@@ -27,6 +27,7 @@ export const FIELD_EFFECT_DIMENSIONS: Readonly<Record<string, { width: number; h
   bike_tire_tracks: { width: 16, height: 16 },
   puddle_splash: { width: 16, height: 8 },
   water_ripple: { width: 16, height: 16 },
+  ASH: { width: 16, height: 16 },
   ash_launch: { width: 16, height: 16 },
   ash_puff: { width: 16, height: 16 },
 };
@@ -93,7 +94,7 @@ export function computeFieldEffectLayer(
   }
 
   // Ash effects also render in front (they pop out of the ground)
-  if (effect.type === 'ash_launch' || effect.type === 'ash_puff') {
+  if (effect.type === 'ash_launch' || effect.type === 'ash_puff' || effect.registryKey === 'ASH') {
     return 'front';
   }
 

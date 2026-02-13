@@ -144,6 +144,13 @@ const KEY_VAR_IDS = {
   VAR_LITTLEROOT_INTRO_STATE: 0x4092,
 } as const;
 
+// C parity: SaveBlock1.objectEvents.{initial/current}Coords are stored in
+// mapgrid space (map-local + MAP_OFFSET), not plain map-local content coords.
+// Reference: public/pokeemerald/src/event_object_movement.c
+// - InitObjectEventStateFromTemplate
+// - TryMoveObjectEventToMapCoords
+const OBJECT_EVENT_MAP_OFFSET = 7;
+
 interface NormalizedBufferInfo {
   buffer: ArrayBuffer;
   sourceFormat: 'raw' | 'sharkport' | 'wrapped';
@@ -530,6 +537,123 @@ function parseVars(rawVars: Uint16Array): Record<string, number> {
   }
 
   return vars;
+}
+
+function parseFacingDirection(direction: number): 'up' | 'down' | 'left' | 'right' {
+  switch (direction) {
+    case 2:
+      return 'up';
+    case 3:
+      return 'left';
+    case 4:
+      return 'right';
+    case 1:
+    default:
+      return 'down';
+  }
+}
+
+function parseObjectEventRuntimeStateFromSave(
+  data: DataView,
+  sectionMap: SectionMap,
+  sectionSizes: Record<number, number>,
+  objectEventsOffset: number,
+  objectEventsCount: number,
+  objectEventSize: number
+): SaveData['objectEventRuntimeState'] {
+  const npcs: NonNullable<SaveData['objectEventRuntimeState']>['npcs'] = {};
+  const offscreenDespawnedNpcIds: string[] = [];
+
+  for (let i = 0; i < objectEventsCount; i++) {
+    const entryOffset = objectEventsOffset + i * objectEventSize;
+    const flags0 = readFromSaveBlock1(data, entryOffset + 0x00, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const flags1 = readFromSaveBlock1(data, entryOffset + 0x01, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const flags2 = readFromSaveBlock1(data, entryOffset + 0x02, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const active = (flags0 & (1 << 0)) !== 0;
+    const invisible = (flags1 & (1 << 5)) !== 0;
+    const offscreen = (flags1 & (1 << 6)) !== 0;
+    const isPlayer = (flags2 & (1 << 0)) !== 0;
+    if (!active || isPlayer) continue;
+
+    const localId = readFromSaveBlock1(data, entryOffset + 0x08, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    if (localId === 0) continue;
+
+    const mapNum = readFromSaveBlock1(data, entryOffset + 0x09, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const mapGroup = readFromSaveBlock1(data, entryOffset + 0x0A, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const map = mapGroupNumToMapId(mapGroup, mapNum);
+    if (!map) continue;
+
+    const initialTileXRaw = readFromSaveBlock1(
+      data,
+      entryOffset + 0x0C,
+      sectionMap,
+      sectionSizes,
+      (o) => data.getInt16(o, true)
+    );
+    const initialTileYRaw = readFromSaveBlock1(
+      data,
+      entryOffset + 0x0E,
+      sectionMap,
+      sectionSizes,
+      (o) => data.getInt16(o, true)
+    );
+    const tileXRaw = readFromSaveBlock1(
+      data,
+      entryOffset + 0x10,
+      sectionMap,
+      sectionSizes,
+      (o) => data.getInt16(o, true)
+    );
+    const tileYRaw = readFromSaveBlock1(
+      data,
+      entryOffset + 0x12,
+      sectionMap,
+      sectionSizes,
+      (o) => data.getInt16(o, true)
+    );
+    const facingDirection = readFromSaveBlock1(
+      data,
+      entryOffset + 0x18,
+      sectionMap,
+      sectionSizes,
+      (o) => data.getUint16(o, true) & 0xF
+    );
+
+    const initialTileX = initialTileXRaw - OBJECT_EVENT_MAP_OFFSET;
+    const initialTileY = initialTileYRaw - OBJECT_EVENT_MAP_OFFSET;
+    const tileX = tileXRaw - OBJECT_EVENT_MAP_OFFSET;
+    const tileY = tileYRaw - OBJECT_EVENT_MAP_OFFSET;
+
+    const id = `${map.mapId}_npc_${localId}`;
+    npcs[id] = {
+      tileX,
+      tileY,
+      initialTileX,
+      initialTileY,
+      direction: parseFacingDirection(facingDirection),
+      visible: true,
+      spriteHidden: invisible,
+      scriptRemoved: false,
+      renderAboveGrass: false,
+    };
+
+    if (offscreen) {
+      offscreenDespawnedNpcIds.push(id);
+    }
+  }
+
+  return {
+    version: 1,
+    coordSpace: 'mapLocal',
+    npcs,
+    itemBalls: {},
+    scriptObjects: {},
+    largeObjects: {},
+    offscreenDespawnedNpcIds,
+    offscreenDespawnedItemIds: [],
+    offscreenDespawnedScriptObjectIds: [],
+    offscreenDespawnedLargeObjectIds: [],
+  };
 }
 
 function readFlagByIdRaw(rawFlags: Uint8Array, flagId: number): boolean {
@@ -937,6 +1061,18 @@ export function parseGen3Save(
   const parsedVars = parseVars(rawVars);
   console.log(`[Gen3SaveParser] Parsed ${parsedFlags.length} flags, ${Object.keys(parsedVars).length} vars`);
 
+  // SaveBlock1.objectEvents stores temporary runtime object state (active NPC
+  // positions/direction/visibility flags) in mapgrid coords. Normalize to
+  // map-local content coords here by subtracting MAP_OFFSET.
+  const objectEventRuntimeState = parseObjectEventRuntimeStateFromSave(
+    data,
+    activeSectionMap,
+    sectionSizes,
+    selectedSaveBlock1.OBJECT_EVENTS,
+    selectedSaveBlock1.OBJECT_EVENTS_COUNT,
+    selectedSaveBlock1.OBJECT_EVENT_SIZE
+  );
+
   if (!selectedCandidate.supported) {
     console.warn('[Gen3SaveParser] Low-confidence parse:', sanity);
   }
@@ -1027,6 +1163,7 @@ export function parseGen3Save(
     rawFlags: Array.from(rawFlags),
     vars: parsedVars,
     rawVars: Array.from(rawVars),
+    objectEventRuntimeState,
   };
 
   const nativeMetadata: NativeMetadata = {

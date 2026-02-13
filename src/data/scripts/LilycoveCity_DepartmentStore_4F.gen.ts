@@ -27,13 +27,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "LilycoveCity_DepartmentStore_4F_Pokemart_AttackTMs": [
-      { cmd: ".2byte", args: ["ITEM_TM_FIRE_BLAST"] },
-      { cmd: ".2byte", args: ["ITEM_TM_THUNDER"] },
-      { cmd: ".2byte", args: ["ITEM_TM_BLIZZARD"] },
-      { cmd: ".2byte", args: ["ITEM_TM_HYPER_BEAM"] },
       { cmd: "pokemartlistend" },
     ],
     "LilycoveCity_DepartmentStore_4F_EventScript_ClerkRight": [
@@ -45,13 +40,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "LilycoveCity_DepartmentStore_4F_Pokemart_DefenseTMs": [
-      { cmd: ".2byte", args: ["ITEM_TM_PROTECT"] },
-      { cmd: ".2byte", args: ["ITEM_TM_SAFEGUARD"] },
-      { cmd: ".2byte", args: ["ITEM_TM_REFLECT"] },
-      { cmd: ".2byte", args: ["ITEM_TM_LIGHT_SCREEN"] },
       { cmd: "pokemartlistend" },
     ],
   },

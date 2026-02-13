@@ -29,7 +29,7 @@ import { getItemIdFromScript } from '../data/itemScripts.ts';
 import { getItemName } from '../data/items.ts';
 import { gameFlags } from './GameFlags.ts';
 import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
-import { npcMovementEngine } from './npc';
+import { npcMovementEngine } from './npc/NPCMovementEngine.ts';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -82,6 +82,13 @@ interface ObjectEventViewWindow {
   right: number;
   top: number;
   bottom: number;
+}
+
+function getMapIdFromNpcObjectId(id: string): string | null {
+  const marker = '_npc_';
+  const idx = id.indexOf(marker);
+  if (idx <= 0) return null;
+  return id.slice(0, idx);
 }
 
 export class ObjectEventManager {
@@ -308,6 +315,7 @@ export class ObjectEventManager {
         this.npcs.set(id, {
           id,
           localId,
+          localIdNumber: objIndex + 1,
           tileX: worldX,
           tileY: worldY,
           elevation: obj.elevation,
@@ -324,6 +332,10 @@ export class ObjectEventManager {
           visible: !isHidden,
           spriteHidden: movementType === 'invisible',
           scriptRemoved: false,
+          renderAboveGrass: false,
+          tintR: 1,
+          tintG: 1,
+          tintB: 1,
           // Movement state fields
           subTileX: 0,
           subTileY: 0,
@@ -573,7 +585,16 @@ export class ObjectEventManager {
    */
   getNPCByLocalId(mapId: string, localId: string): NPCObject | null {
     const key = `${mapId}_npc_${localId}`;
-    return this.npcs.get(key) ?? null;
+    const direct = this.npcs.get(key);
+    if (direct) return direct;
+
+    if (/^\d+$/.test(localId)) {
+      const numericLocalId = Number.parseInt(localId, 10);
+      const byNumericLocalId = this.findNPCByNumericLocalId(mapId, numericLocalId);
+      if (byNumericLocalId) return byNumericLocalId;
+    }
+
+    return null;
   }
 
   /**
@@ -634,6 +655,28 @@ export class ObjectEventManager {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.spriteHidden = hidden;
+    return true;
+  }
+
+  /**
+   * Toggle script-controlled grass-priority rendering for an NPC.
+   */
+  setNPCRenderAboveGrassByLocalId(mapId: string, localId: string, renderAboveGrass: boolean): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.renderAboveGrass = renderAboveGrass;
+    return true;
+  }
+
+  /**
+   * Set per-NPC render tint (0..1 RGB), used for scripted palette-like effects.
+   */
+  setNPCTintByLocalId(mapId: string, localId: string, tintR: number, tintG: number, tintB: number): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.tintR = tintR;
+    npc.tintG = tintG;
+    npc.tintB = tintB;
     return true;
   }
 
@@ -954,6 +997,32 @@ export class ObjectEventManager {
   }
 
   /**
+   * Per-frame object-event spawn/despawn scheduling based on camera origin.
+   *
+   * Mirrors the C camera-window formulas directly:
+   * left = pos.x - 2
+   * right = pos.x + viewportWidth + 2
+   * top = pos.y
+   * bottom = pos.y + viewportHeight + 2
+   */
+  updateObjectEventSpawnDespawnForCamera(
+    cameraStartTileX: number,
+    cameraStartTileY: number,
+    viewportTilesWide: number,
+    viewportTilesHigh: number
+  ): void {
+    const viewWindow = this.getObjectEventViewWindowForCamera(
+      cameraStartTileX,
+      cameraStartTileY,
+      viewportTilesWide,
+      viewportTilesHigh
+    );
+    this.lastObjectEventViewWindow = viewWindow;
+    this.trySpawnObjectsInView(viewWindow);
+    this.removeObjectsOutsideView(viewWindow);
+  }
+
+  /**
    * Refresh large object visibility from flags
    */
   refreshLargeObjectVisibility(): void {
@@ -989,17 +1058,37 @@ export class ObjectEventManager {
    * that are not represented by persistent FLAG_HIDE_* data alone.
    */
   getRuntimeState(): ObjectEventRuntimeState {
+    let canEncodeAsMapLocal = true;
+    for (const id of this.npcs.keys()) {
+      const mapId = getMapIdFromNpcObjectId(id);
+      if (!mapId || !this.parsedMapOffsets.has(mapId)) {
+        canEncodeAsMapLocal = false;
+        break;
+      }
+    }
+
     const npcs: ObjectEventRuntimeState['npcs'] = {};
     for (const [id, npc] of this.npcs) {
+      const mapId = getMapIdFromNpcObjectId(id);
+      const mapOffset = mapId ? this.parsedMapOffsets.get(mapId) ?? null : null;
+      const tileX = canEncodeAsMapLocal && mapOffset ? npc.tileX - mapOffset.x : npc.tileX;
+      const tileY = canEncodeAsMapLocal && mapOffset ? npc.tileY - mapOffset.y : npc.tileY;
+      const initialTileX = canEncodeAsMapLocal && mapOffset
+        ? npc.initialTileX - mapOffset.x
+        : npc.initialTileX;
+      const initialTileY = canEncodeAsMapLocal && mapOffset
+        ? npc.initialTileY - mapOffset.y
+        : npc.initialTileY;
       npcs[id] = {
-        tileX: npc.tileX,
-        tileY: npc.tileY,
-        initialTileX: npc.initialTileX,
-        initialTileY: npc.initialTileY,
+        tileX,
+        tileY,
+        initialTileX,
+        initialTileY,
         direction: npc.direction,
         visible: npc.visible,
         spriteHidden: npc.spriteHidden,
         scriptRemoved: npc.scriptRemoved,
+        renderAboveGrass: npc.renderAboveGrass,
         movementTypeRaw: npc.movementTypeRaw,
       };
     }
@@ -1021,6 +1110,7 @@ export class ObjectEventManager {
 
     return {
       version: 1,
+      coordSpace: canEncodeAsMapLocal ? 'mapLocal' : 'world',
       npcs,
       itemBalls,
       scriptObjects,
@@ -1037,15 +1127,31 @@ export class ObjectEventManager {
    */
   applyRuntimeState(state: ObjectEventRuntimeState): void {
     if (!state || state.version !== 1) return;
+    const coordSpace = state.coordSpace ?? 'world';
 
     for (const [id, snapshot] of Object.entries(state.npcs ?? {})) {
-      const npc = this.npcs.get(id);
+      const npc = this.resolveNpcByRuntimeStateId(id);
       if (!npc) continue;
 
-      if (typeof snapshot.tileX === 'number') npc.tileX = snapshot.tileX;
-      if (typeof snapshot.tileY === 'number') npc.tileY = snapshot.tileY;
-      if (typeof snapshot.initialTileX === 'number') npc.initialTileX = snapshot.initialTileX;
-      if (typeof snapshot.initialTileY === 'number') npc.initialTileY = snapshot.initialTileY;
+      const stateMapId = getMapIdFromNpcObjectId(id) ?? getMapIdFromNpcObjectId(npc.id);
+      const stateMapOffset = stateMapId ? this.parsedMapOffsets.get(stateMapId) ?? null : null;
+      const toWorldTile = (value: number): number => {
+        if (coordSpace === 'mapLocal' && stateMapOffset) {
+          return stateMapOffset.y + value;
+        }
+        return value;
+      };
+      const toWorldTileX = (value: number): number => {
+        if (coordSpace === 'mapLocal' && stateMapOffset) {
+          return stateMapOffset.x + value;
+        }
+        return value;
+      };
+
+      if (typeof snapshot.tileX === 'number') npc.tileX = toWorldTileX(snapshot.tileX);
+      if (typeof snapshot.tileY === 'number') npc.tileY = toWorldTile(snapshot.tileY);
+      if (typeof snapshot.initialTileX === 'number') npc.initialTileX = toWorldTileX(snapshot.initialTileX);
+      if (typeof snapshot.initialTileY === 'number') npc.initialTileY = toWorldTile(snapshot.initialTileY);
       if (
         snapshot.direction === 'up'
         || snapshot.direction === 'down'
@@ -1057,6 +1163,7 @@ export class ObjectEventManager {
       npc.visible = snapshot.visible !== false;
       npc.spriteHidden = snapshot.spriteHidden === true;
       npc.scriptRemoved = snapshot.scriptRemoved === true;
+      npc.renderAboveGrass = snapshot.renderAboveGrass === true;
       if (typeof snapshot.movementTypeRaw === 'string') {
         npc.movementTypeRaw = snapshot.movementTypeRaw;
         npc.movementType = parseMovementType(snapshot.movementTypeRaw);
@@ -1090,7 +1197,8 @@ export class ObjectEventManager {
 
     this.offscreenDespawnedNpcIds.clear();
     for (const id of state.offscreenDespawnedNpcIds ?? []) {
-      if (this.npcs.has(id)) this.offscreenDespawnedNpcIds.add(id);
+      const resolvedNpcId = this.resolveExistingNpcIdForRuntimeState(id);
+      if (resolvedNpcId) this.offscreenDespawnedNpcIds.add(resolvedNpcId);
     }
 
     this.offscreenDespawnedItemIds.clear();
@@ -1229,6 +1337,20 @@ export class ObjectEventManager {
     };
   }
 
+  private getObjectEventViewWindowForCamera(
+    cameraStartTileX: number,
+    cameraStartTileY: number,
+    viewportTilesWide: number,
+    viewportTilesHigh: number
+  ): ObjectEventViewWindow {
+    return {
+      left: cameraStartTileX - VIEWPORT_SPAWN_MARGIN_TILES,
+      right: cameraStartTileX + viewportTilesWide + VIEWPORT_SPAWN_MARGIN_TILES,
+      top: cameraStartTileY,
+      bottom: cameraStartTileY + viewportTilesHigh + VIEWPORT_SPAWN_MARGIN_TILES,
+    };
+  }
+
   private isWithinObjectEventView(tileX: number, tileY: number, viewWindow: ObjectEventViewWindow): boolean {
     return (
       tileX >= viewWindow.left
@@ -1262,6 +1384,34 @@ export class ObjectEventManager {
     npc.isWalking = false;
     npc.direction = getInitialDirection(npc.movementTypeRaw);
     npcMovementEngine.removeNPC(npc.id);
+  }
+
+  private findNPCByNumericLocalId(mapId: string, localIdNumber: number): NPCObject | null {
+    const prefix = `${mapId}_npc_`;
+    for (const [key, npc] of this.npcs) {
+      if (!key.startsWith(prefix)) continue;
+      if (npc.localIdNumber === localIdNumber) return npc;
+    }
+    return null;
+  }
+
+  private resolveNpcByRuntimeStateId(id: string): NPCObject | null {
+    const direct = this.npcs.get(id);
+    if (direct) return direct;
+
+    const mapId = getMapIdFromNpcObjectId(id);
+    if (!mapId) return null;
+
+    const localId = id.slice(`${mapId}_npc_`.length);
+    if (localId.length === 0) return null;
+
+    return this.getNPCByLocalId(mapId, localId);
+  }
+
+  private resolveExistingNpcIdForRuntimeState(id: string): string | null {
+    if (this.npcs.has(id)) return id;
+    const npc = this.resolveNpcByRuntimeStateId(id);
+    return npc?.id ?? null;
   }
 
   private trySpawnObjectsInView(viewWindow: ObjectEventViewWindow): void {

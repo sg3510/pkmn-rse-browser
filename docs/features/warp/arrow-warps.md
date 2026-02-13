@@ -1,7 +1,7 @@
 ---
 title: Arrow Warp Research
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-13
 ---
 
 ## Arrow Warp Research
@@ -13,10 +13,11 @@ last_verified: 2026-01-13
 - `public/pokeemerald/src/data/field_effects/field_effect_objects.h`
 
 ### Metatile Behaviors
-- Arrow warps use behaviors `MB_SOUTH_ARROW_WARP (101)`, `MB_NORTH_ARROW_WARP (100)`, `MB_WEST_ARROW_WARP (99)`, `MB_EAST_ARROW_WARP (98)`.
+- Arrow warps use behaviors `MB_SOUTH_ARROW_WARP (101)`, `MB_NORTH_ARROW_WARP (100)`, `MB_WEST_ARROW_WARP (99)`, `MB_EAST_ARROW_WARP (98)`, and `MB_WATER_SOUTH_ARROW_WARP (109)`.
 - `TryArrowWarp()` (`field_control_avatar.c`, lines 688-699) runs after movement input.  
   - Checks `IsArrowWarpMetatileBehavior(behavior, direction)` (i.e., player must walk into the arrow in its required direction).  
   - If a warp event exists at the player’s current position, it calls `DoWarp()` (standard fade transition, no door animation).
+- This check is input-driven and applies while surfing as well (for water-arrow tiles), not just while walking.
 - Arrow warps are *not* in the forced-movement list; the warp triggers immediately once the player attempts to step in the enforced direction.
 
 ### Visual Overlay
@@ -58,4 +59,3 @@ last_verified: 2026-01-13
 - Confirm fade duration for `DoWarp()` vs door warps to match timing.  
 - Verify if any arrow warps use custom sound effects (none observed in `DoWarp()` but worth double-checking `field_screen_effect.c`).  
 - Identify maps that use arrow warps (Trick House, Petalburg Woods exit, certain building interiors) for test cases.
-

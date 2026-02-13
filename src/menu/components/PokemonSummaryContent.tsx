@@ -18,6 +18,7 @@ import { ABILITY_NAMES, getAbilityDescription } from '../../data/abilities';
 import { MOVE_NAMES, getMoveInfo, getMoveDescription } from '../../data/moves';
 import { getGenderFromPersonality, getExpProgress, getExpToNextLevel } from '../../pokemon/stats';
 import { loadTransparentSprite } from '../../utils/transparentSprite';
+import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
 // Type images loaded via transparentSprite utility (keys out black background)
 import '../styles/pokemon-summary-emerald.css';
 
@@ -104,7 +105,8 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
 
   // Sprite path
   const iconFolder = speciesName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-  const spritePath = `/pokeemerald/graphics/pokemon/${iconFolder}/front.png`;
+  const spritePath = toPublicAssetUrl(`/pokeemerald/graphics/pokemon/${iconFolder}/front.png`);
+  const fallbackSpritePath = toPublicAssetUrl('/pokeemerald/graphics/pokemon/egg/front.png');
 
   // Get header title based on current page
   const getHeaderTitle = () => {
@@ -167,7 +169,7 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
               alt={speciesName}
               className="summary-sprite-img"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = `/pokeemerald/graphics/pokemon/egg/front.png`;
+                (e.target as HTMLImageElement).src = fallbackSpritePath;
               }}
             />
           </div>
@@ -572,7 +574,7 @@ function useTransparentTypeImage(type: string): string | undefined {
 
   useEffect(() => {
     const typeLower = type.toLowerCase();
-    const path = `/pokeemerald/graphics/types/${typeLower}.png`;
+    const path = toPublicAssetUrl(`/pokeemerald/graphics/types/${typeLower}.png`);
     loadTransparentSprite(path).then(setSrc).catch(() => {
       // Fallback: don't set src, component will use colored badge
     });

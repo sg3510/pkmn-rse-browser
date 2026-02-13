@@ -20,6 +20,7 @@ export interface MapScriptHeader {
   onLoad?: string;
   onTransition?: string;
   onResume?: string;
+  onReturnToField?: string;
   onDive?: string;
   onFrame?: OnFrameEntry[];
   onWarpInto?: OnFrameEntry[];

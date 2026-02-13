@@ -6,6 +6,7 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "BirthIsland_Exterior_OnTransition",
     onResume: "BirthIsland_Exterior_OnResume",
+    onReturnToField: "BirthIsland_Exterior_OnReturnToField",
   },
   scripts: {
     "BirthIsland_Exterior_OnReturnToField": [

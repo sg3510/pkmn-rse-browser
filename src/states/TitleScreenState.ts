@@ -20,6 +20,7 @@ import { inputMap, GameButton } from '../core/InputMap';
 import type { ViewportConfig } from '../config/viewport';
 import { loadImageAsset, loadBinaryAsset } from '../utils/assetLoader';
 import { GBA_FRAME_MS } from '../config/timing';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 // GBA native resolution
 const GBA_WIDTH = 240;
@@ -270,7 +271,7 @@ export class TitleScreenState implements StateRenderer {
   private async loadRayquaza3D(): Promise<void> {
     return new Promise((resolve) => {
       const mtlLoader = new MTLLoader();
-      const modelPath = '/3dmodels/rayquaza-wii/';
+      const modelPath = toPublicAssetUrl('/3dmodels/rayquaza-wii/');
 
       // First load the MTL file for materials
       mtlLoader.setPath(modelPath);
@@ -330,7 +331,7 @@ export class TitleScreenState implements StateRenderer {
   }
 
   private async loadAssets(): Promise<void> {
-    const basePath = '/pokeemerald/graphics/title_screen/';
+    const basePath = toPublicAssetUrl('/pokeemerald/graphics/title_screen/');
 
     try {
       // Load images and tilemaps in parallel

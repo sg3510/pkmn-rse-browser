@@ -15,6 +15,7 @@ import { menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
 import { getItemName, getItemIconPath, getItemDescription } from '../../data/items';
 import type { BagState } from '../../save/types';
+import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
 import '../styles/bag-menu.css';
 
 type PocketType = keyof BagState;
@@ -61,6 +62,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const cursor = cursorPosition[currentPocket];
   const scroll = scrollPosition[currentPocket];
   const selectedItem = items[cursor] ?? null;
+  const fallbackItemIconPath = toPublicAssetUrl('/pokeemerald/graphics/items/icons/question_mark.png');
 
   // Calculate visible items
   const visibleItems = useMemo(() => {
@@ -212,7 +214,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
                 >
                   <img
                     className="item-icon"
-                    src={getItemIconPath(item.itemId) ?? '/pokeemerald/graphics/items/icons/question_mark.png'}
+                    src={getItemIconPath(item.itemId) ?? fallbackItemIconPath}
                     alt=""
                   />
                   <span className="item-name">{getItemName(item.itemId)}</span>

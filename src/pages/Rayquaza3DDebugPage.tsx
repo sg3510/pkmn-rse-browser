@@ -11,6 +11,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 // GBA dimensions
 const GBA_WIDTH = 240;
@@ -69,7 +70,7 @@ interface ModelSource {
   defaultScale: number;
 }
 
-const MODEL_SOURCES: ModelSource[] = [
+const MODEL_SOURCE_DEFS: ModelSource[] = [
   {
     id: 'rayquaza-xy',
     name: 'XY/3DS (FBX)',
@@ -99,6 +100,13 @@ const MODEL_SOURCES: ModelSource[] = [
     defaultScale: 0.1,
   },
 ];
+
+const MODEL_SOURCES: ModelSource[] = MODEL_SOURCE_DEFS.map((source): ModelSource => ({
+  ...source,
+  path: toPublicAssetUrl(source.path),
+  texturePath: toPublicAssetUrl(source.texturePath),
+  ...(source.mtlPath ? { mtlPath: toPublicAssetUrl(source.mtlPath) } : {}),
+}));
 
 // Helper to get hierarchy path
 const getPath = (obj: THREE.Object3D): string => {

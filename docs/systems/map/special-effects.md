@@ -1,12 +1,12 @@
 ---
 title: Special Field Effects
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-13
 ---
 
 # Special Field Effects
 
-This document describes special field effects in Pokemon Emerald that are not yet implemented in the React codebase, including ash grass, ice puzzles, and other per-step callbacks.
+This document describes special field effects in Pokemon Emerald, including ash grass, ice puzzles, and other per-step callbacks.
 
 ## Overview
 
@@ -56,6 +56,12 @@ Maps activate specific callbacks via `ActivatePerStepCallback(callbackId)`.
 ---
 
 ## Ash Grass System (Route 113)
+
+Implementation status: **implemented** in TypeScript.
+Runtime references:
+- `src/game/StepCallbackManager.ts` (`STEP_CB_ASH`, delayed ash field effect, soot sack ash gathering)
+- `src/pages/GamePage.tsx` (local metatile + field effect callback bridge)
+- `src/data/fieldEffects.gen.ts` (`ASH` generated field-effect metadata)
 
 ### Overview
 

@@ -555,6 +555,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             playerPokemon: lead,
             wildSpecies: Math.trunc(speciesId),
             wildLevel: Math.trunc(level),
+            wildHeldItem: Math.trunc(Number(request.heldItemId) || 0),
             backgroundProfile: resolveBackgroundProfile({
               source: request.source,
               speciesId: Math.trunc(speciesId),
@@ -662,7 +663,13 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         },
         findNpcMapId: (localId) => {
           const allNpcs = objectEventManagerRef.current.getAllNPCs();
-          const hit = allNpcs.find((npc) => npc.localId === localId);
+          const hit = allNpcs.find((npc) => {
+            if (npc.localId === localId) return true;
+            if (/^\d+$/.test(localId)) {
+              return npc.localIdNumber === Number.parseInt(localId, 10);
+            }
+            return false;
+          });
           if (!hit) return null;
           const marker = '_npc_';
           const idx = hit.id.indexOf(marker);

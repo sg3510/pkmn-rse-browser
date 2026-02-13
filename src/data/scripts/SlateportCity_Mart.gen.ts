@@ -15,18 +15,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "SlateportCity_Mart_Pokemart": [
-      { cmd: ".2byte", args: ["ITEM_POKE_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_GREAT_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_SUPER_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_ANTIDOTE"] },
-      { cmd: ".2byte", args: ["ITEM_PARALYZE_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_ESCAPE_ROPE"] },
-      { cmd: ".2byte", args: ["ITEM_REPEL"] },
-      { cmd: ".2byte", args: ["ITEM_HARBOR_MAIL"] },
       { cmd: "pokemartlistend" },
     ],
     "SlateportCity_Mart_EventScript_BlackBelt": [

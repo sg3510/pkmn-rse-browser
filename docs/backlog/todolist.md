@@ -1,7 +1,7 @@
 ---
 title: "New Game to First Pokemon - Master Backlog"
 status: planned
-last_verified: 2026-02-06
+last_verified: 2026-02-13
 goal: "Make the game playable from pressing NEW GAME through choosing a starter and winning the first battle"
 ---
 
@@ -34,6 +34,24 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [ ] Clock handling: skip wall clock UI (auto-set local time) vs replicate (set flags/vars to avoid blocking scripts)
 - [ ] Script data pipeline: build-time `scripts.inc` → JSON vs runtime parser, constant/label resolution strategy
 - [ ] Save format strategy: browser-native schema vs GBA-compatible import/export, migration plan
+
+## Legendary Island Encounter Parity (Encounter-Only)
+
+- [x] Add `MAP_SCRIPT_ON_RETURN_TO_FIELD` generation/runtime support and wire it through map script types.
+- [x] Parse shared scripts from `public/pokeemerald/data/event_scripts.s` and generate `Common_EventScript_LegendaryFlewAway`.
+- [x] Implement `seteventmon` command and route species/level/held-item into the existing scripted wild-battle flow.
+- [x] Extend battle transition payload to carry scripted wild held items (`wildHeldItem`).
+- [x] Add modular legendary-island specials (`SpawnCameraObject`, `RemoveCameraObject`, `ShakeCamera`, `LoopWingFlapSE`, Deoxys/Mew specials).
+- [x] Implement scripted camera runtime and handle `applymovement LOCALID_CAMERA` as camera movement (no NPC lookup warning).
+- [x] Implement Deoxys rock progression/result logic and `FLDEFF_DESTROY_DEOXYS_ROCK` runtime support.
+- [x] Implement exact Deoxys rock palette progression from source `deoxys_rock_*.pal` data with runtime sprite variant replacement.
+- [x] Add centralized sprite alias fixes (`OBJ_EVENT_GFX_HOOH` and `OBJ_EVENT_GFX_DEOXYS_TRIANGLE`) and explicit NPC graphics classification.
+- [x] Add generator/parser verification coverage (assembler-directive filtering + shared legendary script extraction) and legendary script-ingestion gate.
+- [x] Implement Faraway Mew copy-player-in-grass movement translation plus step-cadence visibility behavior.
+- [x] Add island step-counter updates (`VAR_FARAWAY_ISLAND_STEP_COUNTER`, `VAR_DEOXYS_ROCK_STEP_COUNT`) through reusable step hooks.
+- [x] Run scripted-battle post-return flow with `onReturnToField` then `onResume`.
+- [x] Publish implementation notes in `docs/features/overworld/legendary-island-parity.md`.
+- [ ] Manual in-game QA pass for Faraway/Birth/Navel/Southern encounter branches (defeat, run, catch).
 
 ---
 

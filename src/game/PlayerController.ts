@@ -1,11 +1,6 @@
 import type { MetatileAttributes, MapTileData } from '../utils/mapLoader';
 import { isCollisionPassable } from '../utils/mapLoader';
 import {
-  MB_EAST_ARROW_WARP,
-  MB_WEST_ARROW_WARP,
-  MB_NORTH_ARROW_WARP,
-  MB_SOUTH_ARROW_WARP,
-  MB_WATER_SOUTH_ARROW_WARP,
   MB_JUMP_EAST,
   MB_JUMP_WEST,
   MB_JUMP_NORTH,
@@ -25,6 +20,7 @@ import {
   isForcedSlideBehavior,
   isForceWalkBehavior,
   getSlideDirection,
+  getArrowDirectionFromBehavior,
 } from '../utils/metatileBehaviors';
 import { FieldEffectManager } from './FieldEffectManager';
 import { SurfingController } from './surfing';
@@ -1089,6 +1085,11 @@ export class PlayerController {
       if (isDebugMode()) {
         this.debugLog(`[INPUT] Attempting to move ${newDir} from (${this.tileX}, ${this.tileY})`);
       }
+
+      // Match GBA TryArrowWarp behavior: check current tile arrow warp on directional input.
+      if (this.tryTriggerArrowWarpFromCurrentTile(newDir)) {
+        return;
+      }
       
       // Give door interactions a chance to consume input before collision/movement.
       const handled = this.tryInteract(newDir);
@@ -1108,11 +1109,6 @@ export class PlayerController {
       const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
       const behavior = resolved?.attributes?.behavior ?? -1;
       const blocked = this.isCollisionAt(targetTileX, targetTileY);
-      
-      // Check if we're standing on an arrow warp tile
-      const currentResolved = this.tileResolver ? this.tileResolver(this.tileX, this.tileY) : null;
-      const currentBehavior = currentResolved?.attributes?.behavior ?? -1;
-      const isOnArrowWarp = isArrowWarpBehavior(currentBehavior);
 
       if (!blocked) {
         if (isDebugMode()) {
@@ -1133,16 +1129,6 @@ export class PlayerController {
           this.debugLog('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
         }
         this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
-      } else if (this.doorWarpHandler && isOnArrowWarp) {
-        let arrowDir: 'up' | 'down' | 'left' | 'right' | null = null;
-        if (currentBehavior === MB_NORTH_ARROW_WARP) arrowDir = 'up';
-        else if (currentBehavior === MB_SOUTH_ARROW_WARP || currentBehavior === MB_WATER_SOUTH_ARROW_WARP) arrowDir = 'down';
-        else if (currentBehavior === MB_WEST_ARROW_WARP) arrowDir = 'left';
-        else if (currentBehavior === MB_EAST_ARROW_WARP) arrowDir = 'right';
-        
-        if (arrowDir && arrowDir === newDir) {
-          this.doorWarpHandler({ targetX: this.tileX, targetY: this.tileY, behavior: currentBehavior });
-        }
       } else {
         if (isDebugMode()) {
           this.debugWarn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
@@ -1349,41 +1335,54 @@ export class PlayerController {
     }
 
     if (currentlySurfing) {
-      // While surfing: check if target is surfable water
-      if (isSurfableBehavior(behavior)) {
-        // Respect collision bits even on water (matches MapGridGetCollisionAt)
-        if (!isCollisionPassable(collision)) {
-          if (isDebugMode()) {
-            this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is water but collision bit=${collision} - BLOCKED`);
-          }
-          return true;
-        }
-
-        // CRITICAL: Still need to check for NPC/object collision even on water!
-        // Reference: CheckForObjectEventCollision in event_object_movement.c
-        if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
-          if (isDebugMode()) {
-            this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is water but blocked by NPC/object - BLOCKED`);
-          }
-          return true;
-        }
-
+      // GBA parity: while already surfing, movement collision uses normal map/object/elevation checks.
+      // It does NOT require the target behavior to be surfable (important for under-bridge tiles).
+      if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) {
         if (isDebugMode()) {
-          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is surfable water while surfing - PASSABLE`);
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} has collision bit=${collision}, behavior=${behavior} - BLOCKED (surfing)`);
         }
-        return false; // Water is passable when surfing
+        return true;
       }
 
-      // Trying to move onto land while surfing
-      // Reference: CanStopSurfing checks MapGridGetElevationAt(x, y) == 3
-      // This returns COLLISION_STOP_SURFING which the movement system handles
-      // For now, we'll block here and let handleSurfingInput handle dismount
-      if (isDebugMode()) {
-        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is not water while surfing - checking dismount`);
+      if (!options?.ignoreElevation && this.isElevationMismatchAt(tileX, tileY)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by ELEVATION MISMATCH while surfing`);
+        }
+        return true;
       }
-      // Don't block here - SurfingState handles dismount logic via handleSurfingInput
-      // Return true to signal collision, but the state machine checks canDismount
-      return true;
+
+      if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event while surfing - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (behavior === 1) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is SECRET_BASE_WALL - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (behavior >= 48 && behavior <= 55) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is directionally impassable (behavior=${behavior}) - BLOCKED`);
+        }
+        return true;
+      }
+
+      if (this.dynamicCollisionChecker && this.dynamicCollisionChecker(tileX, tileY, this.dir)) {
+        if (isDebugMode()) {
+          this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) blocked by dynamic collision checker`);
+        }
+        return true;
+      }
+
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) metatile=${metatileId} elev=${elevation} behavior=${behavior} - PASSABLE (surfing)`);
+      }
+      return false;
     }
 
     // === NORMAL WALKING COLLISION LOGIC ===
@@ -2099,8 +2098,8 @@ export class PlayerController {
 
   /**
    * Handle input while surfing.
-   * Surfing movement is similar to walking but restricted to water tiles.
-   * Attempting to move onto land triggers dismount.
+   * Surfing movement uses normal collision/elevation checks while in surf mode.
+   * Dismount is only triggered when movement is blocked and the target tile is a valid shore.
    *
    * @param keys Currently pressed keys
    */
@@ -2125,59 +2124,84 @@ export class PlayerController {
     if (attemptMove) {
       this.dir = newDir;
       this.surfingController.updateBlobDirection(newDir);
+
+      // Arrow warps can trigger while surfing (e.g. MB_WATER_SOUTH_ARROW_WARP).
+      if (this.tryTriggerArrowWarpFromCurrentTile(newDir)) {
+        return;
+      }
+
       const { dx, dy } = directionToOffset(newDir);
 
       const targetTileX = this.tileX + dx;
       const targetTileY = this.tileY + dy;
 
-      // Check if target is surfable water
-      const isSurfable = this.surfingController.isTileSurfable(
+      const blocked = this.isCollisionAt(targetTileX, targetTileY);
+
+      if (!blocked) {
+        this.isMoving = true;
+        this.pixelsMoved = 0;
+        if (isDebugMode()) {
+          this.debugLog(`[SURF] Moving to (${targetTileX}, ${targetTileY})`);
+        }
+        return;
+      }
+
+      // Blocked while surfing: only dismount if the target tile is a valid shore tile.
+      const canDismount = this.surfingController.canDismount(
         targetTileX,
         targetTileY,
         this.tileResolver ?? undefined
       );
 
-      if (isSurfable) {
-        // Match CheckForObjectEventCollision: even on water, block if an object/NPC is present
-        const blocked = this.isCollisionAt(targetTileX, targetTileY);
-        if (!blocked) {
-          // Continue surfing - normal water movement
-          this.isMoving = true;
-          this.pixelsMoved = 0;
-          if (isDebugMode()) {
-            this.debugLog(`[SURF] Moving to water tile (${targetTileX}, ${targetTileY})`);
-          }
-        } else if (isDebugMode()) {
-          this.debugLog(`[SURF] Water tile (${targetTileX}, ${targetTileY}) blocked (object/event)`);
+      if (canDismount) {
+        if (isDebugMode()) {
+          this.debugLog(`[SURF] Starting dismount to (${targetTileX}, ${targetTileY})`);
         }
-      } else {
-        // Check if we can dismount to this tile
-        const canDismount = this.surfingController.canDismount(
-          targetTileX,
-          targetTileY,
-          this.tileResolver ?? undefined
+        this.surfingController.startDismountSequence(
+          this.tileX,
+          this.tileY,
+          this.x,
+          this.y,
+          newDir
         );
-
-        if (canDismount) {
-          // Start dismount sequence
-          if (isDebugMode()) {
-            this.debugLog(`[SURF] Starting dismount to (${targetTileX}, ${targetTileY})`);
-          }
-          this.surfingController.startDismountSequence(
-            this.tileX,
-            this.tileY,
-            this.x,
-            this.y,
-            newDir
-          );
-          this.changeState(new SurfJumpingState(false));
-        } else {
-          if (isDebugMode()) {
-            this.debugLog(`[SURF] Cannot move to (${targetTileX}, ${targetTileY}) - blocked`);
-          }
-        }
+        this.changeState(new SurfJumpingState(false));
+      } else if (isDebugMode()) {
+        this.debugLog(`[SURF] Cannot move to (${targetTileX}, ${targetTileY}) - blocked`);
       }
     }
+  }
+
+  /**
+   * Trigger a warp when the player is standing on an arrow-warp tile and inputs the matching direction.
+   *
+   * C parity: field_control_avatar.c TryArrowWarp checks the player's current tile behavior
+   * against directional input before front-tile door warps.
+   */
+  private tryTriggerArrowWarpFromCurrentTile(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    if (!this.doorWarpHandler || !this.tileResolver) return false;
+
+    const currentResolved = this.tileResolver(this.tileX, this.tileY);
+    const currentBehavior = currentResolved?.attributes?.behavior;
+    if (currentBehavior === undefined || !isArrowWarpBehavior(currentBehavior)) return false;
+
+    const arrowDirection = getArrowDirectionFromBehavior(currentBehavior);
+    if (!arrowDirection || arrowDirection !== direction) return false;
+
+    if (isDebugMode()) {
+      this.debugLog('[PLAYER_ARROW_WARP]', {
+        tileX: this.tileX,
+        tileY: this.tileY,
+        behavior: currentBehavior,
+        direction,
+      });
+    }
+
+    this.doorWarpHandler({
+      targetX: this.tileX,
+      targetY: this.tileY,
+      behavior: currentBehavior,
+    });
+    return true;
   }
 
   /**

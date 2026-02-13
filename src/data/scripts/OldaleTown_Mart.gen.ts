@@ -16,13 +16,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "OldaleTown_Mart_Pokemart_Basic": [
-      { cmd: ".2byte", args: ["ITEM_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_ANTIDOTE"] },
-      { cmd: ".2byte", args: ["ITEM_PARALYZE_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_AWAKENING"] },
       { cmd: "pokemartlistend" },
     ],
     "OldaleTown_Mart_ExpandedItems": [
@@ -30,14 +25,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "OldaleTown_Mart_Pokemart_Expanded": [
-      { cmd: ".2byte", args: ["ITEM_POKE_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_ANTIDOTE"] },
-      { cmd: ".2byte", args: ["ITEM_PARALYZE_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_AWAKENING"] },
       { cmd: "pokemartlistend" },
     ],
     "OldaleTown_Mart_EventScript_Woman": [

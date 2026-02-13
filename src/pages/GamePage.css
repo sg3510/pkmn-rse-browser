@@ -112,3 +112,13 @@
   color: #cdd7f1;
   font-size: 0.95rem;
 }
+
+.game-footer {
+  margin-top: 1rem;
+  max-width: 900px;
+  padding-top: 0.75rem;
+  border-top: 1px solid #242a38;
+  color: #9fb0cc;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

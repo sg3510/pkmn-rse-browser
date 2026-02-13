@@ -15,15 +15,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "LilycoveCity_DepartmentStore_3F_Pokemart_Vitamins": [
-      { cmd: ".2byte", args: ["ITEM_PROTEIN"] },
-      { cmd: ".2byte", args: ["ITEM_CALCIUM"] },
-      { cmd: ".2byte", args: ["ITEM_IRON"] },
-      { cmd: ".2byte", args: ["ITEM_ZINC"] },
-      { cmd: ".2byte", args: ["ITEM_CARBOS"] },
-      { cmd: ".2byte", args: ["ITEM_HP_UP"] },
       { cmd: "pokemartlistend" },
     ],
     "LilycoveCity_DepartmentStore_3F_EventScript_ClerkRight": [
@@ -35,16 +28,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "LilycoveCity_DepartmentStore_3F_Pokemart_StatBoosters": [
-      { cmd: ".2byte", args: ["ITEM_X_SPEED"] },
-      { cmd: ".2byte", args: ["ITEM_X_SPECIAL"] },
-      { cmd: ".2byte", args: ["ITEM_X_ATTACK"] },
-      { cmd: ".2byte", args: ["ITEM_X_DEFEND"] },
-      { cmd: ".2byte", args: ["ITEM_DIRE_HIT"] },
-      { cmd: ".2byte", args: ["ITEM_GUARD_SPEC"] },
-      { cmd: ".2byte", args: ["ITEM_X_ACCURACY"] },
       { cmd: "pokemartlistend" },
     ],
     "LilycoveCity_DepartmentStore_3F_EventScript_TriathleteM": [

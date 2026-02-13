@@ -12,6 +12,7 @@ import {
   npcMovementEngine,
   registerMovementHandlers,
   createCollisionContext,
+  directionToGBA,
   type MovementContext,
   type CollisionContext,
 } from '../game/npc';
@@ -19,6 +20,8 @@ import { getCollisionInDirection } from '../game/npc/NPCCollision';
 import type { FieldEffectDirection, FieldEffectManager } from '../game/FieldEffectManager';
 import { directionToOffset } from '../utils/direction';
 import { MB_DEEP_SAND, MB_FOOTPRINTS, MB_SAND, isTallGrassBehavior, isLongGrassBehavior } from '../utils/metatileBehaviors';
+import { gameVariables } from '../game/GameVariables';
+import { shouldFarawayMewShakeGrass } from '../game/legendary/farawayMew';
 
 /**
  * Context providers for collision detection
@@ -36,6 +39,15 @@ export interface NPCMovementContextProviders {
   getTileBehavior?: (x: number, y: number) => number | undefined;
   /** Field effect manager for creating grass effects */
   fieldEffectManager?: FieldEffectManager;
+  /** Player movement snapshot for copy-player movement types */
+  getPlayerState?: () => {
+    tileX: number;
+    tileY: number;
+    destTileX: number;
+    destTileY: number;
+    direction: 'up' | 'down' | 'left' | 'right';
+    isMoving: boolean;
+  } | null;
 }
 
 /** Owner position info for grass effect cleanup */
@@ -69,6 +81,16 @@ export interface UseNPCMovementReturn {
 
 // Track if handlers have been registered (module-level to avoid re-registration)
 let handlersRegistered = false;
+
+function isFarawayMewNpc(npc: NPCObject): boolean {
+  return npc.graphicsId === 'OBJ_EVENT_GFX_MEW' && npc.id.startsWith('MAP_FARAWAY_ISLAND_INTERIOR_npc_');
+}
+
+function shouldEmitMewGrassEffect(npc: NPCObject): boolean {
+  if (!isFarawayMewNpc(npc)) return true;
+  const stepCounter = gameVariables.getVar('VAR_FARAWAY_ISLAND_STEP_COUNTER');
+  return shouldFarawayMewShakeGrass(stepCounter);
+}
 
 function isBikeGraphics(graphicsId: string): boolean {
   return (
@@ -160,6 +182,19 @@ export function useNPCMovement(
         return getCollisionInDirection(npc, state, direction, collisionContext);
       },
       random,
+      getTileBehaviorAt: (tileX, tileY) => p.getTileBehavior?.(tileX, tileY),
+      getPlayerSnapshot: () => {
+        const player = p.getPlayerState?.();
+        if (!player) return null;
+        return {
+          tileX: player.tileX,
+          tileY: player.tileY,
+          destTileX: player.destTileX,
+          destTileY: player.destTileY,
+          direction: directionToGBA(player.direction),
+          isMoving: player.isMoving,
+        };
+      },
     };
   }, []);
 
@@ -194,9 +229,9 @@ export function useNPCMovement(
           // The npc.tileX/tileY is already the DESTINATION (set by movement engine)
           const behavior = p.getTileBehavior(npc.tileX, npc.tileY);
           if (behavior !== undefined) {
-            if (isTallGrassBehavior(behavior)) {
+            if (isTallGrassBehavior(behavior) && shouldEmitMewGrassEffect(npc)) {
               p.fieldEffectManager.create(npc.tileX, npc.tileY, 'tall', false, npc.id);
-            } else if (isLongGrassBehavior(behavior)) {
+            } else if (isLongGrassBehavior(behavior) && shouldEmitMewGrassEffect(npc)) {
               p.fieldEffectManager.create(npc.tileX, npc.tileY, 'long', false, npc.id);
             }
           }
@@ -271,10 +306,10 @@ export function useNPCMovement(
 
       const behavior = p.getTileBehavior(npc.tileX, npc.tileY);
       if (behavior !== undefined) {
-        if (isTallGrassBehavior(behavior)) {
+        if (isTallGrassBehavior(behavior) && shouldEmitMewGrassEffect(npc)) {
           // Skip animation for spawn (show frame 0 immediately)
           p.fieldEffectManager.create(npc.tileX, npc.tileY, 'tall', true, npc.id);
-        } else if (isLongGrassBehavior(behavior)) {
+        } else if (isLongGrassBehavior(behavior) && shouldEmitMewGrassEffect(npc)) {
           p.fieldEffectManager.create(npc.tileX, npc.tileY, 'long', true, npc.id);
         }
       }

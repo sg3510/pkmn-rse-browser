@@ -12,9 +12,15 @@
  */
 
 import { gameVariables } from './GameVariables';
+import { bagManager } from './BagManager';
+import { ITEMS } from '../data/items';
+import { METATILE_LABELS } from '../data/metatileLabels.gen';
+import { MB_ASHGRASS } from '../utils/metatileBehaviors.generated';
+import type { FieldEffectType } from './FieldEffectManager';
 
 // Step callback IDs from include/constants/field_tasks.h
 const STEP_CB_DUMMY = 0;
+const STEP_CB_ASH = 1;
 const STEP_CB_SOOTOPOLIS_ICE = 4;
 
 // Metatile behavior constants (from metatileBehaviors.generated.ts)
@@ -24,6 +30,13 @@ const MB_CRACKED_ICE = 39;
 // Sootopolis Gym metatile IDs (from metatileLabels.gen.ts)
 const METATILE_ICE_CRACKED = 0x20E;
 const METATILE_ICE_BROKEN = 0x206;
+
+// Ash grass metatiles (Route 113 / Lavaridge fallback)
+const METATILE_FALLARBOR_ASH_GRASS = METATILE_LABELS['METATILE_Fallarbor_AshGrass'] ?? 0x20A;
+const METATILE_FALLARBOR_NORMAL_GRASS = METATILE_LABELS['METATILE_Fallarbor_NormalGrass'] ?? 0x212;
+const METATILE_LAVARIDGE_NORMAL_GRASS = METATILE_LABELS['METATILE_Lavaridge_NormalGrass'] ?? 0x206;
+const ASH_FIELD_EFFECT_DELAY_FRAMES = 4;
+const MAX_ASH_GATHER_COUNT = 9999;
 
 // Ice puzzle boundaries (map-local tile coordinates)
 const ICE_PUZZLE_L = 3;
@@ -52,14 +65,35 @@ export interface StepCallbackContext {
   playerLocalX: number;
   /** Player's map-local tile Y coordinate */
   playerLocalY: number;
+  /** Player destination map-local tile X (matches C PlayerGetDestCoords) */
+  playerDestLocalX: number;
+  /** Player destination map-local tile Y (matches C PlayerGetDestCoords) */
+  playerDestLocalY: number;
   /** Current map ID the player is on */
   currentMapId: string;
   /** Get tile behavior at map-local coordinates */
   getTileBehaviorLocal: (localX: number, localY: number) => number | undefined;
+  /** Get raw metatile id at map-local coordinates */
+  getTileMetatileIdLocal: (localX: number, localY: number) => number | undefined;
   /** Set a metatile at map-local coordinates */
   setMapMetatile: (localX: number, localY: number, metatileId: number) => void;
+  /** Spawn a field effect at map-local coordinates */
+  startFieldEffectLocal?: (
+    localX: number,
+    localY: number,
+    effectName: FieldEffectType,
+    ownerObjectId?: string
+  ) => void;
   /** Invalidate the render view (after metatile changes) */
   invalidateView: () => void;
+}
+
+interface PendingAshFieldEffect {
+  mapId: string;
+  localX: number;
+  localY: number;
+  replacementMetatileId: number;
+  delayFrames: number;
 }
 
 class StepCallbackManagerImpl {
@@ -69,11 +103,21 @@ class StepCallbackManagerImpl {
   private prevLocalX: number = -1;
   private prevLocalY: number = -1;
 
+  // Ash callback state (field_tasks.c AshGrassPerStepCallback)
+  private ashPrevLocalX: number = 0;
+  private ashPrevLocalY: number = 0;
+  private pendingAshFieldEffects: PendingAshFieldEffect[] = [];
+
   // Sootopolis ice state machine (field_tasks.c states 0-3)
   private iceState: number = 0;
   private iceDelay: number = 0;
   private iceTileX: number = 0;
   private iceTileY: number = 0;
+
+  // Map-agnostic step edge detector used for island-specific counters.
+  private prevStepMapId: string | null = null;
+  private prevStepDestLocalX: number | null = null;
+  private prevStepDestLocalY: number | null = null;
 
   /**
    * Activate a per-step callback.
@@ -85,6 +129,12 @@ class StepCallbackManagerImpl {
     this.iceDelay = 0;
     this.prevLocalX = -1;
     this.prevLocalY = -1;
+    this.ashPrevLocalX = 0;
+    this.ashPrevLocalY = 0;
+    this.pendingAshFieldEffects = [];
+    this.prevStepMapId = null;
+    this.prevStepDestLocalX = null;
+    this.prevStepDestLocalY = null;
   }
 
   getCallbackId(): number {
@@ -98,6 +148,12 @@ class StepCallbackManagerImpl {
     this.iceDelay = 0;
     this.prevLocalX = -1;
     this.prevLocalY = -1;
+    this.ashPrevLocalX = 0;
+    this.ashPrevLocalY = 0;
+    this.pendingAshFieldEffects = [];
+    this.prevStepMapId = null;
+    this.prevStepDestLocalX = null;
+    this.prevStepDestLocalY = null;
   }
 
   /**
@@ -105,13 +161,61 @@ class StepCallbackManagerImpl {
    * Called from the game loop each GBA frame tick.
    */
   update(ctx: StepCallbackContext): void {
+    this.updateLegendaryIslandStepCounters(ctx);
+
     if (this.callbackId === STEP_CB_DUMMY) return;
 
+    if (this.callbackId === STEP_CB_ASH) {
+      this.updatePendingAshFieldEffects(ctx);
+    }
+
     switch (this.callbackId) {
+      case STEP_CB_ASH:
+        this.updateAshGrass(ctx);
+        break;
       case STEP_CB_SOOTOPOLIS_ICE:
         this.updateSootopolisIce(ctx);
         break;
-      // Other callbacks (ash, bridge, cracked floor) can be added here
+      // Other callbacks (bridge, cracked floor, etc.) can be added here
+    }
+  }
+
+  private didPlayerAdvanceStep(ctx: StepCallbackContext): boolean {
+    if (this.prevStepMapId !== ctx.currentMapId) {
+      this.prevStepMapId = ctx.currentMapId;
+      this.prevStepDestLocalX = ctx.playerDestLocalX;
+      this.prevStepDestLocalY = ctx.playerDestLocalY;
+      return false;
+    }
+
+    if (this.prevStepDestLocalX === ctx.playerDestLocalX && this.prevStepDestLocalY === ctx.playerDestLocalY) {
+      return false;
+    }
+
+    this.prevStepDestLocalX = ctx.playerDestLocalX;
+    this.prevStepDestLocalY = ctx.playerDestLocalY;
+    return true;
+  }
+
+  /**
+   * C refs:
+   * - public/pokeemerald/src/field_control_avatar.c
+   *   - IncrementBirthIslandRockStepCount()
+   *   - UpdateFarawayIslandStepCounter()
+   * - public/pokeemerald/src/field_specials.c (IncrementBirthIslandRockStepCount)
+   * - public/pokeemerald/src/faraway_island.c (UpdateFarawayIslandStepCounter)
+   */
+  private updateLegendaryIslandStepCounters(ctx: StepCallbackContext): void {
+    if (!this.didPlayerAdvanceStep(ctx)) return;
+
+    if (ctx.currentMapId === 'MAP_BIRTH_ISLAND_EXTERIOR') {
+      const next = gameVariables.getVar('VAR_DEOXYS_ROCK_STEP_COUNT') + 1;
+      gameVariables.setVar('VAR_DEOXYS_ROCK_STEP_COUNT', next > 99 ? 0 : next);
+    }
+
+    if (ctx.currentMapId === 'MAP_FARAWAY_ISLAND_INTERIOR') {
+      const next = gameVariables.getVar('VAR_FARAWAY_ISLAND_STEP_COUNTER') + 1;
+      gameVariables.setVar('VAR_FARAWAY_ISLAND_STEP_COUNTER', next >= 9999 ? 0 : next);
     }
   }
 
@@ -146,6 +250,79 @@ class StepCallbackManagerImpl {
     }
   }
 
+  // --- Ash Grass Step Callback ---
+  // C reference: field_tasks.c AshGrassPerStepCallback + StartAshFieldEffect in field_effect_helpers.c
+
+  private updateAshGrass(ctx: StepCallbackContext): void {
+    const x = ctx.playerDestLocalX;
+    const y = ctx.playerDestLocalY;
+
+    // End if player hasn't moved (matches tPrevX/tPrevY gate in C).
+    if (x === this.ashPrevLocalX && y === this.ashPrevLocalY) {
+      return;
+    }
+
+    this.ashPrevLocalX = x;
+    this.ashPrevLocalY = y;
+
+    if (ctx.getTileBehaviorLocal(x, y) !== MB_ASHGRASS) {
+      return;
+    }
+
+    const metatileId = ctx.getTileMetatileIdLocal(x, y);
+    const replacementMetatileId = metatileId === METATILE_FALLARBOR_ASH_GRASS
+      ? METATILE_FALLARBOR_NORMAL_GRASS
+      : METATILE_LAVARIDGE_NORMAL_GRASS;
+
+    this.pendingAshFieldEffects.push({
+      mapId: ctx.currentMapId,
+      localX: x,
+      localY: y,
+      replacementMetatileId,
+      delayFrames: ASH_FIELD_EFFECT_DELAY_FRAMES,
+    });
+
+    // Try to gather ash if player has Soot Sack.
+    if (bagManager.hasItem(ITEMS.ITEM_SOOT_SACK)) {
+      const gathered = gameVariables.getVar('VAR_ASH_GATHER_COUNT');
+      if (gathered < MAX_ASH_GATHER_COUNT) {
+        gameVariables.setVar('VAR_ASH_GATHER_COUNT', gathered + 1);
+      }
+    }
+  }
+
+  private updatePendingAshFieldEffects(ctx: StepCallbackContext): void {
+    if (this.pendingAshFieldEffects.length === 0) {
+      return;
+    }
+
+    let changedMetatile = false;
+    const remaining: PendingAshFieldEffect[] = [];
+
+    for (const effect of this.pendingAshFieldEffects) {
+      // Drop delayed effects when leaving the map they were queued on.
+      if (effect.mapId !== ctx.currentMapId) {
+        continue;
+      }
+
+      effect.delayFrames--;
+      if (effect.delayFrames > 0) {
+        remaining.push(effect);
+        continue;
+      }
+
+      ctx.startFieldEffectLocal?.(effect.localX, effect.localY, 'ASH', 'player');
+      ctx.setMapMetatile(effect.localX, effect.localY, effect.replacementMetatileId);
+      changedMetatile = true;
+    }
+
+    this.pendingAshFieldEffects = remaining;
+
+    if (changedMetatile) {
+      ctx.invalidateView();
+    }
+  }
+
   // --- Sootopolis Gym Ice Step Callback ---
   // C reference: field_tasks.c SootopolisGymIcePerStepCallback (lines 659-736)
 
@@ -153,20 +330,20 @@ class StepCallbackManagerImpl {
     switch (this.iceState) {
       case 0:
         // State 0: Initialize — record starting position
-        this.prevLocalX = ctx.playerLocalX;
-        this.prevLocalY = ctx.playerLocalY;
+        this.prevLocalX = ctx.playerDestLocalX;
+        this.prevLocalY = ctx.playerDestLocalY;
         this.iceState = 1;
         break;
 
       case 1: {
         // State 1: Wait for movement
-        if (ctx.playerLocalX === this.prevLocalX && ctx.playerLocalY === this.prevLocalY) {
+        if (ctx.playerDestLocalX === this.prevLocalX && ctx.playerDestLocalY === this.prevLocalY) {
           break; // Player hasn't moved
         }
 
         // Player moved to a new tile
-        const newX = ctx.playerLocalX;
-        const newY = ctx.playerLocalY;
+        const newX = ctx.playerDestLocalX;
+        const newY = ctx.playerDestLocalY;
         this.prevLocalX = newX;
         this.prevLocalY = newY;
 

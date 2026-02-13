@@ -2,6 +2,8 @@
  * Types for object events (NPCs, items, etc.) from map data
  */
 
+import { getSpriteInfo } from '../data/spriteMetadata.ts';
+
 /**
  * Raw object event data from map JSON
  */
@@ -117,6 +119,8 @@ export interface NPCObject {
   id: string;
   /** Local ID within the map (for scripting) */
   localId: string | null;
+  /** Numeric local ID (1 + object template index) used by native saves/scripts */
+  localIdNumber: number;
   /** World tile X coordinate */
   tileX: number;
   /** World tile Y coordinate */
@@ -150,6 +154,15 @@ export interface NPCObject {
   /** Whether this NPC was removed at runtime by a script (removeobject/addobject).
    *  Prevents refreshNPCVisibility from overriding the script's visibility change. */
   scriptRemoved: boolean;
+  /**
+   * Script-controlled render priority flag (e.g. Faraway Island Mew emerging from grass).
+   * When enabled, sprite should render above grass overlays and skip long-grass body clipping.
+   */
+  renderAboveGrass: boolean;
+  /** Runtime tint override for palette-like scripted effects (0..1, defaults to 1). */
+  tintR?: number;
+  tintG?: number;
+  tintB?: number;
 
   // Movement state fields (updated by NPCMovementEngine)
 
@@ -255,6 +268,8 @@ export interface LargeObject {
  */
 export interface ObjectEventRuntimeState {
   version: 1;
+  /** Coordinate system used by npc tile fields. */
+  coordSpace?: 'world' | 'mapLocal';
   npcs: Record<string, {
     tileX: number;
     tileY: number;
@@ -264,7 +279,9 @@ export interface ObjectEventRuntimeState {
     visible: boolean;
     spriteHidden: boolean;
     scriptRemoved: boolean;
-    movementTypeRaw: string;
+    renderAboveGrass: boolean;
+    /** Optional for native .sav imports, which may only provide numeric movement IDs. */
+    movementTypeRaw?: string;
   }>;
   itemBalls: Record<string, {
     collected: boolean;
@@ -283,28 +300,40 @@ export interface ObjectEventRuntimeState {
 
 /**
  * Check if a graphics ID represents an NPC (person/character)
- * Excludes items, misc objects, berry trees, etc.
+ * using canonical sprite metadata plus explicit overrides.
  */
-export function isNPCGraphicsId(graphicsId: string): boolean {
-  // Exclude known non-NPC types
-  if (graphicsId === OBJ_EVENT_GFX_ITEM_BALL) return false;
-  if (graphicsId.includes('BERRY_TREE')) return false;
-  if (graphicsId.includes('BREAKABLE_ROCK')) return false;
-  if (graphicsId.includes('CUTTABLE_TREE')) return false;
-  if (graphicsId.includes('PUSHABLE_BOULDER')) return false;
-  if (graphicsId.includes('FOSSIL')) return false;
-  if (graphicsId.includes('TRUCK')) return false;
-  if (graphicsId.includes('SS_TIDAL')) return false;
-  if (graphicsId.includes('CABLE_CAR')) return false;
-  if (graphicsId.includes('SUBMARINE')) return false;
-  if (graphicsId.includes('DOLL')) return false;
-  if (graphicsId.includes('CUSHION')) return false;
-  if (graphicsId.includes('STATUE')) return false;
-  if (graphicsId.includes('BAG')) return false; // Birch's bag
-  if (graphicsId.includes('STONE')) return false; // Birth island stone
+const NPC_GRAPHICS_OVERRIDES = new Set<string>([
+  // Birth Island puzzle rock is scripted like an object event/NPC in this runtime.
+  'OBJ_EVENT_GFX_DEOXYS_TRIANGLE',
+  'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
+]);
 
-  // Include all OBJ_EVENT_GFX_* that look like people
-  return graphicsId.startsWith('OBJ_EVENT_GFX_');
+const NON_NPC_GRAPHICS_FALLBACKS = new Set<string>([
+  OBJ_EVENT_GFX_ITEM_BALL,
+  'OBJ_EVENT_GFX_BERRY_TREE',
+  'OBJ_EVENT_GFX_CUTTABLE_TREE',
+  'OBJ_EVENT_GFX_BREAKABLE_ROCK',
+  'OBJ_EVENT_GFX_PUSHABLE_BOULDER',
+  'OBJ_EVENT_GFX_TRUCK',
+  'OBJ_EVENT_GFX_SS_TIDAL',
+  'OBJ_EVENT_GFX_SUBMARINE_SHADOW',
+  'OBJ_EVENT_GFX_CABLE_CAR',
+  'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
+  'OBJ_EVENT_GFX_BIRCHS_BAG',
+]);
+
+export function isNPCGraphicsId(graphicsId: string): boolean {
+  if (!graphicsId.startsWith('OBJ_EVENT_GFX_')) return false;
+  if (NPC_GRAPHICS_OVERRIDES.has(graphicsId)) return true;
+  if (NON_NPC_GRAPHICS_FALLBACKS.has(graphicsId)) return false;
+
+  const spriteInfo = getSpriteInfo(graphicsId);
+  if (spriteInfo) {
+    return !spriteInfo.inanimate;
+  }
+
+  // Keep unknown IDs interactable/scriptable by default.
+  return true;
 }
 
 /**
@@ -410,6 +439,7 @@ export function parseMovementType(movementType: string): NPCMovementType {
       return 'invisible';
     case 'MOVEMENT_TYPE_COPY_PLAYER':
     case 'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE':
+    case 'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE_IN_GRASS':
     case 'MOVEMENT_TYPE_COPY_PLAYER_COUNTERCLOCKWISE':
     case 'MOVEMENT_TYPE_COPY_PLAYER_CLOCKWISE':
       return 'copy_player';

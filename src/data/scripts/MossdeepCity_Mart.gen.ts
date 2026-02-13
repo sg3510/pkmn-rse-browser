@@ -15,18 +15,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "MossdeepCity_Mart_Pokemart": [
-      { cmd: ".2byte", args: ["ITEM_ULTRA_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_NET_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_DIVE_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_HYPER_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_FULL_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_REVIVE"] },
-      { cmd: ".2byte", args: ["ITEM_MAX_REPEL"] },
-      { cmd: ".2byte", args: ["ITEM_X_ATTACK"] },
-      { cmd: ".2byte", args: ["ITEM_X_DEFEND"] },
       { cmd: "pokemartlistend" },
     ],
     "MossdeepCity_Mart_EventScript_Woman": [

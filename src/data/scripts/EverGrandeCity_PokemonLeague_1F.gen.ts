@@ -36,16 +36,8 @@ export const data: MapScriptData = {
       { cmd: "msgbox", args: ["gText_PleaseComeAgain", "MSGBOX_DEFAULT"] },
       { cmd: "release" },
       { cmd: "end" },
-      { cmd: ".align", args: [2] },
     ],
     "EverGrandeCity_PokemonLeague_1F_Pokemart": [
-      { cmd: ".2byte", args: ["ITEM_ULTRA_BALL"] },
-      { cmd: ".2byte", args: ["ITEM_HYPER_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_MAX_POTION"] },
-      { cmd: ".2byte", args: ["ITEM_FULL_RESTORE"] },
-      { cmd: ".2byte", args: ["ITEM_FULL_HEAL"] },
-      { cmd: ".2byte", args: ["ITEM_REVIVE"] },
-      { cmd: ".2byte", args: ["ITEM_MAX_REPEL"] },
       { cmd: "pokemartlistend" },
     ],
     "EverGrandeCity_PokemonLeague_1F_EventScript_DoorGuard": [

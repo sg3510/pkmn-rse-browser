@@ -177,7 +177,7 @@
   width: 24px;
   height: 24px;
   image-rendering: pixelated;
-  background-image: url('/img/menu-icons.png');
+  background-image: var(--asset-menu-icons-bg);
   background-repeat: no-repeat;
   background-size: 48px 240px; /* Scale 50×250 to 48×240 (24px per icon) */
   background-position-x: 0; /* Column 0 = unselected */

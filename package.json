@@ -37,6 +37,7 @@
     "generate:learnsets": "node scripts/generate-learnsets.cjs",
     "generate:item-effects": "node scripts/generate-item-battle-effects.cjs",
     "generate:all": "npm run generate:items && npm run generate:species && npm run generate:species-info && npm run generate:moves && npm run generate:abilities && npm run generate:scripts && npm run generate:trainers && npm run generate:large-objects && npm run generate:new-game-flags && npm run generate:flags && npm run generate:metatile-labels && npm run generate:multichoice && npm run generate:field-effects && npm run generate:weather && npm run generate:weather-runtime && npm run generate:type-chart && npm run generate:battle-moves && npm run generate:trainer-parties && npm run generate:battle-backgrounds && npm run generate:battle-scripts && npm run generate:battle-animations && npm run generate:battle-constants && npm run generate:sprite-coords && npm run generate:learnsets && npm run generate:item-effects",
+    "verify:legendary-script-ingestion": "node scripts/verify-legendary-script-ingestion.cjs",
     "save:audit-layouts": "node --experimental-strip-types scripts/audit-save-layouts.ts"
   },
   "dependencies": {

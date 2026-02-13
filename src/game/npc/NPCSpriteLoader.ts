@@ -177,7 +177,7 @@ const GRAPHICS_FRAME_DIMENSIONS: Record<string, { width: number; height: number 
   OBJ_EVENT_GFX_WINGULL: { width: 16, height: 16 },
   OBJ_EVENT_GFX_AZURILL: { width: 16, height: 16 },
   OBJ_EVENT_GFX_SKITTY: { width: 16, height: 16 },
-  OBJ_EVENT_GFX_MEW: { width: 16, height: 16 },
+  OBJ_EVENT_GFX_MEW: { width: 16, height: 32 },
 
   // Special intro Pokemon sprites
   OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX: { width: 32, height: 32 },
@@ -463,11 +463,14 @@ class NPCSpriteCache {
   private dimensions: Map<string, SpriteDimensions> = new Map();
   private loading: Map<string, Promise<HTMLCanvasElement | null>> = new Map();
   private failed: Set<string> = new Set();
+  private runtimeVariants: Map<string, HTMLCanvasElement> = new Map();
 
   /**
    * Get a cached sprite or null if not loaded
    */
   get(graphicsId: string): HTMLCanvasElement | null {
+    const runtimeVariant = this.runtimeVariants.get(graphicsId);
+    if (runtimeVariant) return runtimeVariant;
     return this.cache.get(graphicsId) ?? null;
   }
 
@@ -492,7 +495,7 @@ class NPCSpriteCache {
    * Check if a sprite is cached
    */
   has(graphicsId: string): boolean {
-    return this.cache.has(graphicsId);
+    return this.runtimeVariants.has(graphicsId) || this.cache.has(graphicsId);
   }
 
   /**
@@ -507,6 +510,11 @@ class NPCSpriteCache {
    * Applies transparency by making the background color (top-left pixel) transparent
    */
   async load(graphicsId: string): Promise<HTMLCanvasElement | null> {
+    const runtimeVariant = this.runtimeVariants.get(graphicsId);
+    if (runtimeVariant) {
+      return runtimeVariant;
+    }
+
     // Already cached
     if (this.cache.has(graphicsId)) {
       return this.cache.get(graphicsId)!;
@@ -592,6 +600,7 @@ class NPCSpriteCache {
     this.dimensions.clear();
     this.loading.clear();
     this.failed.clear();
+    this.runtimeVariants.clear();
   }
 
   /**
@@ -599,10 +608,39 @@ class NPCSpriteCache {
    */
   getStats(): { cached: number; loading: number; failed: number } {
     return {
-      cached: this.cache.size,
+      cached: this.cache.size + this.runtimeVariants.size,
       loading: this.loading.size,
       failed: this.failed.size,
     };
+  }
+
+  /**
+   * Override a sprite at runtime with a pre-rendered variant.
+   * Used by scripted palette effects (e.g. Birth Island Deoxys rock).
+   */
+  setRuntimeSpriteVariant(graphicsId: string, canvas: HTMLCanvasElement): void {
+    this.runtimeVariants.set(graphicsId, canvas);
+    const expected = getExpectedFrameDimensions(graphicsId);
+    this.dimensions.set(graphicsId, {
+      frameWidth: expected.width,
+      frameHeight: expected.height,
+      totalWidth: canvas.width,
+      totalHeight: canvas.height,
+    });
+  }
+
+  /**
+   * Clear any runtime sprite override and return to source asset loading.
+   */
+  clearRuntimeSpriteVariant(graphicsId: string): void {
+    this.runtimeVariants.delete(graphicsId);
+    this.cache.delete(graphicsId);
+    this.dimensions.delete(graphicsId);
+    this.failed.delete(graphicsId);
+  }
+
+  hasRuntimeSpriteVariant(graphicsId: string): boolean {
+    return this.runtimeVariants.has(graphicsId);
   }
 }
 

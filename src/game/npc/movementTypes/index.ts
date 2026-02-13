@@ -16,6 +16,7 @@ import { wanderUpAndDownHandler, wanderLeftAndRightHandler } from './wanderDirec
 import { walkBackAndForthHandler } from './walkBackAndForth';
 import { walkInPlaceHandler } from './walkInPlace';
 import { walkSequenceHandler } from './walkSequence';
+import { copyPlayerHandler } from './copyPlayer';
 import {
   faceDownAndUpHandler,
   faceLeftAndRightHandler,
@@ -70,8 +71,8 @@ export const movementHandlers: Record<NPCMovementType, MovementTypeHandler | nul
   // Walk sequence - 24 variants cycling through 4 directions
   walk_sequence: walkSequenceHandler,
 
-  // Copy player - TODO: requires player position tracking
-  copy_player: faceDirectionHandler, // For now, just face
+  // Copy player movement family (copy/opposite/clockwise/counterclockwise, grass variants)
+  copy_player: copyPlayerHandler,
 
   // Other/unrecognized
   other: faceDirectionHandler, // Default to static
@@ -98,6 +99,7 @@ export {
   walkBackAndForthHandler,
   walkInPlaceHandler,
   walkSequenceHandler,
+  copyPlayerHandler,
   faceDownAndUpHandler,
   faceLeftAndRightHandler,
   faceUpAndLeftHandler,

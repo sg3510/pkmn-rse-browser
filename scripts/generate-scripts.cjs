@@ -21,6 +21,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const MAPS_DIR = path.join(ROOT, 'public/pokeemerald/data/maps');
 const SHARED_SCRIPTS_DIR = path.join(ROOT, 'public/pokeemerald/data/scripts');
+const SHARED_EVENT_SCRIPTS_PATH = path.join(ROOT, 'public/pokeemerald/data/event_scripts.s');
 const SHARED_TEXT_DIR = path.join(ROOT, 'public/pokeemerald/data/text');
 const CONSTANTS_DIR = path.join(ROOT, 'public/pokeemerald/include/constants');
 const OUTPUT_DIR = path.join(ROOT, 'src/data/scripts');
@@ -202,10 +203,18 @@ const MAP_SCRIPT_TYPES = {
   'MAP_SCRIPT_ON_LOAD': 'onLoad',
   'MAP_SCRIPT_ON_TRANSITION': 'onTransition',
   'MAP_SCRIPT_ON_RESUME': 'onResume',
+  'MAP_SCRIPT_ON_RETURN_TO_FIELD': 'onReturnToField',
   'MAP_SCRIPT_ON_DIVE_WARP': 'onDive',
   'MAP_SCRIPT_ON_FRAME_TABLE': 'onFrame',
   'MAP_SCRIPT_ON_WARP_INTO_MAP_TABLE': 'onWarpInto',
 };
+
+function isAssemblerDirective(line) {
+  if (!line.startsWith('.')) return false;
+  if (line.startsWith('.string')) return false;
+  if (line === '.byte 0' || line === '.2byte 0') return false;
+  return true;
+}
 
 /**
  * Parse a single .inc file into structured data.
@@ -341,6 +350,7 @@ function parseIncFile(content) {
       for (const line of entity.lines) {
         // Skip terminators
         if (line === '.byte 0' || line === '.2byte 0') continue;
+        if (isAssemblerDirective(line)) continue;
 
         const parsed = parseCommand(line);
         if (parsed) {
@@ -402,7 +412,13 @@ function buildMapScriptHeader(mapScriptEntries) {
     if (entry.type === '__table__') continue;
 
     const key = MAP_SCRIPT_TYPES[entry.type];
-    if (key && (key === 'onLoad' || key === 'onTransition' || key === 'onResume' || key === 'onDive')) {
+    if (key && (
+      key === 'onLoad'
+      || key === 'onTransition'
+      || key === 'onResume'
+      || key === 'onReturnToField'
+      || key === 'onDive'
+    )) {
       header[key] = entry.label;
     }
     // Frame tables and warp-into tables are resolved from __table__ entries
@@ -481,6 +497,9 @@ function generateTsFile(mapName, data) {
   }
   if (mapScripts.onResume) {
     lines.push(`    onResume: ${JSON.stringify(mapScripts.onResume)},`);
+  }
+  if (mapScripts.onReturnToField) {
+    lines.push(`    onReturnToField: ${JSON.stringify(mapScripts.onReturnToField)},`);
   }
   if (mapScripts.onDive) {
     lines.push(`    onDive: ${JSON.stringify(mapScripts.onDive)},`);
@@ -687,6 +706,23 @@ function generate() {
     }
   }
 
+  // Parse event_scripts.s for common scripts/text that are not in data/scripts/*.inc
+  if (fs.existsSync(SHARED_EVENT_SCRIPTS_PATH)) {
+    const eventScriptsContent = fs.readFileSync(SHARED_EVENT_SCRIPTS_PATH, 'utf8');
+    const parsedEventScripts = parseIncFile(eventScriptsContent);
+
+    Object.assign(commonScripts, parsedEventScripts.scripts);
+    Object.assign(commonMovements, parsedEventScripts.movements);
+    Object.assign(commonText, parsedEventScripts.text);
+
+    const scriptCount = Object.keys(parsedEventScripts.scripts).length;
+    const movementCount = Object.keys(parsedEventScripts.movements).length;
+    const textCount = Object.keys(parsedEventScripts.text).length;
+    console.log(
+      `  event_scripts.s: ${scriptCount} scripts, ${movementCount} movements, ${textCount} text`
+    );
+  }
+
   // Parse all .inc files in data/text/ (trainer dialogue, berry NPCs, etc.)
   try {
     const textFiles = fs.readdirSync(SHARED_TEXT_DIR, { withFileTypes: true })
@@ -731,5 +767,15 @@ function generate() {
   console.log(`Output: ${OUTPUT_DIR}`);
 }
 
-// Run
-generate();
+module.exports = {
+  parseIncFile,
+  isAssemblerDirective,
+  buildMapScriptHeader,
+  tryParseInt,
+  generate,
+};
+
+// Run as CLI entrypoint
+if (require.main === module) {
+  generate();
+}

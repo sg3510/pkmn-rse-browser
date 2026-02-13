@@ -38,6 +38,7 @@ interface SpriteCache {
   ripple: HTMLCanvasElement | null;
   arrow: HTMLImageElement | HTMLCanvasElement | null;
   itemBall: HTMLImageElement | HTMLCanvasElement | null;
+  [key: string]: HTMLImageElement | HTMLCanvasElement | null;
 }
 
 export interface ArrowOverlay {
@@ -74,6 +75,30 @@ export interface SpriteFrameInfo {
  * - Arrow overlays
  */
 export class ObjectRenderer {
+  private static resolveFieldEffectSprite(
+    effect: FieldEffectForRendering,
+    sprites: SpriteCache
+  ): HTMLCanvasElement | null {
+    let sprite: HTMLCanvasElement | null = null;
+
+    if (effect.type === 'tall') sprite = sprites.grass;
+    else if (effect.type === 'long') sprite = sprites.longGrass;
+    else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
+    else if (effect.type === 'bike_tire_tracks') sprite = sprites.bikeTracks;
+    else if (effect.type === 'puddle_splash') sprite = sprites.splash;
+    else if (effect.type === 'water_ripple') sprite = sprites.ripple;
+
+    if (sprite) {
+      return sprite;
+    }
+
+    // Support generated field effects that use registry keys directly (e.g. ASH).
+    const dynamicSprite =
+      sprites[effect.registryKey]
+      ?? sprites[String(effect.type)];
+    return dynamicSprite instanceof HTMLCanvasElement ? dynamicSprite : null;
+  }
+
   /**
    * Render field effects (grass, sand footprints, water ripples) with Y-sorting relative to player
    *
@@ -97,14 +122,7 @@ export class ObjectRenderer {
       // Use shared utility to check if effect should render in this layer
       if (!shouldRenderInLayer(effect, playerY, layer)) continue;
 
-      // Select sprite based on effect type
-      let sprite: HTMLCanvasElement | null = null;
-      if (effect.type === 'tall') sprite = sprites.grass;
-      else if (effect.type === 'long') sprite = sprites.longGrass;
-      else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
-      else if (effect.type === 'bike_tire_tracks') sprite = sprites.bikeTracks;
-      else if (effect.type === 'puddle_splash') sprite = sprites.splash;
-      else if (effect.type === 'water_ripple') sprite = sprites.ripple;
+      const sprite = ObjectRenderer.resolveFieldEffectSprite(effect, sprites);
 
       if (!sprite) continue;
 
@@ -266,14 +284,7 @@ export class ObjectRenderer {
   ): void {
     if (!effect.visible) return;
 
-    // Select sprite based on effect type
-    let sprite: HTMLCanvasElement | null = null;
-    if (effect.type === 'tall') sprite = sprites.grass;
-    else if (effect.type === 'long') sprite = sprites.longGrass;
-    else if (effect.type === 'sand' || effect.type === 'deep_sand') sprite = sprites.sand;
-    else if (effect.type === 'bike_tire_tracks') sprite = sprites.bikeTracks;
-    else if (effect.type === 'puddle_splash') sprite = sprites.splash;
-    else if (effect.type === 'water_ripple') sprite = sprites.ripple;
+    const sprite = ObjectRenderer.resolveFieldEffectSprite(effect, sprites);
 
     if (!sprite) return;
 
@@ -530,5 +541,4 @@ export class ObjectRenderer {
     }
   }
 }
-
 

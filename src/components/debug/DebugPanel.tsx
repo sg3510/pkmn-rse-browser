@@ -258,7 +258,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             />
           )}
           {activeTab === 'objects' && <ObjectsTab state={state} />}
-          {activeTab === 'state' && <StateTab />}
+          {activeTab === 'state' && <StateTab state={state} />}
           {activeTab === 'tile' && (
             <TileTab
               state={state}
@@ -1169,20 +1169,59 @@ const STATE_WATCH_FLAGS = [
   'FLAG_HIDE_ROUTE_101_ZIGZAGOON',
   'FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG',
   'FLAG_HIDE_ROUTE_101_BIRCH',
+  'FLAG_HIDE_ROUTE_101_BOY',
 ];
 
 const STATE_WATCH_VARS = [
   'VAR_ROUTE101_STATE',
   'VAR_BIRCH_STATE',
+  'VAR_BIRCH_LAB_STATE',
   'VAR_LITTLEROOT_TOWN_STATE',
   'VAR_LITTLEROOT_INTRO_STATE',
+  'VAR_LITTLEROOT_RIVAL_STATE',
+  'VAR_RESULT',
+  'VAR_FACING',
+  'VAR_TEMP_0',
+  'VAR_TEMP_1',
+  'VAR_TEMP_2',
+  'VAR_TEMP_3',
+  'VAR_TEMP_4',
+  'VAR_TEMP_5',
+  'VAR_TEMP_6',
+  'VAR_TEMP_7',
 ];
 
+function getMapIdFromNpcRuntimeId(id: string): string | null {
+  const marker = '_npc_';
+  const idx = id.indexOf(marker);
+  if (idx <= 0) return null;
+  return id.slice(0, idx);
+}
+
 // State tab — flags and variables inspector
-const StateTab: React.FC = () => {
+const StateTab: React.FC<{ state: DebugState }> = ({ state }) => {
   const [search, setSearch] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
+  const allNpcs = state.allNPCs ?? state.allVisibleNPCs;
+  const activeMapId = state.player?.mapId ?? null;
+  const offscreenNpcIds = useMemo(() => new Set(state.offscreenDespawnedNpcIds ?? []), [state.offscreenDespawnedNpcIds]);
+  const activeMapNpcs = useMemo(() => {
+    if (!activeMapId) return allNpcs;
+    return allNpcs.filter((npc) => getMapIdFromNpcRuntimeId(npc.id) === activeMapId);
+  }, [activeMapId, allNpcs]);
+  const activeMapVisibleNpcs = useMemo(() => {
+    if (!activeMapId) return state.allVisibleNPCs;
+    return state.allVisibleNPCs.filter((npc) => getMapIdFromNpcRuntimeId(npc.id) === activeMapId);
+  }, [activeMapId, state.allVisibleNPCs]);
+  const activeMapOffscreenCount = useMemo(
+    () => activeMapNpcs.filter((npc) => offscreenNpcIds.has(npc.id)).length,
+    [activeMapNpcs, offscreenNpcIds]
+  );
+  const movedNpcs = useMemo(
+    () => activeMapNpcs.filter((npc) => npc.tileX !== npc.initialTileX || npc.tileY !== npc.initialTileY),
+    [activeMapNpcs]
+  );
 
   // Read state on each render / refresh
   const allFlags = useMemo(() => gameFlags.getAllFlags().sort(), [refreshKey]);
@@ -1291,6 +1330,44 @@ const StateTab: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      </Section>
+
+      <Section title="Object Runtime Watch" collapsible>
+        <InfoRow label="Active Map" value={activeMapId ?? 'unknown'} />
+        <InfoRow label="Visible NPCs" value={activeMapVisibleNpcs.length} />
+        <InfoRow label="Total NPCs" value={activeMapNpcs.length} />
+        <InfoRow label="Offscreen NPCs" value={activeMapOffscreenCount} />
+        <InfoRow label="Moved NPCs" value={movedNpcs.length} />
+
+        <div style={{ marginTop: 8 }}>
+          <div style={{ color: '#888', fontSize: '9px', marginBottom: 4 }}>Moved NPC Details</div>
+          {movedNpcs.length === 0 ? (
+            <div style={{ color: '#666', fontStyle: 'italic', fontSize: '10px' }}>No moved NPC runtime overrides</div>
+          ) : (
+            <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+              {movedNpcs.slice(0, 10).map((npc) => (
+                <div
+                  key={npc.id}
+                  style={{
+                    borderBottom: '1px solid #2a2a2a',
+                    padding: '3px 0',
+                    fontSize: '10px',
+                  }}
+                >
+                  <div style={{ color: '#ffd166', wordBreak: 'break-all' }}>{npc.id}</div>
+                  <div style={{ color: '#ccc' }}>
+                    cur ({npc.tileX}, {npc.tileY}) to init ({npc.initialTileX}, {npc.initialTileY})
+                  </div>
+                </div>
+              ))}
+              {movedNpcs.length > 10 && (
+                <div style={{ color: '#888', fontSize: '10px', marginTop: 4 }}>
+                  +{movedNpcs.length - 10} more moved NPCs
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Section>
 

@@ -5,8 +5,8 @@
  * This centralizes flag/var/bag/party ownership so subsystems do not drift.
  */
 
-import type { BagState, GameVars, GameOptions, GameStats, PokedexState, ItemSlot } from './types';
-import { DEFAULT_OPTIONS } from './types';
+import type { BagState, GameVars, GameOptions, GameStats, PokedexState, ItemSlot } from './types.ts';
+import { DEFAULT_OPTIONS } from './types.ts';
 import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types.ts';
 import { FLAG_ID_TO_NAME, VAR_ID_TO_NAME } from '../data/flagVarMaps.gen.ts';

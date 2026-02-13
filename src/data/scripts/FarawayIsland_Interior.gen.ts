@@ -6,6 +6,7 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "FarawayIsland_Interior_OnTransition",
     onResume: "FarawayIsland_Interior_OnResume",
+    onReturnToField: "FarawayIsland_Interior_OnReturnToField",
     onFrame: [
       { var: "VAR_TEMP_1", value: 0, script: "FarawayIsland_Interior_EventScript_FindMew" },
     ],

@@ -29,6 +29,14 @@ test('parses vanilla Emerald sample with supported layout profile', () => {
 
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEMON_GET'), true);
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEDEX_GET'), true);
+  assert.ok(result.saveData.objectEventRuntimeState);
+  assert.equal(result.saveData.objectEventRuntimeState.coordSpace, 'mapLocal');
+  const petalburgBugCatcher = result.saveData.objectEventRuntimeState.npcs.MAP_PETALBURG_WOODS_npc_9;
+  assert.ok(petalburgBugCatcher);
+  assert.equal(petalburgBugCatcher.tileX, 7);
+  assert.equal(petalburgBugCatcher.tileY, 32);
+  assert.equal(petalburgBugCatcher.initialTileX, 7);
+  assert.equal(petalburgBugCatcher.initialTileY, 32);
 });
 
 test('unwraps wrapped Emerald sample and still parses successfully', () => {
@@ -63,6 +71,8 @@ test('parses Emerald Legacy sample with dedicated profile', () => {
   assert.equal(result.nativeMetadata.sanity.level, 'high');
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEMON_GET'), true);
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEDEX_GET'), true);
+  assert.ok(result.saveData.objectEventRuntimeState);
+  assert.equal(result.saveData.objectEventRuntimeState.coordSpace, 'mapLocal');
 });
 
 test('rejects mislabeled PNG save artifact', () => {

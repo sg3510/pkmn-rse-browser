@@ -130,6 +130,7 @@ interface BattleStateData {
   playerPokemon?: PartyPokemon;
   wildSpecies?: number;
   wildLevel?: number;
+  wildHeldItem?: number;
   terrain?: BattleTerrain;
   backgroundProfile?: BattleBackgroundProfile;
   battleType?: 'wild' | 'trainer';
@@ -271,6 +272,9 @@ export class BattleState implements StateRenderer {
     const wildPokemon = createTestPokemon({
       species: wildSpecies,
       level: wildLevel,
+      heldItem: Number.isFinite(typedData.wildHeldItem)
+        ? Math.max(0, Math.trunc(typedData.wildHeldItem as number))
+        : 0,
       moves: [MOVES.TACKLE, 0, 0, 0],
     });
 

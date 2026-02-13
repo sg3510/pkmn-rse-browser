@@ -140,30 +140,6 @@ export const DialogArrow: React.FC<DialogArrowProps> = ({
 
 // CSS for font and arrow animation (inject into document)
 const dialogCSS = `
-@font-face {
-  font-family: 'Pokemon Emerald';
-  src: url('/fonts/pokemon-emerald.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pokemon RS';
-  src: url('/fonts/pokemon-rs.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'PKMN RSEU';
-  src: url('/fonts/PKMNRSEU.FON') format('truetype'); 
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
 @keyframes dialogArrowBounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(2px); }

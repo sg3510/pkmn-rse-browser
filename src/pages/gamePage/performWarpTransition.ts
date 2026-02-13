@@ -15,6 +15,7 @@ import type { MapScriptData } from '../../data/scripts/types';
 import { runMapEntryScripts } from './runMapEntryScripts';
 import { handleSpecialWarpArrival } from '../../game/SpecialWarpBehaviorRegistry';
 import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner';
+import { isSurfableBehavior } from '../../utils/metatileBehaviors';
 
 interface MutableRef<T> {
   current: T;
@@ -213,8 +214,10 @@ export async function performWarpTransition(
 
     const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
     const destinationUnderwater = isUnderwaterMapType(destMap.entry.mapType);
+    const resolvedArrivalTile = player.getTileResolver()?.(player.tileX, player.tileY);
+    const arrivalBehavior = resolvedArrivalTile?.attributes?.behavior;
     player.setTraversalState({
-      surfing: false,
+      surfing: !destinationUnderwater && arrivalBehavior !== undefined && isSurfableBehavior(arrivalBehavior),
       underwater: destinationUnderwater,
     });
     setLastCoordTriggerTile({

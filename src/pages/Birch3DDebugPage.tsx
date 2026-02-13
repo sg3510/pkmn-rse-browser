@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SkeletonHelper } from 'three';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 // GBA dimensions
 const GBA_WIDTH = 240;
@@ -64,8 +65,8 @@ const defaultCameraConfig: CameraConfig = {
 const BIRCH_MODEL = {
   id: 'birch',
   name: 'Professor Birch (DAE)',
-  path: '/3dmodels/Professor Birch/rstr0009_00_fi.dae',
-  texturePath: '/3dmodels/Professor Birch/',
+  path: toPublicAssetUrl('/3dmodels/Professor Birch/rstr0009_00_fi.dae'),
+  texturePath: toPublicAssetUrl('/3dmodels/Professor Birch/'),
   textureFiles: ['rstr0009_00_fi_body.png', 'rstr0009_00_fi_face.png', 'rstr0009_00_fi_head.png'],
 };
 

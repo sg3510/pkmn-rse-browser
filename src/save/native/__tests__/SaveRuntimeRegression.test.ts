@@ -115,6 +115,27 @@ test('Route 102 item-ball flags keep already-collected items hidden', () => {
   assert.equal(manager.getVisibleItemBalls().some((ball) => ball.id === potionBall.id), false);
 });
 
+test('native object event runtime restores Petalburg bug catcher at map-local coords', () => {
+  resetRuntimeState();
+
+  const buffer = loadSampleSave('public/sample_save/Pokemon - Emerald Version (USA, Europe) 2.sav');
+  const result = parseGen3Save(buffer, 'Pokemon - Emerald Version (USA, Europe) 2.sav');
+
+  assert.equal(result.success, true);
+  assert.ok(result.saveData);
+  assert.ok(result.saveData.objectEventRuntimeState);
+
+  const petalburgMap = loadMapJson('public/pokeemerald/data/maps/PetalburgWoods/map.json');
+  const manager = new ObjectEventManager();
+  manager.parseMapObjects(petalburgMap.id, petalburgMap.object_events, 0, 0);
+  manager.applyRuntimeState(result.saveData.objectEventRuntimeState);
+
+  const bugCatcher = manager.getNPCByLocalId(petalburgMap.id, '9');
+  assert.ok(bugCatcher);
+  assert.equal(bugCatcher.tileX, 7);
+  assert.equal(bugCatcher.tileY, 32);
+});
+
 test('Emerald Legacy profile enables menu system flags and hides Littleroot trucks', () => {
   resetRuntimeState();
 
@@ -145,4 +166,42 @@ test('Emerald Legacy profile enables menu system flags and hides Littleroot truc
     .getVisibleLargeObjects()
     .filter((obj) => obj.graphicsId === 'OBJ_EVENT_GFX_TRUCK');
   assert.equal(visibleTrucks.length, 0);
+});
+
+test('object runtime snapshots stay aligned across map re-anchors and numeric local-id restore', () => {
+  resetRuntimeState();
+
+  const route101Map = loadMapJson('public/pokeemerald/data/maps/Route101/map.json');
+
+  // Initial stitched world where Route 101 is at y = -20 (e.g. anchored from Littleroot).
+  const initial = new ObjectEventManager();
+  initial.parseMapObjects(route101Map.id, route101Map.object_events, 0, -20);
+  const snapshot = initial.getRuntimeState();
+
+  assert.equal(snapshot.coordSpace, 'mapLocal');
+  const birchKey = 'MAP_ROUTE101_npc_LOCALID_ROUTE101_BIRCH';
+  const birchSnapshot = snapshot.npcs[birchKey];
+  assert.ok(birchSnapshot);
+  assert.equal(birchSnapshot.tileY, 13); // local y, not world y (-7)
+
+  // Simulate a fresh world where Route 101 is re-anchored to y = 0.
+  const reanchored = new ObjectEventManager();
+  reanchored.parseMapObjects(route101Map.id, route101Map.object_events, 0, 0);
+
+  // Simulate native save payload style keyed by numeric local IDs.
+  const nativeLike = {
+    ...snapshot,
+    npcs: {
+      ...snapshot.npcs,
+      MAP_ROUTE101_npc_2: birchSnapshot,
+    },
+  };
+  delete nativeLike.npcs[birchKey];
+
+  reanchored.applyRuntimeState(nativeLike);
+  const birch = reanchored.getNPCByLocalId(route101Map.id, 'LOCALID_ROUTE101_BIRCH');
+
+  assert.ok(birch);
+  assert.equal(birch.tileX, 9);
+  assert.equal(birch.tileY, 13);
 });

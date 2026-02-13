@@ -149,8 +149,9 @@ import {
 import { stepCallbackManager } from '../game/StepCallbackManager';
 import { rotatingGateManager } from '../game/RotatingGateManager';
 import { startSpecialWalkOverWarp } from '../game/SpecialWarpBehaviorRegistry';
-import { calculateSortKey, getRotatingGateAtlasName } from '../rendering/spriteUtils';
+import { calculateSortKey, getNPCAtlasName, getRotatingGateAtlasName } from '../rendering/spriteUtils';
 import { WeatherManager } from '../weather/WeatherManager';
+import { getDeoxysRockPaletteCanvas } from '../game/legendary/deoxysRockPaletteRuntime';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -334,6 +335,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Ref to store current viewport size for render loop (avoids stale closure)
   const viewportPixelSizeRef = useRef(viewportPixelSize);
   viewportPixelSizeRef.current = viewportPixelSize;
+  const viewportTilesRef = useRef({ tilesWide: viewportTilesWide, tilesHigh: viewportTilesHigh });
+  viewportTilesRef.current = { tilesWide: viewportTilesWide, tilesHigh: viewportTilesHigh };
 
   // Ref to store current zoom for render loop (avoids stale closure)
   const zoomRef = useRef(zoom);
@@ -372,6 +375,25 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const worldBoundsRef = useRef<{ width: number; height: number; minX: number; minY: number }>({ width: 0, height: 0, minX: 0, minY: 0 });
   const rafRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraController | null>(null);
+  const scriptedCameraStateRef = useRef<{
+    active: boolean;
+    focusX: number;
+    focusY: number;
+  }>({
+    active: false,
+    focusX: 0,
+    focusY: 0,
+  });
+  const scriptedCameraMoveTokenRef = useRef(0);
+  const scriptedCameraShakeTokenRef = useRef(0);
+  const scriptedCameraTargetRef = useRef({
+    getCameraFocus: () => ({
+      x: scriptedCameraStateRef.current.focusX,
+      y: scriptedCameraStateRef.current.focusY,
+    }),
+  });
+  const activeScriptFieldEffectsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const mewEmergingGrassEffectIdRef = useRef<string | null>(null);
   const gbaFrameRef = useRef<number>(0);
   const truckRuntimeRef = useRef(createTruckSequenceRuntime());
   const lastTimeRef = useRef<number>(performance.now());
@@ -495,6 +517,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const resolver = player?.getTileResolver();
       const resolved = resolver?.(x, y);
       return resolved?.attributes?.behavior;
+    },
+    getPlayerState: () => {
+      const player = playerRef.current;
+      if (!player) return null;
+      const destination = player.getDestinationTile();
+      return {
+        tileX: player.tileX,
+        tileY: player.tileY,
+        destTileX: destination.x,
+        destTileY: destination.y,
+        direction: player.getFacingDirection(),
+        isMoving: player.isMoving,
+      };
     },
     get fieldEffectManager() {
       // Use player's grass effect manager for NPC grass effects too
@@ -808,53 +843,372 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     };
   }, []);
 
-  const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(() => ({
-    setDiveWarp: (mapId, x, y, warpId = 0) => {
-      setFixedDiveWarpTarget(mapId, x, y, warpId);
-    },
-    fade: {
-      start: (direction, durationMs) => {
-        const now = performance.now();
-        if (direction === 'out') {
-          fadeControllerRef.current.startFadeOut(durationMs, now);
-          return;
+  const waitScriptFrames = useCallback(async (frames: number): Promise<void> => {
+    const frameCount = Math.max(0, Math.round(frames));
+    if (frameCount <= 0) return;
+    const delayMs = Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+  }, []);
+
+  const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(() => {
+    const getWorldCoordsForLocal = (
+      mapId: string,
+      localX: number,
+      localY: number
+    ): { x: number; y: number } | null => {
+      const map = worldSnapshotRef.current?.maps.find((entry) => entry.entry.id === mapId);
+      if (!map) return null;
+      return {
+        x: map.offsetX + localX,
+        y: map.offsetY + localY,
+      };
+    };
+
+    const getMovementDirection = (step: string): 'up' | 'down' | 'left' | 'right' | null => {
+      if (step.endsWith('_up')) return 'up';
+      if (step.endsWith('_down')) return 'down';
+      if (step.endsWith('_left')) return 'left';
+      if (step.endsWith('_right')) return 'right';
+      return null;
+    };
+
+    const getMovementStepFrames = (step: string): number => {
+      if (step.startsWith('walk_slow_')) return 32;
+      if (step.startsWith('walk_fast_') || step.startsWith('player_run_')) return 8;
+      if (step.startsWith('walk_faster_') || step.startsWith('walk_fastest_') || step.startsWith('slide_')) return 4;
+      if (step.startsWith('walk_') || step.startsWith('jump_')) return 16;
+      if (step.startsWith('delay_')) {
+        const parsed = Number.parseInt(step.replace('delay_', ''), 10);
+        return Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
+      }
+      return 1;
+    };
+
+    const waitRenderFrame = async (): Promise<void> => {
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        await new Promise<void>((resolve) => {
+          window.requestAnimationFrame(() => resolve());
+        });
+        return;
+      }
+      await waitScriptFrames(1);
+    };
+
+    const setRockTintFallbackForLevel = (level: number): void => {
+      const normalized = Math.max(0, Math.min(10, Math.round(level)));
+      const intensity = normalized / 10;
+      const tintG = 1 - intensity * 0.45;
+      const tintB = 1 - intensity * 0.45;
+      objectEventManagerRef.current.setNPCTintByLocalId(
+        'MAP_BIRTH_ISLAND_EXTERIOR',
+        'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
+        1,
+        tintG,
+        tintB
+      );
+    };
+
+    const applyDeoxysRockPaletteLevel = async (level: number): Promise<void> => {
+      const variant = await getDeoxysRockPaletteCanvas(level);
+      if (!variant) {
+        setRockTintFallbackForLevel(level);
+        return;
+      }
+
+      const graphicsIds = [
+        'OBJ_EVENT_GFX_DEOXYS_TRIANGLE',
+        'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
+      ];
+
+      for (const graphicsId of graphicsIds) {
+        npcSpriteCache.setRuntimeSpriteVariant(graphicsId, variant);
+      }
+
+      // Exact palette replacement should render un-tinted.
+      objectEventManagerRef.current.setNPCTintByLocalId(
+        'MAP_BIRTH_ISLAND_EXTERIOR',
+        'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
+        1,
+        1,
+        1
+      );
+
+      const renderer = spriteRendererRef.current;
+      if (renderer) {
+        for (const graphicsId of graphicsIds) {
+          const sprite = npcSpriteCache.get(graphicsId);
+          if (!sprite) continue;
+          const dims = npcSpriteCache.getDimensions(graphicsId);
+          renderer.uploadSpriteSheet(getNPCAtlasName(graphicsId), sprite, {
+            frameWidth: dims.frameWidth,
+            frameHeight: dims.frameHeight,
+          });
         }
-        fadeControllerRef.current.startFadeIn(durationMs, now);
+      }
+
+      pipelineRef.current?.invalidate();
+    };
+
+    return {
+      setDiveWarp: (mapId, x, y, warpId = 0) => {
+        setFixedDiveWarpTarget(mapId, x, y, warpId);
       },
-      wait: async (durationMs) => {
-        const delayMs = Math.max(1, Math.round(durationMs));
-        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      fade: {
+        start: (direction, durationMs) => {
+          const now = performance.now();
+          if (direction === 'out') {
+            fadeControllerRef.current.startFadeOut(durationMs, now);
+            return;
+          }
+          fadeControllerRef.current.startFadeIn(durationMs, now);
+        },
+        wait: async (durationMs) => {
+          const delayMs = Math.max(1, Math.round(durationMs));
+          await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        },
+        framesToMs: (frames) => {
+          const frameCount = Math.max(1, Math.round(frames));
+          return Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
+        },
       },
-      framesToMs: (frames) => {
-        const frameCount = Math.max(1, Math.round(frames));
-        return Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
+      fieldEffects: {
+        setArgument: () => {},
+        run: (effectName) => {
+          if (effectName !== 'FLDEFF_DESTROY_DEOXYS_ROCK') {
+            return;
+          }
+
+          const job = (async () => {
+            // C parity approximation for Task_DestroyDeoxysRock timing.
+            await waitScriptFrames(120);
+            objectEventManagerRef.current.setNPCVisibilityByLocalId(
+              'MAP_BIRTH_ISLAND_EXTERIOR',
+              'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
+              false
+            );
+            pipelineRef.current?.invalidate();
+            await waitScriptFrames(20);
+          })();
+
+          activeScriptFieldEffectsRef.current.set(effectName, job);
+          void job.finally(() => {
+            const active = activeScriptFieldEffectsRef.current.get(effectName);
+            if (active === job) {
+              activeScriptFieldEffectsRef.current.delete(effectName);
+            }
+          });
+        },
+        wait: async (effectName) => {
+          const active = activeScriptFieldEffectsRef.current.get(effectName);
+          if (active) {
+            await active;
+          }
+        },
       },
-    },
-    fieldEffects: {
-      setArgument: () => {},
-      run: async () => {},
-      wait: async () => {},
-    },
-    weather: {
-      setCurrentMapContext: (mapId) => {
-        weatherManagerRef.current.setCurrentMap(mapId);
+      weather: {
+        setCurrentMapContext: (mapId) => {
+          weatherManagerRef.current.setCurrentMap(mapId);
+        },
+        setSavedWeather: (weather) => {
+          weatherManagerRef.current.setSavedWeather(weather);
+        },
+        resetSavedWeather: () => {
+          weatherManagerRef.current.setSavedWeatherToMapDefault();
+        },
+        applyCurrentWeather: () => {
+          weatherManagerRef.current.doCurrentWeather();
+        },
       },
-      setSavedWeather: (weather) => {
-        weatherManagerRef.current.setSavedWeather(weather);
+      time: {
+        runTimeBasedEvents: () => {
+          weatherManagerRef.current.syncWeatherCycleToCurrentDate(Date.now());
+        },
       },
-      resetSavedWeather: () => {
-        weatherManagerRef.current.setSavedWeatherToMapDefault();
+      camera: {
+        spawnObject: () => {
+          const player = playerRef.current;
+          if (!player) return;
+          const focus = player.getCameraFocus();
+          scriptedCameraStateRef.current.active = true;
+          scriptedCameraStateRef.current.focusX = focus.x;
+          scriptedCameraStateRef.current.focusY = focus.y;
+        },
+        removeObject: () => {
+          scriptedCameraStateRef.current.active = false;
+          scriptedCameraMoveTokenRef.current++;
+          scriptedCameraShakeTokenRef.current++;
+          cameraRef.current?.resetPanning();
+        },
+        applyMovement: async (steps) => {
+          const player = playerRef.current;
+          if (!player) return;
+          if (!scriptedCameraStateRef.current.active) {
+            const focus = player.getCameraFocus();
+            scriptedCameraStateRef.current.active = true;
+            scriptedCameraStateRef.current.focusX = focus.x;
+            scriptedCameraStateRef.current.focusY = focus.y;
+          }
+
+          const token = ++scriptedCameraMoveTokenRef.current;
+          for (const step of steps) {
+            if (token !== scriptedCameraMoveTokenRef.current) break;
+
+            const direction = getMovementDirection(step);
+            const frames = getMovementStepFrames(step);
+            if (!direction) {
+              await waitScriptFrames(frames);
+              continue;
+            }
+
+            const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+            const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+
+            const startX = scriptedCameraStateRef.current.focusX;
+            const startY = scriptedCameraStateRef.current.focusY;
+            const targetX = startX + dx * 16;
+            const targetY = startY + dy * 16;
+
+            for (let frame = 1; frame <= frames; frame++) {
+              if (token !== scriptedCameraMoveTokenRef.current) break;
+              const progress = frame / frames;
+              scriptedCameraStateRef.current.focusX = startX + (targetX - startX) * progress;
+              scriptedCameraStateRef.current.focusY = startY + (targetY - startY) * progress;
+              await waitScriptFrames(1);
+            }
+
+            scriptedCameraStateRef.current.focusX = targetX;
+            scriptedCameraStateRef.current.focusY = targetY;
+          }
+        },
+        shake: async (request) => {
+          const token = ++scriptedCameraShakeTokenRef.current;
+          const delay = Math.max(1, request.delayFrames);
+          let horizontalPan = request.horizontalPan;
+          let verticalPan = request.verticalPan;
+          for (let i = 0; i < Math.max(0, request.numShakes); i++) {
+            if (token !== scriptedCameraShakeTokenRef.current) break;
+            await waitScriptFrames(delay);
+            horizontalPan = -horizontalPan;
+            verticalPan = -verticalPan;
+            cameraRef.current?.setPanning(horizontalPan, verticalPan);
+          }
+          if (token === scriptedCameraShakeTokenRef.current) {
+            cameraRef.current?.resetPanning();
+          }
+        },
       },
-      applyCurrentWeather: () => {
-        weatherManagerRef.current.doCurrentWeather();
+      legendary: {
+        setDeoxysRockPalette: async (level) => {
+          await applyDeoxysRockPaletteLevel(level);
+        },
+        setDeoxysRockLevel: async (request) => {
+          const mapId = 'MAP_BIRTH_ISLAND_EXTERIOR';
+          const localId = 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK';
+          const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+          const targetCoords = getWorldCoordsForLocal(mapId, request.x, request.y);
+          if (!npc || !targetCoords) {
+            console.warn(
+              `[Legendary] Deoxys rock move skipped (npc=${Boolean(npc)} target=${Boolean(targetCoords)})`
+            );
+            return;
+          }
+
+          await applyDeoxysRockPaletteLevel(request.level);
+
+          const startTileX = npc.tileX;
+          const startTileY = npc.tileY;
+          const startPixelX = startTileX * 16 + (npc.subTileX ?? 0);
+          const startPixelY = startTileY * 16 + (npc.subTileY ?? 0);
+          const targetPixelX = targetCoords.x * 16;
+          const targetPixelY = targetCoords.y * 16;
+          let remainingSteps = Math.max(1, Math.round(request.stepDelayFrames));
+
+          // C parity with Task_MoveDeoxysRock: fixed-point interpolation over tMoveSteps.
+          let curX = startPixelX << 4;
+          let curY = startPixelY << 4;
+          const targetXFixed = targetPixelX << 4;
+          const targetYFixed = targetPixelY << 4;
+          const velocityX = Math.trunc((targetXFixed - curX) / remainingSteps);
+          const velocityY = Math.trunc((targetYFixed - curY) / remainingSteps);
+
+          npc.tileX = startTileX;
+          npc.tileY = startTileY;
+          npc.isWalking = true;
+          npc.renderAboveGrass = true;
+
+          while (remainingSteps > 0) {
+            remainingSteps--;
+            curX += velocityX;
+            curY += velocityY;
+            const pixelX = curX >> 4;
+            const pixelY = curY >> 4;
+            npc.subTileX = pixelX - startTileX * 16;
+            npc.subTileY = pixelY - startTileY * 16;
+            pipelineRef.current?.invalidate();
+            await waitRenderFrame();
+          }
+
+          npc.tileX = targetCoords.x;
+          npc.tileY = targetCoords.y;
+          npc.initialTileX = targetCoords.x;
+          npc.initialTileY = targetCoords.y;
+          npc.subTileX = 0;
+          npc.subTileY = 0;
+          npc.isWalking = false;
+          pipelineRef.current?.invalidate();
+        },
+        setMewAboveGrass: async (mode) => {
+          const mapId = 'MAP_FARAWAY_ISLAND_INTERIOR';
+          const localId = 'LOCALID_FARAWAY_ISLAND_MEW';
+          const objectManager = objectEventManagerRef.current;
+          objectManager.setNPCVisibilityByLocalId(mapId, localId, true);
+          objectManager.setNPCSpriteHiddenByLocalId(mapId, localId, false);
+          objectManager.setNPCRenderAboveGrassByLocalId(mapId, localId, true);
+
+          if (mode === 1) {
+            objectManager.setNPCMovementTypeByLocalId(
+              mapId,
+              localId,
+              'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE'
+            );
+            return;
+          }
+
+          gameVariables.setVar('VAR_FARAWAY_ISLAND_STEP_COUNTER', 0xffff);
+          objectManager.setNPCMovementTypeByLocalId(
+            mapId,
+            localId,
+            'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE_IN_GRASS'
+          );
+
+          const mew = objectManager.getNPCByLocalId(mapId, localId);
+          const player = playerRef.current;
+          if (mew && player) {
+            const fieldEffects = player.getGrassEffectManager();
+            const priorEffectId = mewEmergingGrassEffectIdRef.current;
+            if (priorEffectId) {
+              fieldEffects.removeEffectById(priorEffectId);
+            }
+            mewEmergingGrassEffectIdRef.current = fieldEffects.create(
+              mew.tileX,
+              mew.tileY,
+              'long',
+              false,
+              'mew_emerging_grass'
+            );
+          }
+        },
+        destroyMewEmergingGrassSprite: async () => {
+          const effectId = mewEmergingGrassEffectIdRef.current;
+          const player = playerRef.current;
+          if (effectId && player) {
+            player.getGrassEffectManager().removeEffectById(effectId);
+          }
+          mewEmergingGrassEffectIdRef.current = null;
+        },
       },
-    },
-    time: {
-      runTimeBasedEvents: () => {
-        weatherManagerRef.current.syncWeatherCycleToCurrentDate(Date.now());
-      },
-    },
-  }), []);
+    };
+  }, [waitScriptFrames]);
 
   const runHandledStoryScript = useHandledStoryScript({
     showMessage,
@@ -1587,12 +1941,24 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       const player = playerRef.current;
       if (player) {
-        objectEventManagerRef.current.updateObjectEventSpawnDespawn(
-          player.tileX,
-          player.tileY,
-          viewportTilesWide,
-          viewportTilesHigh
-        );
+        const viewportTiles = viewportTilesRef.current;
+        const camera = cameraRef.current;
+        if (camera && camera.getBounds()) {
+          const view = camera.getView(0);
+          objectEventManagerRef.current.updateObjectEventSpawnDespawnForCamera(
+            view.startTileX,
+            view.startTileY,
+            viewportTiles.tilesWide,
+            viewportTiles.tilesHigh
+          );
+        } else {
+          objectEventManagerRef.current.updateObjectEventSpawnDespawn(
+            player.tileX,
+            player.tileY,
+            viewportTiles.tilesWide,
+            viewportTiles.tilesHigh
+          );
+        }
       }
       const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
 
@@ -1728,9 +2094,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           if (cbMap) {
             const offsetX = cbMap.offsetX;
             const offsetY = cbMap.offsetY;
+            let playerDestTileX = player.tileX;
+            let playerDestTileY = player.tileY;
+            if (player.isMoving) {
+              if (player.dir === 'up') playerDestTileY--;
+              else if (player.dir === 'down') playerDestTileY++;
+              else if (player.dir === 'left') playerDestTileX--;
+              else if (player.dir === 'right') playerDestTileX++;
+            }
             stepCallbackManager.update({
               playerLocalX: player.tileX - offsetX,
               playerLocalY: player.tileY - offsetY,
+              playerDestLocalX: playerDestTileX - offsetX,
+              playerDestLocalY: playerDestTileY - offsetY,
               currentMapId: cbMap.entry.id,
               getTileBehaviorLocal: (localX, localY) => {
                 const resolver = player.getTileResolver();
@@ -1738,8 +2114,23 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 const resolved = resolver(localX + offsetX, localY + offsetY);
                 return resolved?.attributes?.behavior;
               },
+              getTileMetatileIdLocal: (localX, localY) => {
+                const resolver = player.getTileResolver();
+                if (!resolver) return undefined;
+                const resolved = resolver(localX + offsetX, localY + offsetY);
+                return resolved?.mapTile?.metatileId;
+              },
               setMapMetatile: (localX, localY, metatileId) => {
                 setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId);
+              },
+              startFieldEffectLocal: (localX, localY, effectName, ownerObjectId = 'player') => {
+                player.getGrassEffectManager().create(
+                  localX + offsetX,
+                  localY + offsetY,
+                  effectName,
+                  false,
+                  ownerObjectId
+                );
               },
               invalidateView: () => {
                 pipelineRef.current?.invalidate();
@@ -2299,7 +2690,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       if (camera && player && playerLoadedRef.current) {
         // Update camera bounds (may have changed due to world updates)
         camera.setBounds({ minX: worldMinX, minY: worldMinY, width, height });
-        camera.followTarget(player);
+        if (scriptedCameraStateRef.current.active) {
+          camera.followTarget(scriptedCameraTargetRef.current);
+        } else {
+          camera.followTarget(player);
+        }
       }
 
       // Read current viewport size from ref (avoids stale closure)
@@ -2942,6 +3337,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           </div>
         </div>
       </div>
+
+      <footer className="game-footer">
+        Pokemon Emerald TypeScript is a modern browser implementation inspired by the pret pokeemerald
+        decompilation. It includes multiple viewports to explore how Emerald's world is rendered in modern
+        TypeScript.
+      </footer>
 
       {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}
       <DebugPanel

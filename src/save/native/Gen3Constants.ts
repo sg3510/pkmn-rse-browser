@@ -180,6 +180,11 @@ export const SAVEBLOCK1 = {
   /** Game stats (XOR encrypted) */
   GAME_STATS: 0x159C,
   GAME_STATS_SIZE: 0x64,
+
+  /** Runtime object events (temporary NPC runtime state) */
+  OBJECT_EVENTS: 0x0A30,
+  OBJECT_EVENTS_COUNT: 16,
+  OBJECT_EVENT_SIZE: 0x24,
 } as const;
 
 /**

@@ -17,6 +17,7 @@ import { ABILITY_NAMES } from '../../data/abilities';
 import { MOVE_NAMES, getMoveInfo } from '../../data/moves';
 import { getGenderFromPersonality, getExpProgress, getExpToNextLevel } from '../../pokemon/stats';
 import { getTypeColor, getGenderColor } from '../../pokemon/icons';
+import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
 import '../styles/pokemon-summary.css';
 
 type SummaryPage = 'info' | 'stats' | 'moves';
@@ -93,7 +94,8 @@ export function PokemonSummary({ pokemon, onClose, zoom = 1 }: PokemonSummaryPro
 
   // Sprite path
   const iconFolder = speciesName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-  const spritePath = `/pokeemerald/graphics/pokemon/${iconFolder}/front.png`;
+  const spritePath = toPublicAssetUrl(`/pokeemerald/graphics/pokemon/${iconFolder}/front.png`);
+  const fallbackSpritePath = toPublicAssetUrl('/pokeemerald/graphics/pokemon/egg/front.png');
 
   return (
     <div className="summary-overlay" onClick={handleCancel}>
@@ -149,6 +151,7 @@ export function PokemonSummary({ pokemon, onClose, zoom = 1 }: PokemonSummaryPro
               natureName={natureName}
               abilityName={abilityName}
               spritePath={spritePath}
+              fallbackSpritePath={fallbackSpritePath}
             />
           )}
           {currentPage === 'stats' && (
@@ -196,9 +199,17 @@ interface InfoPageProps {
   natureName: string;
   abilityName: string;
   spritePath: string;
+  fallbackSpritePath: string;
 }
 
-function InfoPage({ pokemon, speciesName, natureName, abilityName, spritePath }: InfoPageProps) {
+function InfoPage({
+  pokemon,
+  speciesName,
+  natureName,
+  abilityName,
+  spritePath,
+  fallbackSpritePath,
+}: InfoPageProps) {
   return (
     <div className="summary-info-page">
       {/* Pokemon sprite */}
@@ -209,7 +220,7 @@ function InfoPage({ pokemon, speciesName, natureName, abilityName, spritePath }:
           className="summary-sprite"
           onError={(e) => {
             // Fallback to icon if front sprite missing
-            (e.target as HTMLImageElement).src = `/pokeemerald/graphics/pokemon/egg/front.png`;
+            (e.target as HTMLImageElement).src = fallbackSpritePath;
           }}
         />
       </div>

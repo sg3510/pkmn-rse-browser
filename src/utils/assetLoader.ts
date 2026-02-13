@@ -6,6 +6,7 @@
  */
 
 import { createCanvas2D } from './canvasHelper';
+import { toPublicAssetUrl } from './publicAssetUrl';
 
 export interface RgbColor {
   r: number;
@@ -31,6 +32,64 @@ const imageCache = new Map<string, Promise<HTMLImageElement>>();
 const textCache = new Map<string, Promise<string>>();
 const binaryCache = new Map<string, Promise<ArrayBuffer>>();
 const canvasCache = new Map<string, Promise<HTMLCanvasElement>>();
+
+const DEV_POKEEMERALD_FETCH_RETRY_ATTEMPTS = 3;
+const DEV_POKEEMERALD_FETCH_RETRY_BASE_MS = 120;
+
+function shouldRetryPokeemeraldAssetFetch(url: string, status?: number): boolean {
+  if (!import.meta.env.DEV || !url.includes('/pokeemerald/')) {
+    return false;
+  }
+
+  if (status === undefined) {
+    return true;
+  }
+
+  return status === 404 || status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchAssetWithRetry<T>(
+  url: string,
+  parse: (response: Response) => Promise<T>
+): Promise<T> {
+  const maxAttempts =
+    import.meta.env.DEV && url.includes('/pokeemerald/')
+      ? DEV_POKEEMERALD_FETCH_RETRY_ATTEMPTS
+      : 1;
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        if (attempt < maxAttempts && shouldRetryPokeemeraldAssetFetch(url, response.status)) {
+          await wait(DEV_POKEEMERALD_FETCH_RETRY_BASE_MS * attempt);
+          continue;
+        }
+
+        throw new Error(`Failed to load ${url}`);
+      }
+
+      return await parse(response);
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < maxAttempts && shouldRetryPokeemeraldAssetFetch(url)) {
+        await wait(DEV_POKEEMERALD_FETCH_RETRY_BASE_MS * attempt);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Failed to load ${url}`);
+}
 
 function getImageCacheKey(src: string, options?: LoadImageOptions): string {
   return `${src}|${options?.crossOrigin ?? ''}`;
@@ -145,7 +204,8 @@ export function makeCanvasTransparent(
 }
 
 export function loadImageAsset(src: string, options?: LoadImageOptions): Promise<HTMLImageElement> {
-  const cacheKey = getImageCacheKey(src, options);
+  const resolvedSrc = toPublicAssetUrl(src);
+  const cacheKey = getImageCacheKey(resolvedSrc, options);
   const cached = imageCache.get(cacheKey);
   if (cached) return cached;
 
@@ -155,8 +215,8 @@ export function loadImageAsset(src: string, options?: LoadImageOptions): Promise
       img.crossOrigin = options.crossOrigin;
     }
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-    img.src = src;
+    img.onerror = () => reject(new Error(`Failed to load image: ${resolvedSrc}`));
+    img.src = resolvedSrc;
   }).catch((error) => {
     imageCache.delete(cacheKey);
     throw error;
@@ -170,12 +230,13 @@ export async function loadImageCanvasAsset(
   src: string,
   options?: LoadImageCanvasOptions
 ): Promise<HTMLCanvasElement> {
-  const cacheKey = getCanvasCacheKey(src, options);
+  const resolvedSrc = toPublicAssetUrl(src);
+  const cacheKey = getCanvasCacheKey(resolvedSrc, options);
   let cachedPromise = canvasCache.get(cacheKey);
 
   if (!cachedPromise) {
     cachedPromise = (async () => {
-      const img = await loadImageAsset(src, options);
+      const img = await loadImageAsset(resolvedSrc, options);
       const canvas = imageToCanvas(img);
       applyTransparencyToCanvas(canvas, options?.transparency);
       return canvas;
@@ -191,38 +252,32 @@ export async function loadImageCanvasAsset(
 }
 
 export function loadTextAsset(url: string): Promise<string> {
-  const cached = textCache.get(url);
+  const resolvedUrl = toPublicAssetUrl(url);
+  const cached = textCache.get(resolvedUrl);
   if (cached) return cached;
 
-  const promise = fetch(url)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Failed to load ${url}`);
-      return response.text();
-    })
+  const promise = fetchAssetWithRetry(resolvedUrl, (response) => response.text())
     .catch((error) => {
-      textCache.delete(url);
+      textCache.delete(resolvedUrl);
       throw error;
     });
 
-  textCache.set(url, promise);
+  textCache.set(resolvedUrl, promise);
   return promise;
 }
 
 export function loadBinaryAsset(url: string): Promise<ArrayBuffer> {
-  const cached = binaryCache.get(url);
+  const resolvedUrl = toPublicAssetUrl(url);
+  const cached = binaryCache.get(resolvedUrl);
   if (cached) return cached;
 
-  const promise = fetch(url)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Failed to load ${url}`);
-      return response.arrayBuffer();
-    })
+  const promise = fetchAssetWithRetry(resolvedUrl, (response) => response.arrayBuffer())
     .catch((error) => {
-      binaryCache.delete(url);
+      binaryCache.delete(resolvedUrl);
       throw error;
     });
 
-  binaryCache.set(url, promise);
+  binaryCache.set(resolvedUrl, promise);
   return promise;
 }
 

@@ -367,4 +367,8 @@ export class FieldEffectManager {
   clear(): void {
     this.effects.clear();
   }
+
+  removeEffectById(id: string): void {
+    this.effects.delete(id);
+  }
 }

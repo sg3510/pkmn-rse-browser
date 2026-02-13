@@ -8,8 +8,8 @@
  */
 
 import type { NPCObject, NPCDirection, NPCMovementType } from '../../types/objectEvents';
-import { TICK_60FPS_MS } from '../../config/timing';
-import { directionToOffset } from '../../utils/direction';
+import { TICK_60FPS_MS } from '../../config/timing.ts';
+import { directionToOffset } from '../../utils/direction.ts';
 
 // GBA runs at 60fps
 const FRAME_MS = TICK_60FPS_MS;
@@ -152,6 +152,21 @@ export interface MovementContext {
 
   /** Random number generator (0-max) */
   random: (max: number) => number;
+
+  /** Current player movement snapshot for copy-player movement types. */
+  getPlayerSnapshot?: () => PlayerMovementSnapshot | null;
+
+  /** Read tile behavior at world coordinates. */
+  getTileBehaviorAt?: (tileX: number, tileY: number) => number | undefined;
+}
+
+export interface PlayerMovementSnapshot {
+  tileX: number;
+  tileY: number;
+  destTileX: number;
+  destTileY: number;
+  direction: GBADirection;
+  isMoving: boolean;
 }
 
 /**

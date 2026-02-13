@@ -56,7 +56,7 @@
 .bag-image {
   width: var(--bag-frame-width);
   height: var(--bag-frame-height);
-  background-image: url('/img/bag-icon-pockets.png');
+  background-image: var(--asset-bag-icon-pockets-bg);
   background-repeat: no-repeat;
   background-position-y: 0;
   image-rendering: pixelated;
@@ -130,7 +130,7 @@
 .pocket-tab-icon {
   width: var(--pocket-icon-size);
   height: var(--pocket-icon-size);
-  background-image: url('/img/bag-icons.png');
+  background-image: var(--asset-bag-icons-bg);
   background-repeat: no-repeat;
   background-size: 208px 52px;
   background-position-y: 0;    /* Row 0 = inactive */

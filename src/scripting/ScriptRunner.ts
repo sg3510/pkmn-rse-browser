@@ -38,6 +38,11 @@ import { BattleCommandRunner } from './BattleCommandRunner';
 import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes';
 import { executeWeatherSpecial } from './specials/weatherSpecials';
 import { executeGabbyAndTySpecial } from './specials/gabbyAndTySpecials';
+import {
+  executeLegendaryIslandSpecial,
+  type ScriptCameraSpecialServices,
+  type ScriptLegendarySpecialServices,
+} from './specials/legendaryIslandSpecials';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -135,6 +140,11 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_NO_SAFARI_BALLS') return 8;
   if (val === 'B_OUTCOME_FORFEITED') return 9;
   if (val === 'B_OUTCOME_MON_TELEPORTED') return 10;
+  // Deoxys rock puzzle result constants (include/constants/field_specials.h)
+  if (val === 'DEOXYS_ROCK_FAILED') return 0;
+  if (val === 'DEOXYS_ROCK_PROGRESSED') return 1;
+  if (val === 'DEOXYS_ROCK_SOLVED') return 2;
+  if (val === 'DEOXYS_ROCK_COMPLETE') return 3;
   // Script menu constants (include/constants/script_menu.h)
   if (val === 'MULTI_B_PRESSED') return 127;
   if (val.startsWith('MULTI_')) {
@@ -253,10 +263,13 @@ export interface ScriptRuntimeServices {
   weather?: ScriptWeatherServices;
   time?: ScriptTimeServices;
   party?: ScriptPartyServices;
+  camera?: ScriptCameraSpecialServices;
+  legendary?: ScriptLegendarySpecialServices;
 }
 
 export class ScriptRunner {
   private sources: MapScriptData[];
+  private mapData: MapScriptData | null;
   private ctx: StoryScriptContext;
   private services: ScriptRuntimeServices;
   private playerName: string;
@@ -287,6 +300,7 @@ export class ScriptRunner {
     services: ScriptRuntimeServices = {},
   ) {
     this.sources = [];
+    this.mapData = dataSources.mapData;
     if (dataSources.mapData) this.sources.push(dataSources.mapData);
     this.sources.push(dataSources.commonData);
     this.ctx = ctx;
@@ -393,6 +407,23 @@ export class ScriptRunner {
       return false;
     }
     return true;
+  }
+
+  /**
+   * C parity for scripted wild battles:
+   * returning to the field runs MAP_SCRIPT_ON_RETURN_TO_FIELD then ON_RESUME
+   * before the caller script continues.
+   */
+  private async runPostScriptedBattleMapHooks(): Promise<void> {
+    const mapScripts = this.mapData?.mapScripts;
+    if (!mapScripts) return;
+
+    if (mapScripts.onReturnToField) {
+      await this.execute(mapScripts.onReturnToField);
+    }
+    if (mapScripts.onResume) {
+      await this.execute(mapScripts.onResume);
+    }
   }
 
   private resolveMoveId(moveArg: string | number): number {
@@ -877,7 +908,20 @@ export class ScriptRunner {
             objectId,
             args.length > 2 ? asString(args[2]) : undefined
           );
+          const isCameraObj = resolvedObjId === 'LOCALID_CAMERA';
           const isPlayerObj = resolvedObjId === 'LOCALID_PLAYER' || resolvedObjId === '255';
+          const steps = this.findMovement(movementLabel);
+          if (!steps) {
+            console.warn(`[ScriptRunner] Movement not found: ${movementLabel}`);
+            break;
+          }
+
+          if (isCameraObj && this.services.camera?.applyMovement) {
+            const promise = this.services.camera.applyMovement(steps);
+            this.pendingMovements.set(objectId, promise);
+            break;
+          }
+
           // Pre-check: if targeting an NPC that doesn't exist, skip entirely
           if (!isPlayerObj && this.ctx.hasNpc) {
             if (!this.ctx.hasNpc(objectMapId, resolvedObjId)) {
@@ -886,11 +930,6 @@ export class ScriptRunner {
               this.pendingMovements.set(objectId, Promise.resolve());
               break;
             }
-          }
-          const steps = this.findMovement(movementLabel);
-          if (!steps) {
-            console.warn(`[ScriptRunner] Movement not found: ${movementLabel}`);
-            break;
           }
           // Start movement asynchronously — will be awaited by waitmovement
           const promise = this.executeMovement(objectId, steps, objectMapId);
@@ -1486,6 +1525,20 @@ export class ScriptRunner {
           break;
         }
 
+        // --- seteventmon: legendary/scripted event battle setup (species/level/held item) ---
+        // C ref: public/pokeemerald/src/scrcmd.c (ScrCmd_seteventmon)
+        case 'seteventmon': {
+          const speciesArg = args[0];
+          const levelArg = args[1];
+          const itemArg = args.length > 2 ? args[2] : 0;
+          this.battleCommands.configureWildBattle(
+            this.resolveVarOrConst(speciesArg),
+            this.resolveVarOrConst(levelArg),
+            this.resolveVarOrConst(itemArg)
+          );
+          break;
+        }
+
         // --- dowildbattle: initiate wild battle ---
         case 'dowildbattle': {
           const result = await this.battleCommands.runConfiguredWildBattle('setwildbattle');
@@ -1524,7 +1577,8 @@ export class ScriptRunner {
           break;
         }
 
-        case 'goto_if_undefeated': {
+        case 'goto_if_undefeated':
+        case 'goto_if_not_defeated': {
           const trainerId = asString(args[0]);
           if (!isTrainerDefeated(trainerId)) {
             const target = this.findScript(asString(args[1]));
@@ -1533,7 +1587,8 @@ export class ScriptRunner {
           break;
         }
 
-        case 'call_if_undefeated': {
+        case 'call_if_undefeated':
+        case 'call_if_not_defeated': {
           const trainerId = asString(args[0]);
           if (!isTrainerDefeated(trainerId)) {
             const target = this.findScript(asString(args[1]));
@@ -2131,6 +2186,19 @@ export class ScriptRunner {
       return gabbyAndTyResult.result;
     }
 
+    const legendarySpecial = await executeLegendaryIslandSpecial(name, {
+      getVar: (varName) => gameVariables.getVar(varName),
+      setVar: (varName, value) => gameVariables.setVar(varName, value),
+      isFlagSet: (flagName) => gameFlags.isSet(flagName),
+      setFlag: (flagName) => gameFlags.set(flagName),
+      getFacingDirection: () => gameVariables.getVar('VAR_FACING'),
+      camera: this.services.camera,
+      legendary: this.services.legendary,
+    });
+    if (legendarySpecial.handled) {
+      return legendarySpecial.result;
+    }
+
     switch (name) {
       case 'GetRivalSonDaughterString':
         // Male player → rival is female → "daughter"; Female → "son"
@@ -2190,6 +2258,9 @@ export class ScriptRunner {
       case 'StartGroudonKyogreBattle':
       case 'StartRegiBattle': {
         const result = await this.battleCommands.runConfiguredWildBattle('special');
+        if (!isPlayerDefeatedBattleOutcome(result.outcome)) {
+          await this.runPostScriptedBattleMapHooks();
+        }
         if (isPlayerDefeatedBattleOutcome(result.outcome)) {
           // C parity: losing a scripted wild battle white-outs and script continuation stops.
           this.abortScriptExecution = true;

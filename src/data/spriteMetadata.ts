@@ -9,8 +9,8 @@
  * To regenerate: npx tsx scripts/parse-sprite-metadata.ts
  */
 
-import spriteData from './sprite-metadata.json';
-import { ticksToMs as ticksToMilliseconds } from '../config/timing';
+import spriteData from './sprite-metadata.json' with { type: 'json' };
+import { ticksToMs as ticksToMilliseconds } from '../config/timing.ts';
 
 /**
  * Normalize a graphics ID to match the format in sprite-metadata.json
@@ -148,6 +148,15 @@ const GRAPHICS_ID_ALIASES: Record<string, { metadataId: string; spritePath?: str
   },
   OBJ_EVENT_GFX_ZIGZAGOON_2: {
     metadataId: 'OBJ_EVENT_GFX_ZIGZAGOON',
+  },
+  // Script/source aliases used by event data that map to canonical metadata IDs.
+  OBJ_EVENT_GFX_HOOH: {
+    metadataId: 'OBJ_EVENT_GFX_HO_OH',
+    spritePath: '/pokemon/ho_oh.png',
+  },
+  OBJ_EVENT_GFX_DEOXYS_TRIANGLE: {
+    metadataId: 'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
+    spritePath: '/misc/birth_island_stone.png',
   },
 };
 
