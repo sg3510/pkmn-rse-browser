@@ -661,6 +661,19 @@ export function getNPCFrameInfo(
   walkFrame: number = 0,
   graphicsId?: string
 ): { frameIndex: number; flipHorizontal: boolean } {
+  // Inanimate/object sprites (e.g. Birth Island triangle) do not have walking frame
+  // layouts. Always use a static directional frame so sub-tile movement remains visible.
+  if (graphicsId) {
+    const spriteInfo = getSpriteInfo(graphicsId);
+    if (spriteInfo?.inanimate || (spriteInfo?.frameCount ?? 9) <= 1) {
+      const staticFrame = getStaticFrameIndex(graphicsId, direction);
+      return {
+        frameIndex: staticFrame.frameIndex,
+        flipHorizontal: staticFrame.hFlip,
+      };
+    }
+  }
+
   let logicalFrameIndex: number;
   let flipHorizontal = false;
 
@@ -712,6 +725,15 @@ export function getNPCFrameInfo(
     const info = getSpriteInfo(graphicsId);
     if (info?.frameMap && logicalFrameIndex < info.frameMap.length) {
       frameIndex = info.frameMap[logicalFrameIndex];
+    }
+
+    // Safety clamp: if a sprite has fewer physical frames than the selected logical frame,
+    // fall back to its static directional frame to avoid sampling outside atlas bounds.
+    const frameCount = info?.frameCount ?? getMetadataFrameCount(graphicsId);
+    if (frameCount > 0 && frameIndex >= frameCount) {
+      const staticFrame = getStaticFrameIndex(graphicsId, direction);
+      frameIndex = staticFrame.frameIndex;
+      flipHorizontal = staticFrame.hFlip;
     }
   }
 

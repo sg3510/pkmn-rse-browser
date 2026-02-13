@@ -394,6 +394,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   });
   const activeScriptFieldEffectsRef = useRef<Map<string, Promise<void>>>(new Map());
   const mewEmergingGrassEffectIdRef = useRef<string | null>(null);
+  const deoxysRockRenderDebugRef = useRef<{
+    active: boolean;
+    startMs: number;
+    lastLogMs: number;
+  }>({
+    active: false,
+    startMs: 0,
+    lastLogMs: 0,
+  });
   const gbaFrameRef = useRef<number>(0);
   const truckRuntimeRef = useRef(createTruckSequenceRuntime());
   const lastTimeRef = useRef<number>(performance.now());
@@ -1103,7 +1112,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         setDeoxysRockLevel: async (request) => {
           const mapId = 'MAP_BIRTH_ISLAND_EXTERIOR';
           const localId = 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK';
-          const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+          const objectManager = objectEventManagerRef.current;
+          const npc = objectManager.getNPCByLocalId(mapId, localId);
           const targetCoords = getWorldCoordsForLocal(mapId, request.x, request.y);
           if (!npc || !targetCoords) {
             console.warn(
@@ -1114,98 +1124,127 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
           await applyDeoxysRockPaletteLevel(request.level);
 
-          const startTileX = npc.tileX;
-          const startTileY = npc.tileY;
-          const startPixelX = startTileX * 16 + (npc.subTileX ?? 0);
-          const startPixelY = startTileY * 16 + (npc.subTileY ?? 0);
+          const originalMovementTypeRaw = npc.movementTypeRaw;
+          // Prevent normal NPC movement handlers from racing scripted interpolation.
+          objectManager.setNPCMovementTypeByLocalId(mapId, localId, 'MOVEMENT_TYPE_NONE');
+          console.log('[Legendary] Deoxys rock movement lock', {
+            fromMovementType: originalMovementTypeRaw,
+          });
+          const controlledNpc = objectManager.getNPCByLocalId(mapId, localId);
+          if (!controlledNpc) {
+            console.warn('[Legendary] Deoxys rock move aborted (lost NPC after movement lock)');
+            return;
+          }
+
+          const startTileX = controlledNpc.tileX;
+          const startTileY = controlledNpc.tileY;
+          const startPixelX = startTileX * 16 + (controlledNpc.subTileX ?? 0);
+          const startPixelY = startTileY * 16 + (controlledNpc.subTileY ?? 0);
           const targetPixelX = targetCoords.x * 16;
           const targetPixelY = targetCoords.y * 16;
           const deltaPixelsX = targetPixelX - startPixelX;
           const deltaPixelsY = targetPixelY - startPixelY;
           const requestedSteps = Math.max(1, Math.round(request.stepDelayFrames));
-          // Keep successful movement quick, but scale interpolation by travel distance so
-          // long jumps do not appear as teleports in the browser runtime.
+          // Keep successful movement quick, but dense enough that each frame moves only a
+          // couple of pixels for visible smoothness in browser rendering.
           const travelPixels = Math.max(Math.abs(deltaPixelsX), Math.abs(deltaPixelsY));
-          const minimumVisibleSteps = Math.min(28, Math.max(12, Math.ceil(travelPixels / 3)));
+          const minimumVisibleSteps = Math.min(40, Math.max(16, Math.ceil(travelPixels / 2)));
           const interpolatedSteps = request.failedReset
             ? requestedSteps
             : Math.max(requestedSteps, minimumVisibleSteps);
-          let remainingSteps = interpolatedSteps;
 
           // C parity with Task_MoveDeoxysRock: fixed-point interpolation over tMoveSteps.
           let curX = startPixelX << 4;
           let curY = startPixelY << 4;
           const targetXFixed = targetPixelX << 4;
           const targetYFixed = targetPixelY << 4;
-          const velocityX = Math.trunc((targetXFixed - curX) / remainingSteps);
-          const velocityY = Math.trunc((targetYFixed - curY) / remainingSteps);
+          const velocityX = Math.trunc((targetXFixed - curX) / interpolatedSteps);
+          const velocityY = Math.trunc((targetYFixed - curY) / interpolatedSteps);
 
-          npc.tileX = startTileX;
-          npc.tileY = startTileY;
-          npc.isWalking = true;
-          npc.renderAboveGrass = true;
+          controlledNpc.tileX = startTileX;
+          controlledNpc.tileY = startTileY;
+          controlledNpc.isWalking = true;
+          controlledNpc.renderAboveGrass = true;
 
           const startedAtMs = performance.now();
-          console.log('[Legendary] Deoxys rock move start', {
-            level: request.level,
-            failedReset: request.failedReset,
-            requestedSteps,
-            interpolatedSteps,
-            startTileX,
-            startTileY,
-            targetTileX: targetCoords.x,
-            targetTileY: targetCoords.y,
-            dxPixels: deltaPixelsX,
-            dyPixels: deltaPixelsY,
-          });
+          try {
+            console.log('[Legendary] Deoxys rock move start', {
+              level: request.level,
+              failedReset: request.failedReset,
+              requestedSteps,
+              interpolatedSteps,
+              startTileX,
+              startTileY,
+              targetTileX: targetCoords.x,
+              targetTileY: targetCoords.y,
+              dxPixels: deltaPixelsX,
+              dyPixels: deltaPixelsY,
+            });
+            deoxysRockRenderDebugRef.current.active = true;
+            deoxysRockRenderDebugRef.current.startMs = startedAtMs;
+            deoxysRockRenderDebugRef.current.lastLogMs = 0;
 
-          let stepIndex = 0;
-          let previousStepMs = startedAtMs;
-          while (remainingSteps > 0) {
-            remainingSteps--;
-            stepIndex++;
-            curX += velocityX;
-            curY += velocityY;
-            const pixelX = curX >> 4;
-            const pixelY = curY >> 4;
-            npc.subTileX = pixelX - startTileX * 16;
-            npc.subTileY = pixelY - startTileY * 16;
-            pipelineRef.current?.invalidate();
-            // C parity timing: move one interpolation step per GBA frame (60 fps),
-            // independent of display refresh rate.
-            await waitScriptFrames(1);
-            // Ensure the interpolated position is presented in at least one render frame.
-            await waitForRenderFrame();
+            let stepIndex = 0;
+            let previousStepMs = startedAtMs;
+            let previousRenderMs = startedAtMs;
+            let accumulatedMs = 0;
+            while (stepIndex < interpolatedSteps) {
+              // Present every movement sample on an actual render frame, then advance at
+              // GBA cadence (60 Hz) using an accumulator to avoid timer jitter.
+              await waitForRenderFrame();
+              const nowMs = performance.now();
+              accumulatedMs += nowMs - previousRenderMs;
+              previousRenderMs = nowMs;
 
-            const nowMs = performance.now();
-            const stepDeltaMs = Math.round(nowMs - previousStepMs);
-            previousStepMs = nowMs;
-            if (stepIndex === 1 || stepIndex === interpolatedSteps || stepIndex % 4 === 0) {
-              console.log('[Legendary] Deoxys rock move frame', {
-                step: stepIndex,
-                totalSteps: interpolatedSteps,
-                subTileX: npc.subTileX,
-                subTileY: npc.subTileY,
-                stepDeltaMs,
-              });
+              if (accumulatedMs + 0.001 < GBA_FRAME_MS) {
+                continue;
+              }
+
+              accumulatedMs -= GBA_FRAME_MS;
+              stepIndex++;
+              curX += velocityX;
+              curY += velocityY;
+              const pixelX = curX >> 4;
+              const pixelY = curY >> 4;
+              controlledNpc.subTileX = pixelX - startTileX * 16;
+              controlledNpc.subTileY = pixelY - startTileY * 16;
+              pipelineRef.current?.invalidate();
+
+              const stepDeltaMs = Math.round(nowMs - previousStepMs);
+              previousStepMs = nowMs;
+              if (stepIndex === 1 || stepIndex === interpolatedSteps || stepIndex % 4 === 0) {
+                console.log('[Legendary] Deoxys rock move frame', {
+                  step: stepIndex,
+                  totalSteps: interpolatedSteps,
+                  subTileX: controlledNpc.subTileX,
+                  subTileY: controlledNpc.subTileY,
+                  stepDeltaMs,
+                });
+              }
             }
+
+            controlledNpc.tileX = targetCoords.x;
+            controlledNpc.tileY = targetCoords.y;
+            controlledNpc.initialTileX = targetCoords.x;
+            controlledNpc.initialTileY = targetCoords.y;
+            controlledNpc.subTileX = 0;
+            controlledNpc.subTileY = 0;
+            controlledNpc.isWalking = false;
+            pipelineRef.current?.invalidate();
+
+            const durationMs = Math.round(performance.now() - startedAtMs);
+            console.log('[Legendary] Deoxys rock move end', {
+              tileX: controlledNpc.tileX,
+              tileY: controlledNpc.tileY,
+              durationMs,
+            });
+            deoxysRockRenderDebugRef.current.active = false;
+          } finally {
+            objectManager.setNPCMovementTypeByLocalId(mapId, localId, originalMovementTypeRaw);
+            console.log('[Legendary] Deoxys rock movement unlock', {
+              toMovementType: originalMovementTypeRaw,
+            });
           }
-
-          npc.tileX = targetCoords.x;
-          npc.tileY = targetCoords.y;
-          npc.initialTileX = targetCoords.x;
-          npc.initialTileY = targetCoords.y;
-          npc.subTileX = 0;
-          npc.subTileY = 0;
-          npc.isWalking = false;
-          pipelineRef.current?.invalidate();
-
-          const durationMs = Math.round(performance.now() - startedAtMs);
-          console.log('[Legendary] Deoxys rock move end', {
-            tileX: npc.tileX,
-            tileY: npc.tileY,
-            durationMs,
-          });
         },
         setMewAboveGrass: async (mode) => {
           const mapId = 'MAP_FARAWAY_ISLAND_INTERIOR';
@@ -2881,6 +2920,26 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
             // Get visible NPCs, script objects, items, and large objects for rendering
             const npcs = objectEventManagerRef.current.getVisibleNPCs();
+            if (deoxysRockRenderDebugRef.current.active) {
+              const rock = npcs.find((entry) => entry.localId === 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK');
+              const nowDebugMs = performance.now();
+              if (rock && nowDebugMs - deoxysRockRenderDebugRef.current.lastLogMs >= 100) {
+                deoxysRockRenderDebugRef.current.lastLogMs = nowDebugMs;
+                console.log('[Legendary] Deoxys rock render sample', {
+                  elapsedMs: Math.round(nowDebugMs - deoxysRockRenderDebugRef.current.startMs),
+                  tileX: rock.tileX,
+                  tileY: rock.tileY,
+                  subTileX: rock.subTileX ?? 0,
+                  subTileY: rock.subTileY ?? 0,
+                  isWalking: rock.isWalking ?? false,
+                  visible: rock.visible,
+                  spriteHidden: rock.spriteHidden ?? false,
+                  tintR: rock.tintR ?? 1,
+                  tintG: rock.tintG ?? 1,
+                  tintB: rock.tintB ?? 1,
+                });
+              }
+            }
             const items = objectEventManagerRef.current.getVisibleItemBalls();
             const scriptObjects = objectEventManagerRef.current.getVisibleScriptObjects();
             const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
