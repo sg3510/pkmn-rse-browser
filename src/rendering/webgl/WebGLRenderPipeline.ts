@@ -351,7 +351,9 @@ export class WebGLRenderPipeline {
       }
 
       // P2 Diagnostic: Check if FBOs are empty despite having caches
-      this.checkFBOEmptyBug('animationOnly', updated);
+      if (this.runtimeDiagnosticsReadbackEnabled()) {
+        this.checkFBOEmptyBug('animationOnly', updated);
+      }
 
       this.recordRenderEvent({
         reason: 'animationOnly',
@@ -379,7 +381,9 @@ export class WebGLRenderPipeline {
 
     if (!shouldRender) {
       // P2 Diagnostic: Check if FBOs are empty despite having caches
-      this.checkFBOEmptyBug('skipped-nochange', false);
+      if (this.runtimeDiagnosticsReadbackEnabled()) {
+        this.checkFBOEmptyBug('skipped-nochange', false);
+      }
 
       this.recordRenderEvent({
         reason: 'skipped-nochange',
@@ -424,7 +428,9 @@ export class WebGLRenderPipeline {
     );
 
     // P3 Diagnostic: Check if full render produced pixels
-    this.checkFullRenderProducedPixels();
+    if (this.runtimeDiagnosticsReadbackEnabled()) {
+      this.checkFullRenderProducedPixels();
+    }
 
     this.needsFullRender = false;
     this.needsWarmupRender = false;
@@ -770,6 +776,10 @@ export class WebGLRenderPipeline {
     if (flags.animationChanged) parts.push('anim');
     if (parts.length === 0) return 'full';
     return parts.join('+');
+  }
+
+  private runtimeDiagnosticsReadbackEnabled(): boolean {
+    return RENDERING_CONFIG.webgl.enableRuntimeDiagnosticsReadback === true;
   }
 
   /**

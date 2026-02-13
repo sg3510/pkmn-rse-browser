@@ -10,6 +10,8 @@
  * during the composition phase.
  */
 
+import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
+
 type PassName = 'background' | 'topBelow' | 'topAbove';
 
 interface FramebufferEntry {
@@ -115,6 +117,7 @@ export class WebGLFramebufferManager {
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, entry.framebuffer);
     const out = new Uint8Array(4);
+    incrementRuntimePerfCounter('readPixelsCalls');
     this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, out);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     return out;

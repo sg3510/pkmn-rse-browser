@@ -30,6 +30,7 @@ import { getItemName } from '../data/items.ts';
 import { gameFlags } from './GameFlags.ts';
 import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
 import { npcMovementEngine } from './npc/NPCMovementEngine.ts';
+import { incrementRuntimePerfCounter } from './perf/runtimePerfRecorder.ts';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -84,6 +85,13 @@ interface ObjectEventViewWindow {
   bottom: number;
 }
 
+export interface VisibleObjectEventSnapshot {
+  npcs: NPCObject[];
+  itemBalls: ItemBallObject[];
+  scriptObjects: ScriptObject[];
+  largeObjects: LargeObject[];
+}
+
 function getMapIdFromNpcObjectId(id: string): string | null {
   const marker = '_npc_';
   const idx = id.indexOf(marker);
@@ -102,9 +110,38 @@ export class ObjectEventManager {
   private offscreenDespawnedScriptObjectIds: Set<string> = new Set();
   private offscreenDespawnedLargeObjectIds: Set<string> = new Set();
   private lastObjectEventViewWindow: ObjectEventViewWindow | null = null;
+  private lastProcessedViewWindow: ObjectEventViewWindow | null = null;
   private tileElevationResolver: TileElevationResolver | null = null;
   private parsedMapIds: Set<string> = new Set();
   private parsedMapOffsets = new Map<string, { x: number; y: number }>();
+  private spawnDespawnDirty = true;
+  private visibleCacheVersion = 0;
+  private visibleNpcCacheVersion = -1;
+  private visibleNpcCache: NPCObject[] = [];
+  private visibleItemCacheVersion = -1;
+  private visibleItemCache: ItemBallObject[] = [];
+  private visibleScriptObjectCacheVersion = -1;
+  private visibleScriptObjectCache: ScriptObject[] = [];
+  private visibleLargeObjectCacheVersion = -1;
+  private visibleLargeObjectCache: LargeObject[] = [];
+  private visibleSnapshotCacheVersion = -1;
+  private visibleSnapshotCache: VisibleObjectEventSnapshot | null = null;
+
+  markSpawnDespawnDirty(): void {
+    this.spawnDespawnDirty = true;
+    this.lastProcessedViewWindow = null;
+  }
+
+  private invalidateVisibleObjectCaches(): void {
+    this.visibleCacheVersion += 1;
+    this.visibleSnapshotCacheVersion = -1;
+    this.visibleSnapshotCache = null;
+  }
+
+  private markObjectStateDirty(): void {
+    this.markSpawnDespawnDirty();
+    this.invalidateVisibleObjectCaches();
+  }
 
   /**
    * Set the tile elevation resolver
@@ -132,8 +169,11 @@ export class ObjectEventManager {
     this.offscreenDespawnedScriptObjectIds.clear();
     this.offscreenDespawnedLargeObjectIds.clear();
     this.lastObjectEventViewWindow = null;
+    this.lastProcessedViewWindow = null;
     this.parsedMapIds.clear();
     this.parsedMapOffsets.clear();
+    this.spawnDespawnDirty = true;
+    this.invalidateVisibleObjectCaches();
   }
 
   /**
@@ -195,6 +235,7 @@ export class ObjectEventManager {
     if (old) {
       this.parsedMapOffsets.set(mapId, { x: old.x + dx, y: old.y + dy });
     }
+    this.markSpawnDespawnDirty();
   }
 
   /**
@@ -221,6 +262,7 @@ export class ObjectEventManager {
     this.clearOffscreenStateForMap(mapId);
     this.parsedMapIds.delete(mapId);
     this.parsedMapOffsets.delete(mapId);
+    this.markObjectStateDirty();
   }
 
   /**
@@ -369,15 +411,24 @@ export class ObjectEventManager {
       }
       // Future: handle other object types (berry trees, etc.)
     }
+    this.markObjectStateDirty();
   }
 
   /**
    * Get all visible (not collected) item balls
    */
   getVisibleItemBalls(): ItemBallObject[] {
-    return [...this.itemBalls.values()].filter(
-      (ball) => !ball.collected && !this.offscreenDespawnedItemIds.has(ball.id)
-    );
+    if (this.visibleItemCacheVersion !== this.visibleCacheVersion) {
+      const rebuilt: ItemBallObject[] = [];
+      for (const ball of this.itemBalls.values()) {
+        if (ball.collected || this.offscreenDespawnedItemIds.has(ball.id)) continue;
+        rebuilt.push(ball);
+      }
+      this.visibleItemCache = rebuilt;
+      this.visibleItemCacheVersion = this.visibleCacheVersion;
+      incrementRuntimePerfCounter('visibleListRebuilds');
+    }
+    return this.visibleItemCache;
   }
 
   /**
@@ -422,6 +473,9 @@ export class ObjectEventManager {
     if (ball.flag && ball.flag !== '0') {
       gameFlags.set(ball.flag);
     }
+
+    this.invalidateVisibleObjectCaches();
+    this.markSpawnDespawnDirty();
 
     return ball;
   }
@@ -484,6 +538,7 @@ export class ObjectEventManager {
       }
     }
     this.refreshBgEventState();
+    this.markObjectStateDirty();
   }
 
   /**
@@ -546,6 +601,7 @@ export class ObjectEventManager {
         this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
       }
     }
+    this.markObjectStateDirty();
   }
 
   /**
@@ -568,9 +624,17 @@ export class ObjectEventManager {
    * Get all visible NPCs
    */
   getVisibleNPCs(): NPCObject[] {
-    return [...this.npcs.values()].filter(
-      (npc) => npc.visible && !this.offscreenDespawnedNpcIds.has(npc.id)
-    );
+    if (this.visibleNpcCacheVersion !== this.visibleCacheVersion) {
+      const rebuilt: NPCObject[] = [];
+      for (const npc of this.npcs.values()) {
+        if (!npc.visible || this.offscreenDespawnedNpcIds.has(npc.id)) continue;
+        rebuilt.push(npc);
+      }
+      this.visibleNpcCache = rebuilt;
+      this.visibleNpcCacheVersion = this.visibleCacheVersion;
+      incrementRuntimePerfCounter('visibleListRebuilds');
+    }
+    return this.visibleNpcCache;
   }
 
   /**
@@ -644,6 +708,7 @@ export class ObjectEventManager {
       if (visible) gameFlags.clear(npc.flag);
       else gameFlags.set(npc.flag);
     }
+    this.markObjectStateDirty();
     return true;
   }
 
@@ -860,16 +925,20 @@ export class ObjectEventManager {
    * Refresh NPC visibility from flags
    */
   refreshNPCVisibility(): void {
+    let changed = false;
     for (const npc of this.npcs.values()) {
       // Skip NPCs whose visibility was changed at runtime by removeobject/addobject.
       // Their state is authoritative until the next map load.
       if (npc.scriptRemoved) continue;
       // NPCs with FLAG_HIDE_* are hidden when the flag IS set
-      npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      const nextVisible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      if (npc.visible !== nextVisible) changed = true;
+      npc.visible = nextVisible;
       if (!npc.visible) {
-        this.offscreenDespawnedNpcIds.delete(npc.id);
+        if (this.offscreenDespawnedNpcIds.delete(npc.id)) changed = true;
       }
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   /**
@@ -881,11 +950,16 @@ export class ObjectEventManager {
   resetScriptRemovedState(mapId: string): void {
     const prefix = `${mapId}_npc_`;
     this.clearOffscreenStateForMap(mapId);
+    let changed = false;
     for (const [key, npc] of this.npcs) {
       if (!key.startsWith(prefix)) continue;
+      if (npc.scriptRemoved) changed = true;
       npc.scriptRemoved = false;
-      npc.visible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      const nextVisible = !(npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false);
+      if (npc.visible !== nextVisible) changed = true;
+      npc.visible = nextVisible;
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   /**
@@ -894,6 +968,7 @@ export class ObjectEventManager {
    */
   respawnFlagClearedNPCs(): void {
     const viewWindow = this.lastObjectEventViewWindow;
+    let changed = false;
     for (const npc of this.npcs.values()) {
       if (!npc.scriptRemoved) continue;
       // If the flag is clear (or NPC has no flag), it should be visible
@@ -905,18 +980,28 @@ export class ObjectEventManager {
         this.resetNpcRuntimeSpawnState(npc);
         npc.visible = true;
         npc.scriptRemoved = false;
-        this.offscreenDespawnedNpcIds.delete(npc.id);
+        if (this.offscreenDespawnedNpcIds.delete(npc.id)) changed = true;
+        changed = true;
       }
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   /**
    * Get all visible scripted objects.
    */
   getVisibleScriptObjects(): ScriptObject[] {
-    return [...this.scriptObjects.values()].filter(
-      (obj) => obj.visible && !this.offscreenDespawnedScriptObjectIds.has(obj.id)
-    );
+    if (this.visibleScriptObjectCacheVersion !== this.visibleCacheVersion) {
+      const rebuilt: ScriptObject[] = [];
+      for (const obj of this.scriptObjects.values()) {
+        if (!obj.visible || this.offscreenDespawnedScriptObjectIds.has(obj.id)) continue;
+        rebuilt.push(obj);
+      }
+      this.visibleScriptObjectCache = rebuilt;
+      this.visibleScriptObjectCacheVersion = this.visibleCacheVersion;
+      incrementRuntimePerfCounter('visibleListRebuilds');
+    }
+    return this.visibleScriptObjectCache;
   }
 
   /**
@@ -954,12 +1039,16 @@ export class ObjectEventManager {
    * Refresh scripted object visibility from flags.
    */
   refreshScriptObjectVisibility(): void {
+    let changed = false;
     for (const scriptObject of this.scriptObjects.values()) {
-      scriptObject.visible = !(scriptObject.flag && scriptObject.flag !== '0' ? gameFlags.isSet(scriptObject.flag) : false);
+      const nextVisible = !(scriptObject.flag && scriptObject.flag !== '0' ? gameFlags.isSet(scriptObject.flag) : false);
+      if (scriptObject.visible !== nextVisible) changed = true;
+      scriptObject.visible = nextVisible;
       if (!scriptObject.visible) {
-        this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+        if (this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id)) changed = true;
       }
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   // === Large Object Methods ===
@@ -968,9 +1057,32 @@ export class ObjectEventManager {
    * Get all visible large objects (e.g. truck)
    */
   getVisibleLargeObjects(): LargeObject[] {
-    return [...this.largeObjects.values()].filter(
-      (obj) => obj.visible && !this.offscreenDespawnedLargeObjectIds.has(obj.id)
-    );
+    if (this.visibleLargeObjectCacheVersion !== this.visibleCacheVersion) {
+      const rebuilt: LargeObject[] = [];
+      for (const obj of this.largeObjects.values()) {
+        if (!obj.visible || this.offscreenDespawnedLargeObjectIds.has(obj.id)) continue;
+        rebuilt.push(obj);
+      }
+      this.visibleLargeObjectCache = rebuilt;
+      this.visibleLargeObjectCacheVersion = this.visibleCacheVersion;
+      incrementRuntimePerfCounter('visibleListRebuilds');
+    }
+    return this.visibleLargeObjectCache;
+  }
+
+  getVisibleObjectsSnapshot(): VisibleObjectEventSnapshot {
+    if (this.visibleSnapshotCacheVersion === this.visibleCacheVersion && this.visibleSnapshotCache) {
+      return this.visibleSnapshotCache;
+    }
+    const snapshot: VisibleObjectEventSnapshot = {
+      npcs: this.getVisibleNPCs(),
+      itemBalls: this.getVisibleItemBalls(),
+      scriptObjects: this.getVisibleScriptObjects(),
+      largeObjects: this.getVisibleLargeObjects(),
+    };
+    this.visibleSnapshotCache = snapshot;
+    this.visibleSnapshotCacheVersion = this.visibleCacheVersion;
+    return snapshot;
   }
 
   /**
@@ -992,8 +1104,19 @@ export class ObjectEventManager {
       viewportTilesHigh
     );
     this.lastObjectEventViewWindow = viewWindow;
-    this.trySpawnObjectsInView(viewWindow);
-    this.removeObjectsOutsideView(viewWindow);
+    if (
+      !this.spawnDespawnDirty
+      && this.lastProcessedViewWindow
+      && this.isSameViewWindow(this.lastProcessedViewWindow, viewWindow)
+    ) {
+      return;
+    }
+    const changed =
+      this.trySpawnObjectsInView(viewWindow)
+      || this.removeObjectsOutsideView(viewWindow);
+    this.lastProcessedViewWindow = viewWindow;
+    this.spawnDespawnDirty = false;
+    if (changed) this.invalidateVisibleObjectCaches();
   }
 
   /**
@@ -1018,20 +1141,35 @@ export class ObjectEventManager {
       viewportTilesHigh
     );
     this.lastObjectEventViewWindow = viewWindow;
-    this.trySpawnObjectsInView(viewWindow);
-    this.removeObjectsOutsideView(viewWindow);
+    if (
+      !this.spawnDespawnDirty
+      && this.lastProcessedViewWindow
+      && this.isSameViewWindow(this.lastProcessedViewWindow, viewWindow)
+    ) {
+      return;
+    }
+    const changed =
+      this.trySpawnObjectsInView(viewWindow)
+      || this.removeObjectsOutsideView(viewWindow);
+    this.lastProcessedViewWindow = viewWindow;
+    this.spawnDespawnDirty = false;
+    if (changed) this.invalidateVisibleObjectCaches();
   }
 
   /**
    * Refresh large object visibility from flags
    */
   refreshLargeObjectVisibility(): void {
+    let changed = false;
     for (const obj of this.largeObjects.values()) {
-      obj.visible = !(obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false);
+      const nextVisible = !(obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false);
+      if (obj.visible !== nextVisible) changed = true;
+      obj.visible = nextVisible;
       if (!obj.visible) {
-        this.offscreenDespawnedLargeObjectIds.delete(obj.id);
+        if (this.offscreenDespawnedLargeObjectIds.delete(obj.id)) changed = true;
       }
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   /**
@@ -1215,6 +1353,7 @@ export class ObjectEventManager {
     for (const id of state.offscreenDespawnedLargeObjectIds ?? []) {
       if (this.largeObjects.has(id)) this.offscreenDespawnedLargeObjectIds.add(id);
     }
+    this.markObjectStateDirty();
   }
 
   // === Background Event Methods ===
@@ -1258,6 +1397,7 @@ export class ObjectEventManager {
         collected,
       });
     }
+    this.markSpawnDespawnDirty();
   }
 
   /**
@@ -1351,6 +1491,15 @@ export class ObjectEventManager {
     };
   }
 
+  private isSameViewWindow(a: ObjectEventViewWindow, b: ObjectEventViewWindow): boolean {
+    return (
+      a.left === b.left
+      && a.right === b.right
+      && a.top === b.top
+      && a.bottom === b.bottom
+    );
+  }
+
   private isWithinObjectEventView(tileX: number, tileY: number, viewWindow: ObjectEventViewWindow): boolean {
     return (
       tileX >= viewWindow.left
@@ -1362,18 +1511,20 @@ export class ObjectEventManager {
 
   private clearOffscreenStateForMap(mapId: string): void {
     const prefix = `${mapId}_`;
+    let changed = false;
     for (const key of [...this.offscreenDespawnedNpcIds]) {
-      if (key.startsWith(prefix)) this.offscreenDespawnedNpcIds.delete(key);
+      if (key.startsWith(prefix) && this.offscreenDespawnedNpcIds.delete(key)) changed = true;
     }
     for (const key of [...this.offscreenDespawnedItemIds]) {
-      if (key.startsWith(prefix)) this.offscreenDespawnedItemIds.delete(key);
+      if (key.startsWith(prefix) && this.offscreenDespawnedItemIds.delete(key)) changed = true;
     }
     for (const key of [...this.offscreenDespawnedScriptObjectIds]) {
-      if (key.startsWith(prefix)) this.offscreenDespawnedScriptObjectIds.delete(key);
+      if (key.startsWith(prefix) && this.offscreenDespawnedScriptObjectIds.delete(key)) changed = true;
     }
     for (const key of [...this.offscreenDespawnedLargeObjectIds]) {
-      if (key.startsWith(prefix)) this.offscreenDespawnedLargeObjectIds.delete(key);
+      if (key.startsWith(prefix) && this.offscreenDespawnedLargeObjectIds.delete(key)) changed = true;
     }
+    if (changed) this.markObjectStateDirty();
   }
 
   private resetNpcRuntimeSpawnState(npc: NPCObject): void {
@@ -1414,7 +1565,8 @@ export class ObjectEventManager {
     return npc?.id ?? null;
   }
 
-  private trySpawnObjectsInView(viewWindow: ObjectEventViewWindow): void {
+  private trySpawnObjectsInView(viewWindow: ObjectEventViewWindow): boolean {
+    let changed = false;
     for (const npc of this.npcs.values()) {
       const shouldBeHidden = npc.flag && npc.flag !== '0' ? gameFlags.isSet(npc.flag) : false;
       const canSpawnHere = this.isWithinObjectEventView(npc.initialTileX, npc.initialTileY, viewWindow);
@@ -1424,8 +1576,11 @@ export class ObjectEventManager {
         this.resetNpcRuntimeSpawnState(npc);
         npc.visible = true;
         npc.scriptRemoved = false;
+        changed = true;
       }
-      this.offscreenDespawnedNpcIds.delete(npc.id);
+      if (this.offscreenDespawnedNpcIds.delete(npc.id)) {
+        changed = true;
+      }
     }
 
     for (const ball of this.itemBalls.values()) {
@@ -1435,8 +1590,11 @@ export class ObjectEventManager {
 
       if (ball.collected) {
         ball.collected = false;
+        changed = true;
       }
-      this.offscreenDespawnedItemIds.delete(ball.id);
+      if (this.offscreenDespawnedItemIds.delete(ball.id)) {
+        changed = true;
+      }
     }
 
     for (const scriptObject of this.scriptObjects.values()) {
@@ -1446,8 +1604,13 @@ export class ObjectEventManager {
       const canSpawnHere = this.isWithinObjectEventView(scriptObject.tileX, scriptObject.tileY, viewWindow);
       if (shouldBeHidden || !canSpawnHere) continue;
 
+      if (!scriptObject.visible) {
+        changed = true;
+      }
       scriptObject.visible = true;
-      this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+      if (this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id)) {
+        changed = true;
+      }
     }
 
     for (const largeObject of this.largeObjects.values()) {
@@ -1457,15 +1620,24 @@ export class ObjectEventManager {
       const canSpawnHere = this.isWithinObjectEventView(largeObject.tileX, largeObject.tileY, viewWindow);
       if (shouldBeHidden || !canSpawnHere) continue;
 
+      if (!largeObject.visible) {
+        changed = true;
+      }
       largeObject.visible = true;
-      this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
+      if (this.offscreenDespawnedLargeObjectIds.delete(largeObject.id)) {
+        changed = true;
+      }
     }
+    return changed;
   }
 
-  private removeObjectsOutsideView(viewWindow: ObjectEventViewWindow): void {
+  private removeObjectsOutsideView(viewWindow: ObjectEventViewWindow): boolean {
+    let changed = false;
     for (const npc of this.npcs.values()) {
       if (!npc.visible) {
-        this.offscreenDespawnedNpcIds.delete(npc.id);
+        if (this.offscreenDespawnedNpcIds.delete(npc.id)) {
+          changed = true;
+        }
         continue;
       }
       if (this.offscreenDespawnedNpcIds.has(npc.id)) continue;
@@ -1473,45 +1645,64 @@ export class ObjectEventManager {
       const currentInView = this.isWithinObjectEventView(npc.tileX, npc.tileY, viewWindow);
       const initialInView = this.isWithinObjectEventView(npc.initialTileX, npc.initialTileY, viewWindow);
       if (!currentInView && !initialInView) {
-        this.offscreenDespawnedNpcIds.add(npc.id);
-        npcMovementEngine.removeNPC(npc.id);
+        if (!this.offscreenDespawnedNpcIds.has(npc.id)) {
+          this.offscreenDespawnedNpcIds.add(npc.id);
+          npcMovementEngine.removeNPC(npc.id);
+          changed = true;
+        }
       }
     }
 
     for (const ball of this.itemBalls.values()) {
       if (ball.collected) {
-        this.offscreenDespawnedItemIds.delete(ball.id);
+        if (this.offscreenDespawnedItemIds.delete(ball.id)) {
+          changed = true;
+        }
         continue;
       }
       if (this.offscreenDespawnedItemIds.has(ball.id)) continue;
 
       if (!this.isWithinObjectEventView(ball.tileX, ball.tileY, viewWindow)) {
-        this.offscreenDespawnedItemIds.add(ball.id);
+        if (!this.offscreenDespawnedItemIds.has(ball.id)) {
+          this.offscreenDespawnedItemIds.add(ball.id);
+          changed = true;
+        }
       }
     }
 
     for (const scriptObject of this.scriptObjects.values()) {
       if (!scriptObject.visible) {
-        this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id);
+        if (this.offscreenDespawnedScriptObjectIds.delete(scriptObject.id)) {
+          changed = true;
+        }
         continue;
       }
       if (this.offscreenDespawnedScriptObjectIds.has(scriptObject.id)) continue;
 
       if (!this.isWithinObjectEventView(scriptObject.tileX, scriptObject.tileY, viewWindow)) {
-        this.offscreenDespawnedScriptObjectIds.add(scriptObject.id);
+        if (!this.offscreenDespawnedScriptObjectIds.has(scriptObject.id)) {
+          this.offscreenDespawnedScriptObjectIds.add(scriptObject.id);
+          changed = true;
+        }
       }
     }
 
     for (const largeObject of this.largeObjects.values()) {
       if (!largeObject.visible) {
-        this.offscreenDespawnedLargeObjectIds.delete(largeObject.id);
+        if (this.offscreenDespawnedLargeObjectIds.delete(largeObject.id)) {
+          changed = true;
+        }
         continue;
       }
       if (this.offscreenDespawnedLargeObjectIds.has(largeObject.id)) continue;
 
       if (!this.isWithinObjectEventView(largeObject.tileX, largeObject.tileY, viewWindow)) {
-        this.offscreenDespawnedLargeObjectIds.add(largeObject.id);
+        if (!this.offscreenDespawnedLargeObjectIds.has(largeObject.id)) {
+          this.offscreenDespawnedLargeObjectIds.add(largeObject.id);
+          changed = true;
+        }
       }
     }
+    return changed;
   }
 }

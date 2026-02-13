@@ -22,6 +22,7 @@ import type { WorldSnapshot } from '../game/WorldManager';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import { buildWaterMaskFromView } from './spriteUtils';
 import { getReflectionMetaFromSnapshot } from '../game/snapshotUtils';
+import { incrementRuntimePerfCounter } from '../game/perf/runtimePerfRecorder';
 
 // =============================================================================
 // Types
@@ -76,6 +77,15 @@ export interface CompositeFrameOptions {
   nowMs?: number;
 }
 
+const compositeScratch = {
+  spritesWithBlob: [] as SpriteInstance[],
+  reflectionLayerSprites: [] as SpriteInstance[],
+  normalSprites: [] as SpriteInstance[],
+  lowPriorityReflections: [] as SpriteInstance[],
+  normalLowPrioritySprites: [] as SpriteInstance[],
+  overlaySprites: [] as SpriteInstance[],
+};
+
 // =============================================================================
 // Main Compositing Function
 // =============================================================================
@@ -106,29 +116,58 @@ export function compositeWebGLFrame(
 
   const gl = pipeline.getGL();
 
-  // Add surf blob to main sprites in sorted position without mutating the original array
-  // The original array is reused by debug/split layers; mutation caused disappearing sprites on sand
-  let spritesWithBlob = allSprites;
+  // Add surf blob to main sprites in sorted position without mutating the original array.
+  let spritesForPartition = allSprites;
   if (surfBlobSprite) {
+    const spritesWithBlob = compositeScratch.spritesWithBlob;
+    spritesWithBlob.length = 0;
     const insertIndex = findSortedInsertIndex(allSprites, surfBlobSprite.sortKey);
-    spritesWithBlob = [
-      ...allSprites.slice(0, insertIndex),
-      surfBlobSprite,
-      ...allSprites.slice(insertIndex),
-    ];
+    for (let i = 0; i < insertIndex; i++) {
+      spritesWithBlob.push(allSprites[i]);
+    }
+    spritesWithBlob.push(surfBlobSprite);
+    for (let i = insertIndex; i < allSprites.length; i++) {
+      spritesWithBlob.push(allSprites[i]);
+    }
+    spritesForPartition = spritesWithBlob;
   }
 
-  // Split sprites into reflection-layer and normal
-  const reflectionLayerSprites = spritesWithBlob.filter((s) => s.isReflection || s.isReflectionLayer);
-  const normalSprites = spritesWithBlob.filter((s) => !s.isReflection && !s.isReflectionLayer);
-  const lowPriorityReflections = lowPrioritySprites.filter((s) => s.isReflection || s.isReflectionLayer);
-  const normalLowPrioritySprites = lowPrioritySprites.filter((s) => !s.isReflection && !s.isReflectionLayer);
+  // One-pass partition into reflection and normal sprites to avoid per-frame filter allocations.
+  const reflectionLayerSprites = compositeScratch.reflectionLayerSprites;
+  const normalSprites = compositeScratch.normalSprites;
+  const lowPriorityReflections = compositeScratch.lowPriorityReflections;
+  const normalLowPrioritySprites = compositeScratch.normalLowPrioritySprites;
+  reflectionLayerSprites.length = 0;
+  normalSprites.length = 0;
+  lowPriorityReflections.length = 0;
+  normalLowPrioritySprites.length = 0;
 
-  // Build overlay sprites (doors + arrow)
-  const overlaySprites = [...doorSprites];
+  for (let i = 0; i < spritesForPartition.length; i++) {
+    const sprite = spritesForPartition[i];
+    if (sprite.isReflection || sprite.isReflectionLayer) {
+      reflectionLayerSprites.push(sprite);
+    } else {
+      normalSprites.push(sprite);
+    }
+  }
+  for (let i = 0; i < lowPrioritySprites.length; i++) {
+    const sprite = lowPrioritySprites[i];
+    if (sprite.isReflection || sprite.isReflectionLayer) {
+      lowPriorityReflections.push(sprite);
+    } else {
+      normalLowPrioritySprites.push(sprite);
+    }
+  }
+
+  // Build overlay sprites (doors + arrow) without array spread allocation.
+  const overlaySprites = compositeScratch.overlaySprites;
+  overlaySprites.length = 0;
+  for (let i = 0; i < doorSprites.length; i++) {
+    overlaySprites.push(doorSprites[i]);
+  }
   if (arrowSprite) overlaySprites.push(arrowSprite);
 
-  if (reflectionLayerSprites.length > 0 && snapshot) {
+  if ((reflectionLayerSprites.length > 0 || lowPriorityReflections.length > 0) && snapshot) {
     // === Split layer rendering for reflections ===
     compositeWithReflections(
       ctx,
@@ -143,7 +182,7 @@ export function compositeWebGLFrame(
     );
   } else {
     // === Standard compositing (no reflections) ===
-    compositeStandard(ctx, lowPrioritySprites, spritesWithBlob, overlaySprites, gl);
+    compositeStandard(ctx, lowPrioritySprites, spritesForPartition, overlaySprites, gl);
   }
 
   // TopAbove layer (renders on both paths)
@@ -197,6 +236,7 @@ function compositeWithReflections(
   // Step 2: Render reflection-layer sprites with water mask
   clearAndBindFramebuffer(gl, webglCanvas, view);
 
+  incrementRuntimePerfCounter('waterMaskBuilds');
   const waterMask = buildWaterMaskFromView(
     view.pixelWidth,
     view.pixelHeight,
@@ -209,8 +249,12 @@ function compositeWithReflections(
   );
   spriteRenderer.setWaterMask(waterMask);
 
-  const allReflectionSprites = [...reflectionLayerSprites, ...lowPriorityReflections];
-  spriteRenderer.renderBatch(allReflectionSprites, view);
+  if (reflectionLayerSprites.length > 0) {
+    spriteRenderer.renderBatch(reflectionLayerSprites, view);
+  }
+  if (lowPriorityReflections.length > 0) {
+    spriteRenderer.renderBatch(lowPriorityReflections, view);
+  }
   ctx2d.drawImage(webglCanvas, 0, 0);
 
   // Step 2.5: Render low priority sprites before topBelow

@@ -28,6 +28,7 @@ import {
   SPRITE_FRAGMENT_SHADER,
   SPRITE_REFLECTION_FRAGMENT_SHADER,
 } from './WebGLSpriteShaders';
+import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
 
 /** Maximum sprites per batch (can be tuned) */
 const MAX_SPRITES_PER_BATCH = 1024;
@@ -85,6 +86,9 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
 
   // Water mask texture (for reflections)
   private waterMaskTexture: WebGLTexture | null = null;
+  private waterMaskWidth = 1;
+  private waterMaskHeight = 1;
+  private lastWaterMaskSignature = '';
 
   // Stats
   private lastBatchSize = 0;
@@ -143,6 +147,9 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       gl.UNSIGNED_BYTE,
       new Uint8Array([255]) // Default: all water (show reflection)
     );
+    this.waterMaskWidth = 1;
+    this.waterMaskHeight = 1;
+    this.lastWaterMaskSignature = 'init:1x1:255';
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -285,8 +292,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
         continue;
       }
 
-      // Extract the batch
-      const batch = sprites.slice(batchStart, batchEnd);
+      const batchCount = batchEnd - batchStart;
 
       // Render with appropriate shader
       if (firstIsReflectionLayer) {
@@ -297,7 +303,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
           gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
           this.setUniforms(this.reflectionProgram, view, sheet);
           this.setReflectionUniforms(this.reflectionProgram, sheet);
-          this.renderSpriteBatch(batch, view, sheet);
+          this.renderSpriteBatchRange(sprites, batchStart, batchCount, view, sheet);
         }
       } else {
         // Normal sprites use standard shader
@@ -306,7 +312,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
           this.setUniforms(this.spriteProgram, view, sheet);
-          this.renderSpriteBatch(batch, view, sheet);
+          this.renderSpriteBatchRange(sprites, batchStart, batchCount, view, sheet);
         }
       }
 
@@ -328,28 +334,46 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       return;
     }
 
+    const signature = this.computeWaterMaskSignature(mask);
+    if (signature === this.lastWaterMaskSignature) {
+      return;
+    }
+
     const { gl } = this;
 
     // Explicitly use texture unit 1 for water mask to avoid conflicts
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.waterMaskTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.R8,
-      mask.width,
-      mask.height,
-      0,
-      gl.RED,
-      gl.UNSIGNED_BYTE,
-      mask.data
-    );
+    if (mask.width !== this.waterMaskWidth || mask.height !== this.waterMaskHeight) {
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.R8,
+        mask.width,
+        mask.height,
+        0,
+        gl.RED,
+        gl.UNSIGNED_BYTE,
+        mask.data
+      );
+      this.waterMaskWidth = mask.width;
+      this.waterMaskHeight = mask.height;
+    } else {
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        mask.width,
+        mask.height,
+        gl.RED,
+        gl.UNSIGNED_BYTE,
+        mask.data
+      );
+    }
 
-    // Parameters are already set during initialize(), but set again for safety
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.lastWaterMaskSignature = signature;
+    incrementRuntimePerfCounter('waterMaskUploads');
   }
 
   /**
@@ -388,6 +412,9 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       gl.deleteTexture(this.waterMaskTexture);
       this.waterMaskTexture = null;
     }
+    this.waterMaskWidth = 1;
+    this.waterMaskHeight = 1;
+    this.lastWaterMaskSignature = '';
 
     // Delete geometry
     if (this.quadVAO) {
@@ -537,10 +564,12 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
   }
 
   /**
-   * Render a batch of sprites for a single atlas
+   * Render a contiguous range of sprites for a single atlas
    */
-  private renderSpriteBatch(
+  private renderSpriteBatchRange(
     sprites: SpriteInstance[],
+    startIndex: number,
+    count: number,
     view: WorldCameraView,
     sheet: SpriteSheetTexture
   ): void {
@@ -549,19 +578,19 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
     gl.bindVertexArray(this.quadVAO);
 
     // Process sprites in chunks of MAX_SPRITES_PER_BATCH
-    for (let offset = 0; offset < sprites.length; offset += MAX_SPRITES_PER_BATCH) {
-      const batchSprites = sprites.slice(offset, offset + MAX_SPRITES_PER_BATCH);
-      const count = batchSprites.length;
+    const endIndex = startIndex + count;
+    for (let offset = startIndex; offset < endIndex; offset += MAX_SPRITES_PER_BATCH) {
+      const chunkCount = Math.min(MAX_SPRITES_PER_BATCH, endIndex - offset);
 
       // Fill instance data buffer
-      this.fillInstanceData(batchSprites, view, sheet);
+      this.fillInstanceDataRange(sprites, offset, chunkCount, view, sheet);
 
       // Upload instance data
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, count * FLOATS_PER_SPRITE));
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, chunkCount * FLOATS_PER_SPRITE));
 
       // Draw instanced quads
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, chunkCount);
     }
 
     gl.bindVertexArray(null);
@@ -570,15 +599,19 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
   /**
    * Fill instance data buffer from sprite instances
    */
-  private fillInstanceData(
+  private fillInstanceDataRange(
     sprites: SpriteInstance[],
+    startIndex: number,
+    count: number,
     view: WorldCameraView,
     sheet: SpriteSheetTexture
   ): void {
     const data = this.instanceData;
     let i = 0;
 
-    for (const sprite of sprites) {
+    const endIndex = startIndex + count;
+    for (let spriteIndex = startIndex; spriteIndex < endIndex; spriteIndex++) {
+      const sprite = sprites[spriteIndex];
       // Convert world coordinates to screen coordinates
       const screenX = sprite.worldX - view.cameraWorldX;
       const screenY = sprite.worldY - view.cameraWorldY;
@@ -611,5 +644,17 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       data[i++] = sprite.scaleX ?? 1.0;
       data[i++] = sprite.scaleY ?? 1.0;
     }
+  }
+
+  private computeWaterMaskSignature(mask: WaterMaskData): string {
+    const data = mask.data;
+    const length = data.length;
+    const sampleCount = Math.min(16, Math.max(1, length));
+    let checksum = 0;
+    for (let i = 0; i < sampleCount; i++) {
+      const index = Math.floor((i * (length - 1)) / Math.max(1, sampleCount - 1));
+      checksum = (checksum * 131 + data[index]) >>> 0;
+    }
+    return `${mask.width}x${mask.height}:${mask.worldOffsetX},${mask.worldOffsetY}:${checksum}`;
   }
 }

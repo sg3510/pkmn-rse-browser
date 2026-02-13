@@ -24,6 +24,9 @@ export interface RenderingConfig {
 
     /** Enable dirty region tracking optimization */
     enableDirtyTracking: boolean;
+
+    /** Enable costly framebuffer readback diagnostics (readPixels) */
+    enableRuntimeDiagnosticsReadback: boolean;
   };
 
   /** Debug settings */
@@ -50,6 +53,7 @@ export const DEFAULT_RENDERING_CONFIG: RenderingConfig = {
     maxTextureSize: 4096,
     maxInstances: 8192,
     enableDirtyTracking: true,
+    enableRuntimeDiagnosticsReadback: false,
   },
 
   debug: {

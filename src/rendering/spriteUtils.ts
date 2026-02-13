@@ -394,8 +394,8 @@ export function buildWaterMaskFromView(
     data,
     width: viewportWidth,
     height: viewportHeight,
-    worldOffsetX: 0, // Mask is screen-aligned
-    worldOffsetY: 0,
+    worldOffsetX: Math.floor(cameraWorldX),
+    worldOffsetY: Math.floor(cameraWorldY),
   };
 }
 

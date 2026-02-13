@@ -30,9 +30,19 @@ import { processWarpTrigger, updateWarpHandlerTile } from '../../game/WarpTrigge
 import { getMetatileIdFromMapTile } from '../../utils/mapLoader';
 import { startSpecialWalkOverWarp } from '../../game/SpecialWarpBehaviorRegistry';
 import type { DebugOptions, PlayerDebugInfo } from '../../components/debug';
+import { createLogger } from '../../utils/logger';
+import { isDebugMode } from '../../utils/debug';
+import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
 
 interface MutableRef<T> {
   current: T;
+}
+
+const overworldUpdateLogger = createLogger('OVERWORLD_UPDATE');
+
+function debugLog(...args: unknown[]): void {
+  if (!isDebugMode()) return;
+  overworldUpdateLogger.debug(...args);
 }
 
 // ─── resolveMapScriptCompareValue ────────────────────────────────────────────
@@ -96,7 +106,12 @@ export function evaluateOnFrameScripts(params: {
     if (currentVarValue === expectedValue) {
       const suppressedValue = onFrameSuppressed.get(entry.script);
       if (suppressedValue === expectedValue) continue;
-      console.log(`[ON_FRAME] Triggered: map=${currentMapId} script=${entry.script} var=${entry.var} value=${expectedValue}`);
+      debugLog('[ON_FRAME] Triggered', {
+        mapId: currentMapId,
+        script: entry.script,
+        variable: entry.var,
+        value: expectedValue,
+      });
       onFrameSuppressed.set(entry.script, expectedValue);
       runScript(entry.script, currentMapId);
       return true;
@@ -198,7 +213,13 @@ export function processCoordEventsForTile(params: {
   for (const coordEvent of scriptCoordEventsAtTile) {
     if (!shouldRunCoordEvent(coordEvent.var, coordEvent.varValue)) continue;
 
-    console.log(`[CoordEvent] Firing: ${coordEvent.script} at (${coordEvent.x},${coordEvent.y}) var=${coordEvent.var}=${coordEvent.varValue}`);
+    debugLog('[CoordEvent] Firing', {
+      script: coordEvent.script,
+      x: coordEvent.x,
+      y: coordEvent.y,
+      variable: coordEvent.var,
+      requiredValue: coordEvent.varValue,
+    });
     runScript(coordEvent.script, currentMap.entry.id);
     firedCoordEvent = true;
     break;
@@ -211,7 +232,7 @@ export function processCoordEventsForTile(params: {
     const pendingStates = pendingRescueEvents
       .map((coordEvent) => `${coordEvent.var} current=${gameVariables.getVar(coordEvent.var)} required=${coordEvent.varValue}`)
       .join(' | ');
-    console.log(`[CoordEvent] Pending Route101 rescue at (${playerTileX},${playerTileY}): ${pendingStates}`);
+    debugLog('[CoordEvent] Pending Route101 rescue', { playerTileX, playerTileY, pendingStates });
   }
 
   const hasPendingScriptEvents = scriptCoordEventsAtTile.length > 0 && !firedCoordEvent;
@@ -289,13 +310,13 @@ export function updateScriptedWarpStateMachine(params: {
     const fadeDirection = fade.getDirection();
     const hasCompletedFadeOut = fadeDirection === 'out' && fadeComplete;
     if (hasCompletedFadeOut) {
-      console.log(`[ScriptedWarp] pending → fading (reuse fadeOut to ${scriptedWarp.mapId})`);
+      debugLog('[ScriptedWarp] pending -> fading (reuse fadeOut)', { mapId: scriptedWarp.mapId });
       scriptedWarp.phase = 'fading';
       pendingScriptedWarpRef.current = scriptedWarp;
     } else {
       const canStartFadeOut = !fade.isActive() || fadeComplete;
       if (canStartFadeOut) {
-        console.log(`[ScriptedWarp] pending → fading (fadeOut to ${scriptedWarp.mapId})`);
+        debugLog('[ScriptedWarp] pending -> fading (start fadeOut)', { mapId: scriptedWarp.mapId });
         fade.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
         scriptedWarp.phase = 'fading';
         pendingScriptedWarpRef.current = scriptedWarp;
@@ -311,12 +332,17 @@ export function updateScriptedWarpStateMachine(params: {
       ? worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY)?.entry.id ?? null
       : null;
 
-    console.log(`[ScriptedWarp] fade complete. activeMapId=${activeMapId} targetMapId=${scriptedWarp.mapId}`);
+    debugLog('[ScriptedWarp] fade complete', { activeMapId, targetMapId: scriptedWarp.mapId });
     if (activePlayer && activeMapId === scriptedWarp.mapId) {
       const currentMap = worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY);
       const targetWorldX = currentMap ? currentMap.offsetX + scriptedWarp.x : scriptedWarp.x;
       const targetWorldY = currentMap ? currentMap.offsetY + scriptedWarp.y : scriptedWarp.y;
-      console.log(`[ScriptedWarp] same map reposition to local=(${scriptedWarp.x},${scriptedWarp.y}) world=(${targetWorldX},${targetWorldY})`);
+      debugLog('[ScriptedWarp] same map reposition', {
+        localX: scriptedWarp.x,
+        localY: scriptedWarp.y,
+        worldX: targetWorldX,
+        worldY: targetWorldY,
+      });
       activePlayer.setPosition(targetWorldX, targetWorldY);
       activePlayer.dir = scriptedWarp.direction;
       if (scriptedWarp.traversal) {
@@ -337,7 +363,7 @@ export function updateScriptedWarpStateMachine(params: {
       warpHandler.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
       scheduleInputUnlock(activePlayer, inputUnlockGuards);
     } else {
-      console.log(`[ScriptedWarp] different map → loading ${scriptedWarp.mapId}`);
+      debugLog('[ScriptedWarp] different map -> loading', { mapId: scriptedWarp.mapId });
       scriptedWarp.phase = 'loading';
       pendingScriptedWarpRef.current = scriptedWarp;
       scriptedWarpLoadMonitorRef.current = {
@@ -355,7 +381,7 @@ export function updateScriptedWarpStateMachine(params: {
       : null;
 
     if (activePlayer && activeMapId === scriptedWarp.mapId && !loadingRef.current) {
-      console.warn(`[ScriptedWarp] loading fallback completion on ${scriptedWarp.mapId}`);
+      overworldUpdateLogger.warn('[ScriptedWarp] loading fallback completion', { mapId: scriptedWarp.mapId });
       pendingScriptedWarpRef.current = null;
       scriptedWarpLoadMonitorRef.current = null;
       warpingRef.current = false;
@@ -376,9 +402,7 @@ export function updateScriptedWarpStateMachine(params: {
         scriptedWarpLoadMonitorRef.current = monitor;
       }
       if (!monitor.fallbackDeferredLogged) {
-        console.log(
-          `[ScriptedWarp] fallback deferred: map ${scriptedWarp.mapId} active but loading still in progress`
-        );
+        debugLog('[ScriptedWarp] fallback deferred (map active but still loading)', { mapId: scriptedWarp.mapId });
         monitor.fallbackDeferredLogged = true;
       }
     } else if (!loadingRef.current) {
@@ -398,13 +422,14 @@ export function updateScriptedWarpStateMachine(params: {
         if (monitor.retries < SCRIPTED_WARP_MAX_LOAD_RETRIES) {
           monitor.retries += 1;
           monitor.startedAt = nowTime;
-          console.warn(
-            `[ScriptedWarp] loading timeout retry ${monitor.retries}/${SCRIPTED_WARP_MAX_LOAD_RETRIES} `
-            + `for ${scriptedWarp.mapId}`
-          );
+          overworldUpdateLogger.warn('[ScriptedWarp] loading timeout retry', {
+            retry: monitor.retries,
+            maxRetries: SCRIPTED_WARP_MAX_LOAD_RETRIES,
+            mapId: scriptedWarp.mapId,
+          });
           selectMapForLoad(scriptedWarp.mapId);
         } else {
-          console.error(`[ScriptedWarp] aborting stuck load for ${scriptedWarp.mapId}`);
+          overworldUpdateLogger.error('[ScriptedWarp] aborting stuck load', { mapId: scriptedWarp.mapId });
           pendingScriptedWarpRef.current = null;
           scriptedWarpLoadMonitorRef.current = null;
           warpingRef.current = false;
@@ -553,7 +578,12 @@ export function checkWarpTriggers(params: {
     // Arrow warps are handled through PlayerController's doorWarpHandler
     // Just update arrow overlay, don't auto-warp
   } else if (action.type === 'autoDoorWarp') {
-    console.log(`[WARP] autoDoorWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
+    debugLog('[WARP] autoDoorWarp', {
+      tileX: player.tileX,
+      tileY: player.tileY,
+      mapId: warpResult.currentTile?.mapId ?? null,
+      destination: action.trigger,
+    });
     // Non-animated doors (stairs, ladders): auto-warp with fade
     arrowOverlay.hide();
     doorSequencer.startAutoWarp({
@@ -566,7 +596,12 @@ export function checkWarpTriggers(params: {
     }, nowTime, true);
     player.lockInput();
   } else if (action.type === 'walkOverWarp') {
-    console.log(`[WARP] walkOverWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
+    debugLog('[WARP] walkOverWarp', {
+      tileX: player.tileX,
+      tileY: player.tileY,
+      mapId: warpResult.currentTile?.mapId ?? null,
+      destination: action.trigger,
+    });
 
     const currentMapId = warpResult.currentTile?.mapId;
     const handledSpecialWarp = currentMapId
@@ -846,15 +881,19 @@ export function handleWorldUpdateAndEvents(params: {
             .filter((m) => m.entry.id === 'MAP_LITTLEROOT_TOWN' || m.entry.id === 'MAP_ROUTE101')
             .map((m) => `${m.entry.id}@(${m.offsetX},${m.offsetY})`)
             .join(' | ');
-          console.log(
-            `[SEAM] map transition ${previousMapId} -> ${currentMap.entry.id} `
-            + `world=(${player.tileX},${player.tileY}) local=(${localX},${localY}) `
-            + `camera=(${cameraPos ? `${cameraPos.x.toFixed(1)},${cameraPos.y.toFixed(1)}` : 'n/a'}) `
-            + `bounds=(${bounds.minX},${bounds.minY},${bounds.width}x${bounds.height}) `
-            + `anchor=${snapshot?.anchorMapId ?? 'unknown'} `
-            + `loaded=${snapshot?.maps.map((m) => m.entry.id).join(',') ?? 'none'} `
-            + `seamOffsets=${seamMaps || 'missing'}`
-          );
+          debugLog('[SEAM] map transition', {
+            from: previousMapId,
+            to: currentMap.entry.id,
+            worldX: player.tileX,
+            worldY: player.tileY,
+            localX,
+            localY,
+            camera: cameraPos ? `${cameraPos.x.toFixed(1)},${cameraPos.y.toFixed(1)}` : 'n/a',
+            bounds: `${bounds.minX},${bounds.minY},${bounds.width}x${bounds.height}`,
+            anchor: snapshot?.anchorMapId ?? 'unknown',
+            loaded: snapshot?.maps.map((m) => m.entry.id).join(',') ?? 'none',
+            seamOffsets: seamMaps || 'missing',
+          });
         }
 
         // Run seam transition scripts
@@ -975,45 +1014,52 @@ export function updateRenderStats(params: {
     counter,
   } = params;
 
-  const renderTime = performance.now() - renderStartTime;
+  counter.frameCount++;
+  const now = performance.now();
+  if (now - counter.fpsTime < 500) {
+    return;
+  }
+  if (!debugEnabled) {
+    counter.frameCount = 0;
+    counter.fpsTime = now;
+    return;
+  }
 
-  // Get tile count from pipeline stats
+  const renderTime = performance.now() - renderStartTime;
   const pipelineStats = pipeline.getStats();
-  const samples = debugEnabled ? pipeline.getPassSamples() : undefined;
+  const samples = pipeline.getPassSamples();
   const tileCount = pipelineStats.passTileCounts.background +
                     pipelineStats.passTileCounts.topBelow +
                     pipelineStats.passTileCounts.topAbove;
+  const fps = Math.round((counter.frameCount * 1000) / (now - counter.fpsTime));
 
-  counter.frameCount++;
-  const now = performance.now();
-  if (now - counter.fpsTime >= 500) {
-    const fps = Math.round((counter.frameCount * 1000) / (now - counter.fpsTime));
-    setStats((s: any) => ({
-      ...s,
-      tileCount,
-      renderTimeMs: renderTime,
-      fps,
-      pipelineDebug: {
-        tilesetVersion: pipelineStats.tilesetVersion,
-        lastRenderedTilesetVersion: pipelineStats.lastRenderedTilesetVersion,
-        needsFullRender: pipelineStats.needsFullRender,
-        needsWarmupRender: pipelineStats.needsWarmupRender,
-        lastViewHash: pipelineStats.lastViewHash,
-        hasCachedInstances: pipelineStats.hasCachedInstances,
-        tilesetsUploaded: pipelineStats.tilesetsUploaded,
-        cachedInstances: pipelineStats.passTileCounts,
-        lastRenderInfo: pipelineStats.lastRenderInfo,
-        renderHistory: pipelineStats.renderHistory,
-        renderMeta: pipelineStats.renderMeta,
-        samples,
-      },
-    }));
-    if (cameraRef.current) {
-      const pos = cameraRef.current.getPosition();
-      setCameraDisplay({ x: pos.x, y: pos.y });
-    }
-
-    counter.frameCount = 0;
-    counter.fpsTime = now;
+  incrementRuntimePerfCounter('setStateFromRafCalls');
+  setStats((s: any) => ({
+    ...s,
+    tileCount,
+    renderTimeMs: renderTime,
+    fps,
+    pipelineDebug: {
+      tilesetVersion: pipelineStats.tilesetVersion,
+      lastRenderedTilesetVersion: pipelineStats.lastRenderedTilesetVersion,
+      needsFullRender: pipelineStats.needsFullRender,
+      needsWarmupRender: pipelineStats.needsWarmupRender,
+      lastViewHash: pipelineStats.lastViewHash,
+      hasCachedInstances: pipelineStats.hasCachedInstances,
+      tilesetsUploaded: pipelineStats.tilesetsUploaded,
+      cachedInstances: pipelineStats.passTileCounts,
+      lastRenderInfo: pipelineStats.lastRenderInfo,
+      renderHistory: pipelineStats.renderHistory,
+      renderMeta: pipelineStats.renderMeta,
+      samples,
+    },
+  }));
+  if (cameraRef.current) {
+    const pos = cameraRef.current.getPosition();
+    incrementRuntimePerfCounter('setStateFromRafCalls');
+    setCameraDisplay({ x: pos.x, y: pos.y });
   }
+
+  counter.frameCount = 0;
+  counter.fpsTime = now;
 }

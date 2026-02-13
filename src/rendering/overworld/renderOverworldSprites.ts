@@ -5,7 +5,6 @@
 import type { SpriteInstance, WorldCameraView } from '../types';
 import type { WorldSnapshot } from '../../game/WorldManager';
 import type { PlayerController } from '../../game/PlayerController';
-import type { ObjectEventManager } from '../../game/ObjectEventManager';
 import type { WebGLRenderPipeline } from '../webgl/WebGLRenderPipeline';
 import type { WebGLSpriteRenderer } from '../webgl/WebGLSpriteRenderer';
 import type { WebGLFadeRenderer } from '../webgl/WebGLFadeRenderer';
@@ -20,16 +19,21 @@ import type { WeatherManager } from '../../weather/WeatherManager';
 import type { TilesetRuntime } from '../../utils/tilesetUtils';
 import type { ReflectionState } from '../../components/map/types';
 import type { ReflectionTileGridDebugInfo, PriorityDebugInfo } from '../../components/debug/types';
+import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../../types/objectEvents';
 import { calculateSortKey, getRotatingGateAtlasName } from '../spriteUtils';
 import { getReflectionTileGridDebug } from '../../components/debug';
 import { compositeWebGLFrame } from '../compositeWebGLFrame';
 import { buildPriorityDebugInfo } from '../../components/debug/buildPriorityDebugInfo';
 import { menuStateManager } from '../../menu';
 import type { PendingScriptedWarp } from '../../pages/gamePage/overworldGameUpdate';
+import { createLogger } from '../../utils/logger';
+import { recordRuntimePerfSection } from '../../game/perf/runtimePerfRecorder';
 
 interface MutableRef<T> {
   current: T;
 }
+
+const renderLogger = createLogger('OVERWORLD_RENDER');
 
 export interface RenderOverworldSpritesParams {
   player: PlayerController;
@@ -50,11 +54,14 @@ export interface RenderOverworldSpritesParams {
   webglCanvas: HTMLCanvasElement;
 
   // Managers
-  objectEventManager: ObjectEventManager;
   worldManager: WorldManager | null;
   weatherManager: WeatherManager;
   rotatingGateManager: RotatingGateManager;
   fadeController: FadeController;
+  visibleNpcs: NPCObject[];
+  visibleItems: ItemBallObject[];
+  visibleScriptObjects: ScriptObject[];
+  visibleLargeObjects: LargeObject[];
 
   // State refs
   tilesetRuntimes: Map<string, TilesetRuntime>;
@@ -96,9 +103,9 @@ export interface RenderOverworldSpritesResult {
   /** Whether arrow sprite was uploaded */
   arrowSpriteWasUploaded: boolean;
   /** Visible NPCs for ref tracking */
-  visibleNPCs: any[];
+  visibleNPCs: NPCObject[];
   /** Visible items for ref tracking */
-  visibleItems: any[];
+  visibleItems: ItemBallObject[];
   /** Reflection tile grid debug info (if computed) */
   reflectionTileGridDebug?: ReflectionTileGridDebugInfo;
   /** Priority debug info (if computed) */
@@ -121,11 +128,14 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     scanlineRenderer,
     ctx2d,
     webglCanvas,
-    objectEventManager,
     worldManager,
     weatherManager,
     rotatingGateManager,
     fadeController: fade,
+    visibleNpcs: npcs,
+    visibleItems: items,
+    visibleScriptObjects: scriptObjects,
+    visibleLargeObjects: largeObjects,
     tilesetRuntimes,
     fieldSpritesLoaded,
     doorSpritesUploaded,
@@ -156,7 +166,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     if (currentSnapshot) {
       const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
       const destTile = player.getDestinationTile();
-      computeReflectionState(
+      const reflectionState = computeReflectionState(
         currentSnapshot,
         destTile.x,
         destTile.y,
@@ -168,15 +178,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
 
       // Update reflection tile grid debug info
       if (debugEnabled && gbaFrame % 6 === 0) {
-        const reflectionState = computeReflectionState(
-          currentSnapshot,
-          destTile.x,
-          destTile.y,
-          player.tileX,
-          player.tileY,
-          spriteWidth,
-          spriteHeight
-        );
+        const debugStart = performance.now();
         result.reflectionTileGridDebug = getReflectionTileGridDebug(
           currentSnapshot,
           tilesetRuntimes,
@@ -188,6 +190,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           player.dir,
           reflectionState
         );
+        recordRuntimePerfSection('debugState', performance.now() - debugStart);
       }
     }
 
@@ -195,14 +198,12 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     if (spriteRenderer && spriteRenderer.isValid()) {
       const spriteView = view;
 
-      // Get visible objects for rendering
-      const npcs = objectEventManager.getVisibleNPCs();
       if (deoxysRockRenderDebugRef.current.active) {
         const rock = npcs.find((entry) => entry.localId === 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK');
         const nowDebugMs = performance.now();
         if (rock && nowDebugMs - deoxysRockRenderDebugRef.current.lastLogMs >= 100) {
           deoxysRockRenderDebugRef.current.lastLogMs = nowDebugMs;
-          console.log('[Legendary] Deoxys rock render sample', {
+          renderLogger.debug('[Legendary] Deoxys rock render sample', {
             elapsedMs: Math.round(nowDebugMs - deoxysRockRenderDebugRef.current.startMs),
             tileX: rock.tileX,
             tileY: rock.tileY,
@@ -217,9 +218,6 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           });
         }
       }
-      const items = objectEventManager.getVisibleItemBalls();
-      const scriptObjects = objectEventManager.getVisibleScriptObjects();
-      const largeObjects = objectEventManager.getVisibleLargeObjects();
       result.visibleNPCs = npcs;
       result.visibleItems = items;
 
@@ -229,6 +227,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         : [];
 
       // Build all sprites
+      const spriteBuildStart = performance.now();
       const spriteBuildResult = buildSprites({
         player,
         playerLoaded,
@@ -249,6 +248,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         nowTime,
         computeReflectionState,
       });
+      recordRuntimePerfSection('spriteBuild', performance.now() - spriteBuildStart);
 
       // Track newly uploaded sprites
       result.newDoorSpritesUploaded = [...spriteBuildResult.newDoorSpritesUploaded];
@@ -312,12 +312,14 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
 
       // Priority debug info
       if (debugEnabled && gbaFrame % 6 === 0) {
+        const debugStart = performance.now();
         result.priorityDebugInfo = buildPriorityDebugInfo({
           player,
           allSprites,
           lowPrioritySprites,
           priority0Sprites,
         });
+        recordRuntimePerfSection('debugState', performance.now() - debugStart);
       }
 
       // Compositing
@@ -335,6 +337,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
 
       const scanlineIntensity = menuStateManager.isMenuOpen() ? 1.0 : 0.0;
 
+      const compositeStart = performance.now();
       compositeWebGLFrame(
         {
           pipeline,
@@ -360,6 +363,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         },
         { fadeAlpha, scanlineIntensity, zoom, nowMs: nowTime }
       );
+      recordRuntimePerfSection('composite', performance.now() - compositeStart);
     }
   }
 

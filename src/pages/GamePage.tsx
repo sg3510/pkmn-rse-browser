@@ -38,7 +38,7 @@ import {
   type StitchedWorldData,
 } from '../game/snapshotUtils';
 import { updateWorldBounds } from '../game/worldManagerEvents';
-import { ObjectEventManager } from '../game/ObjectEventManager';
+import { ObjectEventManager, type VisibleObjectEventSnapshot } from '../game/ObjectEventManager';
 import { buildWorldCameraView } from '../game/buildWorldCameraView';
 import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../game/loadObjectEventsFromSnapshot';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
@@ -138,6 +138,12 @@ import {
 } from '../game/TruckSequenceRunner';
 import { rotatingGateManager } from '../game/RotatingGateManager';
 import { WeatherManager } from '../weather/WeatherManager';
+import {
+  beginRuntimePerfFrame,
+  endRuntimePerfFrame,
+  incrementRuntimePerfCounter,
+  recordRuntimePerfSection,
+} from '../game/perf/runtimePerfRecorder';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -191,6 +197,28 @@ type RenderStats = {
 // StitchedWorldData now imported from '../game/snapshotUtils'
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
+const EMPTY_WEBGL_DEBUG_STATE: WebGLDebugState = {
+  mapStitching: null,
+  warp: null,
+  renderStats: null,
+  truck: null,
+  shimmer: null,
+  reflectionTileGrid: null,
+  priority: null,
+};
+const EMPTY_DEBUG_STATE: DebugState = {
+  player: null,
+  tile: null,
+  objectsAtPlayerTile: null,
+  objectsAtFacingTile: null,
+  adjacentObjects: null,
+  allVisibleNPCs: [],
+  allVisibleItems: [],
+  totalNPCCount: 0,
+  totalItemCount: 0,
+  allNPCs: [],
+  offscreenDespawnedNpcIds: [],
+};
 
 /**
  * GamePage wrapper - provides DialogProvider context and state machine
@@ -743,6 +771,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Create WebGL debug state from existing debug info
   const webglDebugState = useMemo<WebGLDebugState>(() => {
+    if (!debugOptions.enabled) {
+      return EMPTY_WEBGL_DEBUG_STATE;
+    }
     const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
     return buildWebGLDebugState({
       mapStitching: mapDebugInfo,
@@ -773,6 +804,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       npcSpriteCache,
     });
   }, [
+    debugOptions.enabled,
     mapDebugInfo,
     warpDebugInfo,
     stats,
@@ -786,6 +818,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Debug state for the panel - reads from refs updated during render loop
   const debugState = useMemo<DebugState>(() => {
+    if (!debugOptions.enabled) {
+      return EMPTY_DEBUG_STATE;
+    }
     const npcs = visibleNPCsRef.current;
     const items = visibleItemsRef.current;
     const allNpcs = objectEventManagerRef.current.getAllNPCs();
@@ -800,7 +835,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       totalItemCount: objectEventManagerRef.current.getAllItemBalls().length,
       offscreenDespawnedNpcIds: objectRuntimeState.offscreenDespawnedNpcIds,
     });
-  }, [playerDebugInfo]);
+  }, [debugOptions.enabled, playerDebugInfo]);
 
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
@@ -1088,11 +1123,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         gbaAccumRef.current -= GBA_FRAME_MS;
         gbaFrameRef.current++;
       }
+      beginRuntimePerfFrame(gbaFrameRef.current, nowTime);
+      const framePerfStart = nowTime;
 
       // Update shimmer animation (GBA-accurate reflection distortion)
       getGlobalShimmer().update(nowTime);
       npcAnimationManager.update();
 
+      const objectSpawnDespawnStart = performance.now();
       const player = playerRef.current;
       if (player) {
         const viewportTiles = viewportTilesRef.current;
@@ -1114,10 +1152,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           );
         }
       }
+      recordRuntimePerfSection('objectSpawnDespawn', performance.now() - objectSpawnDespawnStart);
       const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
+      const worldUpdateStart = performance.now();
 
       // Update overworld object-event affine animation state and prune stale NPC entries.
-      const visibleNpcsForFrame = objectEventManagerRef.current.getVisibleNPCs();
+      const visibleObjectsForMovement: VisibleObjectEventSnapshot = objectEventManagerRef.current.getVisibleObjectsSnapshot();
+      const visibleNpcsForFrame = visibleObjectsForMovement.npcs;
       objectEventAffineManager.syncNPCs(visibleNpcsForFrame);
       objectEventAffineManager.update(dt);
 
@@ -1315,6 +1356,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           camera.followTarget(player);
         }
       }
+      recordRuntimePerfSection('worldUpdate', performance.now() - worldUpdateStart);
 
       // Read current viewport size from ref (avoids stale closure)
       const viewportWidth = viewportPixelSizeRef.current.width;
@@ -1395,6 +1437,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         // Sprite rendering + compositing (extracted)
         const webglCanvas = webglCanvasRef.current;
         if (player && webglCanvas) {
+          const visibleObjectsForRender: VisibleObjectEventSnapshot = objectEventManagerRef.current.getVisibleObjectsSnapshot();
           const spriteResult = renderOverworldSprites({
             player,
             playerLoaded: playerLoadedRef.current,
@@ -1410,7 +1453,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             scanlineRenderer: scanlineRendererRef.current,
             ctx2d,
             webglCanvas,
-            objectEventManager: objectEventManagerRef.current,
+            visibleNpcs: visibleObjectsForRender.npcs,
+            visibleItems: visibleObjectsForRender.itemBalls,
+            visibleScriptObjects: visibleObjectsForRender.scriptObjects,
+            visibleLargeObjects: visibleObjectsForRender.largeObjects,
             worldManager: worldManagerRef.current,
             weatherManager: weatherManagerRef.current,
             rotatingGateManager,
@@ -1440,13 +1486,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             arrowSpriteUploadedRef.current = true;
           }
           if (spriteResult.reflectionTileGridDebug) {
+            incrementRuntimePerfCounter('setStateFromRafCalls');
             setReflectionTileGridDebug(spriteResult.reflectionTileGridDebug);
           }
           if (spriteResult.priorityDebugInfo) {
+            incrementRuntimePerfCounter('setStateFromRafCalls');
             setPriorityDebugInfo(spriteResult.priorityDebugInfo);
           }
         }
 
+        const renderStatsStart = performance.now();
         updateRenderStats({
           pipeline,
           debugEnabled: debugOptionsRef.current.enabled,
@@ -1456,8 +1505,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           setCameraDisplay,
           counter: frameCounter,
         });
+        recordRuntimePerfSection('renderStats', performance.now() - renderStatsStart);
       }
 
+      recordRuntimePerfSection('frameTotal', performance.now() - framePerfStart);
+      endRuntimePerfFrame();
       rafRef.current = requestAnimationFrame(renderLoop);
     };
 
