@@ -26,7 +26,6 @@ import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
 import { WebGLScanlineRenderer } from '../rendering/webgl/WebGLScanlineRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
-import type { SpriteInstance } from '../rendering/types';
 import type { TileResolverFn, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
 import { CameraController } from '../game/CameraController';
@@ -50,8 +49,8 @@ import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
-import { isNPCGraphicsId, type NPCObject, type ItemBallObject, type ObjectEventRuntimeState } from '../types/objectEvents';
-import { METATILE_SIZE, isCollisionPassable } from '../utils/mapLoader';
+import { type NPCObject, type ItemBallObject, type ObjectEventRuntimeState } from '../types/objectEvents';
+import { METATILE_SIZE } from '../utils/mapLoader';
 import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
@@ -62,23 +61,19 @@ import {
   getGlobalShimmer,
   type ReflectionMetaProvider,
 } from '../field/ReflectionRenderer';
-import { resolveTileAt, describeTile, type WarpTrigger } from '../components/map/utils';
-import { processWarpTrigger, updateWarpHandlerTile } from '../game/WarpTriggerProcessor';
-import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../game/DoorSequenceRunner';
+import { resolveTileAt, type WarpTrigger } from '../components/map/utils';
 import type { ReflectionState } from '../components/map/types';
 import { WarpHandler } from '../field/WarpHandler';
 import { FadeController } from '../field/FadeController';
-import { FADE_TIMING, type CardinalDirection } from '../field/types';
+import { type CardinalDirection } from '../field/types';
 import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
 import { useLavaridgeWarpSequencer } from '../hooks/useLavaridgeWarpSequencer';
 import { useWebGLSpriteBuilder } from '../hooks/useWebGLSpriteBuilder';
-import { compositeWebGLFrame } from '../rendering/compositeWebGLFrame';
 import {
   DebugPanel,
   DEFAULT_DEBUG_OPTIONS,
-  getReflectionTileGridDebug,
   type DebugOptions,
   type DebugState,
   type DebugTileInfo,
@@ -87,18 +82,6 @@ import {
   type ReflectionTileGridDebugInfo,
   type PriorityDebugInfo,
 } from '../components/debug';
-import { getMetatileIdFromMapTile } from '../utils/mapLoader';
-import {
-  MB_DEEP_SAND,
-  MB_SAND,
-  MB_SECRET_BASE_WALL,
-  MB_IMPASSABLE_EAST,
-  MB_IMPASSABLE_SOUTH_AND_NORTH,
-  MB_IMPASSABLE_WEST_AND_EAST,
-  MB_JUMP_SOUTHWEST,
-  isDoorBehavior,
-  isSurfableBehavior,
-} from '../utils/metatileBehaviors';
 import {
   DialogProvider,
   DialogBox,
@@ -112,83 +95,51 @@ import { MenuOverlay, menuStateManager } from '../menu';
 import type { LocationState } from '../save/types';
 import { gameVariables, GAME_VARS } from '../game/GameVariables';
 import { saveManager } from '../save/SaveManager';
-import { bagManager } from '../game/BagManager';
-import { getItemId, getItemName } from '../data/items';
 import { getDynamicWarpTarget } from '../game/DynamicWarp';
-import { clearFixedDiveWarpTarget, setFixedDiveWarpTarget } from '../game/FixedDiveWarp';
-import { shouldRunCoordEvent } from '../game/NewGameFlow';
-import type { ScriptCoordEvent } from '../game/mapEventLoader';
-import { getMapScripts } from '../data/scripts';
 import type { MapScriptData } from '../data/scripts/types';
 import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
-import { resolveDiveWarp } from '../game/dive/DiveWarpResolver';
 import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
 import { ensureOverworldRuntimeAssets as ensureOverworldRuntimeAssetsUtil } from './gamePage/overworldAssets';
+import { executeDiveFieldAction } from './gamePage/diveFieldAction';
 import { buildWebGLDebugState } from './gamePage/buildWebGLDebugState';
 import { buildDebugState } from './gamePage/buildDebugState';
-import { buildPriorityDebugInfo } from './gamePage/buildPriorityDebugInfo';
 import { useStateMachineRenderLoop } from './gamePage/useStateMachineRenderLoop';
 import { useOverworldContinueLocation } from './gamePage/useOverworldContinueLocation';
 import { performWarpTransition } from './gamePage/performWarpTransition';
 import { loadSelectedOverworldMap } from './gamePage/loadSelectedOverworldMap';
-import { runMapEntryScripts } from './gamePage/runMapEntryScripts';
-import { runMapDiveScript } from './gamePage/runMapDiveScript';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
+import { setMapMetatileInSnapshot, createMetatileUpdater, type InputUnlockGuards } from './gamePage/mapMetatileUtils';
+import { applyStoryOnLoadMetatileParity, applyStoryTransitionObjectParityForMap } from './gamePage/storyParity';
+import { createNPCMovementProviders } from './gamePage/npcMovementProviders';
+import { useDebugTileGrid } from './gamePage/useDebugTileGrid';
+import { createScriptRuntimeServices } from './gamePage/createScriptRuntimeServices';
+import { renderOverworldSprites } from './gamePage/renderOverworldSprites';
+import {
+  evaluateOnFrameScripts,
+  evaluateOnFrameSafetyNets,
+  runStepCallbacks,
+  checkWarpTriggers,
+  advanceWarpSequences,
+  handleWorldUpdateAndEvents,
+  updateRenderStats,
+  type PendingScriptedWarp,
+  type ScriptedWarpLoadMonitor,
+  type FrameCounter,
+} from './gamePage/overworldGameUpdate';
+import { createRotatingGateCollisionChecker } from './gamePage/collisionChecker';
+import { executeSeamTransitionScripts } from './gamePage/seamTransitionScripts';
+import { createActionCallbacks } from './gamePage/actionCallbacks';
 import {
   applyTruckSequenceFrame,
   createTruckSequenceRuntime,
   isTruckSequenceLocked,
   syncTruckSequenceRuntime,
-  METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP,
-  METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID,
-  METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM,
-  METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP,
-  METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID,
-  METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM,
 } from '../game/TruckSequenceRunner';
-import { stepCallbackManager } from '../game/StepCallbackManager';
 import { rotatingGateManager } from '../game/RotatingGateManager';
-import { startSpecialWalkOverWarp } from '../game/SpecialWarpBehaviorRegistry';
-import { calculateSortKey, getNPCAtlasName, getRotatingGateAtlasName } from '../rendering/spriteUtils';
 import { WeatherManager } from '../weather/WeatherManager';
-import { getDeoxysRockPaletteCanvas } from '../game/legendary/deoxysRockPaletteRuntime';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
-
-// C reference: public/pokeemerald/include/constants/metatile_labels.h
-const METATILE_HOUSE_MOVING_BOX_CLOSED = 0x268;
-const METATILE_HOUSE_MOVING_BOX_OPEN = 0x270;
-
-function resolveMapScriptCompareValue(value: number | string): number {
-  if (typeof value === 'number') return value;
-  if (value.startsWith('VAR_')) return gameVariables.getVar(value);
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function isUnderwaterMapType(mapType: string | null): boolean {
-  return mapType === 'MAP_TYPE_UNDERWATER';
-}
-
-type ScriptedWarpDirection = 'up' | 'down' | 'left' | 'right';
-type ScriptedWarpPhase = 'pending' | 'fading' | 'loading';
-
-type PendingScriptedWarp = {
-  mapId: string;
-  x: number;
-  y: number;
-  direction: ScriptedWarpDirection;
-  phase: ScriptedWarpPhase;
-  traversal?: {
-    surfing: boolean;
-    underwater: boolean;
-  };
-};
-
-const SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS = 1500;
-const SCRIPTED_WARP_MAX_LOAD_RETRIES = 3;
 
 type RenderStats = {
   webgl2Supported: boolean;
@@ -361,7 +312,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const topLayerCanvasRef = useRef<HTMLCanvasElement>(null);
   const compositeLayerCanvasRef = useRef<HTMLCanvasElement>(null);
   const debugTilesRef = useRef<DebugTileInfo[]>([]);
-  const [centerTileInfo, setCenterTileInfo] = useState<DebugTileInfo | null>(null);
 
   // Pipeline and state refs
   const pipelineRef = useRef<WebGLRenderPipeline | null>(null);
@@ -472,79 +422,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const seamTransitionScriptsInFlightRef = useRef<Set<string>>(new Set());
 
   // NPC movement hook - provides collision-aware movement updates
-  // The providers object uses closure over refs so it always has fresh data
-  const npcMovementProviders = useMemo(() => ({
-    isTileWalkable: (x: number, y: number): boolean => {
-      // Use player's tile resolver to check walkability
-      const player = playerRef.current;
-      const resolver = player?.getTileResolver();
-      const resolved = resolver?.(x, y);
-      if (!resolved) return false;
-
-      const { attributes, mapTile } = resolved;
-      if (!attributes) return true;
-
-      const behavior = attributes.behavior;
-      const collision = mapTile.collision;
-
-      // Sand tiles are always walkable (if no object collision, which NPCs handle separately).
-      if (behavior === MB_SAND || behavior === MB_DEEP_SAND) return true;
-
-      // Block tiles with impassable collision bits (doors are handled separately for player, but still walkable).
-      if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) return false;
-
-      // Hard-blocked behaviors.
-      if (behavior === MB_SECRET_BASE_WALL) return false;
-
-      // NPCs can't surf, so block surfable water tiles.
-      if (isSurfableBehavior(behavior)) return false;
-
-      // Directionally impassable + ledge/jump tiles are blocked for NPCs.
-      if (behavior >= MB_IMPASSABLE_EAST && behavior <= MB_JUMP_SOUTHWEST) return false;
-      if (behavior === MB_IMPASSABLE_SOUTH_AND_NORTH || behavior === MB_IMPASSABLE_WEST_AND_EAST) return false;
-
-      return true;
-    },
-    getTileElevation: (x: number, y: number): number => {
-      const player = playerRef.current;
-      const resolver = player?.getTileResolver();
-      const resolved = resolver?.(x, y);
-      return resolved?.mapTile?.elevation ?? 0;
-    },
-    getAllNPCs: (): NPCObject[] => {
-      return objectEventManagerRef.current.getVisibleNPCs();
-    },
-    hasPlayerAt: (x: number, y: number): boolean => {
-      // Check if player is at this tile position
-      const player = playerRef.current;
-      if (!player) return false;
-      return player.tileX === x && player.tileY === y;
-    },
-    getTileBehavior: (x: number, y: number): number | undefined => {
-      // Get tile behavior for grass effect detection
-      const player = playerRef.current;
-      const resolver = player?.getTileResolver();
-      const resolved = resolver?.(x, y);
-      return resolved?.attributes?.behavior;
-    },
-    getPlayerState: () => {
-      const player = playerRef.current;
-      if (!player) return null;
-      const destination = player.getDestinationTile();
-      return {
-        tileX: player.tileX,
-        tileY: player.tileY,
-        destTileX: destination.x,
-        destTileY: destination.y,
-        direction: player.getFacingDirection(),
-        isMoving: player.isMoving,
-      };
-    },
-    get fieldEffectManager() {
-      // Use player's grass effect manager for NPC grass effects too
-      return playerRef.current?.getGrassEffectManager();
-    },
-  }), []); // Empty deps - functions use refs internally
+  const npcMovementProviders = useMemo(
+    () => createNPCMovementProviders(playerRef, objectEventManagerRef),
+    []
+  );
 
   const npcMovement = useNPCMovement(npcMovementProviders);
 
@@ -684,12 +565,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Controlled by loadSelectedOverworldMap for synchronous scripted-warp gating.
   const loadingRef = useRef(false);
-  const scriptedWarpLoadMonitorRef = useRef<{
-    mapId: string;
-    startedAt: number;
-    retries: number;
-    fallbackDeferredLogged: boolean;
-  } | null>(null);
+  const scriptedWarpLoadMonitorRef = useRef<ScriptedWarpLoadMonitor | null>(null);
 
   // Ref for debug options so render loop can access current value
   const debugOptionsRef = useRef<DebugOptions>(debugOptions);
@@ -706,125 +582,29 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     metatileId: number,
     collision?: number
   ): boolean => {
-    const snapshot = worldSnapshotRef.current;
-    if (!snapshot) return false;
-
-    const map = snapshot.maps.find((m) => m.entry.id === mapId);
-    if (!map) return false;
-
-    if (tileX < 0 || tileY < 0 || tileX >= map.mapData.width || tileY >= map.mapData.height) {
-      return false;
-    }
-
-    const index = tileY * map.mapData.width + tileX;
-    const tile = map.mapData.layout[index];
-    if (!tile) return false;
-
-    const changed = tile.metatileId !== metatileId || (collision !== undefined && tile.collision !== collision);
-    if (!changed) return false;
-
-    tile.metatileId = metatileId;
-    // C parity: MapGridSetMetatileIdAt always overwrites collision bits.
-    // When collision is provided, update it. Default to 0 (passable) matching C behavior
-    // when the caller sets a metatile without MAPGRID_IMPASSABLE.
-    if (collision !== undefined) {
-      tile.collision = collision;
-    }
-    return true;
+    return setMapMetatileInSnapshot(worldSnapshotRef.current, mapId, tileX, tileY, metatileId, collision);
   }, []);
 
-  const applyStoryOnLoadMetatileParity = useCallback((): void => {
-    const snapshot = worldSnapshotRef.current;
-    if (!snapshot) return;
+  const setMapMetatileAndInvalidate = useMemo(
+    () => createMetatileUpdater(setMapMetatileLocal, pipelineRef),
+    [setMapMetatileLocal]
+  );
 
-    const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
-    let changed = false;
+  const inputUnlockGuards = useMemo<InputUnlockGuards>(() => ({
+    warpingRef,
+    storyScriptRunningRef,
+    dialogIsOpenRef: dialogIsOpenRef,
+  }), []);
 
-    for (const map of snapshot.maps) {
-      if (map.entry.id === 'MAP_INSIDE_OF_TRUCK') {
-        if (introState >= 0 && introState <= 2) {
-          // Effective C behavior at new-game start: ExecuteTruckSequence immediately
-          // swaps the truck door to closed state before the intro runs.
-          changed = setMapMetatileLocal(map.entry.id, 4, 1, METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP) || changed;
-          changed = setMapMetatileLocal(map.entry.id, 4, 2, METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID) || changed;
-          changed = setMapMetatileLocal(map.entry.id, 4, 3, METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM) || changed;
-        } else {
-          changed = setMapMetatileLocal(map.entry.id, 4, 1, METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP) || changed;
-          changed = setMapMetatileLocal(map.entry.id, 4, 2, METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID) || changed;
-          changed = setMapMetatileLocal(map.entry.id, 4, 3, METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM) || changed;
-        }
-      }
-
-      if (
-        (map.entry.id === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F'
-        || map.entry.id === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F')
-        && introState < 6
-      ) {
-        changed = setMapMetatileLocal(map.entry.id, 5, 4, METATILE_HOUSE_MOVING_BOX_OPEN) || changed;
-        changed = setMapMetatileLocal(map.entry.id, 5, 2, METATILE_HOUSE_MOVING_BOX_CLOSED) || changed;
-      }
-    }
-
+  const applyStoryOnLoadMetatileParityLocal = useCallback((): void => {
+    const changed = applyStoryOnLoadMetatileParity(worldSnapshotRef.current, setMapMetatileLocal);
     if (changed) {
       pipelineRef.current?.invalidate();
     }
   }, [setMapMetatileLocal]);
 
   const applyStoryTransitionObjectParity = useCallback((mapId: string): void => {
-    const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
-    const objectManager = objectEventManagerRef.current;
-    const map = worldSnapshotRef.current?.maps.find((m) => m.entry.id === mapId);
-    const mapOffsetX = map?.offsetX ?? 0;
-    const mapOffsetY = map?.offsetY ?? 0;
-    const setNpcPositionLocal = (localId: string, localX: number, localY: number) => {
-      objectManager.setNPCPositionByLocalId(mapId, localId, mapOffsetX + localX, mapOffsetY + localY);
-    };
-
-    if (mapId === 'MAP_LITTLEROOT_TOWN' && introState === 2) {
-      setNpcPositionLocal('LOCALID_LITTLEROOT_MOM', 14, 8);
-    }
-
-    if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 3) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 9, 8);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-
-    if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 3) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 8);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-
-    // State 5: Mom near stairs (waiting for player to go upstairs)
-    if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 5) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 8, 4);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-    if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 5) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 2, 4);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-
-    // State 6: Mom near TV (watching for broadcast)
-    if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F' && introState === 6) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 4, 5);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-    if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F' && introState === 6) {
-      setNpcPositionLocal('LOCALID_PLAYERS_HOUSE_1F_MOM', 6, 5);
-      objectManager.setNPCDirectionByLocalId(mapId, 'LOCALID_PLAYERS_HOUSE_1F_MOM', 'up');
-    }
-
-    // Rival's 2F: set ready to meet rival when player visits
-    if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F'
-        && gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_RIVAL_STATE) < 2) {
-      const isMale = saveManager.getProfile().gender === 0;
-      if (isMale) gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_RIVAL_STATE, 2);
-    }
-    if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F'
-        && gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_RIVAL_STATE) < 2) {
-      const isMale = saveManager.getProfile().gender === 0;
-      if (!isMale) gameVariables.setVar(GAME_VARS.VAR_LITTLEROOT_RIVAL_STATE, 2);
-    }
+    applyStoryTransitionObjectParityForMap(mapId, worldSnapshotRef.current, objectEventManagerRef.current);
   }, []);
 
   const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
@@ -859,445 +639,26 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
   }, []);
 
-  const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(() => {
-    const getWorldCoordsForLocal = (
-      mapId: string,
-      localX: number,
-      localY: number
-    ): { x: number; y: number } | null => {
-      const map = worldSnapshotRef.current?.maps.find((entry) => entry.entry.id === mapId);
-      if (!map) return null;
-      return {
-        x: map.offsetX + localX,
-        y: map.offsetY + localY,
-      };
-    };
-
-    const getMovementDirection = (step: string): 'up' | 'down' | 'left' | 'right' | null => {
-      if (step.endsWith('_up')) return 'up';
-      if (step.endsWith('_down')) return 'down';
-      if (step.endsWith('_left')) return 'left';
-      if (step.endsWith('_right')) return 'right';
-      return null;
-    };
-
-    const getMovementStepFrames = (step: string): number => {
-      if (step.startsWith('walk_slow_')) return 32;
-      if (step.startsWith('walk_fast_') || step.startsWith('player_run_')) return 8;
-      if (step.startsWith('walk_faster_') || step.startsWith('walk_fastest_') || step.startsWith('slide_')) return 4;
-      if (step.startsWith('walk_') || step.startsWith('jump_')) return 16;
-      if (step.startsWith('delay_')) {
-        const parsed = Number.parseInt(step.replace('delay_', ''), 10);
-        return Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
-      }
-      return 1;
-    };
-
-    const waitForRenderFrame = async (): Promise<void> => {
-      if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-        return;
-      }
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve());
-      });
-    };
-
-    const setRockTintFallbackForLevel = (level: number): void => {
-      const normalized = Math.max(0, Math.min(10, Math.round(level)));
-      const intensity = normalized / 10;
-      const tintG = 1 - intensity * 0.45;
-      const tintB = 1 - intensity * 0.45;
-      objectEventManagerRef.current.setNPCTintByLocalId(
-        'MAP_BIRTH_ISLAND_EXTERIOR',
-        'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
-        1,
-        tintG,
-        tintB
-      );
-    };
-
-    const applyDeoxysRockPaletteLevel = async (level: number): Promise<void> => {
-      const variant = await getDeoxysRockPaletteCanvas(level);
-      if (!variant) {
-        setRockTintFallbackForLevel(level);
-        return;
-      }
-
-      const graphicsIds = [
-        'OBJ_EVENT_GFX_DEOXYS_TRIANGLE',
-        'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
-      ];
-
-      for (const graphicsId of graphicsIds) {
-        npcSpriteCache.setRuntimeSpriteVariant(graphicsId, variant);
-      }
-
-      // Exact palette replacement should render un-tinted.
-      objectEventManagerRef.current.setNPCTintByLocalId(
-        'MAP_BIRTH_ISLAND_EXTERIOR',
-        'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
-        1,
-        1,
-        1
-      );
-
-      const renderer = spriteRendererRef.current;
-      if (renderer) {
-        for (const graphicsId of graphicsIds) {
-          const sprite = npcSpriteCache.get(graphicsId);
-          if (!sprite) continue;
-          const dims = npcSpriteCache.getDimensions(graphicsId);
-          renderer.uploadSpriteSheet(getNPCAtlasName(graphicsId), sprite, {
-            frameWidth: dims.frameWidth,
-            frameHeight: dims.frameHeight,
-          });
-        }
-      }
-
-      pipelineRef.current?.invalidate();
-    };
-
-    return {
-      setDiveWarp: (mapId, x, y, warpId = 0) => {
-        setFixedDiveWarpTarget(mapId, x, y, warpId);
-      },
-      fade: {
-        start: (direction, durationMs) => {
-          const now = performance.now();
-          if (direction === 'out') {
-            fadeControllerRef.current.startFadeOut(durationMs, now);
-            return;
-          }
-          fadeControllerRef.current.startFadeIn(durationMs, now);
-        },
-        wait: async (durationMs) => {
-          const delayMs = Math.max(1, Math.round(durationMs));
-          await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-        },
-        framesToMs: (frames) => {
-          const frameCount = Math.max(1, Math.round(frames));
-          return Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
-        },
-      },
-      fieldEffects: {
-        setArgument: () => {},
-        run: (effectName) => {
-          if (effectName !== 'FLDEFF_DESTROY_DEOXYS_ROCK') {
-            return;
-          }
-
-          const job = (async () => {
-            // C parity approximation for Task_DestroyDeoxysRock timing.
-            await waitScriptFrames(120);
-            objectEventManagerRef.current.setNPCVisibilityByLocalId(
-              'MAP_BIRTH_ISLAND_EXTERIOR',
-              'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
-              false
-            );
-            pipelineRef.current?.invalidate();
-            await waitScriptFrames(20);
-          })();
-
-          activeScriptFieldEffectsRef.current.set(effectName, job);
-          void job.finally(() => {
-            const active = activeScriptFieldEffectsRef.current.get(effectName);
-            if (active === job) {
-              activeScriptFieldEffectsRef.current.delete(effectName);
-            }
-          });
-        },
-        wait: async (effectName) => {
-          const active = activeScriptFieldEffectsRef.current.get(effectName);
-          if (active) {
-            await active;
-          }
-        },
-      },
-      weather: {
-        setCurrentMapContext: (mapId) => {
-          weatherManagerRef.current.setCurrentMap(mapId);
-        },
-        setSavedWeather: (weather) => {
-          weatherManagerRef.current.setSavedWeather(weather);
-        },
-        resetSavedWeather: () => {
-          weatherManagerRef.current.setSavedWeatherToMapDefault();
-        },
-        applyCurrentWeather: () => {
-          weatherManagerRef.current.doCurrentWeather();
-        },
-      },
-      time: {
-        runTimeBasedEvents: () => {
-          weatherManagerRef.current.syncWeatherCycleToCurrentDate(Date.now());
-        },
-      },
-      camera: {
-        spawnObject: () => {
-          const player = playerRef.current;
-          if (!player) return;
-          const focus = player.getCameraFocus();
-          scriptedCameraStateRef.current.active = true;
-          scriptedCameraStateRef.current.focusX = focus.x;
-          scriptedCameraStateRef.current.focusY = focus.y;
-        },
-        removeObject: () => {
-          scriptedCameraStateRef.current.active = false;
-          scriptedCameraMoveTokenRef.current++;
-          scriptedCameraShakeTokenRef.current++;
-          cameraRef.current?.resetPanning();
-        },
-        applyMovement: async (steps) => {
-          const player = playerRef.current;
-          if (!player) return;
-          if (!scriptedCameraStateRef.current.active) {
-            const focus = player.getCameraFocus();
-            scriptedCameraStateRef.current.active = true;
-            scriptedCameraStateRef.current.focusX = focus.x;
-            scriptedCameraStateRef.current.focusY = focus.y;
-          }
-
-          const token = ++scriptedCameraMoveTokenRef.current;
-          for (const step of steps) {
-            if (token !== scriptedCameraMoveTokenRef.current) break;
-
-            const direction = getMovementDirection(step);
-            const frames = getMovementStepFrames(step);
-            if (!direction) {
-              await waitScriptFrames(frames);
-              continue;
-            }
-
-            const dx = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
-            const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
-
-            const startX = scriptedCameraStateRef.current.focusX;
-            const startY = scriptedCameraStateRef.current.focusY;
-            const targetX = startX + dx * 16;
-            const targetY = startY + dy * 16;
-
-            for (let frame = 1; frame <= frames; frame++) {
-              if (token !== scriptedCameraMoveTokenRef.current) break;
-              const progress = frame / frames;
-              scriptedCameraStateRef.current.focusX = startX + (targetX - startX) * progress;
-              scriptedCameraStateRef.current.focusY = startY + (targetY - startY) * progress;
-              await waitScriptFrames(1);
-            }
-
-            scriptedCameraStateRef.current.focusX = targetX;
-            scriptedCameraStateRef.current.focusY = targetY;
-          }
-        },
-        shake: async (request) => {
-          const token = ++scriptedCameraShakeTokenRef.current;
-          const delay = Math.max(1, request.delayFrames);
-          let horizontalPan = request.horizontalPan;
-          let verticalPan = request.verticalPan;
-          for (let i = 0; i < Math.max(0, request.numShakes); i++) {
-            if (token !== scriptedCameraShakeTokenRef.current) break;
-            await waitScriptFrames(delay);
-            horizontalPan = -horizontalPan;
-            verticalPan = -verticalPan;
-            cameraRef.current?.setPanning(horizontalPan, verticalPan);
-          }
-          if (token === scriptedCameraShakeTokenRef.current) {
-            cameraRef.current?.resetPanning();
-          }
-        },
-      },
-      legendary: {
-        setDeoxysRockPalette: async (level) => {
-          await applyDeoxysRockPaletteLevel(level);
-        },
-        setDeoxysRockLevel: async (request) => {
-          const mapId = 'MAP_BIRTH_ISLAND_EXTERIOR';
-          const localId = 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK';
-          const objectManager = objectEventManagerRef.current;
-          const npc = objectManager.getNPCByLocalId(mapId, localId);
-          const targetCoords = getWorldCoordsForLocal(mapId, request.x, request.y);
-          if (!npc || !targetCoords) {
-            console.warn(
-              `[Legendary] Deoxys rock move skipped (npc=${Boolean(npc)} target=${Boolean(targetCoords)})`
-            );
-            return;
-          }
-
-          await applyDeoxysRockPaletteLevel(request.level);
-
-          const originalMovementTypeRaw = npc.movementTypeRaw;
-          // Prevent normal NPC movement handlers from racing scripted interpolation.
-          objectManager.setNPCMovementTypeByLocalId(mapId, localId, 'MOVEMENT_TYPE_NONE');
-          console.log('[Legendary] Deoxys rock movement lock', {
-            fromMovementType: originalMovementTypeRaw,
-          });
-          const controlledNpc = objectManager.getNPCByLocalId(mapId, localId);
-          if (!controlledNpc) {
-            console.warn('[Legendary] Deoxys rock move aborted (lost NPC after movement lock)');
-            return;
-          }
-
-          const startTileX = controlledNpc.tileX;
-          const startTileY = controlledNpc.tileY;
-          const startPixelX = startTileX * 16 + (controlledNpc.subTileX ?? 0);
-          const startPixelY = startTileY * 16 + (controlledNpc.subTileY ?? 0);
-          const targetPixelX = targetCoords.x * 16;
-          const targetPixelY = targetCoords.y * 16;
-          const deltaPixelsX = targetPixelX - startPixelX;
-          const deltaPixelsY = targetPixelY - startPixelY;
-          const requestedSteps = Math.max(1, Math.round(request.stepDelayFrames));
-          // Keep successful movement quick, but dense enough that each frame moves only a
-          // couple of pixels for visible smoothness in browser rendering.
-          const travelPixels = Math.max(Math.abs(deltaPixelsX), Math.abs(deltaPixelsY));
-          const minimumVisibleSteps = Math.min(40, Math.max(16, Math.ceil(travelPixels / 2)));
-          const interpolatedSteps = request.failedReset
-            ? requestedSteps
-            : Math.max(requestedSteps, minimumVisibleSteps);
-
-          // C parity with Task_MoveDeoxysRock: fixed-point interpolation over tMoveSteps.
-          let curX = startPixelX << 4;
-          let curY = startPixelY << 4;
-          const targetXFixed = targetPixelX << 4;
-          const targetYFixed = targetPixelY << 4;
-          const velocityX = Math.trunc((targetXFixed - curX) / interpolatedSteps);
-          const velocityY = Math.trunc((targetYFixed - curY) / interpolatedSteps);
-
-          controlledNpc.tileX = startTileX;
-          controlledNpc.tileY = startTileY;
-          controlledNpc.isWalking = true;
-          controlledNpc.renderAboveGrass = true;
-
-          const startedAtMs = performance.now();
-          try {
-            console.log('[Legendary] Deoxys rock move start', {
-              level: request.level,
-              failedReset: request.failedReset,
-              requestedSteps,
-              interpolatedSteps,
-              startTileX,
-              startTileY,
-              targetTileX: targetCoords.x,
-              targetTileY: targetCoords.y,
-              dxPixels: deltaPixelsX,
-              dyPixels: deltaPixelsY,
-            });
-            deoxysRockRenderDebugRef.current.active = true;
-            deoxysRockRenderDebugRef.current.startMs = startedAtMs;
-            deoxysRockRenderDebugRef.current.lastLogMs = 0;
-
-            let stepIndex = 0;
-            let previousStepMs = startedAtMs;
-            let previousRenderMs = startedAtMs;
-            let accumulatedMs = 0;
-            while (stepIndex < interpolatedSteps) {
-              // Present every movement sample on an actual render frame, then advance at
-              // GBA cadence (60 Hz) using an accumulator to avoid timer jitter.
-              await waitForRenderFrame();
-              const nowMs = performance.now();
-              accumulatedMs += nowMs - previousRenderMs;
-              previousRenderMs = nowMs;
-
-              if (accumulatedMs + 0.001 < GBA_FRAME_MS) {
-                continue;
-              }
-
-              accumulatedMs -= GBA_FRAME_MS;
-              stepIndex++;
-              curX += velocityX;
-              curY += velocityY;
-              const pixelX = curX >> 4;
-              const pixelY = curY >> 4;
-              controlledNpc.subTileX = pixelX - startTileX * 16;
-              controlledNpc.subTileY = pixelY - startTileY * 16;
-              pipelineRef.current?.invalidate();
-
-              const stepDeltaMs = Math.round(nowMs - previousStepMs);
-              previousStepMs = nowMs;
-              if (stepIndex === 1 || stepIndex === interpolatedSteps || stepIndex % 4 === 0) {
-                console.log('[Legendary] Deoxys rock move frame', {
-                  step: stepIndex,
-                  totalSteps: interpolatedSteps,
-                  subTileX: controlledNpc.subTileX,
-                  subTileY: controlledNpc.subTileY,
-                  stepDeltaMs,
-                });
-              }
-            }
-
-            controlledNpc.tileX = targetCoords.x;
-            controlledNpc.tileY = targetCoords.y;
-            controlledNpc.initialTileX = targetCoords.x;
-            controlledNpc.initialTileY = targetCoords.y;
-            controlledNpc.subTileX = 0;
-            controlledNpc.subTileY = 0;
-            controlledNpc.isWalking = false;
-            pipelineRef.current?.invalidate();
-
-            const durationMs = Math.round(performance.now() - startedAtMs);
-            console.log('[Legendary] Deoxys rock move end', {
-              tileX: controlledNpc.tileX,
-              tileY: controlledNpc.tileY,
-              durationMs,
-            });
-            deoxysRockRenderDebugRef.current.active = false;
-          } finally {
-            objectManager.setNPCMovementTypeByLocalId(mapId, localId, originalMovementTypeRaw);
-            console.log('[Legendary] Deoxys rock movement unlock', {
-              toMovementType: originalMovementTypeRaw,
-            });
-          }
-        },
-        setMewAboveGrass: async (mode) => {
-          const mapId = 'MAP_FARAWAY_ISLAND_INTERIOR';
-          const localId = 'LOCALID_FARAWAY_ISLAND_MEW';
-          const objectManager = objectEventManagerRef.current;
-          objectManager.setNPCVisibilityByLocalId(mapId, localId, true);
-          objectManager.setNPCSpriteHiddenByLocalId(mapId, localId, false);
-          objectManager.setNPCRenderAboveGrassByLocalId(mapId, localId, true);
-
-          if (mode === 1) {
-            objectManager.setNPCMovementTypeByLocalId(
-              mapId,
-              localId,
-              'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE'
-            );
-            return;
-          }
-
-          gameVariables.setVar('VAR_FARAWAY_ISLAND_STEP_COUNTER', 0xffff);
-          objectManager.setNPCMovementTypeByLocalId(
-            mapId,
-            localId,
-            'MOVEMENT_TYPE_COPY_PLAYER_OPPOSITE_IN_GRASS'
-          );
-
-          const mew = objectManager.getNPCByLocalId(mapId, localId);
-          const player = playerRef.current;
-          if (mew && player) {
-            const fieldEffects = player.getGrassEffectManager();
-            const priorEffectId = mewEmergingGrassEffectIdRef.current;
-            if (priorEffectId) {
-              fieldEffects.removeEffectById(priorEffectId);
-            }
-            mewEmergingGrassEffectIdRef.current = fieldEffects.create(
-              mew.tileX,
-              mew.tileY,
-              'long',
-              false,
-              'mew_emerging_grass'
-            );
-          }
-        },
-        destroyMewEmergingGrassSprite: async () => {
-          const effectId = mewEmergingGrassEffectIdRef.current;
-          const player = playerRef.current;
-          if (effectId && player) {
-            player.getGrassEffectManager().removeEffectById(effectId);
-          }
-          mewEmergingGrassEffectIdRef.current = null;
-        },
-      },
-    };
-  }, [waitScriptFrames]);
+  const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(
+    () => createScriptRuntimeServices({
+      worldSnapshotRef,
+      objectEventManagerRef,
+      spriteRendererRef,
+      pipelineRef,
+      fadeControllerRef,
+      playerRef,
+      cameraRef,
+      scriptedCameraStateRef,
+      scriptedCameraMoveTokenRef,
+      scriptedCameraShakeTokenRef,
+      activeScriptFieldEffectsRef,
+      mewEmergingGrassEffectIdRef,
+      deoxysRockRenderDebugRef,
+      weatherManagerRef,
+      waitScriptFrames,
+    }),
+    [waitScriptFrames]
+  );
 
   const runHandledStoryScript = useHandledStoryScript({
     showMessage,
@@ -1318,13 +679,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     npcMovement,
     doorAnimations,
     gbaFrameMs: GBA_FRAME_MS,
-    setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
-      const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
-      if (changed) {
-        pipelineRef.current?.invalidate();
-      }
-      return changed;
-    },
+    setMapMetatile: setMapMetatileAndInvalidate,
     scriptRuntimeServices,
     getSavedWeather: () => weatherManagerRef.current.getStateSnapshot().savedWeather,
   });
@@ -1333,125 +688,51 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   runHandledStoryScriptRef.current = runHandledStoryScript;
 
   const handleDiveFieldAction = useCallback(async (request: DiveActionResolution): Promise<boolean> => {
-    const player = playerRef.current;
-    const snapshot = worldSnapshotRef.current;
-    if (!player || !snapshot) return false;
-
-    const resolution = await resolveDiveWarp(
-      {
-        mapId: request.mapId,
-        mode: request.mode,
-        localX: request.localX,
-        localY: request.localY,
-      },
-      {
-        runMapDiveScript: async (mapId) => runMapDiveScript({
-          mapId,
-          snapshot,
-          objectEventManager: objectEventManagerRef.current,
-          player,
-          playerHiddenRef,
-          mapScriptCache: mapScriptCacheRef.current,
-          setMapMetatile: (targetMapId, tileX, tileY, metatileId, collision) => {
-            setMapMetatileLocal(targetMapId, tileX, tileY, metatileId, collision);
-          },
-          scriptRuntimeServices,
-        }),
-      }
-    );
-
-    if (!resolution.ok || !resolution.destination) {
-      await showMessage(request.mode === 'dive' ? "Can't dive here." : "Can't surface here.");
-      return false;
-    }
-
-    const destination = resolution.destination;
-    const destinationEntry = mapIndexData.find((entry) => entry.id === destination.mapId) ?? null;
-    const destinationUnderwater = isUnderwaterMapType(destinationEntry?.mapType ?? null);
-    const facingDirection = player.getFacingDirection();
-
-    const destinationIsSurfing = !destinationUnderwater;
-
-    pendingSavedLocationRef.current = {
-      pos: { x: destination.x, y: destination.y },
-      location: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
-      continueGameWarp: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      direction: facingDirection,
-      elevation: player.getElevation(),
-      isSurfing: destinationIsSurfing,
-      isUnderwater: destinationUnderwater,
-    };
-
-    pendingScriptedWarpRef.current = {
-      mapId: destination.mapId,
-      x: destination.x,
-      y: destination.y,
-      direction: facingDirection,
-      phase: 'pending',
-      traversal: {
-        surfing: destinationIsSurfing,
-        underwater: destinationUnderwater,
-      },
-    };
-    clearFixedDiveWarpTarget();
-    warpingRef.current = true;
-    return true;
+    return executeDiveFieldAction({
+      request,
+      playerRef,
+      worldSnapshotRef,
+      objectEventManagerRef,
+      playerHiddenRef,
+      mapScriptCacheRef,
+      setMapMetatileAndInvalidate,
+      scriptRuntimeServices,
+      pendingSavedLocationRef,
+      pendingScriptedWarpRef,
+      warpingRef,
+      mapIndexData,
+      showMessage,
+    });
   }, [scriptRuntimeServices, setMapMetatileLocal, showMessage]);
 
   const runSeamTransitionScripts = useCallback(async (mapId: string): Promise<void> => {
-    if (seamTransitionScriptsInFlightRef.current.has(mapId)) {
-      return;
-    }
-
-    const snapshot = worldSnapshotRef.current;
-    const player = playerRef.current;
-    const pipeline = pipelineRef.current;
-    if (!snapshot || !player || !pipeline) {
-      return;
-    }
-
-    seamTransitionScriptsInFlightRef.current.add(mapId);
-    onFrameSuppressedRef.current.clear();
-
-    try {
-      // Ensure newly entered seam maps are parsed before ON_TRANSITION scripts
-      // attempt object commands like setobjectxyperm LOCALID_*.
-      await loadObjectEventsFromSnapshotUtil({
-        snapshot,
-        objectEventManager: objectEventManagerRef.current,
-        spriteCache: npcSpriteCache,
-        spriteRenderer: spriteRendererRef.current,
-        uploadedSpriteIds: npcSpritesLoadedRef.current,
-        clearAnimations: () => npcAnimationManager.clear(),
-        preserveExistingMapRuntimeState: true,
-      });
-      applyStoryTransitionObjectParity(mapId);
-      await runMapEntryScripts({
-        currentMapId: mapId,
-        snapshot,
-        objectEventManager: objectEventManagerRef.current,
-        player,
-        playerHiddenRef,
-        pipeline,
-        mapScriptCache: mapScriptCacheRef.current,
-        setMapMetatile: (targetMapId, tileX, tileY, metatileId, collision?) => {
-          const changed = setMapMetatileLocal(targetMapId, tileX, tileY, metatileId, collision);
-          if (changed) {
-            pipelineRef.current?.invalidate();
-          }
-        },
-        scriptRuntimeServices,
-        mode: 'camera-transition',
-      });
-    } finally {
-      seamTransitionScriptsInFlightRef.current.delete(mapId);
-      pipelineRef.current?.invalidate();
-    }
+    return executeSeamTransitionScripts({
+      mapId,
+      worldSnapshotRef,
+      playerRef,
+      pipelineRef,
+      spriteRendererRef,
+      objectEventManagerRef,
+      npcSpritesLoadedRef,
+      playerHiddenRef,
+      mapScriptCacheRef,
+      onFrameSuppressedRef,
+      seamTransitionScriptsInFlightRef,
+      setMapMetatile: setMapMetatileAndInvalidate,
+      scriptRuntimeServices,
+      applyStoryTransitionObjectParity,
+    });
   }, [applyStoryTransitionObjectParity, scriptRuntimeServices, setMapMetatileLocal]);
 
   // Action input hook (handles X key for surf/item pickup dialogs)
+  const actionCallbacks = useMemo(() => createActionCallbacks({
+    playerRef,
+    worldManagerRef,
+    objectEventManagerRef,
+    runHandledStoryScript,
+    showMessage,
+  }), [runHandledStoryScript, showMessage]);
+
   useActionInput({
     playerControllerRef: playerRef,
     objectEventManagerRef,
@@ -1461,102 +742,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     showMessage,
     showYesNo,
     onDiveFieldAction: handleDiveFieldAction,
-    onScriptInteract: async (scriptObject) => {
-      const player = playerRef.current;
-      const wm = worldManagerRef.current;
-      const mapId = (player && wm)
-        ? wm.findMapAtPosition(player.tileX, player.tileY)?.entry.id
-        : undefined;
-      // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
-      if (player) {
-        const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
-        gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
-      }
-      await runHandledStoryScript(scriptObject.script, mapId);
-    },
-    onNpcInteract: async (npc) => {
-      const player = playerRef.current;
-      const wm = worldManagerRef.current;
-      if (!player || !wm || !npc.script || npc.script === '0x0') return;
-      const currentMap = wm.findMapAtPosition(player.tileX, player.tileY);
-      if (!currentMap) return;
-      const mapId = currentMap.entry.id;
-      // Set VAR_FACING so scripts can branch on player direction (GBA: gSpecialVar_Facing)
-      const dirMap: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
-      gameVariables.setVar('VAR_FACING', dirMap[player.dir] ?? 0);
-      // Set VAR_LAST_TALKED to the NPC's local ID so scripts can reference it
-      // (e.g. removeobject VAR_LAST_TALKED after Kecleon flees)
-      if (npc.localId) {
-        const localIdNum = parseInt(npc.localId, 10);
-        if (!isNaN(localIdNum)) {
-          gameVariables.setVar('VAR_LAST_TALKED', localIdNum);
-        }
-      }
-      // Only face person NPCs toward the player. Inanimate objects (boxes,
-      // boulders, etc.) have a single sprite frame and must not be rotated.
-      // In the GBA game `faceplayer` is a script command, but almost every
-      // NPC dialog opens with it, so we do it eagerly for real NPCs here.
-      if (isNPCGraphicsId(npc.graphicsId)) {
-        if (npc.localId) {
-          objectEventManagerRef.current.faceNpcTowardPlayer(
-            mapId, npc.localId, player.tileX, player.tileY
-          );
-        } else {
-          const dx = player.tileX - npc.tileX;
-          const dy = player.tileY - npc.tileY;
-          if (Math.abs(dx) > Math.abs(dy)) {
-            npc.direction = dx < 0 ? 'left' : 'right';
-          } else if (dy !== 0) {
-            npc.direction = dy < 0 ? 'up' : 'down';
-          }
-        }
-      }
-      await runHandledStoryScript(npc.script, mapId);
-    },
-    onTileInteract: async (facingTileX, facingTileY, _playerDir) => {
-      const player = playerRef.current;
-      const wm = worldManagerRef.current;
-      if (!player || !wm) return;
-      const currentMap = wm.findMapAtPosition(player.tileX, player.tileY);
-      if (!currentMap) return;
-      const mapId = currentMap.entry.id;
-
-      // Priority: hardcoded wall clock override for intro (uses SimplifiedClock
-      // since the real WallClock script requires unimplemented `special` commands)
-      const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
-      if (introState === 5) {
-        const localX = facingTileX - currentMap.offsetX;
-        const localY = facingTileY - currentMap.offsetY;
-        if (mapId === 'MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F' && localX === 5 && localY === 1) {
-          await runHandledStoryScript('PlayersHouse_2F_EventScript_SimplifiedClock', mapId);
-          return;
-        }
-        if (mapId === 'MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F' && localX === 3 && localY === 1) {
-          await runHandledStoryScript('PlayersHouse_2F_EventScript_SimplifiedClock', mapId);
-          return;
-        }
-      }
-
-      // Generic bg_event lookup (signs, hidden items)
-      const bgEvent = objectEventManagerRef.current.getBgEventAt(facingTileX, facingTileY);
-      if (bgEvent) {
-        if (bgEvent.type === 'sign' && bgEvent.script) {
-          await runHandledStoryScript(bgEvent.script, mapId);
-          return;
-        }
-        if (bgEvent.type === 'hidden_item' && bgEvent.item) {
-          const itemId = getItemId(bgEvent.item);
-          if (itemId && itemId > 0) {
-            objectEventManagerRef.current.collectHiddenItem(bgEvent.id);
-            bagManager.addItem(itemId, 1);
-            const playerName = saveManager.getPlayerName();
-            const itemName = getItemName(itemId);
-            await showMessage(`${playerName} found one ${itemName}!`);
-          }
-          return;
-        }
-      }
-    },
+    ...actionCallbacks,
   });
 
   // Create WebGL debug state from existing debug info
@@ -1620,95 +806,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     });
   }, [playerDebugInfo]);
 
-  // Compute tile debug info when player moves and debug is enabled
-  useEffect(() => {
-    if (!debugOptions.enabled || !playerDebugInfo) return;
-
-    const snapshot = worldSnapshotRef.current;
-    if (!snapshot) return;
-
-    const renderContext = getRenderContextFromSnapshot(snapshot);
-    if (!renderContext) return;
-
-    const player = playerRef.current;
-    if (!player) return;
-
-    const info = describeTile(renderContext, player.tileX, player.tileY, player);
-    setCenterTileInfo(info.inBounds ? info : null);
-
-    // Render 3x3 debug grid
-    const dbgCanvas = debugCanvasRef.current;
-    const webglCanvas = webglCanvasRef.current;
-    if (dbgCanvas && webglCanvas) {
-      const CELL_SCALE = 3;
-      const CELL_SIZE = 16 * CELL_SCALE;
-      const GRID_SIZE = CELL_SIZE * 3;
-
-      dbgCanvas.width = GRID_SIZE;
-      dbgCanvas.height = GRID_SIZE;
-      const dbgCtx = dbgCanvas.getContext('2d');
-      if (dbgCtx) {
-        dbgCtx.imageSmoothingEnabled = false;
-        dbgCtx.fillStyle = '#111';
-        dbgCtx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
-
-        const viewportPx = viewportPixelSizeRef.current;
-        const camera = cameraRef.current;
-        const cameraPos = camera?.getPosition();
-        const cameraWorldX = cameraPos ? Math.round(cameraPos.x - viewportPx.width / 2) : 0;
-        const cameraWorldY = cameraPos ? Math.round(cameraPos.y - viewportPx.height / 2) : 0;
-        const collected: DebugTileInfo[] = [];
-
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const tileX = player.tileX + dx;
-            const tileY = player.tileY + dy;
-            const tileInfo = describeTile(renderContext, tileX, tileY, player);
-            collected.push(tileInfo);
-
-            const destX = (dx + 1) * CELL_SIZE;
-            const destY = (dy + 1) * CELL_SIZE;
-            const screenX = tileX * 16 - cameraWorldX;
-            const screenY = tileY * 16 - cameraWorldY;
-            const visible =
-              screenX + 16 > 0 && screenY + 16 > 0 &&
-              screenX < viewportPx.width && screenY < viewportPx.height;
-
-            if (tileInfo.inBounds && visible) {
-              dbgCtx.drawImage(
-                webglCanvas,
-                screenX, screenY, 16, 16,
-                destX, destY, CELL_SIZE, CELL_SIZE
-              );
-            } else {
-              dbgCtx.fillStyle = '#333';
-              dbgCtx.fillRect(destX, destY, CELL_SIZE, CELL_SIZE);
-            }
-
-            dbgCtx.fillStyle = 'rgba(0,0,0,0.6)';
-            dbgCtx.fillRect(destX, destY, CELL_SIZE, 16);
-            dbgCtx.strokeStyle = dx === 0 && dy === 0 ? '#ff00aa' : 'rgba(255,255,255,0.3)';
-            dbgCtx.lineWidth = 2;
-            dbgCtx.strokeRect(destX + 1, destY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
-            dbgCtx.fillStyle = '#fff';
-            dbgCtx.font = '12px monospace';
-            const label = tileInfo.inBounds
-              ? `${tileInfo.metatileId ?? '??'}` + (tileInfo.isReflective ? ' R' : '')
-              : 'OOB';
-            dbgCtx.fillText(label, destX + 4, destY + 12);
-          }
-        }
-
-        debugTilesRef.current = collected;
-      }
-    }
-  }, [debugOptions.enabled, playerDebugInfo]);
-
-  // Copy tile debug info to clipboard
-  const handleCopyTileDebug = useCallback(() => {
-    if (!centerTileInfo) return;
-    navigator.clipboard.writeText(JSON.stringify(centerTileInfo, null, 2)).catch(() => { /* noop */ });
-  }, [centerTileInfo]);
+  // Debug tile grid (3x3 canvas, center tile info, copy to clipboard)
+  const { getCenterTileInfo, handleCopyTileDebug } = useDebugTileGrid({
+    debugOptions,
+    playerDebugInfo,
+    playerRef,
+    worldSnapshotRef,
+    cameraRef,
+    viewportPixelSizeRef,
+    debugCanvasRef,
+    webglCanvasRef,
+    debugTilesRef,
+    getRenderContextFromSnapshot,
+  });
 
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
@@ -1783,13 +893,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     // Load object events (NPCs, items) and upload sprites to WebGL
     await loadObjectEventsFromSnapshot(snapshot);
-    applyStoryOnLoadMetatileParity();
+    applyStoryOnLoadMetatileParityLocal();
   }, [
     buildTilesetRuntimesFromSnapshot,
     createSnapshotTileResolver,
     uploadTilesetsFromSnapshot,
     loadObjectEventsFromSnapshot,
-    applyStoryOnLoadMetatileParity,
+    applyStoryOnLoadMetatileParityLocal,
   ]);
 
   // Compute reflection state for an object at a tile position using shared function
@@ -1878,13 +988,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       },
       warpingRef,
       resolveDynamicWarpTarget: () => getDynamicWarpTarget(),
-      setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
-        const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
-        if (changed) {
-          pipelineRef.current?.invalidate();
-        }
-        return changed;
-      },
+      setMapMetatile: setMapMetatileAndInvalidate,
       mapScriptCache: mapScriptCacheRef.current,
       scriptRuntimeServices,
       onMapChanged: (mapId: string) => {
@@ -1950,43 +1054,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Initialize player controller
     const player = new PlayerController();
     playerRef.current = player;
-    player.setDynamicCollisionChecker((targetTileX, targetTileY, direction) => {
-      const worldManager = worldManagerRef.current;
-      const snapshot = worldSnapshotRef.current;
-      const mapAtTarget = worldManager?.findMapAtPosition(targetTileX, targetTileY)
-        ?? snapshot?.maps.find((map) =>
-          targetTileX >= map.offsetX
-          && targetTileX < map.offsetX + map.entry.width
-          && targetTileY >= map.offsetY
-          && targetTileY < map.offsetY + map.entry.height
-        );
-
-      if (!mapAtTarget) return false;
-
-      const localX = targetTileX - mapAtTarget.offsetX;
-      const localY = targetTileY - mapAtTarget.offsetY;
-      const tileResolver = player.getTileResolver();
-      if (!tileResolver) return false;
-
-      return rotatingGateManager.checkCollision({
-        mapId: mapAtTarget.entry.id,
-        localX,
-        localY,
-        direction,
-        nowMs: performance.now(),
-        isFast: player.isRunning() || player.isSurfing(),
-        getCollisionAtLocal: (gateLocalX, gateLocalY) => {
-          const resolved = tileResolver(
-            mapAtTarget.offsetX + gateLocalX,
-            mapAtTarget.offsetY + gateLocalY
-          );
-          return resolved?.mapTile.collision ?? 1;
-        },
-      });
-    });
-
-    let frameCount = 0;
-    let fpsTime = performance.now();
+    player.setDynamicCollisionChecker(
+      createRotatingGateCollisionChecker(playerRef, worldManagerRef, worldSnapshotRef, rotatingGateManager)
+    );
+    const frameCounter: FrameCounter = { frameCount: 0, fpsTime: performance.now() };
 
     const renderLoop = () => {
       if (currentStateRef.current !== GameState.OVERWORLD) {
@@ -2110,63 +1181,20 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
           if (currentMap) {
             const currentMapId = currentMap.entry.id;
-            const mapObjectsReady =
-              currentMap.objectEvents.length === 0
-              || objectEventManagerRef.current.hasMapObjects(currentMapId);
-            const cachedData = mapScriptCacheRef.current.get(currentMapId);
-
-            if (cachedData === undefined && !mapScriptLoadingRef.current.has(currentMapId)) {
-              mapScriptLoadingRef.current.add(currentMapId);
-              void getMapScripts(currentMapId).then((data) => {
-                mapScriptCacheRef.current.set(currentMapId, data);
-                mapScriptLoadingRef.current.delete(currentMapId);
-              });
-            }
-
-            if (mapObjectsReady && cachedData?.mapScripts.onFrame) {
-              for (const entry of cachedData.mapScripts.onFrame) {
-                const currentVarValue = gameVariables.getVar(entry.var);
-                const expectedValue = resolveMapScriptCompareValue(entry.value);
-                if (currentVarValue === expectedValue) {
-                  // Check if suppressed at this exact value
-                  const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
-                  if (suppressedValue === expectedValue) continue;
-                  console.log(`[ON_FRAME] Triggered: map=${currentMapId} script=${entry.script} var=${entry.var} value=${expectedValue}`);
-                  // Suppress until var changes or warp occurs (prevents loops from unimplemented cmds)
-                  onFrameSuppressedRef.current.set(entry.script, expectedValue);
-                  preInputOnFrameTriggered = true;
-                  void runHandledStoryScriptRef.current(entry.script, currentMapId);
-                  break;
-                } else {
-                  // Var no longer matches — un-suppress so it can fire again if var returns to this value
-                  onFrameSuppressedRef.current.delete(entry.script);
-                }
-              }
-            }
-
-            // Safety net for Route 101 intro: run ON_FRAME hide-map-name script immediately
-            // if script cache is not ready yet. This matches the C on-frame gate at map entry
-            // and prevents missing the first coord trigger tile while cache loads.
-            if (!preInputOnFrameTriggered && mapObjectsReady && currentMapId === 'MAP_ROUTE101') {
-              const route101State = gameVariables.getVar(GAME_VARS.VAR_ROUTE101_STATE);
-              if (route101State === 0) {
-                preInputOnFrameTriggered = true;
-                void runHandledStoryScriptRef.current('Route101_EventScript_HideMapNamePopup', currentMapId);
-              }
-            }
-
-            // Safety net for the truck exit cutscene if ON_FRAME data is not cached yet.
-            if (!preInputOnFrameTriggered && mapObjectsReady && currentMapId === 'MAP_LITTLEROOT_TOWN') {
-              const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
-              if (introState === 1 || introState === 2) {
-                preInputOnFrameTriggered = true;
-                void runHandledStoryScriptRef.current(
-                  introState === 1
-                    ? 'LittlerootTown_EventScript_StepOffTruckMale'
-                    : 'LittlerootTown_EventScript_StepOffTruckFemale',
-                  currentMapId
-                );
-              }
+            const runScript = (scriptName: string, mapId: string) => void runHandledStoryScriptRef.current(scriptName, mapId);
+            preInputOnFrameTriggered = evaluateOnFrameScripts({
+              currentMapId,
+              mapScriptCache: mapScriptCacheRef.current,
+              mapScriptLoading: mapScriptLoadingRef.current,
+              onFrameSuppressed: onFrameSuppressedRef.current,
+              objectEventManager: objectEventManagerRef.current,
+              currentMapObjectEventsLength: currentMap.objectEvents.length,
+              runScript,
+            });
+            if (!preInputOnFrameTriggered) {
+              const mapObjectsReady = currentMap.objectEvents.length === 0
+                || objectEventManagerRef.current.hasMapObjects(currentMapId);
+              preInputOnFrameTriggered = evaluateOnFrameSafetyNets(currentMapId, mapObjectsReady, runScript);
             }
           }
         }
@@ -2176,284 +1204,48 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         }
 
         // Run per-step callback (Sootopolis ice, ash grass, etc.)
-        // Must run after player.update so position is current, before ON_FRAME so
-        // variable changes (e.g. VAR_ICE_STEP_COUNT) are visible to frame scripts.
-        if (!storyScriptRunningRef.current && worldManager) {
-          const cbMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
-          if (cbMap) {
-            const offsetX = cbMap.offsetX;
-            const offsetY = cbMap.offsetY;
-            let playerDestTileX = player.tileX;
-            let playerDestTileY = player.tileY;
-            if (player.isMoving) {
-              if (player.dir === 'up') playerDestTileY--;
-              else if (player.dir === 'down') playerDestTileY++;
-              else if (player.dir === 'left') playerDestTileX--;
-              else if (player.dir === 'right') playerDestTileX++;
-            }
-            stepCallbackManager.update({
-              playerLocalX: player.tileX - offsetX,
-              playerLocalY: player.tileY - offsetY,
-              playerDestLocalX: playerDestTileX - offsetX,
-              playerDestLocalY: playerDestTileY - offsetY,
-              currentMapId: cbMap.entry.id,
-              getTileBehaviorLocal: (localX, localY) => {
-                const resolver = player.getTileResolver();
-                if (!resolver) return undefined;
-                const resolved = resolver(localX + offsetX, localY + offsetY);
-                return resolved?.attributes?.behavior;
-              },
-              getTileMetatileIdLocal: (localX, localY) => {
-                const resolver = player.getTileResolver();
-                if (!resolver) return undefined;
-                const resolved = resolver(localX + offsetX, localY + offsetY);
-                return resolved?.mapTile?.metatileId;
-              },
-              setMapMetatile: (localX, localY, metatileId) => {
-                setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId);
-              },
-              startFieldEffectLocal: (localX, localY, effectName, ownerObjectId = 'player') => {
-                player.getGrassEffectManager().create(
-                  localX + offsetX,
-                  localY + offsetY,
-                  effectName,
-                  false,
-                  ownerObjectId
-                );
-              },
-              invalidateView: () => {
-                pipelineRef.current?.invalidate();
-              },
-            });
-          }
+        if (worldManager) {
+          runStepCallbacks({
+            player,
+            worldManager,
+            storyScriptRunningRef,
+            setMapMetatileLocal,
+            pipelineRef,
+          });
         }
 
-        // Update world manager with player position and direction (triggers dynamic map loading)
-          if (worldManager) {
-            const liveSnapshot = worldSnapshotRef.current;
-            if (liveSnapshot && weatherDefaultsSnapshotRef.current !== liveSnapshot) {
-              weatherManagerRef.current.setMapDefaultsFromSources(
-                liveSnapshot.maps.map((map) => ({ mapId: map.entry.id, mapWeather: map.mapWeather }))
-              );
-              weatherDefaultsSnapshotRef.current = liveSnapshot;
-            }
-            // Get player's current facing direction for predictive tileset loading
-            const playerDirection = player.getFacingDirection();
-            const lastWorldUpdate = lastWorldUpdateRef.current;
-            if (
-              !lastWorldUpdate
-              || lastWorldUpdate.tileX !== player.tileX
-              || lastWorldUpdate.tileY !== player.tileY
-              || lastWorldUpdate.direction !== playerDirection
-            ) {
-              void worldManager.update(player.tileX, player.tileY, playerDirection);
-              lastWorldUpdateRef.current = {
-                tileX: player.tileX,
-                tileY: player.tileY,
-                direction: playerDirection,
-              };
-            }
-
-          const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
-          if (currentMap) {
-            weatherManagerRef.current.setCurrentMap(currentMap.entry.id);
-            const tileChanged =
-              !lastCoordTriggerTileRef.current ||
-              lastCoordTriggerTileRef.current.mapId !== currentMap.entry.id ||
-              lastCoordTriggerTileRef.current.x !== player.tileX ||
-              lastCoordTriggerTileRef.current.y !== player.tileY;
-
-            if (tileChanged) {
-              const previousMapId = lastPlayerMapIdRef.current;
-              if (previousMapId !== currentMap.entry.id) {
-                const seamTransition =
-                  (previousMapId === 'MAP_LITTLEROOT_TOWN' && currentMap.entry.id === 'MAP_ROUTE101')
-                  || (previousMapId === 'MAP_ROUTE101' && currentMap.entry.id === 'MAP_LITTLEROOT_TOWN');
-                if (seamTransition) {
-                  const snapshot = worldSnapshotRef.current;
-                  const localX = player.tileX - currentMap.offsetX;
-                  const localY = player.tileY - currentMap.offsetY;
-                  const cameraPos = cameraRef.current?.getPosition();
-                  const bounds = worldBoundsRef.current;
-                  const seamMaps = (snapshot?.maps ?? [])
-                    .filter((m) => m.entry.id === 'MAP_LITTLEROOT_TOWN' || m.entry.id === 'MAP_ROUTE101')
-                    .map((m) => `${m.entry.id}@(${m.offsetX},${m.offsetY})`)
-                    .join(' | ');
-                  console.log(
-                    `[SEAM] map transition ${previousMapId} -> ${currentMap.entry.id} `
-                    + `world=(${player.tileX},${player.tileY}) local=(${localX},${localY}) `
-                    + `camera=(${cameraPos ? `${cameraPos.x.toFixed(1)},${cameraPos.y.toFixed(1)}` : 'n/a'}) `
-                    + `bounds=(${bounds.minX},${bounds.minY},${bounds.width}x${bounds.height}) `
-                    + `anchor=${snapshot?.anchorMapId ?? 'unknown'} `
-                    + `loaded=${snapshot?.maps.map((m) => m.entry.id).join(',') ?? 'none'} `
-                    + `seamOffsets=${seamMaps || 'missing'}`
-                  );
-                }
-
-                const isSeamMapTransition =
-                  previousMapId !== null
-                  && previousMapId !== currentMap.entry.id
-                  && !warpingRef.current;
-                if (isSeamMapTransition && !storyScriptRunningRef.current) {
-                  void runSeamTransitionScripts(currentMap.entry.id);
-                }
-              }
-              lastPlayerMapIdRef.current = currentMap.entry.id;
-
-              const mapObjectsReady =
-                currentMap.objectEvents.length === 0
-                || objectEventManagerRef.current.hasMapObjects(currentMap.entry.id);
-              const canProcessCoordEvents =
-                !storyScriptRunningRef.current
-                && !dialogIsOpenRef.current
-                && !warpingRef.current
-                && !doorSequencer.isActive()
-                && seamTransitionScriptsInFlightRef.current.size === 0
-                && mapObjectsReady;
-
-              if (canProcessCoordEvents) {
-                const playerElevation = player.getCurrentElevation();
-                const coordEventsAtTile = currentMap.coordEvents.filter((coordEvent) => {
-                  const eventWorldX = currentMap.offsetX + coordEvent.x;
-                  const eventWorldY = currentMap.offsetY + coordEvent.y;
-                  if (eventWorldX !== player.tileX || eventWorldY !== player.tileY) {
-                    return false;
-                  }
-
-                  const eventElevation = coordEvent.elevation;
-                  return (
-                    playerElevation === 0
-                    || playerElevation === 15
-                    || eventElevation === 0
-                    || eventElevation === 15
-                    || eventElevation === playerElevation
-                  );
-                });
-
-                const scriptCoordEventsAtTile: ScriptCoordEvent[] = [];
-                let sawWeatherCoordEvent = false;
-                for (const coordEvent of coordEventsAtTile) {
-                  if (coordEvent.type === 'weather') {
-                    weatherManagerRef.current.applyCoordWeather(coordEvent.weather);
-                    sawWeatherCoordEvent = true;
-                    continue;
-                  }
-                  scriptCoordEventsAtTile.push(coordEvent);
-                }
-
-                let firedCoordEvent = false;
-                for (const coordEvent of scriptCoordEventsAtTile) {
-                  if (!shouldRunCoordEvent(coordEvent.var, coordEvent.varValue)) {
-                    continue;
-                  }
-
-                  console.log(`[CoordEvent] Firing: ${coordEvent.script} at (${coordEvent.x},${coordEvent.y}) var=${coordEvent.var}=${coordEvent.varValue}`);
-                  void runHandledStoryScriptRef.current(coordEvent.script, currentMap.entry.id);
-                  firedCoordEvent = true;
-                  break;
-                }
-
-                const pendingRescueEvents = scriptCoordEventsAtTile.filter(
-                  (coordEvent) => coordEvent.script === 'Route101_EventScript_StartBirchRescue'
-                );
-                if (!firedCoordEvent && pendingRescueEvents.length > 0) {
-                  const pendingStates = pendingRescueEvents
-                    .map(
-                      (coordEvent) =>
-                        `${coordEvent.var} current=${gameVariables.getVar(coordEvent.var)} required=${coordEvent.varValue}`
-                    )
-                    .join(' | ');
-                  console.log(
-                    `[CoordEvent] Pending Route101 rescue at (${player.tileX},${player.tileY}): ${pendingStates}`
-                  );
-                }
-
-                // Consume this tile when no script events are pending. If script coord events
-                // are present but their vars are not ready yet, keep retrying on this tile.
-                const hasPendingScriptEvents = scriptCoordEventsAtTile.length > 0 && !firedCoordEvent;
-                if (firedCoordEvent || coordEventsAtTile.length === 0 || (sawWeatherCoordEvent && !hasPendingScriptEvents)) {
-                  lastCoordTriggerTileRef.current = {
-                    mapId: currentMap.entry.id,
-                    x: player.tileX,
-                    y: player.tileY,
-                  };
-                }
-              }
-            }
-
-            // Data-driven ON_FRAME table: check generated mapScripts.onFrame entries
-            // Skip if pre-input ON_FRAME already triggered this frame (prevents double-fire for sync scripts)
-            if (
-              !preInputOnFrameTriggered
-              && !storyScriptRunningRef.current
-              && !dialogIsOpenRef.current
-              && !warpingRef.current
-              && !doorSequencer.isActive()
-              && seamTransitionScriptsInFlightRef.current.size === 0
-              && (
-                currentMap.objectEvents.length === 0
-                || objectEventManagerRef.current.hasMapObjects(currentMap.entry.id)
-              )
-            ) {
-              const currentMapId = currentMap.entry.id;
-
-              // Load map script data (async, cached after first load)
-              const cachedData = mapScriptCacheRef.current.get(currentMapId);
-              if (cachedData === undefined && !mapScriptLoadingRef.current.has(currentMapId)) {
-                mapScriptLoadingRef.current.add(currentMapId);
-                void getMapScripts(currentMapId).then((data) => {
-                  mapScriptCacheRef.current.set(currentMapId, data);
-                  mapScriptLoadingRef.current.delete(currentMapId);
-                });
-              }
-
-              if (cachedData) {
-                const onFrameEntries = cachedData.mapScripts.onFrame;
-                if (onFrameEntries) {
-                  for (const entry of onFrameEntries) {
-                    const currentVarValue = gameVariables.getVar(entry.var);
-                    const expectedValue = resolveMapScriptCompareValue(entry.value);
-                    if (currentVarValue === expectedValue) {
-                      const suppressedValue = onFrameSuppressedRef.current.get(entry.script);
-                      if (suppressedValue === expectedValue) continue;
-                      onFrameSuppressedRef.current.set(entry.script, expectedValue);
-                      void runHandledStoryScriptRef.current(entry.script, currentMapId);
-                      break;
-                    } else {
-                      onFrameSuppressedRef.current.delete(entry.script);
-                    }
-                  }
-                }
-              }
-
-              // Clock is triggered by player pressing A on the clock tile (bg_event),
-              // handled via onTileInteract in useActionInput above.
-            }
-          }
-
-          // Update debug info every ~500ms while debug panel is enabled
-          if (debugOptionsRef.current.enabled && gbaFrameRef.current % 30 === 0) {
-            const debugInfo = worldManager.getDebugInfo(player.tileX, player.tileY);
-            setMapDebugInfo(debugInfo);
-
-            // Update player debug info for the debug panel
-            setPlayerDebugInfo({
-              tileX: player.tileX,
-              tileY: player.tileY,
-              pixelX: player.x,
-              pixelY: player.y,
-              direction: player.getFacingDirection(),
-              elevation: player.getElevation(),
-              currentElevation: player.getCurrentElevation(),
-              previousElevation: player.getPreviousElevation(),
-              isMoving: player.isMoving,
-              isSurfing: player.isSurfing(),
-              isJumping: player.getSurfingController().isJumping(),
-              mapId: debugInfo?.currentMap ?? selectedMap.id,
-              stateName: player.getStateName(),
-              hasCollisionChecker: player.hasObjectCollisionChecker(),
-            });
-          }
+        // World update, seam transitions, coord events, ON_FRAME, and debug info
+        if (worldManager) {
+          handleWorldUpdateAndEvents({
+            player,
+            worldManager,
+            preInputOnFrameTriggered,
+            worldSnapshotRef,
+            weatherDefaultsSnapshotRef,
+            weatherManagerRef,
+            lastWorldUpdateRef,
+            lastCoordTriggerTileRef,
+            lastPlayerMapIdRef,
+            cameraRef,
+            worldBoundsRef,
+            warpingRef,
+            storyScriptRunningRef,
+            dialogIsOpenRef,
+            objectEventManagerRef,
+            doorSequencerIsActive: doorSequencer.isActive(),
+            seamTransitionScriptsInFlightRef,
+            mapScriptCacheRef,
+            mapScriptLoadingRef,
+            onFrameSuppressedRef,
+            runScript: (scriptName, mapId) => void runHandledStoryScriptRef.current(scriptName, mapId),
+            runSeamTransitionScripts: (mapId) => void runSeamTransitionScripts(mapId),
+            debugOptionsRef,
+            gbaFrameRef,
+            setMapDebugInfo,
+            setPlayerDebugInfo,
+            selectedMapId: selectedMap.id,
+          });
+        }
 
           // Update arrow overlay based on current tile behavior
           const snapshot = worldSnapshotRef.current;
@@ -2474,305 +1266,50 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           }
 
           // Check for warps using shared WarpTriggerProcessor
-          if (snapshot) {
-            const renderContext = getRenderContextFromSnapshot(snapshot);
-            const suppressWarpChecks =
-              storyScriptRunningRef.current
-              || dialogIsOpenRef.current
-              || pendingScriptedWarpRef.current !== null;
-            if (renderContext && !suppressWarpChecks) {
-              const warpResult = processWarpTrigger({
-                player,
-                renderContext,
-                warpHandler: warpHandlerRef.current,
-                isDoorSequencerActive: doorSequencer.isActive(),
-              });
-
-              // Update warp handler's last checked tile if tile changed
-              if (warpResult.tileChanged) {
-                updateWarpHandlerTile(warpHandlerRef.current, warpResult);
-              }
-
-              // Handle warp actions
-              const action = warpResult.action;
-              if (action.type === 'arrow') {
-                // Arrow warps are handled through PlayerController's doorWarpHandler
-                // Just update arrow overlay, don't auto-warp
-              } else if (action.type === 'autoDoorWarp') {
-                console.log(`[WARP] autoDoorWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
-                // Non-animated doors (stairs, ladders): auto-warp with fade
-                arrowOverlay.hide();
-                doorSequencer.startAutoWarp({
-                  targetX: player.tileX,
-                  targetY: player.tileY,
-                  metatileId: getMetatileIdFromMapTile(action.resolvedTile.mapTile),
-                  isAnimatedDoor: false,
-                  entryDirection: player.dir as CardinalDirection,
-                  warpTrigger: action.trigger,
-                }, nowTime, true);
-                player.lockInput();
-              } else if (action.type === 'walkOverWarp') {
-                console.log(`[WARP] walkOverWarp at tile(${player.tileX},${player.tileY}) map=${warpResult.currentTile?.mapId} dest=${JSON.stringify(action.trigger)}`);
-
-                const currentMapId = warpResult.currentTile?.mapId;
-                const handledSpecialWarp = currentMapId
-                  ? startSpecialWalkOverWarp({
-                      trigger: action.trigger,
-                      now: nowTime,
-                      currentMapId,
-                      player,
-                      warpHandler: warpHandlerRef.current,
-                      setPendingWarp: (triggerForWarp) => {
-                        pendingWarpRef.current = triggerForWarp;
-                      },
-                      lavaridgeWarpSequencer,
-                    })
-                  : false;
-
-                if (!handledSpecialWarp) {
-                  // Other walk-over warps: simple warp
-                  warpHandlerRef.current.startWarp(player.tileX, player.tileY, warpResult.currentTile!.mapId);
-                  pendingWarpRef.current = action.trigger;
-                  warpingRef.current = true;
-                  player.lockInput();
-                  fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Advance door sequences using shared DoorSequenceRunner
-      if (player) {
-        const doorDeps: DoorSequenceDeps = {
-          player,
-          doorSequencer,
-          doorAnimations,
-          fadeController: fadeControllerRef.current,
-          playerHiddenRef,
-          shouldUnlockInput: () =>
-            !storyScriptRunningRef.current
-            && !warpingRef.current
-            && !dialogIsOpenRef.current,
-          onExecuteWarp: (trigger) => {
-            // CRITICAL: Set warpingRef to prevent worldManager.update() during warp
-            warpingRef.current = true;
-            void performWarp(trigger, { force: true, fromDoor: true });
-          },
-        };
-
-        runDoorEntryUpdate(doorDeps, nowTime);
-        runDoorExitUpdate(doorDeps, nowTime);
-      }
-
-      // Advance Lavaridge warp sequences
-      if (player && cameraRef.current) {
-        lavaridgeWarpSequencer.update(
-          nowTime,
-          player,
-          cameraRef.current,
-          player.getGrassEffectManager(),
-          fadeControllerRef.current,
-          () => {
-            // Callback when special pre-warp animation completes.
-            const trigger = pendingWarpRef.current;
-            if (trigger && !warpingRef.current) {
-              warpingRef.current = true;
-              fadeControllerRef.current.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-            }
-          },
-          () => {
-            playerHiddenRef.current = false;
-          },
-        );
-      }
-
-      // Handle scripted (warpsilent-style) warps from story scripts.
-      const scriptedWarp = pendingScriptedWarpRef.current;
-      if (!scriptedWarp) {
-        scriptedWarpLoadMonitorRef.current = null;
-      }
-      if (warpingRef.current && scriptedWarp) {
-        const fade = fadeControllerRef.current;
-        if (scriptedWarp.phase === 'pending') {
-          const fadeComplete = fade.isComplete(nowTime);
-          const fadeDirection = fade.getDirection();
-          const hasCompletedFadeOut = fadeDirection === 'out' && fadeComplete;
-          // Reuse already-completed script fade-outs so we don't restart from alpha=0.
-          if (hasCompletedFadeOut) {
-            console.log(`[ScriptedWarp] pending → fading (reuse fadeOut to ${scriptedWarp.mapId})`);
-            scriptedWarp.phase = 'fading';
-            pendingScriptedWarpRef.current = scriptedWarp;
-          } else {
-            const canStartFadeOut = !fade.isActive() || fadeComplete;
-            if (canStartFadeOut) {
-              console.log(`[ScriptedWarp] pending → fading (fadeOut to ${scriptedWarp.mapId})`);
-              fade.startFadeOut(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-              scriptedWarp.phase = 'fading';
-              pendingScriptedWarpRef.current = scriptedWarp;
-            }
-          }
-        } else if (
-          scriptedWarp.phase === 'fading'
-          && fade.getDirection() === 'out'
-          && fade.isComplete(nowTime)
-        ) {
-          const activePlayer = playerRef.current;
-          const activeMapId = activePlayer
-            ? worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY)?.entry.id ?? null
-            : null;
-
-          console.log(`[ScriptedWarp] fade complete. activeMapId=${activeMapId} targetMapId=${scriptedWarp.mapId}`);
-          if (activePlayer && activeMapId === scriptedWarp.mapId) {
-            const currentMap = worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY);
-            const targetWorldX = currentMap ? currentMap.offsetX + scriptedWarp.x : scriptedWarp.x;
-            const targetWorldY = currentMap ? currentMap.offsetY + scriptedWarp.y : scriptedWarp.y;
-            console.log(`[ScriptedWarp] same map reposition to local=(${scriptedWarp.x},${scriptedWarp.y}) world=(${targetWorldX},${targetWorldY})`);
-            activePlayer.setPosition(targetWorldX, targetWorldY);
-            activePlayer.dir = scriptedWarp.direction;
-            if (scriptedWarp.traversal) {
-              const traversal = { ...scriptedWarp.traversal };
-
-              if (!traversal.underwater) {
-                const resolved = activePlayer.getTileResolver()?.(targetWorldX, targetWorldY);
-                const behavior = resolved?.attributes?.behavior;
-                if (behavior !== undefined) {
-                  traversal.surfing = isSurfableBehavior(behavior);
-                }
-              }
-
-              activePlayer.setTraversalState(traversal);
-            }
-            fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-            pendingSavedLocationRef.current = null;
-            pendingScriptedWarpRef.current = null;
-            warpingRef.current = false;
-            warpHandlerRef.current.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
-            setTimeout(() => {
-              if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
-                activePlayer.unlockInput();
-              }
-            }, FADE_TIMING.DEFAULT_DURATION_MS);
-          } else {
-            console.log(`[ScriptedWarp] different map → loading ${scriptedWarp.mapId}`);
-            scriptedWarp.phase = 'loading';
-            pendingScriptedWarpRef.current = scriptedWarp;
-            scriptedWarpLoadMonitorRef.current = {
-              mapId: scriptedWarp.mapId,
-              startedAt: nowTime,
-              retries: 0,
-              fallbackDeferredLogged: false,
-            };
-            selectMapForLoad(scriptedWarp.mapId);
-          }
-        } else if (scriptedWarp.phase === 'loading') {
-          const activePlayer = playerRef.current;
-          const activeMapId = activePlayer
-            ? worldManagerRef.current?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY)?.entry.id ?? null
-            : null;
-
-          // Defensive completion: if the map is already active, finish scripted warp
-          // even if loadSelectedOverworldMap's completion path was skipped.
-          if (activePlayer && activeMapId === scriptedWarp.mapId && !loadingRef.current) {
-            console.warn(`[ScriptedWarp] loading fallback completion on ${scriptedWarp.mapId}`);
-            pendingScriptedWarpRef.current = null;
-            scriptedWarpLoadMonitorRef.current = null;
-            warpingRef.current = false;
-            warpHandlerRef.current.updateLastCheckedTile(activePlayer.tileX, activePlayer.tileY, scriptedWarp.mapId);
-            if (fade.getDirection() !== 'in' || !fade.isActive()) {
-              fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-            }
-            setTimeout(() => {
-              if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
-                activePlayer.unlockInput();
-              }
-            }, FADE_TIMING.DEFAULT_DURATION_MS);
-          } else if (activePlayer && activeMapId === scriptedWarp.mapId && loadingRef.current) {
-            let monitor = scriptedWarpLoadMonitorRef.current;
-            if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
-              monitor = {
-                mapId: scriptedWarp.mapId,
-                startedAt: nowTime,
-                retries: 0,
-                fallbackDeferredLogged: false,
-              };
-              scriptedWarpLoadMonitorRef.current = monitor;
-            }
-            if (!monitor.fallbackDeferredLogged) {
-              console.log(
-                `[ScriptedWarp] fallback deferred: map ${scriptedWarp.mapId} active but loading still in progress`
-              );
-              monitor.fallbackDeferredLogged = true;
-            }
-          } else if (!loadingRef.current) {
-            let monitor = scriptedWarpLoadMonitorRef.current;
-            if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
-              monitor = {
-                mapId: scriptedWarp.mapId,
-                startedAt: nowTime,
-                retries: 0,
-                fallbackDeferredLogged: false,
-              };
-              scriptedWarpLoadMonitorRef.current = monitor;
-            }
-
-            const elapsed = nowTime - monitor.startedAt;
-            if (elapsed >= SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS) {
-              if (monitor.retries < SCRIPTED_WARP_MAX_LOAD_RETRIES) {
-                monitor.retries += 1;
-                monitor.startedAt = nowTime;
-                console.warn(
-                  `[ScriptedWarp] loading timeout retry ${monitor.retries}/${SCRIPTED_WARP_MAX_LOAD_RETRIES} `
-                  + `for ${scriptedWarp.mapId}`
-                );
-                selectMapForLoad(scriptedWarp.mapId);
-              } else {
-                console.error(`[ScriptedWarp] aborting stuck load for ${scriptedWarp.mapId}`);
-                pendingScriptedWarpRef.current = null;
-                scriptedWarpLoadMonitorRef.current = null;
-                warpingRef.current = false;
-                if (fade.getDirection() !== 'in' || !fade.isActive()) {
-                  fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-                }
-                if (activePlayer) {
-                  setTimeout(() => {
-                    if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
-                      activePlayer.unlockInput();
-                    }
-                  }, FADE_TIMING.DEFAULT_DURATION_MS);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Handle pending warp when fade out completes
-      if (warpingRef.current && pendingWarpRef.current) {
-        const fade = fadeControllerRef.current;
-        if (fade.getDirection() === 'out' && fade.isComplete(nowTime)) {
-          // Fade out complete, execute warp
-          const trigger = pendingWarpRef.current;
-          pendingWarpRef.current = null;
-          void performWarp(trigger).then((result) => {
-            warpingRef.current = false;
-            if (result.managesInputUnlock) {
-              return;
-            }
-            // Unlock player input after fade in starts
-            const player = playerRef.current;
-            if (player) {
-              // Delay unlock until fade in completes
-              setTimeout(() => {
-                if (!warpingRef.current && !storyScriptRunningRef.current && !dialogIsOpenRef.current) {
-                  player.unlockInput();
-                }
-              }, FADE_TIMING.DEFAULT_DURATION_MS);
-            }
+          checkWarpTriggers({
+            player,
+            snapshot,
+            nowTime,
+            storyScriptRunningRef,
+            dialogIsOpenRef,
+            pendingScriptedWarpRef,
+            warpHandlerRef,
+            warpingRef,
+            pendingWarpRef,
+            fadeControllerRef,
+            getRenderContextFromSnapshot,
+            doorSequencer,
+            arrowOverlay,
+            lavaridgeWarpSequencer,
           });
         }
       }
+
+      // Advance door sequences, Lavaridge warps, scripted warps, and pending warp execution
+      advanceWarpSequences({
+        nowTime,
+        player,
+        cameraRef,
+        doorSequencer,
+        doorAnimations,
+        fadeControllerRef,
+        playerHiddenRef,
+        storyScriptRunningRef,
+        warpingRef,
+        dialogIsOpenRef,
+        pendingWarpRef,
+        lavaridgeWarpSequencer,
+        pendingScriptedWarpRef,
+        scriptedWarpLoadMonitorRef,
+        loadingRef,
+        pendingSavedLocationRef,
+        warpHandlerRef,
+        playerRef,
+        worldManagerRef,
+        inputUnlockGuards,
+        selectMapForLoad,
+        performWarp,
+      });
 
       // Camera follows player (using CameraController)
       const camera = cameraRef.current;
@@ -2862,284 +1399,70 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         // Prune expired door animations (actual rendering happens after layer compositing)
         doorAnimations.prune(nowTime);
 
-        // Priority-based sprite batches for proper GBA layer ordering:
-        // - lowPrioritySprites (P2/P3): render before TopBelow (behind all top layer tiles)
-        // - allSprites (P1 + player): render between TopBelow and TopAbove
-        // - priority0Sprites (P0): render after TopAbove (above all BG layers)
-        let lowPrioritySprites: SpriteInstance[] = [];
-        let priority0Sprites: SpriteInstance[] = [];
-
-        // Render field effects and player with proper Y-sorting
-        if (player && playerLoadedRef.current) {
-          const currentSnapshot = worldSnapshotRef.current;
-
-          // Render player reflection (behind player, on water/ice tiles)
-          if (currentSnapshot) {
-            const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
-            // GBA SEMANTICS for reflection detection (ObjectEventGetNearbyReflectionType):
-            // - currentCoords = DESTINATION tile (where moving TO)
-            // - previousCoords = ORIGIN tile (where came FROM)
-            // During movement: check tiles below destination AND origin
-            // When idle: destination = origin (same tile)
-            const destTile = player.getDestinationTile();
-            const reflectionState = computeReflectionStateFromSnapshot(
-              currentSnapshot,
-              destTile.x,     // GBA currentCoords = destination
-              destTile.y,
-              player.tileX,   // GBA previousCoords = origin
-              player.tileY,
-              spriteWidth,
-              spriteHeight
-            );
-
-            // Update reflection tile grid debug info (every 100ms to stay responsive)
-            if (debugOptionsRef.current.enabled && gbaFrameRef.current % 6 === 0) {
-              const gridDebug = getReflectionTileGridDebug(
-                currentSnapshot,
-                tilesetRuntimesRef.current,
-                player.tileX,
-                player.tileY,
-                destTile.x,
-                destTile.y,
-                player.isMoving,
-                player.dir,
-                reflectionState
-              );
-              setReflectionTileGridDebug(gridDebug);
-            }
-
-            // reflectionState is used for WebGL sprite rendering below
-          }
-
-          // === WebGL Sprite Rendering (player + field effects + reflections batched) ===
-          const spriteRenderer = spriteRendererRef.current;
-
-          if (spriteRenderer && spriteRenderer.isValid()) {
-            // Use WorldCameraView for sprite renderer
-            const spriteView = view;
-
-            // Get visible NPCs, script objects, items, and large objects for rendering
-            const npcs = objectEventManagerRef.current.getVisibleNPCs();
-            if (deoxysRockRenderDebugRef.current.active) {
-              const rock = npcs.find((entry) => entry.localId === 'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK');
-              const nowDebugMs = performance.now();
-              if (rock && nowDebugMs - deoxysRockRenderDebugRef.current.lastLogMs >= 100) {
-                deoxysRockRenderDebugRef.current.lastLogMs = nowDebugMs;
-                console.log('[Legendary] Deoxys rock render sample', {
-                  elapsedMs: Math.round(nowDebugMs - deoxysRockRenderDebugRef.current.startMs),
-                  tileX: rock.tileX,
-                  tileY: rock.tileY,
-                  subTileX: rock.subTileX ?? 0,
-                  subTileY: rock.subTileY ?? 0,
-                  isWalking: rock.isWalking ?? false,
-                  visible: rock.visible,
-                  spriteHidden: rock.spriteHidden ?? false,
-                  tintR: rock.tintR ?? 1,
-                  tintG: rock.tintG ?? 1,
-                  tintB: rock.tintB ?? 1,
-                });
-              }
-            }
-            const items = objectEventManagerRef.current.getVisibleItemBalls();
-            const scriptObjects = objectEventManagerRef.current.getVisibleScriptObjects();
-            const largeObjects = objectEventManagerRef.current.getVisibleLargeObjects();
-            visibleNPCsRef.current = npcs;
-            visibleItemsRef.current = items;
-
-            // Get field effects for sprite batching
-            const fieldEffects = fieldSpritesLoadedRef.current
-              ? player.getGrassEffectManager().getEffectsForRendering()
-              : [];
-
-            // Build all sprites using extracted hook
-            const spriteBuildResult = buildSprites({
-              player,
-              playerLoaded: playerLoadedRef.current,
-              playerHidden: playerHiddenRef.current,
-              snapshot: currentSnapshot,
-              tilesetRuntimes: tilesetRuntimesRef.current,
-              npcs,
-              items,
-              scriptObjects,
-              largeObjects,
-              fieldEffects,
-              spriteRenderer,
-              doorAnimations,
-              arrowOverlay,
-              doorSequencer,
-              doorSpritesUploaded: doorSpritesUploadedRef.current,
-              arrowSpriteUploaded: arrowSpriteUploadedRef.current,
-              nowTime,
-              computeReflectionState: computeReflectionStateFromSnapshot,
-            });
-
-            // Track newly uploaded sprites
-            for (const atlasName of spriteBuildResult.newDoorSpritesUploaded) {
-              doorSpritesUploadedRef.current.add(atlasName);
-            }
-            if (spriteBuildResult.arrowSpriteWasUploaded) {
-              arrowSpriteUploadedRef.current = true;
-            }
-
-            // Extract sprite groups from result
-            const {
-              lowPrioritySprites: builtLowPriority,
-              allSprites: builtAllSprites,
-              priority0Sprites: builtP0,
-              doorSprites,
-              arrowSprite,
-              surfBlobSprite,
-            } = spriteBuildResult;
-            lowPrioritySprites = builtLowPriority;
-            priority0Sprites = builtP0;
-
-            let allSprites = builtAllSprites;
-            const playerMap = worldManagerRef.current?.findMapAtPosition(player.tileX, player.tileY);
-            if (playerMap) {
-              const rotatingGateSprites = rotatingGateManager.getSpritesForRendering(
-                playerMap.entry.id,
-                playerMap.offsetX,
-                playerMap.offsetY,
-                nowTime
-              );
-
-              if (rotatingGateSprites.length > 0) {
-                const gateSpriteInstances: SpriteInstance[] = [];
-                for (const gateSprite of rotatingGateSprites) {
-                  const atlasName = getRotatingGateAtlasName(gateSprite.shapeKey);
-                  if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
-
-                  gateSpriteInstances.push({
-                    worldX: gateSprite.worldX,
-                    worldY: gateSprite.worldY,
-                    width: gateSprite.width,
-                    height: gateSprite.height,
-                    atlasName,
-                    atlasX: 0,
-                    atlasY: 0,
-                    atlasWidth: gateSprite.width,
-                    atlasHeight: gateSprite.height,
-                    flipX: false,
-                    flipY: false,
-                    rotationDeg: gateSprite.rotationDeg,
-                    alpha: 1.0,
-                    tintR: 1.0,
-                    tintG: 1.0,
-                    tintB: 1.0,
-                    // Sort by gate pivot (hinge) Y, not sprite bottom.
-                    // Using bottom made 64x64 gates render over the player too aggressively.
-                    sortKey: calculateSortKey(gateSprite.worldY + gateSprite.height / 2, 0),
-                    isReflection: false,
-                  });
-                }
-
-                if (gateSpriteInstances.length > 0) {
-                  allSprites = [...allSprites, ...gateSpriteInstances].sort((a, b) => a.sortKey - b.sortKey);
-                }
-              }
-            }
-
-            // Collect priority debug info if debug panel is enabled (throttled to ~10fps)
-            if (debugOptionsRef.current.enabled && player && gbaFrameRef.current % 6 === 0) {
-              setPriorityDebugInfo(buildPriorityDebugInfo({
-                player,
-                allSprites,
-                lowPrioritySprites,
-                priority0Sprites,
-              }));
-            }
-
-        // Use extracted compositing function for GBA-accurate layer ordering
+        // Sprite rendering + compositing (extracted)
         const webglCanvas = webglCanvasRef.current;
-        if (webglCanvas) {
-          // Keep screen black during scripted-warp load gaps (after fade-out, before fade-in).
-          // Do not clamp during active fade-out/fade-in, or transitions look instant/cut.
-          const fade = fadeControllerRef.current;
-          let fadeAlpha = fade.isActive() ? fade.getAlpha(nowTime) : 0;
-          if (warpingRef.current && fadeAlpha < 1.0) {
-            const pendingScriptedWarp = pendingScriptedWarpRef.current;
-            const isScriptedWarpLoading = pendingScriptedWarp?.phase === 'loading';
-            const fadeDirection = fade.getDirection();
-            const shouldClampToBlack = isScriptedWarpLoading
-              && (fadeDirection !== 'in' || fade.isComplete(nowTime));
-            if (shouldClampToBlack) {
-              fadeAlpha = 1.0;
-            }
+        if (player && webglCanvas) {
+          const spriteResult = renderOverworldSprites({
+            player,
+            playerLoaded: playerLoadedRef.current,
+            playerHidden: playerHiddenRef.current,
+            snapshot: worldSnapshotRef.current,
+            view,
+            nowTime,
+            gbaFrame: gbaFrameRef.current,
+            debugEnabled: debugOptionsRef.current.enabled,
+            spriteRenderer: spriteRendererRef.current,
+            pipeline,
+            fadeRenderer: fadeRendererRef.current,
+            scanlineRenderer: scanlineRendererRef.current,
+            ctx2d,
+            webglCanvas,
+            objectEventManager: objectEventManagerRef.current,
+            worldManager: worldManagerRef.current,
+            weatherManager: weatherManagerRef.current,
+            rotatingGateManager,
+            fadeController: fadeControllerRef.current,
+            tilesetRuntimes: tilesetRuntimesRef.current,
+            fieldSpritesLoaded: fieldSpritesLoadedRef.current,
+            doorSpritesUploaded: doorSpritesUploadedRef.current,
+            arrowSpriteUploaded: arrowSpriteUploadedRef.current,
+            warpingRef,
+            pendingScriptedWarpRef,
+            deoxysRockRenderDebugRef,
+            doorAnimations,
+            doorSequencer,
+            arrowOverlay,
+            buildSprites,
+            computeReflectionState: computeReflectionStateFromSnapshot,
+            zoom: zoomRef.current,
+          });
+
+          // Track state from sprite result
+          visibleNPCsRef.current = spriteResult.visibleNPCs;
+          visibleItemsRef.current = spriteResult.visibleItems;
+          for (const atlasName of spriteResult.newDoorSpritesUploaded) {
+            doorSpritesUploadedRef.current.add(atlasName);
           }
-
-          // Scanline intensity: 1.0 when menu is open, 0.0 otherwise
-          const scanlineIntensity = menuStateManager.isMenuOpen() ? 1.0 : 0.0;
-
-          compositeWebGLFrame(
-            {
-              pipeline,
-              spriteRenderer,
-              fadeRenderer: fadeRendererRef.current,
-              scanlineRenderer: scanlineRendererRef.current,
-              ctx2d,
-              webglCanvas,
-              view: spriteView,
-              snapshot: currentSnapshot,
-              tilesetRuntimes: tilesetRuntimesRef.current,
-              renderWeather: (weatherCtx, weatherView, weatherNowMs) => {
-                weatherManagerRef.current.render(weatherCtx, weatherView, weatherNowMs);
-              },
-            },
-            {
-              lowPrioritySprites,
-              allSprites,
-              priority0Sprites,
-              doorSprites,
-              arrowSprite,
-              surfBlobSprite,
-            },
-            { fadeAlpha, scanlineIntensity, zoom: zoomRef.current, nowMs: nowTime }
-          );
-        }
-      }
-        }
-
-        const renderTime = performance.now() - start;
-
-        // Get tile count from pipeline stats
-        const pipelineStats = pipeline.getStats();
-        const samples = debugOptionsRef.current.enabled ? pipeline.getPassSamples() : undefined;
-        const tileCount = pipelineStats.passTileCounts.background +
-                          pipelineStats.passTileCounts.topBelow +
-                          pipelineStats.passTileCounts.topAbove;
-
-        frameCount++;
-        const now = performance.now();
-        if (now - fpsTime >= 500) {
-          const fps = Math.round((frameCount * 1000) / (now - fpsTime));
-          setStats((s) => ({
-            ...s,
-            tileCount,
-            renderTimeMs: renderTime,
-            fps,
-            pipelineDebug: {
-              tilesetVersion: pipelineStats.tilesetVersion,
-              lastRenderedTilesetVersion: pipelineStats.lastRenderedTilesetVersion,
-              needsFullRender: pipelineStats.needsFullRender,
-              needsWarmupRender: pipelineStats.needsWarmupRender,
-              lastViewHash: pipelineStats.lastViewHash,
-              hasCachedInstances: pipelineStats.hasCachedInstances,
-              tilesetsUploaded: pipelineStats.tilesetsUploaded,
-              cachedInstances: pipelineStats.passTileCounts,
-              lastRenderInfo: pipelineStats.lastRenderInfo,
-              renderHistory: pipelineStats.renderHistory,
-              renderMeta: pipelineStats.renderMeta,
-              samples,
-            },
-          }));
-          if (cameraRef.current) {
-            const pos = cameraRef.current.getPosition();
-            setCameraDisplay({ x: pos.x, y: pos.y });
+          if (spriteResult.arrowSpriteWasUploaded) {
+            arrowSpriteUploadedRef.current = true;
           }
-
-          frameCount = 0;
-          fpsTime = now;
+          if (spriteResult.reflectionTileGridDebug) {
+            setReflectionTileGridDebug(spriteResult.reflectionTileGridDebug);
+          }
+          if (spriteResult.priorityDebugInfo) {
+            setPriorityDebugInfo(spriteResult.priorityDebugInfo);
+          }
         }
+
+        updateRenderStats({
+          pipeline,
+          debugEnabled: debugOptionsRef.current.enabled,
+          cameraRef,
+          renderStartTime: start,
+          setStats,
+          setCameraDisplay,
+          counter: frameCounter,
+        });
       }
 
       rafRef.current = requestAnimationFrame(renderLoop);
@@ -3237,13 +1560,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       loadObjectEventsFromSnapshot,
       initializeWorldFromSnapshot,
       applyStoryTransitionObjectParity,
-      setMapMetatile: (mapId, tileX, tileY, metatileId, collision?) => {
-        const changed = setMapMetatileLocal(mapId, tileX, tileY, metatileId, collision);
-        if (changed) {
-          pipelineRef.current?.invalidate();
-        }
-        return changed;
-      },
+      setMapMetatile: setMapMetatileAndInvalidate,
       scriptRuntimeServices,
     });
   }, [
@@ -3463,7 +1780,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         onChange={setDebugOptions}
         state={debugState}
         debugCanvasRef={debugCanvasRef}
-        centerTileInfo={centerTileInfo}
+        centerTileInfo={getCenterTileInfo()}
         bottomLayerCanvasRef={bottomLayerCanvasRef}
         topLayerCanvasRef={topLayerCanvasRef}
         compositeLayerCanvasRef={compositeLayerCanvasRef}
