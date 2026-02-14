@@ -96,6 +96,9 @@ import type { LocationState } from '../save/types';
 import { gameVariables, GAME_VARS } from '../game/GameVariables';
 import { saveManager } from '../save/SaveManager';
 import { getDynamicWarpTarget } from '../game/DynamicWarp';
+import { bagManager } from '../game/BagManager';
+import { moneyManager } from '../game/MoneyManager';
+import { ITEMS } from '../data/items';
 import type { MapScriptData } from '../data/scripts/types';
 import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
 import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
@@ -602,7 +605,61 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     };
   }, [showMessage, showChoice, showTextEntry, closeDialog]);
 
-  // Menu open handler (Enter key)
+  const showFieldMessage = useCallback(async (text: string): Promise<void> => {
+    const activePlayer = playerRef.current;
+    if (!activePlayer) return;
+    activePlayer.lockInput();
+    try {
+      await showMessage(text);
+    } finally {
+      if (!warpingRef.current && !storyScriptRunningRef.current) {
+        activePlayer.unlockInput();
+      }
+    }
+  }, [showMessage]);
+
+  const tryUseFieldItem = useCallback(async (itemId: number): Promise<boolean> => {
+    const activePlayer = playerRef.current;
+    if (!activePlayer) return false;
+
+    if (!bagManager.hasItem(itemId, 1)) {
+      await showFieldMessage("There's no such item in your BAG.");
+      return false;
+    }
+
+    if (itemId !== ITEMS.ITEM_MACH_BIKE && itemId !== ITEMS.ITEM_ACRO_BIKE) {
+      await showFieldMessage("OAK: This isn't the time to use that!");
+      return false;
+    }
+
+    const bikeMode = itemId === ITEMS.ITEM_MACH_BIKE ? 'mach' : 'acro';
+    const bikeResult = activePlayer.tryUseBikeItem(bikeMode);
+    if (bikeResult === 'blocked') {
+      await showFieldMessage("You can't dismount your BIKE here.");
+      return false;
+    }
+    if (bikeResult === 'forbidden') {
+      await showFieldMessage("OAK: This isn't the time to use that!");
+      return false;
+    }
+
+    // Keep SELECT registration synced to the bike the player just used.
+    moneyManager.setRegisteredItem(itemId);
+    return true;
+  }, [showFieldMessage]);
+
+  const registerFieldItem = useCallback((itemId: number): void => {
+    moneyManager.setRegisteredItem(itemId);
+  }, []);
+
+  const openStartMenu = useCallback(() => {
+    menuStateManager.open('start', {
+      onFieldUseItem: tryUseFieldItem,
+      onFieldRegisterItem: registerFieldItem,
+    });
+  }, [tryUseFieldItem, registerFieldItem]);
+
+  // START/SELECT handler
   useEffect(() => {
     const handleMenuKey = (e: KeyboardEvent) => {
       // Only open menu in OVERWORLD state
@@ -623,13 +680,34 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // START button opens menu
       if (inputMap.matchesCode(e.code, GameButton.START)) {
         e.preventDefault();
-        menuStateManager.open('start');
+        openStartMenu();
+        return;
+      }
+
+      // SELECT uses the registered key item (bike parity path).
+      if (inputMap.matchesCode(e.code, GameButton.SELECT)) {
+        e.preventDefault();
+
+        void (async () => {
+          const registeredItem = moneyManager.getRegisteredItem();
+          if (!registeredItem || registeredItem === ITEMS.ITEM_NONE) {
+            await showFieldMessage('There is no item registered.');
+            return;
+          }
+
+          if (!bagManager.hasItem(registeredItem, 1)) {
+            moneyManager.setRegisteredItem(ITEMS.ITEM_NONE);
+            await showFieldMessage('There is no item registered.');
+            return;
+          }
+          await tryUseFieldItem(registeredItem);
+        })();
       }
     };
 
     window.addEventListener('keydown', handleMenuKey);
     return () => window.removeEventListener('keydown', handleMenuKey);
-  }, [currentState, dialogIsOpen]);
+  }, [currentState, dialogIsOpen, showFieldMessage, openStartMenu, tryUseFieldItem]);
 
   const renderableMaps = useMemo(
     () =>
@@ -772,6 +850,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
+      bikeMode: player.getBikeMode(),
+      isRidingBike: player.isBikeRiding(),
     };
   }, []);
 
@@ -1781,6 +1861,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
+      bikeMode: player.getBikeMode(),
+      isRidingBike: player.isBikeRiding(),
     };
   }, [mapDebugInfo?.currentMap, selectedMap.id]);
 
@@ -1919,7 +2001,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 && !player?.inputLocked;
 
               if (canOpen) {
-                menuStateManager.open('start');
+                openStartMenu();
               }
             }}
             disabled={

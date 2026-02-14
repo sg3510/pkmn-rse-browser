@@ -152,6 +152,20 @@ export function areElevationsCompatible(elevation1: number, elevation2: number):
   return areElevationsCompatibleShared(elevation1, elevation2);
 }
 
+function getNPCCollisionTiles(npc: NPCObject): Array<{ x: number; y: number }> {
+  const occupied = [{ x: npc.tileX, y: npc.tileY }];
+  if (!npc.isWalking || (npc.subTileX === 0 && npc.subTileY === 0)) {
+    return occupied;
+  }
+
+  const prevX = npc.tileX + Math.sign(npc.subTileX);
+  const prevY = npc.tileY + Math.sign(npc.subTileY);
+  if (prevX !== npc.tileX || prevY !== npc.tileY) {
+    occupied.push({ x: prevX, y: prevY });
+  }
+  return occupied;
+}
+
 /**
  * Create a simple collision context from ObjectEventManager and map data
  */
@@ -170,8 +184,11 @@ export function createCollisionContext(
       for (const npc of npcs) {
         if (npc.id === excludeNpcId) continue;
         if (!npc.visible) continue;
-        if (npc.tileX === x && npc.tileY === y) {
-          return true;
+        const occupied = getNPCCollisionTiles(npc);
+        for (const tile of occupied) {
+          if (tile.x === x && tile.y === y) {
+            return true;
+          }
         }
       }
       return false;

@@ -52,6 +52,7 @@ export function useMenuState() {
 export function useMenuInput(options: {
   onConfirm?: () => void;
   onCancel?: () => void;
+  onSelect?: () => void;
   onUp?: () => void;
   onDown?: () => void;
   onLeft?: () => void;
@@ -61,6 +62,7 @@ export function useMenuInput(options: {
   const {
     onConfirm,
     onCancel,
+    onSelect,
     onUp,
     onDown,
     onLeft,
@@ -85,6 +87,14 @@ export function useMenuInput(options: {
         e.preventDefault();
         e.stopPropagation();
         onCancel?.();
+        return;
+      }
+
+      // Select: SELECT button
+      if (inputMap.matchesCode(e.code, GameButton.SELECT)) {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect?.();
         return;
       }
 
@@ -122,5 +132,5 @@ export function useMenuInput(options: {
     // This ensures menu navigation takes priority over game input
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [enabled, onConfirm, onCancel, onUp, onDown, onLeft, onRight]);
+  }, [enabled, onConfirm, onCancel, onSelect, onUp, onDown, onLeft, onRight]);
 }

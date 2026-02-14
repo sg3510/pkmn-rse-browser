@@ -19,10 +19,12 @@ import {
   isIceBehavior,
   isForcedSlideBehavior,
   isForceWalkBehavior,
+  isBikeRailBehavior,
+  isRunningDisallowedBehavior,
   getSlideDirection,
   getArrowDirectionFromBehavior,
 } from '../utils/metatileBehaviors';
-import { FieldEffectManager } from './FieldEffectManager';
+import { FieldEffectManager, type FieldEffectDirection } from './FieldEffectManager';
 import { SurfingController } from './surfing';
 import {
   getPlayerSpriteFrameMetrics,
@@ -39,6 +41,7 @@ import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL } from './jumpArc';
 import { inputMap, GameButton } from '../core/InputMap';
 import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing';
 import { getSurfingFrameSelection } from './playerFrameSelection';
+import { gameFlags } from './GameFlags';
 
 const playerLogger = createLogger('PlayerController');
 
@@ -79,10 +82,34 @@ export interface FrameInfo {
 }
 
 export type TraversalMode = 'land' | 'surf' | 'underwater';
+export type BikeMode = 'none' | 'mach' | 'acro';
 
 // Jump Physics Constants (arc tables imported from jumpArc.ts)
 const JUMP_DISTANCE_FAR = 32;    // 2-tile ledge jump (pixels)
 const JUMP_DISTANCE_NORMAL = 16; // 1-tile normal jump (pixels)
+
+function getBikeTrackDirection(
+  previousDirection: 'up' | 'down' | 'left' | 'right',
+  currentDirection: 'up' | 'down' | 'left' | 'right'
+): FieldEffectDirection {
+  if (previousDirection === currentDirection) {
+    return currentDirection;
+  }
+
+  // Mirrors bikeTireTracks_Transitions from pokeemerald.
+  const transitions: Record<string, FieldEffectDirection> = {
+    'up:right': 'turn_se',
+    'up:left': 'turn_sw',
+    'down:right': 'turn_ne',
+    'down:left': 'turn_nw',
+    'left:up': 'turn_ne',
+    'left:down': 'turn_se',
+    'right:up': 'turn_nw',
+    'right:down': 'turn_sw',
+  };
+
+  return transitions[`${previousDirection}:${currentDirection}`] ?? currentDirection;
+}
 
 // --- Player States ---
 
@@ -204,6 +231,42 @@ class RunningState implements PlayerState {
 
 }
 
+class BikeState implements PlayerState {
+  private mode: Exclude<BikeMode, 'none'>;
+
+  constructor(mode: Exclude<BikeMode, 'none'>) {
+    this.mode = mode;
+  }
+
+  enter(controller: PlayerController): void {
+    controller.onBikeStateEnter(this.mode);
+  }
+
+  exit(_controller: PlayerController): void {}
+
+  update(controller: PlayerController, delta: number): boolean {
+    const wasMoving = controller.isMoving;
+    const speed = controller.getBikeMovementSpeed(this.mode);
+    const result = controller.processMovement(delta, speed);
+    if (wasMoving && !controller.isMoving) {
+      if (controller.checkAndHandleSpecialTile()) return true;
+    }
+    return result;
+  }
+
+  handleInput(controller: PlayerController, keys: { [key: string]: boolean }): void {
+    controller.handleBikeInput(keys, this.mode);
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo(this.mode === 'mach' ? 'machBike' : 'acroBike');
+  }
+
+  getSpeed(): number {
+    return 0.06;
+  }
+}
+
 class JumpingState implements PlayerState {
   private progress: number = 0; // Pixels moved
   private readonly SPEED = 0.06; // 1px/frame approx
@@ -211,6 +274,11 @@ class JumpingState implements PlayerState {
   private startY: number = 0;
   private targetX: number = 0;
   private targetY: number = 0;
+  private landingTileX: number = 0;
+  private landingTileY: number = 0;
+  private ledgeTileX: number = 0;
+  private ledgeTileY: number = 0;
+  private farJumpMidpointApplied: boolean = false;
   private wasRunning: boolean;
   private jumpDistance: number;
   private jumpArc: readonly number[];
@@ -227,6 +295,7 @@ class JumpingState implements PlayerState {
     this.progress = 0;
     this.startX = controller.x;
     this.startY = controller.y;
+    this.farJumpMidpointApplied = false;
 
     // Calculate target position based on jump distance.
     const move = directionToOffset(controller.dir);
@@ -236,10 +305,28 @@ class JumpingState implements PlayerState {
     this.targetX = this.startX + dx;
     this.targetY = this.startY + dy;
 
+    const originTileX = controller.tileX;
+    const originTileY = controller.tileY;
+    const tileDelta = Math.round(this.jumpDistance / 16);
+    this.ledgeTileX = originTileX + move.dx;
+    this.ledgeTileY = originTileY + move.dy;
+    this.landingTileX = originTileX + move.dx * tileDelta;
+    this.landingTileY = originTileY + move.dy * tileDelta;
+
+    // Object-event progression parity:
+    // - far jump: origin -> ledge on enter, then ledge -> landing at midpoint
+    // - normal jump: origin -> landing on enter
+    if (this.jumpDistance > 16) {
+      controller.setJumpObjectCurrentTile(this.ledgeTileX, this.ledgeTileY);
+    } else {
+      controller.setJumpObjectCurrentTile(this.landingTileX, this.landingTileY);
+      this.farJumpMidpointApplied = true;
+    }
+
     // Update logical tile position immediately to the destination
     // This prevents other events from triggering on the jump-over tile
-    controller.tileX += (dx / 16);
-    controller.tileY += (dy / 16);
+    controller.tileX = this.landingTileX;
+    controller.tileY = this.landingTileY;
   }
 
   exit(controller: PlayerController): void {
@@ -250,6 +337,9 @@ class JumpingState implements PlayerState {
     // Snap to exact target position
     controller.x = this.targetX;
     controller.y = this.targetY;
+    controller.tileX = this.landingTileX;
+    controller.tileY = this.landingTileY;
+    controller.settleJumpObjectCoords(this.landingTileX, this.landingTileY);
 
     // CRITICAL: Update elevation upon landing!
     // Otherwise collision system thinks we are still at old elevation
@@ -268,8 +358,11 @@ class JumpingState implements PlayerState {
     this.progress += moveAmount;
 
     if (this.progress >= this.jumpDistance) {
-      // Jump finished - return to previous state (running if we were running, normal otherwise)
-      if (this.wasRunning) {
+      // Jump finished - restore movement mode.
+      const bikeMode = controller.getBikeMode();
+      if (bikeMode === 'mach' || bikeMode === 'acro') {
+        controller.changeState(new BikeState(bikeMode));
+      } else if (this.wasRunning) {
         controller.changeState(new RunningState());
       } else {
         controller.changeState(new NormalState());
@@ -280,6 +373,13 @@ class JumpingState implements PlayerState {
     const move = directionToOffset(controller.dir);
     controller.x = this.startX + move.dx * this.progress;
     controller.y = this.startY + move.dy * this.progress;
+
+    // Far-jump object-event progression:
+    // enter puts current at ledge (+1), midpoint moves current to landing (+2).
+    if (!this.farJumpMidpointApplied && this.jumpDistance > 16 && this.progress >= 16) {
+      controller.setJumpObjectCurrentTile(this.landingTileX, this.landingTileY);
+      this.farJumpMidpointApplied = true;
+    }
 
     // Calculate jump height from arc table
     // Map progress (0..jumpDistance) to arc index (0..15)
@@ -294,12 +394,11 @@ class JumpingState implements PlayerState {
   }
 
   getFrameInfo(controller: PlayerController): FrameInfo | null {
-    // Use walking frame 2 (index 3, 4, 5 depending on dir?)
-    // Actually, pokeemerald uses a specific jump frame or just a fixed frame.
-    // For now, let's use the idle frame or a specific walk frame.
-    // Research said "GetJump2MovementAction".
-    // Let's use the walking frame (frame 1) to look dynamic.
-    return controller.calculateFrameInfo('walking', true); // Force walk frame
+    const bikeMode = controller.getBikeMode();
+    if (bikeMode === 'mach' || bikeMode === 'acro') {
+      return controller.calculateFrameInfo(bikeMode === 'mach' ? 'machBike' : 'acroBike', true);
+    }
+    return controller.calculateFrameInfo('walking', true);
   }
 
   getSpeed(): number {
@@ -628,11 +727,29 @@ export class PlayerController {
   private surfingController: SurfingController = new SurfingController();
   private traversalMode: TraversalMode = 'land';
   private underwaterBobElapsedMs: number = 0;
+  private bikeMode: BikeMode = 'none';
+  private bikeRiding: boolean = false;
+  private machBikeSpeedTier: 0 | 1 | 2 = 0;
+  private previousTrackDirection: 'up' | 'down' | 'left' | 'right' = 'down';
+  private mapAllowsCyclingResolver: (() => boolean) | null = null;
+  private cyclingRoadChallengeActive: boolean = false;
+  private cyclingRoadCollisions: number = 0;
+
+  private readonly BIKE_SPEED_WALK = 0.06;
+  private readonly BIKE_SPEED_FAST = 0.12;
+  private readonly BIKE_SPEED_FASTEST = 0.24;
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
   private prevTileX: number;
   private prevTileY: number;
   private prevTileBehavior: number | undefined;
+
+  // Object-event coordinate tracking (pokeemerald currentCoords/previousCoords parity).
+  // While moving, current is destination and previous is origin.
+  private objCurrentTileX: number;
+  private objCurrentTileY: number;
+  private objPreviousTileX: number;
+  private objPreviousTileY: number;
   
   /**
    * Player's current elevation (from current tile)
@@ -693,12 +810,63 @@ export class PlayerController {
     this.prevTileY = this.tileY;
     this.prevTileBehavior = undefined;
 
+    // Initialize object-event coords to current tile.
+    this.objCurrentTileX = this.tileX;
+    this.objCurrentTileY = this.tileY;
+    this.objPreviousTileX = this.tileX;
+    this.objPreviousTileY = this.tileY;
+
     this.bindInputEvents();
   }
 
   private bindInputEvents() {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
+  }
+
+  /**
+   * Begin an object-event step (GBA currentCoords/previousCoords behavior):
+   * previous <- current, current <- target
+   */
+  private beginObjectStep(targetTileX: number, targetTileY: number): void {
+    this.objPreviousTileX = this.objCurrentTileX;
+    this.objPreviousTileY = this.objCurrentTileY;
+    this.objCurrentTileX = targetTileX;
+    this.objCurrentTileY = targetTileY;
+  }
+
+  /**
+   * Settle object-event coords after movement completes:
+   * previous = current = landed tile
+   */
+  private settleObjectStepAt(tileX: number, tileY: number): void {
+    this.objCurrentTileX = tileX;
+    this.objCurrentTileY = tileY;
+    this.objPreviousTileX = tileX;
+    this.objPreviousTileY = tileY;
+  }
+
+  /**
+   * Sync object-event coords to the player's current tile.
+   * Used when movement is interrupted/reset.
+   */
+  private syncObjectCoordsToTile(): void {
+    this.settleObjectStepAt(this.tileX, this.tileY);
+  }
+
+  /**
+   * Internal state hook for jump movement phases.
+   * Uses beginObjectStep semantics to preserve previous/current parity.
+   */
+  public setJumpObjectCurrentTile(targetTileX: number, targetTileY: number): void {
+    this.beginObjectStep(targetTileX, targetTileY);
+  }
+
+  /**
+   * Internal state hook for jump completion.
+   */
+  public settleJumpObjectCoords(tileX: number, tileY: number): void {
+    this.settleObjectStepAt(tileX, tileY);
   }
 
   public async loadSprite(key: string, src: string): Promise<void> {
@@ -722,9 +890,11 @@ export class PlayerController {
     this.tileY = tileY;
     this.x = tileX * this.TILE_PIXELS;
     this.y = tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
+    this.previousTrackDirection = this.dir;
     this.isMoving = false;
     this.pixelsMoved = 0;
     this.scriptedMoveSpeedPxPerMs = null;
+    this.syncObjectCoordsToTile();
     
     // Initialize elevation from spawn tile
     const resolved = this.tileResolver?.(this.tileX, this.tileY);
@@ -753,6 +923,7 @@ export class PlayerController {
   public setPositionAndDirection(tileX: number, tileY: number, dir: 'down' | 'up' | 'left' | 'right') {
     this.setPosition(tileX, tileY);
     this.dir = dir;
+    this.previousTrackDirection = dir;
   }
 
   /**
@@ -779,6 +950,7 @@ export class PlayerController {
     this.prevTileX = -1;
     this.prevTileY = -1;
     this.prevTileBehavior = undefined;
+    this.previousTrackDirection = this.dir;
     this.scriptedMoveSpeedPxPerMs = null;
 
     // 4. Clear field effects (sand footprints, grass, water ripples)
@@ -787,6 +959,7 @@ export class PlayerController {
     // 5. Reset surfing controller if mid-animation
     this.surfingController.reset();
     this.setTraversalMode('land');
+    this.syncObjectCoordsToTile();
   }
 
   /**
@@ -897,6 +1070,7 @@ export class PlayerController {
     if (wasMoving) {
       this.x = this.tileX * this.TILE_PIXELS;
       this.y = this.tileY * this.TILE_PIXELS - 16;
+      this.syncObjectCoordsToTile();
     }
     this.isMoving = false;
     this.pixelsMoved = 0;
@@ -904,7 +1078,11 @@ export class PlayerController {
     // Preserve traversal sprite domain during modal prompts.
     // Surf/underwater prompts should not force walking state, or frame/atlas
     // selection can desync in the renderer.
-    if (this.traversalMode === 'land' && !(this.currentState instanceof NormalState)) {
+    if (
+      this.traversalMode === 'land'
+      && !(this.currentState instanceof NormalState)
+      && !(this.currentState instanceof BikeState)
+    ) {
       this.changeState(new NormalState());
     }
   }
@@ -933,15 +1111,10 @@ export class PlayerController {
     // Update grass effects (pass delta for accurate timing)
     this.grassEffectManager.update(delta);
 
-    // Calculate destination tile for grass cleanup logic
-    let destTileX = this.tileX;
-    let destTileY = this.tileY;
-    if (this.isMoving) {
-      if (this.dir === 'up') destTileY = this.tileY - 1;
-      else if (this.dir === 'down') destTileY = this.tileY + 1;
-      else if (this.dir === 'left') destTileX = this.tileX - 1;
-      else if (this.dir === 'right') destTileX = this.tileX + 1;
-    }
+    // Calculate destination using object-event current coords (PlayerGetDestCoords parity)
+    const destination = this.getDestinationTile();
+    const destTileX = destination.x;
+    const destTileY = destination.y;
 
     // Cleanup completed grass effects with full position info
     const isJumping = this.currentState instanceof JumpingState;
@@ -1012,6 +1185,7 @@ export class PlayerController {
         this.tileY += dy;
         this.x = this.tileX * this.TILE_PIXELS;
         this.y = this.tileY * this.TILE_PIXELS - 16; // Sprite is 32px tall, feet at bottom
+        this.settleObjectStepAt(this.tileX, this.tileY);
         
         if (isDebugMode()) {
           this.debugLog(`[MOVEMENT] Completed move from (${oldTileX}, ${oldTileY}) → (${this.tileX}, ${this.tileY})`);
@@ -1061,80 +1235,251 @@ export class PlayerController {
     return didRenderMove || this.isMoving;
   }
 
+  private getDirectionFromKeys(keys: { [key: string]: boolean }): 'up' | 'down' | 'left' | 'right' | null {
+    if (inputMap.isHeldInRecord(keys, GameButton.UP)) return 'up';
+    if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) return 'down';
+    if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) return 'left';
+    if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) return 'right';
+    return null;
+  }
+
+  private tryMoveDirection(
+    direction: 'up' | 'down' | 'left' | 'right',
+    options?: { countBikeCollision?: boolean }
+  ): boolean {
+    this.dir = direction;
+
+    if (isDebugMode()) {
+      this.debugLog(`[INPUT] Attempting to move ${direction} from (${this.tileX}, ${this.tileY})`);
+    }
+
+    if (this.tryTriggerArrowWarpFromCurrentTile(direction)) {
+      return true;
+    }
+
+    if (this.tryInteract(direction)) {
+      return true;
+    }
+
+    if (this.tryStartLedgeJump(direction, this.currentState instanceof RunningState)) {
+      return true;
+    }
+
+    const { dx, dy } = directionToOffset(direction);
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+
+    if (isDebugMode()) {
+      this.debugLog(`[INPUT] Target tile: (${targetTileX}, ${targetTileY})`);
+    }
+
+    const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
+    const behavior = resolved?.attributes?.behavior ?? -1;
+    const blocked = this.isCollisionAt(targetTileX, targetTileY);
+
+    if (!blocked) {
+      if (isDebugMode()) {
+        this.debugLog(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
+      }
+
+      this.checkAndTriggerSandFootprints();
+      this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
+      this.beginObjectStep(targetTileX, targetTileY);
+      this.isMoving = true;
+      this.pixelsMoved = 0;
+      this.previousTrackDirection = direction;
+      return true;
+    }
+
+    if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
+      if (isDebugMode()) {
+        this.debugLog('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
+      }
+      this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
+      return true;
+    }
+
+    if (options?.countBikeCollision && this.bikeRiding && this.cyclingRoadChallengeActive) {
+      this.cyclingRoadCollisions = Math.min(100, this.cyclingRoadCollisions + 1);
+    }
+
+    if (isDebugMode()) {
+      this.debugWarn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
+    }
+
+    return false;
+  }
+
   public handleDirectionInput(keys: { [key: string]: boolean }) {
-    let newDir = this.dir;
-    let attemptMove = false;
+    const direction = this.getDirectionFromKeys(keys);
+    if (!direction) {
+      return;
+    }
+    this.tryMoveDirection(direction);
+  }
 
-    if (inputMap.isHeldInRecord(keys, GameButton.UP)) {
-      newDir = 'up';
-      attemptMove = true;
-    } else if (inputMap.isHeldInRecord(keys, GameButton.DOWN)) {
-      newDir = 'down';
-      attemptMove = true;
-    } else if (inputMap.isHeldInRecord(keys, GameButton.LEFT)) {
-      newDir = 'left';
-      attemptMove = true;
-    } else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) {
-      newDir = 'right';
-      attemptMove = true;
+  public onBikeStateEnter(mode: Exclude<BikeMode, 'none'>): void {
+    this.bikeMode = mode;
+    this.bikeRiding = true;
+    if (mode !== 'mach') {
+      this.machBikeSpeedTier = 0;
+    }
+  }
+
+  public getBikeMovementSpeed(mode: Exclude<BikeMode, 'none'>): number {
+    if (mode === 'acro') {
+      return this.BIKE_SPEED_FAST;
     }
 
-    if (attemptMove) {
-      this.dir = newDir;
-      
-      if (isDebugMode()) {
-        this.debugLog(`[INPUT] Attempting to move ${newDir} from (${this.tileX}, ${this.tileY})`);
-      }
+    if (this.machBikeSpeedTier >= 2) return this.BIKE_SPEED_FASTEST;
+    if (this.machBikeSpeedTier === 1) return this.BIKE_SPEED_FAST;
+    return this.BIKE_SPEED_WALK;
+  }
 
-      // Match GBA TryArrowWarp behavior: check current tile arrow warp on directional input.
-      if (this.tryTriggerArrowWarpFromCurrentTile(newDir)) {
+  public handleBikeInput(
+    keys: { [key: string]: boolean },
+    mode: Exclude<BikeMode, 'none'>
+  ): void {
+    const direction = this.getDirectionFromKeys(keys);
+    const isBHeld = inputMap.isHeldInRecord(keys, GameButton.B);
+
+    if (direction === null) {
+      // Mach bike keeps rolling briefly when input is released.
+      if (mode === 'mach' && !this.isMoving && this.machBikeSpeedTier > 0) {
+        const continued = this.tryMoveDirection(this.dir, { countBikeCollision: true });
+        if (continued) {
+          this.machBikeSpeedTier = Math.max(0, this.machBikeSpeedTier - 1) as 0 | 1 | 2;
+        } else {
+          this.machBikeSpeedTier = 0;
+        }
+      }
+      return;
+    }
+
+    if (this.isMoving) {
+      return;
+    }
+
+    if (mode === 'mach') {
+      const previousDir = this.dir;
+      const sameDirection = direction === previousDir;
+
+      if (!sameDirection && this.machBikeSpeedTier > 0) {
+        // Turning while at speed takes a beat and drops momentum.
+        this.dir = direction;
+        this.machBikeSpeedTier = Math.max(0, this.machBikeSpeedTier - 1) as 0 | 1 | 2;
         return;
       }
-      
-      // Give door interactions a chance to consume input before collision/movement.
-      const handled = this.tryInteract(newDir);
-      if (handled) {
-        return;
-      }
-      
-      // Check collision at target tile
-      const { dx, dy } = directionToOffset(newDir);
-      const targetTileX = this.tileX + dx;
-      const targetTileY = this.tileY + dy;
-      
-      if (isDebugMode()) {
-        this.debugLog(`[INPUT] Target tile: (${targetTileX}, ${targetTileY})`);
-      }
-      
-      const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
-      const behavior = resolved?.attributes?.behavior ?? -1;
-      const blocked = this.isCollisionAt(targetTileX, targetTileY);
 
-      if (!blocked) {
-        if (isDebugMode()) {
-          this.debugLog(`[INPUT] Movement ALLOWED, starting move to (${targetTileX}, ${targetTileY})`);
-        }
-
-        // Create sand footprint as we START to move off current tile
-        this.checkAndTriggerSandFootprints();
-
-        // Trigger TALL grass effect when we START stepping onto the tile (pokeemerald: OnBeginStep)
-        // Long grass effect is triggered at end of movement (pokeemerald: OnFinishStep style)
-        this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
-
-        this.isMoving = true;
-        this.pixelsMoved = 0;
-      } else if (this.doorWarpHandler && (isDoorBehavior(behavior) || requiresDoorExitSequence(behavior))) {
-        if (isDebugMode()) {
-          this.debugLog('[PLAYER_DOOR_WARP]', { targetX: targetTileX, targetY: targetTileY, behavior });
-        }
-        this.doorWarpHandler({ targetX: targetTileX, targetY: targetTileY, behavior });
+      const moved = this.tryMoveDirection(direction, { countBikeCollision: true });
+      if (moved) {
+        this.machBikeSpeedTier = sameDirection
+          ? (Math.min(2, this.machBikeSpeedTier + 1) as 0 | 1 | 2)
+          : 0;
       } else {
-        if (isDebugMode()) {
-          this.debugWarn(`[INPUT] Movement BLOCKED to (${targetTileX}, ${targetTileY})`);
-        }
+        this.machBikeSpeedTier = 0;
+      }
+      return;
+    }
+
+    // Acro bike: B enables hop-style movement, not Mach-like acceleration.
+    if (isBHeld) {
+      if (this.tryStartAcroHop(direction)) {
+        return;
       }
     }
+
+    this.tryMoveDirection(direction, { countBikeCollision: true });
+  }
+
+  private tryStartAcroHop(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    // Ledge jumps still take priority and use far-jump behavior.
+    if (this.tryStartLedgeJump(direction, false)) {
+      return true;
+    }
+
+    const { dx, dy } = directionToOffset(direction);
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+
+    if (this.isCollisionAt(targetTileX, targetTileY)) {
+      return false;
+    }
+
+    this.dir = direction;
+    this.changeState(new JumpingState(false, JUMP_DISTANCE_NORMAL, JUMP_ARC_NORMAL));
+    return true;
+  }
+
+  private isMapCyclingAllowed(): boolean {
+    return this.mapAllowsCyclingResolver ? this.mapAllowsCyclingResolver() : true;
+  }
+
+  private getDestinationTileBehavior(): number | undefined {
+    const destination = this.getDestinationTile();
+    const resolved = this.tileResolver?.(destination.x, destination.y);
+    return resolved?.attributes?.behavior;
+  }
+
+  private isBikingDisallowedByPlayer(): boolean {
+    if (this.traversalMode !== 'land') {
+      return true;
+    }
+
+    const behavior = this.getDestinationTileBehavior();
+    if (behavior === undefined) {
+      return true;
+    }
+
+    return isRunningDisallowedBehavior(behavior);
+  }
+
+  private isBikeDismountBlocked(): boolean {
+    if (gameFlags.isSet('FLAG_SYS_CYCLING_ROAD')) {
+      return true;
+    }
+
+    const behavior = this.getDestinationTileBehavior();
+    return behavior !== undefined && isBikeRailBehavior(behavior);
+  }
+
+  private mountBike(mode: Exclude<BikeMode, 'none'>): void {
+    this.bikeMode = mode;
+    this.bikeRiding = true;
+    this.machBikeSpeedTier = 0;
+    this.spriteYOffset = 0;
+    this.changeState(new BikeState(mode));
+  }
+
+  private dismountBike(): void {
+    this.bikeMode = 'none';
+    this.bikeRiding = false;
+    this.machBikeSpeedTier = 0;
+    this.spriteYOffset = 0;
+    if (this.traversalMode === 'land' && !(this.currentState instanceof NormalState)) {
+      this.changeState(new NormalState());
+    }
+  }
+
+  public tryUseBikeItem(mode: Exclude<BikeMode, 'none'>): 'mounted' | 'dismounted' | 'blocked' | 'forbidden' {
+    if (this.isMoving || this.inputLocked) {
+      return 'forbidden';
+    }
+
+    if (this.bikeRiding) {
+      if (this.isBikeDismountBlocked()) {
+        return 'blocked';
+      }
+      this.dismountBike();
+      return 'dismounted';
+    }
+
+    if (!this.isMapCyclingAllowed() || this.isBikingDisallowedByPlayer()) {
+      return 'forbidden';
+    }
+
+    this.mountBike(mode);
+    return 'mounted';
   }
 
   public forceStep(direction: 'up' | 'down' | 'left' | 'right') {
@@ -1145,10 +1490,14 @@ export class PlayerController {
 
     // Calculate target tile and trigger tall grass on begin step
     const { dx, dy } = directionToOffset(direction);
-    this.checkAndTriggerGrassEffectOnBeginStep(this.tileX + dx, this.tileY + dy);
+    const targetTileX = this.tileX + dx;
+    const targetTileY = this.tileY + dy;
+    this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
 
+    this.beginObjectStep(targetTileX, targetTileY);
     this.isMoving = true;
     this.pixelsMoved = 0;
+    this.previousTrackDirection = direction;
   }
 
   public forceMove(
@@ -1166,8 +1515,10 @@ export class PlayerController {
       this.checkAndTriggerSandFootprints();
       // Trigger tall grass on begin step
       this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
+      this.beginObjectStep(targetTileX, targetTileY);
       this.isMoving = true;
       this.pixelsMoved = 0;
+      this.previousTrackDirection = direction;
       this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
       return true;
     }
@@ -1177,8 +1528,10 @@ export class PlayerController {
       this.checkAndTriggerSandFootprints();
       // Trigger tall grass on begin step
       this.checkAndTriggerGrassEffectOnBeginStep(targetTileX, targetTileY);
+      this.beginObjectStep(targetTileX, targetTileY);
       this.isMoving = true;
       this.pixelsMoved = 0;
+      this.previousTrackDirection = direction;
       this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
       return true;
     }
@@ -1658,38 +2011,32 @@ export class PlayerController {
   }
 
   /**
-   * Get the previous tile position (before current movement).
-   * Used for reflection detection - GBA checks both current AND previous coords.
+   * Get the previous tile position (for begin-step effects such as footprints).
    */
   public getPreviousTilePosition() {
     return { x: this.prevTileX, y: this.prevTileY };
   }
 
   /**
-   * Get the destination tile during movement (where player is moving TO).
-   *
-   * GBA SEMANTICS (critical for reflection detection):
-   * - currentCoords = DESTINATION tile (where moving TO)
-   * - previousCoords = ORIGIN tile (where came FROM)
-   *
-   * During movement from tile A to tile B:
-   * - this.tileX/tileY = A (origin, updated to B only when movement completes)
-   * - getDestinationTile() = B (destination during movement, A when idle)
-   *
-   * This matches ObjectEventGetNearbyReflectionType in event_object_movement.c
-   * which checks tiles below BOTH currentCoords AND previousCoords.
+   * Get object-event current/previous coords.
+   * Matches pokeemerald objectEvent->{currentCoords, previousCoords}.
+   */
+  public getObjectEventCoords(): {
+    current: { x: number; y: number };
+    previous: { x: number; y: number };
+  } {
+    return {
+      current: { x: this.objCurrentTileX, y: this.objCurrentTileY },
+      previous: { x: this.objPreviousTileX, y: this.objPreviousTileY },
+    };
+  }
+
+  /**
+   * Get player destination coords with GBA PlayerGetDestCoords parity.
+   * This now returns object-event current coords.
    */
   public getDestinationTile(): { x: number; y: number } {
-    if (!this.isMoving) {
-      // Not moving - destination equals current position
-      return { x: this.tileX, y: this.tileY };
-    }
-
-    const { dx, dy } = directionToOffset(this.dir);
-    const destX = this.tileX + dx;
-    const destY = this.tileY + dy;
-
-    return { x: destX, y: destY };
+    return { x: this.objCurrentTileX, y: this.objCurrentTileY };
   }
 
   public destroy() {
@@ -1705,6 +2052,11 @@ export class PlayerController {
     this.prevTileY = this.tileY;
     this.prevTileBehavior = undefined; // Will be set by updatePreviousTileState
     this.updatePreviousTileState(); // Populate initial prevTileBehavior
+    this.syncObjectCoordsToTile();
+  }
+
+  public setMapAllowsCyclingResolver(resolver: (() => boolean) | null): void {
+    this.mapAllowsCyclingResolver = resolver;
   }
 
   public setDoorWarpHandler(handler: ((request: DoorWarpRequest) => void) | null) {
@@ -1743,9 +2095,16 @@ export class PlayerController {
     else if (inputMap.isHeldInRecord(keys, GameButton.RIGHT)) dir = 'right';
 
     if (!dir) return false;
+    return this.tryStartLedgeJump(dir, wasRunning);
+  }
+
+  private tryStartLedgeJump(
+    dir: 'up' | 'down' | 'left' | 'right',
+    wasRunning: boolean = false
+  ): boolean {
     const { dx, dy } = directionToOffset(dir);
 
-    // Check if the tile we are moving INTO is a ledge that allows jumping in our direction
+    // Check if the tile we are moving INTO is a ledge that allows jumping in our direction.
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
     const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
@@ -1759,19 +2118,19 @@ export class PlayerController {
     else if (dir === 'left' && behavior === MB_JUMP_WEST) isLedge = true;
     else if (dir === 'right' && behavior === MB_JUMP_EAST) isLedge = true;
 
-    if (isLedge) {
-      // Ensure the tile AFTER the ledge is passable
-      const landTileX = targetTileX + dx;
-      const landTileY = targetTileY + dy;
-      // Check collision but IGNORE elevation mismatch because ledges are designed to change elevation
-      if (!this.isCollisionAt(landTileX, landTileY, { ignoreElevation: true })) {
-        this.dir = dir; // Face the ledge
-        this.changeState(new JumpingState(wasRunning));
-        return true;
-      }
+    if (!isLedge) return false;
+
+    // Ensure the tile AFTER the ledge is passable.
+    const landTileX = targetTileX + dx;
+    const landTileY = targetTileY + dy;
+    // Ignore elevation mismatch because ledges are intended elevation changes.
+    if (this.isCollisionAt(landTileX, landTileY, { ignoreElevation: true })) {
+      return false;
     }
 
-    return false;
+    this.dir = dir;
+    this.changeState(new JumpingState(wasRunning));
+    return true;
   }
 
   /**
@@ -1794,7 +2153,8 @@ export class PlayerController {
   }
 
   /**
-   * Check if player just left a sand/footprints tile and create footprint effect.
+   * Check if player just left a sand/footprints tile and create track effect.
+   * On foot this emits sand/deep-sand footprints; on bike it emits tire tracks.
    * Called at BEGIN step (pokeemerald: GetGroundEffectFlags_Tracks in OnBeginStep)
    * Uses previousMetatileBehavior and previousCoords
    */
@@ -1806,15 +2166,19 @@ export class PlayerController {
     const isDeepSand = this.prevTileBehavior === MB_DEEP_SAND;
     
     if (isSand || isDeepSand) {
-      // Create footprint on the tile we JUST LEFT (prevTile)
-      const type = isDeepSand ? 'deep_sand' : 'sand';
+      const useBikeTracks = this.bikeRiding && (this.bikeMode === 'mach' || this.bikeMode === 'acro');
+      const type = useBikeTracks ? 'bike_tire_tracks' : (isDeepSand ? 'deep_sand' : 'sand');
+      const direction: FieldEffectDirection = useBikeTracks
+        ? getBikeTrackDirection(this.previousTrackDirection, this.dir)
+        : this.dir;
+
       this.grassEffectManager.create(
         this.prevTileX,
         this.prevTileY,
         type,
         false,
         'player',
-        this.dir  // Pass current facing direction
+        direction
       );
     }
   }
@@ -2138,6 +2502,7 @@ export class PlayerController {
       const blocked = this.isCollisionAt(targetTileX, targetTileY);
 
       if (!blocked) {
+        this.beginObjectStep(targetTileX, targetTileY);
         this.isMoving = true;
         this.pixelsMoved = 0;
         if (isDebugMode()) {
@@ -2259,6 +2624,7 @@ export class PlayerController {
     mode: TraversalMode,
     direction: 'up' | 'down' | 'left' | 'right' = this.dir
   ): void {
+    const wasMoving = this.isMoving;
     const previousMode = this.traversalMode;
     this.traversalMode = mode;
     this.surfingController.setSurfingActive(mode === 'surf', direction);
@@ -2273,6 +2639,14 @@ export class PlayerController {
     this.pixelsMoved = 0;
     this.spriteYOffset = 0;
     this.scriptedMoveSpeedPxPerMs = null;
+    if (mode !== 'land') {
+      this.bikeMode = 'none';
+      this.bikeRiding = false;
+      this.machBikeSpeedTier = 0;
+    }
+    if (wasMoving) {
+      this.syncObjectCoordsToTile();
+    }
 
     if (mode === 'surf') {
       if (!(this.currentState instanceof SurfingState)) {
@@ -2288,17 +2662,51 @@ export class PlayerController {
       return;
     }
 
+    if (this.bikeRiding && this.bikeMode !== 'none') {
+      if (!(this.currentState instanceof BikeState)) {
+        this.changeState(new BikeState(this.bikeMode as Exclude<BikeMode, 'none'>));
+      }
+      return;
+    }
+
     if (!(this.currentState instanceof NormalState)) {
       this.changeState(new NormalState());
     }
   }
 
-  public setTraversalState(state: { surfing: boolean; underwater: boolean }): void {
+  public setTraversalState(state: {
+    surfing: boolean;
+    underwater: boolean;
+    bikeMode?: BikeMode;
+    bikeRiding?: boolean;
+  }): void {
     if (state.underwater) {
       this.setTraversalMode('underwater');
       return;
     }
     this.setTraversalMode(state.surfing ? 'surf' : 'land');
+
+    if (state.surfing) {
+      return;
+    }
+
+    const desiredBikeMode = state.bikeMode ?? 'none';
+    const shouldRideBike = Boolean(state.bikeRiding && desiredBikeMode !== 'none');
+    if (!shouldRideBike) {
+      this.bikeMode = 'none';
+      this.bikeRiding = false;
+      if (this.traversalMode === 'land' && this.currentState instanceof BikeState) {
+        this.changeState(new NormalState());
+      }
+      return;
+    }
+
+    this.bikeMode = desiredBikeMode;
+    this.bikeRiding = true;
+    this.machBikeSpeedTier = 0;
+    if (!(this.currentState instanceof BikeState)) {
+      this.changeState(new BikeState(desiredBikeMode as Exclude<BikeMode, 'none'>));
+    }
   }
 
   /**
@@ -2315,6 +2723,38 @@ export class PlayerController {
     return this.currentState instanceof RunningState;
   }
 
+  public isBikeRiding(): boolean {
+    return this.bikeRiding;
+  }
+
+  public getBikeMode(): BikeMode {
+    return this.bikeRiding ? this.bikeMode : 'none';
+  }
+
+  public getBikeSpecialValue(): 0 | 1 | 2 {
+    if (!this.bikeRiding) {
+      return 0;
+    }
+    if (this.bikeMode === 'acro') {
+      return 1;
+    }
+    if (this.bikeMode === 'mach') {
+      return 2;
+    }
+    return 0;
+  }
+
+  public setCyclingRoadChallengeActive(active: boolean): void {
+    this.cyclingRoadChallengeActive = active;
+    if (active) {
+      this.cyclingRoadCollisions = 0;
+    }
+  }
+
+  public getCyclingRoadChallengeCollisions(): number {
+    return this.cyclingRoadCollisions;
+  }
+
   /**
    * Get the current sprite sheet key for WebGL rendering.
    * Returns 'surfing', 'running', or 'walking'.
@@ -2323,6 +2763,8 @@ export class PlayerController {
     if (this.traversalMode === 'underwater') return 'underwater';
     // Check for surfing OR mount/dismount jump (which also uses surfing sprite)
     if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';
+    if (this.bikeRiding && this.bikeMode === 'mach') return 'machBike';
+    if (this.bikeRiding && this.bikeMode === 'acro') return 'acroBike';
     if (this.isRunning()) return 'running';
     return 'walking';
   }

@@ -807,26 +807,40 @@ export class ObjectEventManager {
   }
 
   /**
-   * Get NPC at a specific tile position
-   * @returns The NPC if found and visible, null otherwise
+   * Get NPC collision occupancy tiles.
+   * Matches pokeemerald currentCoords + previousCoords checks while moving.
    */
+  private getNPCCollisionCoords(npc: NPCObject): Array<{ x: number; y: number }> {
+    const occupied = [{ x: npc.tileX, y: npc.tileY }];
+    if (!npc.isWalking || (npc.subTileX === 0 && npc.subTileY === 0)) {
+      return occupied;
+    }
+
+    const prevX = npc.tileX + Math.sign(npc.subTileX);
+    const prevY = npc.tileY + Math.sign(npc.subTileY);
+    if (prevX !== npc.tileX || prevY !== npc.tileY) {
+      occupied.push({ x: prevX, y: prevY });
+    }
+    return occupied;
+  }
+
   getNPCAt(tileX: number, tileY: number): NPCObject | null {
     for (const npc of this.npcs.values()) {
-      if (
-        npc.tileX === tileX
-        && npc.tileY === tileY
-        && npc.visible
-        && !this.offscreenDespawnedNpcIds.has(npc.id)
-      ) {
-        return npc;
+      if (!npc.visible || this.offscreenDespawnedNpcIds.has(npc.id)) {
+        continue;
+      }
+      for (const occupied of this.getNPCCollisionCoords(npc)) {
+        if (occupied.x === tileX && occupied.y === tileY) {
+          return npc;
+        }
       }
     }
     return null;
   }
 
   /**
-   * Check if there's a blocking NPC at a position
-   * (Used for collision detection - does NOT check elevation)
+   * Check if there's a blocking NPC at a position.
+   * Uses current+previous occupancy while NPC is moving.
    */
   hasNPCAt(tileX: number, tileY: number): boolean {
     return this.getNPCAt(tileX, tileY) !== null;

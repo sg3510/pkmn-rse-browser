@@ -575,6 +575,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             elevation: player.getElevation(),
             isSurfing: player.isSurfing(),
             isUnderwater: player.isUnderwater(),
+            bikeMode: player.getBikeMode(),
+            isRidingBike: player.isBikeRiding(),
           };
 
           pendingScriptedWarpRef.current = {
@@ -697,6 +699,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           if (!map) return null;
           return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
         },
+        getPlayerAvatarBike: () => player.getBikeSpecialValue(),
+        getLastUsedWarpMapId: () => null,
+        setCyclingRoadChallengeActive: (active) => {
+          player.setCyclingRoadChallengeActive(active);
+        },
+        getCyclingRoadChallengeCollisions: () => player.getCyclingRoadChallengeCollisions(),
         getMapMetatile: (mapId, tileX, tileY) => {
           const snapshot = worldManagerRef.current?.getSnapshot();
           if (!snapshot) return 0;

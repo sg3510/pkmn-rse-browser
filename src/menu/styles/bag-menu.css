@@ -262,3 +262,27 @@
   line-height: 1.4;
   min-height: 20px;
 }
+
+.bag-actions {
+  margin-top: var(--space-1);
+  display: flex;
+  gap: var(--space-1);
+}
+
+.bag-action-btn {
+  appearance: none;
+  border: var(--border-thin) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--section-bg-accent);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  font-weight: bold;
+  text-shadow: var(--text-shadow);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.bag-action-btn:hover {
+  background: var(--bg-hover);
+}

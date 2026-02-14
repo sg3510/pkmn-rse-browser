@@ -70,6 +70,7 @@ export interface MapEventsData {
   coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;
   bgEvents: BgEvent[];
   mapWeather: string | null;
+  mapAllowCycling: boolean;
 }
 
 /**
@@ -214,6 +215,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
     const jsonText = await loadText(`${PROJECT_ROOT}/data/maps/${mapFolder}/map.json`);
     const data = JSON.parse(jsonText) as {
       weather?: unknown;
+      allow_cycling?: unknown;
       warp_events?: Array<Record<string, unknown>>;
       object_events?: Array<Record<string, unknown>>;
       coord_events?: Array<Record<string, unknown>>;
@@ -231,6 +233,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       coordEvents: parseCoordEvents(coordEventsRaw),
       bgEvents: parseBgEvents(bgEventsRaw),
       mapWeather: typeof data.weather === 'string' ? data.weather : null,
+      mapAllowCycling: data.allow_cycling !== false,
     };
   } catch {
     return {
@@ -239,6 +242,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       coordEvents: [],
       bgEvents: [],
       mapWeather: null,
+      mapAllowCycling: true,
     };
   }
 }

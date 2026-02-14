@@ -165,13 +165,13 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     // Compute reflection state
     if (currentSnapshot) {
       const { width: spriteWidth, height: spriteHeight } = player.getSpriteSize();
-      const destTile = player.getDestinationTile();
+      const objectCoords = player.getObjectEventCoords();
       const reflectionState = computeReflectionState(
         currentSnapshot,
-        destTile.x,
-        destTile.y,
-        player.tileX,
-        player.tileY,
+        objectCoords.current.x,
+        objectCoords.current.y,
+        objectCoords.previous.x,
+        objectCoords.previous.y,
         spriteWidth,
         spriteHeight
       );
@@ -182,10 +182,10 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         result.reflectionTileGridDebug = getReflectionTileGridDebug(
           currentSnapshot,
           tilesetRuntimes,
-          player.tileX,
-          player.tileY,
-          destTile.x,
-          destTile.y,
+          objectCoords.previous.x,
+          objectCoords.previous.y,
+          objectCoords.current.x,
+          objectCoords.current.y,
           player.isMoving,
           player.dir,
           reflectionState

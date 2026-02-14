@@ -98,6 +98,7 @@ export interface LoadedMapInstance {
   coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;  // Coordinate events from map.json
   bgEvents: BgEvent[];  // Background events (signs, hidden items) from map.json
   mapWeather: string | null;  // Map default weather from map.json
+  mapAllowCycling: boolean;  // Map allow_cycling flag from map.json
 }
 
 /**
@@ -757,6 +758,7 @@ export class WorldManager {
         coordEvents: mapEvents.coordEvents,
         bgEvents: mapEvents.bgEvents,
         mapWeather: mapEvents.mapWeather,
+        mapAllowCycling: mapEvents.mapAllowCycling,
       };
 
       this.maps.set(entry.id, mapInstance);

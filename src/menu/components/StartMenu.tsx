@@ -30,7 +30,7 @@ interface MenuTileData {
 }
 
 export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: StartMenuProps) {
-  const { cursorIndex, isOpen, currentMenu } = useMenuState();
+  const { cursorIndex, isOpen, currentMenu, data } = useMenuState();
 
   // Determine grid layout based on viewport aspect ratio
   // Landscape (wider than tall): 3 cols × 2 rows
@@ -74,7 +74,7 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         enabled: true,
         onSelect: () => {
           console.log('[StartMenu] Bag selected');
-          menuStateManager.open('bag');
+          menuStateManager.open('bag', { ...data, mode: 'field' });
         },
       },
       {
@@ -111,7 +111,7 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         },
       },
     ];
-  }, []);
+  }, [data]);
 
   const visibleTiles = tiles.filter((t) => t.visible);
   const handleConfirm = useCallback(() => {

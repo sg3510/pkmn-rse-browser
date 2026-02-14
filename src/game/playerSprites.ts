@@ -14,7 +14,14 @@ import {
 /**
  * Keys used by PlayerController for sprite sheets.
  */
-export type PlayerSpriteKey = 'walking' | 'running' | 'surfing' | 'underwater' | 'shadow';
+export type PlayerSpriteKey =
+  | 'walking'
+  | 'running'
+  | 'machBike'
+  | 'acroBike'
+  | 'surfing'
+  | 'underwater'
+  | 'shadow';
 
 /**
  * Minimal descriptor for a player sprite sheet.
@@ -53,6 +60,24 @@ const PLAYER_SPRITE_DESCRIPTORS: Readonly<Record<PlayerSpriteKey, PlayerSpriteDe
     frameWidth: 16,
     frameHeight: 32,
   },
+  machBike: {
+    key: 'machBike',
+    imagePath: '/pokeemerald/graphics/object_events/pics/people/brendan/mach_bike.png',
+    graphicsId: 'OBJ_EVENT_GFX_BRENDAN_MACH_BIKE',
+    frameWidth: 32,
+    frameHeight: 32,
+    renderXOffset: -8,
+    useMetadataFrameMap: true,
+  },
+  acroBike: {
+    key: 'acroBike',
+    imagePath: '/pokeemerald/graphics/object_events/pics/people/brendan/acro_bike.png',
+    graphicsId: 'OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE',
+    frameWidth: 32,
+    frameHeight: 32,
+    renderXOffset: -8,
+    useMetadataFrameMap: true,
+  },
   surfing: {
     key: 'surfing',
     imagePath: '/pokeemerald/graphics/object_events/pics/people/brendan/surfing.png',
@@ -80,7 +105,15 @@ const PLAYER_SPRITE_DESCRIPTORS: Readonly<Record<PlayerSpriteKey, PlayerSpriteDe
   },
 };
 
-const PLAYER_SPRITE_KEYS: PlayerSpriteKey[] = ['walking', 'running', 'surfing', 'underwater', 'shadow'];
+const PLAYER_SPRITE_KEYS: PlayerSpriteKey[] = [
+  'walking',
+  'running',
+  'machBike',
+  'acroBike',
+  'surfing',
+  'underwater',
+  'shadow',
+];
 
 export interface PlayerSpriteFrameMetrics {
   frameWidth: number;

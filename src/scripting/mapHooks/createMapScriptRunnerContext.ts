@@ -16,6 +16,7 @@ interface CreateMapScriptRunnerContextParams {
   playerHiddenRef: MutableRef<boolean>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   lastUsedWarpMapType?: string | null;
+  lastUsedWarpMapId?: string | null;
 }
 
 export function createMapScriptRunnerContext(
@@ -29,6 +30,7 @@ export function createMapScriptRunnerContext(
     playerHiddenRef,
     setMapMetatile,
     lastUsedWarpMapType = null,
+    lastUsedWarpMapId = null,
   } = params;
 
   const mapLocalToWorld = (
@@ -109,5 +111,11 @@ export function createMapScriptRunnerContext(
       return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
     },
     getLastUsedWarpMapType: () => lastUsedWarpMapType,
+    getLastUsedWarpMapId: () => lastUsedWarpMapId,
+    getPlayerAvatarBike: () => player.getBikeSpecialValue(),
+    setCyclingRoadChallengeActive: (active) => {
+      player.setCyclingRoadChallengeActive(active);
+    },
+    getCyclingRoadChallengeCollisions: () => player.getCyclingRoadChallengeCollisions(),
   };
 }

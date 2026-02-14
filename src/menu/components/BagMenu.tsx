@@ -13,6 +13,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
 import { menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
+import { moneyManager } from '../../game/MoneyManager';
 import { getItemName, getItemIconPath, getItemDescription } from '../../data/items';
 import type { BagState } from '../../save/types';
 import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
@@ -52,6 +53,8 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const [scrollPosition, setScrollPosition] = useState<number[]>([0, 0, 0, 0, 0]);
   const battleMode = data.mode === 'battle';
   const onBattleItemSelected = data.onBattleItemSelected as ((itemId: number | null) => void) | undefined;
+  const onFieldUseItem = data.onFieldUseItem as ((itemId: number) => Promise<boolean> | boolean) | undefined;
+  const onFieldRegisterItem = data.onFieldRegisterItem as ((itemId: number) => void) | undefined;
 
   const MAX_VISIBLE_ITEMS = 6;
 
@@ -126,6 +129,50 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     });
   }, [currentPocket, scroll]);
 
+  const handleUseSelectedItem = useCallback(() => {
+    if (!selectedItem) return;
+    if (battleMode) {
+      onBattleItemSelected?.(selectedItem.itemId);
+      menuStateManager.close();
+      return;
+    }
+
+    // Field path: A = use item. Bikes can be mounted/dismounted from bag.
+    if (pocket.id === 'keyItems') {
+      if (onFieldUseItem) {
+        void Promise.resolve(onFieldUseItem(selectedItem.itemId)).then((handled) => {
+          if (handled) {
+            menuStateManager.close();
+          }
+        });
+        return;
+      }
+      moneyManager.setRegisteredItem(selectedItem.itemId);
+      console.log('[BagMenu] Registered key item:', getItemName(selectedItem.itemId));
+      menuStateManager.back();
+      return;
+    }
+
+    console.log('[BagMenu] Selected item:', getItemName(selectedItem.itemId));
+  }, [
+    selectedItem,
+    battleMode,
+    onBattleItemSelected,
+    pocket.id,
+    onFieldUseItem,
+  ]);
+
+  const handleRegisterSelectedItem = useCallback(() => {
+    if (!selectedItem || battleMode || pocket.id !== 'keyItems') return;
+    if (onFieldRegisterItem) {
+      onFieldRegisterItem(selectedItem.itemId);
+    } else {
+      moneyManager.setRegisteredItem(selectedItem.itemId);
+    }
+    console.log('[BagMenu] Registered key item:', getItemName(selectedItem.itemId));
+    menuStateManager.back();
+  }, [selectedItem, battleMode, pocket.id, onFieldRegisterItem]);
+
   // Keyboard input
   useMenuInput({
     onUp: () => moveCursor(-1),
@@ -133,15 +180,8 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     onLeft: () => switchPocket(-1),
     onRight: () => switchPocket(1),
     onCancel: handleClose,
-    onConfirm: () => {
-      if (!selectedItem) return;
-      if (battleMode) {
-        onBattleItemSelected?.(selectedItem.itemId);
-        menuStateManager.close();
-        return;
-      }
-      console.log('[BagMenu] Selected item:', getItemName(selectedItem.itemId));
-    },
+    onConfirm: handleUseSelectedItem,
+    onSelect: handleRegisterSelectedItem,
     enabled: isOpen && currentMenu === 'bag',
   });
 
@@ -209,7 +249,13 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
                 <div
                   key={`${item.itemId}-${actualIndex}`}
                   className={`item-row ${isSelected ? 'selected' : ''}`}
-                  onClick={() => handleSelectItem(i)}
+                  onClick={() => {
+                    if (isSelected) {
+                      handleUseSelectedItem();
+                      return;
+                    }
+                    handleSelectItem(i);
+                  }}
                   onMouseEnter={() => handleSelectItem(i)}
                 >
                   <img
@@ -239,6 +285,24 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
         <div className="item-description">
           {selectedItem ? getItemDescription(selectedItem.itemId) : 'Select an item'}
         </div>
+        {selectedItem && !battleMode && pocket.id === 'keyItems' && (
+          <div className="bag-actions">
+            <button
+              type="button"
+              className="bag-action-btn"
+              onClick={handleUseSelectedItem}
+            >
+              Use
+            </button>
+            <button
+              type="button"
+              className="bag-action-btn"
+              onClick={handleRegisterSelectedItem}
+            >
+              Register
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

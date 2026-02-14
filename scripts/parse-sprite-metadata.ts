@@ -84,6 +84,25 @@ interface SpriteMetadata {
   frameMap?: number[];  // Maps logical frame index to physical frame in sprite sheet
 }
 
+interface GraphicsInfoEntry {
+  infoSymbol: string;
+  name: string;
+  width: number;
+  height: number;
+  animationTable: string;
+  affineAnimationTable: string;
+  inanimate: boolean;
+  shadowSize: string;
+  imageTable: string;
+}
+
+interface PicTableData {
+  frameCount: number;
+  frameMap: number[];
+  picSymbols: string[];
+  primaryPicSymbol?: string;
+}
+
 // Standard animation indices
 const ANIM_INDICES: Record<string, number> = {
   'ANIM_STD_FACE_SOUTH': 0,
@@ -290,171 +309,179 @@ function parseAffineAnimationTables(content: string): Record<string, AffineAnima
 }
 
 /**
- * Parse graphics info from object_event_graphics_info.h
+ * Parse graphics-info structs from object_event_graphics_info.h.
+ *
+ * C reference:
+ * - public/pokeemerald/src/data/object_events/object_event_graphics_info.h
  */
-function parseGraphicsInfo(content: string): SpriteMetadata[] {
-  const sprites: SpriteMetadata[] = [];
+function parseGraphicsInfo(content: string): Record<string, GraphicsInfoEntry> {
+  const infos: Record<string, GraphicsInfoEntry> = {};
 
-  // Match struct definitions
-  const structRegex = /const struct ObjectEventGraphicsInfo (gObjectEventGraphicsInfo_\w+)\s*=\s*\{([^}]+)\}/g;
+  const structRegex = /const struct ObjectEventGraphicsInfo (gObjectEventGraphicsInfo_\w+)\s*=\s*\{([\s\S]*?)\};/g;
 
   let match;
   while ((match = structRegex.exec(content)) !== null) {
-    const fullName = match[1];
-    const name = fullName.replace('gObjectEventGraphicsInfo_', '');
+    const infoSymbol = match[1];
+    const name = infoSymbol.replace('gObjectEventGraphicsInfo_', '');
     const body = match[2];
 
-    // Parse fields
     const widthMatch = body.match(/\.width\s*=\s*(\d+)/);
     const heightMatch = body.match(/\.height\s*=\s*(\d+)/);
     const inanimateMatch = body.match(/\.inanimate\s*=\s*(\w+)/);
     const shadowMatch = body.match(/\.shadowSize\s*=\s*(\w+)/);
     const animsMatch = body.match(/\.anims\s*=\s*(\w+)/);
     const affineAnimsMatch = body.match(/\.affineAnims\s*=\s*(\w+)/);
+    const imagesMatch = body.match(/\.images\s*=\s*(\w+)/);
 
-    const sprite: SpriteMetadata = {
-      graphicsId: `OBJ_EVENT_GFX_${camelToSnake(name).toUpperCase()}`,
+    infos[infoSymbol] = {
+      infoSymbol,
       name,
-      width: widthMatch ? parseInt(widthMatch[1]) : 16,
-      height: heightMatch ? parseInt(heightMatch[1]) : 32,
-      frameCount: 9, // Will be updated from pic_tables
+      width: widthMatch ? parseInt(widthMatch[1], 10) : 16,
+      height: heightMatch ? parseInt(heightMatch[1], 10) : 32,
       animationTable: animsMatch ? animsMatch[1] : 'sAnimTable_Standard',
       affineAnimationTable: affineAnimsMatch ? affineAnimsMatch[1] : 'gDummySpriteAffineAnimTable',
       inanimate: inanimateMatch ? inanimateMatch[1] === 'TRUE' : false,
       shadowSize: shadowMatch ? shadowMatch[1] : 'SHADOW_SIZE_M',
+      imageTable: imagesMatch ? imagesMatch[1] : '',
     };
-
-    sprites.push(sprite);
   }
 
-  return sprites;
+  return infos;
 }
 
 /**
- * Parse pic tables to get frame counts and frame mappings
+ * Parse graphics-ID -> graphics-info symbol pointers.
  *
- * The pic table maps logical frame indices (used by animation system)
- * to physical frame indices in the sprite sheet.
- *
- * Example: sPicTable_Wingull maps logical frame 2 to physical frame 4
- * because Wingull's sprite sheet is: down, down_walk, up, up_walk, left, left_walk
- * but standard animations expect: down, up, left, down_walk1, down_walk2, etc.
+ * C reference:
+ * - public/pokeemerald/src/data/object_events/object_event_graphics_info_pointers.h
  */
-function parsePicTables(content: string): Record<string, {
-  frameCount: number;
-  tilesW: number;
-  tilesH: number;
-  frameMap: number[];  // frameMap[logicalIndex] = physicalIndex
-}> {
-  const picTables: Record<string, {
-    frameCount: number;
-    tilesW: number;
-    tilesH: number;
-    frameMap: number[];
-  }> = {};
+function parseGraphicsInfoPointers(content: string): Record<string, string> {
+  const pointers: Record<string, string> = {};
+  const pointerRegex = /\[(OBJ_EVENT_GFX_[A-Z0-9_]+)\]\s*=\s*&?(gObjectEventGraphicsInfo_\w+)/g;
 
-  // Match: static const struct SpriteFrameImage sPicTable_BrendanNormal[] = { ... };
-  const tableRegex = /static const struct SpriteFrameImage (sPicTable_\w+)\[\]\s*=\s*\{([^}]+)\}/g;
+  let match;
+  while ((match = pointerRegex.exec(content)) !== null) {
+    const graphicsId = match[1];
+    const infoSymbol = match[2];
+    pointers[graphicsId] = infoSymbol;
+  }
+
+  return pointers;
+}
+
+/**
+ * Parse object-event picture symbols -> runtime PNG paths.
+ *
+ * C reference:
+ * - public/pokeemerald/src/data/object_events/object_event_graphics.h
+ */
+function parseObjectEventPicPaths(content: string): Record<string, string> {
+  const pathMap: Record<string, string> = {};
+  const picRegex = /const u32 (gObjectEventPic_\w+)\[\]\s*=\s*INCBIN_U32\("([^"]+)"\);/g;
+
+  let match;
+  while ((match = picRegex.exec(content)) !== null) {
+    const picSymbol = match[1];
+    const incbinPath = match[2];
+
+    if (!incbinPath.startsWith('graphics/object_events/pics/')) {
+      continue;
+    }
+    if (!incbinPath.endsWith('.4bpp')) {
+      continue;
+    }
+
+    const relative = incbinPath
+      .replace('graphics/object_events/pics/', '')
+      .replace(/\.4bpp$/, '.png');
+    pathMap[picSymbol] = `/${relative}`;
+  }
+
+  return pathMap;
+}
+
+/**
+ * Parse sPicTable_* entries from pic-table headers.
+ *
+ * C references:
+ * - public/pokeemerald/src/data/object_events/object_event_pic_tables.h
+ * - public/pokeemerald/src/data/object_events/berry_tree_graphics_tables.h
+ */
+function parsePicTables(content: string, existing: Record<string, PicTableData> = {}): Record<string, PicTableData> {
+  const picTables = existing;
+  const tableRegex = /static const struct SpriteFrameImage (sPicTable_\w+)\[\]\s*=\s*\{([\s\S]*?)\};/g;
 
   let match;
   while ((match = tableRegex.exec(content)) !== null) {
     const tableName = match[1];
     const body = match[2];
-
-    // Parse each overworld_frame entry to get the physical frame index
-    // Format: overworld_frame(gObjectEventPic_Name, tilesW, tilesH, physicalFrameIndex)
     const frameMap: number[] = [];
-    const frameRegex = /overworld_frame\(\w+,\s*(\d+),\s*(\d+),\s*(\d+)\)/g;
-    let frameMatch;
-    let tilesW = 2;
-    let tilesH = 4;
+    const picSymbols: string[] = [];
 
-    while ((frameMatch = frameRegex.exec(body)) !== null) {
-      tilesW = parseInt(frameMatch[1]);
-      tilesH = parseInt(frameMatch[2]);
-      const physicalFrame = parseInt(frameMatch[3]);
-      frameMap.push(physicalFrame);
+    const lines = body.split('\n').map((line) => line.trim());
+    for (const line of lines) {
+      const overworldFrameMatch = line.match(
+        /overworld_frame\((gObjectEventPic_\w+),\s*\d+,\s*\d+,\s*(\d+)\)/
+      );
+      if (overworldFrameMatch) {
+        picSymbols.push(overworldFrameMatch[1]);
+        frameMap.push(parseInt(overworldFrameMatch[2], 10));
+        continue;
+      }
+
+      const objFrameTilesMatch = line.match(/obj_frame_tiles\((gObjectEventPic_\w+)\)/);
+      if (objFrameTilesMatch) {
+        picSymbols.push(objFrameTilesMatch[1]);
+        // obj_frame_tiles implies one full-frame image in-order.
+        frameMap.push(frameMap.length);
+      }
+    }
+
+    let primaryPicSymbol: string | undefined;
+    if (picSymbols.length > 0) {
+      const counts = new Map<string, number>();
+      let maxCount = 0;
+      for (const symbol of picSymbols) {
+        const nextCount = (counts.get(symbol) ?? 0) + 1;
+        counts.set(symbol, nextCount);
+        if (nextCount > maxCount) {
+          maxCount = nextCount;
+          primaryPicSymbol = symbol;
+        }
+      }
     }
 
     picTables[tableName] = {
       frameCount: frameMap.length,
-      tilesW,
-      tilesH,
-      frameMap
+      frameMap,
+      picSymbols,
+      primaryPicSymbol,
     };
   }
 
   return picTables;
 }
 
-/**
- * Convert CamelCase to SNAKE_CASE
- *
- * Also handles trailing numbers: Woman5 → WOMAN_5
- */
-function camelToSnake(str: string): string {
-  let result = str
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2');
+function resolveSpritePathFromImageTable(
+  imageTable: string,
+  picTables: Record<string, PicTableData>,
+  picPaths: Record<string, string>
+): string | undefined {
+  const table = picTables[imageTable];
+  if (!table) return undefined;
 
-  // Add underscore before trailing numbers: Woman5 → Woman_5
-  result = result.replace(/([a-zA-Z])(\d+)$/, '$1_$2');
-
-  return result;
-}
-
-/**
- * Convert name to likely sprite path
- *
- * Handles the conversion from CamelCase struct names to actual file paths.
- * Key insight: pokeemerald files use underscores before numbers (woman_5.png, not woman5.png)
- */
-function nameToSpritePath(name: string): string {
-  let snakeName = name
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
-    .toLowerCase();
-
-  // CRITICAL: Add underscore before trailing numbers
-  // CamelCase "Woman5" becomes "woman5" but the actual file is "woman_5.png"
-  snakeName = snakeName.replace(/([a-z])(\d+)$/, '$1_$2');
-
-  // Handle special cases
-  if (snakeName === 'moving_box') return '/misc/moving_box.png';
-  if (snakeName.includes('brendan')) return `/people/brendan/${snakeName.replace('brendan_', '')}.png`;
-  if (snakeName.includes('may')) return `/people/may/${snakeName.replace('may_', '')}.png`;
-  if (snakeName.includes('aqua_member')) return `/people/team_aqua/${snakeName}.png`;
-  if (snakeName.includes('magma_member')) return `/people/team_magma/${snakeName}.png`;
-  if (snakeName.includes('archie')) return `/people/team_aqua/archie.png`;
-  if (snakeName.includes('maxie')) return `/people/team_magma/maxie.png`;
-
-  // Gym leaders
-  const gymLeaders = ['roxanne', 'brawly', 'wattson', 'flannery', 'norman', 'winona', 'liza', 'tate', 'juan', 'wallace'];
-  for (const leader of gymLeaders) {
-    if (snakeName === leader) return `/people/gym_leaders/${leader}.png`;
+  if (table.primaryPicSymbol && picPaths[table.primaryPicSymbol]) {
+    return picPaths[table.primaryPicSymbol];
   }
 
-  // Elite Four
-  const eliteFour = ['sidney', 'phoebe', 'glacia', 'drake'];
-  for (const member of eliteFour) {
-    if (snakeName === member) return `/people/elite_four/${member}.png`;
+  for (const symbol of table.picSymbols) {
+    const resolved = picPaths[symbol];
+    if (resolved) {
+      return resolved;
+    }
   }
 
-  // Frontier Brains
-  const frontierBrains = ['anabel', 'brandon', 'greta', 'lucy', 'noland', 'spenser', 'tucker'];
-  for (const brain of frontierBrains) {
-    if (snakeName === brain) return `/people/frontier_brains/${brain}.png`;
-  }
-
-  // Pokemon
-  const pokemonNames = ['pikachu', 'kecleon', 'zigzagoon', 'poochyena', 'wingull', 'azurill', 'skitty',
-                         'kyogre', 'groudon', 'rayquaza', 'latias', 'latios', 'deoxys', 'mew', 'ho_oh',
-                         'lugia', 'sudowoodo', 'azumarill', 'kirlia', 'vigoroth', 'dusclops'];
-  for (const pokemon of pokemonNames) {
-    if (snakeName.includes(pokemon)) return `/pokemon/${pokemon}.png`;
-  }
-
-  return `/people/${snakeName}.png`;
+  return undefined;
 }
 
 // Main execution
@@ -463,7 +490,10 @@ function main() {
 
   // Read source files
   const graphicsInfoContent = readFile('src/data/object_events/object_event_graphics_info.h');
+  const graphicsInfoPointersContent = readFile('src/data/object_events/object_event_graphics_info_pointers.h');
+  const objectEventGraphicsContent = readFile('src/data/object_events/object_event_graphics.h');
   const picTablesContent = readFile('src/data/object_events/object_event_pic_tables.h');
+  const berryTreePicTablesContent = readFile('src/data/object_events/berry_tree_graphics_tables.h');
   const animsContent = readFile('src/data/object_events/object_event_anims.h');
 
   // Parse animations
@@ -486,29 +516,70 @@ function main() {
   const affineAnimationTables = parseAffineAnimationTables(animsContent);
   console.log(`  Found ${Object.keys(affineAnimationTables).length} affine animation tables`);
 
-  // Parse graphics info
+  // Parse graphics-info structs and pointer table
   console.log('Parsing graphics info...');
-  const sprites = parseGraphicsInfo(graphicsInfoContent);
-  console.log(`  Found ${sprites.length} sprites`);
+  const graphicsInfos = parseGraphicsInfo(graphicsInfoContent);
+  const graphicsPointers = parseGraphicsInfoPointers(graphicsInfoPointersContent);
+  console.log(`  Found ${Object.keys(graphicsInfos).length} graphics-info structs`);
+  console.log(`  Found ${Object.keys(graphicsPointers).length} graphics ID pointers`);
 
-  // Parse pic tables for frame counts
+  // Parse picture symbols -> paths from object_event_graphics.h
+  console.log('Parsing object-event picture paths...');
+  const objectEventPicPaths = parseObjectEventPicPaths(objectEventGraphicsContent);
+  console.log(`  Found ${Object.keys(objectEventPicPaths).length} object-event picture symbols`);
+
+  // Parse pic tables for frame counts/frame maps and image-symbol references
   console.log('Parsing pic tables...');
-  const picTables = parsePicTables(picTablesContent);
+  const picTables = parsePicTables(
+    berryTreePicTablesContent,
+    parsePicTables(picTablesContent)
+  );
   console.log(`  Found ${Object.keys(picTables).length} pic tables`);
 
-  // Update sprites with frame counts, frame maps, and paths
-  for (const sprite of sprites) {
-    const picTableName = `sPicTable_${sprite.name}`;
-    if (picTables[picTableName]) {
-      sprite.frameCount = picTables[picTableName].frameCount;
-      // Only include frameMap if it's non-trivial (not just 0,1,2,3,4...)
-      const frameMap = picTables[picTableName].frameMap;
-      const isNonTrivial = frameMap.some((physicalIdx, logicalIdx) => physicalIdx !== logicalIdx);
+  // Build final sprite metadata using authoritative pointer mapping:
+  // OBJ_EVENT_GFX_* -> gObjectEventGraphicsInfo_* -> sPicTable_* -> gObjectEventPic_* -> path
+  const sprites: SpriteMetadata[] = [];
+  const unresolvedPathIds: string[] = [];
+  for (const [graphicsId, infoSymbol] of Object.entries(graphicsPointers)) {
+    const info = graphicsInfos[infoSymbol];
+    if (!info) {
+      continue;
+    }
+
+    const sprite: SpriteMetadata = {
+      graphicsId,
+      name: info.name,
+      width: info.width,
+      height: info.height,
+      frameCount: 9,
+      animationTable: info.animationTable,
+      affineAnimationTable: info.affineAnimationTable,
+      inanimate: info.inanimate,
+      shadowSize: info.shadowSize,
+    };
+
+    const picTable = picTables[info.imageTable];
+    if (picTable && picTable.frameCount > 0) {
+      sprite.frameCount = picTable.frameCount;
+      const isNonTrivial = picTable.frameMap.some((physicalIdx, logicalIdx) => physicalIdx !== logicalIdx);
       if (isNonTrivial) {
-        sprite.frameMap = frameMap;
+        sprite.frameMap = picTable.frameMap;
       }
     }
-    sprite.spritePath = nameToSpritePath(sprite.name);
+
+    sprite.spritePath = resolveSpritePathFromImageTable(info.imageTable, picTables, objectEventPicPaths);
+    if (!sprite.spritePath) {
+      unresolvedPathIds.push(graphicsId);
+    }
+
+    sprites.push(sprite);
+  }
+
+  if (unresolvedPathIds.length > 0) {
+    console.warn(
+      `[WARN] Could not resolve sprite paths for ${unresolvedPathIds.length} graphics IDs (first 10): ` +
+      unresolvedPathIds.slice(0, 10).join(', ')
+    );
   }
 
   // Build output
@@ -516,7 +587,10 @@ function main() {
     generatedAt: new Date().toISOString(),
     sourceFiles: [
       'object_event_graphics_info.h',
+      'object_event_graphics_info_pointers.h',
+      'object_event_graphics.h',
       'object_event_pic_tables.h',
+      'berry_tree_graphics_tables.h',
       'object_event_anims.h'
     ],
     animationIndices: ANIM_INDICES,

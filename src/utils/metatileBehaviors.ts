@@ -2,6 +2,16 @@
 import {
   MB_TALL_GRASS,
   MB_LONG_GRASS,
+  MB_NO_RUNNING,
+  MB_HOT_SPRINGS,
+  MB_PACIFIDLOG_VERTICAL_LOG_TOP,
+  MB_PACIFIDLOG_VERTICAL_LOG_BOTTOM,
+  MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT,
+  MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT,
+  MB_ISOLATED_VERTICAL_RAIL,
+  MB_ISOLATED_HORIZONTAL_RAIL,
+  MB_VERTICAL_RAIL,
+  MB_HORIZONTAL_RAIL,
   MB_INDOOR_ENCOUNTER,
   MB_MOUNTAIN_TOP,
   MB_UNUSED_BRIDGE,
@@ -28,6 +38,12 @@ import {
 export {
   MB_TALL_GRASS,
   MB_LONG_GRASS,
+  MB_NO_RUNNING,
+  MB_HOT_SPRINGS,
+  MB_ISOLATED_VERTICAL_RAIL,
+  MB_ISOLATED_HORIZONTAL_RAIL,
+  MB_VERTICAL_RAIL,
+  MB_HORIZONTAL_RAIL,
   MB_SECRET_BASE_WALL,
   MB_IMPASSABLE_EAST,
   MB_IMPASSABLE_SOUTH_AND_NORTH,
@@ -323,6 +339,54 @@ export function isTallGrassBehavior(behavior: number): boolean {
 
 export function isLongGrassBehavior(behavior: number): boolean {
   return behavior === MB_LONG_GRASS;
+}
+
+/**
+ * C ref: MetatileBehavior_IsPacifidlogLog (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isPacifidlogLogBehavior(behavior: number): boolean {
+  return behavior === MB_PACIFIDLOG_VERTICAL_LOG_TOP
+    || behavior === MB_PACIFIDLOG_VERTICAL_LOG_BOTTOM
+    || behavior === MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT
+    || behavior === MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT;
+}
+
+/**
+ * C ref: MetatileBehavior_IsRunningDisallowed (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isRunningDisallowedBehavior(behavior: number): boolean {
+  return behavior === MB_NO_RUNNING
+    || behavior === MB_LONG_GRASS
+    || behavior === MB_HOT_SPRINGS
+    || isPacifidlogLogBehavior(behavior);
+}
+
+export function isIsolatedVerticalRailBehavior(behavior: number): boolean {
+  return behavior === MB_ISOLATED_VERTICAL_RAIL;
+}
+
+export function isIsolatedHorizontalRailBehavior(behavior: number): boolean {
+  return behavior === MB_ISOLATED_HORIZONTAL_RAIL;
+}
+
+export function isVerticalRailBehavior(behavior: number): boolean {
+  return behavior === MB_VERTICAL_RAIL;
+}
+
+export function isHorizontalRailBehavior(behavior: number): boolean {
+  return behavior === MB_HORIZONTAL_RAIL;
+}
+
+export function isAnyVerticalRailBehavior(behavior: number): boolean {
+  return isIsolatedVerticalRailBehavior(behavior) || isVerticalRailBehavior(behavior);
+}
+
+export function isAnyHorizontalRailBehavior(behavior: number): boolean {
+  return isIsolatedHorizontalRailBehavior(behavior) || isHorizontalRailBehavior(behavior);
+}
+
+export function isBikeRailBehavior(behavior: number): boolean {
+  return isAnyVerticalRailBehavior(behavior) || isAnyHorizontalRailBehavior(behavior);
 }
 
 /**

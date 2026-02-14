@@ -67,7 +67,11 @@ export function createNPCMovementProviders(
     hasPlayerAt: (x: number, y: number): boolean => {
       const player = playerRef.current;
       if (!player) return false;
-      return player.tileX === x && player.tileY === y;
+      const coords = player.getObjectEventCoords();
+      return (
+        (coords.current.x === x && coords.current.y === y)
+        || (coords.previous.x === x && coords.previous.y === y)
+      );
     },
     getTileBehavior: (x: number, y: number): number | undefined => {
       const player = playerRef.current;
@@ -78,12 +82,12 @@ export function createNPCMovementProviders(
     getPlayerState: () => {
       const player = playerRef.current;
       if (!player) return null;
-      const destination = player.getDestinationTile();
+      const coords = player.getObjectEventCoords();
       return {
-        tileX: player.tileX,
-        tileY: player.tileY,
-        destTileX: destination.x,
-        destTileY: destination.y,
+        tileX: coords.previous.x,
+        tileY: coords.previous.y,
+        destTileX: coords.current.x,
+        destTileY: coords.current.y,
         direction: player.getFacingDirection(),
         isMoving: player.isMoving,
       };

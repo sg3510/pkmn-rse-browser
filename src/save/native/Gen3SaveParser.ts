@@ -1110,6 +1110,8 @@ export function parseGen3Save(
     elevation: 3, // Default elevation
     isSurfing: false,
     isUnderwater: false,
+    bikeMode: 'none',
+    isRidingBike: false,
   };
 
   const moneyState: MoneyState = {

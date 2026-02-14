@@ -120,6 +120,10 @@ export interface LocationState {
   isSurfing: boolean;
   /** Whether currently in underwater traversal mode */
   isUnderwater: boolean;
+  /** Active bike mode when mounted (0=none in C when not mounted). */
+  bikeMode?: 'none' | 'mach' | 'acro';
+  /** Whether the player is currently mounted on a bike. */
+  isRidingBike?: boolean;
 }
 
 /**

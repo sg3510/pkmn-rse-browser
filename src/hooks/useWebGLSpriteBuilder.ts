@@ -452,13 +452,13 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
         if (snapshot) {
           const spriteWidth = frameInfo.sw;
           const spriteHeight = frameInfo.sh;
-          const destTile = info.player.getDestinationTile();
+          const objectCoords = info.player.getObjectEventCoords();
           const reflectionState = computeReflectionState(
             snapshot,
-            destTile.x,
-            destTile.y,
-            info.player.tileX,
-            info.player.tileY,
+            objectCoords.current.x,
+            objectCoords.current.y,
+            objectCoords.previous.x,
+            objectCoords.previous.y,
             spriteWidth,
             spriteHeight
           );

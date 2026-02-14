@@ -32,6 +32,7 @@ export interface RunMapEntryScriptsParams {
   playerHiddenRef: MutableRef<boolean>;
   pipeline: WebGLRenderPipeline;
   lastUsedWarpMapType?: string | null;
+  lastUsedWarpMapId?: string | null;
   mapScriptCache?: Map<string, MapScriptData | null>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   scriptRuntimeServices?: ScriptRuntimeServices;
@@ -87,6 +88,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     playerHiddenRef,
     pipeline,
     lastUsedWarpMapType,
+    lastUsedWarpMapId,
     mapScriptCache,
     setMapMetatile,
     scriptRuntimeServices,
@@ -123,6 +125,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       playerHiddenRef,
       setMapMetatile,
       lastUsedWarpMapType,
+      lastUsedWarpMapId,
     });
 
     const runner = new ScriptRunner(

@@ -40,6 +40,7 @@ import {
 import { gameFlags } from '../game/GameFlags';
 import { gameVariables } from '../game/GameVariables';
 import { bagManager } from '../game/BagManager';
+import { ITEMS } from '../data/items';
 import { parseGen3Save, isValidGen3Save } from './native';
 import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types';
@@ -59,13 +60,58 @@ function getSlotKey(slot: number): string {
   return `${SAVE_STORAGE_KEY}-slot-${slot}`;
 }
 
-function normalizeLocationTraversal(location: LocationState & { isUnderwater?: boolean }): void {
+function normalizeLocationTraversal(
+  location: LocationState & { isUnderwater?: boolean; bikeMode?: 'none' | 'mach' | 'acro'; isRidingBike?: boolean }
+): void {
   if (typeof location.isUnderwater !== 'boolean') {
     location.isUnderwater = false;
+  }
+  if (location.bikeMode !== 'mach' && location.bikeMode !== 'acro') {
+    location.bikeMode = 'none';
+  }
+  if (typeof location.isRidingBike !== 'boolean') {
+    location.isRidingBike = false;
   }
   // Backward compatibility: old saves could persist underwater + surfing at once.
   if (location.isUnderwater) {
     location.isSurfing = false;
+    location.isRidingBike = false;
+  }
+  if (location.isSurfing) {
+    location.isRidingBike = false;
+  }
+  if (location.isRidingBike && location.bikeMode === 'none') {
+    location.isRidingBike = false;
+  }
+}
+
+function reconcileBikeOwnershipState(
+  location: LocationState & { bikeMode?: 'none' | 'mach' | 'acro'; isRidingBike?: boolean }
+): void {
+  const hasMachBikeInBag = bagManager.hasItem(ITEMS.ITEM_MACH_BIKE, 1);
+  const hasAcroBikeInBag = bagManager.hasItem(ITEMS.ITEM_ACRO_BIKE, 1);
+  const pcItems = saveStateStore.getPCItems();
+  const hasMachBikeInPC = pcItems.some((slot) => slot.itemId === ITEMS.ITEM_MACH_BIKE && slot.quantity > 0);
+  const hasAcroBikeInPC = pcItems.some((slot) => slot.itemId === ITEMS.ITEM_ACRO_BIKE && slot.quantity > 0);
+  const hasAnyBike = hasMachBikeInBag || hasAcroBikeInBag || hasMachBikeInPC || hasAcroBikeInPC;
+
+  if (!hasAnyBike && gameFlags.isSet('FLAG_RECEIVED_BIKE')) {
+    gameFlags.clear('FLAG_RECEIVED_BIKE');
+    console.warn('[SaveManager] Cleared FLAG_RECEIVED_BIKE (no Mach/Acro bike in bag or PC)');
+  }
+
+  const registeredItem = saveStateStore.getRegisteredItem();
+  const registeredBikeMissing =
+    (registeredItem === ITEMS.ITEM_MACH_BIKE && !hasMachBikeInBag)
+    || (registeredItem === ITEMS.ITEM_ACRO_BIKE && !hasAcroBikeInBag);
+  if (registeredBikeMissing) {
+    saveStateStore.setRegisteredItem(ITEMS.ITEM_NONE);
+    console.warn('[SaveManager] Cleared registered bike item (bike no longer in bag)');
+  }
+
+  if (!hasAnyBike && location.isRidingBike) {
+    location.isRidingBike = false;
+    location.bikeMode = 'none';
   }
 }
 
@@ -235,7 +281,10 @@ class SaveManagerClass {
       // Load PC items
       if (data.pcItems) {
         saveStateStore.setPCItems(data.pcItems.items);
+      } else {
+        saveStateStore.setPCItems([]);
       }
+      reconcileBikeOwnershipState(locationWithMigration);
 
       // Load options
       if (data.options) {
@@ -578,6 +627,8 @@ class SaveManagerClass {
       elevation: 3, // Default elevation
       isSurfing: isSurfing && !isUnderwater,
       isUnderwater,
+      bikeMode: 'none',
+      isRidingBike: false,
     };
 
     return this.save(0, locationState);

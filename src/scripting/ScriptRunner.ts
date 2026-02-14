@@ -104,6 +104,63 @@ function rotateCCW(dir: Direction): Direction {
 const GENDER_MALE = 0;
 const GENDER_FEMALE = 1;
 const DEFAULT_SCRIPT_FADE_FRAMES = 16;
+const CYCLING_ROAD_FRAME_MS = 1000 / 60;
+const CYCLING_RECORD_TIME_LOW_VAR = 'VAR_CYCLING_ROAD_RECORD_TIME_L';
+const CYCLING_RECORD_TIME_HIGH_VAR = 'VAR_CYCLING_ROAD_RECORD_TIME_H';
+const CYCLING_RECORD_COLLISIONS_VAR = 'VAR_CYCLING_ROAD_RECORD_COLLISIONS';
+const ITEM_MACH_BIKE = getItemId('ITEM_MACH_BIKE') ?? 259;
+const ITEM_ACRO_BIKE = getItemId('ITEM_ACRO_BIKE') ?? 272;
+
+interface CyclingRoadChallengeRuntime {
+  active: boolean;
+  startedAtMs: number;
+}
+
+const cyclingRoadChallenge: CyclingRoadChallengeRuntime = {
+  active: false,
+  startedAtMs: 0,
+};
+
+function getCurrentMonotonicTimeMs(): number {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function formatCyclingRoadCollisionText(numBikeCollisions: number): string {
+  if (numBikeCollisions < 100) {
+    return `${numBikeCollisions} times`;
+  }
+  return '99 times+';
+}
+
+function formatCyclingRoadTimeText(numFrames: number): string {
+  if (numFrames < 3600) {
+    const seconds = numFrames / 60;
+    return `${seconds.toFixed(2)} seconds`;
+  }
+  return '1 minute+';
+}
+
+function determineCyclingRoadResult(numFrames: number, numBikeCollisions: number): number {
+  let result = 0;
+
+  if (numBikeCollisions === 0) result = 5;
+  else if (numBikeCollisions < 4) result = 4;
+  else if (numBikeCollisions < 10) result = 3;
+  else if (numBikeCollisions < 20) result = 2;
+  else if (numBikeCollisions < 100) result = 1;
+
+  const elapsedSeconds = numFrames / 60;
+  if (elapsedSeconds <= 10) result += 5;
+  else if (elapsedSeconds <= 15) result += 4;
+  else if (elapsedSeconds <= 20) result += 3;
+  else if (elapsedSeconds <= 40) result += 2;
+  else if (elapsedSeconds < 60) result += 1;
+
+  return result;
+}
 
 /**
  * Resolve a constant name to its numeric value.
@@ -390,6 +447,29 @@ export class ScriptRunner {
     return asNumber(resolved);
   }
 
+  private resolveItemId(itemArg: string | number): number {
+    if (typeof itemArg === 'number') {
+      return itemArg;
+    }
+
+    const resolved = resolveConstant(itemArg);
+    if (typeof resolved === 'number') {
+      return resolved;
+    }
+
+    if (resolved.startsWith('VAR_')) {
+      return this.getVar(resolved);
+    }
+
+    const byName = getItemId(resolved);
+    if (byName) {
+      return byName;
+    }
+
+    const parsed = Number.parseInt(resolved, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   private async showTextByLabel(textLabel: string | null): Promise<void> {
     if (!textLabel) return;
     const rawText = this.findText(textLabel);
@@ -424,6 +504,23 @@ export class ScriptRunner {
     if (mapScripts.onResume) {
       await this.execute(mapScripts.onResume);
     }
+  }
+
+  private getCyclingRoadRecordFrames(): number {
+    const low = gameVariables.getVar(CYCLING_RECORD_TIME_LOW_VAR) & 0xFFFF;
+    const high = gameVariables.getVar(CYCLING_RECORD_TIME_HIGH_VAR) & 0xFFFF;
+    return low + (high << 16);
+  }
+
+  private setCyclingRoadRecordFrames(frames: number): void {
+    const normalized = Math.max(0, frames | 0);
+    gameVariables.setVar(CYCLING_RECORD_TIME_LOW_VAR, normalized & 0xFFFF);
+    gameVariables.setVar(CYCLING_RECORD_TIME_HIGH_VAR, (normalized >>> 16) & 0xFFFF);
+  }
+
+  private setCyclingRoadResultStrings(numFrames: number, numBikeCollisions: number): void {
+    stringVars['STR_VAR_1'] = formatCyclingRoadCollisionText(numBikeCollisions);
+    stringVars['STR_VAR_2'] = formatCyclingRoadTimeText(numFrames);
   }
 
   private resolveMoveId(moveArg: string | number): number {
@@ -1291,19 +1388,33 @@ export class ScriptRunner {
           gameVariables.setVar('VAR_TEMP_CHALLENGE_STATUS', 0xFF);
           break;
 
+        // --- additem: add item to bag and set VAR_RESULT ---
+        // C ref: ScrCmd_additem in public/pokeemerald/src/scrcmd.c
+        case 'additem': {
+          const itemId = this.resolveItemId(args[0]);
+          const amount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
+          const added = itemId > 0 ? bagManager.addItem(itemId, amount) : false;
+          gameVariables.setVar('VAR_RESULT', added ? 1 : 0);
+          break;
+        }
+
+        // --- removeitem: remove item from bag and set VAR_RESULT ---
+        // C ref: ScrCmd_removeitem in public/pokeemerald/src/scrcmd.c
+        case 'removeitem': {
+          const itemId = this.resolveItemId(args[0]);
+          const amount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
+          const removed = itemId > 0 ? bagManager.removeItem(itemId, amount) : false;
+          gameVariables.setVar('VAR_RESULT', removed ? 1 : 0);
+          break;
+        }
+
         // --- giveitem: add item to bag and show obtain message ---
         // C macro: sets VAR_0x8000=item, VAR_0x8001=amount, callstd STD_OBTAIN_ITEM
         // Shows fanfare + "[Player] obtained [item]!" and sets VAR_RESULT
         case 'giveitem': {
-          const itemArg = asString(args[0]);
+          const itemArg = args[0];
           const amount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
-          // Resolve item: could be a constant name or a variable reference
-          let itemId: number | null;
-          if (itemArg.startsWith('VAR_')) {
-            itemId = this.getVar(itemArg);
-          } else {
-            itemId = getItemId(itemArg);
-          }
+          const itemId = this.resolveItemId(itemArg);
           if (itemId && itemId > 0) {
             bagManager.addItem(itemId, amount);
             const itemName = getItemName(itemId);
@@ -1320,14 +1431,9 @@ export class ScriptRunner {
         // C macro: sets VAR_0x8000=item, VAR_0x8001=amount, callstd STD_FIND_ITEM
         // Also sets the flag of the interacted object (item ball disappears)
         case 'finditem': {
-          const findItemArg = asString(args[0]);
+          const findItemArg = args[0];
           const findAmount = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
-          let findItemId: number | null;
-          if (findItemArg.startsWith('VAR_')) {
-            findItemId = this.getVar(findItemArg);
-          } else {
-            findItemId = getItemId(findItemArg);
-          }
+          const findItemId = this.resolveItemId(findItemArg);
           if (findItemId && findItemId > 0) {
             bagManager.addItem(findItemId, findAmount);
             const findItemName = getItemName(findItemId);
@@ -1454,9 +1560,9 @@ export class ScriptRunner {
 
         // --- checkitem: check if player has an item in bag ---
         case 'checkitem': {
-          const itemConstant = asString(args[0]);
-          const checkItemId = getItemId(itemConstant);
-          if (checkItemId && checkItemId > 0 && bagManager.hasItem(checkItemId)) {
+          const checkItemId = this.resolveItemId(args[0]);
+          const quantity = args.length > 1 ? this.resolveVarOrConst(args[1]) : 1;
+          if (checkItemId && checkItemId > 0 && bagManager.hasItem(checkItemId, quantity)) {
             gameVariables.setVar('VAR_RESULT', 1); // TRUE
           } else {
             gameVariables.setVar('VAR_RESULT', 0); // FALSE
@@ -2237,6 +2343,79 @@ export class ScriptRunner {
       case 'OpenPokenavForTutorial':
         // Opens the full PokéNav UI — no-op since we don't have one.
         return undefined;
+
+      // --- Bike / Cycling Road specials ---
+      case 'GetPlayerAvatarBike':
+        return this.ctx.getPlayerAvatarBike?.() ?? 0;
+
+      case 'SwapRegisteredBike': {
+        const registeredItem = moneyManager.getRegisteredItem();
+        if (registeredItem === ITEM_MACH_BIKE) {
+          moneyManager.setRegisteredItem(ITEM_ACRO_BIKE);
+        } else if (registeredItem === ITEM_ACRO_BIKE) {
+          moneyManager.setRegisteredItem(ITEM_MACH_BIKE);
+        }
+        return undefined;
+      }
+
+      case 'Special_BeginCyclingRoadChallenge': {
+        cyclingRoadChallenge.active = true;
+        cyclingRoadChallenge.startedAtMs = getCurrentMonotonicTimeMs();
+        this.ctx.setCyclingRoadChallengeActive?.(true);
+        return undefined;
+      }
+
+      case 'FinishCyclingRoadChallenge': {
+        const nowMs = getCurrentMonotonicTimeMs();
+        const elapsedMs = Math.max(0, nowMs - cyclingRoadChallenge.startedAtMs);
+        const numFrames = Math.max(0, Math.round(elapsedMs / CYCLING_ROAD_FRAME_MS));
+        const numBikeCollisions = Math.max(
+          0,
+          Math.min(100, this.ctx.getCyclingRoadChallengeCollisions?.() ?? 0)
+        );
+
+        this.setCyclingRoadResultStrings(numFrames, numBikeCollisions);
+        const result = determineCyclingRoadResult(numFrames, numBikeCollisions);
+        gameVariables.setVar('VAR_RESULT', result);
+
+        const recordFrames = this.getCyclingRoadRecordFrames();
+        if (recordFrames === 0 || recordFrames > numFrames) {
+          this.setCyclingRoadRecordFrames(numFrames);
+          gameVariables.setVar(CYCLING_RECORD_COLLISIONS_VAR, numBikeCollisions);
+        }
+
+        cyclingRoadChallenge.active = false;
+        cyclingRoadChallenge.startedAtMs = 0;
+        this.ctx.setCyclingRoadChallengeActive?.(false);
+        return undefined;
+      }
+
+      case 'GetRecordedCyclingRoadResults': {
+        const recordFrames = this.getCyclingRoadRecordFrames();
+        if (recordFrames === 0) {
+          return 0;
+        }
+
+        const recordCollisions = Math.max(0, gameVariables.getVar(CYCLING_RECORD_COLLISIONS_VAR) | 0);
+        this.setCyclingRoadResultStrings(recordFrames, recordCollisions);
+        gameVariables.setVar('VAR_RESULT', determineCyclingRoadResult(recordFrames, recordCollisions));
+        return 1;
+      }
+
+      case 'UpdateCyclingRoadState': {
+        const lastWarpMapId = this.ctx.getLastUsedWarpMapId?.();
+        if (lastWarpMapId === 'MAP_ROUTE110_SEASIDE_CYCLING_ROAD_NORTH_ENTRANCE') {
+          return undefined;
+        }
+
+        const cyclingState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
+        if (cyclingState === 2 || cyclingState === 3) {
+          gameVariables.setVar('VAR_CYCLING_CHALLENGE_STATE', 0);
+          // C parity also resets saved cycling-road music (Overworld_SetSavedMusic(MUS_DUMMY)).
+          // Music persistence is not fully modeled in this runtime.
+        }
+        return undefined;
+      }
 
       // --- Weather specials ---
       case 'SetRoute119Weather':

@@ -116,6 +116,8 @@ export async function performWarpTransition(
   }
 
   const priorFacing = player.getFacingDirection();
+  const priorBikeMode = player.getBikeMode();
+  const priorBikeRiding = player.isBikeRiding();
 
   console.log('[WARP] ========== WARP START ==========');
   console.log('[WARP] Source map:', trigger.sourceMap.entry.id);
@@ -133,6 +135,10 @@ export async function performWarpTransition(
 
     const playerResolver = createSnapshotPlayerTileResolver(snapshot);
     player.setTileResolver(playerResolver);
+    player.setMapAllowsCyclingResolver(() => {
+      const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+      return currentMap?.mapAllowCycling ?? true;
+    });
 
     objectEventManager.setTileElevationResolver((tileX, tileY) => {
       const resolved = playerResolver(tileX, tileY);
@@ -214,9 +220,13 @@ export async function performWarpTransition(
     const destinationUnderwater = isUnderwaterMapType(destMap.entry.mapType);
     const resolvedArrivalTile = player.getTileResolver()?.(player.tileX, player.tileY);
     const arrivalBehavior = resolvedArrivalTile?.attributes?.behavior;
+    const arrivalSurfing = !destinationUnderwater && arrivalBehavior !== undefined && isSurfableBehavior(arrivalBehavior);
+    const preserveBike = priorBikeRiding && !arrivalSurfing && !destinationUnderwater && destMap.mapAllowCycling;
     player.setTraversalState({
-      surfing: !destinationUnderwater && arrivalBehavior !== undefined && isSurfableBehavior(arrivalBehavior),
+      surfing: arrivalSurfing,
       underwater: destinationUnderwater,
+      bikeMode: preserveBike ? priorBikeMode : 'none',
+      bikeRiding: preserveBike,
     });
     setLastCoordTriggerTile({
       mapId: currentMapId,
@@ -233,6 +243,7 @@ export async function performWarpTransition(
       playerHiddenRef,
       pipeline,
       lastUsedWarpMapType: trigger.sourceMap.entry.mapType,
+      lastUsedWarpMapId: trigger.sourceMap.entry.id,
       mapScriptCache,
       setMapMetatile,
       scriptRuntimeServices,

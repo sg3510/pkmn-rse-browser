@@ -289,6 +289,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         elevation: 3,
         isSurfing: player.isSurfing(),
         isUnderwater: player.isUnderwater(),
+        bikeMode: player.getBikeMode(),
+        isRidingBike: player.isBikeRiding(),
       };
 
       return saveManager.save(0, locationState);
@@ -308,6 +310,8 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
         player.setTraversalState({
           surfing: saveData.location.isSurfing,
           underwater: saveData.location.isUnderwater ?? false,
+          bikeMode: saveData.location.bikeMode ?? 'none',
+          bikeRiding: saveData.location.isRidingBike ?? false,
         });
         objectEventManagerRef.current.refreshCollectedState();
       }

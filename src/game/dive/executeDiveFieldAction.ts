@@ -115,6 +115,8 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
     elevation: player.getElevation(),
     isSurfing: destinationIsSurfing,
     isUnderwater: destinationUnderwater,
+    bikeMode: 'none',
+    isRidingBike: false,
   };
 
   pendingScriptedWarpRef.current = {

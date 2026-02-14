@@ -53,6 +53,8 @@ function createInitialLocationState(): LocationState {
     elevation: 3,
     isSurfing: false,
     isUnderwater: false,
+    bikeMode: 'none',
+    isRidingBike: false,
   };
 }
 

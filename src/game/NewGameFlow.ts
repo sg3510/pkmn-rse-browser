@@ -95,6 +95,14 @@ export interface StoryScriptContext {
   getPlayerLocalPosition?: () => { x: number; y: number } | null;
   /** Previous map type from last used warp (C: GetLastUsedWarpMapType). */
   getLastUsedWarpMapType?: () => string | null;
+  /** Previous map ID from last used warp (used by cycling-road state logic). */
+  getLastUsedWarpMapId?: () => string | null;
+  /** Current player bike mode: 0=none, 1=acro, 2=mach. */
+  getPlayerAvatarBike?: () => 0 | 1 | 2;
+  /** Toggle cycling-road challenge collision tracking on player runtime. */
+  setCyclingRoadChallengeActive?: (active: boolean) => void;
+  /** Current cycling-road collision count from player runtime. */
+  getCyclingRoadChallengeCollisions?: () => number;
   /** Set flash/darkness level (0=bright, 7=darkest) for Dewford Gym etc. */
   setFlashLevel?: (level: number) => void;
   /** Get metatile ID at a map-local tile position (used by gym puzzle specials) */

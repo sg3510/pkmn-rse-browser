@@ -33,6 +33,12 @@ For any feature that should match the original GBA game 1:1:
 - Use generators (e.g. `scripts/generate-scripts.cjs`) for data-driven output.
 - Prefer modular, scalable abstractions over one-off implementations.
 
+## Input mapping policy
+
+- Always use the shared input mapping (`src/core/InputMap.ts`) for gameplay and menu controls.
+- Do not add hardcoded key checks when an action should be mapped through `InputMap`.
+- If a required action has no mapped path yet, wire it through `InputMap` and the relevant input hook before adding feature logic.
+
 ## Save compatibility
 
 - When implementing a feature that uses persistent state from the original C code, ensure it can be saved to and loaded from save files.

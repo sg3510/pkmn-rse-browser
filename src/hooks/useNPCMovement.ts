@@ -114,10 +114,10 @@ function getBikeTrackDirection(
     'up:left': 'turn_sw',
     'down:right': 'turn_ne',
     'down:left': 'turn_nw',
-    'left:up': 'turn_se',
-    'left:down': 'turn_ne',
-    'right:up': 'turn_sw',
-    'right:down': 'turn_nw',
+    'left:up': 'turn_ne',
+    'left:down': 'turn_se',
+    'right:up': 'turn_nw',
+    'right:down': 'turn_sw',
   };
 
   return transitions[`${previousDirection}:${currentDirection}`] ?? currentDirection;

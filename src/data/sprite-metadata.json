@@ -1,8 +1,11 @@
 {
-  "generatedAt": "2026-02-12T14:43:37.052Z",
+  "generatedAt": "2026-02-13T23:11:09.516Z",
   "sourceFiles": [
     "object_event_graphics_info.h",
+    "object_event_graphics_info_pointers.h",
+    "object_event_graphics.h",
     "object_event_pic_tables.h",
+    "berry_tree_graphics_tables.h",
     "object_event_anims.h"
   ],
   "animationIndices": {
@@ -2438,7 +2441,7 @@
         7,
         8
       ],
-      "spritePath": "/people/brendan/normal.png"
+      "spritePath": "/people/brendan/walking.png"
     },
     "OBJ_EVENT_GFX_BRENDAN_MACH_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_BRENDAN_MACH_BIKE",
@@ -2451,18 +2454,6 @@
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/brendan/mach_bike.png"
-    },
-    "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE": {
-      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE",
-      "name": "BrendanAcroBike",
-      "width": 32,
-      "height": 32,
-      "frameCount": 27,
-      "animationTable": "sAnimTable_AcroBike",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/acro_bike.png"
     },
     "OBJ_EVENT_GFX_BRENDAN_SURFING": {
       "graphicsId": "OBJ_EVENT_GFX_BRENDAN_SURFING",
@@ -2973,12 +2964,12 @@
       "name": "RayquazaStill",
       "width": 64,
       "height": 64,
-      "frameCount": 0,
+      "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/pokemon/rayquaza.png"
+      "spritePath": "/pokemon/rayquaza_still.png"
     },
     "OBJ_EVENT_GFX_SWIMMER_M": {
       "graphicsId": "OBJ_EVENT_GFX_SWIMMER_M",
@@ -3201,12 +3192,12 @@
       "name": "ItemBall",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/item_ball.png"
+      "spritePath": "/misc/item_ball.png"
     },
     "OBJ_EVENT_GFX_BERRY_TREE": {
       "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE",
@@ -3218,7 +3209,18 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/berry_tree.png"
+      "frameMap": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "spritePath": "/berry_trees/pecha.png"
     },
     "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES": {
       "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES",
@@ -3230,7 +3232,18 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/berry_tree_early_stages.png"
+      "frameMap": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "spritePath": "/berry_trees/pecha.png"
     },
     "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES": {
       "graphicsId": "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES",
@@ -3242,7 +3255,30 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/berry_tree_late_stages.png"
+      "frameMap": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "spritePath": "/berry_trees/pecha.png"
+    },
+    "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE": {
+      "graphicsId": "OBJ_EVENT_GFX_BRENDAN_ACRO_BIKE",
+      "name": "BrendanAcroBike",
+      "width": 32,
+      "height": 32,
+      "frameCount": 27,
+      "animationTable": "sAnimTable_AcroBike",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/brendan/acro_bike.png"
     },
     "OBJ_EVENT_GFX_PROF_BIRCH": {
       "graphicsId": "OBJ_EVENT_GFX_PROF_BIRCH",
@@ -3314,11 +3350,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/bard.png"
+      "spritePath": "/people/mauville_old_man_1.png"
     },
-    "OBJ_EVENT_GFX_HIPSTER": {
-      "graphicsId": "OBJ_EVENT_GFX_HIPSTER",
-      "name": "Hipster",
+    "OBJ_EVENT_GFX_ANABEL": {
+      "graphicsId": "OBJ_EVENT_GFX_ANABEL",
+      "name": "Anabel",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3326,11 +3362,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/hipster.png"
+      "spritePath": "/people/frontier_brains/anabel.png"
     },
-    "OBJ_EVENT_GFX_TRADER": {
-      "graphicsId": "OBJ_EVENT_GFX_TRADER",
-      "name": "Trader",
+    "OBJ_EVENT_GFX_TUCKER": {
+      "graphicsId": "OBJ_EVENT_GFX_TUCKER",
+      "name": "Tucker",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3338,11 +3374,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/trader.png"
+      "spritePath": "/people/frontier_brains/tucker.png"
     },
-    "OBJ_EVENT_GFX_STORYTELLER": {
-      "graphicsId": "OBJ_EVENT_GFX_STORYTELLER",
-      "name": "Storyteller",
+    "OBJ_EVENT_GFX_GRETA": {
+      "graphicsId": "OBJ_EVENT_GFX_GRETA",
+      "name": "Greta",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3350,11 +3386,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/storyteller.png"
+      "spritePath": "/people/frontier_brains/greta.png"
     },
-    "OBJ_EVENT_GFX_GIDDY": {
-      "graphicsId": "OBJ_EVENT_GFX_GIDDY",
-      "name": "Giddy",
+    "OBJ_EVENT_GFX_SPENSER": {
+      "graphicsId": "OBJ_EVENT_GFX_SPENSER",
+      "name": "Spenser",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3362,11 +3398,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/giddy.png"
+      "spritePath": "/people/frontier_brains/spenser.png"
     },
-    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_1": {
-      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_1",
-      "name": "UnusedMauvilleOldMan1",
+    "OBJ_EVENT_GFX_NOLAND": {
+      "graphicsId": "OBJ_EVENT_GFX_NOLAND",
+      "name": "Noland",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3374,11 +3410,11 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/unused_mauville_old_man_1.png"
+      "spritePath": "/people/frontier_brains/noland.png"
     },
-    "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_2": {
-      "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAUVILLE_OLD_MAN_2",
-      "name": "UnusedMauvilleOldMan2",
+    "OBJ_EVENT_GFX_LUCY": {
+      "graphicsId": "OBJ_EVENT_GFX_LUCY",
+      "name": "Lucy",
       "width": 16,
       "height": 32,
       "frameCount": 9,
@@ -3386,79 +3422,79 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/unused_mauville_old_man_2.png"
+      "spritePath": "/people/frontier_brains/lucy.png"
     },
     "OBJ_EVENT_GFX_UNUSED_NATU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_NATU_DOLL",
       "name": "UnusedNatuDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/unused_natu_doll.png"
+      "spritePath": "/dolls/unused_natu_doll.png"
     },
     "OBJ_EVENT_GFX_UNUSED_MAGNEMITE_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_MAGNEMITE_DOLL",
       "name": "UnusedMagnemiteDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/unused_magnemite_doll.png"
+      "spritePath": "/dolls/unused_magnemite_doll.png"
     },
     "OBJ_EVENT_GFX_UNUSED_SQUIRTLE_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_SQUIRTLE_DOLL",
       "name": "UnusedSquirtleDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/unused_squirtle_doll.png"
+      "spritePath": "/dolls/unused_squirtle_doll.png"
     },
     "OBJ_EVENT_GFX_UNUSED_WOOPER_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_WOOPER_DOLL",
       "name": "UnusedWooperDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/unused_wooper_doll.png"
+      "spritePath": "/dolls/unused_wooper_doll.png"
     },
     "OBJ_EVENT_GFX_UNUSED_PIKACHU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_UNUSED_PIKACHU_DOLL",
       "name": "UnusedPikachuDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/pokemon/pikachu.png"
+      "spritePath": "/dolls/unused_pikachu_doll.png"
     },
-    "OBJ_EVENT_GFX_UNUSED_PORYGON2DOLL": {
-      "graphicsId": "OBJ_EVENT_GFX_UNUSED_PORYGON2DOLL",
+    "OBJ_EVENT_GFX_UNUSED_PORYGON2_DOLL": {
+      "graphicsId": "OBJ_EVENT_GFX_UNUSED_PORYGON2_DOLL",
       "name": "UnusedPorygon2Doll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/unused_porygon2doll.png"
+      "spritePath": "/dolls/unused_porygon2_doll.png"
     },
     "OBJ_EVENT_GFX_CUTTABLE_TREE": {
       "graphicsId": "OBJ_EVENT_GFX_CUTTABLE_TREE",
@@ -3470,7 +3506,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/cuttable_tree.png"
+      "spritePath": "/misc/cuttable_tree.png"
     },
     "OBJ_EVENT_GFX_MART_EMPLOYEE": {
       "graphicsId": "OBJ_EVENT_GFX_MART_EMPLOYEE",
@@ -3518,19 +3554,19 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/breakable_rock.png"
+      "spritePath": "/misc/breakable_rock.png"
     },
     "OBJ_EVENT_GFX_PUSHABLE_BOULDER": {
       "graphicsId": "OBJ_EVENT_GFX_PUSHABLE_BOULDER",
       "name": "PushableBoulder",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/pushable_boulder.png"
+      "spritePath": "/misc/pushable_boulder.png"
     },
     "OBJ_EVENT_GFX_MR_BRINEYS_BOAT": {
       "graphicsId": "OBJ_EVENT_GFX_MR_BRINEYS_BOAT",
@@ -3553,7 +3589,7 @@
         2,
         2
       ],
-      "spritePath": "/people/mr_brineys_boat.png"
+      "spritePath": "/misc/mr_brineys_boat.png"
     },
     "OBJ_EVENT_GFX_MAY_NORMAL": {
       "graphicsId": "OBJ_EVENT_GFX_MAY_NORMAL",
@@ -3585,7 +3621,7 @@
         7,
         8
       ],
-      "spritePath": "/people/may/normal.png"
+      "spritePath": "/people/may/walking.png"
     },
     "OBJ_EVENT_GFX_MAY_MACH_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_MAY_MACH_BIKE",
@@ -3654,12 +3690,12 @@
       "name": "Truck",
       "width": 48,
       "height": 48,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/truck.png"
+      "spritePath": "/misc/truck.png"
     },
     "OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX": {
       "graphicsId": "OBJ_EVENT_GFX_VIGOROTH_CARRYING_BOX",
@@ -3712,15 +3748,15 @@
       "name": "BirchsBag",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/birchs_bag.png"
+      "spritePath": "/misc/birchs_bag.png"
     },
-    "OBJ_EVENT_GFX_ENEMY_ZIGZAGOON": {
-      "graphicsId": "OBJ_EVENT_GFX_ENEMY_ZIGZAGOON",
+    "OBJ_EVENT_GFX_ZIGZAGOON_1": {
+      "graphicsId": "OBJ_EVENT_GFX_ZIGZAGOON_1",
       "name": "EnemyZigzagoon",
       "width": 32,
       "height": 32,
@@ -3729,19 +3765,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/pokemon/zigzagoon.png"
-    },
-    "OBJ_EVENT_GFX_POOCHYENA": {
-      "graphicsId": "OBJ_EVENT_GFX_POOCHYENA",
-      "name": "Poochyena",
-      "width": 32,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/pokemon/poochyena.png"
+      "spritePath": "/pokemon/enemy_zigzagoon.png"
     },
     "OBJ_EVENT_GFX_ARTIST": {
       "graphicsId": "OBJ_EVENT_GFX_ARTIST",
@@ -3760,12 +3784,32 @@
       "name": "RivalBrendanNormal",
       "width": 16,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/rival_normal.png"
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/brendan/walking.png"
     },
     "OBJ_EVENT_GFX_RIVAL_BRENDAN_MACH_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_MACH_BIKE",
@@ -3777,55 +3821,89 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/rival_mach_bike.png"
+      "spritePath": "/people/brendan/mach_bike.png"
     },
     "OBJ_EVENT_GFX_RIVAL_BRENDAN_ACRO_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_ACRO_BIKE",
       "name": "RivalBrendanAcroBike",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 27,
       "animationTable": "sAnimTable_AcroBike",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/rival_acro_bike.png"
+      "spritePath": "/people/brendan/acro_bike.png"
     },
     "OBJ_EVENT_GFX_RIVAL_BRENDAN_SURFING": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_SURFING",
       "name": "RivalBrendanSurfing",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 12,
       "animationTable": "sAnimTable_Surfing",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/rival_surfing.png"
+      "frameMap": [
+        0,
+        2,
+        4,
+        0,
+        0,
+        2,
+        2,
+        4,
+        4,
+        1,
+        3,
+        5
+      ],
+      "spritePath": "/people/brendan/surfing.png"
     },
     "OBJ_EVENT_GFX_RIVAL_BRENDAN_FIELD_MOVE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_BRENDAN_FIELD_MOVE",
       "name": "RivalBrendanFieldMove",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 5,
       "animationTable": "sAnimTable_FieldMove",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/rival_field_move.png"
+      "spritePath": "/people/brendan/field_move.png"
     },
     "OBJ_EVENT_GFX_RIVAL_MAY_NORMAL": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_NORMAL",
       "name": "RivalMayNormal",
       "width": 16,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/rival_normal.png"
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/may/walking.png"
     },
     "OBJ_EVENT_GFX_RIVAL_MAY_MACH_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_MACH_BIKE",
@@ -3837,43 +3915,57 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/rival_mach_bike.png"
+      "spritePath": "/people/may/mach_bike.png"
     },
     "OBJ_EVENT_GFX_RIVAL_MAY_ACRO_BIKE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_ACRO_BIKE",
       "name": "RivalMayAcroBike",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 27,
       "animationTable": "sAnimTable_AcroBike",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/rival_acro_bike.png"
+      "spritePath": "/people/may/acro_bike.png"
     },
     "OBJ_EVENT_GFX_RIVAL_MAY_SURFING": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_SURFING",
       "name": "RivalMaySurfing",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 12,
       "animationTable": "sAnimTable_Surfing",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/rival_surfing.png"
+      "frameMap": [
+        0,
+        2,
+        4,
+        0,
+        0,
+        2,
+        2,
+        4,
+        4,
+        1,
+        3,
+        5
+      ],
+      "spritePath": "/people/may/surfing.png"
     },
     "OBJ_EVENT_GFX_RIVAL_MAY_FIELD_MOVE": {
       "graphicsId": "OBJ_EVENT_GFX_RIVAL_MAY_FIELD_MOVE",
       "name": "RivalMayFieldMove",
       "width": 32,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 5,
       "animationTable": "sAnimTable_FieldMove",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/rival_field_move.png"
+      "spritePath": "/people/may/field_move.png"
     },
     "OBJ_EVENT_GFX_CAMERAMAN": {
       "graphicsId": "OBJ_EVENT_GFX_CAMERAMAN",
@@ -3938,7 +4030,7 @@
       "name": "MovingBox",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
@@ -3950,12 +4042,12 @@
       "name": "CableCar",
       "width": 64,
       "height": 64,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/cable_car.png"
+      "spritePath": "/misc/cable_car.png"
     },
     "OBJ_EVENT_GFX_SCIENTIST_2": {
       "graphicsId": "OBJ_EVENT_GFX_SCIENTIST_2",
@@ -4304,7 +4396,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/gym_leaders/wallace.png"
+      "spritePath": "/people/wallace.png"
     },
     "OBJ_EVENT_GFX_STEVEN": {
       "graphicsId": "OBJ_EVENT_GFX_STEVEN",
@@ -4330,8 +4422,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/wally.png"
     },
-    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_LITTLE_BOY": {
-      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_LITTLE_BOY",
+    "OBJ_EVENT_GFX_LITTLE_BOY_3": {
+      "graphicsId": "OBJ_EVENT_GFX_LITTLE_BOY_3",
       "name": "RubySapphireLittleBoy",
       "width": 16,
       "height": 16,
@@ -4340,7 +4432,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/ruby_sapphire_little_boy.png"
+      "spritePath": "/people/rs_little_boy.png"
     },
     "OBJ_EVENT_GFX_BRENDAN_FISHING": {
       "graphicsId": "OBJ_EVENT_GFX_BRENDAN_FISHING",
@@ -4383,564 +4475,564 @@
       "name": "SSTidal",
       "width": 96,
       "height": 40,
-      "frameCount": 0,
+      "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/ss_tidal.png"
+      "spritePath": "/misc/ss_tidal.png"
     },
     "OBJ_EVENT_GFX_SUBMARINE_SHADOW": {
       "graphicsId": "OBJ_EVENT_GFX_SUBMARINE_SHADOW",
       "name": "SubmarineShadow",
       "width": 88,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 9,
       "animationTable": "sAnimTable_Standard",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/submarine_shadow.png"
+      "spritePath": "/misc/submarine_shadow.png"
     },
     "OBJ_EVENT_GFX_PICHU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_PICHU_DOLL",
       "name": "PichuDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/pichu_doll.png"
+      "spritePath": "/dolls/pichu_doll.png"
     },
     "OBJ_EVENT_GFX_PIKACHU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_PIKACHU_DOLL",
       "name": "PikachuDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/pokemon/pikachu.png"
+      "spritePath": "/dolls/pikachu_doll.png"
     },
     "OBJ_EVENT_GFX_MARILL_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_MARILL_DOLL",
       "name": "MarillDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/marill_doll.png"
+      "spritePath": "/dolls/marill_doll.png"
     },
     "OBJ_EVENT_GFX_TOGEPI_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_TOGEPI_DOLL",
       "name": "TogepiDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/togepi_doll.png"
+      "spritePath": "/dolls/togepi_doll.png"
     },
     "OBJ_EVENT_GFX_CYNDAQUIL_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_CYNDAQUIL_DOLL",
       "name": "CyndaquilDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/cyndaquil_doll.png"
+      "spritePath": "/dolls/cyndaquil_doll.png"
     },
     "OBJ_EVENT_GFX_CHIKORITA_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_CHIKORITA_DOLL",
       "name": "ChikoritaDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/chikorita_doll.png"
+      "spritePath": "/dolls/chikorita_doll.png"
     },
     "OBJ_EVENT_GFX_TOTODILE_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_TOTODILE_DOLL",
       "name": "TotodileDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/totodile_doll.png"
+      "spritePath": "/dolls/totodile_doll.png"
     },
     "OBJ_EVENT_GFX_JIGGLYPUFF_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_JIGGLYPUFF_DOLL",
       "name": "JigglypuffDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/jigglypuff_doll.png"
+      "spritePath": "/dolls/jigglypuff_doll.png"
     },
     "OBJ_EVENT_GFX_MEOWTH_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_MEOWTH_DOLL",
       "name": "MeowthDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/meowth_doll.png"
+      "spritePath": "/dolls/meowth_doll.png"
     },
     "OBJ_EVENT_GFX_CLEFAIRY_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_CLEFAIRY_DOLL",
       "name": "ClefairyDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/clefairy_doll.png"
+      "spritePath": "/dolls/clefairy_doll.png"
     },
     "OBJ_EVENT_GFX_DITTO_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_DITTO_DOLL",
       "name": "DittoDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/ditto_doll.png"
+      "spritePath": "/dolls/ditto_doll.png"
     },
     "OBJ_EVENT_GFX_SMOOCHUM_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_SMOOCHUM_DOLL",
       "name": "SmoochumDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/smoochum_doll.png"
+      "spritePath": "/dolls/smoochum_doll.png"
     },
     "OBJ_EVENT_GFX_TREECKO_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_TREECKO_DOLL",
       "name": "TreeckoDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/treecko_doll.png"
+      "spritePath": "/dolls/treecko_doll.png"
     },
     "OBJ_EVENT_GFX_TORCHIC_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_TORCHIC_DOLL",
       "name": "TorchicDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/torchic_doll.png"
+      "spritePath": "/dolls/torchic_doll.png"
     },
     "OBJ_EVENT_GFX_MUDKIP_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_MUDKIP_DOLL",
       "name": "MudkipDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/mudkip_doll.png"
+      "spritePath": "/dolls/mudkip_doll.png"
     },
     "OBJ_EVENT_GFX_DUSKULL_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_DUSKULL_DOLL",
       "name": "DuskullDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/duskull_doll.png"
+      "spritePath": "/dolls/duskull_doll.png"
     },
     "OBJ_EVENT_GFX_WYNAUT_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_WYNAUT_DOLL",
       "name": "WynautDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/wynaut_doll.png"
+      "spritePath": "/dolls/wynaut_doll.png"
     },
     "OBJ_EVENT_GFX_BALTOY_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BALTOY_DOLL",
       "name": "BaltoyDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/baltoy_doll.png"
+      "spritePath": "/dolls/baltoy_doll.png"
     },
     "OBJ_EVENT_GFX_KECLEON_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_KECLEON_DOLL",
       "name": "KecleonDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/pokemon/kecleon.png"
+      "spritePath": "/dolls/kecleon_doll.png"
     },
     "OBJ_EVENT_GFX_AZURILL_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_AZURILL_DOLL",
       "name": "AzurillDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/pokemon/azurill.png"
+      "spritePath": "/dolls/azurill_doll.png"
     },
     "OBJ_EVENT_GFX_SKITTY_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_SKITTY_DOLL",
       "name": "SkittyDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/pokemon/skitty.png"
+      "spritePath": "/dolls/skitty_doll.png"
     },
     "OBJ_EVENT_GFX_SWABLU_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_SWABLU_DOLL",
       "name": "SwabluDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/swablu_doll.png"
+      "spritePath": "/dolls/swablu_doll.png"
     },
     "OBJ_EVENT_GFX_GULPIN_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_GULPIN_DOLL",
       "name": "GulpinDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/gulpin_doll.png"
+      "spritePath": "/dolls/gulpin_doll.png"
     },
     "OBJ_EVENT_GFX_LOTAD_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_LOTAD_DOLL",
       "name": "LotadDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/lotad_doll.png"
+      "spritePath": "/dolls/lotad_doll.png"
     },
     "OBJ_EVENT_GFX_SEEDOT_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_SEEDOT_DOLL",
       "name": "SeedotDoll",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/seedot_doll.png"
+      "spritePath": "/dolls/seedot_doll.png"
     },
     "OBJ_EVENT_GFX_PIKA_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_PIKA_CUSHION",
       "name": "PikaCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/pika_cushion.png"
+      "spritePath": "/cushions/pika_cushion.png"
     },
     "OBJ_EVENT_GFX_ROUND_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_ROUND_CUSHION",
       "name": "RoundCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/round_cushion.png"
+      "spritePath": "/cushions/round_cushion.png"
     },
     "OBJ_EVENT_GFX_KISS_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_KISS_CUSHION",
       "name": "KissCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/kiss_cushion.png"
+      "spritePath": "/cushions/kiss_cushion.png"
     },
     "OBJ_EVENT_GFX_ZIGZAG_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_ZIGZAG_CUSHION",
       "name": "ZigzagCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/zigzag_cushion.png"
+      "spritePath": "/cushions/zigzag_cushion.png"
     },
     "OBJ_EVENT_GFX_SPIN_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_SPIN_CUSHION",
       "name": "SpinCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/spin_cushion.png"
+      "spritePath": "/cushions/spin_cushion.png"
     },
     "OBJ_EVENT_GFX_DIAMOND_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_DIAMOND_CUSHION",
       "name": "DiamondCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/diamond_cushion.png"
+      "spritePath": "/cushions/diamond_cushion.png"
     },
     "OBJ_EVENT_GFX_BALL_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_BALL_CUSHION",
       "name": "BallCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/ball_cushion.png"
+      "spritePath": "/cushions/ball_cushion.png"
     },
     "OBJ_EVENT_GFX_GRASS_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_GRASS_CUSHION",
       "name": "GrassCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/grass_cushion.png"
+      "spritePath": "/cushions/grass_cushion.png"
     },
     "OBJ_EVENT_GFX_FIRE_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_FIRE_CUSHION",
       "name": "FireCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/fire_cushion.png"
+      "spritePath": "/cushions/fire_cushion.png"
     },
     "OBJ_EVENT_GFX_WATER_CUSHION": {
       "graphicsId": "OBJ_EVENT_GFX_WATER_CUSHION",
       "name": "WaterCushion",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/water_cushion.png"
+      "spritePath": "/cushions/water_cushion.png"
     },
     "OBJ_EVENT_GFX_BIG_SNORLAX_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_SNORLAX_DOLL",
       "name": "BigSnorlaxDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_snorlax_doll.png"
+      "spritePath": "/dolls/big_snorlax_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_RHYDON_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_RHYDON_DOLL",
       "name": "BigRhydonDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_rhydon_doll.png"
+      "spritePath": "/dolls/big_rhydon_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_LAPRAS_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_LAPRAS_DOLL",
       "name": "BigLaprasDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_lapras_doll.png"
+      "spritePath": "/dolls/big_lapras_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_VENUSAUR_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_VENUSAUR_DOLL",
       "name": "BigVenusaurDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_venusaur_doll.png"
+      "spritePath": "/dolls/big_venusaur_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_CHARIZARD_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_CHARIZARD_DOLL",
       "name": "BigCharizardDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_charizard_doll.png"
+      "spritePath": "/dolls/big_charizard_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_BLASTOISE_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_BLASTOISE_DOLL",
       "name": "BigBlastoiseDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_blastoise_doll.png"
+      "spritePath": "/dolls/big_blastoise_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_WAILMER_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_WAILMER_DOLL",
       "name": "BigWailmerDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_wailmer_doll.png"
+      "spritePath": "/dolls/big_wailmer_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_REGIROCK_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_REGIROCK_DOLL",
       "name": "BigRegirockDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_regirock_doll.png"
+      "spritePath": "/dolls/big_regirock_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_REGICE_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_REGICE_DOLL",
       "name": "BigRegiceDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_regice_doll.png"
+      "spritePath": "/dolls/big_regice_doll.png"
     },
     "OBJ_EVENT_GFX_BIG_REGISTEEL_DOLL": {
       "graphicsId": "OBJ_EVENT_GFX_BIG_REGISTEEL_DOLL",
       "name": "BigRegisteelDoll",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/big_registeel_doll.png"
+      "spritePath": "/dolls/big_registeel_doll.png"
     },
     "OBJ_EVENT_GFX_LATIAS": {
       "graphicsId": "OBJ_EVENT_GFX_LATIAS",
@@ -4952,7 +5044,18 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/pokemon/latias.png"
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        2,
+        1,
+        2,
+        1,
+        2
+      ],
+      "spritePath": "/pokemon/latias_latios.png"
     },
     "OBJ_EVENT_GFX_LATIOS": {
       "graphicsId": "OBJ_EVENT_GFX_LATIOS",
@@ -4964,7 +5067,18 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/pokemon/latios.png"
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        2,
+        1,
+        2,
+        1,
+        2
+      ],
+      "spritePath": "/pokemon/latias_latios.png"
     },
     "OBJ_EVENT_GFX_GAMEBOY_KID": {
       "graphicsId": "OBJ_EVENT_GFX_GAMEBOY_KID",
@@ -5052,7 +5166,7 @@
       "name": "BrendanDecorating",
       "width": 16,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
@@ -5064,7 +5178,7 @@
       "name": "MayDecorating",
       "width": 16,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
@@ -5141,63 +5255,17 @@
       ],
       "spritePath": "/pokemon/groudon.png"
     },
-    "OBJ_EVENT_GFX_KYOGRE_SIDE": {
-      "graphicsId": "OBJ_EVENT_GFX_KYOGRE_SIDE",
-      "name": "KyogreSide",
-      "width": 32,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "frameMap": [
-        2,
-        2,
-        2,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3
-      ],
-      "spritePath": "/pokemon/kyogre.png"
-    },
-    "OBJ_EVENT_GFX_GROUDON_SIDE": {
-      "graphicsId": "OBJ_EVENT_GFX_GROUDON_SIDE",
-      "name": "GroudonSide",
-      "width": 32,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_GroudonSide",
-      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "frameMap": [
-        2,
-        2,
-        2,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3
-      ],
-      "spritePath": "/pokemon/groudon.png"
-    },
     "OBJ_EVENT_GFX_FOSSIL": {
       "graphicsId": "OBJ_EVENT_GFX_FOSSIL",
       "name": "Fossil",
       "width": 16,
       "height": 16,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_S",
-      "spritePath": "/people/fossil.png"
+      "spritePath": "/misc/fossil.png"
     },
     "OBJ_EVENT_GFX_REGIROCK": {
       "graphicsId": "OBJ_EVENT_GFX_REGIROCK",
@@ -5209,7 +5277,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/regirock.png"
+      "spritePath": "/pokemon/regi.png"
     },
     "OBJ_EVENT_GFX_REGICE": {
       "graphicsId": "OBJ_EVENT_GFX_REGICE",
@@ -5221,7 +5289,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/regice.png"
+      "spritePath": "/pokemon/regi.png"
     },
     "OBJ_EVENT_GFX_REGISTEEL": {
       "graphicsId": "OBJ_EVENT_GFX_REGISTEEL",
@@ -5233,7 +5301,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/registeel.png"
+      "spritePath": "/pokemon/regi.png"
     },
     "OBJ_EVENT_GFX_SKITTY": {
       "graphicsId": "OBJ_EVENT_GFX_SKITTY",
@@ -5291,6 +5359,17 @@
       "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
       "spritePath": "/pokemon/kyogre.png"
     },
     "OBJ_EVENT_GFX_GROUDON_ASLEEP": {
@@ -5303,6 +5382,17 @@
       "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
       "spritePath": "/pokemon/groudon.png"
     },
     "OBJ_EVENT_GFX_RAYQUAZA": {
@@ -5317,8 +5407,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/rayquaza.png"
     },
-    "OBJ_EVENT_GFX_ZIGZAGOON": {
-      "graphicsId": "OBJ_EVENT_GFX_ZIGZAGOON",
+    "OBJ_EVENT_GFX_ZIGZAGOON_2": {
+      "graphicsId": "OBJ_EVENT_GFX_ZIGZAGOON_2",
       "name": "Zigzagoon",
       "width": 16,
       "height": 16,
@@ -5419,6 +5509,17 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ],
       "spritePath": "/pokemon/kecleon.png"
     },
     "OBJ_EVENT_GFX_TUBER_M_SWIMMING": {
@@ -5473,24 +5574,64 @@
       "name": "LinkBrendan",
       "width": 16,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/link_brendan.png"
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/brendan/walking.png"
     },
     "OBJ_EVENT_GFX_LINK_MAY": {
       "graphicsId": "OBJ_EVENT_GFX_LINK_MAY",
       "name": "LinkMay",
       "width": 16,
       "height": 32,
-      "frameCount": 9,
+      "frameCount": 18,
       "animationTable": "sAnimTable_BrendanMayNormal",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/link_may.png"
+      "frameMap": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "spritePath": "/people/may/walking.png"
     },
     "OBJ_EVENT_GFX_JUAN": {
       "graphicsId": "OBJ_EVENT_GFX_JUAN",
@@ -5516,8 +5657,66 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/scott.png"
     },
-    "OBJ_EVENT_GFX_MYSTERY_EVENT_DELIVERYMAN": {
-      "graphicsId": "OBJ_EVENT_GFX_MYSTERY_EVENT_DELIVERYMAN",
+    "OBJ_EVENT_GFX_POOCHYENA": {
+      "graphicsId": "OBJ_EVENT_GFX_POOCHYENA",
+      "name": "Poochyena",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/pokemon/poochyena.png"
+    },
+    "OBJ_EVENT_GFX_KYOGRE_SIDE": {
+      "graphicsId": "OBJ_EVENT_GFX_KYOGRE_SIDE",
+      "name": "KyogreSide",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "spritePath": "/pokemon/kyogre.png"
+    },
+    "OBJ_EVENT_GFX_GROUDON_SIDE": {
+      "graphicsId": "OBJ_EVENT_GFX_GROUDON_SIDE",
+      "name": "GroudonSide",
+      "width": 32,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_GroudonSide",
+      "affineAnimationTable": "sAffineAnimTable_KyogreGroudon",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "frameMap": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "spritePath": "/pokemon/groudon.png"
+    },
+    "OBJ_EVENT_GFX_MYSTERY_GIFT_MAN": {
+      "graphicsId": "OBJ_EVENT_GFX_MYSTERY_GIFT_MAN",
       "name": "MysteryEventDeliveryman",
       "width": 16,
       "height": 32,
@@ -5539,17 +5738,17 @@
       ],
       "spritePath": "/people/mystery_event_deliveryman.png"
     },
-    "OBJ_EVENT_GFX_STATUE": {
-      "graphicsId": "OBJ_EVENT_GFX_STATUE",
+    "OBJ_EVENT_GFX_TRICK_HOUSE_STATUE": {
+      "graphicsId": "OBJ_EVENT_GFX_TRICK_HOUSE_STATUE",
       "name": "Statue",
       "width": 16,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/statue.png"
+      "spritePath": "/misc/statue.png"
     },
     "OBJ_EVENT_GFX_KIRLIA": {
       "graphicsId": "OBJ_EVENT_GFX_KIRLIA",
@@ -5575,8 +5774,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/dusclops.png"
     },
-    "OBJ_EVENT_GFX_UNION_ROOM_ATTENDANT": {
-      "graphicsId": "OBJ_EVENT_GFX_UNION_ROOM_ATTENDANT",
+    "OBJ_EVENT_GFX_UNION_ROOM_NURSE": {
+      "graphicsId": "OBJ_EVENT_GFX_UNION_ROOM_NURSE",
       "name": "UnionRoomAttendant",
       "width": 16,
       "height": 32,
@@ -5597,30 +5796,6 @@
         2
       ],
       "spritePath": "/people/union_room_attendant.png"
-    },
-    "OBJ_EVENT_GFX_RED": {
-      "graphicsId": "OBJ_EVENT_GFX_RED",
-      "name": "Red",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/red.png"
-    },
-    "OBJ_EVENT_GFX_LEAF": {
-      "graphicsId": "OBJ_EVENT_GFX_LEAF",
-      "name": "Leaf",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/leaf.png"
     },
     "OBJ_EVENT_GFX_SUDOWOODO": {
       "graphicsId": "OBJ_EVENT_GFX_SUDOWOODO",
@@ -5657,6 +5832,30 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/pokemon/mew.png"
     },
+    "OBJ_EVENT_GFX_RED": {
+      "graphicsId": "OBJ_EVENT_GFX_RED",
+      "name": "Red",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/red.png"
+    },
+    "OBJ_EVENT_GFX_LEAF": {
+      "graphicsId": "OBJ_EVENT_GFX_LEAF",
+      "name": "Leaf",
+      "width": 16,
+      "height": 32,
+      "frameCount": 9,
+      "animationTable": "sAnimTable_Standard",
+      "affineAnimationTable": "gDummySpriteAffineAnimTable",
+      "inanimate": false,
+      "shadowSize": "SHADOW_SIZE_M",
+      "spritePath": "/people/leaf.png"
+    },
     "OBJ_EVENT_GFX_DEOXYS": {
       "graphicsId": "OBJ_EVENT_GFX_DEOXYS",
       "name": "Deoxys",
@@ -5680,89 +5879,17 @@
       ],
       "spritePath": "/pokemon/deoxys.png"
     },
-    "OBJ_EVENT_GFX_BIRTH_ISLAND_STONE": {
-      "graphicsId": "OBJ_EVENT_GFX_BIRTH_ISLAND_STONE",
+    "OBJ_EVENT_GFX_DEOXYS_TRIANGLE": {
+      "graphicsId": "OBJ_EVENT_GFX_DEOXYS_TRIANGLE",
       "name": "BirthIslandStone",
       "width": 32,
       "height": 32,
-      "frameCount": 0,
+      "frameCount": 1,
       "animationTable": "sAnimTable_Inanimate",
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": true,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/birth_island_stone.png"
-    },
-    "OBJ_EVENT_GFX_ANABEL": {
-      "graphicsId": "OBJ_EVENT_GFX_ANABEL",
-      "name": "Anabel",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/anabel.png"
-    },
-    "OBJ_EVENT_GFX_TUCKER": {
-      "graphicsId": "OBJ_EVENT_GFX_TUCKER",
-      "name": "Tucker",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/tucker.png"
-    },
-    "OBJ_EVENT_GFX_GRETA": {
-      "graphicsId": "OBJ_EVENT_GFX_GRETA",
-      "name": "Greta",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/greta.png"
-    },
-    "OBJ_EVENT_GFX_SPENSER": {
-      "graphicsId": "OBJ_EVENT_GFX_SPENSER",
-      "name": "Spenser",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/spenser.png"
-    },
-    "OBJ_EVENT_GFX_NOLAND": {
-      "graphicsId": "OBJ_EVENT_GFX_NOLAND",
-      "name": "Noland",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/noland.png"
-    },
-    "OBJ_EVENT_GFX_LUCY": {
-      "graphicsId": "OBJ_EVENT_GFX_LUCY",
-      "name": "Lucy",
-      "width": 16,
-      "height": 32,
-      "frameCount": 9,
-      "animationTable": "sAnimTable_Standard",
-      "affineAnimationTable": "gDummySpriteAffineAnimTable",
-      "inanimate": false,
-      "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/frontier_brains/lucy.png"
+      "spritePath": "/misc/birth_island_stone.png"
     },
     "OBJ_EVENT_GFX_BRANDON": {
       "graphicsId": "OBJ_EVENT_GFX_BRANDON",
@@ -5776,8 +5903,8 @@
       "shadowSize": "SHADOW_SIZE_M",
       "spritePath": "/people/frontier_brains/brandon.png"
     },
-    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_BRENDAN": {
-      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_BRENDAN",
+    "OBJ_EVENT_GFX_LINK_RS_BRENDAN": {
+      "graphicsId": "OBJ_EVENT_GFX_LINK_RS_BRENDAN",
       "name": "RubySapphireBrendan",
       "width": 16,
       "height": 32,
@@ -5786,10 +5913,10 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/brendan/ruby_sapphire_brendan.png"
+      "spritePath": "/people/ruby_sapphire_brendan/walking.png"
     },
-    "OBJ_EVENT_GFX_RUBY_SAPPHIRE_MAY": {
-      "graphicsId": "OBJ_EVENT_GFX_RUBY_SAPPHIRE_MAY",
+    "OBJ_EVENT_GFX_LINK_RS_MAY": {
+      "graphicsId": "OBJ_EVENT_GFX_LINK_RS_MAY",
       "name": "RubySapphireMay",
       "width": 16,
       "height": 32,
@@ -5798,7 +5925,7 @@
       "affineAnimationTable": "gDummySpriteAffineAnimTable",
       "inanimate": false,
       "shadowSize": "SHADOW_SIZE_M",
-      "spritePath": "/people/may/ruby_sapphire_may.png"
+      "spritePath": "/people/ruby_sapphire_may/walking.png"
     },
     "OBJ_EVENT_GFX_LUGIA": {
       "graphicsId": "OBJ_EVENT_GFX_LUGIA",
@@ -5823,8 +5950,8 @@
       ],
       "spritePath": "/pokemon/lugia.png"
     },
-    "OBJ_EVENT_GFX_HO_OH": {
-      "graphicsId": "OBJ_EVENT_GFX_HO_OH",
+    "OBJ_EVENT_GFX_HOOH": {
+      "graphicsId": "OBJ_EVENT_GFX_HOOH",
       "name": "HoOh",
       "width": 32,
       "height": 32,

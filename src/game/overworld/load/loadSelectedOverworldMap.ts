@@ -175,6 +175,10 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
       if (player) {
         const playerResolver = createSnapshotPlayerTileResolver(snapshot);
         player.setTileResolver(playerResolver);
+        player.setMapAllowsCyclingResolver(() => {
+          const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+          return currentMap?.mapAllowCycling ?? true;
+        });
 
         objectEventManagerRef.current.setTileElevationResolver((tileX, tileY) => {
           const resolved = playerResolver(tileX, tileY);
@@ -239,6 +243,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           player.setTraversalState({
             surfing: !savedUnderwater && savedLocation.isSurfing && canSurfaceByTile,
             underwater: savedUnderwater,
+            bikeMode: savedLocation.bikeMode ?? 'none',
+            bikeRiding: savedLocation.isRidingBike ?? false,
           });
         } else {
           const anchorMap = snapshot.maps.find((map) => map.entry.id === entry.id) ?? snapshot.maps[0];
@@ -258,7 +264,12 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           );
           player.setPosition(spawnResult.x, spawnResult.y);
           const spawnUnderwater = isUnderwaterMapType(anchorMap.entry.mapType);
-          player.setTraversalState({ surfing: false, underwater: spawnUnderwater });
+          player.setTraversalState({
+            surfing: false,
+            underwater: spawnUnderwater,
+            bikeMode: 'none',
+            bikeRiding: false,
+          });
         }
 
         const playerMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? entry.id;

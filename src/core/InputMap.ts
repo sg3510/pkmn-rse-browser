@@ -8,6 +8,7 @@
  *   A      → Enter, KeyX, Space   (confirm/interact)
  *   B      → KeyZ, Escape         (cancel/run)
  *   START  → Backspace            (start menu, "press start")
+ *   SELECT → ShiftRight, ShiftLeft, KeyC
  *   D-pad  → Arrow keys, WASD
  *   L/R    → KeyQ, KeyE
  */
@@ -31,7 +32,7 @@ const DEFAULT_BINDINGS: Record<GameButton, string[]> = {
   [GameButton.A]:      ['Enter', 'KeyX', 'Space'],
   [GameButton.B]:      ['KeyZ', 'Escape'],
   [GameButton.START]:  ['Backspace'],
-  [GameButton.SELECT]: ['ShiftRight'],
+  [GameButton.SELECT]: ['ShiftRight', 'ShiftLeft', 'KeyC'],
   [GameButton.UP]:     ['ArrowUp', 'KeyW'],
   [GameButton.DOWN]:   ['ArrowDown', 'KeyS'],
   [GameButton.LEFT]:   ['ArrowLeft', 'KeyA'],

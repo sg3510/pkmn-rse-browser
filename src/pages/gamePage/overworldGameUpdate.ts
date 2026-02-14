@@ -464,24 +464,19 @@ export function runStepCallbacks(params: {
 
   if (storyScriptRunningRef.current) return;
 
-  const cbMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+  const playerObjectCoords = player.getObjectEventCoords();
+  const playerCurrentTile = playerObjectCoords.current;
+
+  const cbMap = worldManager.findMapAtPosition(playerCurrentTile.x, playerCurrentTile.y);
   if (!cbMap) return;
 
   const offsetX = cbMap.offsetX;
   const offsetY = cbMap.offsetY;
-  let playerDestTileX = player.tileX;
-  let playerDestTileY = player.tileY;
-  if (player.isMoving) {
-    if (player.dir === 'up') playerDestTileY--;
-    else if (player.dir === 'down') playerDestTileY++;
-    else if (player.dir === 'left') playerDestTileX--;
-    else if (player.dir === 'right') playerDestTileX++;
-  }
   stepCallbackManager.update({
-    playerLocalX: player.tileX - offsetX,
-    playerLocalY: player.tileY - offsetY,
-    playerDestLocalX: playerDestTileX - offsetX,
-    playerDestLocalY: playerDestTileY - offsetY,
+    playerLocalX: playerCurrentTile.x - offsetX,
+    playerLocalY: playerCurrentTile.y - offsetY,
+    playerDestLocalX: playerCurrentTile.x - offsetX,
+    playerDestLocalY: playerCurrentTile.y - offsetY,
     currentMapId: cbMap.entry.id,
     getTileBehaviorLocal: (localX, localY) => {
       const resolver = player.getTileResolver();

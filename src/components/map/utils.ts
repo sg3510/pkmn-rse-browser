@@ -610,18 +610,13 @@ export function computeReflectionState(
   }
 
   const { width, height } = player.getSpriteSize();
-  // GBA SEMANTICS for reflection detection (ObjectEventGetNearbyReflectionType):
-  // - currentCoords = DESTINATION tile (where moving TO)
-  // - previousCoords = ORIGIN tile (where came FROM)
-  // During movement: check tiles below destination AND origin
-  // When idle: destination = origin (same tile)
-  const destTile = player.getDestinationTile();
+  const objectCoords = player.getObjectEventCoords();
   return computeObjectReflectionState(
     ctx,
-    destTile.x,     // GBA currentCoords = destination
-    destTile.y,
-    player.tileX,   // GBA previousCoords = origin
-    player.tileY,
+    objectCoords.current.x,
+    objectCoords.current.y,
+    objectCoords.previous.x,
+    objectCoords.previous.y,
     width,
     height
   );
