@@ -5,12 +5,13 @@
 import type { PlayerController } from '../../game/PlayerController';
 import type { WorldManager } from '../../game/WorldManager';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
-import type { NPCObject } from '../../types/objectEvents';
+import type { NPCObject, ScriptObject } from '../../types/objectEvents';
 import { isNPCGraphicsId } from '../../types/objectEvents';
 import { gameVariables, GAME_VARS } from '../../game/GameVariables';
 import { getItemId, getItemName } from '../../data/items';
 import { bagManager } from '../../game/BagManager';
 import { saveManager } from '../../save/SaveManager';
+import { berryManager } from '../../game/berry/BerryManager.ts';
 import type { MutableRef } from './types';
 
 
@@ -27,7 +28,7 @@ const DIR_MAP: Record<string, number> = { down: 1, up: 2, left: 3, right: 4 };
 export function createActionCallbacks(deps: ActionCallbackDeps) {
   const { playerRef, worldManagerRef, objectEventManagerRef, runHandledStoryScript, showMessage } = deps;
 
-  const onScriptInteract = async (scriptObject: { script: string }) => {
+  const onScriptInteract = async (scriptObject: ScriptObject) => {
     const player = playerRef.current;
     const wm = worldManagerRef.current;
     const mapId = (player && wm)
@@ -36,7 +37,26 @@ export function createActionCallbacks(deps: ActionCallbackDeps) {
     if (player) {
       gameVariables.setVar('VAR_FACING', DIR_MAP[player.dir] ?? 0);
     }
-    await runHandledStoryScript(scriptObject.script, mapId);
+
+    if (scriptObject.localIdNumber !== null) {
+      gameVariables.setVar('VAR_LAST_TALKED', scriptObject.localIdNumber);
+    }
+
+    if (scriptObject.berryTreeId > 0) {
+      berryManager.setActiveInteraction({
+        mapId: scriptObject.mapId || mapId || '',
+        localId: scriptObject.localIdNumber,
+        treeId: scriptObject.berryTreeId,
+      });
+    } else {
+      berryManager.clearActiveInteraction();
+    }
+
+    try {
+      await runHandledStoryScript(scriptObject.script, mapId);
+    } finally {
+      berryManager.clearActiveInteraction();
+    }
   };
 
   const onNpcInteract = async (npc: NPCObject) => {
@@ -73,6 +93,7 @@ export function createActionCallbacks(deps: ActionCallbackDeps) {
         }
       }
     }
+    berryManager.clearActiveInteraction();
     await runHandledStoryScript(npc.script, mapId);
   };
 
@@ -80,6 +101,7 @@ export function createActionCallbacks(deps: ActionCallbackDeps) {
     const player = playerRef.current;
     const wm = worldManagerRef.current;
     if (!player || !wm) return;
+    berryManager.clearActiveInteraction();
     const currentMap = wm.findMapAtPosition(player.tileX, player.tileY);
     if (!currentMap) return;
     const mapId = currentMap.entry.id;

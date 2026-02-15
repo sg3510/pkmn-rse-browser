@@ -59,6 +59,7 @@ import { isLongGrassBehavior } from '../utils/metatileBehaviors';
 import { npcAnimationManager, shouldAnimate } from '../game/npc/NPCAnimationEngine';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { getNPCFrameInfo } from '../game/npc/NPCSpriteLoader';
+import { berryManager } from '../game/berry/BerryManager.ts';
 
 // =============================================================================
 // Types
@@ -496,6 +497,7 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
 
     // Script objects (e.g. Birch's bag) share object-event sprite atlases and
     // should be sorted alongside regular field sprites.
+    berryManager.runTimeBasedEvents(nowTime);
     for (const scriptObject of scriptObjects) {
       const atlasName = getNPCAtlasName(scriptObject.graphicsId);
       if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;

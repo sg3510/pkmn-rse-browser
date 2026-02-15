@@ -25,6 +25,7 @@ import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
 import { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
 import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
 import { WebGLScanlineRenderer } from '../rendering/webgl/WebGLScanlineRenderer';
+import { WebGLOrbEffectRenderer } from '../rendering/webgl/WebGLOrbEffectRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
 import type { TileResolverFn, RenderContext } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
@@ -44,6 +45,8 @@ import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { npcAnimationManager } from '../game/npc/NPCAnimationEngine';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
+import { ScriptFieldEffectAnimationManager } from '../game/ScriptFieldEffectAnimationManager';
+import { OrbEffectRuntime } from '../game/scriptEffects/orbEffectRuntime';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
@@ -222,6 +225,7 @@ const EMPTY_DEBUG_STATE: DebugState = {
   allVisibleItems: [],
   totalNPCCount: 0,
   totalItemCount: 0,
+  fade: null,
   allNPCs: [],
   offscreenDespawnedNpcIds: [],
 };
@@ -462,6 +466,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const spriteRendererRef = useRef<WebGLSpriteRenderer | null>(null);
   const fadeRendererRef = useRef<WebGLFadeRenderer | null>(null);
   const scanlineRendererRef = useRef<WebGLScanlineRenderer | null>(null);
+  const orbEffectRendererRef = useRef<WebGLOrbEffectRenderer | null>(null);
   const stitchedWorldRef = useRef<StitchedWorldData | null>(null);
   const worldManagerRef = useRef<WorldManager | null>(null);
   const worldSnapshotRef = useRef<WorldSnapshot | null>(null);
@@ -486,7 +491,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       y: scriptedCameraStateRef.current.focusY,
     }),
   });
-  const activeScriptFieldEffectsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const activeScriptFieldEffectsRef = useRef<Map<string, Set<Promise<void>>>>(new Map());
+  const orbEffectRuntimeRef = useRef<OrbEffectRuntime>(new OrbEffectRuntime());
+  const scriptFieldEffectAnimationManagerRef = useRef<ScriptFieldEffectAnimationManager>(
+    new ScriptFieldEffectAnimationManager({
+      getPlayerWorldPosition: () => {
+        const player = playerRef.current;
+        if (!player || !playerLoadedRef.current) return null;
+        return {
+          x: player.x + METATILE_SIZE / 2,
+          y: player.y + METATILE_SIZE,
+        };
+      },
+      getNpcWorldPosition: (mapId, localId) => {
+        const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+        if (!npc) return null;
+        const subTileX = npc.subTileX ?? 0;
+        const subTileY = npc.subTileY ?? 0;
+        return {
+          x: npc.tileX * METATILE_SIZE + subTileX + METATILE_SIZE / 2,
+          y: npc.tileY * METATILE_SIZE + subTileY + METATILE_SIZE,
+        };
+      },
+    })
+  );
   const mewEmergingGrassEffectIdRef = useRef<string | null>(null);
   const deoxysRockRenderDebugRef = useRef<{
     active: boolean;
@@ -875,6 +903,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       scriptedCameraMoveTokenRef,
       scriptedCameraShakeTokenRef,
       activeScriptFieldEffectsRef,
+      scriptFieldEffectAnimationManagerRef,
+      orbEffectRuntimeRef,
       mewEmergingGrassEffectIdRef,
       deoxysRockRenderDebugRef,
       weatherManagerRef,
@@ -1032,6 +1062,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       totalNPCCount: allNpcs.length,
       totalItemCount: objectEventManagerRef.current.getAllItemBalls().length,
       offscreenDespawnedNpcIds: objectRuntimeState.offscreenDespawnedNpcIds,
+      fade: (() => {
+        const now = performance.now();
+        const fadeController = fadeControllerRef.current;
+        return {
+          active: fadeController.isActive(),
+          direction: fadeController.getDirection(),
+          complete: fadeController.isComplete(now),
+          alpha: fadeController.getAlpha(now),
+        };
+      })(),
     });
   }, [debugOptions.enabled, playerDebugInfo]);
 
@@ -1082,6 +1122,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     snapshot: WorldSnapshot,
     pipeline: WebGLRenderPipeline
   ): Promise<void> => {
+    scriptFieldEffectAnimationManagerRef.current.clear();
+    orbEffectRuntimeRef.current.clear(cameraRef.current);
+
     // Update snapshot ref
     worldSnapshotRef.current = snapshot;
     renderContextCacheRef.current = null;
@@ -1189,6 +1232,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     trigger: WarpTrigger,
     options?: { force?: boolean; fromDoor?: boolean }
   ) => {
+    scriptFieldEffectAnimationManagerRef.current.clear();
+    orbEffectRuntimeRef.current.clear(cameraRef.current);
+
     // Clear ON_FRAME suppression — new map visit should re-evaluate frame scripts
     onFrameSuppressedRef.current.clear();
     return performWarpTransition({
@@ -1271,6 +1317,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const scanlineRenderer = new WebGLScanlineRenderer(pipeline.getGL());
       scanlineRenderer.initialize();
       scanlineRendererRef.current = scanlineRenderer;
+
+      // Initialize orb effect renderer (scripted cutscene screen effects)
+      const orbEffectRenderer = new WebGLOrbEffectRenderer(pipeline.getGL());
+      orbEffectRenderer.initialize();
+      orbEffectRendererRef.current = orbEffectRenderer;
     } catch (e) {
       // WebGL pipeline creation failed - redirect to legacy Canvas2D mode
       gamePageLogger.error('Failed to create WebGL pipeline, redirecting to legacy Canvas2D mode:', e);
@@ -1317,9 +1368,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const dt = nowTime - lastTimeRef.current;
       lastTimeRef.current = nowTime;
       gbaAccumRef.current += dt;
+      let gbaFramesAdvanced = 0;
       while (gbaAccumRef.current >= GBA_FRAME_MS) {
         gbaAccumRef.current -= GBA_FRAME_MS;
         gbaFrameRef.current++;
+        gbaFramesAdvanced++;
       }
       beginRuntimePerfFrame(gbaFrameRef.current, nowTime);
       const framePerfStart = nowTime;
@@ -1327,6 +1380,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       // Update shimmer animation (GBA-accurate reflection distortion)
       getGlobalShimmer().update(nowTime);
       npcAnimationManager.update();
+      scriptFieldEffectAnimationManagerRef.current.update(dt);
+      orbEffectRuntimeRef.current.update(gbaFramesAdvanced, cameraRef.current);
 
       const objectSpawnDespawnStart = performance.now();
       const player = playerRef.current;
@@ -1666,6 +1721,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             warpingRef,
             pendingScriptedWarpRef,
             deoxysRockRenderDebugRef,
+            scriptFieldEffectAnimationManager: scriptFieldEffectAnimationManagerRef.current,
+            orbEffectRuntime: orbEffectRuntimeRef.current,
+            orbEffectRenderer: orbEffectRendererRef.current,
             doorAnimations,
             doorSequencer,
             arrowOverlay,
@@ -1724,12 +1782,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       fadeRendererRef.current = null;
       scanlineRendererRef.current?.dispose();
       scanlineRendererRef.current = null;
+      orbEffectRendererRef.current?.dispose();
+      orbEffectRendererRef.current = null;
       playerRef.current?.destroy();
       playerRef.current = null;
       playerLoadedRef.current = false;
       playerSpritesLoadPromiseRef.current = null;
       fieldSpritesLoadPromiseRef.current = null;
       lastWorldUpdateRef.current = null;
+      scriptFieldEffectAnimationManagerRef.current.clear();
+      orbEffectRuntimeRef.current.clear(cameraRef.current);
       renderContextCacheRef.current = null;
       weatherManagerRef.current.clear();
       worldManagerRef.current?.dispose();

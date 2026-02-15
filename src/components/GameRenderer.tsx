@@ -102,6 +102,7 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
     allVisibleItems: [],
     totalNPCCount: 0,
     totalItemCount: 0,
+    fade: null,
   });
 
   // Hooks

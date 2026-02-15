@@ -23,6 +23,9 @@ import {
 } from '../../scripting/battleTypes';
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
 import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
+import { menuStateManager } from '../../menu/MenuStateManager';
+import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
+import { resolveTrainerBattleLead } from './trainerBattleFallback';
 import type { MutableRef } from './types';
 
 
@@ -37,15 +40,6 @@ interface PendingScriptedWarpLike {
     underwater: boolean;
   };
 }
-
-const SCRIPTED_TRAINER_BATTLES: Record<string, { species: number; level: number }> = {
-  TRAINER_MAY_ROUTE_103_TREECKO: { species: SPECIES.TORCHIC, level: 5 },
-  TRAINER_MAY_ROUTE_103_TORCHIC: { species: SPECIES.MUDKIP, level: 5 },
-  TRAINER_MAY_ROUTE_103_MUDKIP: { species: SPECIES.TREECKO, level: 5 },
-  TRAINER_BRENDAN_ROUTE_103_TREECKO: { species: SPECIES.TORCHIC, level: 5 },
-  TRAINER_BRENDAN_ROUTE_103_TORCHIC: { species: SPECIES.MUDKIP, level: 5 },
-  TRAINER_BRENDAN_ROUTE_103_MUDKIP: { species: SPECIES.TREECKO, level: 5 },
-};
 
 export interface UseHandledStoryScriptParams {
   showMessage: StoryScriptContext['showMessage'];
@@ -95,6 +89,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     scriptRuntimeServices,
     getSavedWeather,
   } = params;
+
+  const SCRIPT_CALLBACK_RECOVERY_FADE_FRAMES = 16;
 
   return useCallback(async (scriptName: string, currentMapId?: string): Promise<boolean> => {
     // Use the actual current map ID (from render loop) when available,
@@ -507,9 +503,13 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         startTrainerBattle: async (request) => {
           if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
           const trainerId = request.trainerId;
-          const battle = SCRIPTED_TRAINER_BATTLES[trainerId];
-          if (!battle) {
-            console.warn(`[StoryScript] Unmapped trainer battle: ${trainerId}`);
+          const battleLead = resolveTrainerBattleLead(trainerId);
+          if (battleLead.kind === 'unknown_trainer') {
+            console.warn(`[StoryScript] Unknown trainer constant: ${trainerId}`);
+            return { outcome: BATTLE_OUTCOME.WON };
+          }
+          if (battleLead.kind === 'empty_party') {
+            console.warn(`[StoryScript] Trainer has empty party: ${trainerId}`);
             return { outcome: BATTLE_OUTCOME.WON };
           }
 
@@ -523,8 +523,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           await stateManager.transitionTo(GameState.BATTLE, {
             battleType: 'trainer',
             playerPokemon: lead,
-            wildSpecies: battle.species,
-            wildLevel: battle.level,
+            wildSpecies: battleLead.species,
+            wildLevel: battleLead.level,
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
             returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
@@ -755,6 +755,42 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       npcMovement.setEnabled(true);
       console.log(`[StoryScript] ■ Finally: warpingRef=${warpingRef.current} pendingScriptedWarp=${!!pendingScriptedWarpRef.current} inputLocked=${player.inputLocked}`);
       const hasPendingScriptedWarp = pendingScriptedWarpRef.current !== null;
+      const hasOpenMenu = menuStateManager.isMenuOpen();
+      const fadeServices = scriptRuntimeServices?.fade;
+      const fadeDirection = fadeServices?.getDirection?.() ?? null;
+      const fadeIsActive = fadeServices?.isActive?.() ?? false;
+      const fadeIsComplete = fadeServices?.isComplete?.() ?? false;
+
+      if (
+        shouldAutoRecoverStoryScriptFade({
+          fadeDirection,
+          fadeIsComplete,
+          fadeIsActive,
+          hasActiveWarp: warpingRef.current,
+          hasPendingScriptedWarp,
+          hasOpenMenu,
+        })
+        && fadeServices
+      ) {
+        const durationMs = fadeServices.framesToMs?.(SCRIPT_CALLBACK_RECOVERY_FADE_FRAMES)
+          ?? Math.max(1, Math.round(SCRIPT_CALLBACK_RECOVERY_FADE_FRAMES * gbaFrameMs));
+        console.warn('[StoryScript] Auto-recovering stale fade-out after script completion', {
+          scriptName,
+          mapId: effectiveMapId,
+          fade: {
+            direction: fadeDirection,
+            active: fadeIsActive,
+            complete: fadeIsComplete,
+          },
+        });
+        fadeServices.start('in', durationMs);
+        if (fadeServices.wait) {
+          await fadeServices.wait(durationMs, 'in');
+        } else {
+          await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+        }
+      }
+
       if (!warpingRef.current && !hasPendingScriptedWarp) {
         console.log('[StoryScript] ■ Unlocking input (no active/pending warp)');
         player.unlockInput();

@@ -1,7 +1,7 @@
 ---
 title: "New Game to First Pokemon - Master Backlog"
 status: planned
-last_verified: 2026-02-13
+last_verified: 2026-02-15
 goal: "Make the game playable from pressing NEW GAME through choosing a starter and winning the first battle"
 ---
 
@@ -54,6 +54,18 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [x] Run scripted-battle post-return flow with `onReturnToField` then `onResume`.
 - [x] Publish implementation notes in `docs/features/overworld/legendary-island-parity.md`.
 - [ ] Manual in-game QA pass for Faraway/Birth/Navel/Southern encounter branches (defeat, run, catch).
+
+## Berry System Parity (Completed 2026-02-15)
+
+- [x] Fix berry script command/special handling (`setberrytree`, `waitbuttonpress`, berry `ObjectEventInteraction*`, `PlayerHasBerries`, `Bag_ChooseBerry`, `DoWateringBerryTreeAnim`)
+- [x] Add authoritative berry runtime manager with growth timing, watering bits, regrowth, harvest yield, and interaction APIs
+- [x] Preserve berry tree interaction identity from object events into script interaction context
+- [x] Integrate callback-driven bag berry selection mode and resume script waitstate on select/cancel
+- [x] Match callback-return field fade semantics for callback specials (`Bag_ChooseBerry` resumes via return-to-field fade-in and guarded stale-black recovery)
+- [x] Regenerate berry animation metadata and wire stage-aware berry tree sprite rendering
+- [x] Persist berry state in app JSON saves and load with backward-compatible defaults
+- [x] Parse berry trees + last berry update timestamp from native `.sav` imports and apply elapsed-time updates
+- [x] Complete berry item data coverage for IDs `133..175` and verify berry pocket classification
 
 ---
 

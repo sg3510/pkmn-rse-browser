@@ -52,8 +52,12 @@ export interface ItemBallObject {
 export interface ScriptObject {
   /** Unique ID for lookups */
   id: string;
+  /** Owning map ID */
+  mapId: string;
   /** Local ID within map data, if any */
   localId: string | null;
+  /** Numeric local ID (for VAR_LAST_TALKED parity), if available */
+  localIdNumber: number | null;
   /** World tile X coordinate */
   tileX: number;
   /** World tile Y coordinate */
@@ -68,6 +72,8 @@ export interface ScriptObject {
   flag: string;
   /** Whether object is visible */
   visible: boolean;
+  /** Berry tree ID from trainer_sight_or_berry_tree_id (0 for non-berry script objects) */
+  berryTreeId: number;
 }
 
 /**

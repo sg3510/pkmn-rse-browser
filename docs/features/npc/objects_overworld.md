@@ -1,7 +1,7 @@
 ---
 title: Overworld Objects Documentation
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-15
 ---
 
 # Overworld Objects Documentation
@@ -660,6 +660,30 @@ struct BerryTree berryTrees[BERRY_TREES_COUNT];  // 128 trees in SaveBlock1
 // ... 128 total tree locations
 #define BERRY_TREES_COUNT           128
 ```
+
+### Browser Implementation Status (2026-02-15)
+
+Berry tree interactions now run with Emerald-parity runtime/state handling in the browser implementation:
+
+- `src/game/berry/BerryManager.ts`
+  - Authoritative tree state for all 128 trees (`berry`, `stage`, `minutesUntilNextStage`, `berryYield`, `regrowthCount`, watering bits)
+  - Time-based advancement and regrowth behavior mirroring `BerryTreeTimeUpdate`
+  - Interaction helpers used by berry specials (`get`, `plant`, `pick`, `remove`, `water`)
+- `src/scripting/ScriptRunner.ts`
+  - Berry command/special support: `setberrytree`, `waitbuttonpress`, `ObjectEventInteraction*`, `PlayerHasBerries`, `Bag_ChooseBerry`, `DoWateringBerryTreeAnim`
+  - Correct berry-stage constant and expression resolution (`BERRY_STAGE_*`, `ITEM_TO_BERRY(...)`, `BERRY_TO_ITEM(...)`)
+- `src/pages/gamePage/actionCallbacks.ts` and `src/game/ObjectEventManager.ts`
+  - Active berry interaction context wiring (tree id + local id parity for `VAR_LAST_TALKED`/sparkle flow)
+- `scripts/parse-sprite-metadata.ts`, `src/data/sprite-metadata.json`, `src/rendering/spriteUtils.ts`
+  - Berry animation table key parsing and stage-aware berry tree frame selection (`sAnimTable_BerryTree`)
+- `src/menu/components/BagMenu.tsx`
+  - Callback-driven berry-selection mode for `Bag_ChooseBerry` with berry-pocket filtering and cancel semantics
+- Callback-special return-to-field fade parity (`CB2_ReturnToFieldContinueScript` behavior)
+  - `src/scripting/ScriptRunner.ts` resumes callback-driven specials through a guarded fade-in when the field is left in black fade-out state
+  - `src/pages/gamePage/useHandledStoryScript.ts` adds a defensive stale-black recovery guard in script `finally` when no warp/menu is active
+
+Current deliberate simplification:
+- Daily berry counters (`IncrementDailyPickedBerries`, `IncrementDailyPlantedBerries`) are no-op script specials; berry gameplay branches are unaffected.
 
 ---
 

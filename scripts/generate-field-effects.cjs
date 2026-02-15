@@ -105,18 +105,39 @@ function parsePicTables(source) {
         const body = match[2];
         // Match overworld_frame(gFieldEffectObjectPic_Name, 2, 2, 0)
         const frameRegex = /overworld_frame\(([A-Za-z0-9_]+),\s*(\d+),\s*(\d+),\s*(\d+)\)/g;
+        // Match obj_frame_tiles(gFieldEffectObjectPic_Name)
+        const objFrameRegex = /obj_frame_tiles\(([A-Za-z0-9_]+)\)/g;
         let frameMatch;
         let picName = null;
         let widthTiles = 2;
         let heightTiles = 2;
+        let usesObjFrameTiles = false;
         if ((frameMatch = frameRegex.exec(body)) !== null) {
             picName = frameMatch[1];
             widthTiles = parseInt(frameMatch[2]);
             heightTiles = parseInt(frameMatch[3]);
+        } else if ((frameMatch = objFrameRegex.exec(body)) !== null) {
+            picName = frameMatch[1];
+            usesObjFrameTiles = true;
         }
-        tables.set(name, { picName, width: widthTiles * 8, height: heightTiles * 8 });
+        tables.set(name, {
+            picName,
+            width: widthTiles * 8,
+            height: heightTiles * 8,
+            usesObjFrameTiles,
+        });
     }
     return tables;
+}
+
+function parseOamDimensions(oamName) {
+    if (!oamName) return null;
+    const match = oamName.match(/_(\d+)x(\d+)$/);
+    if (!match) return null;
+    return {
+        width: parseInt(match[1], 10),
+        height: parseInt(match[2], 10),
+    };
 }
 
 function parseGraphics(source) {
@@ -158,12 +179,22 @@ function main() {
 
         if (!imagePath || !animation) continue;
 
+        let width = picTable.width;
+        let height = picTable.height;
+        if (picTable.usesObjFrameTiles) {
+            const inferred = parseOamDimensions(template.oam);
+            if (inferred) {
+                width = inferred.width;
+                height = inferred.height;
+            }
+        }
+
         const effectKey = id.replace('FLDEFFOBJ_', '');
         registry[effectKey] = {
             id,
             imagePath: `/pokeemerald/${imagePath}`,
-            width: picTable.width,
-            height: picTable.height,
+            width,
+            height,
             animation: animation
         };
     }

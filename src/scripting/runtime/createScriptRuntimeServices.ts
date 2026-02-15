@@ -10,6 +10,9 @@ import type { WeatherManager } from '../../weather/WeatherManager';
 import { setFixedDiveWarpTarget } from '../../game/FixedDiveWarp';
 import { GBA_FRAME_MS } from '../../config/timing';
 import { createLegendaryScriptServices } from '../../game/legendary/createLegendaryScriptServices';
+import type { ScriptFieldEffectAnimationManager } from '../../game/ScriptFieldEffectAnimationManager';
+import type { OrbEffectRuntime } from '../../game/scriptEffects/orbEffectRuntime';
+import { berryManager } from '../../game/berry/BerryManager.ts';
 
 interface MutableRef<T> {
   current: T;
@@ -27,7 +30,9 @@ export interface ScriptRuntimeServicesDeps {
   scriptedCameraStateRef: MutableRef<{ active: boolean; focusX: number; focusY: number }>;
   scriptedCameraMoveTokenRef: MutableRef<number>;
   scriptedCameraShakeTokenRef: MutableRef<number>;
-  activeScriptFieldEffectsRef: MutableRef<Map<string, Promise<void>>>;
+  activeScriptFieldEffectsRef: MutableRef<Map<string, Set<Promise<void>>>>;
+  scriptFieldEffectAnimationManagerRef: MutableRef<ScriptFieldEffectAnimationManager>;
+  orbEffectRuntimeRef: MutableRef<OrbEffectRuntime>;
   mewEmergingGrassEffectIdRef: MutableRef<string | null>;
   deoxysRockRenderDebugRef: MutableRef<{ active: boolean; startMs: number; lastLogMs: number }>;
   waitScriptFrames: (frames: number) => Promise<void>;
@@ -54,6 +59,35 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     return 1;
   };
 
+  const registerActiveFieldEffectJob = (effectName: string, job: Promise<void>): void => {
+    let activeJobs = deps.activeScriptFieldEffectsRef.current.get(effectName);
+    if (!activeJobs) {
+      activeJobs = new Set<Promise<void>>();
+      deps.activeScriptFieldEffectsRef.current.set(effectName, activeJobs);
+    }
+    activeJobs.add(job);
+    void job.finally(() => {
+      const active = deps.activeScriptFieldEffectsRef.current.get(effectName);
+      if (!active) return;
+      active.delete(job);
+      if (active.size === 0) {
+        deps.activeScriptFieldEffectsRef.current.delete(effectName);
+      }
+    });
+  };
+
+  const resolveMapOffset = (mapId: string): { offsetX: number; offsetY: number } | null => {
+    const snapshot = deps.worldSnapshotRef.current;
+    const map = snapshot?.maps.find((entry) => entry.entry.id === mapId);
+    if (map) {
+      return { offsetX: map.offsetX, offsetY: map.offsetY };
+    }
+
+    const parsedOffset = deps.objectEventManagerRef.current.getMapOffset(mapId);
+    if (!parsedOffset) return null;
+    return { offsetX: parsedOffset.x, offsetY: parsedOffset.y };
+  };
+
   return {
     setDiveWarp: (mapId, x, y, warpId = 0) => {
       setFixedDiveWarpTarget(mapId, x, y, warpId);
@@ -75,38 +109,74 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
         const frameCount = Math.max(1, Math.round(frames));
         return Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
       },
+      getDirection: () => deps.fadeControllerRef.current.getDirection(),
+      isActive: () => deps.fadeControllerRef.current.isActive(),
+      isComplete: () => deps.fadeControllerRef.current.isComplete(performance.now()),
     },
     fieldEffects: {
       setArgument: () => {},
-      run: (effectName) => {
-        if (effectName !== 'FLDEFF_DESTROY_DEOXYS_ROCK') {
+      run: (effectName, args, context) => {
+        if (effectName === 'FLDEFF_NPCFLY_OUT') {
+          const job = deps.scriptFieldEffectAnimationManagerRef.current.start(effectName, args);
+          registerActiveFieldEffectJob(effectName, job);
           return;
         }
 
-        const job = (async () => {
-          // C parity approximation for Task_DestroyDeoxysRock timing.
-          await deps.waitScriptFrames(120);
-          deps.objectEventManagerRef.current.setNPCVisibilityByLocalId(
-            'MAP_BIRTH_ISLAND_EXTERIOR',
-            'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
-            false
-          );
-          deps.pipelineRef.current?.invalidate();
-          await deps.waitScriptFrames(20);
-        })();
-
-        deps.activeScriptFieldEffectsRef.current.set(effectName, job);
-        void job.finally(() => {
-          const active = deps.activeScriptFieldEffectsRef.current.get(effectName);
-          if (active === job) {
-            deps.activeScriptFieldEffectsRef.current.delete(effectName);
+        if (effectName === 'FLDEFF_SPARKLE') {
+          const tileX = Number(args.get(0));
+          const tileY = Number(args.get(1));
+          const priority = Number(args.get(2) ?? 0);
+          if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+            return;
           }
-        });
+
+          let worldTileX = Math.trunc(tileX);
+          let worldTileY = Math.trunc(tileY);
+          const mapId = context?.mapId;
+          if (mapId) {
+            const offset = resolveMapOffset(mapId);
+            if (offset) {
+              worldTileX = offset.offsetX + Math.trunc(tileX);
+              worldTileY = offset.offsetY + Math.trunc(tileY);
+            }
+          }
+
+          const sparkleArgs = new Map<number, string | number>([
+            [0, worldTileX],
+            [1, worldTileY],
+            [2, Number.isFinite(priority) ? Math.trunc(priority) : 0],
+          ]);
+          const job = deps.scriptFieldEffectAnimationManagerRef.current.start(effectName, sparkleArgs);
+          registerActiveFieldEffectJob(effectName, job);
+          return;
+        }
+
+        if (effectName === 'FLDEFF_DESTROY_DEOXYS_ROCK') {
+          const job = (async () => {
+            // C parity approximation for Task_DestroyDeoxysRock timing.
+            await deps.waitScriptFrames(120);
+            deps.objectEventManagerRef.current.setNPCVisibilityByLocalId(
+              'MAP_BIRTH_ISLAND_EXTERIOR',
+              'LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK',
+              false
+            );
+            deps.pipelineRef.current?.invalidate();
+            await deps.waitScriptFrames(20);
+          })();
+
+          registerActiveFieldEffectJob(effectName, job);
+          return;
+        }
       },
       wait: async (effectName) => {
         const active = deps.activeScriptFieldEffectsRef.current.get(effectName);
-        if (active) {
-          await active;
+        if (active && active.size > 0) {
+          await Promise.all([...active]);
+          return;
+        }
+
+        if (effectName === 'FLDEFF_NPCFLY_OUT' || effectName === 'FLDEFF_SPARKLE') {
+          await deps.scriptFieldEffectAnimationManagerRef.current.wait(effectName);
         }
       },
     },
@@ -123,11 +193,17 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
       applyCurrentWeather: () => {
         deps.weatherManagerRef.current.doCurrentWeather();
       },
+      waitForChangeComplete: async () => {},
     },
     time: {
       runTimeBasedEvents: () => {
+        berryManager.runTimeBasedEvents(Date.now());
         deps.weatherManagerRef.current.syncWeatherCycleToCurrentDate(Date.now());
       },
+    },
+    screenEffects: {
+      startOrbEffect: (resultVar) => deps.orbEffectRuntimeRef.current.start(resultVar),
+      fadeOutOrbEffect: () => deps.orbEffectRuntimeRef.current.fadeOut(),
     },
     camera: {
       spawnObject: () => {

@@ -11,14 +11,14 @@
  * - public/pokeemerald/src/battle_setup.c (BattleSetup_StartTrainerBattle, BattleSetup_StartScriptedWildBattle)
  */
 
-import { gameVariables, GAME_VARS } from '../game/GameVariables';
+import { gameVariables, GAME_VARS } from '../game/GameVariables.ts';
 import {
   BATTLE_OUTCOME,
   normalizeBattleOutcome,
   type ScriptBattleResult,
   type ScriptTrainerBattleRequest,
   type ScriptWildBattleRequest,
-} from './battleTypes';
+} from './battleTypes.ts';
 
 export interface BattleCommandContext {
   delayFrames: (frames: number) => Promise<void>;

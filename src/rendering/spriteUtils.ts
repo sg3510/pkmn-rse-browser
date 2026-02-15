@@ -25,6 +25,7 @@ import { isPondBridge, isTallGrassBehavior, isLongGrassBehavior } from '../utils
 import { getNPCFrameInfo, getNPCFrameRect } from '../game/npc/NPCSpriteLoader';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import { calculateSortKey } from '../game/playerCoords';
+import { getSpriteAnimationFrames } from '../data/spriteMetadata';
 import {
   computeFieldEffectLayer,
   getFieldEffectYOffset,
@@ -32,6 +33,7 @@ import {
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../data/largeObjectGraphics.gen';
 import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
 import type { ObjectEventAffineTransform } from '../game/npc/ObjectEventAffineManager';
+import { berryManager } from '../game/berry/BerryManager.ts';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -536,8 +538,30 @@ export function createScriptObjectSpriteInstance(
   scriptObject: ScriptObject,
   sortKey: number
 ): SpriteInstance | null {
-  const frameInfo = getNPCFrameInfo('down', false, 0, scriptObject.graphicsId);
-  const { sx, sy, sw, sh } = getNPCFrameRect(frameInfo.frameIndex, scriptObject.graphicsId);
+  let frameIndex = 0;
+  let flipHorizontal = false;
+
+  if (scriptObject.graphicsId === 'OBJ_EVENT_GFX_BERRY_TREE' && scriptObject.berryTreeId > 0) {
+    const stage = berryManager.getTreeStage(scriptObject.berryTreeId);
+    let animIndex = 0;
+
+    if (stage === 2) animIndex = 1;
+    else if (stage === 3) animIndex = 2;
+    else if (stage === 4) animIndex = 3;
+    else if (stage >= 5) animIndex = 4;
+
+    const frames = getSpriteAnimationFrames(scriptObject.graphicsId, animIndex);
+    if (frames.length > 0) {
+      frameIndex = frames[0].frameIndex;
+      flipHorizontal = frames[0].hFlip ?? false;
+    }
+  } else {
+    const frameInfo = getNPCFrameInfo('down', false, 0, scriptObject.graphicsId);
+    frameIndex = frameInfo.frameIndex;
+    flipHorizontal = frameInfo.flipHorizontal;
+  }
+
+  const { sx, sy, sw, sh } = getNPCFrameRect(frameIndex, scriptObject.graphicsId);
 
   const worldX = scriptObject.tileX * METATILE_SIZE + Math.floor((METATILE_SIZE - sw) / 2);
   const worldY = scriptObject.tileY * METATILE_SIZE - (sh - METATILE_SIZE);
@@ -552,7 +576,7 @@ export function createScriptObjectSpriteInstance(
     atlasY: sy,
     atlasWidth: sw,
     atlasHeight: sh,
-    flipX: frameInfo.flipHorizontal,
+    flipX: flipHorizontal,
     flipY: false,
     alpha: 1.0,
     tintR: 1.0,

@@ -1,0 +1,42 @@
+{
+  "host": "127.0.0.1",
+  "port": 61337,
+  "timeoutMs": 60000,
+  "steps": [
+    {
+      "action": "ping",
+      "note": "Verify bridge connectivity"
+    },
+    {
+      "action": "reset",
+      "note": "Start from clean boot state"
+    },
+    {
+      "action": "advance",
+      "frames": 1200,
+      "button": "A",
+      "note": "Drive intro logic with input held"
+    },
+    {
+      "action": "advance",
+      "frames": 1200,
+      "note": "Drive intro logic without input"
+    },
+    {
+      "action": "advance",
+      "frames": 1200,
+      "button": "START",
+      "note": "Exercise title/menu transitions"
+    },
+    {
+      "action": "advance",
+      "frames": 1600,
+      "button": "A",
+      "note": "Exercise menu and script pathways"
+    },
+    {
+      "action": "frame",
+      "note": "End checkpoint"
+    }
+  ]
+}

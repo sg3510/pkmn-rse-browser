@@ -19,6 +19,7 @@ import type { PlayerController } from '../../game/PlayerController';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
 import { createMapScriptRunnerContext } from './createMapScriptRunnerContext';
 import { applyObjectEventOverridesForMap } from '../../game/overworld/applyObjectEventOverridesForMap';
+import { isDebugMode } from '../../utils/debug';
 
 interface MutableRef<T> {
   current: T;
@@ -95,6 +96,18 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     mode = 'warp',
   } = params;
   const logPrefix = mode === 'warp' ? '[WARP]' : '[SEAM]';
+  if (isDebugMode() || isDebugMode('field')) {
+    const cyclingState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
+    console.debug(
+      `${logPrefix} MAP ENTRY`,
+      {
+        currentMapId,
+        mode,
+        cyclingState,
+        collisions: player.getCyclingRoadChallengeCollisions(),
+      },
+    );
+  }
 
   try {
     // Synchronize weather manager to destination map before entry scripts run.

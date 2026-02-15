@@ -26,6 +26,10 @@ test('parses vanilla Emerald sample with supported layout profile', () => {
   assert.equal(result.nativeMetadata.layoutSupported, true);
   assert.equal(result.nativeMetadata.layoutProfileId, 'emerald_vanilla');
   assert.equal(result.nativeMetadata.sanity.level, 'high');
+  assert.ok(result.saveData.berry);
+  assert.equal(result.saveData.berry?.trees.length, 128);
+  assert.ok(result.saveData.berry?.lastUpdateRtc);
+  assert.ok((result.saveData.berry?.lastUpdateRtc?.days ?? 0) >= 0);
 
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEMON_GET'), true);
   assert.equal(result.saveData.flags.includes('FLAG_SYS_POKEDEX_GET'), true);

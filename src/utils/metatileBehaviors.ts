@@ -33,6 +33,8 @@ import {
   MB_UP_ESCALATOR,
   MB_DOWN_ESCALATOR,
   MB_CRACKED_FLOOR_HOLE,
+  MB_MUDDY_SLOPE,
+  MB_BUMPY_SLOPE,
 } from './metatileBehaviors.generated';
 
 export {
@@ -62,6 +64,8 @@ export {
   MB_UP_ESCALATOR,
   MB_DOWN_ESCALATOR,
   MB_CRACKED_FLOOR_HOLE,
+  MB_MUDDY_SLOPE,
+  MB_BUMPY_SLOPE,
 };
 
 export const MB_DEEP_SAND = 6;
@@ -394,6 +398,20 @@ export function isBikeRailBehavior(behavior: number): boolean {
  */
 export function isSandOrDeepSandBehavior(behavior: number): boolean {
   return behavior === MB_SAND || behavior === MB_DEEP_SAND;
+}
+
+/**
+ * C ref: MetatileBehavior_IsMuddySlope (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isMuddySlopeBehavior(behavior: number): boolean {
+  return behavior === MB_MUDDY_SLOPE;
+}
+
+/**
+ * C ref: MetatileBehavior_IsBumpySlope (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isBumpySlopeBehavior(behavior: number): boolean {
+  return behavior === MB_BUMPY_SLOPE;
 }
 
 /**

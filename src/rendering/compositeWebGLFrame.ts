@@ -49,6 +49,14 @@ export interface CompositeFrameContext {
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
   /** Optional weather renderer (runs below scanline/fade overlays) */
   renderWeather?: (ctx2d: CanvasRenderingContext2D, view: WorldCameraView, nowMs: number) => void;
+  /** Optional scripted full-screen effect renderer (runs after weather, before scanline/fade) */
+  renderScriptScreenEffect?: (ctx: {
+    ctx2d: CanvasRenderingContext2D;
+    view: WorldCameraView;
+    nowMs: number;
+    gl: WebGL2RenderingContext;
+    webglCanvas: HTMLCanvasElement;
+  }) => void;
 }
 
 export interface SpriteGroups {
@@ -110,7 +118,7 @@ export function compositeWebGLFrame(
   options: CompositeFrameOptions
 ): void {
   const { pipeline, spriteRenderer, fadeRenderer, scanlineRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
-  const { renderWeather } = ctx;
+  const { renderWeather, renderScriptScreenEffect } = ctx;
   const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
   const { fadeAlpha, scanlineIntensity = 0, zoom = 1, nowMs = performance.now() } = options;
 
@@ -197,6 +205,15 @@ export function compositeWebGLFrame(
 
   // Weather renders as a post-composite field layer, below scanline/fade overlays.
   renderWeather?.(ctx2d, view, nowMs);
+
+  // Scripted screen effects render after weather but before scanline/fade overlays.
+  renderScriptScreenEffect?.({
+    ctx2d,
+    view,
+    nowMs,
+    gl,
+    webglCanvas,
+  });
 
   // Scanline overlay (CRT effect when menu is open)
   if (scanlineIntensity > 0 && scanlineRenderer) {

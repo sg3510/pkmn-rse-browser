@@ -15,6 +15,7 @@ import { npcSpriteCache } from '../../npc/NPCSpriteLoader';
 import { npcAnimationManager } from '../../npc/NPCAnimationEngine';
 import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../../loadObjectEventsFromSnapshot';
 import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
+import { isDebugMode } from '../../../utils/debug';
 
 interface MutableRef<T> {
   current: T;
@@ -63,6 +64,14 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
   if (!snapshot || !player || !pipeline) {
     return;
   }
+
+  if (isDebugMode() || isDebugMode('field')) {
+    console.debug('[CYCLING_ROAD] Seam map-entry reset before scripts', {
+      mapId,
+      previousCollisions: player.getCyclingRoadChallengeCollisions(),
+    });
+  }
+  player.setCyclingRoadChallengeActive(false);
 
   seamTransitionScriptsInFlightRef.current.add(mapId);
   onFrameSuppressedRef.current.clear();

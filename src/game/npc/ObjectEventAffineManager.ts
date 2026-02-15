@@ -15,12 +15,12 @@
  *   - StartSpriteAffineAnimIfDifferent / ChangeSpriteAffineAnimIfDifferent
  */
 
-import { GBA_FRAME_MS } from '../../config/timing';
+import { GBA_FRAME_MS } from '../../config/timing.ts';
 import {
   getSpriteAffineAnimationCommands,
   type AffineAnimCommand,
-} from '../../data/spriteMetadata';
-import type { NPCObject } from '../../types/objectEvents';
+} from '../../data/spriteMetadata.ts';
+import type { NPCObject } from '../../types/objectEvents.ts';
 
 const IDENTITY_SCALE_PARAM = 0x0100;
 

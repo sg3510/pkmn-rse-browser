@@ -9,7 +9,7 @@
  * - bag-icons.png: 208×52, 8 cols × 2 rows × 26px (positions: col * 26)
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
 import { menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
@@ -52,7 +52,10 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const [cursorPosition, setCursorPosition] = useState<number[]>([0, 0, 0, 0, 0]);
   const [scrollPosition, setScrollPosition] = useState<number[]>([0, 0, 0, 0, 0]);
   const battleMode = data.mode === 'battle';
+  const berrySelectMode = data.mode === 'berrySelect';
   const onBattleItemSelected = data.onBattleItemSelected as ((itemId: number | null) => void) | undefined;
+  const onBerrySelected = data.onBerrySelected as ((itemId: number) => void) | undefined;
+  const onBerrySelectionCancel = data.onBerrySelectionCancel as (() => void) | undefined;
   const onFieldUseItem = data.onFieldUseItem as ((itemId: number) => Promise<boolean> | boolean) | undefined;
   const onFieldRegisterItem = data.onFieldRegisterItem as ((itemId: number) => void) | undefined;
 
@@ -67,6 +70,14 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const selectedItem = items[cursor] ?? null;
   const fallbackItemIconPath = toPublicAssetUrl('/pokeemerald/graphics/items/icons/question_mark.png');
 
+  useEffect(() => {
+    if (!berrySelectMode) return;
+    const berryPocketIndex = POCKETS.findIndex((entry) => entry.id === 'berries');
+    if (berryPocketIndex >= 0) {
+      setCurrentPocket(berryPocketIndex);
+    }
+  }, [berrySelectMode]);
+
   // Calculate visible items
   const visibleItems = useMemo(() => {
     return items.slice(scroll, scroll + MAX_VISIBLE_ITEMS);
@@ -74,6 +85,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
 
   // Switch pocket with wrapping and shake animation
   const switchPocket = useCallback((delta: number) => {
+    if (berrySelectMode) return;
     setCurrentPocket((prev) => {
       let next = prev + delta;
       if (next < 0) next = POCKETS.length - 1;
@@ -82,7 +94,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     });
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 500);
-  }, []);
+  }, [berrySelectMode]);
 
   // Move cursor with scroll adjustment
   const moveCursor = useCallback((delta: number) => {
@@ -113,13 +125,18 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   }, [currentPocket, items.length, cursorPosition]);
 
   const handleClose = useCallback(() => {
+    if (berrySelectMode) {
+      onBerrySelectionCancel?.();
+      menuStateManager.close();
+      return;
+    }
     if (battleMode) {
       onBattleItemSelected?.(null);
       menuStateManager.close();
       return;
     }
     menuStateManager.back();
-  }, [battleMode, onBattleItemSelected]);
+  }, [berrySelectMode, onBerrySelectionCancel, battleMode, onBattleItemSelected]);
 
   const handleSelectItem = useCallback((index: number) => {
     setCursorPosition((prev) => {
@@ -131,6 +148,11 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
 
   const handleUseSelectedItem = useCallback(() => {
     if (!selectedItem) return;
+    if (berrySelectMode) {
+      onBerrySelected?.(selectedItem.itemId);
+      menuStateManager.close();
+      return;
+    }
     if (battleMode) {
       onBattleItemSelected?.(selectedItem.itemId);
       menuStateManager.close();
@@ -156,6 +178,8 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     console.log('[BagMenu] Selected item:', getItemName(selectedItem.itemId));
   }, [
     selectedItem,
+    berrySelectMode,
+    onBerrySelected,
     battleMode,
     onBattleItemSelected,
     pocket.id,
@@ -163,7 +187,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   ]);
 
   const handleRegisterSelectedItem = useCallback(() => {
-    if (!selectedItem || battleMode || pocket.id !== 'keyItems') return;
+    if (!selectedItem || battleMode || berrySelectMode || pocket.id !== 'keyItems') return;
     if (onFieldRegisterItem) {
       onFieldRegisterItem(selectedItem.itemId);
     } else {
@@ -171,7 +195,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     }
     console.log('[BagMenu] Registered key item:', getItemName(selectedItem.itemId));
     menuStateManager.back();
-  }, [selectedItem, battleMode, pocket.id, onFieldRegisterItem]);
+  }, [selectedItem, battleMode, berrySelectMode, pocket.id, onFieldRegisterItem]);
 
   // Keyboard input
   useMenuInput({
@@ -216,6 +240,7 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
                 key={p.id}
                 className={`pocket-tab ${i === currentPocket ? 'active' : ''}`}
                 onClick={() => {
+                  if (berrySelectMode) return;
                   if (i !== currentPocket) {
                     setCurrentPocket(i);
                     setIsShaking(true);

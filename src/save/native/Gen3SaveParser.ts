@@ -41,6 +41,9 @@ import type {
   BagState,
   PCItemsState,
   ItemSlot,
+  BerryState,
+  BerryTreeState,
+  BerryRtcTime,
 } from '../types';
 import type { PartyPokemon } from '../../pokemon/types';
 
@@ -518,6 +521,54 @@ function readRawVars(
   return raw;
 }
 
+function readSaveBlock2Time(
+  data: DataView,
+  section0Offset: number,
+  offset: number
+): BerryRtcTime {
+  return {
+    days: data.getUint16(section0Offset + offset, true),
+    hours: data.getUint8(section0Offset + offset + 2),
+    minutes: data.getUint8(section0Offset + offset + 3),
+    seconds: data.getUint8(section0Offset + offset + 4),
+  };
+}
+
+function readBerryTrees(
+  data: DataView,
+  sectionMap: SectionMap,
+  sectionSizes: Record<number, number>,
+  treesOffset: number,
+  treeCount: number,
+  treeSize: number
+): BerryTreeState[] {
+  const trees: BerryTreeState[] = [];
+
+  for (let i = 0; i < treeCount; i++) {
+    const base = treesOffset + i * treeSize;
+    const berry = readFromSaveBlock1(data, base, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const stageAndStopGrowth = readFromSaveBlock1(data, base + 1, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const minutesUntilNextStage = readFromSaveBlock1(data, base + 2, sectionMap, sectionSizes, (o) => data.getUint16(o, true));
+    const berryYield = readFromSaveBlock1(data, base + 4, sectionMap, sectionSizes, (o) => data.getUint8(o));
+    const regrowthAndWater = readFromSaveBlock1(data, base + 5, sectionMap, sectionSizes, (o) => data.getUint8(o));
+
+    trees.push({
+      berry,
+      stage: stageAndStopGrowth & 0x7F,
+      stopGrowth: (stageAndStopGrowth & 0x80) !== 0,
+      minutesUntilNextStage,
+      berryYield,
+      regrowthCount: regrowthAndWater & 0x0F,
+      watered1: (regrowthAndWater & 0x10) !== 0,
+      watered2: (regrowthAndWater & 0x20) !== 0,
+      watered3: (regrowthAndWater & 0x40) !== 0,
+      watered4: (regrowthAndWater & 0x80) !== 0,
+    });
+  }
+
+  return trees;
+}
+
 /**
  * Parse named variables from raw var array.
  * Var ID = 0x4000 + index; look up name from VAR_ID_TO_NAME.
@@ -938,6 +989,7 @@ export function parseGen3Save(
 
   const selectedProfile = selectedCandidate.profile;
   const selectedSaveBlock1 = selectedProfile.saveBlock1;
+  const selectedSaveBlock2 = selectedProfile.saveBlock2;
   const sectionSizes = selectedProfile.sectionSizes;
   const encryptionKey = selectedCandidate.encryptionKey;
   const sanity = selectedCandidate.sanity;
@@ -1050,6 +1102,20 @@ export function parseGen3Save(
     selectedProfile.encryption === 'xor' ? encryptionKey : 0
   );
 
+  const berryTrees = readBerryTrees(
+    data,
+    activeSectionMap,
+    sectionSizes,
+    selectedSaveBlock1.BERRY_TREES,
+    selectedSaveBlock1.BERRY_TREES_COUNT,
+    selectedSaveBlock1.BERRY_TREE_SIZE
+  );
+  const lastBerryTreeUpdate = readSaveBlock2Time(
+    data,
+    section0Offset,
+    selectedSaveBlock2.LAST_BERRY_TREE_UPDATE
+  );
+
   // === Parse Pokemon Party ===
   const partyPokemon: PartyPokemon[] = parseParty(data, activeSectionMap);
   console.log(`[Gen3SaveParser] Parsed ${partyPokemon.length} Pokemon in party`);
@@ -1131,6 +1197,11 @@ export function parseGen3Save(
     items: pcItems,
   };
 
+  const berry: BerryState = {
+    trees: berryTrees,
+    lastUpdateRtc: lastBerryTreeUpdate,
+  };
+
   // Build party state for SaveData
   const partyState = {
     pokemon: partyPokemon.map(p => ({
@@ -1166,6 +1237,7 @@ export function parseGen3Save(
     vars: parsedVars,
     rawVars: Array.from(rawVars),
     objectEventRuntimeState,
+    berry,
   };
 
   const nativeMetadata: NativeMetadata = {

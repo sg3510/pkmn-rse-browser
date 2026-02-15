@@ -291,8 +291,11 @@ export function getAnimationNameForSprite(graphicsId: string, animIndex: number)
     key => metadata.animationIndices[key] === animIndex
   );
 
-  if (!indexName) return null;
-  return table[indexName] ?? null;
+  if (indexName && table[indexName]) {
+    return table[indexName];
+  }
+
+  return table[String(animIndex)] ?? null;
 }
 
 /**

@@ -145,6 +145,7 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
     allVisibleItems: [],
     totalNPCCount: 0,
     totalItemCount: 0,
+    fade: null,
   });
 
   // Canvas refs for layer decomposition

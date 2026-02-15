@@ -6,7 +6,7 @@
  * - public/pokeemerald/include/rotating_gate.h
  */
 
-import { TICK_60FPS_MS } from '../config/timing';
+import { TICK_60FPS_MS } from '../config/timing.ts';
 
 type PuzzleMapId = 'MAP_FORTREE_CITY_GYM' | 'MAP_ROUTE110_TRICK_HOUSE_PUZZLE6';
 type RotationDirection = 1 | 2; // 1 = anticlockwise, 2 = clockwise

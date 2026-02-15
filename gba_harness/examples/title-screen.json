@@ -1,0 +1,60 @@
+{
+  "host": "127.0.0.1",
+  "port": 61337,
+  "timeoutMs": 30000,
+  "steps": [
+    {
+      "action": "ping",
+      "note": "Verify bridge connectivity"
+    },
+    {
+      "action": "advance",
+      "frames": 240,
+      "note": "Boot through early intro frames"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/01-boot.png",
+      "note": "Checkpoint after boot frames"
+    },
+    {
+      "action": "advance",
+      "frames": 240,
+      "note": "Wait for title input prompt"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/02-title-waiting-input.png",
+      "note": "Title screen before any button press"
+    },
+    {
+      "action": "tap",
+      "button": "A",
+      "frames": 1,
+      "afterFrames": 120,
+      "note": "Press A to continue from title"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/03-after-a.png",
+      "note": "State after pressing A"
+    },
+    {
+      "action": "tap",
+      "button": "START",
+      "frames": 1,
+      "afterFrames": 120,
+      "note": "Press START once"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/04-after-start.png",
+      "note": "State after pressing START"
+    },
+    {
+      "action": "saveState",
+      "path": "./outputs/title-screen.ss1",
+      "note": "Save for repeatable entry point"
+    }
+  ]
+}

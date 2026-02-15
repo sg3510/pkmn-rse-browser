@@ -20,6 +20,8 @@ import type { TilesetRuntime } from '../../utils/tilesetUtils';
 import type { ReflectionState } from '../../components/map/types';
 import type { ReflectionTileGridDebugInfo, PriorityDebugInfo } from '../../components/debug/types';
 import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../../types/objectEvents';
+import type { ScriptFieldEffectAnimationManager } from '../../game/ScriptFieldEffectAnimationManager';
+import type { OrbEffectRuntime } from '../../game/scriptEffects/orbEffectRuntime';
 import { calculateSortKey, getRotatingGateAtlasName } from '../spriteUtils';
 import { getReflectionTileGridDebug } from '../../components/debug';
 import { compositeWebGLFrame } from '../compositeWebGLFrame';
@@ -28,6 +30,7 @@ import { menuStateManager } from '../../menu';
 import type { PendingScriptedWarp } from '../../pages/gamePage/overworldGameUpdate';
 import { createLogger } from '../../utils/logger';
 import { recordRuntimePerfSection } from '../../game/perf/runtimePerfRecorder';
+import type { WebGLOrbEffectRenderer } from '../webgl/WebGLOrbEffectRenderer';
 
 interface MutableRef<T> {
   current: T;
@@ -75,6 +78,9 @@ export interface RenderOverworldSpritesParams {
     startMs: number;
     lastLogMs: number;
   }>;
+  scriptFieldEffectAnimationManager: ScriptFieldEffectAnimationManager;
+  orbEffectRuntime: OrbEffectRuntime;
+  orbEffectRenderer: WebGLOrbEffectRenderer | null;
 
   // Overlays & animations
   doorAnimations: UseDoorAnimationsReturn;
@@ -143,6 +149,9 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     warpingRef,
     pendingScriptedWarpRef,
     deoxysRockRenderDebugRef,
+    scriptFieldEffectAnimationManager,
+    orbEffectRuntime,
+    orbEffectRenderer,
     doorAnimations,
     doorSequencer,
     arrowOverlay,
@@ -310,6 +319,14 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         }
       }
 
+      const scriptFieldEffectSprites = scriptFieldEffectAnimationManager.buildSprites(
+        spriteView,
+        (atlasName) => spriteRenderer.hasSpriteSheet(atlasName)
+      );
+      if (scriptFieldEffectSprites.length > 0) {
+        allSprites = [...allSprites, ...scriptFieldEffectSprites].sort((a, b) => a.sortKey - b.sortKey);
+      }
+
       // Priority debug info
       if (debugEnabled && gbaFrame % 6 === 0) {
         const debugStart = performance.now();
@@ -351,6 +368,29 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           tilesetRuntimes,
           renderWeather: (weatherCtx, weatherView, weatherNowMs) => {
             weatherManager.render(weatherCtx, weatherView, weatherNowMs);
+          },
+          renderScriptScreenEffect: (effectCtx) => {
+            if (!orbEffectRenderer) return;
+            const state = orbEffectRuntime.getRenderState();
+            if (!state) return;
+
+            const gl = effectCtx.gl;
+            const targetWidth = effectCtx.ctx2d.canvas.width;
+            const targetHeight = effectCtx.ctx2d.canvas.height;
+            if (
+              effectCtx.webglCanvas.width !== targetWidth
+              || effectCtx.webglCanvas.height !== targetHeight
+            ) {
+              effectCtx.webglCanvas.width = targetWidth;
+              effectCtx.webglCanvas.height = targetHeight;
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, targetWidth, targetHeight);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            orbEffectRenderer.render(state, targetWidth, targetHeight);
+            effectCtx.ctx2d.drawImage(effectCtx.webglCanvas, 0, 0, targetWidth, targetHeight);
           },
         },
         {

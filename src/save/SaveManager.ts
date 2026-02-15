@@ -46,6 +46,7 @@ import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types';
 import { saveStateStore } from './SaveStateStore';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
+import { berryManager } from '../game/berry/BerryManager.ts';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -137,6 +138,7 @@ class SaveManagerClass {
   private pendingObjectEventRuntimeState: ObjectEventRuntimeState | null = null;
 
   constructor() {
+    berryManager.reset();
     // Try to auto-load most recent save on construction
     this.autoLoad();
   }
@@ -314,6 +316,13 @@ class SaveManagerClass {
         console.log(`[SaveManager] Loaded ${saveStateStore.getPartyCount()} Pokemon from party`);
       }
 
+      if (data.berry) {
+        berryManager.loadState(data.berry);
+      } else {
+        berryManager.reset();
+      }
+      berryManager.applyElapsedSinceLastUpdate(Date.now());
+
       this.activeSlot = slot;
       this.profile = data.profile;
       this.playTime = data.playTime;
@@ -340,6 +349,8 @@ class SaveManagerClass {
     // Update play time before saving
     this.updatePlayTime();
     const partyFull = saveStateStore.getParty();
+    const berryState = berryManager.getStateForSave();
+    berryState.lastUpdateTimestamp = Date.now();
 
     const saveData: SaveData = {
       version: SAVE_VERSION,
@@ -361,6 +372,7 @@ class SaveManagerClass {
       partyFull,
       objectEventOverrides: saveStateStore.getAllObjectEventOverrides(),
       objectEventRuntimeState,
+      berry: berryState,
     };
 
     try {
@@ -442,6 +454,7 @@ class SaveManagerClass {
 
     // Reset party
     saveStateStore.setParty(createEmptyParty().pokemon);
+    berryManager.reset(Date.now());
 
     // Reset play timer
     this.playTimeStartMs = Date.now();

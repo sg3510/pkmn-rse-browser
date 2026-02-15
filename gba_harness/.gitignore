@@ -1,0 +1,4 @@
+*.gba
+dist/
+examples/outputs/*
+!examples/outputs/.gitkeep

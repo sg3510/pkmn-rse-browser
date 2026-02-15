@@ -31,6 +31,7 @@ import { gameFlags } from './GameFlags.ts';
 import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
 import { npcMovementEngine } from './npc/NPCMovementEngine.ts';
 import { incrementRuntimePerfCounter } from './perf/runtimePerfRecorder.ts';
+import { resolveBerryTreeId } from './berry/berryConstants.ts';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -390,15 +391,23 @@ export class ObjectEventManager {
       // Handle scripted non-NPC objects (e.g. Birch's bag)
       else if (obj.script && obj.script !== '0x0') {
         const localId = obj.local_id ?? null;
+        const parsedLocalIdNumber = localId !== null ? Number.parseInt(localId, 10) : NaN;
+        // C parity: local IDs are effectively 1-indexed template positions when not explicit.
+        const localIdNumber = Number.isFinite(parsedLocalIdNumber) ? parsedLocalIdNumber : (objIndex + 1);
         const id = localId
           ? `${mapId}_script_${localId}`
           : `${mapId}_script_${worldX}_${worldY}`;
 
         const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
+        const berryTreeId = resolvedGraphicsId === 'OBJ_EVENT_GFX_BERRY_TREE'
+          ? resolveBerryTreeId(obj.trainer_sight_or_berry_tree_id)
+          : 0;
 
         this.scriptObjects.set(id, {
           id,
+          mapId,
           localId,
+          localIdNumber,
           tileX: worldX,
           tileY: worldY,
           elevation: obj.elevation,
@@ -406,6 +415,7 @@ export class ObjectEventManager {
           script: obj.script,
           flag: obj.flag,
           visible: !isHidden,
+          berryTreeId,
         });
         this.offscreenDespawnedScriptObjectIds.delete(id);
       }
@@ -493,12 +503,17 @@ export class ObjectEventManager {
       if (itemBall.itemId > 0) {
         return { type: 'item', data: itemBall };
       }
+      const marker = '_item_';
+      const markerIdx = itemBall.id.indexOf(marker);
+      const mapId = markerIdx > 0 ? itemBall.id.slice(0, markerIdx) : '';
       // Story item ball (e.g. RivalsPokeBall) — route through script system
       return {
         type: 'script',
         data: {
           id: itemBall.id,
+          mapId,
           localId: null,
+          localIdNumber: null,
           tileX: itemBall.tileX,
           tileY: itemBall.tileY,
           elevation: itemBall.elevation,
@@ -506,6 +521,7 @@ export class ObjectEventManager {
           script: itemBall.script,
           flag: itemBall.flag,
           visible: !itemBall.collected,
+          berryTreeId: 0,
         },
       };
     }

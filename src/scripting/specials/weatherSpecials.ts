@@ -1,4 +1,4 @@
-import { isOutdoorsMapType } from '../../game/mapTypeUtils';
+import { isOutdoorsMapType } from '../../game/mapTypeUtils.ts';
 
 interface WeatherSpecialServices {
   setSavedWeather?: (weather: string | number) => void;

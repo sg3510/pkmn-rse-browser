@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { resolveTrainerBattleLead } from '../trainerBattleFallback.ts';
+import { SPECIES } from '../../../data/species.ts';
+import { TRAINER_IDS } from '../../../data/trainerIds.gen.ts';
+import { getTrainerData } from '../../../data/trainerParties.gen.ts';
+
+test('route 103 rival override remains explicit', () => {
+  const resolution = resolveTrainerBattleLead('TRAINER_MAY_ROUTE_103_TREECKO');
+  assert.deepEqual(resolution, {
+    kind: 'ok',
+    species: SPECIES.TORCHIC,
+    level: 5,
+  });
+});
+
+test('generic trainer fallback resolves lead mon from generated trainer data', () => {
+  const trainerId = TRAINER_IDS.TRAINER_ARCHIE;
+  const trainer = getTrainerData(trainerId);
+  assert.ok(trainer);
+  assert.ok(trainer.party.length > 0);
+  const lead = trainer.party[0];
+
+  const resolution = resolveTrainerBattleLead('TRAINER_ARCHIE');
+  assert.deepEqual(resolution, {
+    kind: 'ok',
+    species: lead.species,
+    level: lead.level,
+  });
+});
+
+test('trainer fallback reports unknown trainer constants', () => {
+  const resolution = resolveTrainerBattleLead('TRAINER_DOES_NOT_EXIST');
+  assert.deepEqual(resolution, { kind: 'unknown_trainer' });
+});
+
+test('trainer fallback reports empty parties from generated tables', () => {
+  const mutableTrainerIds = TRAINER_IDS as Record<string, number>;
+  mutableTrainerIds.TRAINER_TEST_EMPTY = 0;
+  try {
+    const resolution = resolveTrainerBattleLead('TRAINER_TEST_EMPTY');
+    assert.deepEqual(resolution, { kind: 'empty_party' });
+  } finally {
+    delete mutableTrainerIds.TRAINER_TEST_EMPTY;
+  }
+});

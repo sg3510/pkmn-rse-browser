@@ -361,6 +361,10 @@ export class FieldEffectManager {
     return this.effects.size;
   }
 
+  hasEffect(id: string): boolean {
+    return this.effects.has(id);
+  }
+
   /**
    * Clear all effects.
    */

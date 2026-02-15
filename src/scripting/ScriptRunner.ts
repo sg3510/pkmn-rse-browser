@@ -9,40 +9,49 @@
  * - public/pokeemerald/src/scrcmd.c (ScrCmd_* command implementations)
  */
 
-import type { ScriptCommand, MapScriptData } from '../data/scripts/types';
-import type { StoryScriptContext } from '../game/NewGameFlow';
-import { gameFlags } from '../game/GameFlags';
-import { gameVariables } from '../game/GameVariables';
-import { setDynamicWarpTarget } from '../game/DynamicWarp';
-import { setFixedDiveWarpTarget } from '../game/FixedDiveWarp';
-import { getFixedHoleWarpTarget, setFixedHoleWarpTarget } from '../game/FixedHoleWarp';
+import type { ScriptCommand, MapScriptData } from '../data/scripts/types.ts';
+import type { StoryScriptContext } from '../game/NewGameFlow.ts';
+import { gameFlags } from '../game/GameFlags.ts';
+import { gameVariables } from '../game/GameVariables.ts';
+import { setDynamicWarpTarget } from '../game/DynamicWarp.ts';
+import { setFixedDiveWarpTarget } from '../game/FixedDiveWarp.ts';
+import { getFixedHoleWarpTarget, setFixedHoleWarpTarget } from '../game/FixedHoleWarp.ts';
 import {
   setDynamicObjectGfxVar,
   getDynamicObjectGfxVar,
   clearDynamicObjectGfxVar,
-} from '../game/DynamicObjectGfx';
-import { SPECIES, getSpeciesName } from '../data/species';
-import { getItemId, getItemName } from '../data/items';
-import { bagManager } from '../game/BagManager';
-import { moneyManager } from '../game/MoneyManager';
-import { saveStateStore } from '../save/SaveStateStore';
-import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags';
-import { MOVES, getMoveInfo } from '../data/moves';
-import { STATUS, type PartyPokemon } from '../pokemon/types';
-import { METATILE_LABELS } from '../data/metatileLabels.gen';
-import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen';
-import { stepCallbackManager } from '../game/StepCallbackManager';
-import { rotatingGateManager } from '../game/RotatingGateManager';
-import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
-import { BattleCommandRunner } from './BattleCommandRunner';
-import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes';
-import { executeWeatherSpecial } from './specials/weatherSpecials';
-import { executeGabbyAndTySpecial } from './specials/gabbyAndTySpecials';
+} from '../game/DynamicObjectGfx.ts';
+import { SPECIES, getSpeciesName } from '../data/species.ts';
+import { getItemId, getItemName, ITEMS } from '../data/items.ts';
+import { bagManager } from '../game/BagManager.ts';
+import { moneyManager } from '../game/MoneyManager.ts';
+import { saveStateStore } from '../save/SaveStateStore.ts';
+import { menuStateManager } from '../menu/MenuStateManager.ts';
+import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags.ts';
+import { MOVES, getMoveInfo } from '../data/moves.ts';
+import { STATUS, type PartyPokemon } from '../pokemon/types.ts';
+import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
+import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen.ts';
+import { stepCallbackManager } from '../game/StepCallbackManager.ts';
+import { rotatingGateManager } from '../game/RotatingGateManager.ts';
+import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager.ts';
+import { BattleCommandRunner } from './BattleCommandRunner.ts';
+import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes.ts';
+import { executeWeatherSpecial } from './specials/weatherSpecials.ts';
+import { executeGabbyAndTySpecial } from './specials/gabbyAndTySpecials.ts';
 import {
   executeLegendaryIslandSpecial,
   type ScriptCameraSpecialServices,
   type ScriptLegendarySpecialServices,
-} from './specials/legendaryIslandSpecials';
+} from './specials/legendaryIslandSpecials.ts';
+import { isDebugMode } from '../utils/debug.ts';
+import { berryManager } from '../game/berry/BerryManager.ts';
+import {
+  BERRY_STAGE_CONSTANTS,
+  BERRY_TREE_CONSTANTS,
+  berryTypeToItemId,
+  itemIdToBerryType,
+} from '../game/berry/berryConstants.ts';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -59,6 +68,13 @@ interface RotatingTilePuzzleObject {
 interface RotatingTilePuzzleState {
   isTrickHouse: boolean;
   movedObjects: RotatingTilePuzzleObject[];
+}
+
+function logCyclingRoadDebug(...args: unknown[]): void {
+  if (!(isDebugMode() || isDebugMode('field'))) {
+    return;
+  }
+  console.debug('[CYCLING_ROAD]', ...args);
 }
 
 let rotatingTilePuzzle: RotatingTilePuzzleState | null = null;
@@ -110,6 +126,9 @@ const CYCLING_RECORD_TIME_HIGH_VAR = 'VAR_CYCLING_ROAD_RECORD_TIME_H';
 const CYCLING_RECORD_COLLISIONS_VAR = 'VAR_CYCLING_ROAD_RECORD_COLLISIONS';
 const ITEM_MACH_BIKE = getItemId('ITEM_MACH_BIKE') ?? 259;
 const ITEM_ACRO_BIKE = getItemId('ITEM_ACRO_BIKE') ?? 272;
+const ITEM_TO_BERRY_EXPR = /^ITEM_TO_BERRY\((.+)\)$/;
+const BERRY_TO_ITEM_EXPR = /^BERRY_TO_ITEM\((.+)\)$/;
+const SIMPLE_ARITHMETIC_EXPR = /^([A-Z0-9_]+)\s*([+-])\s*(\d+)$/;
 
 interface CyclingRoadChallengeRuntime {
   active: boolean;
@@ -168,6 +187,44 @@ function determineCyclingRoadResult(numFrames: number, numBikeCollisions: number
  */
 function resolveConstant(val: string | number): string | number {
   if (typeof val === 'number') return val;
+  if (val in BERRY_STAGE_CONSTANTS) return BERRY_STAGE_CONSTANTS[val];
+  if (val in BERRY_TREE_CONSTANTS) return BERRY_TREE_CONSTANTS[val];
+
+  const itemToBerryMatch = val.match(ITEM_TO_BERRY_EXPR);
+  if (itemToBerryMatch) {
+    const inner = itemToBerryMatch[1].trim();
+    const resolvedItem = resolveConstant(inner);
+    if (typeof resolvedItem === 'number') {
+      return itemIdToBerryType(resolvedItem);
+    }
+    const itemId = getItemId(resolvedItem);
+    if (itemId !== null) {
+      return itemIdToBerryType(itemId);
+    }
+  }
+
+  const berryToItemMatch = val.match(BERRY_TO_ITEM_EXPR);
+  if (berryToItemMatch) {
+    const inner = berryToItemMatch[1].trim();
+    const resolvedBerry = resolveConstant(inner);
+    if (typeof resolvedBerry === 'number') {
+      return berryTypeToItemId(resolvedBerry);
+    }
+    const parsedBerry = Number.parseInt(resolvedBerry, 10);
+    if (Number.isFinite(parsedBerry)) {
+      return berryTypeToItemId(parsedBerry);
+    }
+  }
+
+  const arithmeticMatch = val.match(SIMPLE_ARITHMETIC_EXPR);
+  if (arithmeticMatch) {
+    const lhs = resolveConstant(arithmeticMatch[1]);
+    if (typeof lhs === 'number') {
+      const rhs = Number.parseInt(arithmeticMatch[3], 10);
+      return arithmeticMatch[2] === '-' ? lhs - rhs : lhs + rhs;
+    }
+  }
+
   if (val in SPECIES) return SPECIES[val as keyof typeof SPECIES];
   if (val.startsWith('SPECIES_')) {
     const speciesKey = val.replace('SPECIES_', '');
@@ -285,7 +342,8 @@ export interface ScriptFieldEffectServices {
   setArgument?: (index: number, value: string | number) => void;
   run?: (
     effectName: string,
-    args: ReadonlyMap<number, string | number>
+    args: ReadonlyMap<number, string | number>,
+    context?: { mapId: string }
   ) => void | Promise<void>;
   wait?: (effectName: string) => void | Promise<void>;
 }
@@ -295,6 +353,7 @@ export interface ScriptWeatherServices {
   resetSavedWeather: () => void;
   applyCurrentWeather: () => void;
   setCurrentMapContext?: (mapId: string) => void;
+  waitForChangeComplete?: () => void | Promise<void>;
 }
 
 export interface ScriptTimeServices {
@@ -307,10 +366,18 @@ export interface ScriptFadeServices {
   start: (direction: ScriptFadeDirection, durationMs: number) => void;
   wait?: (durationMs: number, direction: ScriptFadeDirection) => void | Promise<void>;
   framesToMs?: (frames: number) => number;
+  getDirection?: () => ScriptFadeDirection | null;
+  isActive?: () => boolean;
+  isComplete?: () => boolean;
 }
 
 export interface ScriptPartyServices {
   findFirstPartyIndexWithMove?: (moveId: number, party: (PartyPokemon | null)[]) => number;
+}
+
+export interface ScriptScreenEffectServices {
+  startOrbEffect?: (resultVar: number) => void | Promise<void>;
+  fadeOutOrbEffect?: () => Promise<void>;
 }
 
 export interface ScriptRuntimeServices {
@@ -320,6 +387,7 @@ export interface ScriptRuntimeServices {
   weather?: ScriptWeatherServices;
   time?: ScriptTimeServices;
   party?: ScriptPartyServices;
+  screenEffects?: ScriptScreenEffectServices;
   camera?: ScriptCameraSpecialServices;
   legendary?: ScriptLegendarySpecialServices;
 }
@@ -349,6 +417,7 @@ export class ScriptRunner {
    */
   private localStringVars = new Map<string, string>();
   private fieldEffectArguments = new Map<number, string | number>();
+  private pendingWaitState: Promise<void> | null = null;
 
   constructor(
     dataSources: ScriptDataSources,
@@ -591,6 +660,97 @@ export class ScriptRunner {
       await fadeServices.wait(durationMs, fadeDirection);
     } else {
       await this.ctx.delayFrames(fadeFrames);
+    }
+  }
+
+  private queueWaitState(waitState: Promise<void>): void {
+    this.pendingWaitState = waitState.catch((error) => {
+      console.error('[ScriptRunner] waitstate task failed:', error);
+    });
+  }
+
+  private shouldResumeToFieldWithFadeIn(): boolean {
+    const fadeServices = this.services.fade;
+    if (!fadeServices) return false;
+
+    const direction = fadeServices.getDirection?.() ?? null;
+    if (direction !== 'out') return false;
+
+    const isComplete = fadeServices.isComplete?.() ?? false;
+    const isActive = fadeServices.isActive?.() ?? false;
+    return isComplete || isActive;
+  }
+
+  private async resumeToFieldAfterCallbackSpecial(): Promise<void> {
+    if (!this.shouldResumeToFieldWithFadeIn()) {
+      return;
+    }
+
+    const fadeServices = this.services.fade;
+    if (!fadeServices) {
+      return;
+    }
+
+    const fadeFrames = DEFAULT_SCRIPT_FADE_FRAMES;
+    const durationMs = fadeServices.framesToMs?.(fadeFrames)
+      ?? Math.max(1, Math.round(fadeFrames * (1000 / 60)));
+    fadeServices.start('in', durationMs);
+    if (fadeServices.wait) {
+      await fadeServices.wait(durationMs, 'in');
+    } else {
+      await this.ctx.delayFrames(fadeFrames);
+    }
+  }
+
+  private queueCallbackSpecialWaitState(
+    registerCompletion: (complete: () => void) => void,
+    options?: { resumeToFieldFadeIn?: boolean },
+  ): void {
+    const shouldResumeToFieldFadeIn = options?.resumeToFieldFadeIn ?? true;
+    const waitState = new Promise<void>((resolve, reject) => {
+      let done = false;
+
+      const complete = () => {
+        if (done) return;
+        done = true;
+        void (async () => {
+          if (shouldResumeToFieldFadeIn) {
+            await this.resumeToFieldAfterCallbackSpecial();
+          }
+          resolve();
+        })().catch(reject);
+      };
+
+      try {
+        registerCompletion(complete);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    this.queueWaitState(waitState);
+  }
+
+  private async awaitPendingWaitState(): Promise<void> {
+    if (!this.pendingWaitState) {
+      await this.ctx.delayFrames(1);
+      return;
+    }
+
+    const pending = this.pendingWaitState;
+    this.pendingWaitState = null;
+    await pending;
+  }
+
+  private getFacingDirectionFromVar(): Direction {
+    const facing = gameVariables.getVar('VAR_FACING');
+    switch (facing) {
+      case 2: return 'up';
+      case 3: return 'left';
+      case 4: return 'right';
+      case 1:
+      default:
+        return 'down';
     }
   }
 
@@ -947,6 +1107,8 @@ export class ScriptRunner {
           // store it in the local string store for later dereferencing.
           if (typeof rawValue === 'string' && rawValue.startsWith('LOCALID_')) {
             this.localStringVars.set(varName, rawValue);
+          } else {
+            this.localStringVars.delete(varName);
           }
           if (typeof rawValue === 'string' && rawValue.startsWith('OBJ_EVENT_GFX_')) {
             setDynamicObjectGfxVar(varName, rawValue);
@@ -966,6 +1128,12 @@ export class ScriptRunner {
         case 'copyvar': {
           const dest = asString(args[0]);
           const src = asString(args[1]);
+          const srcStringValue = this.localStringVars.get(src);
+          if (srcStringValue !== undefined) {
+            this.localStringVars.set(dest, srcStringValue);
+          } else {
+            this.localStringVars.delete(dest);
+          }
           if (dest.startsWith('VAR_OBJ_GFX_ID_') && src.startsWith('VAR_OBJ_GFX_ID_')) {
             const srcGfx = getDynamicObjectGfxVar(src);
             if (srcGfx) {
@@ -1056,10 +1224,7 @@ export class ScriptRunner {
         // --- Object events ---
         case 'addobject': {
           const localId = asString(args[0]);
-          // Resolve VAR_ references for local IDs
-          const resolvedId = localId.startsWith('VAR_')
-            ? String(this.getVar(localId))
-            : localId;
+          const resolvedId = this.resolveObjectId(localId);
           const objectMapId = this.resolveObjectMapId(resolvedId);
           // C parity: addobject spawns immediately but does not clear FLAG_HIDE_*.
           this.ctx.setNpcVisible(objectMapId, resolvedId, true, false);
@@ -1068,9 +1233,7 @@ export class ScriptRunner {
 
         case 'removeobject': {
           const localId = asString(args[0]);
-          const resolvedId = localId.startsWith('VAR_')
-            ? String(this.getVar(localId))
-            : localId;
+          const resolvedId = this.resolveObjectId(localId);
           const objectMapId = this.resolveObjectMapId(resolvedId);
           this.ctx.setNpcVisible(objectMapId, resolvedId, false, true);  // persistent
           break;
@@ -1078,21 +1241,23 @@ export class ScriptRunner {
 
         case 'setobjectxy': {
           const localId = asString(args[0]);
+          const resolvedId = this.resolveObjectId(localId);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          const objectMapId = this.resolveObjectMapId(localId);
-          this.ctx.setNpcPosition(objectMapId, localId, x, y);
+          const objectMapId = this.resolveObjectMapId(resolvedId);
+          this.ctx.setNpcPosition(objectMapId, resolvedId, x, y);
           break;
         }
 
         case 'setobjectxyperm': {
           const localId = asString(args[0]);
+          const resolvedId = this.resolveObjectId(localId);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          const objectMapId = this.resolveObjectMapId(localId);
+          const objectMapId = this.resolveObjectMapId(resolvedId);
           // C parity: setobjectxyperm updates template coords only.
           // Runtime/current position is not changed immediately.
-          saveStateStore.setObjectEventOverride(objectMapId, localId, x, y);
+          saveStateStore.setObjectEventOverride(objectMapId, resolvedId, x, y);
           break;
         }
 
@@ -1140,9 +1305,21 @@ export class ScriptRunner {
           break;
 
         case 'waitstate':
-          // Wait for async operations to complete (warp transition, etc.)
+          await this.awaitPendingWaitState();
+          break;
+
+        case 'waitbuttonpress':
+          // Dialog helpers already await confirmation; keep parity timing for script flow.
           await this.ctx.delayFrames(1);
           break;
+
+        case 'setberrytree': {
+          const treeId = this.resolveVarOrConst(args[0]);
+          const berryType = this.resolveVarOrConst(args[1]);
+          const stage = this.resolveVarOrConst(args[2]);
+          berryManager.setBerryTree(treeId, berryType, stage, false);
+          break;
+        }
 
         // --- Warp ---
         case 'warp':
@@ -1195,7 +1372,27 @@ export class ScriptRunner {
 
         case 'dofieldeffect': {
           const effectName = asString(args[0]);
-          await this.services.fieldEffects?.run?.(effectName, this.fieldEffectArguments);
+          await this.services.fieldEffects?.run?.(effectName, this.fieldEffectArguments, {
+            mapId: this.currentMapId,
+          });
+          break;
+        }
+
+        case 'dofieldeffectsparkle': {
+          const x = this.resolveVarOrConst(args[0]);
+          const y = this.resolveVarOrConst(args[1]);
+          const priority = this.resolveVarOrConst(args[2]);
+
+          this.fieldEffectArguments.set(0, x);
+          this.fieldEffectArguments.set(1, y);
+          this.fieldEffectArguments.set(2, priority);
+          this.services.fieldEffects?.setArgument?.(0, x);
+          this.services.fieldEffects?.setArgument?.(1, y);
+          this.services.fieldEffects?.setArgument?.(2, priority);
+
+          await this.services.fieldEffects?.run?.('FLDEFF_SPARKLE', this.fieldEffectArguments, {
+            mapId: this.currentMapId,
+          });
           break;
         }
 
@@ -1303,10 +1500,12 @@ export class ScriptRunner {
         // --- setobjectmovementtype: change NPC movement behavior ---
         case 'setobjectmovementtype': {
           const localId = asString(args[0]);
+          const resolvedId = this.resolveObjectId(localId);
+          const objectMapId = this.resolveObjectMapId(resolvedId);
           const movementType = asString(args[1]);
           // Use the full movement type setter if available (changes behavior + direction)
           if (this.ctx.setNpcMovementType) {
-            this.ctx.setNpcMovementType(this.currentMapId, localId, movementType);
+            this.ctx.setNpcMovementType(objectMapId, resolvedId, movementType);
           } else {
             // Fallback: just face the NPC in the right direction
             const faceDirMap: Record<string, Direction> = {
@@ -1317,7 +1516,7 @@ export class ScriptRunner {
             };
             const faceDir = faceDirMap[movementType];
             if (faceDir) {
-              this.ctx.moveNpc(this.currentMapId, localId, faceDir, 'face');
+              this.ctx.moveNpc(objectMapId, resolvedId, faceDir, 'face');
             }
           }
           break;
@@ -1326,22 +1525,30 @@ export class ScriptRunner {
         // --- hideobjectat / showobjectat: temporary NPC visibility (no flag persistence) ---
         case 'hideobjectat': {
           const localId = asString(args[0]);
-          const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
-          if (localId === 'LOCALID_PLAYER' || localId === '255') {
+          const resolvedId = this.resolveObjectId(localId);
+          const mapId = this.resolveObjectMapId(
+            resolvedId,
+            args.length > 1 ? asString(args[1]) : undefined
+          );
+          if (resolvedId === 'LOCALID_PLAYER' || resolvedId === '255') {
             this.ctx.setPlayerVisible(false);
           } else {
-            this.ctx.setNpcVisible(mapId, localId, false);
+            this.ctx.setNpcVisible(mapId, resolvedId, false);
           }
           break;
         }
 
         case 'showobjectat': {
           const localId = asString(args[0]);
-          const mapId = args.length > 1 ? asString(args[1]) : this.currentMapId;
-          if (localId === 'LOCALID_PLAYER' || localId === '255') {
+          const resolvedId = this.resolveObjectId(localId);
+          const mapId = this.resolveObjectMapId(
+            resolvedId,
+            args.length > 1 ? asString(args[1]) : undefined
+          );
+          if (resolvedId === 'LOCALID_PLAYER' || resolvedId === '255') {
             this.ctx.setPlayerVisible(true);
           } else {
-            this.ctx.setNpcVisible(mapId, localId, true);
+            this.ctx.setNpcVisible(mapId, resolvedId, true);
           }
           break;
         }
@@ -2305,6 +2512,14 @@ export class ScriptRunner {
       return legendarySpecial.result;
     }
 
+    const writeBerryInteractionData = (): void => {
+      const berryData = berryManager.objectInteractionGetBerryTreeData();
+      gameVariables.setVar('VAR_0x8004', berryData.stage);
+      gameVariables.setVar('VAR_0x8005', berryData.wateredStageCount);
+      gameVariables.setVar('VAR_0x8006', berryData.berryCount);
+      stringVars['STR_VAR_1'] = berryData.berryCountString;
+    };
+
     switch (name) {
       case 'GetRivalSonDaughterString':
         // Male player → rival is female → "daughter"; Female → "son"
@@ -2344,6 +2559,69 @@ export class ScriptRunner {
         // Opens the full PokéNav UI — no-op since we don't have one.
         return undefined;
 
+      // --- Berry tree specials ---
+      case 'ObjectEventInteractionGetBerryTreeData':
+        berryManager.runTimeBasedEvents(Date.now());
+        writeBerryInteractionData();
+        return undefined;
+      case 'ObjectEventInteractionGetBerryName':
+        stringVars['STR_VAR_1'] = berryManager.objectInteractionGetBerryName();
+        return undefined;
+      case 'ObjectEventInteractionGetBerryCountString':
+        stringVars['STR_VAR_1'] = berryManager.objectInteractionGetBerryCountString();
+        return undefined;
+      case 'ObjectEventInteractionPlantBerryTree': {
+        const itemId = gameVariables.getVar('VAR_ITEM_ID');
+        berryManager.objectInteractionPlantBerryTree(itemId);
+        writeBerryInteractionData();
+        return undefined;
+      }
+      case 'ObjectEventInteractionPickBerryTree': {
+        const picked = berryManager.objectInteractionPickBerryTree();
+        const added = picked.quantity > 0 && bagManager.addItem(picked.itemId, picked.quantity);
+        gameVariables.setVar('VAR_0x8004', added ? 1 : 0);
+        return undefined;
+      }
+      case 'ObjectEventInteractionRemoveBerryTree':
+        berryManager.objectInteractionRemoveBerryTree();
+        return undefined;
+      case 'ObjectEventInteractionWaterBerryTree':
+        return berryManager.objectInteractionWaterBerryTree() ? 1 : 0;
+      case 'PlayerHasBerries':
+        return bagManager.getPocket('berries').length > 0 ? 1 : 0;
+      case 'Bag_ChooseBerry': {
+        this.queueCallbackSpecialWaitState((complete) => {
+          let resolved = false;
+          const resolveSelection = (itemId: number): void => {
+            if (resolved) return;
+            resolved = true;
+            gameVariables.setVar('VAR_ITEM_ID', itemId);
+            complete();
+          };
+
+          menuStateManager.open('bag', {
+            mode: 'berrySelect',
+            onBerrySelected: (itemId: number) => resolveSelection(itemId),
+            onBerrySelectionCancel: () => resolveSelection(ITEMS.ITEM_NONE),
+          });
+        });
+        return undefined;
+      }
+      case 'DoWateringBerryTreeAnim': {
+        const facing = this.getFacingDirectionFromVar();
+        const animation = (async () => {
+          for (let i = 0; i < 11; i++) {
+            await this.ctx.movePlayer(facing, 'walk_in_place');
+          }
+        })();
+        this.queueWaitState(animation);
+        return undefined;
+      }
+      case 'IncrementDailyPickedBerries':
+      case 'IncrementDailyPlantedBerries':
+        // Daily berry stats are not tracked in runtime yet.
+        return undefined;
+
       // --- Bike / Cycling Road specials ---
       case 'GetPlayerAvatarBike':
         return this.ctx.getPlayerAvatarBike?.() ?? 0;
@@ -2359,6 +2637,13 @@ export class ScriptRunner {
       }
 
       case 'Special_BeginCyclingRoadChallenge': {
+        const previousState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
+        const previousCollisions = Math.max(0, Math.min(100, this.ctx.getCyclingRoadChallengeCollisions?.() ?? 0));
+        logCyclingRoadDebug('Special_BeginCyclingRoadChallenge', {
+          previousState,
+          previousCollisions,
+          mapId: this.currentMapId,
+        });
         cyclingRoadChallenge.active = true;
         cyclingRoadChallenge.startedAtMs = getCurrentMonotonicTimeMs();
         this.ctx.setCyclingRoadChallengeActive?.(true);
@@ -2373,6 +2658,14 @@ export class ScriptRunner {
           0,
           Math.min(100, this.ctx.getCyclingRoadChallengeCollisions?.() ?? 0)
         );
+        const cyclingState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
+        logCyclingRoadDebug('FinishCyclingRoadChallenge', {
+          elapsedMs,
+          numFrames,
+          numBikeCollisions,
+          cyclingState,
+          mapId: this.currentMapId,
+        });
 
         this.setCyclingRoadResultStrings(numFrames, numBikeCollisions);
         const result = determineCyclingRoadResult(numFrames, numBikeCollisions);
@@ -2410,6 +2703,10 @@ export class ScriptRunner {
 
         const cyclingState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
         if (cyclingState === 2 || cyclingState === 3) {
+          logCyclingRoadDebug('UpdateCyclingRoadState', {
+            previousState: cyclingState,
+            mapId: this.currentMapId,
+          });
           gameVariables.setVar('VAR_CYCLING_CHALLENGE_STATE', 0);
           // C parity also resets saved cycling-road music (Overworld_SetSavedMusic(MUS_DUMMY)).
           // Music persistence is not fully modeled in this runtime.
@@ -2424,6 +2721,22 @@ export class ScriptRunner {
           weather: this.services.weather,
           lastUsedWarpMapType: this.ctx.getLastUsedWarpMapType?.() ?? null,
         });
+        return undefined;
+      case 'WaitWeather':
+        if (this.services.weather?.waitForChangeComplete) {
+          await this.services.weather.waitForChangeComplete();
+        } else {
+          await this.ctx.delayFrames(1);
+        }
+        return undefined;
+      case 'DoOrbEffect':
+        await this.services.screenEffects?.startOrbEffect?.(gameVariables.getVar('VAR_RESULT'));
+        return undefined;
+      case 'FadeOutOrbEffect':
+        await this.services.screenEffects?.fadeOutOrbEffect?.();
+        return undefined;
+      case 'Script_FadeOutMapMusic':
+        // Audio fade task is not modeled yet; keep script flow without warning.
         return undefined;
 
       // --- Wild battle setup specials ---

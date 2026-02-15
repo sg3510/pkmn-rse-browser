@@ -97,6 +97,9 @@ export const SAVEBLOCK2 = {
   /** Region info */
   REGION_MAP_ZOOM: 0x16,
 
+  /** Last time berry trees were updated (struct Time) */
+  LAST_BERRY_TREE_UPDATE: 0xA0,
+
   /** Pokedex flags */
   POKEDEX_OWNED: 0x28, // bitfield
   POKEDEX_SEEN: 0x44, // bitfield
@@ -180,6 +183,11 @@ export const SAVEBLOCK1 = {
   /** Game stats (XOR encrypted) */
   GAME_STATS: 0x159C,
   GAME_STATS_SIZE: 0x64,
+
+  /** Berry trees runtime data (struct BerryTree[BERRY_TREES_COUNT]) */
+  BERRY_TREES: 0x169C,
+  BERRY_TREES_COUNT: 128,
+  BERRY_TREE_SIZE: 6,
 
   /** Runtime object events (temporary NPC runtime state) */
   OBJECT_EVENTS: 0x0A30,

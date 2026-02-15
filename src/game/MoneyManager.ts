@@ -10,7 +10,7 @@
  * - public/pokeemerald/include/constants/global.h (MAX_MONEY, MAX_COINS)
  */
 
-import { saveStateStore } from '../save/SaveStateStore';
+import { saveStateStore } from '../save/SaveStateStore.ts';
 
 const MAX_MONEY = 999999;
 const MAX_COINS = 9999;

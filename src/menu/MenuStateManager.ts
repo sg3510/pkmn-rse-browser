@@ -15,6 +15,19 @@ export type MenuType =
   | 'options'
   | 'pokemonSummary';
 
+/**
+ * Payload contract for opening the bag menu.
+ * Used by battle item selection and berry selection script specials.
+ */
+export interface BagMenuOpenData {
+  mode?: 'battle' | 'berrySelect';
+  onBattleItemSelected?: (itemId: number | null) => void;
+  onBerrySelected?: (itemId: number) => void;
+  onBerrySelectionCancel?: () => void;
+  onFieldUseItem?: (itemId: number) => Promise<boolean> | boolean;
+  onFieldRegisterItem?: (itemId: number) => void;
+}
+
 export interface MenuState {
   /** Whether any menu is currently open */
   isOpen: boolean;

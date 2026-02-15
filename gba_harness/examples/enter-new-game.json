@@ -1,0 +1,56 @@
+{
+  "host": "127.0.0.1",
+  "port": 61337,
+  "timeoutMs": 45000,
+  "steps": [
+    {
+      "action": "ping",
+      "note": "Verify bridge connectivity"
+    },
+    {
+      "action": "reset",
+      "note": "Start from a known boot state"
+    },
+    {
+      "action": "advance",
+      "frames": 300,
+      "button": "A",
+      "note": "Skip early intro frames"
+    },
+    {
+      "action": "advance",
+      "frames": 420,
+      "button": "A",
+      "note": "Reach title screen"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/new-game-01-title.png",
+      "note": "Title screen checkpoint"
+    },
+    {
+      "action": "tap",
+      "button": "START",
+      "frames": 1,
+      "afterFrames": 240,
+      "note": "Open main menu"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/new-game-02-menu.png",
+      "note": "Main menu checkpoint"
+    },
+    {
+      "action": "tap",
+      "button": "A",
+      "frames": 1,
+      "afterFrames": 180,
+      "note": "Select NEW GAME"
+    },
+    {
+      "action": "screenshot",
+      "path": "./outputs/new-game-03-after-select.png",
+      "note": "Post selection checkpoint"
+    }
+  ]
+}

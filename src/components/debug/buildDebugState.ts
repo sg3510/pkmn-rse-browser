@@ -1,5 +1,6 @@
 import type {
   DebugState,
+  FadeDebugInfo,
   PlayerDebugInfo,
   ObjectsAtTileInfo,
 } from './types';
@@ -13,6 +14,7 @@ export interface BuildDebugStateParams {
   totalNPCCount: number;
   totalItemCount: number;
   offscreenDespawnedNpcIds?: string[];
+  fade?: FadeDebugInfo | null;
 }
 
 function getObjectsAtTile(
@@ -57,6 +59,7 @@ export function buildDebugState(params: BuildDebugStateParams): DebugState {
     totalNPCCount,
     totalItemCount,
     offscreenDespawnedNpcIds,
+    fade,
   } = params;
 
   const playerTileX = player?.tileX ?? 0;
@@ -78,6 +81,7 @@ export function buildDebugState(params: BuildDebugStateParams): DebugState {
     allVisibleItems: visibleItems,
     totalNPCCount,
     totalItemCount,
+    fade: fade ?? null,
     allNPCs: allNPCs ?? visibleNPCs,
     offscreenDespawnedNpcIds: offscreenDespawnedNpcIds ?? [],
   };

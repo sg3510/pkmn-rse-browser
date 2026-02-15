@@ -127,6 +127,37 @@ const ANIM_INDICES: Record<string, number> = {
   'ANIM_STD_GO_FASTEST_EAST': 19,
 };
 
+const TABLE_KEY_CONSTANTS: Record<string, number> = {
+  ...ANIM_INDICES,
+  BERRY_STAGE_NO_BERRY: 0,
+  BERRY_STAGE_PLANTED: 1,
+  BERRY_STAGE_SPROUTED: 2,
+  BERRY_STAGE_TALLER: 3,
+  BERRY_STAGE_FLOWERING: 4,
+  BERRY_STAGE_BERRIES: 5,
+  BERRY_STAGE_SPARKLING: 255,
+};
+
+function resolveTableKey(rawKey: string): string {
+  const key = rawKey.trim();
+
+  if (key in ANIM_INDICES) {
+    return key;
+  }
+
+  const arithmeticMatch = key.match(/^([A-Z0-9_]+)\s*([+-])\s*(\d+)$/);
+  if (arithmeticMatch) {
+    const lhs = TABLE_KEY_CONSTANTS[arithmeticMatch[1]];
+    if (typeof lhs === 'number') {
+      const rhs = parseInt(arithmeticMatch[3], 10);
+      const value = arithmeticMatch[2] === '-' ? lhs - rhs : lhs + rhs;
+      return String(value);
+    }
+  }
+
+  return key;
+}
+
 function readFile(relativePath: string): string {
   const fullPath = path.join(POKEEMERALD_PATH, relativePath);
   return fs.readFileSync(fullPath, 'utf-8');
@@ -210,10 +241,12 @@ function parseAnimationTables(content: string, animations: Record<string, Animat
     const lines = body.split('\n');
 
     for (const line of lines) {
-      // Match: [ANIM_STD_FACE_SOUTH] = sAnim_FaceSouth,
-      const entryMatch = line.match(/\[(\w+)\]\s*=\s*(sAnim_\w+)/);
+      // Match entries such as:
+      // [ANIM_STD_FACE_SOUTH] = sAnim_FaceSouth,
+      // [BERRY_STAGE_PLANTED - 1] = sAnim_BerryTreeStage0,
+      const entryMatch = line.match(/\[(.+?)\]\s*=\s*(sAnim_\w+)/);
       if (entryMatch) {
-        const animIndex = entryMatch[1];
+        const animIndex = resolveTableKey(entryMatch[1]);
         const animName = entryMatch[2];
         if (animations[animName]) {
           tableAnims[animIndex] = animations[animName];

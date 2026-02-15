@@ -1,7 +1,7 @@
 ---
 title: Emerald to React Save Data Mapping Reference
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-15
 ---
 
 # Emerald to React Save Data Mapping Reference
@@ -153,6 +153,43 @@ const coins = encryptedCoins ^ (encryptionKey & 0xFFFF);
 
 ---
 
+## SaveBlock2 → Berry Update Timestamp
+
+| Emerald Field | Offset | Size | React Field | Notes |
+|--------------|--------|------|-------------|-------|
+| `lastBerryTreeUpdate.days` | 0xA0 | 2 bytes (u16) | `berry.lastUpdateRtc.days` | Native `.sav` elapsed-time fallback |
+| `lastBerryTreeUpdate.hours` | 0xA2 | 1 byte (u8) | `berry.lastUpdateRtc.hours` | |
+| `lastBerryTreeUpdate.minutes` | 0xA3 | 1 byte (u8) | `berry.lastUpdateRtc.minutes` | |
+| `lastBerryTreeUpdate.seconds` | 0xA4 | 1 byte (u8) | `berry.lastUpdateRtc.seconds` | |
+
+## SaveBlock1 → Berry Trees
+
+| Emerald Field | Offset | Size | React Field | Notes |
+|--------------|--------|------|-------------|-------|
+| `berryTrees[128]` | 0x169C | 128 × 6 bytes | `berry.trees[]` | `struct BerryTree` |
+
+**BerryTree structure mapping (6 bytes each):**
+
+| Byte(s) | Emerald Bits/Field | React Field |
+|---------|---------------------|-------------|
+| `+0` | `berry` (u8) | `berry` |
+| `+1` bit `0..6` | `stage` | `stage` |
+| `+1` bit `7` | `stopGrowth` | `stopGrowth` |
+| `+2..+3` | `minutesUntilNextStage` (u16) | `minutesUntilNextStage` |
+| `+4` | `berryYield` (u8) | `berryYield` |
+| `+5` bit `0..3` | `regrowthCount` | `regrowthCount` |
+| `+5` bit `4` | `watered1` | `watered1` |
+| `+5` bit `5` | `watered2` | `watered2` |
+| `+5` bit `6` | `watered3` | `watered3` |
+| `+5` bit `7` | `watered4` | `watered4` |
+
+Browser JSON saves additionally store:
+
+- `berry.lastUpdateTimestamp` (Unix ms) for normal app save/load growth updates.
+- `berry.lastUpdateRtc` (optional) preserved from native import for fallback elapsed-time calculation.
+
+---
+
 ## Pokemon Data Mapping
 
 ### Party Pokemon (100 bytes each)
@@ -252,8 +289,9 @@ const coins = encryptedCoins ^ (encryptionKey & 0xFFFF);
 | LocationState | ✅ Ready | - |
 | GameFlags | ✅ Ready | - |
 | WarpData | ✅ Ready | - |
-| MoneyState | 🔧 Code ready, not integrated | Medium |
-| BagState | 🔧 Code ready, not integrated | Medium |
+| MoneyState | ✅ Integrated | - |
+| BagState | ✅ Integrated | - |
+| BerryState | ✅ Integrated (JSON + native import) | - |
 | GameOptions | 📝 Mapping documented | Low |
 | GameVars | 📝 Mapping documented | Low |
 | GameStats | 📝 Mapping documented | Low |

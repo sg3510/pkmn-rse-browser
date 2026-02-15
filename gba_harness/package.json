@@ -1,0 +1,16 @@
+{
+  "name": "gba-harness",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "run": "npm run build && node dist/runHarness.js",
+    "run:example": "npm run build && node dist/runHarness.js --script ./examples/title-screen.json",
+    "mgba:build-opt": "bash ./scripts/build-mgba-qt-opt.sh",
+    "mgba:build-opt:no-pgo": "bash ./scripts/build-mgba-qt-opt.sh --no-pgo"
+  }
+}

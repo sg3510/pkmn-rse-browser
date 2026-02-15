@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-13T23:11:09.516Z",
+  "generatedAt": "2026-02-15T01:13:55.372Z",
   "sourceFiles": [
     "object_event_graphics_info.h",
     "object_event_graphics_info_pointers.h",
@@ -2238,7 +2238,13 @@
     "sAnimTable_FieldMove": {
       "ANIM_FIELD_MOVE": "sAnim_FieldMove"
     },
-    "sAnimTable_BerryTree": {},
+    "sAnimTable_BerryTree": {
+      "0": "sAnim_BerryTreeStage0",
+      "1": "sAnim_BerryTreeStage1",
+      "2": "sAnim_BerryTreeStage2",
+      "3": "sAnim_BerryTreeStage3",
+      "4": "sAnim_BerryTreeStage4"
+    },
     "sAnimTable_BreakableRock": {
       "ANIM_STAY_STILL": "sAnim_StayStill",
       "ANIM_REMOVE_OBSTACLE": "sAnim_RockBreak"

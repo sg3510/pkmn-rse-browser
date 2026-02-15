@@ -6,7 +6,7 @@
  * - public/pokeemerald/src/event_data.c (VarGet / VarSet usage)
  */
 
-import { saveStateStore } from '../save/SaveStateStore';
+import { saveStateStore } from '../save/SaveStateStore.ts';
 
 export const GAME_VARS = {
   VAR_LITTLEROOT_INTRO_STATE: 'VAR_LITTLEROOT_INTRO_STATE',

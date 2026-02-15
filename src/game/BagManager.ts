@@ -5,8 +5,8 @@
  * Items are stored in pockets like the real game.
  */
 
-import type { BagState, ItemSlot } from '../save/types';
-import { saveStateStore } from '../save/SaveStateStore';
+import type { BagState, ItemSlot } from '../save/types.ts';
+import { saveStateStore } from '../save/SaveStateStore.ts';
 
 /** Maximum items per pocket (from Emerald) */
 const POCKET_MAX = {

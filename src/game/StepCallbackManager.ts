@@ -11,12 +11,12 @@
  * map scripts so the callback persists across menu/dialog returns.
  */
 
-import { gameVariables } from './GameVariables';
-import { bagManager } from './BagManager';
-import { ITEMS } from '../data/items';
-import { METATILE_LABELS } from '../data/metatileLabels.gen';
-import { MB_ASHGRASS } from '../utils/metatileBehaviors.generated';
-import type { FieldEffectType } from './FieldEffectManager';
+import { gameVariables } from './GameVariables.ts';
+import { bagManager } from './BagManager.ts';
+import { ITEMS } from '../data/items.ts';
+import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
+import { MB_ASHGRASS, MB_MUDDY_SLOPE } from '../utils/metatileBehaviors.generated.ts';
+import type { FieldEffectType } from './FieldEffectManager.ts';
 
 // Step callback IDs from include/constants/field_tasks.h
 const STEP_CB_DUMMY = 0;
@@ -37,6 +37,21 @@ const METATILE_FALLARBOR_NORMAL_GRASS = METATILE_LABELS['METATILE_Fallarbor_Norm
 const METATILE_LAVARIDGE_NORMAL_GRASS = METATILE_LABELS['METATILE_Lavaridge_NormalGrass'] ?? 0x206;
 const ASH_FIELD_EFFECT_DELAY_FRAMES = 4;
 const MAX_ASH_GATHER_COUNT = 9999;
+
+// Muddy slope animation frames (Task_MuddySlope in field_tasks.c)
+const METATILE_MUDDY_SLOPE_FRAME0 = METATILE_LABELS['METATILE_General_MuddySlope_Frame0'] ?? 0x0E8;
+const METATILE_MUDDY_SLOPE_FRAME1 = METATILE_LABELS['METATILE_General_MuddySlope_Frame1'] ?? 0x0E9;
+const METATILE_MUDDY_SLOPE_FRAME2 = METATILE_LABELS['METATILE_General_MuddySlope_Frame2'] ?? 0x0EA;
+const METATILE_MUDDY_SLOPE_FRAME3 = METATILE_LABELS['METATILE_General_MuddySlope_Frame3'] ?? 0x0EB;
+const MUDDY_SLOPE_ANIM_FRAMES = [
+  METATILE_MUDDY_SLOPE_FRAME0,
+  METATILE_MUDDY_SLOPE_FRAME3,
+  METATILE_MUDDY_SLOPE_FRAME2,
+  METATILE_MUDDY_SLOPE_FRAME1,
+] as const;
+const MUDDY_SLOPE_ANIM_TIME = 32;
+const MUDDY_SLOPE_ANIM_STEP_TIME = MUDDY_SLOPE_ANIM_TIME / MUDDY_SLOPE_ANIM_FRAMES.length;
+const MAX_ACTIVE_MUDDY_SLOPES = 4;
 
 // Ice puzzle boundaries (map-local tile coordinates)
 const ICE_PUZZLE_L = 3;
@@ -96,6 +111,13 @@ interface PendingAshFieldEffect {
   delayFrames: number;
 }
 
+interface PendingMuddySlopeAnimation {
+  mapId: string;
+  localX: number;
+  localY: number;
+  remainingFrames: number;
+}
+
 class StepCallbackManagerImpl {
   private callbackId: number = STEP_CB_DUMMY;
 
@@ -107,6 +129,12 @@ class StepCallbackManagerImpl {
   private ashPrevLocalX: number = 0;
   private ashPrevLocalY: number = 0;
   private pendingAshFieldEffects: PendingAshFieldEffect[] = [];
+
+  // Muddy slope task state (field_tasks.c Task_MuddySlope)
+  private muddyMapId: string | null = null;
+  private muddyPrevLocalX: number = -1;
+  private muddyPrevLocalY: number = -1;
+  private pendingMuddySlopeAnimations: PendingMuddySlopeAnimation[] = [];
 
   // Sootopolis ice state machine (field_tasks.c states 0-3)
   private iceState: number = 0;
@@ -132,6 +160,10 @@ class StepCallbackManagerImpl {
     this.ashPrevLocalX = 0;
     this.ashPrevLocalY = 0;
     this.pendingAshFieldEffects = [];
+    this.muddyMapId = null;
+    this.muddyPrevLocalX = -1;
+    this.muddyPrevLocalY = -1;
+    this.pendingMuddySlopeAnimations = [];
     this.prevStepMapId = null;
     this.prevStepDestLocalX = null;
     this.prevStepDestLocalY = null;
@@ -151,6 +183,10 @@ class StepCallbackManagerImpl {
     this.ashPrevLocalX = 0;
     this.ashPrevLocalY = 0;
     this.pendingAshFieldEffects = [];
+    this.muddyMapId = null;
+    this.muddyPrevLocalX = -1;
+    this.muddyPrevLocalY = -1;
+    this.pendingMuddySlopeAnimations = [];
     this.prevStepMapId = null;
     this.prevStepDestLocalX = null;
     this.prevStepDestLocalY = null;
@@ -162,6 +198,7 @@ class StepCallbackManagerImpl {
    */
   update(ctx: StepCallbackContext): void {
     this.updateLegendaryIslandStepCounters(ctx);
+    this.updateMuddySlopeTask(ctx);
 
     if (this.callbackId === STEP_CB_DUMMY) return;
 
@@ -216,6 +253,77 @@ class StepCallbackManagerImpl {
     if (ctx.currentMapId === 'MAP_FARAWAY_ISLAND_INTERIOR') {
       const next = gameVariables.getVar('VAR_FARAWAY_ISLAND_STEP_COUNTER') + 1;
       gameVariables.setVar('VAR_FARAWAY_ISLAND_STEP_COUNTER', next >= 9999 ? 0 : next);
+    }
+  }
+
+  // --- Muddy Slope Task ---
+  // C reference: field_tasks.c Task_MuddySlope + SetMuddySlopeMetatile.
+  // This task is always active in overworld regardless of step callback selection.
+
+  private updateMuddySlopeTask(ctx: StepCallbackContext): void {
+    if (this.muddyMapId !== ctx.currentMapId) {
+      this.muddyMapId = ctx.currentMapId;
+      this.muddyPrevLocalX = ctx.playerDestLocalX;
+      this.muddyPrevLocalY = ctx.playerDestLocalY;
+      this.pendingMuddySlopeAnimations = [];
+    }
+
+    if (ctx.playerDestLocalX !== this.muddyPrevLocalX || ctx.playerDestLocalY !== this.muddyPrevLocalY) {
+      this.muddyPrevLocalX = ctx.playerDestLocalX;
+      this.muddyPrevLocalY = ctx.playerDestLocalY;
+
+      const behavior = ctx.getTileBehaviorLocal(ctx.playerDestLocalX, ctx.playerDestLocalY);
+      if (
+        behavior === MB_MUDDY_SLOPE
+        && this.pendingMuddySlopeAnimations.length < MAX_ACTIVE_MUDDY_SLOPES
+      ) {
+        this.pendingMuddySlopeAnimations.push({
+          mapId: ctx.currentMapId,
+          localX: ctx.playerDestLocalX,
+          localY: ctx.playerDestLocalY,
+          remainingFrames: MUDDY_SLOPE_ANIM_TIME,
+        });
+      }
+    }
+
+    if (this.pendingMuddySlopeAnimations.length === 0) {
+      return;
+    }
+
+    let changedMetatile = false;
+    const remaining: PendingMuddySlopeAnimation[] = [];
+
+    for (const entry of this.pendingMuddySlopeAnimations) {
+      if (entry.mapId !== ctx.currentMapId) {
+        continue;
+      }
+
+      entry.remainingFrames--;
+
+      const metatileId = entry.remainingFrames <= 0
+        ? METATILE_MUDDY_SLOPE_FRAME0
+        : MUDDY_SLOPE_ANIM_FRAMES[
+          Math.max(
+            0,
+            Math.min(
+              MUDDY_SLOPE_ANIM_FRAMES.length - 1,
+              Math.floor(entry.remainingFrames / MUDDY_SLOPE_ANIM_STEP_TIME)
+            )
+          )
+        ];
+
+      ctx.setMapMetatile(entry.localX, entry.localY, metatileId);
+      changedMetatile = true;
+
+      if (entry.remainingFrames > 0) {
+        remaining.push(entry);
+      }
+    }
+
+    this.pendingMuddySlopeAnimations = remaining;
+
+    if (changedMetatile) {
+      ctx.invalidateView();
     }
   }
 

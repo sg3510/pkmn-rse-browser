@@ -272,7 +272,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             />
           )}
           {activeTab === 'webgl' && webglState && (
-            <WebGLTab webglState={webglState} />
+            <WebGLTab webglState={webglState} debugState={state} />
           )}
         </div>
       </div>
@@ -1449,7 +1449,7 @@ const StateTab: React.FC<{ state: DebugState }> = ({ state }) => {
 };
 
 // WebGL-specific debug tab
-const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => {
+const WebGLTab: React.FC<{ webglState: WebGLDebugState; debugState: DebugState }> = ({ webglState, debugState }) => {
   const { mapStitching, warp, renderStats, truck, shimmer, reflectionTileGrid, priority } = webglState;
 
   return (
@@ -1489,12 +1489,23 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState }> = ({ webglState }) => 
             <span>{renderStats.pipelineDebug.cachedInstances.background}/{renderStats.pipelineDebug.cachedInstances.topBelow}/{renderStats.pipelineDebug.cachedInstances.topAbove}</span>
             <span style={{ color: '#888' }}>lastViewHash:</span>
             <span style={{ color: '#aaa', fontSize: '9px', wordBreak: 'break-all' }}>{renderStats.pipelineDebug.lastViewHash}</span>
+            <span style={{ color: '#888' }}>fade active:</span>
+            <span style={{ color: debugState.fade?.active ? '#ff8' : '#6f6' }}>{debugState.fade?.active ? 'YES' : 'NO'}</span>
+            <span style={{ color: '#888' }}>fade direction:</span>
+            <span>{debugState.fade?.direction ?? 'none'}</span>
+            <span style={{ color: '#888' }}>fade complete:</span>
+            <span>{debugState.fade?.complete ? 'YES' : 'NO'}</span>
+            <span style={{ color: '#888' }}>fade alpha:</span>
+            <span>{debugState.fade ? debugState.fade.alpha.toFixed(3) : '0.000'}</span>
           </div>
           <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
             <button
               style={{ padding: '4px 8px', fontSize: '10px', background: '#2f2f2f', color: '#ddd', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
               onClick={() => {
-                const text = JSON.stringify(renderStats.pipelineDebug, null, 2);
+                const text = JSON.stringify({
+                  ...renderStats.pipelineDebug,
+                  fade: debugState.fade,
+                }, null, 2);
                 if (navigator.clipboard) {
                   navigator.clipboard.writeText(text).catch(() => {
                     // noop

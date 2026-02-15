@@ -16,6 +16,7 @@ import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScrip
 import { handleSpecialWarpArrival } from '../../SpecialWarpBehaviorRegistry';
 import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
 import { isSurfableBehavior } from '../../../utils/metatileBehaviors';
+import { isDebugMode } from '../../../utils/debug';
 
 interface MutableRef<T> {
   current: T;
@@ -217,6 +218,18 @@ export async function performWarpTransition(
     }
 
     const currentMapId = worldManager.findMapAtPosition(player.tileX, player.tileY)?.entry.id ?? destMapId;
+    if (isDebugMode() || isDebugMode('field')) {
+      console.debug(
+        '[CYCLING_ROAD] Map-entry reset before scripts',
+        {
+          fromMap: trigger.sourceMap.entry.id,
+          toMap: currentMapId,
+          previousCollisions: player.getCyclingRoadChallengeCollisions(),
+        },
+      );
+    }
+    player.setCyclingRoadChallengeActive(false);
+
     const destinationUnderwater = isUnderwaterMapType(destMap.entry.mapType);
     const resolvedArrivalTile = player.getTileResolver()?.(player.tileX, player.tileY);
     const arrivalBehavior = resolvedArrivalTile?.attributes?.behavior;

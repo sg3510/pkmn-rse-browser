@@ -169,6 +169,7 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       const fieldEffects = player ? player.getGrassEffectManager().getEffectsForRendering() : [];
       const spriteBatches = player
         ? buildSpriteBatches(player, npcs, fieldEffects, {
+            includePlayerShadow: player.showShadow,
             playerHidden: refs.playerHiddenRef.current,
           })
         : null;

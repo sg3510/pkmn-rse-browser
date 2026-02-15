@@ -6,7 +6,7 @@
  * - public/pokeemerald/src/battle_setup.c (IsPlayerDefeated)
  */
 
-import { B_OUTCOME } from '../data/battleConstants.gen';
+import { B_OUTCOME } from '../data/battleConstants.gen.ts';
 
 export const BATTLE_OUTCOME = {
   WON: B_OUTCOME.B_OUTCOME_WON,

@@ -509,6 +509,7 @@ export async function initializeGame({
           allVisibleItems: objectManager.getVisibleItemBalls(),
           totalNPCCount: objectManager.getAllNPCs().length,
           totalItemCount: objectManager.getAllItemBalls().length,
+          fade: null,
         });
       }
 

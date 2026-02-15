@@ -20,6 +20,7 @@ import { FADE_TIMING } from '../../../field/types';
 import type { LocationState } from '../../../save/types';
 import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
 import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
+import { isDebugMode } from '../../../utils/debug';
 
 interface MutableRef<T> {
   current: T;
@@ -283,6 +284,13 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         // Run ON_LOAD / ON_TRANSITION / ON_WARP_INTO scripts so that
         // scripted warps (e.g. warp command) get the same map-entry
         // script treatment as door warps (performWarpTransition).
+        if (isDebugMode() || isDebugMode('field')) {
+          console.debug('[CYCLING_ROAD] Selected map entry reset before scripts', {
+            mapId: playerMapId,
+            priorCollisions: player.getCyclingRoadChallengeCollisions(),
+          });
+        }
+        player.setCyclingRoadChallengeActive(false);
         await runMapEntryScripts({
           currentMapId: playerMapId,
           snapshot,

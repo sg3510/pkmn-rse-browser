@@ -18,6 +18,62 @@ export interface FieldEffectMetadata {
 }
 
 export const FIELD_EFFECT_REGISTRY: Record<string, FieldEffectMetadata> = {
+  "SHADOW_S": {
+    "id": "FLDEFFOBJ_SHADOW_S",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/shadow_small.png",
+    "width": 8,
+    "height": 8,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "SHADOW_M": {
+    "id": "FLDEFFOBJ_SHADOW_M",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/shadow_medium.png",
+    "width": 16,
+    "height": 8,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "SHADOW_L": {
+    "id": "FLDEFFOBJ_SHADOW_L",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/shadow_large.png",
+    "width": 32,
+    "height": 8,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "SHADOW_XL": {
+    "id": "FLDEFFOBJ_SHADOW_XL",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/shadow_extra_large.png",
+    "width": 64,
+    "height": 32,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
   "TALL_GRASS": {
     "id": "FLDEFFOBJ_TALL_GRASS",
     "imagePath": "/pokeemerald/graphics/field_effects/pics/tall_grass.png",
@@ -768,6 +824,20 @@ export const FIELD_EFFECT_REGISTRY: Record<string, FieldEffectMetadata> = {
       }
     ]
   },
+  "BIRD": {
+    "id": "FLDEFFOBJ_BIRD",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/bird.png",
+    "width": 32,
+    "height": 32,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 1,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
   "BIKE_TIRE_TRACKS": {
     "id": "FLDEFFOBJ_BIKE_TIRE_TRACKS",
     "imagePath": "/pokeemerald/graphics/field_effects/pics/bike_tire_tracks.png",
@@ -836,6 +906,20 @@ export const FIELD_EFFECT_REGISTRY: Record<string, FieldEffectMetadata> = {
       },
       {
         "frame": 1,
+        "duration": 4,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "HOT_SPRINGS_WATER": {
+    "id": "FLDEFFOBJ_HOT_SPRINGS_WATER",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/hot_springs_water.png",
+    "width": 16,
+    "height": 16,
+    "animation": [
+      {
+        "frame": 0,
         "duration": 4,
         "hFlip": false,
         "vFlip": false

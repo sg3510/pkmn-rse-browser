@@ -20,7 +20,7 @@ import type { ObjectEventRuntimeState } from '../types/objectEvents';
 /**
  * Current save format version. Increment when making breaking changes.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Storage key prefix for localStorage
@@ -145,6 +145,45 @@ export interface BagState {
   pokeBalls: ItemSlot[];
   tmHm: ItemSlot[];
   berries: ItemSlot[];
+}
+
+/**
+ * Runtime berry tree state (SaveBlock1.berryTrees)
+ * Reference: public/pokeemerald/include/global.berry.h (struct BerryTree)
+ */
+export interface BerryTreeState {
+  berry: number;
+  stage: number;
+  stopGrowth: boolean;
+  minutesUntilNextStage: number;
+  berryYield: number;
+  regrowthCount: number;
+  watered1: boolean;
+  watered2: boolean;
+  watered3: boolean;
+  watered4: boolean;
+}
+
+/**
+ * Gen3 RTC-like time tuple used for native .sav imports.
+ * Reference: public/pokeemerald/include/global.h (struct Time)
+ */
+export interface BerryRtcTime {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+/**
+ * Berry system save payload.
+ */
+export interface BerryState {
+  trees: BerryTreeState[];
+  /** Browser timestamp in ms when berry state was last synced. */
+  lastUpdateTimestamp?: number;
+  /** Native RTC-style timestamp from .sav import (optional compatibility fallback). */
+  lastUpdateRtc?: BerryRtcTime;
 }
 
 /**
@@ -289,6 +328,8 @@ export interface SaveData {
   objectEventOverrides?: Record<string, { x: number; y: number }>;
   /** Runtime object-event snapshot (temporary NPC/item/script state) */
   objectEventRuntimeState?: ObjectEventRuntimeState;
+  /** Berry tree growth/runtime state */
+  berry?: BerryState;
 }
 
 // ============================================================================

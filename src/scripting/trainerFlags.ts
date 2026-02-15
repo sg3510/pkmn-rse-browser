@@ -7,8 +7,8 @@
  * raw flag byte array, which is populated from save data.
  */
 
-import { TRAINER_IDS } from '../data/trainerIds.gen';
-import { saveStateStore } from '../save/SaveStateStore';
+import { TRAINER_IDS } from '../data/trainerIds.gen.ts';
+import { saveStateStore } from '../save/SaveStateStore.ts';
 
 const TRAINER_FLAGS_START = 0x500;
 

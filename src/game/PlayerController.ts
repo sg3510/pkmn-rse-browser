@@ -20,7 +20,15 @@ import {
   isForcedSlideBehavior,
   isForceWalkBehavior,
   isBikeRailBehavior,
+  isAnyVerticalRailBehavior,
+  isAnyHorizontalRailBehavior,
+  isIsolatedVerticalRailBehavior,
+  isIsolatedHorizontalRailBehavior,
+  isVerticalRailBehavior,
+  isHorizontalRailBehavior,
   isRunningDisallowedBehavior,
+  isMuddySlopeBehavior,
+  isBumpySlopeBehavior,
   getSlideDirection,
   getArrowDirectionFromBehavior,
 } from '../utils/metatileBehaviors';
@@ -37,7 +45,7 @@ import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { directionToOffset } from '../utils/direction';
 import { areElevationsCompatible } from '../utils/elevation';
-import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL } from './jumpArc';
+import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL, JUMP_ARC_LOW } from './jumpArc';
 import { inputMap, GameButton } from '../core/InputMap';
 import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing';
 import { getSurfingFrameSelection } from './playerFrameSelection';
@@ -188,7 +196,7 @@ class NormalState implements PlayerState {
 
 class RunningState implements PlayerState {
   // Running speed is double walking speed
-  private readonly SPEED = 1.2;//0.12;
+  private readonly SPEED = 0.12;
 
   enter(_controller: PlayerController): void {
     // controller.setSprite('running');
@@ -267,6 +275,108 @@ class BikeState implements PlayerState {
   }
 }
 
+// C refs: public/pokeemerald/src/bike.c (Acro state machine) and
+// public/pokeemerald/src/field_player_avatar.c (PlayerAcroTurnJump).
+class AcroBunnyHopState implements PlayerState {
+  private elapsedMs = 0;
+  private readonly DURATION_MS = 16 * (1000 / 60); // ~16 frames
+
+  enter(controller: PlayerController): void {
+    controller.isMoving = true;
+    controller.showShadow = true;
+    controller.spriteYOffset = 0;
+    this.elapsedMs = 0;
+  }
+
+  exit(controller: PlayerController): void {
+    controller.isMoving = false;
+    controller.showShadow = false;
+    controller.spriteYOffset = 0;
+  }
+
+  update(controller: PlayerController, delta: number): boolean {
+    this.elapsedMs += delta;
+
+    const progress = Math.min(1, this.elapsedMs / this.DURATION_MS);
+    const arcIndex = Math.min(
+      JUMP_ARC_HIGH.length - 1,
+      Math.floor(progress * (JUMP_ARC_HIGH.length - 1))
+    );
+    controller.spriteYOffset = JUMP_ARC_HIGH[arcIndex];
+
+    if (progress >= 1) {
+      controller.changeState(new BikeState('acro'));
+    }
+
+    return true;
+  }
+
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
+    // Input locked during hop.
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('acroBike', true);
+  }
+
+  getSpeed(): number {
+    return 0;
+  }
+}
+
+class AcroTurnJumpState implements PlayerState {
+  private readonly targetDirection: 'up' | 'down' | 'left' | 'right';
+  private elapsedMs = 0;
+  private readonly DURATION_MS = 14 * (1000 / 60); // ~14 frames
+
+  constructor(targetDirection: 'up' | 'down' | 'left' | 'right') {
+    this.targetDirection = targetDirection;
+  }
+
+  enter(controller: PlayerController): void {
+    controller.dir = this.targetDirection;
+    controller.isMoving = true;
+    controller.showShadow = true;
+    controller.spriteYOffset = 0;
+    this.elapsedMs = 0;
+  }
+
+  exit(controller: PlayerController): void {
+    controller.isMoving = false;
+    controller.showShadow = false;
+    controller.spriteYOffset = 0;
+  }
+
+  update(controller: PlayerController, delta: number): boolean {
+    this.elapsedMs += delta;
+
+    const progress = Math.min(1, this.elapsedMs / this.DURATION_MS);
+    const arcIndex = Math.min(
+      JUMP_ARC_NORMAL.length - 1,
+      Math.floor(progress * (JUMP_ARC_NORMAL.length - 1))
+    );
+    controller.spriteYOffset = JUMP_ARC_NORMAL[arcIndex];
+
+    if (progress >= 1) {
+      controller.changeState(new BikeState('acro'));
+    }
+
+    return true;
+  }
+
+  handleInput(_controller: PlayerController, _keys: { [key: string]: boolean }): void {
+    // Input locked during turn-jump.
+  }
+
+  getFrameInfo(controller: PlayerController): FrameInfo | null {
+    return controller.calculateFrameInfo('acroBike', true);
+  }
+
+  getSpeed(): number {
+    return 0;
+  }
+}
+
 class JumpingState implements PlayerState {
   private progress: number = 0; // Pixels moved
   private readonly SPEED = 0.06; // 1px/frame approx
@@ -282,11 +392,21 @@ class JumpingState implements PlayerState {
   private wasRunning: boolean;
   private jumpDistance: number;
   private jumpArc: readonly number[];
+  private movementDirection: 'up' | 'down' | 'left' | 'right' | null;
+  private restoreFacingDirectionOnExit: 'up' | 'down' | 'left' | 'right' | null;
 
-  constructor(wasRunning: boolean = false, jumpDistance = JUMP_DISTANCE_FAR, jumpArc = JUMP_ARC_HIGH) {
+  constructor(
+    wasRunning: boolean = false,
+    jumpDistance = JUMP_DISTANCE_FAR,
+    jumpArc = JUMP_ARC_HIGH,
+    movementDirection: 'up' | 'down' | 'left' | 'right' | null = null,
+    restoreFacingDirectionOnExit: 'up' | 'down' | 'left' | 'right' | null = null
+  ) {
     this.wasRunning = wasRunning;
     this.jumpDistance = jumpDistance;
     this.jumpArc = jumpArc;
+    this.movementDirection = movementDirection;
+    this.restoreFacingDirectionOnExit = restoreFacingDirectionOnExit;
   }
 
   enter(controller: PlayerController): void {
@@ -298,7 +418,8 @@ class JumpingState implements PlayerState {
     this.farJumpMidpointApplied = false;
 
     // Calculate target position based on jump distance.
-    const move = directionToOffset(controller.dir);
+    const jumpDirection = this.movementDirection ?? controller.dir;
+    const move = directionToOffset(jumpDirection);
     const dx = move.dx * this.jumpDistance;
     const dy = move.dy * this.jumpDistance;
 
@@ -341,6 +462,10 @@ class JumpingState implements PlayerState {
     controller.tileY = this.landingTileY;
     controller.settleJumpObjectCoords(this.landingTileX, this.landingTileY);
 
+    if (this.restoreFacingDirectionOnExit) {
+      controller.dir = this.restoreFacingDirectionOnExit;
+    }
+
     // CRITICAL: Update elevation upon landing!
     // Otherwise collision system thinks we are still at old elevation
     controller.updateElevation();
@@ -370,7 +495,8 @@ class JumpingState implements PlayerState {
       return true;
     }
 
-    const move = directionToOffset(controller.dir);
+    const jumpDirection = this.movementDirection ?? controller.dir;
+    const move = directionToOffset(jumpDirection);
     controller.x = this.startX + move.dx * this.progress;
     controller.y = this.startY + move.dy * this.progress;
 
@@ -737,6 +863,7 @@ export class PlayerController {
 
   private readonly BIKE_SPEED_WALK = 0.06;
   private readonly BIKE_SPEED_FAST = 0.12;
+  private readonly BIKE_SPEED_FASTER = 0.18;
   private readonly BIKE_SPEED_FASTEST = 0.24;
 
   // Previous tile tracking (for sand footprints - they appear on tile you LEFT)
@@ -780,12 +907,12 @@ export class PlayerController {
   private static readonly GAME_CONTROL_KEYS = inputMap.getAllCodes();
 
   private debugLog(...args: unknown[]): void {
-    if (!isDebugMode()) return;
+    if (!(isDebugMode() || isDebugMode('field'))) return;
     playerLogger.debug(...args);
   }
 
   private debugWarn(...args: unknown[]): void {
-    if (!isDebugMode()) return;
+    if (!(isDebugMode() || isDebugMode('field'))) return;
     playerLogger.warn(...args);
   }
 
@@ -1245,7 +1372,11 @@ export class PlayerController {
 
   private tryMoveDirection(
     direction: 'up' | 'down' | 'left' | 'right',
-    options?: { countBikeCollision?: boolean }
+    options?: {
+      countBikeCollision?: boolean;
+      allowAcroBumpySlope?: boolean;
+      allowAcroIsolatedRailLanding?: boolean;
+    }
   ): boolean {
     this.dir = direction;
 
@@ -1275,7 +1406,10 @@ export class PlayerController {
 
     const resolved = this.tileResolver ? this.tileResolver(targetTileX, targetTileY) : null;
     const behavior = resolved?.attributes?.behavior ?? -1;
-    const blocked = this.isCollisionAt(targetTileX, targetTileY);
+    const blocked = this.isCollisionAt(targetTileX, targetTileY, {
+      allowAcroBumpySlope: options?.allowAcroBumpySlope,
+      allowAcroIsolatedRailLanding: options?.allowAcroIsolatedRailLanding,
+    });
 
     if (!blocked) {
       if (isDebugMode()) {
@@ -1300,7 +1434,22 @@ export class PlayerController {
     }
 
     if (options?.countBikeCollision && this.bikeRiding && this.cyclingRoadChallengeActive) {
-      this.cyclingRoadCollisions = Math.min(100, this.cyclingRoadCollisions + 1);
+      const previousCollisions = this.cyclingRoadCollisions;
+      const nextCollisions = Math.min(100, previousCollisions + 1);
+      if (nextCollisions !== previousCollisions) {
+        this.cyclingRoadCollisions = nextCollisions;
+        this.debugLog(
+          '[CYCLING] Collision increment',
+          {
+            before: previousCollisions,
+            after: nextCollisions,
+            targetTileX,
+            targetTileY,
+            bikeMode: this.bikeMode,
+            bikeRiding: this.bikeRiding,
+          },
+        );
+      }
     }
 
     if (isDebugMode()) {
@@ -1328,7 +1477,7 @@ export class PlayerController {
 
   public getBikeMovementSpeed(mode: Exclude<BikeMode, 'none'>): number {
     if (mode === 'acro') {
-      return this.BIKE_SPEED_FAST;
+      return this.BIKE_SPEED_FASTER;
     }
 
     if (this.machBikeSpeedTier >= 2) return this.BIKE_SPEED_FASTEST;
@@ -1344,6 +1493,11 @@ export class PlayerController {
     const isBHeld = inputMap.isHeldInRecord(keys, GameButton.B);
 
     if (direction === null) {
+      if (mode === 'acro' && isBHeld) {
+        this.changeState(new AcroBunnyHopState());
+        return;
+      }
+
       // Mach bike keeps rolling briefly when input is released.
       if (mode === 'mach' && !this.isMoving && this.machBikeSpeedTier > 0) {
         const continued = this.tryMoveDirection(this.dir, { countBikeCollision: true });
@@ -1360,6 +1514,22 @@ export class PlayerController {
       return;
     }
 
+    if (mode === 'acro' && isBHeld && this.tryStartAcroTurnJump(direction)) {
+      return;
+    }
+
+    if (mode === 'acro' && isBHeld && this.tryStartAcroRailSideJump(direction)) {
+      return;
+    }
+
+    // Ledge jumps work while biking in Emerald.
+    if (this.tryStartLedgeJump(direction, false)) {
+      if (mode === 'mach') {
+        this.machBikeSpeedTier = 0;
+      }
+      return;
+    }
+
     if (mode === 'mach') {
       const previousDir = this.dir;
       const sameDirection = direction === previousDir;
@@ -1371,44 +1541,122 @@ export class PlayerController {
         return;
       }
 
+      if (!this.canBikeFaceDirectionOnCurrentTile(direction)) {
+        return;
+      }
+
       const moved = this.tryMoveDirection(direction, { countBikeCollision: true });
       if (moved) {
         this.machBikeSpeedTier = sameDirection
           ? (Math.min(2, this.machBikeSpeedTier + 1) as 0 | 1 | 2)
-          : 0;
+          : 1;
       } else {
         this.machBikeSpeedTier = 0;
       }
       return;
     }
 
-    // Acro bike: B enables hop-style movement, not Mach-like acceleration.
-    if (isBHeld) {
-      if (this.tryStartAcroHop(direction)) {
-        return;
-      }
+    if (!this.canBikeFaceDirectionOnCurrentTile(direction)) {
+      return;
     }
 
-    this.tryMoveDirection(direction, { countBikeCollision: true });
+    this.tryMoveDirection(direction, {
+      countBikeCollision: true,
+      allowAcroBumpySlope: isBHeld,
+    });
   }
 
-  private tryStartAcroHop(direction: 'up' | 'down' | 'left' | 'right'): boolean {
-    // Ledge jumps still take priority and use far-jump behavior.
-    if (this.tryStartLedgeJump(direction, false)) {
+  private getOppositeDirection(direction: 'up' | 'down' | 'left' | 'right'): 'up' | 'down' | 'left' | 'right' {
+    switch (direction) {
+      case 'up': return 'down';
+      case 'down': return 'up';
+      case 'left': return 'right';
+      case 'right': return 'left';
+    }
+  }
+
+  private canBikeFaceDirectionOnCurrentTile(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    const currentBehavior = this.getCurrentTileBehavior();
+    if (currentBehavior === undefined) {
       return true;
+    }
+
+    if (direction === 'left' || direction === 'right') {
+      return !isAnyVerticalRailBehavior(currentBehavior);
+    }
+
+    return !isAnyHorizontalRailBehavior(currentBehavior);
+  }
+
+  private tryStartAcroTurnJump(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    const currentBehavior = this.getCurrentTileBehavior();
+    if (currentBehavior === undefined) {
+      return false;
+    }
+
+    const onVerticalRail = isAnyVerticalRailBehavior(currentBehavior);
+    const onHorizontalRail = isAnyHorizontalRailBehavior(currentBehavior);
+    if (!onVerticalRail && !onHorizontalRail) {
+      return false;
+    }
+
+    if (direction !== this.getOppositeDirection(this.dir)) {
+      return false;
+    }
+
+    this.changeState(new AcroTurnJumpState(direction));
+    return true;
+  }
+
+  private tryStartAcroRailSideJump(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    const currentBehavior = this.getCurrentTileBehavior();
+    if (currentBehavior === undefined) {
+      return false;
+    }
+
+    const onVerticalRail = isAnyVerticalRailBehavior(currentBehavior);
+    const onHorizontalRail = isAnyHorizontalRailBehavior(currentBehavior);
+    if (!onVerticalRail && !onHorizontalRail) {
+      return false;
+    }
+
+    const isPerpendicularJump =
+      (onVerticalRail && (direction === 'left' || direction === 'right'))
+      || (onHorizontalRail && (direction === 'up' || direction === 'down'));
+    if (!isPerpendicularJump) {
+      return false;
     }
 
     const { dx, dy } = directionToOffset(direction);
     const targetTileX = this.tileX + dx;
     const targetTileY = this.tileY + dy;
-
-    if (this.isCollisionAt(targetTileX, targetTileY)) {
+    const targetResolved = this.tileResolver?.(targetTileX, targetTileY);
+    if (!targetResolved?.attributes) {
       return false;
     }
 
-    this.dir = direction;
-    this.changeState(new JumpingState(false, JUMP_DISTANCE_NORMAL, JUMP_ARC_NORMAL));
+    // C parity: Acro side-jumps cannot land onto a rail that matches jump axis.
+    if (this.isAcroSideJumpBlockedByTargetRail(direction, targetResolved.attributes.behavior)) {
+      return false;
+    }
+
+    if (this.isCollisionAt(targetTileX, targetTileY, { allowAcroIsolatedRailLanding: true })) {
+      return false;
+    }
+
+    // C parity: side-jump keeps facing locked while movement direction is perpendicular.
+    this.changeState(new JumpingState(false, JUMP_DISTANCE_NORMAL, JUMP_ARC_LOW, direction));
     return true;
+  }
+
+  private isAcroSideJumpBlockedByTargetRail(
+    direction: 'up' | 'down' | 'left' | 'right',
+    targetBehavior: number
+  ): boolean {
+    if (direction === 'up' || direction === 'down') {
+      return isAnyVerticalRailBehavior(targetBehavior);
+    }
+    return isAnyHorizontalRailBehavior(targetBehavior);
   }
 
   private isMapCyclingAllowed(): boolean {
@@ -1609,7 +1857,15 @@ export class PlayerController {
     return false;
   }
 
-  private isCollisionAt(tileX: number, tileY: number, options?: { ignoreElevation?: boolean }): boolean {
+  private isCollisionAt(
+    tileX: number,
+    tileY: number,
+    options?: {
+      ignoreElevation?: boolean;
+      allowAcroBumpySlope?: boolean;
+      allowAcroIsolatedRailLanding?: boolean;
+    }
+  ): boolean {
     const resolved = this.tileResolver ? this.tileResolver(tileX, tileY) : null;
     if (!resolved) {
       if (isDebugMode()) {
@@ -1746,6 +2002,34 @@ export class PlayerController {
     if (this.objectCollisionChecker && this.objectCollisionChecker(tileX, tileY)) {
       if (isDebugMode()) {
         this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is blocked by object event - BLOCKED`);
+      }
+      return true;
+    }
+
+    const isOnAcroBike = this.bikeRiding && this.bikeMode === 'acro';
+    const allowAcroBumpySlope = isOnAcroBike && options?.allowAcroBumpySlope === true;
+    const allowAcroIsolatedRailLanding = isOnAcroBike && options?.allowAcroIsolatedRailLanding === true;
+
+    if (isBumpySlopeBehavior(behavior) && !allowAcroBumpySlope) {
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is bumpy slope and Acro wheelie-hop is not active - BLOCKED`);
+      }
+      return true;
+    }
+
+    if (
+      (isIsolatedVerticalRailBehavior(behavior) || isIsolatedHorizontalRailBehavior(behavior))
+      && !allowAcroIsolatedRailLanding
+    ) {
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is isolated rail and side-jump landing is not active - BLOCKED`);
+      }
+      return true;
+    }
+
+    if ((isVerticalRailBehavior(behavior) || isHorizontalRailBehavior(behavior)) && !this.bikeRiding) {
+      if (isDebugMode()) {
+        this.debugLog(`[COLLISION] Tile (${tileX}, ${tileY}) is bike rail and player is on foot - BLOCKED`);
       }
       return true;
     }
@@ -2745,10 +3029,23 @@ export class PlayerController {
   }
 
   public setCyclingRoadChallengeActive(active: boolean): void {
+    const wasActive = this.cyclingRoadChallengeActive;
+    const previousCollisions = this.cyclingRoadCollisions;
     this.cyclingRoadChallengeActive = active;
-    if (active) {
+    if (!active || wasActive !== active) {
       this.cyclingRoadCollisions = 0;
     }
+    this.debugLog(
+      '[CYCLING] setCyclingRoadChallengeActive',
+      {
+        from: wasActive,
+        to: active,
+        collisionsFrom: previousCollisions,
+        collisionsTo: this.cyclingRoadCollisions,
+        bikeMode: this.bikeMode,
+        bikeRiding: this.bikeRiding,
+      },
+    );
   }
 
   public getCyclingRoadChallengeCollisions(): number {
@@ -2825,7 +3122,22 @@ export class PlayerController {
       }
     }
 
+    // Muddy slope (MB_MUDDY_SLOPE):
+    // force player south unless climbing north on max-speed Mach bike.
+    if (isMuddySlopeBehavior(behavior) && !this.canClimbMuddySlope()) {
+      this.machBikeSpeedTier = 0; // C parity: Bike_UpdateBikeCounterSpeed(0)
+      this.forceStep('down');
+      return true;
+    }
+
     return false;
+  }
+
+  private canClimbMuddySlope(): boolean {
+    return this.bikeRiding
+      && this.bikeMode === 'mach'
+      && this.dir === 'up'
+      && this.machBikeSpeedTier >= 2;
   }
 
   /**

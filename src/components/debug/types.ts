@@ -104,6 +104,13 @@ export interface AdjacentObjectsInfo {
   west: ObjectsAtTileInfo | null;
 }
 
+export interface FadeDebugInfo {
+  active: boolean;
+  direction: 'in' | 'out' | null;
+  complete: boolean;
+  alpha: number;
+}
+
 /**
  * Full debug state passed to the panel
  */
@@ -117,6 +124,7 @@ export interface DebugState {
   allVisibleItems: ItemBallObject[];
   totalNPCCount: number;
   totalItemCount: number;
+  fade: FadeDebugInfo | null;
   /** Optional full NPC list (including hidden/despawned) for runtime debugging */
   allNPCs?: NPCObject[];
   /** Optional list of NPC IDs currently despawned by offscreen culling */
