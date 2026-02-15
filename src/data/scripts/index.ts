@@ -479,17 +479,36 @@ const scriptModules: Record<string, () => Promise<ScriptModule>> = {
 const commonModule = () => import('./common.gen');
 
 // Cache loaded modules
+const MAP_SCRIPT_CACHE_MAX_ENTRIES = 64;
 const cache = new Map<string, MapScriptData>();
+
+function touchMapScriptCache(mapId: string, data: MapScriptData): void {
+  if (cache.has(mapId)) {
+    cache.delete(mapId);
+  }
+  cache.set(mapId, data);
+  while (cache.size > MAP_SCRIPT_CACHE_MAX_ENTRIES) {
+    const oldestMapId = cache.keys().next().value as string | undefined;
+    if (!oldestMapId) {
+      break;
+    }
+    cache.delete(oldestMapId);
+  }
+}
 
 /**
  * Load script data for a map. Returns null if no scripts exist.
  */
 export async function getMapScripts(mapId: string): Promise<MapScriptData | null> {
-  if (cache.has(mapId)) return cache.get(mapId)!;
+  const cached = cache.get(mapId);
+  if (cached) {
+    touchMapScriptCache(mapId, cached);
+    return cached;
+  }
   const loader = scriptModules[mapId];
   if (!loader) return null;
   const mod = await loader();
-  cache.set(mapId, mod.data);
+  touchMapScriptCache(mapId, mod.data);
   return mod.data;
 }
 

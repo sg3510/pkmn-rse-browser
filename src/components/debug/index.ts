@@ -32,7 +32,7 @@ export type {
   SpriteSortDebugInfo,
   PriorityDebugInfo,
 } from './types';
-export { DEFAULT_DEBUG_OPTIONS } from './types';
+export { DEFAULT_DEBUG_OPTIONS, isDiagnosticsEnabled } from './types';
 
 // WebGL debug utilities
 export {

@@ -33,6 +33,7 @@ import { saveManager } from '../save/SaveManager';
 import type { CardinalDirection } from '../field/types';
 import type { WorldCameraView } from '../rendering/types';
 import { getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../game/playerSprites';
+import { preloadBerryTreeAtlases } from '../utils/berryTreeSpriteImport';
 
 // WorldCameraView is imported from src/rendering/types.ts (canonical definition)
 export type { WorldCameraView };
@@ -163,6 +164,9 @@ async function rebuildContextForWorld(
   if (npcGraphicsIds.length > 0) {
     await npcSpriteCache.loadMany(npcGraphicsIds);
   }
+
+  // Prime berry atlases for upcoming berry tree interactions/map transitions.
+  await preloadBerryTreeAtlases();
 
   // Upload tilesets to WebGL if using WebGL pipeline
   uploadTilesetsToWebGL(refs, tilesetRuntimes);

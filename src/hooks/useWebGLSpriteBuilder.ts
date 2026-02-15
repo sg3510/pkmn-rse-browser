@@ -60,6 +60,11 @@ import { npcAnimationManager, shouldAnimate } from '../game/npc/NPCAnimationEngi
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { getNPCFrameInfo } from '../game/npc/NPCSpriteLoader';
 import { berryManager } from '../game/berry/BerryManager.ts';
+import {
+  isBerryTreeGraphicsId,
+  resolveBerryTreePlacement,
+  resolveBerryTreeSpriteFrame,
+} from '../utils/berryTreeSpriteResolver';
 
 // =============================================================================
 // Types
@@ -497,14 +502,36 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
 
     // Script objects (e.g. Birch's bag) share object-event sprite atlases and
     // should be sorted alongside regular field sprites.
-    berryManager.runTimeBasedEvents(nowTime);
+    berryManager.runTimeBasedEvents(Date.now());
     for (const scriptObject of scriptObjects) {
-      const atlasName = getNPCAtlasName(scriptObject.graphicsId);
-      if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
-      const feetY = scriptObject.tileY * METATILE_SIZE + METATILE_SIZE;
-      const sortKey = calculateSortKey(feetY, 128);
+      let sortFeetY = scriptObject.tileY * METATILE_SIZE + METATILE_SIZE;
+      if (isBerryTreeGraphicsId(scriptObject.graphicsId)) {
+        if (scriptObject.berryTreeId <= 0) {
+          continue;
+        }
+        const tree = berryManager.getTreeSnapshot(scriptObject.berryTreeId);
+        const berryFrame = resolveBerryTreeSpriteFrame(tree.berry, tree.stage);
+        if (!berryFrame) {
+          continue;
+        }
+        const placement = resolveBerryTreePlacement(scriptObject.tileX, scriptObject.tileY, berryFrame);
+        sortFeetY = placement.feetY;
+        if (!spriteRenderer.hasSpriteSheet(berryFrame.atlasName)) {
+          continue;
+        }
+      } else {
+        const atlasName = getNPCAtlasName(scriptObject.graphicsId);
+        if (!spriteRenderer.hasSpriteSheet(atlasName)) {
+          continue;
+        }
+      }
+
+      const sortKey = calculateSortKey(sortFeetY, 128);
       const sprite = createScriptObjectSpriteInstance(scriptObject, sortKey);
       if (sprite) {
+        if (isBerryTreeGraphicsId(scriptObject.graphicsId)) {
+          sprite.sortKey = calculateSortKey(sprite.worldY + sprite.height, 128);
+        }
         allSprites.push(sprite);
       }
     }

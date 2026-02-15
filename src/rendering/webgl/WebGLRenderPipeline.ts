@@ -20,6 +20,7 @@ import { WebGLCompositor } from './WebGLCompositor';
 import { WebGLTextureManager } from './WebGLTextureManager';
 import { ElevationFilter } from '../ElevationFilter';
 import { WebGLAnimationManager } from './WebGLAnimationManager';
+import { resetTilesetUploadDedupeState } from './TilesetUploader';
 import { RENDERING_CONFIG } from '../../config/rendering';
 import type {
   WorldCameraView,
@@ -607,6 +608,7 @@ export class WebGLRenderPipeline {
    * Clean up resources
    */
   dispose(): void {
+    resetTilesetUploadDedupeState(this);
     this.compositor.dispose();
     this.tileRenderer.dispose();
     this.framebufferManager.dispose();
@@ -686,6 +688,7 @@ export class WebGLRenderPipeline {
    */
   private handleContextLost(): void {
     console.warn('WebGL context lost');
+    resetTilesetUploadDedupeState(this);
     this.tilesetsUploaded = false;
     this.needsFullRender = true;
     this.needsWarmupRender = true;
@@ -710,6 +713,7 @@ export class WebGLRenderPipeline {
    */
   private handleContextRestored(): void {
     console.info('WebGL context restored');
+    resetTilesetUploadDedupeState(this);
 
     // Re-initialize components
     this.tileRenderer.initialize();

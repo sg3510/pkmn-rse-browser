@@ -77,6 +77,7 @@ import { useWebGLSpriteBuilder } from '../hooks/useWebGLSpriteBuilder';
 import {
   DebugPanel,
   DEFAULT_DEBUG_OPTIONS,
+  isDiagnosticsEnabled,
   type DebugOptions,
   type DebugState,
   type DebugTileInfo,
@@ -85,6 +86,7 @@ import {
   type ReflectionTileGridDebugInfo,
   type PriorityDebugInfo,
 } from '../components/debug';
+import { clearAssetCaches } from '../utils/assetLoader';
 import {
   DialogProvider,
   DialogBox,
@@ -229,6 +231,7 @@ const EMPTY_DEBUG_STATE: DebugState = {
   allNPCs: [],
   offscreenDespawnedNpcIds: [],
 };
+const LOCAL_MAP_SCRIPT_CACHE_MAX_ENTRIES = 32;
 const MOBILE_MIN_VIEWPORT_TILES_WIDE = 14;
 const MOBILE_MAX_VIEWPORT_TILES_WIDE = 42;
 const MOBILE_MIN_VIEWPORT_TILES_HIGH = 12;
@@ -584,6 +587,23 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
   const mapScriptLoadingRef = useRef<Set<string>>(new Set());
+  const pruneLocalMapScriptCache = useCallback((snapshot: WorldSnapshot): void => {
+    const cache = mapScriptCacheRef.current;
+    const keepMapIds = new Set(snapshot.maps.map((map) => map.entry.id));
+    keepMapIds.add(snapshot.anchorMapId);
+
+    for (const mapId of cache.keys()) {
+      if (!keepMapIds.has(mapId)) {
+        cache.delete(mapId);
+      }
+    }
+
+    while (cache.size > LOCAL_MAP_SCRIPT_CACHE_MAX_ENTRIES) {
+      const oldestKey = cache.keys().next().value;
+      if (!oldestKey) break;
+      cache.delete(oldestKey);
+    }
+  }, []);
   const weatherManagerRef = useRef<WeatherManager>(new WeatherManager());
   const weatherDefaultsSnapshotRef = useRef<WorldSnapshot | null>(null);
 
@@ -823,6 +843,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Ref for debug options so render loop can access current value
   const debugOptionsRef = useRef<DebugOptions>(debugOptions);
   debugOptionsRef.current = debugOptions;
+  const diagnosticsEnabled = isDiagnosticsEnabled(debugOptions);
+
+  const setDiagnosticsEnabled = useCallback((enabled: boolean) => {
+    setDebugOptions((previous) => ({
+      ...previous,
+      diagnosticsEnabled: enabled,
+      enabled,
+    }));
+  }, []);
 
   // Ref for pending saved location (set when Continue is selected, consumed on map load)
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
@@ -999,7 +1028,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Create WebGL debug state from existing debug info
   const webglDebugState = useMemo<WebGLDebugState>(() => {
-    if (!debugOptions.enabled) {
+    if (!diagnosticsEnabled) {
       return EMPTY_WEBGL_DEBUG_STATE;
     }
     const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
@@ -1032,7 +1061,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       npcSpriteCache,
     });
   }, [
-    debugOptions.enabled,
+    diagnosticsEnabled,
     mapDebugInfo,
     warpDebugInfo,
     stats,
@@ -1046,7 +1075,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Debug state for the panel - reads from refs updated during render loop
   const debugState = useMemo<DebugState>(() => {
-    if (!debugOptions.enabled) {
+    if (!diagnosticsEnabled) {
       return EMPTY_DEBUG_STATE;
     }
     const npcs = visibleNPCsRef.current;
@@ -1073,7 +1102,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         };
       })(),
     });
-  }, [debugOptions.enabled, playerDebugInfo]);
+  }, [diagnosticsEnabled, playerDebugInfo]);
 
   // Track resolver creation for debugging
   const resolverIdRef = useRef(0);
@@ -1127,6 +1156,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     // Update snapshot ref
     worldSnapshotRef.current = snapshot;
+    pruneLocalMapScriptCache(snapshot);
     renderContextCacheRef.current = null;
     weatherManagerRef.current.setMapDefaultsFromSources(
       snapshot.maps.map((map) => ({ mapId: map.entry.id, mapWeather: map.mapWeather }))
@@ -1158,6 +1188,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     uploadTilesetsFromSnapshot,
     loadObjectEventsFromSnapshot,
     applyTruckOnLoadMetatileCompatibilityLocal,
+    pruneLocalMapScriptCache,
   ]);
 
   // Compute reflection state for an object at a tile position using shared function
@@ -1699,7 +1730,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             view,
             nowTime,
             gbaFrame: gbaFrameRef.current,
-            debugEnabled: debugOptionsRef.current.enabled,
+            debugEnabled: isDiagnosticsEnabled(debugOptionsRef.current),
             spriteRenderer: spriteRendererRef.current,
             pipeline,
             fadeRenderer: fadeRendererRef.current,
@@ -1741,11 +1772,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           if (spriteResult.arrowSpriteWasUploaded) {
             arrowSpriteUploadedRef.current = true;
           }
-          if (spriteResult.reflectionTileGridDebug) {
+          if (isDiagnosticsEnabled(debugOptionsRef.current) && spriteResult.reflectionTileGridDebug) {
             incrementRuntimePerfCounter('setStateFromRafCalls');
             setReflectionTileGridDebug(spriteResult.reflectionTileGridDebug);
           }
-          if (spriteResult.priorityDebugInfo) {
+          if (isDiagnosticsEnabled(debugOptionsRef.current) && spriteResult.priorityDebugInfo) {
             incrementRuntimePerfCounter('setStateFromRafCalls');
             setPriorityDebugInfo(spriteResult.priorityDebugInfo);
           }
@@ -1754,7 +1785,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         const renderStatsStart = performance.now();
         updateRenderStats({
           pipeline,
-          debugEnabled: debugOptionsRef.current.enabled,
+          debugEnabled: isDiagnosticsEnabled(debugOptionsRef.current),
           cameraRef,
           renderStartTime: start,
           setStats,
@@ -1794,6 +1825,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       orbEffectRuntimeRef.current.clear(cameraRef.current);
       renderContextCacheRef.current = null;
       weatherManagerRef.current.clear();
+      weatherDefaultsSnapshotRef.current = null;
+      tilesetRuntimesRef.current.clear();
+      mapScriptCacheRef.current.clear();
+      mapScriptLoadingRef.current.clear();
+      activeScriptFieldEffectsRef.current.clear();
+      clearAssetCaches();
       worldManagerRef.current?.dispose();
       worldManagerRef.current = null;
     };
@@ -2024,9 +2061,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         <DebugPanel
           options={debugOptions}
           onChange={setDebugOptions}
+          diagnosticsEnabled={diagnosticsEnabled}
+          onDiagnosticsEnabledChange={setDiagnosticsEnabled}
           state={debugState}
           debugCanvasRef={debugCanvasRef}
-          centerTileInfo={getCenterTileInfo()}
+          centerTileInfo={diagnosticsEnabled ? getCenterTileInfo() : null}
           bottomLayerCanvasRef={bottomLayerCanvasRef}
           topLayerCanvasRef={topLayerCanvasRef}
           compositeLayerCanvasRef={compositeLayerCanvasRef}
@@ -2176,9 +2215,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       <DebugPanel
         options={debugOptions}
         onChange={setDebugOptions}
+        diagnosticsEnabled={diagnosticsEnabled}
+        onDiagnosticsEnabledChange={setDiagnosticsEnabled}
         state={debugState}
         debugCanvasRef={debugCanvasRef}
-        centerTileInfo={getCenterTileInfo()}
+        centerTileInfo={diagnosticsEnabled ? getCenterTileInfo() : null}
         bottomLayerCanvasRef={bottomLayerCanvasRef}
         topLayerCanvasRef={topLayerCanvasRef}
         compositeLayerCanvasRef={compositeLayerCanvasRef}

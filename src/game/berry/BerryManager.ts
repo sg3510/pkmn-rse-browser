@@ -9,7 +9,8 @@
  */
 
 import { getItemName } from '../../data/items.ts';
-import type { BerryRtcTime, BerryState, BerryTreeState } from '../../save/types.ts';
+import type { BerryRtcTime, BerryState, BerryTimestampDomain, BerryTreeState } from '../../save/types.ts';
+import { isDebugMode } from '../../utils/debug.ts';
 import {
   BERRY_GROWTH_BY_TYPE,
   BERRY_STAGE,
@@ -36,6 +37,33 @@ export interface BerryTreeInteractionData {
   berryCount: number;
   berryName: string;
   berryCountString: string;
+}
+
+const MIN_VALID_EPOCH_MS = Date.UTC(2000, 0, 1);
+const MAX_VALID_EPOCH_MS = Date.UTC(2100, 0, 1);
+
+function normalizeTimestampDomain(
+  timestamp: number | null,
+  rtc: BerryRtcTime | null,
+  input?: string
+): BerryTimestampDomain | null {
+  if (input === 'epoch-ms' || input === 'legacy-monotonic' || input === 'rtc') {
+    return input;
+  }
+
+  if (timestamp !== null) {
+    return isValidBerryEpochTimestamp(timestamp) ? 'epoch-ms' : 'legacy-monotonic';
+  }
+
+  if (rtc !== null) {
+    return 'rtc';
+  }
+
+  return null;
+}
+
+export function isValidBerryEpochTimestamp(value: number): boolean {
+  return Number.isFinite(value) && value >= MIN_VALID_EPOCH_MS && value <= MAX_VALID_EPOCH_MS;
 }
 
 function createBlankBerryTree(): BerryTreeState {
@@ -147,13 +175,15 @@ class BerryManager {
   private activeInteraction: BerryInteractionContext | null = null;
   private sparklingKeys = new Set<string>();
   private lastUpdateTimestamp: number | null = null;
+  private lastUpdateTimestampDomain: BerryTimestampDomain | null = null;
   private lastUpdateRtc: BerryRtcTime | null = null;
 
   reset(nowTimestamp: number = Date.now()): void {
     this.trees = Array.from({ length: BERRY_TREES_COUNT }, () => createBlankBerryTree());
     this.activeInteraction = null;
     this.sparklingKeys.clear();
-    this.lastUpdateTimestamp = nowTimestamp;
+    this.lastUpdateTimestamp = Math.trunc(nowTimestamp);
+    this.lastUpdateTimestampDomain = 'epoch-ms';
     this.lastUpdateRtc = null;
   }
 
@@ -161,6 +191,7 @@ class BerryManager {
     return {
       trees: this.trees.map((tree) => ({ ...tree })),
       lastUpdateTimestamp: this.lastUpdateTimestamp ?? undefined,
+      lastUpdateTimestampDomain: this.lastUpdateTimestampDomain ?? undefined,
       lastUpdateRtc: this.lastUpdateRtc ? { ...this.lastUpdateRtc } : undefined,
     };
   }
@@ -181,16 +212,37 @@ class BerryManager {
       ? Math.trunc(state.lastUpdateTimestamp!)
       : null;
     this.lastUpdateRtc = normalizeRtcTime(state.lastUpdateRtc);
+    this.lastUpdateTimestampDomain = normalizeTimestampDomain(
+      this.lastUpdateTimestamp,
+      this.lastUpdateRtc,
+      state.lastUpdateTimestampDomain
+    );
   }
 
   applyElapsedSinceLastUpdate(nowTimestamp: number = Date.now()): number {
+    const normalizedNow = Math.trunc(nowTimestamp);
     let elapsedMinutes = 0;
 
     if (this.lastUpdateTimestamp !== null && Number.isFinite(this.lastUpdateTimestamp)) {
-      const deltaMs = nowTimestamp - this.lastUpdateTimestamp;
-      elapsedMinutes = Math.max(0, Math.floor(deltaMs / 60000));
+      if (this.lastUpdateTimestampDomain !== 'epoch-ms' || !isValidBerryEpochTimestamp(this.lastUpdateTimestamp)) {
+        this.logClockRebase('invalid-domain-or-value', {
+          fromTimestamp: this.lastUpdateTimestamp,
+          fromDomain: this.lastUpdateTimestampDomain,
+          nowTimestamp: normalizedNow,
+        });
+      } else {
+        const deltaMs = normalizedNow - this.lastUpdateTimestamp;
+        if (deltaMs >= 0) {
+          elapsedMinutes = Math.floor(deltaMs / 60000);
+        } else {
+          this.logClockRebase('clock-moved-backward', {
+            fromTimestamp: this.lastUpdateTimestamp,
+            nowTimestamp: normalizedNow,
+          });
+        }
+      }
     } else if (this.lastUpdateRtc) {
-      const nowRtc = dateToRtcLocalTime(new Date(nowTimestamp));
+      const nowRtc = dateToRtcLocalTime(new Date(normalizedNow));
       const diff = calcTimeDifference(this.lastUpdateRtc, nowRtc);
       if (diff.days >= 0) {
         elapsedMinutes = diff.days * 24 * 60 + diff.hours * 60 + diff.minutes;
@@ -201,7 +253,8 @@ class BerryManager {
       this.applyElapsedMinutes(elapsedMinutes);
     }
 
-    this.lastUpdateTimestamp = nowTimestamp;
+    this.lastUpdateTimestamp = normalizedNow;
+    this.lastUpdateTimestampDomain = 'epoch-ms';
     this.lastUpdateRtc = null;
     return elapsedMinutes;
   }
@@ -254,9 +307,18 @@ class BerryManager {
       localId: context.localId,
       treeId,
     };
+    this.logBerryDebug('setActiveInteraction', {
+      mapId: context.mapId,
+      localId: context.localId,
+      requestedTreeId: context.treeId,
+      normalizedTreeId: treeId,
+    });
   }
 
   clearActiveInteraction(): void {
+    if (this.activeInteraction) {
+      this.logBerryDebug('clearActiveInteraction', { ...this.activeInteraction });
+    }
     this.activeInteraction = null;
   }
 
@@ -319,6 +381,13 @@ class BerryManager {
     }
 
     const berryName = this.getBerryName(tree.berry);
+    this.logBerryDebug('ObjectEventInteractionGetBerryTreeData', {
+      treeId: context.treeId,
+      stage,
+      berryType: tree.berry,
+      berryYield: tree.berryYield,
+      wateredStages: this.getNumWateredStages(tree),
+    });
     return {
       treeId: context.treeId,
       stage,
@@ -345,7 +414,16 @@ class BerryManager {
     const context = this.getInteractionContext();
     if (!context) return;
     const berryType = itemIdToBerryType(itemId);
+    const before = this.getTreeSnapshot(context.treeId);
     this.setBerryTree(context.treeId, berryType, BERRY_STAGE.PLANTED, true);
+    const after = this.getTreeSnapshot(context.treeId);
+    this.logBerryDebug('objectInteractionPlantBerryTree', {
+      treeId: context.treeId,
+      itemId,
+      berryType,
+      before,
+      after,
+    });
   }
 
   objectInteractionPickBerryTree(): { itemId: number; quantity: number } {
@@ -361,10 +439,18 @@ class BerryManager {
   objectInteractionRemoveBerryTree(): void {
     const context = this.getInteractionContext();
     if (!context) return;
+    const before = this.getTreeSnapshot(context.treeId);
     this.removeBerryTree(context.treeId);
     if (context.localId !== null) {
       this.sparklingKeys.add(this.makeSparklingKey(context.mapId, context.localId));
     }
+    this.logBerryDebug('objectInteractionRemoveBerryTree', {
+      treeId: context.treeId,
+      mapId: context.mapId,
+      localId: context.localId,
+      before,
+      after: this.getTreeSnapshot(context.treeId),
+    });
   }
 
   objectInteractionWaterBerryTree(): boolean {
@@ -500,6 +586,21 @@ class BerryManager {
       return `${berryName} BERRY`;
     }
     return `${berryName} BERRIES`;
+  }
+
+  private isBerryDebugEnabled(): boolean {
+    return isDebugMode('berry') || isDebugMode('field');
+  }
+
+  private logBerryDebug(event: string, payload: Record<string, unknown>): void {
+    if (!this.isBerryDebugEnabled()) return;
+    console.debug(`[BerryManager] ${event}`, payload);
+  }
+
+  private logClockRebase(reason: string, details: Record<string, unknown>): void {
+    if (this.isBerryDebugEnabled()) {
+      console.warn(`[BerryManager] Rebased berry clock (${reason})`, details);
+    }
   }
 
   private makeSparklingKey(mapId: string, localId: number): string {

@@ -28,10 +28,101 @@ export interface LoadImageCanvasOptions extends LoadImageOptions {
   transparency?: TransparencyMode;
 }
 
-const imageCache = new Map<string, Promise<HTMLImageElement>>();
-const textCache = new Map<string, Promise<string>>();
-const binaryCache = new Map<string, Promise<ArrayBuffer>>();
-const canvasCache = new Map<string, Promise<HTMLCanvasElement>>();
+const MB = 1024 * 1024;
+const textEncoder = new TextEncoder();
+
+type CacheEntry<T> = {
+  value: Promise<T>;
+  bytes: number;
+};
+
+class BoundedLruCache<T> {
+  private entries = new Map<string, CacheEntry<T>>();
+  private totalBytes = 0;
+  private maxEntries: number;
+  private maxBytes: number;
+
+  constructor(maxEntries: number, maxBytes: number) {
+    this.maxEntries = maxEntries;
+    this.maxBytes = maxBytes;
+  }
+
+  get(key: string): Promise<T> | undefined {
+    const existing = this.entries.get(key);
+    if (!existing) {
+      return undefined;
+    }
+    this.entries.delete(key);
+    this.entries.set(key, existing);
+    return existing.value;
+  }
+
+  set(key: string, value: Promise<T>, bytes = 0): void {
+    const existing = this.entries.get(key);
+    if (existing) {
+      this.totalBytes -= existing.bytes;
+      this.entries.delete(key);
+    }
+    const next = { value, bytes };
+    this.entries.set(key, next);
+    this.totalBytes += next.bytes;
+    this.evictIfNeeded();
+  }
+
+  delete(key: string): void {
+    const existing = this.entries.get(key);
+    if (!existing) {
+      return;
+    }
+    this.totalBytes -= existing.bytes;
+    this.entries.delete(key);
+  }
+
+  updateSize(key: string, bytes: number): void {
+    const existing = this.entries.get(key);
+    if (!existing) {
+      return;
+    }
+    const normalized = Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes) : 0;
+    this.totalBytes += normalized - existing.bytes;
+    existing.bytes = normalized;
+    this.entries.delete(key);
+    this.entries.set(key, existing);
+    this.evictIfNeeded();
+  }
+
+  clear(): void {
+    this.entries.clear();
+    this.totalBytes = 0;
+  }
+
+  stats(): { entries: number; bytes: number; maxEntries: number; maxBytes: number } {
+    return {
+      entries: this.entries.size,
+      bytes: this.totalBytes,
+      maxEntries: this.maxEntries,
+      maxBytes: this.maxBytes,
+    };
+  }
+
+  private evictIfNeeded(): void {
+    while (
+      this.entries.size > this.maxEntries
+      || this.totalBytes > this.maxBytes
+    ) {
+      const oldestKey = this.entries.keys().next().value as string | undefined;
+      if (!oldestKey) {
+        break;
+      }
+      this.delete(oldestKey);
+    }
+  }
+}
+
+const imageCache = new BoundedLruCache<HTMLImageElement>(192, 96 * MB);
+const textCache = new BoundedLruCache<string>(512, 16 * MB);
+const binaryCache = new BoundedLruCache<ArrayBuffer>(256, 96 * MB);
+const canvasCache = new BoundedLruCache<HTMLCanvasElement>(96, 96 * MB);
 
 const DEV_POKEEMERALD_FETCH_RETRY_ATTEMPTS = 3;
 const DEV_POKEEMERALD_FETCH_RETRY_BASE_MS = 120;
@@ -217,10 +308,17 @@ export function loadImageAsset(src: string, options?: LoadImageOptions): Promise
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${resolvedSrc}`));
     img.src = resolvedSrc;
-  }).catch((error) => {
-    imageCache.delete(cacheKey);
-    throw error;
-  });
+  })
+    .then((img) => {
+      const width = img.naturalWidth || img.width || 0;
+      const height = img.naturalHeight || img.height || 0;
+      imageCache.updateSize(cacheKey, width * height * 4);
+      return img;
+    })
+    .catch((error) => {
+      imageCache.delete(cacheKey);
+      throw error;
+    });
 
   imageCache.set(cacheKey, promise);
   return promise;
@@ -239,6 +337,7 @@ export async function loadImageCanvasAsset(
       const img = await loadImageAsset(resolvedSrc, options);
       const canvas = imageToCanvas(img);
       applyTransparencyToCanvas(canvas, options?.transparency);
+      canvasCache.updateSize(cacheKey, canvas.width * canvas.height * 4);
       return canvas;
     })().catch((error) => {
       canvasCache.delete(cacheKey);
@@ -257,6 +356,10 @@ export function loadTextAsset(url: string): Promise<string> {
   if (cached) return cached;
 
   const promise = fetchAssetWithRetry(resolvedUrl, (response) => response.text())
+    .then((text) => {
+      textCache.updateSize(resolvedUrl, textEncoder.encode(text).byteLength);
+      return text;
+    })
     .catch((error) => {
       textCache.delete(resolvedUrl);
       throw error;
@@ -272,6 +375,10 @@ export function loadBinaryAsset(url: string): Promise<ArrayBuffer> {
   if (cached) return cached;
 
   const promise = fetchAssetWithRetry(resolvedUrl, (response) => response.arrayBuffer())
+    .then((buffer) => {
+      binaryCache.updateSize(resolvedUrl, buffer.byteLength);
+      return buffer;
+    })
     .catch((error) => {
       binaryCache.delete(resolvedUrl);
       throw error;
@@ -297,4 +404,18 @@ export function clearAssetCaches(): void {
   textCache.clear();
   binaryCache.clear();
   canvasCache.clear();
+}
+
+export function getAssetCacheStats(): {
+  image: { entries: number; bytes: number; maxEntries: number; maxBytes: number };
+  text: { entries: number; bytes: number; maxEntries: number; maxBytes: number };
+  binary: { entries: number; bytes: number; maxEntries: number; maxBytes: number };
+  canvas: { entries: number; bytes: number; maxEntries: number; maxBytes: number };
+} {
+  return {
+    image: imageCache.stats(),
+    text: textCache.stats(),
+    binary: binaryCache.stats(),
+    canvas: canvasCache.stats(),
+  };
 }

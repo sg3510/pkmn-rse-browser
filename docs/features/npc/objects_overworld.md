@@ -668,14 +668,27 @@ Berry tree interactions now run with Emerald-parity runtime/state handling in th
 - `src/game/berry/BerryManager.ts`
   - Authoritative tree state for all 128 trees (`berry`, `stage`, `minutesUntilNextStage`, `berryYield`, `regrowthCount`, watering bits)
   - Time-based advancement and regrowth behavior mirroring `BerryTreeTimeUpdate`
+  - Epoch-ms timing contract for berry runtime updates (`Date.now()` only) across script/runtime/save call sites
+  - Legacy timestamp-domain sanitization (`legacy-monotonic`/invalid timestamps are rebased to current epoch to prevent interaction-time tree wipes)
   - Interaction helpers used by berry specials (`get`, `plant`, `pick`, `remove`, `water`)
 - `src/scripting/ScriptRunner.ts`
   - Berry command/special support: `setberrytree`, `waitbuttonpress`, `ObjectEventInteraction*`, `PlayerHasBerries`, `Bag_ChooseBerry`, `DoWateringBerryTreeAnim`
   - Correct berry-stage constant and expression resolution (`BERRY_STAGE_*`, `ITEM_TO_BERRY(...)`, `BERRY_TO_ITEM(...)`)
 - `src/pages/gamePage/actionCallbacks.ts` and `src/game/ObjectEventManager.ts`
   - Active berry interaction context wiring (tree id + local id parity for `VAR_LAST_TALKED`/sparkle flow)
-- `scripts/parse-sprite-metadata.ts`, `src/data/sprite-metadata.json`, `src/rendering/spriteUtils.ts`
-  - Berry animation table key parsing and stage-aware berry tree frame selection (`sAnimTable_BerryTree`)
+- `scripts/parse-sprite-metadata.ts`, `src/data/sprite-metadata.json`, `src/data/spriteMetadata.ts`
+  - Generated `berryTreeRender` metadata (item -> pic table, per-frame source mapping, stage graphics-id policy)
+  - Strict validation for berry coverage (`133..175`) and required source assets under `graphics/object_events/pics/berry_trees/`
+- `src/utils/berryTreeSpriteResolver.ts`, `src/rendering/spriteUtils.ts`
+  - Resolver-driven mixed-source berry rendering:
+    - `NO_BERRY` hides sprite
+    - `PLANTED`/`SPROUTED` use dirt/sprout 16x16 frames
+    - `TALLER`/`FLOWERING`/`BERRIES` use berry-specific 16x32 sheets
+  - Stage placement uses parity feet anchoring (`worldY = tileY * 16 + 16 - spriteHeight`) and feet-derived sorting to keep early/late stage transitions aligned
+  - Runtime no longer depends on `OBJ_EVENT_GFX_BERRY_TREE` `spritePath` for berry variant art selection
+- `src/utils/berryTreeSpriteImport.ts`, `src/game/loadObjectEventsFromSnapshot.ts`, `src/pages/gamePage/overworldAssets.ts`, `src/components/MapRendererInit.ts`
+  - Dedicated berry atlas import/upload path with caching (independent of `npcSpriteCache.loadMany` for berry variants)
+  - Berry atlases are preloaded/uploaded on init and map/snapshot reload paths to avoid missing sprite sheets on stage transitions
 - `src/menu/components/BagMenu.tsx`
   - Callback-driven berry-selection mode for `Bag_ChooseBerry` with berry-pocket filtering and cancel semantics
 - Callback-special return-to-field fade parity (`CB2_ReturnToFieldContinueScript` behavior)

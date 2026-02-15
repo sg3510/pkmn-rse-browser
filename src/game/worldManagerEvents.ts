@@ -12,9 +12,36 @@ import type { TileResolverFn } from '../rendering/types';
 import type { PlayerController, TileResolver as PlayerTileResolver } from './PlayerController';
 import type { CameraController } from './CameraController';
 import type { TilesetPairScheduler } from './TilesetPairScheduler';
-import { combineTilesetPalettes } from '../rendering/webgl/TilesetUploader';
+import {
+  resetTilesetUploadDedupeState,
+  uploadTilesetPairToSlotIfNeeded,
+} from '../rendering/webgl/TilesetUploader';
 import { METATILE_SIZE } from '../utils/mapLoader';
 import { getMapScripts } from '../data/scripts';
+
+const LOCAL_MAP_SCRIPT_CACHE_MAX_ENTRIES = 32;
+
+function pruneMapScriptCacheForSnapshot(
+  cache: Map<string, unknown>,
+  snapshot: WorldSnapshot
+): void {
+  const keepMapIds = new Set(snapshot.maps.map((map) => map.entry.id));
+  keepMapIds.add(snapshot.anchorMapId);
+
+  for (const mapId of cache.keys()) {
+    if (!keepMapIds.has(mapId)) {
+      cache.delete(mapId);
+    }
+  }
+
+  while (cache.size > LOCAL_MAP_SCRIPT_CACHE_MAX_ENTRIES) {
+    const oldestMapId = cache.keys().next().value as string | undefined;
+    if (!oldestMapId) {
+      break;
+    }
+    cache.delete(oldestMapId);
+  }
+}
 
 /**
  * World bounds in pixel space
@@ -107,40 +134,7 @@ export function uploadTilesetPairToSlot(
   pair: TilesetPairInfo,
   slot: 0 | 1 | 2
 ): void {
-  if (slot === 0) {
-    pipeline.uploadTilesets(
-      pair.primaryImage.data,
-      pair.primaryImage.width,
-      pair.primaryImage.height,
-      pair.secondaryImage.data,
-      pair.secondaryImage.width,
-      pair.secondaryImage.height,
-      pair.animations
-    );
-    pipeline.uploadPalettes(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-  } else if (slot === 1) {
-    pipeline.uploadTilesetsPair1(
-      pair.primaryImage.data,
-      pair.primaryImage.width,
-      pair.primaryImage.height,
-      pair.secondaryImage.data,
-      pair.secondaryImage.width,
-      pair.secondaryImage.height,
-      pair.animations
-    );
-    pipeline.uploadPalettesPair1(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-  } else {
-    pipeline.uploadTilesetsPair2(
-      pair.primaryImage.data,
-      pair.primaryImage.width,
-      pair.primaryImage.height,
-      pair.secondaryImage.data,
-      pair.secondaryImage.width,
-      pair.secondaryImage.height,
-      pair.animations
-    );
-    pipeline.uploadPalettesPair2(combineTilesetPalettes(pair.primaryPalettes, pair.secondaryPalettes));
-  }
+  uploadTilesetPairToSlotIfNeeded(pipeline, pair, slot);
 }
 
 /**
@@ -245,6 +239,11 @@ function handleMapsChanged(
     });
   }
 
+  const mapScriptCache = deps.mapScriptCacheRef?.current;
+  if (mapScriptCache) {
+    pruneMapScriptCacheForSnapshot(mapScriptCache, snapshot);
+  }
+
   // Invalidate pipeline cache
   pipeline.invalidate();
 }
@@ -288,9 +287,14 @@ function handleAnchorChanged(
 
   // Eagerly pre-populate map script cache for the new anchor
   const cache = mapScriptCacheRef?.current;
+  if (cache) {
+    pruneMapScriptCacheForSnapshot(cache, snapshot);
+  }
+
   if (cache && !cache.has(newAnchorMapId)) {
     getMapScripts(newAnchorMapId).then((data) => {
       cache.set(newAnchorMapId, data);
+      pruneMapScriptCacheForSnapshot(cache, snapshot);
     }).catch(() => {
       // Non-critical — scripts will be loaded lazily later
     });
@@ -309,6 +313,9 @@ function handleTilesetsChanged(
 ): void {
   const { pipeline } = deps;
   const scheduler = worldManager.getScheduler();
+
+  // Scheduler explicitly invalidated slot contents; force fresh signature baseline.
+  resetTilesetUploadDedupeState(pipeline);
 
   // Upload tilesets based on scheduler's GPU slot assignment
   uploadTilesetsFromScheduler(pipeline, scheduler);
@@ -330,6 +337,9 @@ function handleGpuSlotsSwapped(
 ): void {
   const { pipeline } = deps;
   const scheduler = worldManager.getScheduler();
+
+  // GPU slot swap is an explicit tileset upload invalidation event.
+  resetTilesetUploadDedupeState(pipeline);
 
   // Re-upload tilesets based on scheduler's new slot assignments
   uploadTilesetsFromScheduler(pipeline, scheduler);

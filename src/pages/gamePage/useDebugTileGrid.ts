@@ -4,7 +4,12 @@ import type { WorldSnapshot } from '../../game/WorldManager';
 import type { RenderContext } from '../../rendering/types';
 import type { CameraController } from '../../game/CameraController';
 import { describeTile } from '../../components/map/utils';
-import type { DebugTileInfo, DebugOptions, PlayerDebugInfo } from '../../components/debug';
+import {
+  isDiagnosticsEnabled,
+  type DebugTileInfo,
+  type DebugOptions,
+  type PlayerDebugInfo,
+} from '../../components/debug';
 
 import type { MutableRef } from './types';
 
@@ -42,7 +47,7 @@ export function useDebugTileGrid(deps: UseDebugTileGridDeps) {
   const centerTileInfoRef = useRef<DebugTileInfo | null>(null);
 
   useEffect(() => {
-    if (!debugOptions.enabled || !playerDebugInfo) {
+    if (!isDiagnosticsEnabled(debugOptions) || !playerDebugInfo) {
       centerTileInfoRef.current = null;
       return;
     }
@@ -125,7 +130,7 @@ export function useDebugTileGrid(deps: UseDebugTileGridDeps) {
         debugTilesRef.current = collected;
       }
     }
-  }, [debugOptions.enabled, playerDebugInfo]);
+  }, [debugOptions.diagnosticsEnabled, debugOptions.enabled, playerDebugInfo]);
 
   const getCenterTileInfo = useCallback(() => centerTileInfoRef.current, []);
 

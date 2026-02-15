@@ -20,7 +20,7 @@ import type { ObjectEventRuntimeState } from '../types/objectEvents';
 /**
  * Current save format version. Increment when making breaking changes.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /**
  * Storage key prefix for localStorage
@@ -175,6 +175,8 @@ export interface BerryRtcTime {
   seconds: number;
 }
 
+export type BerryTimestampDomain = 'epoch-ms' | 'legacy-monotonic' | 'rtc';
+
 /**
  * Berry system save payload.
  */
@@ -182,6 +184,8 @@ export interface BerryState {
   trees: BerryTreeState[];
   /** Browser timestamp in ms when berry state was last synced. */
   lastUpdateTimestamp?: number;
+  /** Clock domain used by lastUpdateTimestamp for backward-compatible migration. */
+  lastUpdateTimestampDomain?: BerryTimestampDomain;
   /** Native RTC-style timestamp from .sav import (optional compatibility fallback). */
   lastUpdateRtc?: BerryRtcTime;
 }

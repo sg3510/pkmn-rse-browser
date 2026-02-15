@@ -31,6 +31,7 @@ import {
   type LocationState,
   type PlayTime,
   type PlayerProfile,
+  type BerryState,
   SAVE_VERSION,
   SAVE_STORAGE_KEY,
   DEFAULT_PROFILE,
@@ -46,7 +47,7 @@ import type { PartyPokemon } from '../pokemon/types';
 import { createEmptyParty } from '../pokemon/types';
 import { saveStateStore } from './SaveStateStore';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
-import { berryManager } from '../game/berry/BerryManager.ts';
+import { berryManager, isValidBerryEpochTimestamp } from '../game/berry/BerryManager.ts';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -143,6 +144,67 @@ class SaveManagerClass {
     this.autoLoad();
   }
 
+  private normalizeBerryStateTimestamp(
+    berry: BerryState | undefined,
+    nowTimestamp: number,
+    options?: { logPrefix?: string }
+  ): boolean {
+    if (!berry) return false;
+
+    const prefix = options?.logPrefix ?? '[SaveManager]';
+    const normalizedNow = Math.trunc(nowTimestamp);
+    const rawTimestamp = Number.isFinite(berry.lastUpdateTimestamp)
+      ? Math.trunc(berry.lastUpdateTimestamp!)
+      : null;
+
+    if (rawTimestamp === null) {
+      berry.lastUpdateTimestampDomain = berry.lastUpdateRtc ? 'rtc' : undefined;
+      return false;
+    }
+
+    if (isValidBerryEpochTimestamp(rawTimestamp)) {
+      berry.lastUpdateTimestamp = rawTimestamp;
+      if (berry.lastUpdateTimestampDomain !== 'epoch-ms') {
+        berry.lastUpdateTimestampDomain = 'epoch-ms';
+        return true;
+      }
+      return false;
+    }
+
+    berry.lastUpdateTimestamp = normalizedNow;
+    berry.lastUpdateTimestampDomain = 'epoch-ms';
+    console.warn(`${prefix} Rebased legacy berry timestamp`, {
+      previous: rawTimestamp,
+      now: normalizedNow,
+    });
+    return true;
+  }
+
+  private migrateSaveData(data: SaveData, nowTimestamp: number): boolean {
+    let migrated = false;
+    let version = Number.isFinite(data.version) ? Math.trunc(data.version) : 0;
+
+    if (version < 4) {
+      if (this.normalizeBerryStateTimestamp(data.berry, nowTimestamp, { logPrefix: '[SaveManager] v4 migration' })) {
+        migrated = true;
+      }
+      if (data.berry && data.berry.lastUpdateTimestampDomain === undefined && data.berry.lastUpdateRtc) {
+        data.berry.lastUpdateTimestampDomain = 'rtc';
+        migrated = true;
+      }
+      version = 4;
+    } else if (this.normalizeBerryStateTimestamp(data.berry, nowTimestamp)) {
+      migrated = true;
+    }
+
+    if (migrated || data.version !== version) {
+      data.version = version;
+      migrated = true;
+    }
+
+    return migrated;
+  }
+
   /**
    * Auto-load the most recent save (if any)
    */
@@ -232,11 +294,15 @@ class SaveManagerClass {
 
     try {
       const data = JSON.parse(stored) as SaveData;
+      const nowTimestamp = Date.now();
 
       // Version migration (if needed in future)
       if (data.version < SAVE_VERSION) {
         console.log(`[SaveManager] Migrating save from v${data.version} to v${SAVE_VERSION}`);
-        // Add migration logic here when needed
+      }
+      const migrated = this.migrateSaveData(data, nowTimestamp);
+      if (migrated) {
+        localStorage.setItem(key, JSON.stringify(data));
       }
 
       const locationWithMigration = data.location as LocationState & { isUnderwater?: boolean };
@@ -321,7 +387,7 @@ class SaveManagerClass {
       } else {
         berryManager.reset();
       }
-      berryManager.applyElapsedSinceLastUpdate(Date.now());
+      berryManager.applyElapsedSinceLastUpdate(nowTimestamp);
 
       this.activeSlot = slot;
       this.profile = data.profile;
@@ -351,6 +417,7 @@ class SaveManagerClass {
     const partyFull = saveStateStore.getParty();
     const berryState = berryManager.getStateForSave();
     berryState.lastUpdateTimestamp = Date.now();
+    berryState.lastUpdateTimestampDomain = 'epoch-ms';
 
     const saveData: SaveData = {
       version: SAVE_VERSION,
@@ -745,11 +812,13 @@ class SaveManagerClass {
         data.flags = [];
       }
 
+      const nowTimestamp = Date.now();
+
       // Version migration if needed
       if (data.version < SAVE_VERSION) {
         console.log(`[SaveManager] Migrating imported save from v${data.version} to v${SAVE_VERSION}`);
-        data.version = SAVE_VERSION;
       }
+      this.migrateSaveData(data, nowTimestamp);
 
       const importedLocation = data.location as LocationState & { isUnderwater?: boolean };
       normalizeLocationTraversal(importedLocation);
@@ -848,8 +917,10 @@ class SaveManagerClass {
     });
 
     // Update version and timestamp
+    const nowTimestamp = Date.now();
+    this.migrateSaveData(result.saveData, nowTimestamp);
     result.saveData.version = SAVE_VERSION;
-    result.saveData.timestamp = Date.now();
+    result.saveData.timestamp = nowTimestamp;
 
     // Save to localStorage
     try {

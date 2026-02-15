@@ -209,6 +209,13 @@ export function buildTilesetRuntimesForSnapshot(
   snapshot: WorldSnapshot,
   runtimesMap: Map<string, TilesetRuntime>
 ): void {
+  const activePairIds = new Set(snapshot.tilesetPairs.map((pair) => pair.id));
+  for (const cachedPairId of runtimesMap.keys()) {
+    if (!activePairIds.has(cachedPairId)) {
+      runtimesMap.delete(cachedPairId);
+    }
+  }
+
   for (const pair of snapshot.tilesetPairs) {
     if (runtimesMap.has(pair.id)) continue;
 

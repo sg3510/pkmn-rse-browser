@@ -12,6 +12,12 @@ export type { DebugTileInfo };
  * Debug options that can be toggled
  */
 export interface DebugOptions {
+  /** Enables heavyweight diagnostics and debug UI computation. */
+  diagnosticsEnabled: boolean;
+  /**
+   * Legacy alias kept for backward compatibility.
+   * New code should prefer diagnosticsEnabled.
+   */
   enabled: boolean;
   showTileGrid: boolean;
   showCollisionOverlay: boolean;
@@ -22,6 +28,7 @@ export interface DebugOptions {
 }
 
 export const DEFAULT_DEBUG_OPTIONS: DebugOptions = {
+  diagnosticsEnabled: false,
   enabled: false,
   showTileGrid: false,
   showCollisionOverlay: false,
@@ -30,6 +37,10 @@ export const DEFAULT_DEBUG_OPTIONS: DebugOptions = {
   showPlayerHitbox: false,
   logObjectEvents: false,
 };
+
+export function isDiagnosticsEnabled(options: Pick<DebugOptions, 'diagnosticsEnabled' | 'enabled'>): boolean {
+  return options.diagnosticsEnabled || options.enabled;
+}
 
 /**
  * Info about an object at the inspected/player tile

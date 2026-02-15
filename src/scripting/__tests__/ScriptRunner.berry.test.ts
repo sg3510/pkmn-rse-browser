@@ -5,6 +5,7 @@ import type { MapScriptData, ScriptCommand } from '../../data/scripts/types.ts';
 import type { StoryScriptContext } from '../../game/NewGameFlow.ts';
 import { gameVariables } from '../../game/GameVariables.ts';
 import { berryManager } from '../../game/berry/BerryManager.ts';
+import { BERRY_STAGE } from '../../game/berry/berryConstants.ts';
 import { menuStateManager } from '../../menu/MenuStateManager.ts';
 import { ITEMS } from '../../data/items.ts';
 
@@ -212,5 +213,41 @@ test('berry watering updates watered stage count', async () => {
   await runner.execute('Main');
 
   assert.equal(gameVariables.getVar('VAR_0x8005'), 1);
+  berryManager.clearActiveInteraction();
+});
+
+test('interacting with an adjacent empty berry soil does not mutate another planted tree', async () => {
+  gameVariables.reset();
+  berryManager.reset(Date.now());
+
+  const treeA = 85;
+  const treeB = 86;
+  berryManager.setActiveInteraction({ mapId: 'MAP_ROUTE119', localId: 1, treeId: treeA });
+  gameVariables.setVar('VAR_ITEM_ID', ITEMS.ITEM_ORAN_BERRY);
+
+  const plantScripts = createData([
+    { cmd: 'special', args: ['ObjectEventInteractionPlantBerryTree'] },
+    { cmd: 'end' },
+  ]);
+  const plantRunner = new ScriptRunner(plantScripts, createContext(), 'MAP_ROUTE119');
+  await plantRunner.execute('Main');
+
+  const before = berryManager.getTreeSnapshot(treeA);
+  assert.equal(before.stage, BERRY_STAGE.PLANTED);
+
+  berryManager.setActiveInteraction({ mapId: 'MAP_ROUTE119', localId: 2, treeId: treeB });
+  const inspectScripts = createData([
+    { cmd: 'special', args: ['ObjectEventInteractionGetBerryTreeData'] },
+    { cmd: 'end' },
+  ]);
+  const inspectRunner = new ScriptRunner(inspectScripts, createContext(), 'MAP_ROUTE119');
+  await inspectRunner.execute('Main');
+
+  const after = berryManager.getTreeSnapshot(treeA);
+  const emptyNeighbor = berryManager.getTreeSnapshot(treeB);
+  assert.equal(after.stage, BERRY_STAGE.PLANTED);
+  assert.equal(after.berry, before.berry);
+  assert.equal(emptyNeighbor.stage, BERRY_STAGE.NO_BERRY);
+
   berryManager.clearActiveInteraction();
 });

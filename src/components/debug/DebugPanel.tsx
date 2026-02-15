@@ -18,6 +18,7 @@ import type {
   WebGLDebugState,
   PriorityDebugInfo,
 } from './types';
+import { isDiagnosticsEnabled } from './types';
 import type { NPCObject, ItemBallObject } from '../../types/objectEvents';
 import type { MapIndexEntry } from '../../types/maps';
 import type { ViewportConfig } from '../../config/viewport';
@@ -30,6 +31,8 @@ const PANEL_WIDTH = 480;
 interface DebugPanelProps {
   options: DebugOptions;
   onChange: (options: DebugOptions) => void;
+  diagnosticsEnabled?: boolean;
+  onDiagnosticsEnabledChange?: (enabled: boolean) => void;
   state: DebugState;
   /** 3x3 debug grid canvas */
   debugCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
@@ -58,6 +61,8 @@ interface DebugPanelProps {
 export const DebugPanel: React.FC<DebugPanelProps> = ({
   options,
   onChange,
+  diagnosticsEnabled: diagnosticsEnabledProp,
+  onDiagnosticsEnabledChange,
   state,
   debugCanvasRef,
   debugGridSize = 144,
@@ -76,13 +81,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'general' | 'objects' | 'tile' | 'state' | 'webgl'>(maps ? 'map' : 'general');
-
-  // Sync panel open state with debug enabled
-  useEffect(() => {
-    if (options.enabled && !isOpen) {
-      setIsOpen(true);
-    }
-  }, [options.enabled, isOpen]);
+  const diagnosticsEnabled = diagnosticsEnabledProp ?? isDiagnosticsEnabled(options);
 
   const updateOption = useCallback(
     <K extends keyof DebugOptions>(key: K, value: DebugOptions[K]) => {
@@ -92,14 +91,20 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   );
 
   const togglePanel = useCallback(() => {
-    const newIsOpen = !isOpen;
-    setIsOpen(newIsOpen);
-    if (!newIsOpen) {
-      updateOption('enabled', false);
-    } else {
-      updateOption('enabled', true);
+    setIsOpen((prev) => !prev);
+  }, []);
+
+  const setDiagnosticsEnabled = useCallback((enabled: boolean) => {
+    if (onDiagnosticsEnabledChange) {
+      onDiagnosticsEnabledChange(enabled);
+      return;
     }
-  }, [isOpen, updateOption]);
+    onChange({
+      ...options,
+      diagnosticsEnabled: enabled,
+      enabled,
+    });
+  }, [onChange, onDiagnosticsEnabledChange, options]);
 
   // Keyboard shortcut: ` (backtick) to toggle
   useEffect(() => {
@@ -184,7 +189,17 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
           <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#fff' }}>
             Debug Panel
           </span>
-          <span style={{ color: '#666', fontSize: '10px' }}>Press ` to toggle</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9fb0cc', fontSize: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={diagnosticsEnabled}
+                onChange={(e) => setDiagnosticsEnabled(e.target.checked)}
+              />
+              Diagnostics
+            </label>
+            <span style={{ color: '#666', fontSize: '10px' }}>Press ` to toggle</span>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -205,27 +220,32 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
           <TabButton
             label="General"
             active={activeTab === 'general'}
+            disabled={!diagnosticsEnabled}
             onClick={() => setActiveTab('general')}
           />
           <TabButton
             label="Objects"
             active={activeTab === 'objects'}
+            disabled={!diagnosticsEnabled}
             onClick={() => setActiveTab('objects')}
           />
           <TabButton
             label="Tile"
             active={activeTab === 'tile'}
+            disabled={!diagnosticsEnabled}
             onClick={() => setActiveTab('tile')}
           />
           <TabButton
             label="State"
             active={activeTab === 'state'}
+            disabled={!diagnosticsEnabled}
             onClick={() => setActiveTab('state')}
           />
           {webglState && (
             <TabButton
               label="WebGL"
               active={activeTab === 'webgl'}
+              disabled={!diagnosticsEnabled}
               onClick={() => setActiveTab('webgl')}
             />
           )}
@@ -248,7 +268,10 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               webglState={webglState}
             />
           )}
-          {activeTab === 'general' && (
+          {activeTab !== 'map' && !diagnosticsEnabled && (
+            <DiagnosticsDisabledNotice />
+          )}
+          {activeTab === 'general' && diagnosticsEnabled && (
             <GeneralTab
               options={options}
               updateOption={updateOption}
@@ -257,9 +280,9 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               onViewportChange={onViewportChange}
             />
           )}
-          {activeTab === 'objects' && <ObjectsTab state={state} />}
-          {activeTab === 'state' && <StateTab state={state} />}
-          {activeTab === 'tile' && (
+          {activeTab === 'objects' && diagnosticsEnabled && <ObjectsTab state={state} />}
+          {activeTab === 'state' && diagnosticsEnabled && <StateTab state={state} />}
+          {activeTab === 'tile' && diagnosticsEnabled && (
             <TileTab
               state={state}
               debugCanvasRef={debugCanvasRef}
@@ -271,7 +294,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               onCopyTileDebug={onCopyTileDebug}
             />
           )}
-          {activeTab === 'webgl' && webglState && (
+          {activeTab === 'webgl' && diagnosticsEnabled && webglState && (
             <WebGLTab webglState={webglState} debugState={state} />
           )}
         </div>
@@ -284,24 +307,37 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
 const TabButton: React.FC<{
   label: string;
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
-}> = ({ label, active, onClick }) => (
+}> = ({ label, active, disabled = false, onClick }) => (
   <button
+    disabled={disabled}
     onClick={onClick}
     style={{
       flex: 1,
       padding: '8px',
       backgroundColor: active ? '#333' : 'transparent',
-      color: active ? '#fff' : '#888',
+      color: disabled ? '#555' : active ? '#fff' : '#888',
       border: 'none',
       borderBottom: active ? '2px solid #4a9eff' : '2px solid transparent',
-      cursor: 'pointer',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.8 : 1,
       fontSize: '11px',
       fontFamily: 'monospace',
     }}
   >
     {label}
   </button>
+);
+
+const DiagnosticsDisabledNotice: React.FC = () => (
+  <Section title="Diagnostics Disabled">
+    <div style={{ color: '#9fb0cc', lineHeight: 1.5 }}>
+      Heavy diagnostics are turned off to keep runtime memory stable.
+      <br />
+      Use the top-right <strong>Diagnostics</strong> toggle to enable non-map debug tabs.
+    </div>
+  </Section>
 );
 
 // Map selection tab

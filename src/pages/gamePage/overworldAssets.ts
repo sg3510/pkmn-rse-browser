@@ -26,6 +26,7 @@ import { LARGE_OBJECT_GRAPHICS_INFO } from '../../data/largeObjectGraphics.gen';
 import { FIELD_EFFECT_REGISTRY } from '../../data/fieldEffects.gen';
 import { ROTATING_GATE_SHAPE_ASSET_PATHS } from '../../game/RotatingGateManager';
 import { getPlayerSpriteFrameMetrics, getPlayerSpriteLoadOrder, loadPlayerSpriteSheets } from '../../game/playerSprites';
+import { ensureBerryTreeAtlasesUploaded } from '../../utils/berryTreeSpriteImport';
 
 import type { MutableRef } from './types';
 
@@ -178,6 +179,8 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
             });
             debugLog(isDebugMode, `[WebGL] Uploaded surf blob sprite (${blobCanvas.width}x${blobCanvas.height})`);
           }
+
+          await ensureBerryTreeAtlasesUploaded(spriteRenderer);
         }
 
         playerLoadedRef.current = true;

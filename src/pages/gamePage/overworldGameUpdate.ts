@@ -29,7 +29,7 @@ import { stepCallbackManager } from '../../game/StepCallbackManager';
 import { processWarpTrigger, updateWarpHandlerTile } from '../../game/WarpTriggerProcessor';
 import { getMetatileIdFromMapTile } from '../../utils/mapLoader';
 import { startSpecialWalkOverWarp } from '../../game/SpecialWarpBehaviorRegistry';
-import type { DebugOptions, PlayerDebugInfo } from '../../components/debug';
+import { isDiagnosticsEnabled, type DebugOptions, type PlayerDebugInfo } from '../../components/debug';
 import { createLogger } from '../../utils/logger';
 import { isDebugMode } from '../../utils/debug';
 import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
@@ -954,7 +954,7 @@ export function handleWorldUpdateAndEvents(params: {
   }
 
   // Debug info update for the debug panel
-  if (debugOptionsRef.current.enabled && gbaFrameRef.current % 30 === 0) {
+  if (isDiagnosticsEnabled(debugOptionsRef.current) && gbaFrameRef.current % 30 === 0) {
     const debugInfo = worldManager.getDebugInfo(player.tileX, player.tileY);
     setMapDebugInfo(debugInfo);
 

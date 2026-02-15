@@ -56,6 +56,23 @@ test('berry trees reset when elapsed time exceeds Emerald max window', () => {
   assert.equal(tree.berry, 0);
 });
 
+test('legacy monotonic berry timestamps are rebased without wiping planted trees', () => {
+  berryManager.reset(Date.now());
+  berryManager.setBerryTree(TREE_ID, ORAN_BERRY_TYPE, BERRY_STAGE.PLANTED, true);
+
+  const state = berryManager.getStateForSave();
+  state.lastUpdateTimestamp = 81234;
+  state.lastUpdateTimestampDomain = 'legacy-monotonic';
+  berryManager.loadState(state);
+
+  const elapsedMinutes = berryManager.applyElapsedSinceLastUpdate(Date.now());
+  const tree = berryManager.getTreeSnapshot(TREE_ID);
+
+  assert.equal(elapsedMinutes, 0);
+  assert.equal(tree.stage, BERRY_STAGE.PLANTED);
+  assert.equal(tree.berry, ORAN_BERRY_TYPE);
+});
+
 test('sparkling state is returned exactly once after removing a tree', () => {
   berryManager.reset(0);
   berryManager.setBerryTree(TREE_ID, ORAN_BERRY_TYPE, BERRY_STAGE.BERRIES, true);

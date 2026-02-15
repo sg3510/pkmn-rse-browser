@@ -100,7 +100,27 @@ interface PicTableData {
   frameCount: number;
   frameMap: number[];
   picSymbols: string[];
+  frames: Array<{
+    picSymbol: string;
+    sourceFrame: number;
+    widthTiles: number;
+    heightTiles: number;
+  }>;
   primaryPicSymbol?: string;
+}
+
+interface BerryTreeFrameSource {
+  picSymbol: string;
+  spritePath: string;
+  sourceFrame: number;
+  frameWidth: number;
+  frameHeight: number;
+}
+
+interface BerryTreeRenderMetadata {
+  berryItemToPicTable: Record<string, string>;
+  picTableFrameSources: Record<string, BerryTreeFrameSource[]>;
+  stageGraphicsIdPolicy: Record<string, string>;
 }
 
 // Standard animation indices
@@ -137,6 +157,9 @@ const TABLE_KEY_CONSTANTS: Record<string, number> = {
   BERRY_STAGE_BERRIES: 5,
   BERRY_STAGE_SPARKLING: 255,
 };
+
+const DEFAULT_FIRST_BERRY_ITEM_ID = 133;
+const DEFAULT_LAST_BERRY_ITEM_ID = 175;
 
 function resolveTableKey(rawKey: string): string {
   const key = rawKey.trim();
@@ -450,15 +473,28 @@ function parsePicTables(content: string, existing: Record<string, PicTableData> 
     const body = match[2];
     const frameMap: number[] = [];
     const picSymbols: string[] = [];
+    const frames: Array<{
+      picSymbol: string;
+      sourceFrame: number;
+      widthTiles: number;
+      heightTiles: number;
+    }> = [];
 
     const lines = body.split('\n').map((line) => line.trim());
     for (const line of lines) {
       const overworldFrameMatch = line.match(
-        /overworld_frame\((gObjectEventPic_\w+),\s*\d+,\s*\d+,\s*(\d+)\)/
+        /overworld_frame\((gObjectEventPic_\w+),\s*(\d+),\s*(\d+),\s*(\d+)\)/
       );
       if (overworldFrameMatch) {
         picSymbols.push(overworldFrameMatch[1]);
-        frameMap.push(parseInt(overworldFrameMatch[2], 10));
+        const sourceFrame = parseInt(overworldFrameMatch[4], 10);
+        frameMap.push(sourceFrame);
+        frames.push({
+          picSymbol: overworldFrameMatch[1],
+          sourceFrame,
+          widthTiles: parseInt(overworldFrameMatch[2], 10),
+          heightTiles: parseInt(overworldFrameMatch[3], 10),
+        });
         continue;
       }
 
@@ -466,7 +502,14 @@ function parsePicTables(content: string, existing: Record<string, PicTableData> 
       if (objFrameTilesMatch) {
         picSymbols.push(objFrameTilesMatch[1]);
         // obj_frame_tiles implies one full-frame image in-order.
-        frameMap.push(frameMap.length);
+        const sourceFrame = frameMap.length;
+        frameMap.push(sourceFrame);
+        frames.push({
+          picSymbol: objFrameTilesMatch[1],
+          sourceFrame,
+          widthTiles: 0,
+          heightTiles: 0,
+        });
       }
     }
 
@@ -488,11 +531,182 @@ function parsePicTables(content: string, existing: Record<string, PicTableData> 
       frameCount: frameMap.length,
       frameMap,
       picSymbols,
+      frames,
       primaryPicSymbol,
     };
   }
 
   return picTables;
+}
+
+function parseItemConstants(content: string): Record<string, number> {
+  const constants: Record<string, number> = {};
+  const defineRegex = /^#define\s+(ITEM_[A-Z0-9_]+)\s+(\d+)\s*$/gm;
+
+  let match;
+  while ((match = defineRegex.exec(content)) !== null) {
+    constants[match[1]] = parseInt(match[2], 10);
+  }
+
+  return constants;
+}
+
+function parseBerryRange(content: string, itemConstants: Record<string, number>): { firstBerryItemId: number; lastBerryItemId: number } {
+  const firstMatch = content.match(/^#define\s+FIRST_BERRY_INDEX\s+(ITEM_[A-Z0-9_]+)\s*$/m);
+  const lastMatch = content.match(/^#define\s+LAST_BERRY_INDEX\s+(ITEM_[A-Z0-9_]+)\s*$/m);
+
+  const firstBerryItemId = firstMatch ? itemConstants[firstMatch[1]] : undefined;
+  const lastBerryItemId = lastMatch ? itemConstants[lastMatch[1]] : undefined;
+
+  return {
+    firstBerryItemId: typeof firstBerryItemId === 'number' ? firstBerryItemId : DEFAULT_FIRST_BERRY_ITEM_ID,
+    lastBerryItemId: typeof lastBerryItemId === 'number' ? lastBerryItemId : DEFAULT_LAST_BERRY_ITEM_ID,
+  };
+}
+
+function parseBerryTreePicTablePointers(
+  berryTablesContent: string,
+  itemConstants: Record<string, number>
+): Record<string, string> {
+  const mapping: Record<string, string> = {};
+  const blockMatch = berryTablesContent.match(
+    /const struct SpriteFrameImage \*const gBerryTreePicTablePointers\[\]\s*=\s*\{([\s\S]*?)\};/
+  );
+  if (!blockMatch) {
+    return mapping;
+  }
+
+  const entryRegex = /\[(ITEM_[A-Z0-9_]+)\s*-\s*FIRST_BERRY_INDEX\]\s*=\s*(sPicTable_\w+)/g;
+  let match;
+  while ((match = entryRegex.exec(blockMatch[1])) !== null) {
+    const itemConstant = match[1];
+    const picTable = match[2];
+    const itemId = itemConstants[itemConstant];
+    if (typeof itemId === 'number') {
+      mapping[String(itemId)] = picTable;
+    }
+  }
+
+  return mapping;
+}
+
+function parseBerryTreeStageGraphicsPolicy(berryTablesContent: string): Record<string, string> {
+  const policy: Record<string, string> = {};
+  const tableMatch = berryTablesContent.match(
+    /const u8 gBerryTreeObjectEventGraphicsIdTable\[\]\s*=\s*\{([^}]+)\};/
+  );
+  if (!tableMatch) {
+    return policy;
+  }
+
+  const values = Array.from(
+    tableMatch[1].matchAll(/(OBJ_EVENT_GFX_[A-Z0-9_]+)/g),
+    (match) => match[1]
+  );
+
+  // Stages 1..5 correspond to array indices 0..4 in SetBerryTreeGraphics (stage-1)
+  for (let i = 0; i < Math.min(values.length, 5); i++) {
+    policy[String(i + 1)] = values[i];
+  }
+
+  return policy;
+}
+
+function buildBerryTreeRenderMetadata(
+  berryItemToPicTable: Record<string, string>,
+  stageGraphicsIdPolicy: Record<string, string>,
+  picTables: Record<string, PicTableData>,
+  objectEventPicPaths: Record<string, string>
+): BerryTreeRenderMetadata {
+  const picTableFrameSources: Record<string, BerryTreeFrameSource[]> = {};
+  const uniquePicTables = Array.from(new Set(Object.values(berryItemToPicTable)));
+
+  for (const picTable of uniquePicTables) {
+    const table = picTables[picTable];
+    if (!table) {
+      continue;
+    }
+
+    const frameSources = table.frames.map((frame) => {
+      const spritePath = objectEventPicPaths[frame.picSymbol];
+      if (!spritePath) {
+        return null;
+      }
+      return {
+        picSymbol: frame.picSymbol,
+        spritePath,
+        sourceFrame: frame.sourceFrame,
+        frameWidth: frame.widthTiles * 8,
+        frameHeight: frame.heightTiles * 8,
+      } satisfies BerryTreeFrameSource;
+    }).filter((source): source is BerryTreeFrameSource => source !== null);
+
+    if (frameSources.length > 0) {
+      picTableFrameSources[picTable] = frameSources;
+    }
+  }
+
+  return {
+    berryItemToPicTable,
+    picTableFrameSources,
+    stageGraphicsIdPolicy,
+  };
+}
+
+function validateBerryTreeRenderMetadata(
+  metadata: BerryTreeRenderMetadata,
+  firstBerryItemId: number,
+  lastBerryItemId: number
+): void {
+  const errors: string[] = [];
+
+  for (let itemId = firstBerryItemId; itemId <= lastBerryItemId; itemId++) {
+    const picTable = metadata.berryItemToPicTable[String(itemId)];
+    if (!picTable) {
+      errors.push(`Missing gBerryTreePicTablePointers mapping for berry item ${itemId}`);
+      continue;
+    }
+    const frameSources = metadata.picTableFrameSources[picTable];
+    if (!frameSources) {
+      errors.push(`Missing frame source table for ${picTable} (berry item ${itemId})`);
+      continue;
+    }
+    for (let frameIndex = 0; frameIndex <= 8; frameIndex++) {
+      const source = frameSources[frameIndex];
+      if (!source) {
+        errors.push(`Missing frame ${frameIndex} for ${picTable} (berry item ${itemId})`);
+        continue;
+      }
+      if (!source.spritePath.startsWith('/berry_trees/')) {
+        errors.push(`Unexpected non-berry path "${source.spritePath}" in ${picTable} frame ${frameIndex}`);
+      }
+      if (source.frameWidth <= 0 || source.frameHeight <= 0) {
+        errors.push(`Invalid frame dimensions for ${picTable} frame ${frameIndex}: ${source.frameWidth}x${source.frameHeight}`);
+      }
+      const fullPath = path.join(
+        POKEEMERALD_PATH,
+        'graphics/object_events/pics',
+        source.spritePath.replace(/^\//, '')
+      );
+      if (!fs.existsSync(fullPath)) {
+        errors.push(`Missing sprite asset: ${fullPath}`);
+      }
+    }
+  }
+
+  for (const stage of ['1', '2', '3', '4', '5']) {
+    if (!metadata.stageGraphicsIdPolicy[stage]) {
+      errors.push(`Missing stageGraphicsIdPolicy entry for stage ${stage}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      'Berry sprite metadata validation failed:\n'
+      + errors.slice(0, 50).map((error) => `- ${error}`).join('\n')
+      + (errors.length > 50 ? `\n- ...and ${errors.length - 50} more` : '')
+    );
+  }
 }
 
 function resolveSpritePathFromImageTable(
@@ -528,6 +742,7 @@ function main() {
   const picTablesContent = readFile('src/data/object_events/object_event_pic_tables.h');
   const berryTreePicTablesContent = readFile('src/data/object_events/berry_tree_graphics_tables.h');
   const animsContent = readFile('src/data/object_events/object_event_anims.h');
+  const itemConstantsContent = readFile('include/constants/items.h');
 
   // Parse animations
   console.log('Parsing animations...');
@@ -568,6 +783,20 @@ function main() {
     parsePicTables(picTablesContent)
   );
   console.log(`  Found ${Object.keys(picTables).length} pic tables`);
+
+  console.log('Parsing berry tree mappings...');
+  const itemConstants = parseItemConstants(itemConstantsContent);
+  const { firstBerryItemId, lastBerryItemId } = parseBerryRange(itemConstantsContent, itemConstants);
+  const berryItemToPicTable = parseBerryTreePicTablePointers(berryTreePicTablesContent, itemConstants);
+  const stageGraphicsIdPolicy = parseBerryTreeStageGraphicsPolicy(berryTreePicTablesContent);
+  const berryTreeRender = buildBerryTreeRenderMetadata(
+    berryItemToPicTable,
+    stageGraphicsIdPolicy,
+    picTables,
+    objectEventPicPaths
+  );
+  validateBerryTreeRenderMetadata(berryTreeRender, firstBerryItemId, lastBerryItemId);
+  console.log(`  Validated berry tree render metadata for item IDs ${firstBerryItemId}..${lastBerryItemId}`);
 
   // Build final sprite metadata using authoritative pointer mapping:
   // OBJ_EVENT_GFX_* -> gObjectEventGraphicsInfo_* -> sPicTable_* -> gObjectEventPic_* -> path
@@ -624,6 +853,7 @@ function main() {
       'object_event_graphics.h',
       'object_event_pic_tables.h',
       'berry_tree_graphics_tables.h',
+      'items.h',
       'object_event_anims.h'
     ],
     animationIndices: ANIM_INDICES,
@@ -647,6 +877,7 @@ function main() {
     sprites: Object.fromEntries(
       sprites.map(s => [s.graphicsId, s])
     ),
+    berryTreeRender,
   };
 
   // Write output

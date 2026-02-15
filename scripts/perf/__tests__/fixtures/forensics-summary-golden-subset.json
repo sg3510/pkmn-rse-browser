@@ -1,0 +1,16 @@
+{
+  "snapshot_count": 5,
+  "node_delta": 505356,
+  "edge_delta": 2118464,
+  "self_size_delta_mb": 31.7,
+  "uploads_per_warp": 2.875,
+  "top_5_risk_labels": [
+    "(anonymous) (src/components/debug/DebugPanel.tsx)",
+    "PerformanceMeasure",
+    "system / ExternalStringData",
+    "Object",
+    "system / JSArrayBufferData"
+  ],
+  "prod_confidence_level": "low",
+  "memory_gate_target_mb": 500
+}

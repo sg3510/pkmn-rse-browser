@@ -119,12 +119,15 @@ export async function performWarpTransition(
   const priorFacing = player.getFacingDirection();
   const priorBikeMode = player.getBikeMode();
   const priorBikeRiding = player.isBikeRiding();
+  const warpDebugLogsEnabled = isDebugMode('field') || isDebugMode('map');
 
-  console.log('[WARP] ========== WARP START ==========');
-  console.log('[WARP] Source map:', trigger.sourceMap.entry.id);
-  console.log('[WARP] Destination map:', destMapId);
-  console.log('[WARP] fromDoor:', options?.fromDoor);
-  console.log('[WARP] priorFacing:', priorFacing);
+  if (warpDebugLogsEnabled) {
+    console.debug('[WARP] ========== WARP START ==========');
+    console.debug('[WARP] Source map:', trigger.sourceMap.entry.id);
+    console.debug('[WARP] Destination map:', destMapId);
+    console.debug('[WARP] fromDoor:', options?.fromDoor);
+    console.debug('[WARP] priorFacing:', priorFacing);
+  }
 
   try {
     let managesInputUnlock = false;
@@ -272,11 +275,13 @@ export async function performWarpTransition(
     // Sync debug panel map selector with the new anchor map
     onMapChanged?.(snapshot.anchorMapId);
 
-    console.log('[WARP] Warp complete');
-    console.log('[WARP] World bounds:', snapshot.worldBounds);
-    console.log('[WARP] Loaded maps:', snapshot.maps.map((map) => map.entry.id));
-    console.log('[WARP] Tileset pairs:', snapshot.tilesetPairs.map((pair) => pair.id));
-    console.log('[WARP] GPU slots:', Object.fromEntries(snapshot.pairIdToGpuSlot));
+    if (warpDebugLogsEnabled) {
+      console.debug('[WARP] Warp complete');
+      console.debug('[WARP] World bounds:', snapshot.worldBounds);
+      console.debug('[WARP] Loaded maps:', snapshot.maps.map((map) => map.entry.id));
+      console.debug('[WARP] Tileset pairs:', snapshot.tilesetPairs.map((pair) => pair.id));
+      console.debug('[WARP] GPU slots:', Object.fromEntries(snapshot.pairIdToGpuSlot));
+    }
 
     setWarpDebugInfo({
       lastWarpTo: destMapId,

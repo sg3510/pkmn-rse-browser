@@ -4,6 +4,8 @@ import type { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer
 import { getNPCAtlasName } from '../rendering/spriteUtils';
 import { saveManager } from '../save/SaveManager';
 import { applyObjectEventOverridesForMap } from './overworld/applyObjectEventOverridesForMap';
+import { ensureBerryTreeAtlasesUploaded } from '../utils/berryTreeSpriteImport';
+import { isBerryTreeGraphicsId } from '../utils/berryTreeSpriteResolver';
 
 interface SpriteDimensionsLike {
   frameWidth: number;
@@ -189,49 +191,53 @@ export async function loadObjectEventsFromSnapshot(
     })
     .map((npc) => npc.graphicsId);
 
-  const scriptObjectGraphicsIds = objectEventManager
+  const visibleScriptObjects = objectEventManager
     .getVisibleScriptObjects()
     .filter((scriptObject) => {
       const mapId = getMapIdFromScriptObjectId(scriptObject.id);
       return mapId ? preloadMapIds.has(mapId) : true;
-    })
-    .map((scriptObject) => scriptObject.graphicsId);
+    });
+  const hasVisibleBerryTrees = visibleScriptObjects.some((scriptObject) =>
+    isBerryTreeGraphicsId(scriptObject.graphicsId)
+  );
+  const scriptObjectGraphicsIds = visibleScriptObjects
+    .map((scriptObject) => scriptObject.graphicsId)
+    .filter((graphicsId) => !isBerryTreeGraphicsId(graphicsId));
 
   const graphicsIds = Array.from(new Set([
     ...npcGraphicsIds,
     ...scriptObjectGraphicsIds,
   ]));
-  if (graphicsIds.length === 0) {
-    return;
+
+  const idsToLoad = graphicsIds.length > 0
+    ? (uploadedSpriteIds
+      ? graphicsIds.filter((id) => !uploadedSpriteIds.has(id))
+      : graphicsIds)
+    : [];
+
+  if (idsToLoad.length > 0) {
+    await spriteCache.loadMany(idsToLoad);
   }
 
-  const idsToLoad = uploadedSpriteIds
-    ? graphicsIds.filter((id) => !uploadedSpriteIds.has(id))
-    : graphicsIds;
-
-  if (idsToLoad.length === 0) {
-    return;
+  if (spriteRenderer && hasVisibleBerryTrees) {
+    await ensureBerryTreeAtlasesUploaded(spriteRenderer);
   }
 
-  await spriteCache.loadMany(idsToLoad);
+  if (spriteRenderer && idsToLoad.length > 0) {
+    for (const graphicsId of idsToLoad) {
+      const sprite = spriteCache.get(graphicsId);
+      if (!sprite) {
+        continue;
+      }
 
-  if (!spriteRenderer) {
-    return;
-  }
-
-  for (const graphicsId of idsToLoad) {
-    const sprite = spriteCache.get(graphicsId);
-    if (!sprite) {
-      continue;
+      const atlasName = getNPCAtlasName(graphicsId);
+      const dims = spriteCache.getDimensions(graphicsId);
+      spriteRenderer.uploadSpriteSheet(atlasName, sprite, {
+        frameWidth: dims.frameWidth,
+        frameHeight: dims.frameHeight,
+      });
+      uploadedSpriteIds?.add(graphicsId);
+      debugLog?.(`[WebGL] Uploaded NPC sprite: ${atlasName} (${sprite.width}x${sprite.height})`);
     }
-
-    const atlasName = getNPCAtlasName(graphicsId);
-    const dims = spriteCache.getDimensions(graphicsId);
-    spriteRenderer.uploadSpriteSheet(atlasName, sprite, {
-      frameWidth: dims.frameWidth,
-      frameHeight: dims.frameHeight,
-    });
-    uploadedSpriteIds?.add(graphicsId);
-    debugLog?.(`[WebGL] Uploaded NPC sprite: ${atlasName} (${sprite.width}x${sprite.height})`);
   }
 }

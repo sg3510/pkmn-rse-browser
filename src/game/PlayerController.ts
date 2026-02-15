@@ -1186,8 +1186,13 @@ export class PlayerController {
   }
 
   public lockInput() {
-    console.log(`[INPUT] lockInput() called at tile(${this.tileX},${this.tileY}) wasLocked=${this.inputLocked} moving=${this.isMoving}`);
-    console.trace('[INPUT] lockInput stack');
+    if (isDebugMode('field')) {
+      console.debug(
+        `[INPUT] lockInput() called at tile(${this.tileX},${this.tileY}) ` +
+        `wasLocked=${this.inputLocked} moving=${this.isMoving}`
+      );
+      console.trace('[INPUT] lockInput stack');
+    }
     const wasMoving = this.isMoving;
     this.inputLocked = true;
     // Don't clear keysPressed - we need to remember held keys (like Z for running)
@@ -1215,8 +1220,10 @@ export class PlayerController {
   }
 
   public unlockInput() {
-    console.log(`[INPUT] unlockInput() called at tile(${this.tileX},${this.tileY}) wasLocked=${this.inputLocked}`);
-    console.trace('[INPUT] unlockInput stack');
+    if (isDebugMode('field')) {
+      console.debug(`[INPUT] unlockInput() called at tile(${this.tileX},${this.tileY}) wasLocked=${this.inputLocked}`);
+      console.trace('[INPUT] unlockInput stack');
+    }
     this.inputLocked = false;
   }
 

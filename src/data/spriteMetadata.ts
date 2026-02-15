@@ -68,6 +68,20 @@ export interface SpriteInfo {
   frameMap?: number[];  // Maps logical frame index to physical frame in sprite sheet
 }
 
+export interface BerryTreeFrameSource {
+  picSymbol: string;
+  spritePath: string;
+  sourceFrame: number;
+  frameWidth: number;
+  frameHeight: number;
+}
+
+export interface BerryTreeRenderConfig {
+  berryItemToPicTable: Record<string, string>;
+  picTableFrameSources: Record<string, BerryTreeFrameSource[]>;
+  stageGraphicsIdPolicy: Record<string, string>;
+}
+
 // Animation indices for standard animations
 export const ANIM_STD = {
   FACE_SOUTH: 0,
@@ -130,6 +144,22 @@ const metadata = spriteData as {
   affineAnimations: Record<string, AffineAnimCommand[]>;
   affineAnimationTables: Record<string, string[]>;
   sprites: Record<string, SpriteInfo>;
+  berryTreeRender?: BerryTreeRenderConfig;
+};
+
+const EMPTY_BERRY_TREE_RENDER_CONFIG: BerryTreeRenderConfig = {
+  berryItemToPicTable: {},
+  picTableFrameSources: {},
+  stageGraphicsIdPolicy: {},
+};
+
+const DEFAULT_BERRY_ITEM_ID = 133;
+const DEFAULT_BERRY_STAGE_GRAPHICS_POLICY: Record<string, string> = {
+  '1': 'OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES',
+  '2': 'OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES',
+  '3': 'OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES',
+  '4': 'OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES',
+  '5': 'OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES',
 };
 
 /**
@@ -199,6 +229,48 @@ export function getSpriteInfo(graphicsId: string): SpriteInfo | null {
  */
 export function getAllSpriteInfos(): Record<string, SpriteInfo> {
   return metadata.sprites;
+}
+
+/**
+ * Get generated berry-tree render configuration derived from berry tables.
+ */
+export function getBerryTreeRenderConfig(): BerryTreeRenderConfig {
+  return metadata.berryTreeRender ?? EMPTY_BERRY_TREE_RENDER_CONFIG;
+}
+
+/**
+ * Resolve the berry tree frame source for a berry item and logical frame.
+ */
+export function getBerryTreeFrameSource(
+  berryItemId: number,
+  logicalFrameIndex: number
+): BerryTreeFrameSource | null {
+  const config = getBerryTreeRenderConfig();
+  const requestedPicTable = config.berryItemToPicTable[String(berryItemId)];
+  const fallbackPicTable = config.berryItemToPicTable[String(DEFAULT_BERRY_ITEM_ID)];
+  const picTable = requestedPicTable ?? fallbackPicTable;
+  if (!picTable) return null;
+
+  const frameSources = config.picTableFrameSources[picTable];
+  if (!frameSources || frameSources.length === 0) return null;
+
+  return frameSources[logicalFrameIndex] ?? frameSources[0] ?? null;
+}
+
+/**
+ * Resolve the berry-tree graphics ID policy for a given berry stage.
+ *
+ * Stage values are expected to be Emerald berry stages (1..5). Values outside
+ * this range are clamped to match runtime behavior.
+ */
+export function getBerryTreeGraphicsIdForStage(stage: number): string {
+  const config = getBerryTreeRenderConfig();
+  const policy = Object.keys(config.stageGraphicsIdPolicy).length > 0
+    ? config.stageGraphicsIdPolicy
+    : DEFAULT_BERRY_STAGE_GRAPHICS_POLICY;
+
+  const clampedStage = Math.max(1, Math.min(5, Math.trunc(stage)));
+  return policy[String(clampedStage)] ?? DEFAULT_BERRY_STAGE_GRAPHICS_POLICY[String(clampedStage)];
 }
 
 /**

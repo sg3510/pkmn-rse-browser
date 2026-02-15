@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-02-15T01:13:55.372Z",
+  "generatedAt": "2026-02-15T20:49:13.212Z",
   "sourceFiles": [
     "object_event_graphics_info.h",
     "object_event_graphics_info_pointers.h",
     "object_event_graphics.h",
     "object_event_pic_tables.h",
     "berry_tree_graphics_tables.h",
+    "items.h",
     "object_event_anims.h"
   ],
   "animationIndices": {
@@ -5978,6 +5979,2012 @@
         1
       ],
       "spritePath": "/pokemon/ho_oh.png"
+    }
+  },
+  "berryTreeRender": {
+    "berryItemToPicTable": {
+      "133": "sPicTable_CheriBerryTree",
+      "134": "sPicTable_ChestoBerryTree",
+      "135": "sPicTable_PechaBerryTree",
+      "136": "sPicTable_RawstBerryTree",
+      "137": "sPicTable_AspearBerryTree",
+      "138": "sPicTable_LeppaBerryTree",
+      "139": "sPicTable_OranBerryTree",
+      "140": "sPicTable_PersimBerryTree",
+      "141": "sPicTable_LumBerryTree",
+      "142": "sPicTable_SitrusBerryTree",
+      "143": "sPicTable_FigyBerryTree",
+      "144": "sPicTable_WikiBerryTree",
+      "145": "sPicTable_MagoBerryTree",
+      "146": "sPicTable_AguavBerryTree",
+      "147": "sPicTable_IapapaBerryTree",
+      "148": "sPicTable_RazzBerryTree",
+      "149": "sPicTable_RazzBerryTree",
+      "150": "sPicTable_MagoBerryTree",
+      "151": "sPicTable_WepearBerryTree",
+      "152": "sPicTable_IapapaBerryTree",
+      "153": "sPicTable_PomegBerryTree",
+      "154": "sPicTable_KelpsyBerryTree",
+      "155": "sPicTable_WepearBerryTree",
+      "156": "sPicTable_HondewBerryTree",
+      "157": "sPicTable_GrepaBerryTree",
+      "158": "sPicTable_TamatoBerryTree",
+      "159": "sPicTable_CornnBerryTree",
+      "160": "sPicTable_PomegBerryTree",
+      "161": "sPicTable_RabutaBerryTree",
+      "162": "sPicTable_NomelBerryTree",
+      "163": "sPicTable_SpelonBerryTree",
+      "164": "sPicTable_PamtreBerryTree",
+      "165": "sPicTable_RabutaBerryTree",
+      "166": "sPicTable_DurinBerryTree",
+      "167": "sPicTable_HondewBerryTree",
+      "168": "sPicTable_LiechiBerryTree",
+      "169": "sPicTable_HondewBerryTree",
+      "170": "sPicTable_AguavBerryTree",
+      "171": "sPicTable_PomegBerryTree",
+      "172": "sPicTable_GrepaBerryTree",
+      "173": "sPicTable_LansatBerryTree",
+      "174": "sPicTable_CornnBerryTree",
+      "175": "sPicTable_DurinBerryTree"
+    },
+    "picTableFrameSources": {
+      "sPicTable_CheriBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CheriBerryTree",
+          "spritePath": "/berry_trees/cheri.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_ChestoBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_ChestoBerryTree",
+          "spritePath": "/berry_trees/chesto.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_PechaBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PechaBerryTree",
+          "spritePath": "/berry_trees/pecha.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_RawstBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RawstBerryTree",
+          "spritePath": "/berry_trees/rawst.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_AspearBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AspearBerryTree",
+          "spritePath": "/berry_trees/aspear.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_LeppaBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LeppaBerryTree",
+          "spritePath": "/berry_trees/leppa.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_OranBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_OranBerryTree",
+          "spritePath": "/berry_trees/oran.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_PersimBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PersimBerryTree",
+          "spritePath": "/berry_trees/persim.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_LumBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LumBerryTree",
+          "spritePath": "/berry_trees/lum.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_SitrusBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SitrusBerryTree",
+          "spritePath": "/berry_trees/sitrus.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_FigyBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_FigyBerryTree",
+          "spritePath": "/berry_trees/figy.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_WikiBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WikiBerryTree",
+          "spritePath": "/berry_trees/wiki.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_MagoBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_MagoBerryTree",
+          "spritePath": "/berry_trees/mago.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_AguavBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_AguavBerryTree",
+          "spritePath": "/berry_trees/aguav.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_IapapaBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_IapapaBerryTree",
+          "spritePath": "/berry_trees/iapapa.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_RazzBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RazzBerryTree",
+          "spritePath": "/berry_trees/razz.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_WepearBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_WepearBerryTree",
+          "spritePath": "/berry_trees/wepear.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_PomegBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PomegBerryTree",
+          "spritePath": "/berry_trees/pomeg.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_KelpsyBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_KelpsyBerryTree",
+          "spritePath": "/berry_trees/kelpsy.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_HondewBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_HondewBerryTree",
+          "spritePath": "/berry_trees/hondew.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_GrepaBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_GrepaBerryTree",
+          "spritePath": "/berry_trees/grepa.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_TamatoBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_TamatoBerryTree",
+          "spritePath": "/berry_trees/tamato.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_CornnBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_CornnBerryTree",
+          "spritePath": "/berry_trees/cornn.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_RabutaBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_RabutaBerryTree",
+          "spritePath": "/berry_trees/rabuta.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_NomelBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_NomelBerryTree",
+          "spritePath": "/berry_trees/nomel.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_SpelonBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_SpelonBerryTree",
+          "spritePath": "/berry_trees/spelon.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_PamtreBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_PamtreBerryTree",
+          "spritePath": "/berry_trees/pamtre.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_DurinBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_DurinBerryTree",
+          "spritePath": "/berry_trees/durin.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_LiechiBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LiechiBerryTree",
+          "spritePath": "/berry_trees/liechi.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ],
+      "sPicTable_LansatBerryTree": [
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeDirtPile",
+          "spritePath": "/berry_trees/dirt_pile.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_BerryTreeSprout",
+          "spritePath": "/berry_trees/sprout.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 16
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 0,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 1,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 2,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 3,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 4,
+          "frameWidth": 16,
+          "frameHeight": 32
+        },
+        {
+          "picSymbol": "gObjectEventPic_LansatBerryTree",
+          "spritePath": "/berry_trees/lansat.png",
+          "sourceFrame": 5,
+          "frameWidth": 16,
+          "frameHeight": 32
+        }
+      ]
+    },
+    "stageGraphicsIdPolicy": {
+      "1": "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES",
+      "2": "OBJ_EVENT_GFX_BERRY_TREE_EARLY_STAGES",
+      "3": "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES",
+      "4": "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES",
+      "5": "OBJ_EVENT_GFX_BERRY_TREE_LATE_STAGES"
     }
   }
 }

@@ -62,10 +62,14 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [x] Preserve berry tree interaction identity from object events into script interaction context
 - [x] Integrate callback-driven bag berry selection mode and resume script waitstate on select/cancel
 - [x] Match callback-return field fade semantics for callback specials (`Bag_ChooseBerry` resumes via return-to-field fade-in and guarded stale-black recovery)
-- [x] Regenerate berry animation metadata and wire stage-aware berry tree sprite rendering
+- [x] Regenerate berry metadata with strict `berryTreeRender` validation (`133..175`, frame-source coverage, asset existence checks)
+- [x] Add dedicated berry sprite resolver/import utilities (`src/utils/berryTreeSpriteResolver.ts`, `src/utils/berryTreeSpriteImport.ts`)
+- [x] Switch berry rendering to resolver-driven mixed-source frames (dirt/sprout/berry-sheet) and resolver-based atlas availability checks
 - [x] Persist berry state in app JSON saves and load with backward-compatible defaults
 - [x] Parse berry trees + last berry update timestamp from native `.sav` imports and apply elapsed-time updates
 - [x] Complete berry item data coverage for IDs `133..175` and verify berry pocket classification
+- [x] Fix multi-plant wipe regression by normalizing legacy berry timestamps and enforcing epoch-ms berry clock domain
+- [x] Fix berry soil/tree placement parity with stage-aware feet anchoring and feet-derived sort keys
 
 ---
 

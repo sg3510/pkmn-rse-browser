@@ -1199,6 +1199,7 @@ export function parseGen3Save(
 
   const berry: BerryState = {
     trees: berryTrees,
+    lastUpdateTimestampDomain: 'rtc',
     lastUpdateRtc: lastBerryTreeUpdate,
   };
 
