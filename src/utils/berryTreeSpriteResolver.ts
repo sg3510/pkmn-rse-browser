@@ -10,7 +10,6 @@ import {
   getBerryTreeFrameSource,
   getBerryTreeGraphicsIdForStage,
   getBerryTreeRenderConfig,
-  getSpriteAnimationFramesLogical,
 } from '../data/spriteMetadata.ts';
 import { BERRY_STAGE, berryTypeToItemId } from '../game/berry/berryConstants.ts';
 
@@ -94,26 +93,45 @@ export function getBerryTreeAnimIndexForStage(stage: number): number | null {
   return 4;
 }
 
+/**
+ * Static frame selection for overworld berry script-objects.
+ *
+ * C parity reference:
+ * - public/pokeemerald/src/data/object_events/object_event_anims.h
+ *   sAnim_BerryTreeStage0..4 first ANIMCMD_FRAME values are 0,1,3,5,7.
+ */
+function getBerryTreeLogicalFrameForStage(stage: number): number | null {
+  const normalizedStage = normalizeBerryStage(stage);
+  switch (normalizedStage) {
+    case BERRY_STAGE.PLANTED:
+      return 0;
+    case BERRY_STAGE.SPROUTED:
+      return 1;
+    case BERRY_STAGE.TALLER:
+      return 3;
+    case BERRY_STAGE.FLOWERING:
+      return 5;
+    case BERRY_STAGE.BERRIES:
+      return 7;
+    default:
+      return null;
+  }
+}
+
 export function resolveBerryTreeSpriteFrame(
   berryType: number,
   stage: number
 ): BerryTreeResolvedSpriteFrame | null {
-  const animIndex = getBerryTreeAnimIndexForStage(stage);
-  if (animIndex === null) {
+  const logicalFrameIndex = getBerryTreeLogicalFrameForStage(stage);
+  if (logicalFrameIndex === null) {
     return null;
   }
 
   const normalizedStage = normalizeBerryStage(stage);
   const stageGraphicsId = getBerryTreeGraphicsIdForStage(normalizedStage);
-  const animationFrames = getSpriteAnimationFramesLogical(stageGraphicsId, animIndex);
-  if (animationFrames.length === 0) {
-    return null;
-  }
-
-  const selectedFrame = animationFrames[0];
   const berryItemId = berryTypeToItemId(berryType);
-  const frameSource = getBerryTreeFrameSource(berryItemId, selectedFrame.frameIndex)
-    ?? getBerryTreeFrameSource(DEFAULT_BERRY_ITEM_ID, selectedFrame.frameIndex);
+  const frameSource = getBerryTreeFrameSource(berryItemId, logicalFrameIndex)
+    ?? getBerryTreeFrameSource(DEFAULT_BERRY_ITEM_ID, logicalFrameIndex);
   if (!frameSource) {
     return null;
   }
@@ -128,8 +146,8 @@ export function resolveBerryTreeSpriteFrame(
     atlasHeight: frameSource.frameHeight,
     width: frameSource.frameWidth,
     height: frameSource.frameHeight,
-    flipX: selectedFrame.hFlip ?? false,
-    logicalFrameIndex: selectedFrame.frameIndex,
+    flipX: false,
+    logicalFrameIndex,
     stageGraphicsId,
   };
 }
