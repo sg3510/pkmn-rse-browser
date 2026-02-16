@@ -855,6 +855,7 @@ export class PlayerController {
   private underwaterBobElapsedMs: number = 0;
   private bikeMode: BikeMode = 'none';
   private bikeRiding: boolean = false;
+  private scriptSpriteOverride: PlayerSpriteKey | null = null;
   private machBikeSpeedTier: 0 | 1 | 2 = 0;
   private previousTrackDirection: 'up' | 'down' | 'left' | 'right' = 'down';
   private mapAllowsCyclingResolver: (() => boolean) | null = null;
@@ -3035,6 +3036,13 @@ export class PlayerController {
     return 0;
   }
 
+  /**
+   * Override the sprite sheet used for rendering scripted actions (e.g. watering).
+   */
+  public setScriptSpriteOverride(spriteKey: PlayerSpriteKey | null): void {
+    this.scriptSpriteOverride = spriteKey;
+  }
+
   public setCyclingRoadChallengeActive(active: boolean): void {
     const wasActive = this.cyclingRoadChallengeActive;
     const previousCollisions = this.cyclingRoadCollisions;
@@ -3064,6 +3072,9 @@ export class PlayerController {
    * Returns 'surfing', 'running', or 'walking'.
    */
   public getCurrentSpriteKey(): PlayerSpriteKey {
+    if (this.scriptSpriteOverride && this.sprites[this.scriptSpriteOverride]) {
+      return this.scriptSpriteOverride;
+    }
     if (this.traversalMode === 'underwater') return 'underwater';
     // Check for surfing OR mount/dismount jump (which also uses surfing sprite)
     if (this.isSurfing() || this.surfingController.isJumping()) return 'surfing';

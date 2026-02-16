@@ -410,6 +410,21 @@ export function getSpriteAnimationFrames(graphicsId: string, animIndex: number):
 }
 
 /**
+ * Get animation frames for a sprite and animation index without applying frame mapping.
+ *
+ * Berry tree rendering needs logical indices from sAnimTable_BerryTree so the resolver
+ * can map to mixed-source dirt/sprout/berry frame tables directly.
+ */
+export function getSpriteAnimationFramesLogical(graphicsId: string, animIndex: number): AnimFrame[] {
+  const animName = getAnimationNameForSprite(graphicsId, animIndex);
+  if (!animName) {
+    return [{ frameIndex: animIndex < 4 ? animIndex : 0, duration: 16, hFlip: animIndex === 3 }];
+  }
+
+  return getAnimationFrames(animName);
+}
+
+/**
  * Check if sprite is inanimate (no walking animation)
  */
 export function isInanimate(graphicsId: string): boolean {

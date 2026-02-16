@@ -18,6 +18,7 @@ import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
 import { MOVES, getMoveInfo } from '../data/moves';
 import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
+import type { PlayerSpriteKey } from './playerSprites';
 import type {
   ScriptBattleResult,
   ScriptTrainerBattleRequest,
@@ -91,6 +92,8 @@ export interface StoryScriptContext {
   getMapOffset?: (mapId: string) => { offsetX: number; offsetY: number } | null;
   /** Set the player's facing direction (used by turnobject LOCALID_PLAYER) */
   setPlayerDirection?: (dir: 'up' | 'down' | 'left' | 'right') => void;
+  /** Temporarily override player sprite for scripted avatar states (e.g. watering). */
+  setPlayerSpriteOverride?: (spriteKey: PlayerSpriteKey | null) => void;
   /** Get the player's map-local tile position (used by getplayerxy) */
   getPlayerLocalPosition?: () => { x: number; y: number } | null;
   /** Previous map type from last used warp (C: GetLastUsedWarpMapType). */

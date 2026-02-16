@@ -10,7 +10,7 @@ import {
   getBerryTreeFrameSource,
   getBerryTreeGraphicsIdForStage,
   getBerryTreeRenderConfig,
-  getSpriteAnimationFrames,
+  getSpriteAnimationFramesLogical,
 } from '../data/spriteMetadata.ts';
 import { BERRY_STAGE, berryTypeToItemId } from '../game/berry/berryConstants.ts';
 
@@ -105,7 +105,7 @@ export function resolveBerryTreeSpriteFrame(
 
   const normalizedStage = normalizeBerryStage(stage);
   const stageGraphicsId = getBerryTreeGraphicsIdForStage(normalizedStage);
-  const animationFrames = getSpriteAnimationFrames(stageGraphicsId, animIndex);
+  const animationFrames = getSpriteAnimationFramesLogical(stageGraphicsId, animIndex);
   if (animationFrames.length === 0) {
     return null;
   }

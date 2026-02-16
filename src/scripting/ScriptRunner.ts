@@ -2610,8 +2610,13 @@ export class ScriptRunner {
       case 'DoWateringBerryTreeAnim': {
         const facing = this.getFacingDirectionFromVar();
         const animation = (async () => {
-          for (let i = 0; i < 11; i++) {
-            await this.ctx.movePlayer(facing, 'walk_in_place');
+          this.ctx.setPlayerSpriteOverride?.('watering');
+          try {
+            for (let i = 0; i < 11; i++) {
+              await this.ctx.movePlayer(facing, 'walk_in_place');
+            }
+          } finally {
+            this.ctx.setPlayerSpriteOverride?.(null);
           }
         })();
         this.queueWaitState(animation);

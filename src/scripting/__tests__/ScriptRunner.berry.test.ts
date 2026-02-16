@@ -216,6 +216,34 @@ test('berry watering updates watered stage count', async () => {
   berryManager.clearActiveInteraction();
 });
 
+test('DoWateringBerryTreeAnim uses watering sprite override during held movement', async () => {
+  gameVariables.reset();
+  const spriteOverrides: Array<string | null> = [];
+  let moveCalls = 0;
+
+  const ctx: StoryScriptContext = {
+    ...createContext(),
+    movePlayer: async () => {
+      moveCalls++;
+    },
+    setPlayerSpriteOverride: (spriteKey) => {
+      spriteOverrides.push(spriteKey);
+    },
+  };
+
+  const { mapData, commonData } = createData([
+    { cmd: 'special', args: ['DoWateringBerryTreeAnim'] },
+    { cmd: 'waitstate' },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_ROUTE102');
+  await runner.execute('Main');
+
+  assert.equal(moveCalls, 11);
+  assert.deepEqual(spriteOverrides, ['watering', null]);
+});
+
 test('interacting with an adjacent empty berry soil does not mutate another planted tree', async () => {
   gameVariables.reset();
   berryManager.reset(Date.now());

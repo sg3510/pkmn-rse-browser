@@ -19,6 +19,12 @@ test('resolveBerryTreeSpriteFrame maps PLANTED to dirt and BERRIES to berry-spec
   assert.equal(planted.width, 16);
   assert.equal(planted.height, 16);
 
+  const sprouted = resolveBerryTreeSpriteFrame(1, BERRY_STAGE.SPROUTED);
+  assert.ok(sprouted);
+  assert.equal(sprouted.spritePath, '/berry_trees/sprout.png');
+  assert.equal(sprouted.width, 16);
+  assert.equal(sprouted.height, 16);
+
   const pechaBerries = resolveBerryTreeSpriteFrame(3, BERRY_STAGE.BERRIES);
   const oranBerries = resolveBerryTreeSpriteFrame(7, BERRY_STAGE.BERRIES);
   assert.ok(pechaBerries);

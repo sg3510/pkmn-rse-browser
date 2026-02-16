@@ -21,6 +21,7 @@ export type PlayerSpriteKey =
   | 'acroBike'
   | 'surfing'
   | 'underwater'
+  | 'watering'
   | 'shadow';
 
 /**
@@ -96,6 +97,12 @@ const PLAYER_SPRITE_DESCRIPTORS: Readonly<Record<PlayerSpriteKey, PlayerSpriteDe
     renderXOffset: -8,
     useMetadataFrameMap: true,
   },
+  watering: {
+    key: 'watering',
+    imagePath: '/pokeemerald/graphics/object_events/pics/people/brendan/watering.png',
+    graphicsId: 'OBJ_EVENT_GFX_BRENDAN_WATERING',
+    useMetadataFrameMap: true,
+  },
   shadow: {
     key: 'shadow',
     imagePath: '/pokeemerald/graphics/field_effects/pics/shadow_medium.png',
@@ -112,6 +119,7 @@ const PLAYER_SPRITE_KEYS: PlayerSpriteKey[] = [
   'acroBike',
   'surfing',
   'underwater',
+  'watering',
   'shadow',
 ];
 

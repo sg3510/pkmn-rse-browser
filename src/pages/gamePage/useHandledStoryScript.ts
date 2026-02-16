@@ -692,6 +692,9 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         setPlayerDirection: (dir) => {
           player.dir = dir;
         },
+        setPlayerSpriteOverride: (spriteKey) => {
+          player.setScriptSpriteOverride(spriteKey);
+        },
         getPlayerLocalPosition: () => {
           const map = worldManagerRef.current?.getSnapshot().maps.find(
             (m) => m.entry.id === effectiveMapId
