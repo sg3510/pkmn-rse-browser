@@ -17,12 +17,14 @@ import { ITEMS } from '../data/items.ts';
 import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
 import {
   MB_ASHGRASS,
+  MB_CRACKED_ICE,
   MB_CRACKED_FLOOR,
   MB_CRACKED_FLOOR_HOLE,
   MB_FORTREE_BRIDGE,
   MB_MUDDY_SLOPE,
   MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT,
   MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT,
+  MB_THIN_ICE,
   MB_PACIFIDLOG_VERTICAL_LOG_BOTTOM,
   MB_PACIFIDLOG_VERTICAL_LOG_TOP,
 } from '../utils/metatileBehaviors.generated.ts';
@@ -38,13 +40,9 @@ const STEP_CB_TRUCK = 5;
 const STEP_CB_SECRET_BASE = 6;
 const STEP_CB_CRACKED_FLOOR = 7;
 
-// Metatile behavior constants (from metatileBehaviors.generated.ts)
-const MB_THIN_ICE = 38;
-const MB_CRACKED_ICE = 39;
-
 // Sootopolis Gym metatile IDs (from metatileLabels.gen.ts)
-const METATILE_ICE_CRACKED = 0x20E;
-const METATILE_ICE_BROKEN = 0x206;
+const METATILE_ICE_CRACKED = METATILE_LABELS['METATILE_SootopolisGym_Ice_Cracked'] ?? 0x20E;
+const METATILE_ICE_BROKEN = METATILE_LABELS['METATILE_SootopolisGym_Ice_Broken'] ?? 0x206;
 
 // Fortree bridge metatiles (field_tasks.c TryRaise/LowerFortreeBridge)
 const METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED = METATILE_LABELS['METATILE_Fortree_BridgeOverGrass_Raised'] ?? 0x24E;
@@ -284,12 +282,6 @@ interface CrackedFloorState {
   floor2Y: number;
 }
 
-interface PendingFortreeBounceRestore {
-  x: number;
-  y: number;
-  delayFrames: number;
-}
-
 class StepCallbackManagerImpl {
   private callbackId: number = STEP_CB_DUMMY;
 
@@ -323,7 +315,6 @@ class StepCallbackManagerImpl {
     oldBridgeY: 0,
     bounceTime: 0,
   };
-  private pendingFortreeBounceRestores: PendingFortreeBounceRestore[] = [];
 
   // Pacifidlog bridge state (field_tasks.c PacifidlogBridgePerStepCallback)
   private pacifidlogBridgeState: PacifidlogBridgeState = {
@@ -504,7 +495,6 @@ class StepCallbackManagerImpl {
       oldBridgeY: 0,
       bounceTime: 0,
     };
-    this.pendingFortreeBounceRestores = [];
   }
 
   private resetPacifidlogBridgeState(): void {
@@ -629,49 +619,33 @@ class StepCallbackManagerImpl {
     return false;
   }
 
-  private updatePendingFortreeBounceRestores(ctx: StepCallbackContext): boolean {
-    if (this.pendingFortreeBounceRestores.length === 0) {
-      return false;
-    }
-
-    let changed = false;
-    const remaining: PendingFortreeBounceRestore[] = [];
-    for (const entry of this.pendingFortreeBounceRestores) {
-      entry.delayFrames--;
-      if (entry.delayFrames <= 0) {
-        changed = this.tryRaiseFortreeBridge(entry.x, entry.y, ctx) || changed;
-      } else {
-        remaining.push(entry);
-      }
-    }
-
-    this.pendingFortreeBounceRestores = remaining;
-    return changed;
-  }
-
-  private enqueueFortreeBounceRestore(x: number, y: number): void {
-    const existing = this.pendingFortreeBounceRestores.find((entry) => entry.x === x && entry.y === y);
-    if (existing) {
-      existing.delayFrames = 1;
-      return;
-    }
-    this.pendingFortreeBounceRestores.push({ x, y, delayFrames: 1 });
-  }
-
   private updateFortreeBridgeBounceFrame(ctx: StepCallbackContext): boolean {
     const state = this.fortreeBridgeState;
     if (state.state !== 2) {
       return false;
     }
 
+    // C parity (field_tasks.c FortreeBridgePerStepCallback, case 2):
+    // - bounceTime is decremented every frame.
+    // - On mod 4: lower + draw, then raise in map-grid without draw.
+    // - On mod 0: draw current map-grid tile.
     let changed = false;
     state.bounceTime = Math.max(0, state.bounceTime - 1);
-    if (state.bounceTime % 7 === 4) {
+    const phase = state.bounceTime % 7;
+
+    if (phase === 4) {
+      // Draw lowered frame now...
       if (this.tryLowerFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx)) {
         changed = true;
-        this.enqueueFortreeBounceRestore(state.oldBridgeX, state.oldBridgeY);
       }
+      // ...but immediately restore map-grid state (no draw this frame).
+      // A later redraw (phase 0) reveals the raised frame.
+      this.tryRaiseFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx);
+    } else if (phase === 0) {
+      // Emulate CurrentMapDrawMetatileAt-only frame even when metatile ID is unchanged.
+      changed = true;
     }
+
     if (state.bounceTime === 0) {
       state.state = 1;
     }
@@ -681,7 +655,7 @@ class StepCallbackManagerImpl {
   // --- Fortree Bridge Step Callback ---
   // C reference: field_tasks.c FortreeBridgePerStepCallback.
   private updateFortreeBridge(ctx: StepCallbackContext): void {
-    let changed = this.updatePendingFortreeBounceRestores(ctx);
+    let changed = false;
     const state = this.fortreeBridgeState;
     const x = ctx.playerDestLocalX;
     const y = ctx.playerDestLocalY;

@@ -136,21 +136,19 @@ test('Fortree callback animates bridge bounce over 16-frame window', () => {
   stepCallbackManager.update(createContext(6, 5, state, setCalls, invalidate, { playerElevation: 0 }));
   assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
 
-  let sawLoweredDuringBounce = false;
-  let sawRaisedAfterBounce = false;
+  const preBounceCallCount = setCalls.length;
   for (let i = 0; i < 24; i++) {
     stepCallbackManager.update(createContext(6, 5, state, setCalls, invalidate, { playerElevation: 0 }));
-    const metatileId = state.metatileIds.get(key(5, 5));
-    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED) {
-      sawLoweredDuringBounce = true;
-    }
-    if (sawLoweredDuringBounce && metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED) {
-      sawRaisedAfterBounce = true;
-    }
   }
 
-  assert.equal(sawLoweredDuringBounce, true);
-  assert.equal(sawRaisedAfterBounce, true);
+  const bounceCalls = setCalls.slice(preBounceCallCount).filter((c) => c.x === 5 && c.y === 5);
+  const loweredWrites = bounceCalls.filter((c) => c.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED).length;
+  const raisedWrites = bounceCalls.filter((c) => c.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED).length;
+
+  // C parity: bounce applies lowered draw pulse(s) while restoring raised map-grid state.
+  assert.ok(loweredWrites >= 1);
+  assert.ok(raisedWrites >= loweredWrites);
+  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
   assert.ok(invalidate.count > 0);
 
   stepCallbackManager.reset();
