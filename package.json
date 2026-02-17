@@ -34,6 +34,7 @@
     "generate:battle-animations": "node scripts/generate-battle-animations.cjs",
     "generate:battle-constants": "node scripts/generate-battle-constants.cjs",
     "generate:sprite-coords": "node scripts/generate-pokemon-sprite-coords.cjs",
+    "validate:battle-sprites": "node scripts/validate-battle-sprites.cjs",
     "generate:learnsets": "node scripts/generate-learnsets.cjs",
     "generate:item-effects": "node scripts/generate-item-battle-effects.cjs",
     "perf:analyze:logs": "node scripts/perf/analyze-console-log.mjs",

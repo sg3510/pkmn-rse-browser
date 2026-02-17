@@ -117,7 +117,10 @@ export class BattleWebGLContext {
       ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
     }
 
+    const previousSmoothing = ctx2d.imageSmoothingEnabled;
+    ctx2d.imageSmoothingEnabled = false;
     ctx2d.drawImage(this.canvas, offsetX, offsetY);
+    ctx2d.imageSmoothingEnabled = previousSmoothing;
   }
 
   /** Release WebGL resources. */

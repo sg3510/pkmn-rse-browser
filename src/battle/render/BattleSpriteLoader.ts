@@ -2,16 +2,26 @@
  * Load Pokemon sprites from pokeemerald graphics for battle rendering.
  *
  * Sprites are at:
- *   public/pokeemerald/graphics/pokemon/{species_name}/front.png  (64×64)
- *   public/pokeemerald/graphics/pokemon/{species_name}/back.png   (64×64)
+ *   public/pokeemerald/graphics/pokemon/{species_name}/front.png  (64×64 frames; some sheets are stacked)
+ *   public/pokeemerald/graphics/pokemon/{species_name}/back.png   (64×64 frames; some sheets are stacked)
  *
  * C ref: src/data/pokemon_graphics/front_pic_table.h, back_pic_table.h
  */
 import { getSpeciesName } from '../../data/species';
 import { getPokemonSpriteCoords, type PokemonSpriteCoords } from '../../data/pokemonSpriteCoords.gen';
-import { loadImageCanvasAsset } from '../../utils/assetLoader';
+import { loadImageCanvasAsset, makeCanvasTransparent } from '../../utils/assetLoader';
 import type { BattleWebGLContext } from './BattleWebGLContext';
 import type { SpriteInstance } from '../../rendering/types';
+
+const MON_SPRITE_FRAME_WIDTH = 64;
+const MON_SPRITE_FRAME_HEIGHT = 64;
+
+interface BattlePokemonSpriteRuntimeMeta {
+  frontFrameCount: number;
+  backFrameCount: number;
+}
+
+const pokemonSpriteRuntimeMeta = new Map<number, BattlePokemonSpriteRuntimeMeta>();
 
 /** Convert species ID to directory name (e.g., SPECIES 252 → "treecko"). */
 function speciesIdToDirectoryName(speciesId: number): string {
@@ -28,9 +38,84 @@ export function backSpriteAtlas(speciesId: number): string {
   return `battle_back_${speciesId}`;
 }
 
-/** Load an image from a URL, returning an HTMLImageElement. */
+/**
+ * Returns true when the image already contains an alpha channel.
+ *
+ * Many pokeemerald PNGs are authored with real alpha; in those cases we must
+ * not apply top-left color keying, or pure-black outline pixels get erased.
+ */
+function hasTransparentPixels(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    return false;
+  }
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = imageData;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getMonSpriteFrameCount(
+  canvas: HTMLCanvasElement,
+  side: 'front' | 'back',
+  speciesId: number,
+  dirName: string,
+): number {
+  if (canvas.width !== MON_SPRITE_FRAME_WIDTH) {
+    console.warn(
+      `[BattleSpriteLoader] ${side} sprite for species ${speciesId} (${dirName}) `
+      + `is ${canvas.width}px wide (expected ${MON_SPRITE_FRAME_WIDTH}px).`,
+    );
+  }
+
+  if (canvas.height < MON_SPRITE_FRAME_HEIGHT) {
+    console.warn(
+      `[BattleSpriteLoader] ${side} sprite for species ${speciesId} (${dirName}) `
+      + `is ${canvas.height}px tall (expected at least ${MON_SPRITE_FRAME_HEIGHT}px).`,
+    );
+    return 1;
+  }
+
+  if (canvas.height % MON_SPRITE_FRAME_HEIGHT !== 0) {
+    console.warn(
+      `[BattleSpriteLoader] ${side} sprite for species ${speciesId} (${dirName}) `
+      + `has height ${canvas.height}px, which is not a multiple of ${MON_SPRITE_FRAME_HEIGHT}. `
+      + 'Using first frame only.',
+    );
+    return 1;
+  }
+
+  return Math.max(1, Math.floor(canvas.height / MON_SPRITE_FRAME_HEIGHT));
+}
+
+/** Load a sprite canvas with alpha-aware transparency fallback. */
 async function loadSpriteCanvas(url: string): Promise<HTMLCanvasElement> {
-  return loadImageCanvasAsset(url, { transparency: { type: 'top-left' } });
+  const canvas = await loadImageCanvasAsset(url);
+  if (hasTransparentPixels(canvas)) {
+    return canvas;
+  }
+  return makeCanvasTransparent(canvas, { type: 'top-left' });
+}
+
+function normalizeFrameIndex(frameIndex: number, frameCount: number): number {
+  if (!Number.isFinite(frameIndex) || frameCount <= 0) {
+    return 0;
+  }
+  const normalized = Math.trunc(frameIndex) % frameCount;
+  return normalized < 0 ? normalized + frameCount : normalized;
+}
+
+export function getPokemonBattleFrontFrameCount(speciesId: number): number {
+  return pokemonSpriteRuntimeMeta.get(speciesId)?.frontFrameCount ?? 1;
+}
+
+export function getPokemonBattleBackFrameCount(speciesId: number): number {
+  return pokemonSpriteRuntimeMeta.get(speciesId)?.backFrameCount ?? 1;
 }
 
 /**
@@ -47,14 +132,20 @@ export async function loadPokemonBattleSprites(
 
   const frontAtlas = frontSpriteAtlas(speciesId);
   const backAtlas = backSpriteAtlas(speciesId);
+  let frontFrameCount = getPokemonBattleFrontFrameCount(speciesId);
+  let backFrameCount = getPokemonBattleBackFrameCount(speciesId);
 
   // Load front sprite if not already uploaded
   if (!webgl.hasSpriteSheet(frontAtlas)) {
     try {
       const frontCanvas = await loadSpriteCanvas(`${basePath}/front.png`);
+      frontFrameCount = getMonSpriteFrameCount(frontCanvas, 'front', speciesId, dirName);
       webgl.uploadSpriteSheet(frontAtlas, frontCanvas, {
         width: frontCanvas.width,
         height: frontCanvas.height,
+        frameWidth: MON_SPRITE_FRAME_WIDTH,
+        frameHeight: MON_SPRITE_FRAME_HEIGHT,
+        frameCount: frontFrameCount,
       });
     } catch {
       console.warn(`Failed to load front sprite for species ${speciesId} (${dirName})`);
@@ -65,15 +156,20 @@ export async function loadPokemonBattleSprites(
   if (!webgl.hasSpriteSheet(backAtlas)) {
     try {
       const backCanvas = await loadSpriteCanvas(`${basePath}/back.png`);
+      backFrameCount = getMonSpriteFrameCount(backCanvas, 'back', speciesId, dirName);
       webgl.uploadSpriteSheet(backAtlas, backCanvas, {
         width: backCanvas.width,
         height: backCanvas.height,
+        frameWidth: MON_SPRITE_FRAME_WIDTH,
+        frameHeight: MON_SPRITE_FRAME_HEIGHT,
+        frameCount: backFrameCount,
       });
     } catch {
       console.warn(`Failed to load back sprite for species ${speciesId} (${dirName})`);
     }
   }
 
+  pokemonSpriteRuntimeMeta.set(speciesId, { frontFrameCount, backFrameCount });
   return coords;
 }
 
@@ -86,21 +182,24 @@ export async function loadPokemonBattleSprites(
 export function createFrontSprite(
   speciesId: number,
   coords: PokemonSpriteCoords | undefined,
+  frameIndex = 0,
 ): SpriteInstance {
   const atlas = frontSpriteAtlas(speciesId);
   const yOffset = coords?.frontYOffset ?? 0;
   const elevation = coords?.elevation ?? 0;
+  const frameCount = getPokemonBattleFrontFrameCount(speciesId);
+  const frameY = normalizeFrameIndex(frameIndex, frameCount) * MON_SPRITE_FRAME_HEIGHT;
 
   return {
     worldX: 144,
     worldY: 16 + yOffset - elevation,
-    width: 64,
-    height: 64,
+    width: MON_SPRITE_FRAME_WIDTH,
+    height: MON_SPRITE_FRAME_HEIGHT,
     atlasName: atlas,
     atlasX: 0,
-    atlasY: 0,
-    atlasWidth: 64,
-    atlasHeight: 64,
+    atlasY: frameY,
+    atlasWidth: MON_SPRITE_FRAME_WIDTH,
+    atlasHeight: MON_SPRITE_FRAME_HEIGHT,
     flipX: false,
     flipY: false,
     alpha: 1,
@@ -121,20 +220,23 @@ export function createFrontSprite(
 export function createBackSprite(
   speciesId: number,
   coords: PokemonSpriteCoords | undefined,
+  frameIndex = 0,
 ): SpriteInstance {
   const atlas = backSpriteAtlas(speciesId);
   const yOffset = coords?.backYOffset ?? 0;
+  const frameCount = getPokemonBattleBackFrameCount(speciesId);
+  const frameY = normalizeFrameIndex(frameIndex, frameCount) * MON_SPRITE_FRAME_HEIGHT;
 
   return {
     worldX: 40,
     worldY: 56 + yOffset,
-    width: 64,
-    height: 64,
+    width: MON_SPRITE_FRAME_WIDTH,
+    height: MON_SPRITE_FRAME_HEIGHT,
     atlasName: atlas,
     atlasX: 0,
-    atlasY: 0,
-    atlasWidth: 64,
-    atlasHeight: 64,
+    atlasY: frameY,
+    atlasWidth: MON_SPRITE_FRAME_WIDTH,
+    atlasHeight: MON_SPRITE_FRAME_HEIGHT,
     flipX: false,
     flipY: false,
     alpha: 1,

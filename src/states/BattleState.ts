@@ -57,6 +57,8 @@ import {
   loadBattleMiscSprites,
   createFrontSprite,
   createBackSprite,
+  getPokemonBattleFrontFrameCount,
+  getPokemonBattleBackFrameCount,
   createEnemyShadowSprite,
   createTrainerBackSprite,
   createPokeballSprite,
@@ -90,6 +92,7 @@ const BALL_SEND_OUT_TASK_SETUP_FRAMES = 1;
 const BALL_ARC_FRAMES = 25;
 const BALL_OPEN_FRAMES = 10;
 const MON_EMERGE_FRAMES = 12;
+const MON_SPRITE_ANIM_FRAME_MS = 140;
 const TRAINER_THROW_START_X = 80;
 const TRAINER_THROW_END_X = -40;
 const TRAINER_THROW_Y = 80;
@@ -177,6 +180,7 @@ export class BattleState implements StateRenderer {
   private displayedPlayerExpPercent = 0;
   private displayedPlayerExpLevel = 1;
   private introElapsedMs = 0;
+  private spriteAnimationElapsedMs = 0;
   private playerSendOutElapsedMs = 0;
   private playerSendOutStarted = false;
   private moveFlashMs = 0;
@@ -295,6 +299,7 @@ export class BattleState implements StateRenderer {
     this.displayedPlayerExpLevel = this.playerMon.pokemon.level;
     this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
     this.introElapsedMs = 0;
+    this.spriteAnimationElapsedMs = 0;
     this.playerSendOutElapsedMs = 0;
     this.playerSendOutStarted = false;
     this.moveFlashMs = 0;
@@ -357,6 +362,7 @@ export class BattleState implements StateRenderer {
 
   update(_dt: number, _frameCount: number): void {
     this.introElapsedMs += _dt;
+    this.spriteAnimationElapsedMs += _dt;
     if (!this.playerSendOutStarted) {
       const activeMessage = this.messageQueue[0] ?? '';
       if (
@@ -531,7 +537,11 @@ export class BattleState implements StateRenderer {
 
       // Enemy front sprite
       if (enemy) {
-        const enemySprite = createFrontSprite(enemy.pokemon.species, this.enemySpriteCoords);
+        const enemySprite = createFrontSprite(
+          enemy.pokemon.species,
+          this.enemySpriteCoords,
+          this.getPokemonSpriteFrame(enemy.pokemon.species, 'front'),
+        );
         const enemyProgress = Math.max(0, Math.min(1, this.introElapsedMs / ENEMY_INTRO_MS));
         const enemyStartX = BATTLE_WIDTH + 12;
         enemySprite.worldX = Math.round(lerp(enemyStartX, enemySprite.worldX, enemyProgress));
@@ -566,7 +576,11 @@ export class BattleState implements StateRenderer {
 
       // Player back sprite
       if (player && playerSendOut.showPokemon) {
-        const playerSprite = createBackSprite(player.pokemon.species, this.playerSpriteCoords);
+        const playerSprite = createBackSprite(
+          player.pokemon.species,
+          this.playerSpriteCoords,
+          this.getPokemonSpriteFrame(player.pokemon.species, 'back'),
+        );
         const scale = playerSendOut.pokemonScale;
         const scaledW = Math.max(1, Math.round(playerSprite.width * scale));
         const scaledH = Math.max(1, Math.round(playerSprite.height * scale));
@@ -1184,7 +1198,11 @@ export class BattleState implements StateRenderer {
   private getPlayerSendOutVisualState(): PlayerSendOutVisualState {
     const frame = this.playerSendOutElapsedMs / INTRO_FRAME_MS;
     const playerSpecies = this.playerMon?.pokemon.species;
-    const baseSprite = createBackSprite(playerSpecies ?? SPECIES.TREECKO, this.playerSpriteCoords);
+    const baseSprite = createBackSprite(
+      playerSpecies ?? SPECIES.TREECKO,
+      this.playerSpriteCoords,
+      this.getPokemonSpriteFrame(playerSpecies ?? SPECIES.TREECKO, 'back'),
+    );
     const ballTargetX = baseSprite.worldX + (baseSprite.width / 2);
     const ballTargetY = baseSprite.worldY + 24;
 
@@ -1333,6 +1351,19 @@ export class BattleState implements StateRenderer {
         this.transitionReady = true;
       }
     }
+  }
+
+  private getPokemonSpriteFrame(speciesId: number, side: 'front' | 'back'): number {
+    const frameCount = side === 'front'
+      ? getPokemonBattleFrontFrameCount(speciesId)
+      : getPokemonBattleBackFrameCount(speciesId);
+    if (frameCount <= 1) {
+      return 0;
+    }
+
+    const elapsedFrames = Math.floor(this.spriteAnimationElapsedMs / MON_SPRITE_ANIM_FRAME_MS);
+    const speciesOffset = speciesId % frameCount;
+    return (elapsedFrames + speciesOffset) % frameCount;
   }
 
   private syncFromEngine(): void {
