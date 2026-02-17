@@ -3,6 +3,7 @@ import { GameState, type GameStateManager } from '../../core';
 import type { LocationState } from '../../save/types';
 import type { MutableRef } from './types';
 
+export type OverworldEntryReason = 'continue' | 'new-game' | 'state-transition';
 
 interface UseOverworldContinueLocationParams {
   currentState: GameState;
@@ -11,6 +12,7 @@ interface UseOverworldContinueLocationParams {
   setSelectedMapId: (mapId: string) => void;
   setOverworldEntryReady: (ready: boolean) => void;
   pendingSavedLocationRef: MutableRef<LocationState | null>;
+  pendingOverworldEntryReasonRef: MutableRef<OverworldEntryReason | null>;
 }
 
 export function useOverworldContinueLocation(params: UseOverworldContinueLocationParams): void {
@@ -21,12 +23,14 @@ export function useOverworldContinueLocation(params: UseOverworldContinueLocatio
     setSelectedMapId,
     setOverworldEntryReady,
     pendingSavedLocationRef,
+    pendingOverworldEntryReasonRef,
   } = params;
 
   useEffect(() => {
     if (currentState !== GameState.OVERWORLD) {
       setOverworldEntryReady(false);
       pendingSavedLocationRef.current = null;
+      pendingOverworldEntryReasonRef.current = null;
       return;
     }
 
@@ -45,11 +49,12 @@ export function useOverworldContinueLocation(params: UseOverworldContinueLocatio
       isNewGame?: () => boolean;
     };
     if (typeof state.consumeSavedLocation !== 'function') {
+      pendingOverworldEntryReasonRef.current = null;
       setOverworldEntryReady(true);
       return;
     }
 
-    const entryReason = state.isContinue?.() === true
+    const entryReason: OverworldEntryReason = state.isContinue?.() === true
       ? 'continue'
       : state.isNewGame?.() === true
         ? 'new-game'
@@ -63,12 +68,15 @@ export function useOverworldContinueLocation(params: UseOverworldContinueLocatio
       });
 
       pendingSavedLocationRef.current = savedLocation;
+      pendingOverworldEntryReasonRef.current = entryReason;
 
       const savedMapId = savedLocation.location.mapId;
       if (savedMapId && savedMapId !== selectedMapId) {
         console.log('[GamePage] Changing map to saved location:', savedMapId);
         setSelectedMapId(savedMapId);
       }
+    } else {
+      pendingOverworldEntryReasonRef.current = null;
     }
 
     setOverworldEntryReady(true);
@@ -79,5 +87,6 @@ export function useOverworldContinueLocation(params: UseOverworldContinueLocatio
     setSelectedMapId,
     setOverworldEntryReady,
     pendingSavedLocationRef,
+    pendingOverworldEntryReasonRef,
   ]);
 }

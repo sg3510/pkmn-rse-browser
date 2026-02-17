@@ -31,6 +31,8 @@ interface PendingScriptedWarpLike {
   phase: 'pending' | 'fading' | 'loading';
 }
 
+type PendingOverworldEntryReason = 'continue' | 'new-game' | 'state-transition';
+
 interface LastWorldUpdate {
   tileX: number;
   tileY: number;
@@ -54,6 +56,7 @@ export interface LoadSelectedOverworldMapParams {
   worldManagerRef: MutableRef<WorldManager | null>;
   objectEventManagerRef: MutableRef<ObjectEventManager>;
   pendingSavedLocationRef: MutableRef<LocationState | null>;
+  pendingOverworldEntryReasonRef: MutableRef<PendingOverworldEntryReason | null>;
   consumePendingObjectEventRuntimeState?: () => ObjectEventRuntimeState | null;
   pendingScriptedWarpRef: MutableRef<PendingScriptedWarpLike | null>;
   warpingRef: MutableRef<boolean>;
@@ -95,6 +98,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     worldManagerRef,
     objectEventManagerRef,
     pendingSavedLocationRef,
+    pendingOverworldEntryReasonRef,
     consumePendingObjectEventRuntimeState,
     pendingScriptedWarpRef,
     warpingRef,
@@ -189,7 +193,9 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         setupObjectCollisionChecker(player, objectEventManagerRef.current);
 
         const savedLocation = pendingSavedLocationRef.current;
+        const pendingEntryReason = pendingOverworldEntryReasonRef.current;
         pendingSavedLocationRef.current = null;
+        pendingOverworldEntryReasonRef.current = null;
         const pendingObjectEventRuntimeState = savedLocation
           ? (consumePendingObjectEventRuntimeState?.() ?? null)
           : null;
@@ -291,6 +297,11 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           });
         }
         player.setCyclingRoadChallengeActive(false);
+        const mapEntryMode: 'warp' | 'return-to-field' = (
+          savedLocation && pendingEntryReason === 'state-transition'
+        )
+          ? 'return-to-field'
+          : 'warp';
         await runMapEntryScripts({
           currentMapId: playerMapId,
           snapshot,
@@ -305,6 +316,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
               }
             : undefined,
           scriptRuntimeServices,
+          mode: mapEntryMode,
         });
 
         if (pendingObjectEventRuntimeState) {

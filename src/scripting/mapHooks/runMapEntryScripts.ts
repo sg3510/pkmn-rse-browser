@@ -37,7 +37,7 @@ export interface RunMapEntryScriptsParams {
   mapScriptCache?: Map<string, MapScriptData | null>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   scriptRuntimeServices?: ScriptRuntimeServices;
-  mode?: 'warp' | 'camera-transition';
+  mode?: 'warp' | 'camera-transition' | 'return-to-field';
 }
 
 const TEMP_VAR_NAMES = [
@@ -95,7 +95,12 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     scriptRuntimeServices,
     mode = 'warp',
   } = params;
-  const logPrefix = mode === 'warp' ? '[WARP]' : '[SEAM]';
+  const logPrefix = mode === 'warp'
+    ? '[WARP]'
+    : mode === 'camera-transition'
+      ? '[SEAM]'
+      : '[RETURN]';
+  const isReturnToField = mode === 'return-to-field';
   if (isDebugMode() || isDebugMode('field')) {
     const cyclingState = gameVariables.getVar('VAR_CYCLING_CHALLENGE_STATE');
     console.debug(
@@ -114,9 +119,11 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     // This prevents first-frame map-change reset from overriding script weather.
     scriptRuntimeServices?.weather?.setCurrentMapContext?.(currentMapId);
 
-    clearTempFieldEventDataLikeC();
-    stepCallbackManager.reset();
-    clearFixedHoleWarpTarget();
+    if (!isReturnToField) {
+      clearTempFieldEventDataLikeC();
+      stepCallbackManager.reset();
+      clearFixedHoleWarpTarget();
+    }
 
     const [mapData, commonData] = await Promise.all([
       getMapScripts(currentMapId),
@@ -147,6 +154,20 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       currentMapId,
       scriptRuntimeServices,
     );
+
+    if (isReturnToField) {
+      if (mapData.mapScripts.onReturnToField) {
+        await runner.execute(mapData.mapScripts.onReturnToField);
+        console.log(`${logPrefix} ON_RETURN_TO_FIELD script executed for ${currentMapId}`);
+      }
+      if (mapData.mapScripts.onResume) {
+        await runner.execute(mapData.mapScripts.onResume);
+        console.log(`${logPrefix} ON_RESUME script executed for ${currentMapId}`);
+      }
+
+      scriptRuntimeServices?.weather?.applyCurrentWeather?.();
+      return;
+    }
 
     let ranPreSpawnMapScript = false;
 

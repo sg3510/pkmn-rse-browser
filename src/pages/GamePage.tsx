@@ -112,7 +112,7 @@ import { executeDiveFieldAction } from '../game/dive/executeDiveFieldAction';
 import { buildWebGLDebugState } from '../components/debug/buildWebGLDebugState';
 import { buildDebugState } from '../components/debug/buildDebugState';
 import { useStateMachineRenderLoop } from './gamePage/useStateMachineRenderLoop';
-import { useOverworldContinueLocation } from './gamePage/useOverworldContinueLocation';
+import { useOverworldContinueLocation, type OverworldEntryReason } from './gamePage/useOverworldContinueLocation';
 import { performWarpTransition } from '../game/overworld/warp/performWarpTransition';
 import { loadSelectedOverworldMap } from '../game/overworld/load/loadSelectedOverworldMap';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
@@ -855,6 +855,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   // Ref for pending saved location (set when Continue is selected, consumed on map load)
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
+  const pendingOverworldEntryReasonRef = useRef<OverworldEntryReason | null>(null);
   const pendingScriptedWarpRef = useRef<PendingScriptedWarp | null>(null);
 
   const setMapMetatileLocal = useCallback((
@@ -1857,6 +1858,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     setSelectedMapId: selectMapForLoad,
     setOverworldEntryReady,
     pendingSavedLocationRef,
+    pendingOverworldEntryReasonRef,
   });
 
   // Load selected map assets and configure pipeline when in OVERWORLD state.
@@ -1881,6 +1883,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       worldManagerRef,
       objectEventManagerRef,
       pendingSavedLocationRef,
+      pendingOverworldEntryReasonRef,
       consumePendingObjectEventRuntimeState: () => saveManager.consumePendingObjectEventRuntimeState(),
       pendingScriptedWarpRef,
       warpingRef,
