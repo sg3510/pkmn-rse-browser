@@ -12,11 +12,17 @@ import { GBA_FRAME_MS } from '../../config/timing';
 import { createLegendaryScriptServices } from '../../game/legendary/createLegendaryScriptServices';
 import type { ScriptFieldEffectAnimationManager } from '../../game/ScriptFieldEffectAnimationManager';
 import type { OrbEffectRuntime } from '../../game/scriptEffects/orbEffectRuntime';
+import {
+  MIRAGE_TOWER_COLLAPSE_ANCHOR,
+  type MirageTowerCollapseRuntime,
+} from '../../game/scriptEffects/mirageTowerCollapseRuntime';
 import { berryManager } from '../../game/berry/BerryManager.ts';
 
 interface MutableRef<T> {
   current: T;
 }
+
+const TILE_PIXELS = 16;
 
 export interface ScriptRuntimeServicesDeps {
   worldSnapshotRef: MutableRef<WorldSnapshot | null>;
@@ -33,12 +39,16 @@ export interface ScriptRuntimeServicesDeps {
   activeScriptFieldEffectsRef: MutableRef<Map<string, Set<Promise<void>>>>;
   scriptFieldEffectAnimationManagerRef: MutableRef<ScriptFieldEffectAnimationManager>;
   orbEffectRuntimeRef: MutableRef<OrbEffectRuntime>;
+  mirageTowerCollapseRuntimeRef: MutableRef<MirageTowerCollapseRuntime>;
   mewEmergingGrassEffectIdRef: MutableRef<string | null>;
   deoxysRockRenderDebugRef: MutableRef<{ active: boolean; startMs: number; lastLogMs: number }>;
   waitScriptFrames: (frames: number) => Promise<void>;
 }
 
 export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): ScriptRuntimeServices {
+  const FALLING_PLAYER_LOCAL_ID = 'LOCALID_ROUTE111_PLAYER_FALLING';
+  const FALL_SPEED_PX_PER_FRAME = 4;
+
   const getMovementDirection = (step: string): 'up' | 'down' | 'left' | 'right' | null => {
     if (step.endsWith('_up')) return 'up';
     if (step.endsWith('_down')) return 'down';
@@ -86,6 +96,60 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     const parsedOffset = deps.objectEventManagerRef.current.getMapOffset(mapId);
     if (!parsedOffset) return null;
     return { offsetX: parsedOffset.x, offsetY: parsedOffset.y };
+  };
+
+  const startMirageTowerShake = async (): Promise<void> => {
+    const offset = resolveMapOffset(MIRAGE_TOWER_COLLAPSE_ANCHOR.mapId);
+    if (!offset) {
+      return;
+    }
+
+    const worldX = (offset.offsetX + MIRAGE_TOWER_COLLAPSE_ANCHOR.tileX) * TILE_PIXELS;
+    const worldY = (offset.offsetY + MIRAGE_TOWER_COLLAPSE_ANCHOR.tileY) * TILE_PIXELS;
+    await deps.mirageTowerCollapseRuntimeRef.current.startShake(worldX, worldY);
+  };
+
+  const startMirageTowerPlayerDescend = async (): Promise<void> => {
+    const mapId = MIRAGE_TOWER_COLLAPSE_ANCHOR.mapId;
+    const objectManager = deps.objectEventManagerRef.current;
+    const fallingNpc = objectManager.getNPCByLocalId(mapId, FALLING_PLAYER_LOCAL_ID);
+    const player = deps.playerRef.current;
+    if (!fallingNpc || !player) {
+      await deps.waitScriptFrames(24);
+      return;
+    }
+
+    objectManager.setNPCVisibilityByLocalId(mapId, FALLING_PLAYER_LOCAL_ID, true);
+    objectManager.setNPCSpriteHiddenByLocalId(mapId, FALLING_PLAYER_LOCAL_ID, false);
+    const mapOffset = resolveMapOffset(mapId);
+    const startWorldY = mapOffset
+      ? mapOffset.offsetY + MIRAGE_TOWER_COLLAPSE_ANCHOR.tileY
+      : fallingNpc.tileY;
+    fallingNpc.direction = 'down';
+    fallingNpc.tileX = player.tileX;
+    fallingNpc.tileY = startWorldY;
+    fallingNpc.subTileX = 0;
+    fallingNpc.subTileY = 0;
+    fallingNpc.isWalking = true;
+
+    let fallPixelY = fallingNpc.tileY * TILE_PIXELS + fallingNpc.subTileY - TILE_PIXELS;
+    const targetPixelY = player.y;
+    let guard = 0;
+    while (fallPixelY < targetPixelY && guard < 240) {
+      fallPixelY += FALL_SPEED_PX_PER_FRAME;
+      const anchoredY = fallPixelY + TILE_PIXELS;
+      const tileY = Math.floor(anchoredY / TILE_PIXELS);
+      fallingNpc.tileY = tileY;
+      fallingNpc.subTileY = anchoredY - tileY * TILE_PIXELS;
+      guard++;
+      await deps.waitScriptFrames(1);
+    }
+
+    const finalAnchoredY = Math.round(Math.max(fallPixelY, targetPixelY) + TILE_PIXELS);
+    const finalTileY = Math.floor(finalAnchoredY / TILE_PIXELS);
+    fallingNpc.tileY = finalTileY;
+    fallingNpc.subTileY = finalAnchoredY - finalTileY * TILE_PIXELS;
+    fallingNpc.isWalking = false;
   };
 
   return {
@@ -204,6 +268,12 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     screenEffects: {
       startOrbEffect: (resultVar) => deps.orbEffectRuntimeRef.current.start(resultVar),
       fadeOutOrbEffect: () => deps.orbEffectRuntimeRef.current.fadeOut(),
+    },
+    mirageTower: {
+      startShake: startMirageTowerShake,
+      startPlayerDescend: startMirageTowerPlayerDescend,
+      startDisintegration: () => deps.mirageTowerCollapseRuntimeRef.current.startDisintegration(),
+      clear: () => deps.mirageTowerCollapseRuntimeRef.current.clear(),
     },
     camera: {
       spawnObject: () => {

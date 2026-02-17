@@ -29,6 +29,7 @@ interface MirageTowerTestHarness {
   setSpriteHiddenCalls: Array<{ mapId: string; localId: string; hidden: boolean }>;
   shakeCalls: ScriptCameraShakeRequest[];
   delayFramesCalls: number[];
+  mirageTowerCalls: string[];
 }
 
 function createHarness(
@@ -38,6 +39,7 @@ function createHarness(
     flags?: readonly string[];
     npcLocalIds?: readonly string[];
     npcGraphicsByLocalId?: Record<string, string>;
+    enableMirageTowerServices?: boolean;
   } = {}
 ): MirageTowerTestHarness {
   const vars = new Map<string, number>(Object.entries(options.vars ?? {}));
@@ -49,6 +51,7 @@ function createHarness(
   const setSpriteHiddenCalls: MirageTowerTestHarness['setSpriteHiddenCalls'] = [];
   const shakeCalls: ScriptCameraShakeRequest[] = [];
   const delayFramesCalls: number[] = [];
+  const mirageTowerCalls: string[] = [];
   const npcLocalIds = options.npcLocalIds ?? [];
   const npcGraphicsByLocalId = options.npcGraphicsByLocalId ?? {};
 
@@ -87,6 +90,22 @@ function createHarness(
         shakeCalls.push(request);
       },
     },
+    mirageTower: options.enableMirageTowerServices
+      ? {
+          startShake: async () => {
+            mirageTowerCalls.push('startShake');
+          },
+          startPlayerDescend: async () => {
+            mirageTowerCalls.push('startPlayerDescend');
+          },
+          startDisintegration: async () => {
+            mirageTowerCalls.push('startDisintegration');
+          },
+          clear: () => {
+            mirageTowerCalls.push('clear');
+          },
+        }
+      : undefined,
   };
 
   return {
@@ -100,6 +119,7 @@ function createHarness(
     setSpriteHiddenCalls,
     shakeCalls,
     delayFramesCalls,
+    mirageTowerCalls,
   };
 }
 
@@ -271,4 +291,38 @@ test('DoMirageTowerCeilingCrumble runs 16-shake sequence and waits for crumble t
     },
   ]);
   assert.deepEqual(harness.delayFramesCalls, [24]);
+});
+
+test('StartMirageTowerShake uses runtime service when available and applies hidden-tower metatiles', async () => {
+  const harness = createHarness({ enableMirageTowerServices: true });
+  const result = executeMirageTowerSpecial('StartMirageTowerShake', harness.ctx);
+  assert.equal(result.handled, true);
+  assert.ok(result.waitState);
+  await result.waitState;
+
+  assert.deepEqual(harness.mirageTowerCalls, ['startShake']);
+  assert.equal(harness.shakeCalls.length, 0);
+  assert.equal(harness.metatileCalls.length, 18);
+});
+
+test('StartPlayerDescendMirageTower uses runtime service when available', async () => {
+  const harness = createHarness({ enableMirageTowerServices: true });
+  const result = executeMirageTowerSpecial('StartPlayerDescendMirageTower', harness.ctx);
+  assert.equal(result.handled, true);
+  assert.ok(result.waitState);
+  await result.waitState;
+
+  assert.deepEqual(harness.mirageTowerCalls, ['startPlayerDescend']);
+  assert.equal(harness.moveNpcCalls.length, 0);
+});
+
+test('StartMirageTowerDisintegration uses runtime service when available', async () => {
+  const harness = createHarness({ enableMirageTowerServices: true });
+  const result = executeMirageTowerSpecial('StartMirageTowerDisintegration', harness.ctx);
+  assert.equal(result.handled, true);
+  assert.ok(result.waitState);
+  await result.waitState;
+
+  assert.deepEqual(harness.mirageTowerCalls, ['startDisintegration']);
+  assert.equal(harness.shakeCalls.length, 0);
 });

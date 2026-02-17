@@ -124,6 +124,13 @@ function resolveRoute111FossilLocalId(ctx: MirageTowerSpecialContext): string {
   return ROUTE111_FOSSIL_DEFAULT_LOCAL_ID;
 }
 
+export interface ScriptMirageTowerSpecialServices {
+  startShake?: () => void | Promise<void>;
+  startPlayerDescend?: () => void | Promise<void>;
+  startDisintegration?: () => void | Promise<void>;
+  clear?: () => void | Promise<void>;
+}
+
 export interface MirageTowerSpecialContext {
   currentMapId: string;
   getVar: (varName: string) => number;
@@ -145,6 +152,7 @@ export interface MirageTowerSpecialContext {
   getAllNpcLocalIds?: StoryScriptContext['getAllNpcLocalIds'];
   getNpcGraphicsId?: StoryScriptContext['getNpcGraphicsId'];
   camera?: ScriptCameraSpecialServices;
+  mirageTower?: ScriptMirageTowerSpecialServices;
 }
 
 export interface MirageTowerSpecialExecutionResult {
@@ -161,6 +169,7 @@ export function executeMirageTowerSpecial(
       if (ctx.getVar('VAR_MIRAGE_TOWER_STATE') !== 0) {
         ctx.clearFlag('FLAG_MIRAGE_TOWER_VISIBLE');
         applyRoute111MirageTowerMetatiles(ctx, false);
+        void ctx.mirageTower?.clear?.();
         return { handled: true };
       }
 
@@ -173,6 +182,7 @@ export function executeMirageTowerSpecial(
         ctx.setFlag('FLAG_MIRAGE_TOWER_VISIBLE');
       } else {
         ctx.clearFlag('FLAG_MIRAGE_TOWER_VISIBLE');
+        void ctx.mirageTower?.clear?.();
       }
 
       applyRoute111MirageTowerMetatiles(ctx, visible);
@@ -180,15 +190,21 @@ export function executeMirageTowerSpecial(
     }
 
     case 'StartMirageTowerShake': {
-      const shakeRequest: ScriptCameraShakeRequest = {
-        verticalPan: 0,
-        horizontalPan: 2,
-        numShakes: 64,
-        delayFrames: 2,
-      };
-
       const waitState = (async () => {
-        void ctx.camera?.shake?.(shakeRequest);
+        applyRoute111MirageTowerMetatiles(ctx, false);
+
+        if (ctx.mirageTower?.startShake) {
+          await ctx.mirageTower.startShake();
+          return;
+        }
+
+        const fallbackShake: ScriptCameraShakeRequest = {
+          verticalPan: 0,
+          horizontalPan: 2,
+          numShakes: 64,
+          delayFrames: 2,
+        };
+        void ctx.camera?.shake?.(fallbackShake);
         await ctx.delayFrames(6);
       })();
 
@@ -197,6 +213,11 @@ export function executeMirageTowerSpecial(
 
     case 'StartPlayerDescendMirageTower': {
       const waitState = (async () => {
+        if (ctx.mirageTower?.startPlayerDescend) {
+          await ctx.mirageTower.startPlayerDescend();
+          return;
+        }
+
         ctx.setNpcPosition(
           MAP_ROUTE111,
           LOCALID_ROUTE111_PLAYER_FALLING,
@@ -218,6 +239,11 @@ export function executeMirageTowerSpecial(
 
     case 'StartMirageTowerDisintegration': {
       const waitState = (async () => {
+        if (ctx.mirageTower?.startDisintegration) {
+          await ctx.mirageTower.startDisintegration();
+          return;
+        }
+
         const shakeRequest: ScriptCameraShakeRequest = {
           verticalPan: 0,
           horizontalPan: 2,

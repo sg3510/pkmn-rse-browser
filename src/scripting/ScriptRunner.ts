@@ -44,7 +44,10 @@ import {
   type ScriptCameraSpecialServices,
   type ScriptLegendarySpecialServices,
 } from './specials/legendaryIslandSpecials.ts';
-import { executeMirageTowerSpecial } from './specials/mirageTowerSpecials.ts';
+import {
+  executeMirageTowerSpecial,
+  type ScriptMirageTowerSpecialServices,
+} from './specials/mirageTowerSpecials.ts';
 import { isDebugMode } from '../utils/debug.ts';
 import { berryManager } from '../game/berry/BerryManager.ts';
 import {
@@ -391,6 +394,7 @@ export interface ScriptRuntimeServices {
   screenEffects?: ScriptScreenEffectServices;
   camera?: ScriptCameraSpecialServices;
   legendary?: ScriptLegendarySpecialServices;
+  mirageTower?: ScriptMirageTowerSpecialServices;
 }
 
 export class ScriptRunner {
@@ -2538,6 +2542,7 @@ export class ScriptRunner {
         ? (mapId, localId) => this.ctx.getNpcGraphicsId!(mapId, localId)
         : undefined,
       camera: this.services.camera,
+      mirageTower: this.services.mirageTower,
     });
     if (mirageTowerSpecial.handled) {
       if (mirageTowerSpecial.waitState) {

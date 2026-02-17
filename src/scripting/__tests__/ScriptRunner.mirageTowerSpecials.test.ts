@@ -125,3 +125,51 @@ test('ScriptRunner handles Mirage Tower shake special waitstate flow', async () 
   });
   assert.deepEqual(delayFramesCalls, [6]);
 });
+
+test('ScriptRunner dispatches Mirage Tower shake to runtime service when available', async () => {
+  gameVariables.reset();
+  gameFlags.reset();
+
+  const metatileCalls: Array<{ mapId: string; x: number; y: number; metatileId: number; collision?: number }> = [];
+  const delayFramesCalls: number[] = [];
+  const mirageCalls: string[] = [];
+  const shakeCalls: Array<{
+    verticalPan: number;
+    horizontalPan: number;
+    numShakes: number;
+    delayFrames: number;
+  }> = [];
+
+  const services: ScriptRuntimeServices = {
+    camera: {
+      shake: async (request) => {
+        shakeCalls.push(request);
+      },
+    },
+    mirageTower: {
+      startShake: async () => {
+        mirageCalls.push('startShake');
+      },
+    },
+  };
+
+  const { mapData, commonData } = createData([
+    { cmd: 'special', args: ['StartMirageTowerShake'] },
+    { cmd: 'waitstate' },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner(
+    { mapData, commonData },
+    createContext(metatileCalls, delayFramesCalls),
+    'MAP_ROUTE111',
+    services
+  );
+
+  const handled = await runner.execute('Main');
+  assert.equal(handled, true);
+  assert.deepEqual(mirageCalls, ['startShake']);
+  assert.equal(shakeCalls.length, 0);
+  assert.equal(delayFramesCalls.length, 0);
+  assert.equal(metatileCalls.length, 18);
+});

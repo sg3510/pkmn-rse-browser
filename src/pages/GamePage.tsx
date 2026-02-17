@@ -47,6 +47,7 @@ import { npcAnimationManager } from '../game/npc/NPCAnimationEngine';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { ScriptFieldEffectAnimationManager } from '../game/ScriptFieldEffectAnimationManager';
 import { OrbEffectRuntime } from '../game/scriptEffects/orbEffectRuntime';
+import { MirageTowerCollapseRuntime } from '../game/scriptEffects/mirageTowerCollapseRuntime';
 import { useFieldSprites } from '../hooks/useFieldSprites';
 import { useNPCMovement } from '../hooks/useNPCMovement';
 import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
@@ -496,6 +497,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   });
   const activeScriptFieldEffectsRef = useRef<Map<string, Set<Promise<void>>>>(new Map());
   const orbEffectRuntimeRef = useRef<OrbEffectRuntime>(new OrbEffectRuntime());
+  const mirageTowerCollapseRuntimeRef = useRef<MirageTowerCollapseRuntime>(
+    new MirageTowerCollapseRuntime()
+  );
   const scriptFieldEffectAnimationManagerRef = useRef<ScriptFieldEffectAnimationManager>(
     new ScriptFieldEffectAnimationManager({
       getPlayerWorldPosition: () => {
@@ -935,6 +939,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       activeScriptFieldEffectsRef,
       scriptFieldEffectAnimationManagerRef,
       orbEffectRuntimeRef,
+      mirageTowerCollapseRuntimeRef,
       mewEmergingGrassEffectIdRef,
       deoxysRockRenderDebugRef,
       weatherManagerRef,
@@ -1154,6 +1159,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   ): Promise<void> => {
     scriptFieldEffectAnimationManagerRef.current.clear();
     orbEffectRuntimeRef.current.clear(cameraRef.current);
+    mirageTowerCollapseRuntimeRef.current.clear();
 
     // Update snapshot ref
     worldSnapshotRef.current = snapshot;
@@ -1266,6 +1272,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   ) => {
     scriptFieldEffectAnimationManagerRef.current.clear();
     orbEffectRuntimeRef.current.clear(cameraRef.current);
+    mirageTowerCollapseRuntimeRef.current.clear();
 
     // Clear ON_FRAME suppression — new map visit should re-evaluate frame scripts
     onFrameSuppressedRef.current.clear();
@@ -1414,6 +1421,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       npcAnimationManager.update();
       scriptFieldEffectAnimationManagerRef.current.update(dt);
       orbEffectRuntimeRef.current.update(gbaFramesAdvanced, cameraRef.current);
+      mirageTowerCollapseRuntimeRef.current.update(gbaFramesAdvanced);
 
       const objectSpawnDespawnStart = performance.now();
       const player = playerRef.current;
@@ -1756,6 +1764,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             scriptFieldEffectAnimationManager: scriptFieldEffectAnimationManagerRef.current,
             orbEffectRuntime: orbEffectRuntimeRef.current,
             orbEffectRenderer: orbEffectRendererRef.current,
+            mirageTowerCollapseRuntime: mirageTowerCollapseRuntimeRef.current,
             doorAnimations,
             doorSequencer,
             arrowOverlay,
@@ -1824,6 +1833,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       lastWorldUpdateRef.current = null;
       scriptFieldEffectAnimationManagerRef.current.clear();
       orbEffectRuntimeRef.current.clear(cameraRef.current);
+      mirageTowerCollapseRuntimeRef.current.clear();
       renderContextCacheRef.current = null;
       weatherManagerRef.current.clear();
       weatherDefaultsSnapshotRef.current = null;

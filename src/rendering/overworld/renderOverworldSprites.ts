@@ -22,6 +22,7 @@ import type { ReflectionTileGridDebugInfo, PriorityDebugInfo } from '../../compo
 import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../../types/objectEvents';
 import type { ScriptFieldEffectAnimationManager } from '../../game/ScriptFieldEffectAnimationManager';
 import type { OrbEffectRuntime } from '../../game/scriptEffects/orbEffectRuntime';
+import type { MirageTowerCollapseRuntime } from '../../game/scriptEffects/mirageTowerCollapseRuntime';
 import { calculateSortKey, getRotatingGateAtlasName } from '../spriteUtils';
 import { getReflectionTileGridDebug } from '../../components/debug';
 import { compositeWebGLFrame } from '../compositeWebGLFrame';
@@ -81,6 +82,7 @@ export interface RenderOverworldSpritesParams {
   scriptFieldEffectAnimationManager: ScriptFieldEffectAnimationManager;
   orbEffectRuntime: OrbEffectRuntime;
   orbEffectRenderer: WebGLOrbEffectRenderer | null;
+  mirageTowerCollapseRuntime: MirageTowerCollapseRuntime;
 
   // Overlays & animations
   doorAnimations: UseDoorAnimationsReturn;
@@ -152,6 +154,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     scriptFieldEffectAnimationManager,
     orbEffectRuntime,
     orbEffectRenderer,
+    mirageTowerCollapseRuntime,
     doorAnimations,
     doorSequencer,
     arrowOverlay,
@@ -370,27 +373,33 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
             weatherManager.render(weatherCtx, weatherView, weatherNowMs);
           },
           renderScriptScreenEffect: (effectCtx) => {
-            if (!orbEffectRenderer) return;
             const state = orbEffectRuntime.getRenderState();
-            if (!state) return;
-
-            const gl = effectCtx.gl;
             const targetWidth = effectCtx.ctx2d.canvas.width;
             const targetHeight = effectCtx.ctx2d.canvas.height;
-            if (
-              effectCtx.webglCanvas.width !== targetWidth
-              || effectCtx.webglCanvas.height !== targetHeight
-            ) {
-              effectCtx.webglCanvas.width = targetWidth;
-              effectCtx.webglCanvas.height = targetHeight;
-            }
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            gl.viewport(0, 0, targetWidth, targetHeight);
-            gl.clearColor(0, 0, 0, 0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
 
-            orbEffectRenderer.render(state, targetWidth, targetHeight);
-            effectCtx.ctx2d.drawImage(effectCtx.webglCanvas, 0, 0, targetWidth, targetHeight);
+            if (state && orbEffectRenderer) {
+              const gl = effectCtx.gl;
+              if (
+                effectCtx.webglCanvas.width !== targetWidth
+                || effectCtx.webglCanvas.height !== targetHeight
+              ) {
+                effectCtx.webglCanvas.width = targetWidth;
+                effectCtx.webglCanvas.height = targetHeight;
+              }
+              gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+              gl.viewport(0, 0, targetWidth, targetHeight);
+              gl.clearColor(0, 0, 0, 0);
+              gl.clear(gl.COLOR_BUFFER_BIT);
+              orbEffectRenderer.render(state, targetWidth, targetHeight);
+              effectCtx.ctx2d.drawImage(effectCtx.webglCanvas, 0, 0, targetWidth, targetHeight);
+            }
+
+            mirageTowerCollapseRuntime.render(
+              effectCtx.ctx2d,
+              effectCtx.view,
+              targetWidth,
+              targetHeight
+            );
           },
         },
         {
