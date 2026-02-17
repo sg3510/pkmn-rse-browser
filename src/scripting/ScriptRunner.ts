@@ -44,6 +44,7 @@ import {
   type ScriptCameraSpecialServices,
   type ScriptLegendarySpecialServices,
 } from './specials/legendaryIslandSpecials.ts';
+import { executeMirageTowerSpecial } from './specials/mirageTowerSpecials.ts';
 import { isDebugMode } from '../utils/debug.ts';
 import { berryManager } from '../game/berry/BerryManager.ts';
 import {
@@ -2510,6 +2511,39 @@ export class ScriptRunner {
     });
     if (legendarySpecial.handled) {
       return legendarySpecial.result;
+    }
+
+    const mirageTowerSpecial = executeMirageTowerSpecial(name, {
+      currentMapId: this.currentMapId,
+      getVar: (varName) => gameVariables.getVar(varName),
+      isFlagSet: (flagName) => gameFlags.isSet(flagName),
+      setFlag: (flagName) => gameFlags.set(flagName),
+      clearFlag: (flagName) => gameFlags.clear(flagName),
+      setMapMetatile: this.ctx.setMapMetatile
+        ? (mapId, tileX, tileY, metatileId, collision) => {
+            this.ctx.setMapMetatile!(mapId, tileX, tileY, metatileId, collision);
+          }
+        : undefined,
+      delayFrames: (frames) => this.ctx.delayFrames(frames),
+      moveNpc: (mapId, localId, direction, mode) => this.ctx.moveNpc(mapId, localId, direction, mode),
+      setNpcPosition: (mapId, localId, tileX, tileY) => this.ctx.setNpcPosition(mapId, localId, tileX, tileY),
+      setNpcVisible: (mapId, localId, visible, persistent) => this.ctx.setNpcVisible(mapId, localId, visible, persistent),
+      setSpriteHidden: this.ctx.setSpriteHidden
+        ? (mapId, localId, hidden) => this.ctx.setSpriteHidden!(mapId, localId, hidden)
+        : undefined,
+      getAllNpcLocalIds: this.ctx.getAllNpcLocalIds
+        ? (mapId) => this.ctx.getAllNpcLocalIds!(mapId)
+        : undefined,
+      getNpcGraphicsId: this.ctx.getNpcGraphicsId
+        ? (mapId, localId) => this.ctx.getNpcGraphicsId!(mapId, localId)
+        : undefined,
+      camera: this.services.camera,
+    });
+    if (mirageTowerSpecial.handled) {
+      if (mirageTowerSpecial.waitState) {
+        this.queueWaitState(mirageTowerSpecial.waitState);
+      }
+      return undefined;
     }
 
     const writeBerryInteractionData = (): void => {
