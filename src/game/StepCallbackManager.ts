@@ -15,13 +15,28 @@ import { gameVariables } from './GameVariables.ts';
 import { bagManager } from './BagManager.ts';
 import { ITEMS } from '../data/items.ts';
 import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
-import { MB_ASHGRASS, MB_MUDDY_SLOPE } from '../utils/metatileBehaviors.generated.ts';
+import {
+  MB_ASHGRASS,
+  MB_CRACKED_FLOOR,
+  MB_CRACKED_FLOOR_HOLE,
+  MB_FORTREE_BRIDGE,
+  MB_MUDDY_SLOPE,
+  MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT,
+  MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT,
+  MB_PACIFIDLOG_VERTICAL_LOG_BOTTOM,
+  MB_PACIFIDLOG_VERTICAL_LOG_TOP,
+} from '../utils/metatileBehaviors.generated.ts';
 import type { FieldEffectType } from './FieldEffectManager.ts';
 
 // Step callback IDs from include/constants/field_tasks.h
 const STEP_CB_DUMMY = 0;
 const STEP_CB_ASH = 1;
+const STEP_CB_FORTREE_BRIDGE = 2;
+const STEP_CB_PACIFIDLOG_BRIDGE = 3;
 const STEP_CB_SOOTOPOLIS_ICE = 4;
+const STEP_CB_TRUCK = 5;
+const STEP_CB_SECRET_BASE = 6;
+const STEP_CB_CRACKED_FLOOR = 7;
 
 // Metatile behavior constants (from metatileBehaviors.generated.ts)
 const MB_THIN_ICE = 38;
@@ -30,6 +45,31 @@ const MB_CRACKED_ICE = 39;
 // Sootopolis Gym metatile IDs (from metatileLabels.gen.ts)
 const METATILE_ICE_CRACKED = 0x20E;
 const METATILE_ICE_BROKEN = 0x206;
+
+// Fortree bridge metatiles (field_tasks.c TryRaise/LowerFortreeBridge)
+const METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED = METATILE_LABELS['METATILE_Fortree_BridgeOverGrass_Raised'] ?? 0x24E;
+const METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED = METATILE_LABELS['METATILE_Fortree_BridgeOverGrass_Lowered'] ?? 0x24F;
+const METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED = METATILE_LABELS['METATILE_Fortree_BridgeOverTrees_Raised'] ?? 0x256;
+const METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED = METATILE_LABELS['METATILE_Fortree_BridgeOverTrees_Lowered'] ?? 0x257;
+
+// Pacifidlog bridge metatiles (field_tasks.c s{Half,Fully,Floating}SubmergedBridgeMetatileOffsets)
+const METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_TOP = METATILE_LABELS['METATILE_Pacifidlog_HalfSubmergedLogs_VerticalTop'] ?? 0x259;
+const METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_BOTTOM = METATILE_LABELS['METATILE_Pacifidlog_HalfSubmergedLogs_VerticalBottom'] ?? 0x261;
+const METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_LEFT = METATILE_LABELS['METATILE_Pacifidlog_HalfSubmergedLogs_HorizontalLeft'] ?? 0x252;
+const METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_RIGHT = METATILE_LABELS['METATILE_Pacifidlog_HalfSubmergedLogs_HorizontalRight'] ?? 0x253;
+const METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_TOP = METATILE_LABELS['METATILE_Pacifidlog_SubmergedLogs_VerticalTop'] ?? 0x25A;
+const METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_BOTTOM = METATILE_LABELS['METATILE_Pacifidlog_SubmergedLogs_VerticalBottom'] ?? 0x262;
+const METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_LEFT = METATILE_LABELS['METATILE_Pacifidlog_SubmergedLogs_HorizontalLeft'] ?? 0x254;
+const METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_RIGHT = METATILE_LABELS['METATILE_Pacifidlog_SubmergedLogs_HorizontalRight'] ?? 0x255;
+const METATILE_PACIFIDLOG_FLOATING_VERTICAL_TOP = METATILE_LABELS['METATILE_Pacifidlog_FloatingLogs_VerticalTop'] ?? 0x258;
+const METATILE_PACIFIDLOG_FLOATING_VERTICAL_BOTTOM = METATILE_LABELS['METATILE_Pacifidlog_FloatingLogs_VerticalBottom'] ?? 0x260;
+const METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_LEFT = METATILE_LABELS['METATILE_Pacifidlog_FloatingLogs_HorizontalLeft'] ?? 0x250;
+const METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_RIGHT = METATILE_LABELS['METATILE_Pacifidlog_FloatingLogs_HorizontalRight'] ?? 0x251;
+
+// Cracked floor metatiles (field_tasks.c SetCrackedFloorHoleMetatile)
+const METATILE_CAVE_CRACKED_FLOOR = METATILE_LABELS['METATILE_Cave_CrackedFloor'] ?? 0x22F;
+const METATILE_CAVE_CRACKED_FLOOR_HOLE = METATILE_LABELS['METATILE_Cave_CrackedFloor_Hole'] ?? 0x206;
+const METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE = METATILE_LABELS['METATILE_Pacifidlog_SkyPillar_CrackedFloor_Hole'] ?? 0x237;
 
 // Ash grass metatiles (Route 113 / Lavaridge fallback)
 const METATILE_FALLARBOR_ASH_GRASS = METATILE_LABELS['METATILE_Fallarbor_AshGrass'] ?? 0x20A;
@@ -75,6 +115,75 @@ const ICE_ROW_VARS: Record<number, string> = {
   19: 'VAR_TEMP_A',
 };
 
+type PacifidlogLogOrientation =
+  | 'verticalTop'
+  | 'verticalBottom'
+  | 'horizontalLeft'
+  | 'horizontalRight';
+
+interface MetatileOffset {
+  x: number;
+  y: number;
+  metatileId: number;
+}
+
+const PACIFIDLOG_HALF_SUBMERGED_OFFSETS: Record<PacifidlogLogOrientation, readonly [MetatileOffset, MetatileOffset]> = {
+  verticalTop: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_TOP },
+    { x: 0, y: 1, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_BOTTOM },
+  ],
+  verticalBottom: [
+    { x: 0, y: -1, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_TOP },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_VERTICAL_BOTTOM },
+  ],
+  horizontalLeft: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_LEFT },
+    { x: 1, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_RIGHT },
+  ],
+  horizontalRight: [
+    { x: -1, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_LEFT },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_HALF_SUBMERGED_HORIZONTAL_RIGHT },
+  ],
+};
+
+const PACIFIDLOG_FULLY_SUBMERGED_OFFSETS: Record<PacifidlogLogOrientation, readonly [MetatileOffset, MetatileOffset]> = {
+  verticalTop: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_TOP },
+    { x: 0, y: 1, metatileId: METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_BOTTOM },
+  ],
+  verticalBottom: [
+    { x: 0, y: -1, metatileId: METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_TOP },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_VERTICAL_BOTTOM },
+  ],
+  horizontalLeft: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_LEFT },
+    { x: 1, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_RIGHT },
+  ],
+  horizontalRight: [
+    { x: -1, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_LEFT },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_SUBMERGED_HORIZONTAL_RIGHT },
+  ],
+};
+
+const PACIFIDLOG_FLOATING_OFFSETS: Record<PacifidlogLogOrientation, readonly [MetatileOffset, MetatileOffset]> = {
+  verticalTop: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_VERTICAL_TOP },
+    { x: 0, y: 1, metatileId: METATILE_PACIFIDLOG_FLOATING_VERTICAL_BOTTOM },
+  ],
+  verticalBottom: [
+    { x: 0, y: -1, metatileId: METATILE_PACIFIDLOG_FLOATING_VERTICAL_TOP },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_VERTICAL_BOTTOM },
+  ],
+  horizontalLeft: [
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_LEFT },
+    { x: 1, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_RIGHT },
+  ],
+  horizontalRight: [
+    { x: -1, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_LEFT },
+    { x: 0, y: 0, metatileId: METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_RIGHT },
+  ],
+};
+
 export interface StepCallbackContext {
   /** Player's map-local tile X coordinate */
   playerLocalX: number;
@@ -101,6 +210,34 @@ export interface StepCallbackContext {
   ) => void;
   /** Invalidate the render view (after metatile changes) */
   invalidateView: () => void;
+  /** Player render elevation parity (matches PlayerGetElevation for bridge logic). */
+  playerElevation?: number;
+  /** True when current movement speed is PLAYER_SPEED_FASTEST parity. */
+  isPlayerAtFastestSpeed?: boolean;
+}
+
+export interface StepCallbackDebugState {
+  callbackId: number;
+  callbackName:
+    | 'STEP_CB_DUMMY'
+    | 'STEP_CB_ASH'
+    | 'STEP_CB_FORTREE_BRIDGE'
+    | 'STEP_CB_PACIFIDLOG_BRIDGE'
+    | 'STEP_CB_SOOTOPOLIS_ICE'
+    | 'STEP_CB_TRUCK'
+    | 'STEP_CB_SECRET_BASE'
+    | 'STEP_CB_CRACKED_FLOOR'
+    | 'STEP_CB_OTHER';
+  iceState: number;
+  iceDelay: number;
+  iceTileX: number;
+  iceTileY: number;
+  fortreeState: number;
+  fortreeBounceTime: number;
+  pacifidlogState: number;
+  pacifidlogDelay: number;
+  crackedFloorDelayA: number;
+  crackedFloorDelayB: number;
 }
 
 interface PendingAshFieldEffect {
@@ -116,6 +253,41 @@ interface PendingMuddySlopeAnimation {
   localX: number;
   localY: number;
   remainingFrames: number;
+}
+
+interface FortreeBridgeState {
+  state: 0 | 1 | 2;
+  prevX: number;
+  prevY: number;
+  oldBridgeX: number;
+  oldBridgeY: number;
+  bounceTime: number;
+}
+
+interface PacifidlogBridgeState {
+  state: 0 | 1 | 2;
+  prevX: number;
+  prevY: number;
+  toRaiseX: number;
+  toRaiseY: number;
+  delay: number;
+}
+
+interface CrackedFloorState {
+  prevX: number;
+  prevY: number;
+  floor1Delay: number;
+  floor1X: number;
+  floor1Y: number;
+  floor2Delay: number;
+  floor2X: number;
+  floor2Y: number;
+}
+
+interface PendingFortreeBounceRestore {
+  x: number;
+  y: number;
+  delayFrames: number;
 }
 
 class StepCallbackManagerImpl {
@@ -142,6 +314,39 @@ class StepCallbackManagerImpl {
   private iceTileX: number = 0;
   private iceTileY: number = 0;
 
+  // Fortree bridge state (field_tasks.c FortreeBridgePerStepCallback)
+  private fortreeBridgeState: FortreeBridgeState = {
+    state: 0,
+    prevX: 0,
+    prevY: 0,
+    oldBridgeX: 0,
+    oldBridgeY: 0,
+    bounceTime: 0,
+  };
+  private pendingFortreeBounceRestores: PendingFortreeBounceRestore[] = [];
+
+  // Pacifidlog bridge state (field_tasks.c PacifidlogBridgePerStepCallback)
+  private pacifidlogBridgeState: PacifidlogBridgeState = {
+    state: 0,
+    prevX: 0,
+    prevY: 0,
+    toRaiseX: -1,
+    toRaiseY: -1,
+    delay: 0,
+  };
+
+  // Cracked floor state (field_tasks.c CrackedFloorPerStepCallback)
+  private crackedFloorState: CrackedFloorState = {
+    prevX: 0,
+    prevY: 0,
+    floor1Delay: 0,
+    floor1X: 0,
+    floor1Y: 0,
+    floor2Delay: 0,
+    floor2X: 0,
+    floor2Y: 0,
+  };
+
   // Map-agnostic step edge detector used for island-specific counters.
   private prevStepMapId: string | null = null;
   private prevStepDestLocalX: number | null = null;
@@ -167,10 +372,48 @@ class StepCallbackManagerImpl {
     this.prevStepMapId = null;
     this.prevStepDestLocalX = null;
     this.prevStepDestLocalY = null;
+    this.resetFortreeBridgeState();
+    this.resetPacifidlogBridgeState();
+    this.resetCrackedFloorState();
   }
 
   getCallbackId(): number {
     return this.callbackId;
+  }
+
+  getDebugState(): StepCallbackDebugState {
+    const callbackName = this.callbackId === STEP_CB_DUMMY
+      ? 'STEP_CB_DUMMY'
+      : this.callbackId === STEP_CB_ASH
+        ? 'STEP_CB_ASH'
+        : this.callbackId === STEP_CB_FORTREE_BRIDGE
+          ? 'STEP_CB_FORTREE_BRIDGE'
+          : this.callbackId === STEP_CB_PACIFIDLOG_BRIDGE
+            ? 'STEP_CB_PACIFIDLOG_BRIDGE'
+        : this.callbackId === STEP_CB_SOOTOPOLIS_ICE
+          ? 'STEP_CB_SOOTOPOLIS_ICE'
+          : this.callbackId === STEP_CB_TRUCK
+            ? 'STEP_CB_TRUCK'
+            : this.callbackId === STEP_CB_SECRET_BASE
+              ? 'STEP_CB_SECRET_BASE'
+              : this.callbackId === STEP_CB_CRACKED_FLOOR
+                ? 'STEP_CB_CRACKED_FLOOR'
+          : 'STEP_CB_OTHER';
+
+    return {
+      callbackId: this.callbackId,
+      callbackName,
+      iceState: this.iceState,
+      iceDelay: this.iceDelay,
+      iceTileX: this.iceTileX,
+      iceTileY: this.iceTileY,
+      fortreeState: this.fortreeBridgeState.state,
+      fortreeBounceTime: this.fortreeBridgeState.bounceTime,
+      pacifidlogState: this.pacifidlogBridgeState.state,
+      pacifidlogDelay: this.pacifidlogBridgeState.delay,
+      crackedFloorDelayA: this.crackedFloorState.floor1Delay,
+      crackedFloorDelayB: this.crackedFloorState.floor2Delay,
+    };
   }
 
   /** Reset to no active callback (e.g. on map change without ON_RESUME). */
@@ -190,6 +433,9 @@ class StepCallbackManagerImpl {
     this.prevStepMapId = null;
     this.prevStepDestLocalX = null;
     this.prevStepDestLocalY = null;
+    this.resetFortreeBridgeState();
+    this.resetPacifidlogBridgeState();
+    this.resetCrackedFloorState();
   }
 
   /**
@@ -210,10 +456,25 @@ class StepCallbackManagerImpl {
       case STEP_CB_ASH:
         this.updateAshGrass(ctx);
         break;
+      case STEP_CB_FORTREE_BRIDGE:
+        this.updateFortreeBridge(ctx);
+        break;
+      case STEP_CB_PACIFIDLOG_BRIDGE:
+        this.updatePacifidlogBridge(ctx);
+        break;
       case STEP_CB_SOOTOPOLIS_ICE:
         this.updateSootopolisIce(ctx);
         break;
-      // Other callbacks (bridge, cracked floor, etc.) can be added here
+      case STEP_CB_TRUCK:
+      case STEP_CB_SECRET_BASE:
+        // C callbacks delegate to truck/secret-base modules.
+        // Runtime parity is handled elsewhere in this project.
+        break;
+      case STEP_CB_CRACKED_FLOOR:
+        this.updateCrackedFloor(ctx);
+        break;
+      default:
+        break;
     }
   }
 
@@ -232,6 +493,395 @@ class StepCallbackManagerImpl {
     this.prevStepDestLocalX = ctx.playerDestLocalX;
     this.prevStepDestLocalY = ctx.playerDestLocalY;
     return true;
+  }
+
+  private resetFortreeBridgeState(): void {
+    this.fortreeBridgeState = {
+      state: 0,
+      prevX: 0,
+      prevY: 0,
+      oldBridgeX: 0,
+      oldBridgeY: 0,
+      bounceTime: 0,
+    };
+    this.pendingFortreeBounceRestores = [];
+  }
+
+  private resetPacifidlogBridgeState(): void {
+    this.pacifidlogBridgeState = {
+      state: 0,
+      prevX: 0,
+      prevY: 0,
+      toRaiseX: -1,
+      toRaiseY: -1,
+      delay: 0,
+    };
+  }
+
+  private resetCrackedFloorState(): void {
+    this.crackedFloorState = {
+      prevX: 0,
+      prevY: 0,
+      floor1Delay: 0,
+      floor1X: 0,
+      floor1Y: 0,
+      floor2Delay: 0,
+      floor2X: 0,
+      floor2Y: 0,
+    };
+  }
+
+  private getPacifidlogLogOrientation(behavior: number | undefined): PacifidlogLogOrientation | null {
+    if (behavior === MB_PACIFIDLOG_VERTICAL_LOG_TOP) return 'verticalTop';
+    if (behavior === MB_PACIFIDLOG_VERTICAL_LOG_BOTTOM) return 'verticalBottom';
+    if (behavior === MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT) return 'horizontalLeft';
+    if (behavior === MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT) return 'horizontalRight';
+    return null;
+  }
+
+  private isPacifidlogLogBehavior(behavior: number | undefined): boolean {
+    return this.getPacifidlogLogOrientation(behavior) !== null;
+  }
+
+  private trySetPacifidlogBridgeMetatiles(
+    offsetsByOrientation: Record<PacifidlogLogOrientation, readonly [MetatileOffset, MetatileOffset]>,
+    x: number,
+    y: number,
+    ctx: StepCallbackContext
+  ): boolean {
+    const orientation = this.getPacifidlogLogOrientation(ctx.getTileBehaviorLocal(x, y));
+    if (!orientation) {
+      return false;
+    }
+
+    let changed = false;
+    const offsets = offsetsByOrientation[orientation];
+    for (const offset of offsets) {
+      const targetX = x + offset.x;
+      const targetY = y + offset.y;
+      if (ctx.getTileMetatileIdLocal(targetX, targetY) !== offset.metatileId) {
+        ctx.setMapMetatile(targetX, targetY, offset.metatileId);
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  private shouldRaisePacifidlogLogs(newX: number, newY: number, oldX: number, oldY: number, ctx: StepCallbackContext): boolean {
+    const oldOrientation = this.getPacifidlogLogOrientation(ctx.getTileBehaviorLocal(oldX, oldY));
+    if (oldOrientation === 'verticalTop' && newY > oldY) return false;
+    if (oldOrientation === 'verticalBottom' && newY < oldY) return false;
+    if (oldOrientation === 'horizontalLeft' && newX > oldX) return false;
+    if (oldOrientation === 'horizontalRight' && newX < oldX) return false;
+    return true;
+  }
+
+  private shouldSinkPacifidlogLogs(newX: number, newY: number, oldX: number, oldY: number, ctx: StepCallbackContext): boolean {
+    const newOrientation = this.getPacifidlogLogOrientation(ctx.getTileBehaviorLocal(newX, newY));
+    if (newOrientation === 'verticalTop' && newY < oldY) return false;
+    if (newOrientation === 'verticalBottom' && newY > oldY) return false;
+    if (newOrientation === 'horizontalLeft' && newX < oldX) return false;
+    if (newOrientation === 'horizontalRight' && newX > oldX) return false;
+    return true;
+  }
+
+  private isFortreeBridgeBehavior(behavior: number | undefined): boolean {
+    return behavior === MB_FORTREE_BRIDGE;
+  }
+
+  private canModifyFortreeBridgeForElevation(ctx: StepCallbackContext): boolean {
+    const elevation = ctx.playerElevation ?? 0;
+    return (elevation & 1) === 0;
+  }
+
+  private tryLowerFortreeBridge(x: number, y: number, ctx: StepCallbackContext): boolean {
+    if (!this.canModifyFortreeBridgeForElevation(ctx)) {
+      return false;
+    }
+
+    const metatileId = ctx.getTileMetatileIdLocal(x, y);
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED) {
+      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED);
+      return true;
+    }
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED) {
+      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED);
+      return true;
+    }
+    return false;
+  }
+
+  private tryRaiseFortreeBridge(x: number, y: number, ctx: StepCallbackContext): boolean {
+    if (!this.canModifyFortreeBridgeForElevation(ctx)) {
+      return false;
+    }
+
+    const metatileId = ctx.getTileMetatileIdLocal(x, y);
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED) {
+      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
+      return true;
+    }
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED) {
+      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED);
+      return true;
+    }
+    return false;
+  }
+
+  private updatePendingFortreeBounceRestores(ctx: StepCallbackContext): boolean {
+    if (this.pendingFortreeBounceRestores.length === 0) {
+      return false;
+    }
+
+    let changed = false;
+    const remaining: PendingFortreeBounceRestore[] = [];
+    for (const entry of this.pendingFortreeBounceRestores) {
+      entry.delayFrames--;
+      if (entry.delayFrames <= 0) {
+        changed = this.tryRaiseFortreeBridge(entry.x, entry.y, ctx) || changed;
+      } else {
+        remaining.push(entry);
+      }
+    }
+
+    this.pendingFortreeBounceRestores = remaining;
+    return changed;
+  }
+
+  private enqueueFortreeBounceRestore(x: number, y: number): void {
+    const existing = this.pendingFortreeBounceRestores.find((entry) => entry.x === x && entry.y === y);
+    if (existing) {
+      existing.delayFrames = 1;
+      return;
+    }
+    this.pendingFortreeBounceRestores.push({ x, y, delayFrames: 1 });
+  }
+
+  private updateFortreeBridgeBounceFrame(ctx: StepCallbackContext): boolean {
+    const state = this.fortreeBridgeState;
+    if (state.state !== 2) {
+      return false;
+    }
+
+    let changed = false;
+    state.bounceTime = Math.max(0, state.bounceTime - 1);
+    if (state.bounceTime % 7 === 4) {
+      if (this.tryLowerFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx)) {
+        changed = true;
+        this.enqueueFortreeBounceRestore(state.oldBridgeX, state.oldBridgeY);
+      }
+    }
+    if (state.bounceTime === 0) {
+      state.state = 1;
+    }
+    return changed;
+  }
+
+  // --- Fortree Bridge Step Callback ---
+  // C reference: field_tasks.c FortreeBridgePerStepCallback.
+  private updateFortreeBridge(ctx: StepCallbackContext): void {
+    let changed = this.updatePendingFortreeBounceRestores(ctx);
+    const state = this.fortreeBridgeState;
+    const x = ctx.playerDestLocalX;
+    const y = ctx.playerDestLocalY;
+
+    switch (state.state) {
+      case 0:
+        state.prevX = x;
+        state.prevY = y;
+        if (this.isFortreeBridgeBehavior(ctx.getTileBehaviorLocal(x, y))) {
+          changed = this.tryLowerFortreeBridge(x, y, ctx) || changed;
+        }
+        state.state = 1;
+        break;
+      case 1: {
+        const prevX = state.prevX;
+        const prevY = state.prevY;
+        if (x === prevX && y === prevY) {
+          break;
+        }
+
+        const isBridgeCurrent = this.isFortreeBridgeBehavior(ctx.getTileBehaviorLocal(x, y));
+        const isBridgePrevious = this.isFortreeBridgeBehavior(ctx.getTileBehaviorLocal(prevX, prevY));
+
+        // Emerald parity keeps the original behavior (without BUGFIX define):
+        // only transitions when stepping off an existing bridge section.
+        if (isBridgePrevious) {
+          changed = this.tryRaiseFortreeBridge(prevX, prevY, ctx) || changed;
+          changed = this.tryLowerFortreeBridge(x, y, ctx) || changed;
+        }
+
+        void isBridgeCurrent; // kept for parity readability; SFX is handled elsewhere.
+
+        state.oldBridgeX = prevX;
+        state.oldBridgeY = prevY;
+        state.prevX = x;
+        state.prevY = y;
+        if (!isBridgePrevious) {
+          break;
+        }
+
+        state.bounceTime = 16;
+        state.state = 2;
+        changed = this.updateFortreeBridgeBounceFrame(ctx) || changed;
+        break;
+      }
+      case 2: {
+        changed = this.updateFortreeBridgeBounceFrame(ctx) || changed;
+        break;
+      }
+      default:
+        state.state = 0;
+        break;
+    }
+
+    if (changed) {
+      ctx.invalidateView();
+    }
+  }
+
+  // --- Pacifidlog Bridge Step Callback ---
+  // C reference: field_tasks.c PacifidlogBridgePerStepCallback.
+  private updatePacifidlogBridge(ctx: StepCallbackContext): void {
+    let changed = false;
+    const state = this.pacifidlogBridgeState;
+    const x = ctx.playerDestLocalX;
+    const y = ctx.playerDestLocalY;
+
+    switch (state.state) {
+      case 0:
+        state.prevX = x;
+        state.prevY = y;
+        changed = this.trySetPacifidlogBridgeMetatiles(PACIFIDLOG_FULLY_SUBMERGED_OFFSETS, x, y, ctx) || changed;
+        state.state = 1;
+        break;
+      case 1:
+        if (x === state.prevX && y === state.prevY) {
+          break;
+        }
+
+        if (this.shouldRaisePacifidlogLogs(x, y, state.prevX, state.prevY, ctx)) {
+          changed = this.trySetPacifidlogBridgeMetatiles(
+            PACIFIDLOG_HALF_SUBMERGED_OFFSETS,
+            state.prevX,
+            state.prevY,
+            ctx
+          ) || changed;
+          // C sets floating metatiles here without redraw; in this renderer map edits
+          // are immediately visible, so we defer floating to the delayed state.
+          state.toRaiseX = state.prevX;
+          state.toRaiseY = state.prevY;
+          state.state = 2;
+          state.delay = 8;
+        } else {
+          state.toRaiseX = -1;
+          state.toRaiseY = -1;
+        }
+
+        if (this.shouldSinkPacifidlogLogs(x, y, state.prevX, state.prevY, ctx)) {
+          changed = this.trySetPacifidlogBridgeMetatiles(PACIFIDLOG_HALF_SUBMERGED_OFFSETS, x, y, ctx) || changed;
+          state.state = 2;
+          state.delay = 8;
+        }
+
+        state.prevX = x;
+        state.prevY = y;
+
+        // SFX parity omitted here (SE_PUDDLE), handled by other audio paths.
+        void this.isPacifidlogLogBehavior(ctx.getTileBehaviorLocal(x, y));
+        break;
+      case 2:
+        if (state.delay > 0) {
+          state.delay--;
+        }
+        if (state.delay === 0) {
+          changed = this.trySetPacifidlogBridgeMetatiles(PACIFIDLOG_FULLY_SUBMERGED_OFFSETS, x, y, ctx) || changed;
+          if (state.toRaiseX !== -1 && state.toRaiseY !== -1) {
+            changed = this.trySetPacifidlogBridgeMetatiles(
+              PACIFIDLOG_FLOATING_OFFSETS,
+              state.toRaiseX,
+              state.toRaiseY,
+              ctx
+            ) || changed;
+          }
+          state.state = 1;
+        }
+        break;
+      default:
+        state.state = 0;
+        break;
+    }
+
+    if (changed) {
+      ctx.invalidateView();
+    }
+  }
+
+  private setCrackedFloorHoleMetatile(x: number, y: number, ctx: StepCallbackContext): boolean {
+    const metatileId = ctx.getTileMetatileIdLocal(x, y);
+    if (metatileId === undefined) {
+      return false;
+    }
+
+    const holeMetatileId = metatileId === METATILE_CAVE_CRACKED_FLOOR
+      ? METATILE_CAVE_CRACKED_FLOOR_HOLE
+      : METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE;
+    if (metatileId !== holeMetatileId) {
+      ctx.setMapMetatile(x, y, holeMetatileId);
+      return true;
+    }
+    return false;
+  }
+
+  // --- Cracked Floor Step Callback ---
+  // C reference: field_tasks.c CrackedFloorPerStepCallback.
+  private updateCrackedFloor(ctx: StepCallbackContext): void {
+    const state = this.crackedFloorState;
+    const x = ctx.playerDestLocalX;
+    const y = ctx.playerDestLocalY;
+    const behavior = ctx.getTileBehaviorLocal(x, y);
+    let changed = false;
+
+    if (state.floor1Delay !== 0 && --state.floor1Delay === 0) {
+      changed = this.setCrackedFloorHoleMetatile(state.floor1X, state.floor1Y, ctx) || changed;
+    }
+    if (state.floor2Delay !== 0 && --state.floor2Delay === 0) {
+      changed = this.setCrackedFloorHoleMetatile(state.floor2X, state.floor2Y, ctx) || changed;
+    }
+
+    if (behavior === MB_CRACKED_FLOOR_HOLE) {
+      gameVariables.setVar('VAR_ICE_STEP_COUNT', 0);
+    }
+
+    if (x === state.prevX && y === state.prevY) {
+      if (changed) {
+        ctx.invalidateView();
+      }
+      return;
+    }
+
+    state.prevX = x;
+    state.prevY = y;
+    if (behavior === MB_CRACKED_FLOOR) {
+      if (!ctx.isPlayerAtFastestSpeed) {
+        gameVariables.setVar('VAR_ICE_STEP_COUNT', 0);
+      }
+
+      if (state.floor1Delay === 0) {
+        state.floor1Delay = 3;
+        state.floor1X = x;
+        state.floor1Y = y;
+      } else if (state.floor2Delay === 0) {
+        state.floor2Delay = 3;
+        state.floor2X = x;
+        state.floor2Y = y;
+      }
+    }
+
+    if (changed) {
+      ctx.invalidateView();
+    }
   }
 
   /**

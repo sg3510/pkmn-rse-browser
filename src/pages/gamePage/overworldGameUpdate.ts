@@ -32,6 +32,7 @@ import { startSpecialWalkOverWarp } from '../../game/SpecialWarpBehaviorRegistry
 import { isDiagnosticsEnabled, type DebugOptions, type PlayerDebugInfo } from '../../components/debug';
 import { createLogger } from '../../utils/logger';
 import { isDebugMode } from '../../utils/debug';
+import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline';
 import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
 import type { MutableRef } from './types';
 
@@ -78,6 +79,7 @@ export function evaluateOnFrameScripts(params: {
   objectEventManager: ObjectEventManager;
   currentMapObjectEventsLength: number;
   runScript: (scriptName: string, mapId: string) => void;
+  gbaFrame?: number;
 }): boolean {
   const {
     currentMapId,
@@ -87,6 +89,7 @@ export function evaluateOnFrameScripts(params: {
     objectEventManager,
     currentMapObjectEventsLength,
     runScript,
+    gbaFrame,
   } = params;
 
   const mapObjectsReady =
@@ -109,6 +112,18 @@ export function evaluateOnFrameScripts(params: {
         script: entry.script,
         variable: entry.var,
         value: expectedValue,
+      });
+      recordStoryScriptTimelineEvent({
+        kind: 'on_frame_trigger',
+        frame: gbaFrame ?? null,
+        mapId: currentMapId,
+        scriptName: entry.script,
+        callback: stepCallbackManager.getDebugState(),
+        details: {
+          variable: entry.var,
+          expectedValue,
+          currentValue: currentVarValue,
+        },
       });
       onFrameSuppressed.set(entry.script, expectedValue);
       runScript(entry.script, currentMapId);
@@ -453,6 +468,7 @@ export function runStepCallbacks(params: {
   storyScriptRunningRef: MutableRef<boolean>;
   setMapMetatileLocal: (mapId: string, localX: number, localY: number, metatileId: number) => void;
   pipelineRef: MutableRef<WebGLRenderPipeline | null>;
+  gbaFrame?: number;
 }): void {
   const {
     player,
@@ -460,6 +476,7 @@ export function runStepCallbacks(params: {
     storyScriptRunningRef,
     setMapMetatileLocal,
     pipelineRef,
+    gbaFrame,
   } = params;
 
   if (storyScriptRunningRef.current) return;
@@ -505,7 +522,19 @@ export function runStepCallbacks(params: {
     invalidateView: () => {
       pipelineRef.current?.invalidate();
     },
+    playerElevation: player.getElevation(),
+    isPlayerAtFastestSpeed: player.isAtFastestPlayerSpeed(),
   });
+
+  const callbackState = stepCallbackManager.getDebugState();
+  if (callbackState.callbackId !== 0) {
+    recordStoryScriptTimelineEvent({
+      kind: 'step_callback_tick',
+      frame: gbaFrame ?? null,
+      mapId: cbMap.entry.id,
+      callback: callbackState,
+    });
+  }
 }
 
 // ─── checkWarpTriggers ───────────────────────────────────────────────────────
@@ -949,6 +978,7 @@ export function handleWorldUpdateAndEvents(params: {
         objectEventManager: objectEventManagerRef.current,
         currentMapObjectEventsLength: currentMap.objectEvents.length,
         runScript,
+        gbaFrame: gbaFrameRef.current,
       });
     }
   }

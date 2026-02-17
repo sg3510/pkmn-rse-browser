@@ -49,6 +49,7 @@ import {
   type ScriptMirageTowerSpecialServices,
 } from './specials/mirageTowerSpecials.ts';
 import { isDebugMode } from '../utils/debug.ts';
+import { recordStoryScriptTimelineEvent } from '../game/debug/storyScriptTimeline.ts';
 import { berryManager } from '../game/berry/BerryManager.ts';
 import {
   BERRY_STAGE_CONSTANTS,
@@ -1039,9 +1040,37 @@ export class ScriptRunner {
 
         // --- Lock/release ---
         case 'lockall':
-        case 'lock':
-          // Input already locked by useHandledStoryScript wrapper
+        case 'lock': {
+          const frameBefore = this.ctx.getCurrentGbaFrame?.() ?? null;
+          recordStoryScriptTimelineEvent({
+            kind: 'lock_wait_start',
+            frame: frameBefore,
+            mapId: this.currentMapId,
+            callback: stepCallbackManager.getDebugState(),
+            details: {
+              command: cmd,
+            },
+          });
+
+          await this.ctx.waitForPlayerIdle?.();
+
+          const frameAfter = this.ctx.getCurrentGbaFrame?.() ?? null;
+          const waitedFrames =
+            frameBefore !== null && frameAfter !== null
+              ? Math.max(0, frameAfter - frameBefore)
+              : null;
+          recordStoryScriptTimelineEvent({
+            kind: 'lock_wait_end',
+            frame: frameAfter,
+            mapId: this.currentMapId,
+            callback: stepCallbackManager.getDebugState(),
+            details: {
+              command: cmd,
+              waitedFrames,
+            },
+          });
           break;
+        }
 
         case 'releaseall':
         case 'release':
@@ -1948,8 +1977,9 @@ export class ScriptRunner {
         }
 
         // --- warphole: warp with falling animation ---
-        // C ref: scrcmd.c ScrCmd_warphole — uses player's current map-local tile
-        // as destination coordinates. MAP_UNDEFINED resolves via setholewarp.
+        // C ref: scrcmd.c ScrCmd_warphole — uses PlayerGetDestCoords
+        // (destination/object-event current coords) as local warp coordinates.
+        // MAP_UNDEFINED resolves via setholewarp.
         case 'warphole': {
           const argMapId = args.length > 0 ? asString(args[0]) : '';
           let targetMapId = argMapId;
@@ -1962,13 +1992,45 @@ export class ScriptRunner {
             break;
           }
 
-          const playerLocal = this.ctx.getPlayerLocalPosition?.();
+          const playerDestLocal = this.ctx.getPlayerDestLocalPosition?.() ?? null;
+          const playerLocal = playerDestLocal ?? this.ctx.getPlayerLocalPosition?.() ?? null;
+          const coordSource =
+            playerDestLocal !== null
+              ? 'dest'
+              : playerLocal !== null
+                ? 'current'
+                : 'fallback';
+
           if (!playerLocal) {
             console.warn('[ScriptRunner] warphole: player local position unavailable, falling back to (-1,-1)');
+            recordStoryScriptTimelineEvent({
+              kind: 'warphole_coords',
+              frame: this.ctx.getCurrentGbaFrame?.() ?? null,
+              mapId: this.currentMapId,
+              callback: stepCallbackManager.getDebugState(),
+              details: {
+                targetMapId,
+                source: coordSource,
+                x: -1,
+                y: -1,
+              },
+            });
             this.ctx.queueWarp(targetMapId, -1, -1, 'down');
             break;
           }
 
+          recordStoryScriptTimelineEvent({
+            kind: 'warphole_coords',
+            frame: this.ctx.getCurrentGbaFrame?.() ?? null,
+            mapId: this.currentMapId,
+            callback: stepCallbackManager.getDebugState(),
+            details: {
+              targetMapId,
+              source: coordSource,
+              x: playerLocal.x,
+              y: playerLocal.y,
+            },
+          });
           this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down');
           break;
         }

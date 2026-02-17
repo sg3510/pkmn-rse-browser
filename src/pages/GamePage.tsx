@@ -966,6 +966,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
+    gbaFrameRef,
     gbaFrameMs: GBA_FRAME_MS,
     setMapMetatile: setMapMetatileAndInvalidate,
     scriptRuntimeServices,
@@ -1518,6 +1519,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               objectEventManager: objectEventManagerRef.current,
               currentMapObjectEventsLength: currentMap.objectEvents.length,
               runScript,
+              gbaFrame: gbaFrameRef.current,
             });
             if (!preInputOnFrameTriggered) {
               const mapObjectsReady = currentMap.objectEvents.length === 0
@@ -1539,6 +1541,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             storyScriptRunningRef,
             setMapMetatileLocal,
             pipelineRef,
+            gbaFrame: gbaFrameRef.current,
           });
         }
 

@@ -24,6 +24,8 @@ import {
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
 import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
 import { menuStateManager } from '../../menu/MenuStateManager';
+import { stepCallbackManager } from '../../game/StepCallbackManager';
+import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline';
 import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
 import { resolveTrainerBattleLead } from './trainerBattleFallback';
 import type { MutableRef } from './types';
@@ -59,6 +61,7 @@ export interface UseHandledStoryScriptParams {
   objectEventManagerRef: MutableRef<ObjectEventManager>;
   npcMovement: UseNPCMovementReturn;
   doorAnimations: UseDoorAnimationsReturn;
+  gbaFrameRef: MutableRef<number>;
   gbaFrameMs: number;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   scriptRuntimeServices?: ScriptRuntimeServices;
@@ -84,6 +87,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
+    gbaFrameRef,
     gbaFrameMs,
     setMapMetatile,
     scriptRuntimeServices,
@@ -113,8 +117,18 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     console.log(`[StoryScript] ▶ Starting: ${scriptName}`);
     console.trace(`[StoryScript] lockInput caller for: ${scriptName}`);
     storyScriptRunningRef.current = true;
-    player.lockInput();
+    player.lockInputPreserveMovement();
     npcMovement.setEnabled(false);
+    recordStoryScriptTimelineEvent({
+      kind: 'story_script_start',
+      frame: gbaFrameRef.current,
+      mapId: effectiveMapId,
+      scriptName,
+      callback: stepCallbackManager.getDebugState(),
+      details: {
+        playerMoving: player.isMoving,
+      },
+    });
 
     const isHandCoded = isHandledStoryScript(scriptName);
 
@@ -132,10 +146,22 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         player.unlockInput();
         npcMovement.setEnabled(true);
         storyScriptRunningRef.current = false;
+        recordStoryScriptTimelineEvent({
+          kind: 'story_script_end',
+          frame: gbaFrameRef.current,
+          mapId: effectiveMapId,
+          scriptName,
+          callback: stepCallbackManager.getDebugState(),
+          details: {
+            handled: false,
+            reason: 'missing-script',
+          },
+        });
         return false;
       }
     }
     const heldDoorAnimIds = new Map<string, number>();
+    let handled = false;
 
     try {
       const waitFrames = async (frames: number): Promise<void> => {
@@ -696,12 +722,34 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           player.setScriptSpriteOverride(spriteKey);
         },
         getPlayerLocalPosition: () => {
-          const map = worldManagerRef.current?.getSnapshot().maps.find(
-            (m) => m.entry.id === effectiveMapId
-          );
+          const destination = player.getDestinationTile();
+          const map = worldManagerRef.current?.findMapAtPosition(destination.x, destination.y)
+            ?? worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === effectiveMapId);
           if (!map) return null;
           return { x: player.tileX - map.offsetX, y: player.tileY - map.offsetY };
         },
+        getPlayerDestLocalPosition: () => {
+          const destination = player.getDestinationTile();
+          const map = worldManagerRef.current?.findMapAtPosition(destination.x, destination.y)
+            ?? worldManagerRef.current?.getSnapshot().maps.find((m) => m.entry.id === effectiveMapId);
+          if (!map) return null;
+          return { x: destination.x - map.offsetX, y: destination.y - map.offsetY };
+        },
+        waitForPlayerIdle: async () => {
+          let guard = 0;
+          while (player.isMoving && guard < 120) {
+            await waitFrames(1);
+            guard++;
+          }
+          if (player.isMoving) {
+            console.warn('[StoryScript] waitForPlayerIdle timed out while player was still moving.', {
+              scriptName,
+              mapId: effectiveMapId,
+              frame: gbaFrameRef.current,
+            });
+          }
+        },
+        getCurrentGbaFrame: () => gbaFrameRef.current,
         getPlayerAvatarBike: () => player.getBikeSpecialValue(),
         getLastUsedWarpMapId: () => null,
         setCyclingRoadChallengeActive: (active) => {
@@ -725,8 +773,6 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             .map((npc) => npc.localId!);
         },
       };
-
-      let handled = false;
 
       // Priority 1: hand-coded scripts (overrides)
       if (isHandCoded) {
@@ -757,6 +803,18 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       }
       npcMovement.setEnabled(true);
       console.log(`[StoryScript] ■ Finally: warpingRef=${warpingRef.current} pendingScriptedWarp=${!!pendingScriptedWarpRef.current} inputLocked=${player.inputLocked}`);
+      recordStoryScriptTimelineEvent({
+        kind: 'story_script_end',
+        frame: gbaFrameRef.current,
+        mapId: effectiveMapId,
+        scriptName,
+        callback: stepCallbackManager.getDebugState(),
+        details: {
+          handled,
+          warping: warpingRef.current,
+          hasPendingScriptedWarp: pendingScriptedWarpRef.current !== null,
+        },
+      });
       const hasPendingScriptedWarp = pendingScriptedWarpRef.current !== null;
       const hasOpenMenu = menuStateManager.isMenuOpen();
       const fadeServices = scriptRuntimeServices?.fade;
@@ -818,6 +876,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
+    gbaFrameRef,
     gbaFrameMs,
     setMapMetatile,
     scriptRuntimeServices,

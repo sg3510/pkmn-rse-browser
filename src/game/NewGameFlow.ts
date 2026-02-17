@@ -96,6 +96,12 @@ export interface StoryScriptContext {
   setPlayerSpriteOverride?: (spriteKey: PlayerSpriteKey | null) => void;
   /** Get the player's map-local tile position (used by getplayerxy) */
   getPlayerLocalPosition?: () => { x: number; y: number } | null;
+  /** Get the player's destination map-local tile position (PlayerGetDestCoords parity). */
+  getPlayerDestLocalPosition?: () => { x: number; y: number } | null;
+  /** Wait for the player to finish any in-flight movement before continuing script execution. */
+  waitForPlayerIdle?: () => Promise<void>;
+  /** Current GBA frame for debug tracing. */
+  getCurrentGbaFrame?: () => number;
   /** Previous map type from last used warp (C: GetLastUsedWarpMapType). */
   getLastUsedWarpMapType?: () => string | null;
   /** Previous map ID from last used warp (used by cycling-road state logic). */

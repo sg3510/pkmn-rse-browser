@@ -1186,11 +1186,12 @@ export class PlayerController {
     }
   }
 
-  public lockInput() {
+  private lockInputInternal(options?: { preserveMovement?: boolean }): void {
+    const preserveMovement = options?.preserveMovement === true;
     if (isDebugMode('field')) {
       console.debug(
         `[INPUT] lockInput() called at tile(${this.tileX},${this.tileY}) ` +
-        `wasLocked=${this.inputLocked} moving=${this.isMoving}`
+        `wasLocked=${this.inputLocked} moving=${this.isMoving} preserveMovement=${preserveMovement}`
       );
       console.trace('[INPUT] lockInput stack');
     }
@@ -1200,24 +1201,38 @@ export class PlayerController {
     // so state can be properly restored after input is unlocked
     // Scripts should start on tile boundaries. If lock hits during movement
     // (e.g. seam coord events), snap to the logical tile to avoid XY desync.
-    if (wasMoving) {
+    if (wasMoving && !preserveMovement) {
       this.x = this.tileX * this.TILE_PIXELS;
       this.y = this.tileY * this.TILE_PIXELS - 16;
       this.syncObjectCoordsToTile();
     }
-    this.isMoving = false;
-    this.pixelsMoved = 0;
-    this.scriptedMoveSpeedPxPerMs = null;
-    // Preserve traversal sprite domain during modal prompts.
-    // Surf/underwater prompts should not force walking state, or frame/atlas
-    // selection can desync in the renderer.
-    if (
-      this.traversalMode === 'land'
-      && !(this.currentState instanceof NormalState)
-      && !(this.currentState instanceof BikeState)
-    ) {
-      this.changeState(new NormalState());
+    if (!preserveMovement || !wasMoving) {
+      this.isMoving = false;
+      this.pixelsMoved = 0;
+      this.scriptedMoveSpeedPxPerMs = null;
+      // Preserve traversal sprite domain during modal prompts.
+      // Surf/underwater prompts should not force walking state, or frame/atlas
+      // selection can desync in the renderer.
+      if (
+        this.traversalMode === 'land'
+        && !(this.currentState instanceof NormalState)
+        && !(this.currentState instanceof BikeState)
+      ) {
+        this.changeState(new NormalState());
+      }
     }
+  }
+
+  public lockInput() {
+    this.lockInputInternal({ preserveMovement: false });
+  }
+
+  /**
+   * Lock player controls but allow in-flight movement to finish naturally.
+   * Matches script command lockall/lock timing in pokeemerald.
+   */
+  public lockInputPreserveMovement() {
+    this.lockInputInternal({ preserveMovement: true });
   }
 
   public unlockInput() {
@@ -3034,6 +3049,14 @@ export class PlayerController {
       return 2;
     }
     return 0;
+  }
+
+  /**
+   * C parity helper for GetPlayerSpeed() == PLAYER_SPEED_FASTEST checks.
+   * In Emerald this is true only on Mach Bike at top speed tier.
+   */
+  public isAtFastestPlayerSpeed(): boolean {
+    return this.bikeRiding && this.bikeMode === 'mach' && this.machBikeSpeedTier >= 2;
   }
 
   /**

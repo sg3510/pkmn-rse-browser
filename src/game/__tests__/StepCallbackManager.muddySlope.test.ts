@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { stepCallbackManager, type StepCallbackContext } from '../StepCallbackManager';
-import { METATILE_LABELS } from '../../data/metatileLabels.gen';
-import { MB_MUDDY_SLOPE } from '../../utils/metatileBehaviors.generated';
+import { stepCallbackManager, type StepCallbackContext } from '../StepCallbackManager.ts';
+import { METATILE_LABELS } from '../../data/metatileLabels.gen.ts';
+import { MB_MUDDY_SLOPE } from '../../utils/metatileBehaviors.generated.ts';
 
 const METATILE_MUDDY_SLOPE_FRAME0 = METATILE_LABELS['METATILE_General_MuddySlope_Frame0'] ?? 0x0E8;
 const METATILE_MUDDY_SLOPE_FRAME1 = METATILE_LABELS['METATILE_General_MuddySlope_Frame1'] ?? 0x0E9;
