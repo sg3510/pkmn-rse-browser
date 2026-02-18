@@ -4,11 +4,17 @@ import { ScriptRunner } from '../ScriptRunner.ts';
 import type { MapScriptData, ScriptCommand } from '../../data/scripts/types.ts';
 import type { StoryScriptContext } from '../../game/NewGameFlow.ts';
 import { gameVariables } from '../../game/GameVariables.ts';
+import { gameFlags } from '../../game/GameFlags.ts';
 import { saveStateStore } from '../../save/SaveStateStore.ts';
-import { resetTrainerHillRuntimeState, trainerHillIsTrainerDefeated } from '../../game/trainerHillRuntime.ts';
+import {
+  resetTrainerHillRuntimeState,
+  trainerHillGetSavedGame,
+  trainerHillIsTrainerDefeated,
+} from '../../game/trainerHillRuntime.ts';
 import { BATTLE_OUTCOME, type ScriptTrainerBattleRequest } from '../battleTypes.ts';
-import { resetFrontierRuntimeState, setFrontierBattleOutcome } from '../runtime/frontierState.ts';
+import { getFrontierData, resetFrontierRuntimeState, setFrontierBattleOutcome } from '../runtime/frontierState.ts';
 import { data as commonScriptData } from '../../data/scripts/common.gen.ts';
+import { data as trainerHillEntranceScriptData } from '../../data/scripts/TrainerHill_Entrance.gen.ts';
 
 function createData(commands: ScriptCommand[]): { mapData: MapScriptData; commonData: MapScriptData } {
   return {
@@ -55,6 +61,7 @@ function createContext(
 function resetTrainerHillAndFrontierState(): void {
   gameVariables.reset();
   saveStateStore.resetRuntimeState();
+  gameFlags.reset();
   resetTrainerHillRuntimeState();
   resetFrontierRuntimeState();
 }
@@ -159,4 +166,152 @@ test('ground-floor entry scripts do not mis-warp from stale state', async () => 
   assert.equal(gameVariables.getVar('VAR_RESULT'), 0);
   assert.equal(gameVariables.getVar('VAR_TEMP_1'), 0);
   assert.equal(queuedWarps.length, 0);
+});
+
+test('trainer hill save gate succeeds when SaveGame special saves successfully', async () => {
+  resetTrainerHillAndFrontierState();
+
+  let saveCalls = 0;
+  const ctx = createContext({
+    showYesNo: async () => true,
+  });
+  const runner = new ScriptRunner(
+    {
+      mapData: trainerHillEntranceScriptData,
+      commonData: commonScriptData,
+    },
+    ctx,
+    'MAP_TRAINER_HILL_ENTRANCE',
+    {
+      save: {
+        saveGame: () => {
+          saveCalls++;
+          return true;
+        },
+      },
+    },
+  );
+
+  await runner.execute('TrainerHill_Entrance_EventScript_SaveGame');
+
+  assert.equal(saveCalls, 1);
+  assert.equal(gameVariables.getVar('VAR_RESULT'), 1);
+  assert.equal(gameVariables.getVar('VAR_TEMP_5'), 1);
+  assert.equal(trainerHillGetSavedGame(), true);
+});
+
+test('trainer hill save gate clears saved flag and cancels entry when save is declined', async () => {
+  resetTrainerHillAndFrontierState();
+
+  let saveCalls = 0;
+  const ctx = createContext({
+    showYesNo: async () => false,
+  });
+  const runner = new ScriptRunner(
+    {
+      mapData: trainerHillEntranceScriptData,
+      commonData: commonScriptData,
+    },
+    ctx,
+    'MAP_TRAINER_HILL_ENTRANCE',
+    {
+      save: {
+        saveGame: () => {
+          saveCalls++;
+          return true;
+        },
+      },
+    },
+  );
+
+  await runner.execute('TrainerHill_Entrance_EventScript_SaveGame');
+
+  assert.equal(saveCalls, 0);
+  assert.equal(gameVariables.getVar('VAR_RESULT'), 0);
+  assert.equal(gameVariables.getVar('VAR_TEMP_5'), 0);
+  assert.equal(trainerHillGetSavedGame(), false);
+});
+
+test('trainer hill entry trigger starts challenge after successful save and choice flow', async () => {
+  resetTrainerHillAndFrontierState();
+  gameFlags.set('FLAG_SYS_GAME_CLEAR');
+  setFrontierBattleOutcome(BATTLE_OUTCOME.LOST);
+
+  let saveCalls = 0;
+  let choiceCalls = 0;
+  const ctx = createContext({
+    showYesNo: async () => true,
+    showChoice: async () => {
+      choiceCalls++;
+      // 1st: MULTI_YESNOINFO -> choose "Yes"
+      // 2nd: MULTI_TAG_MATCH_TYPE -> choose mode 0 (Normal)
+      return 0;
+    },
+  });
+
+  const runner = new ScriptRunner(
+    {
+      mapData: trainerHillEntranceScriptData,
+      commonData: commonScriptData,
+    },
+    ctx,
+    'MAP_TRAINER_HILL_ENTRANCE',
+    {
+      save: {
+        saveGame: () => {
+          saveCalls++;
+          return true;
+        },
+      },
+    },
+  );
+
+  await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+
+  assert.equal(saveCalls, 1);
+  assert.equal(choiceCalls, 2);
+  assert.equal(gameVariables.getVar('VAR_TRAINER_HILL_IS_ACTIVE'), 1);
+  assert.equal(gameVariables.getVar('VAR_TEMP_5'), 0);
+  assert.equal(gameVariables.getVar('VAR_TRAINER_HILL_MODE'), 0);
+  assert.equal(getFrontierData('FRONTIER_DATA_BATTLE_OUTCOME'), 0);
+});
+
+test('trainer hill entry trigger cancels immediately when save prompt is declined', async () => {
+  resetTrainerHillAndFrontierState();
+  gameFlags.set('FLAG_SYS_GAME_CLEAR');
+
+  let saveCalls = 0;
+  let choiceCalls = 0;
+  const ctx = createContext({
+    showYesNo: async () => false,
+    showChoice: async () => {
+      choiceCalls++;
+      return 0;
+    },
+  });
+
+  const runner = new ScriptRunner(
+    {
+      mapData: trainerHillEntranceScriptData,
+      commonData: commonScriptData,
+    },
+    ctx,
+    'MAP_TRAINER_HILL_ENTRANCE',
+    {
+      save: {
+        saveGame: () => {
+          saveCalls++;
+          return true;
+        },
+      },
+    },
+  );
+
+  await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+
+  assert.equal(saveCalls, 0);
+  assert.equal(choiceCalls, 0);
+  assert.equal(gameVariables.getVar('VAR_TRAINER_HILL_IS_ACTIVE'), 0);
+  assert.equal(gameVariables.getVar('VAR_TEMP_5'), 0);
+  assert.equal(trainerHillGetSavedGame(), false);
 });

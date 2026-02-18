@@ -5,16 +5,16 @@
  * NOT for production use - these are pre-built Pokemon for UI testing.
  */
 
-import { SPECIES } from '../data/species';
-import { getSpeciesInfo } from '../data/speciesInfo';
-import { MOVES } from '../data/moves';
-import { calculateAllStats, getExpForLevel } from './stats';
-import type { PartyPokemon, IVs, EVs } from './types';
+import { SPECIES } from '../data/species.ts';
+import { getSpeciesInfo } from '../data/speciesInfo.ts';
+import { MOVES } from '../data/moves.ts';
+import { calculateAllStats, getExpForLevel } from './stats.ts';
+import type { PartyPokemon, IVs, EVs } from './types.ts';
 import {
   createEmptyRibbons,
   createEmptyContestStats,
   createEmptyMarkings,
-} from './types';
+} from './types.ts';
 
 // ============================================================================
 // Random Utilities

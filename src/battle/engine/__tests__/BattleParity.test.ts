@@ -128,7 +128,13 @@ test('run in trainer battle does not consume turn', () => {
 });
 
 test('run in wild battle still consumes turn when escape fails', () => {
-  setBattleRngAdapter({ next: () => 255 });
+  const rolls = [0.999, 0];
+  setBattleRngAdapter({
+    next: () => {
+      if (rolls.length > 0) return rolls.shift() ?? 0;
+      return 0;
+    },
+  });
   try {
     const engine = new BattleEngine({
       config: { type: 'wild' },

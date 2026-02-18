@@ -1,7 +1,7 @@
 ---
 title: Menu System Implementation TODO
 status: planned
-last_verified: 2026-01-13
+last_verified: 2026-02-18
 ---
 
 # Menu System Implementation TODO
@@ -71,7 +71,7 @@ Progress checklist for the menu system implementation.
 - [ ] POKéMON tile (disabled until `FLAG_SYS_POKEMON_GET`)
 - [ ] BAG tile (always enabled)
 - [ ] Player name tile → Trainer Card
-- [ ] SAVE tile
+- [x] SAVE tile
 - [ ] OPTION tile
 
 ### 2.3 Tile States & Styling

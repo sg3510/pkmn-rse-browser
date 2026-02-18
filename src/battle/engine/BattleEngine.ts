@@ -6,17 +6,17 @@
  * - public/pokeemerald/src/battle_util.c (TryRunFromBattle, end-of-turn effects)
  */
 
-import { ABILITIES } from '../../data/abilities';
-import { getBattleMoveData } from '../../data/battleMoves.gen';
-import { HOLD_EFFECTS, getItemBattleEffect } from '../../data/itemBattleEffects.gen';
-import { MOVES } from '../../data/moves';
-import { getSpeciesName } from '../../data/species';
-import type { PartyPokemon } from '../../pokemon/types';
-import { STATUS } from '../../pokemon/types';
-import { getAbility } from '../../pokemon/stats';
-import { battleRandomInt } from './BattleRng';
-import { executeMove } from './MoveEffects';
-import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus } from './StatusEffects';
+import { ABILITIES } from '../../data/abilities.ts';
+import { getBattleMoveData } from '../../data/battleMoves.gen.ts';
+import { HOLD_EFFECTS, getItemBattleEffect } from '../../data/itemBattleEffects.gen.ts';
+import { MOVES } from '../../data/moves.ts';
+import { getSpeciesName } from '../../data/species.ts';
+import type { PartyPokemon } from '../../pokemon/types.ts';
+import { STATUS } from '../../pokemon/types.ts';
+import { getAbility } from '../../pokemon/stats.ts';
+import { battleRandomInt } from './BattleRng.ts';
+import { executeMove } from './MoveEffects.ts';
+import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus } from './StatusEffects.ts';
 import type {
   BattleAction,
   BattleConfig,
@@ -27,9 +27,9 @@ import type {
   SideState,
   TurnResult,
   WeatherState,
-} from './types';
-import { applyStatStage, createDefaultSide, createDefaultStages, createDefaultVolatile } from './types';
-import { createDefaultWeather, tickWeather } from './Weather';
+} from './types.ts';
+import { applyStatStage, createDefaultSide, createDefaultStages, createDefaultVolatile } from './types.ts';
+import { createDefaultWeather, tickWeather } from './Weather.ts';
 
 interface BattleEngineInit {
   config: BattleConfig;
@@ -439,6 +439,28 @@ export class BattleEngine {
         });
       }
     }
+
+    if (side.safeguard > 0) {
+      side.safeguard--;
+      if (side.safeguard === 0) {
+        events.push({
+          type: 'message',
+          battler: isPlayerSide ? 0 : 1,
+          message: isPlayerSide ? "Your team's Safeguard faded!" : "Foe's Safeguard faded!",
+        });
+      }
+    }
+
+    if (side.mist > 0) {
+      side.mist--;
+      if (side.mist === 0) {
+        events.push({
+          type: 'message',
+          battler: isPlayerSide ? 0 : 1,
+          message: isPlayerSide ? "Your team's Mist faded!" : "Foe's Mist faded!",
+        });
+      }
+    }
   }
 
   private getEffectiveSpeed(mon: BattlePokemon): number {
@@ -480,10 +502,11 @@ export class BattleEngine {
   private finalizeTurnState(): void {
     for (const mon of [this.player, this.enemy]) {
       mon.volatile.flinch = false;
-      if (!mon.volatile.protect) {
+      if (!mon.volatile.protect && !mon.volatile.endure) {
         mon.volatile.protectSuccessCount = 0;
       }
       mon.volatile.protect = false;
+      mon.volatile.endure = false;
     }
   }
 }

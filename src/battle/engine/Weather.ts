@@ -9,8 +9,8 @@
  * End-of-turn: Sandstorm 1/16 to non-{Rock,Ground,Steel}, Hail 1/16 to non-Ice
  */
 
-import type { WeatherState, WeatherType, BattlePokemon, BattleEvent } from './types';
-import { getBattlePokemonTypes } from './speciesTypes';
+import type { WeatherState, WeatherType, BattlePokemon, BattleEvent } from './types.ts';
+import { getBattlePokemonTypes } from './speciesTypes.ts';
 
 export function createDefaultWeather(): WeatherState {
   return { type: 'none', turnsRemaining: 0, permanent: false };

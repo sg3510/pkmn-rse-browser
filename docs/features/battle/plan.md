@@ -96,6 +96,41 @@ CI/verification rule:
 - [ ] `ACC-007` Trainer battle sequence: faint -> EXP text -> trainer send-out -> new mon appears in-order.
 - [ ] `ACC-008` Switch action visibly animates recall/send-out and settles to stable idle frame.
 
+## Move Scripting Track (2026-02-18)
+
+- [x] `MOV-001` Protect gating parity in move resolution.
+- [x] `MOV-002` Shared Protect/Endure success-chain implementation.
+- [x] `MOV-003` Endure lethal-hit survival parity.
+- [x] `MOV-004` Mist/Safeguard/Spikes move handlers.
+- [x] `MOV-005` Mist/Safeguard guard enforcement for stat/status moves.
+- [x] `MOV-006` Side-condition timer tick/wear-off messaging (Mist/Safeguard).
+- [x] `MOV-007` Runtime move-effect coverage report export.
+- [x] `MOV-008` CLI coverage tooling (`npm run report:battle:move-effects`).
+- [x] `MOV-009` Regression tests for protect-family and side-condition behavior.
+- [x] `MOV-010` Dedicated move-scripting plan doc: `docs/features/battle/move-scripting-plan.md`.
+- [x] `MOV-011` Node ESM stability for battle engine tests/report tooling (`.ts` import normalization + deterministic flaky test fix).
+- [x] `MOV-012` Generated move-effect index import path (`scripts/generate-battle-move-effects.cjs` -> `src/data/battleMoveEffects.gen.ts`).
+- [x] `MOV-013` Battle generator verification includes move scripting artifacts (`battleScripts.gen.ts`, `battleMoveEffects.gen.ts`).
+
+## Wild Encounter + Capture Scale Track (2026-02-18)
+
+- [ ] `ENC-DOC-001` Canonical plan/checklist for this slice: `docs/features/battle/wild-encounter-capture-scale-plan.md`.
+- [ ] `ENC-DAT-001` Generator: `scripts/generate-wild-encounters.cjs`.
+- [ ] `ENC-DAT-002` Generated map encounter dataset: `src/data/wildEncounters.gen.ts`.
+- [ ] `ENC-DAT-003` Script/verification wiring for encounter generated freshness.
+- [ ] `ENC-RUN-001` C-rate wild encounter checks in overworld grass traversal.
+- [ ] `ENC-RUN-002` Generated weighted slot + level roll resolution.
+- [ ] `ENC-RUN-003` Lead-modifier support (Keen Eye/Intimidate, Magnet Pull/Static, Hustle/Vital Spirit/Pressure).
+- [ ] `ENC-RUN-004` Overworld step integration and guarded `GameState.BATTLE` transition.
+- [ ] `ENC-RUN-005` Return-location/runtime-state safe wild battle start payload.
+- [ ] `CAP-001` Poké Ball usage path validated for roaming wild battles.
+- [ ] `CAP-002` Catch odds/shake/message parity validated for roaming wild battles.
+- [ ] `ENC-TST-001` Encounter service deterministic tests.
+- [ ] `ENC-TST-002` Capture path deterministic tests.
+- [ ] `ENC-ACC-001` Grass encounter species distribution aligns with generated slot weights over sample runs.
+- [ ] `ENC-ACC-002` Roaming wild battle supports Poké Ball capture outcome end-to-end.
+- [ ] `ENC-ACC-003` Generated encounter freshness check enforced.
+
 ## Acceptance Scenarios
 
 - [ ] `ACC-001` Wild scripted battle (starter vs Poochyena) passes end-to-end.
@@ -118,6 +153,9 @@ CI/verification rule:
 - Added front-sprite malformed-sheet guard (black-flicker fix) and battle-scene overlay clipping to prevent lower-screen sprite artifacts.
 - Added battle-font preload path to ensure `"Pokemon Emerald"` is active before UI text draw.
 - Fixed `trainerbattle_no_intro` parity to always run battle setup (no pre-check on trainer flags), preventing Elite Four auto-skip after challenge-reset flows.
+- Normalized battle-engine import specifiers for direct Node ESM test/report execution and hardened flaky run-attempt parity test RNG sequencing.
+- Added generated move-effect index artifact and switched move-coverage reporting to consume generated index data.
+- Extended `verify:generated:battle` to enforce battle script + move-effect generated freshness.
 - Implemented C-parity wild capture flow (ball multipliers, status bonuses, shake outcomes, bag consumption, caught outcome).
 - Added catch persistence hooks (party insert when space exists + Pokédex seen/caught updates).
 - Moved EXP awarding to enemy-faint timing and added trainer/Lucky Egg multipliers per C ordering.
@@ -128,12 +166,15 @@ CI/verification rule:
 - `node --test src/pages/gamePage/__tests__/trainerFallback.test.ts` -> pass
 - `npm run verify:generated:battle` -> pass
 - `npm run validate:battle-sprites` -> pass
+- `node --test src/battle/engine/__tests__/MoveEffects.scalable.test.ts` -> pass
+- `node --test src/battle/engine/__tests__/BattleParity.test.ts` -> pass
+- `npm run report:battle:move-effects` -> pass
+- `npm run generate:battle-move-effects` -> pass
 - `npm run build` -> pass
 
 ## Remaining Validation Gaps (M8)
 
 - Runtime/manual scripted checks for `ACC-001`, `ACC-002`, `ACC-004` are still required.
-- `node --test src/battle/engine/__tests__/BattleParity.test.ts` is blocked in direct Node ESM mode by extensionless imports in shared runtime modules; this is a test-harness/import-resolution issue, not a battle logic failure in build output.
 
 ## Post-M8 Scope (Researched)
 

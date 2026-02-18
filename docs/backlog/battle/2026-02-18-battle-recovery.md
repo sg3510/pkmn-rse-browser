@@ -202,3 +202,91 @@
 
 - `node --test --experimental-strip-types src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts`: PASS
 - `node --test --experimental-strip-types src/scripting/__tests__/ScriptRunner.*.test.ts`: PASS
+
+## 2026-02-18 Move Scripting Scalability Pass
+
+### Completed IDs
+
+- `MOV-001`, `MOV-002`, `MOV-003`, `MOV-004`, `MOV-005`
+- `MOV-006`, `MOV-007`, `MOV-008`, `MOV-009`, `MOV-010`
+
+### Shipped changes
+
+- Fixed Protect gating so protect-affected moves are blocked when target has active Protect.
+- Added shared Protect-like success-chain logic and implemented Endure parity.
+- Added Mist/Safeguard/Spikes handlers with side-condition timers and wear-off messages.
+- Added Safeguard and Mist enforcement in status/stat-lowering move paths.
+- Added move-effect coverage reporting from runtime handler registry + generated move/effect data:
+  - engine export: `getMoveEffectCoverageReport()`
+  - CLI tool: `npm run report:battle:move-effects`
+- Added focused engine tests for Protect, Endure, Safeguard, Mist, Spikes, and coverage-report wiring.
+- Added plan doc: `docs/features/battle/move-scripting-plan.md`.
+
+### Validation
+
+- `node --test --experimental-strip-types src/battle/engine/__tests__/MoveEffects.scalable.test.ts`: PASS
+- `node --test --experimental-strip-types src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `npm run report:battle:move-effects`: PASS
+
+## 2026-02-18 Move Scripting Verification Hardening
+
+### Completed IDs
+
+- `MOV-011`
+
+### Shipped changes
+
+- Normalized battle-engine import specifiers to explicit `.ts` in the move/damage/status/weather stack so direct Node ESM test/CLI execution is stable.
+- Removed flaky RNG behavior in `BattleParity` run-failure test by using deterministic staged RNG values.
+- Verified move coverage reporter now executes directly (no module-resolution failure).
+
+### Validation
+
+- `node --test src/battle/engine/__tests__/MoveEffects.scalable.test.ts`: PASS
+- `node --test src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `npm run report:battle:move-effects -- --top 10`: PASS
+- `npm run build`: PASS
+
+## 2026-02-18 Generator-First Move Import Hardening
+
+### Completed IDs
+
+- `MOV-012`
+- `MOV-013`
+
+### Shipped changes
+
+- Added generator script: `scripts/generate-battle-move-effects.cjs`.
+- Added generated artifact: `src/data/battleMoveEffects.gen.ts` (effect -> moves/script index + move -> effect index).
+
+## 2026-02-18 Wild Encounter + Capture Scale Pass (Started)
+
+### Tracker IDs
+
+- `ENC-DOC-001`
+- `ENC-DAT-001`, `ENC-DAT-002`, `ENC-DAT-003`
+- `ENC-RUN-001`, `ENC-RUN-002`, `ENC-RUN-003`, `ENC-RUN-004`, `ENC-RUN-005`
+- `CAP-001`, `CAP-002`
+- `ENC-TST-001`, `ENC-TST-002`
+- `ENC-ACC-001`, `ENC-ACC-002`, `ENC-ACC-003`
+
+### Scope note
+
+- Canonical plan added at `docs/features/battle/wild-encounter-capture-scale-plan.md`.
+- This slice is generator-first for wild encounter datasets and focuses on roaming grass encounters + Poké Ball capture flow verification.
+- Updated move coverage runtime/report path to consume generated move-effect index (generator-first data join).
+- Updated `verify:generated:battle` to include:
+  - `scripts/generate-battle-scripts.cjs`
+  - `scripts/generate-battle-move-effects.cjs`
+  and freshness checks for:
+  - `src/data/battleScripts.gen.ts`
+  - `src/data/battleMoveEffects.gen.ts`
+- Updated npm battle orchestration to include `generate:battle-move-effects` within `generate:battle-data`.
+
+### Validation
+
+- `npm run generate:battle-move-effects`: PASS
+- `npm run verify:generated:battle`: PASS
+- `npm run report:battle:move-effects -- --top 12`: PASS
+- `node --test src/battle/engine/__tests__/MoveEffects.scalable.test.ts src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `npm run build`: PASS

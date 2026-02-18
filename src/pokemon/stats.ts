@@ -5,9 +5,9 @@
  * from base stats, IVs, EVs, level, and nature.
  */
 
-import { getSpeciesInfo } from '../data/speciesInfo';
-import { getNatureStatModifier, getNatureFromPersonality } from '../data/natures';
-import type { PartyPokemon, BoxPokemon, Stats, IVs, EVs } from './types';
+import { getSpeciesInfo } from '../data/speciesInfo.ts';
+import { getNatureStatModifier, getNatureFromPersonality } from '../data/natures.ts';
+import type { PartyPokemon, BoxPokemon, Stats, IVs, EVs } from './types.ts';
 
 /**
  * Calculate HP stat

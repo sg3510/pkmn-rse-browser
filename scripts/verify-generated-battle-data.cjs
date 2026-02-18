@@ -18,6 +18,9 @@ const generators = [
   'scripts/generate-trainer-parties.cjs',
   'scripts/generate-learnsets.cjs',
   'scripts/generate-battle-moves.cjs',
+  'scripts/generate-wild-encounters.cjs',
+  'scripts/generate-battle-scripts.cjs',
+  'scripts/generate-battle-move-effects.cjs',
 ];
 
 const generatedFiles = [
@@ -25,6 +28,9 @@ const generatedFiles = [
   'src/data/trainerParties.gen.ts',
   'src/data/learnsets.gen.ts',
   'src/data/battleMoves.gen.ts',
+  'src/data/wildEncounters.gen.ts',
+  'src/data/battleScripts.gen.ts',
+  'src/data/battleMoveEffects.gen.ts',
 ];
 
 for (const script of generators) {

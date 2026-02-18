@@ -17,6 +17,8 @@ import {
   type MirageTowerCollapseRuntime,
 } from '../../game/scriptEffects/mirageTowerCollapseRuntime';
 import { berryManager } from '../../game/berry/BerryManager.ts';
+import { saveManager } from '../../save/SaveManager';
+import type { LocationState } from '../../save/types';
 
 interface MutableRef<T> {
   current: T;
@@ -152,6 +154,62 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     fallingNpc.isWalking = false;
   };
 
+  const findMapContainingPlayer = (
+    snapshot: WorldSnapshot,
+    tileX: number,
+    tileY: number
+  ): WorldSnapshot['maps'][number] | null => {
+    for (const map of snapshot.maps) {
+      const minX = map.offsetX;
+      const minY = map.offsetY;
+      const maxX = map.offsetX + map.mapData.width;
+      const maxY = map.offsetY + map.mapData.height;
+      if (tileX >= minX && tileX < maxX && tileY >= minY && tileY < maxY) {
+        return map;
+      }
+    }
+
+    return snapshot.maps.find((map) => map.entry.id === snapshot.anchorMapId) ?? snapshot.maps[0] ?? null;
+  };
+
+  const buildLocationStateForSave = (): LocationState | null => {
+    const snapshot = deps.worldSnapshotRef.current;
+    const player = deps.playerRef.current;
+    if (!snapshot || !player) {
+      return null;
+    }
+
+    const mapInstance = findMapContainingPlayer(snapshot, player.tileX, player.tileY);
+    const mapId = mapInstance?.entry.id ?? snapshot.anchorMapId;
+    const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
+    const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
+
+    return {
+      pos: { x: localX, y: localY },
+      location: { mapId, warpId: 0, x: localX, y: localY },
+      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
+      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      direction: player.getFacingDirection(),
+      elevation: player.getElevation(),
+      isSurfing: player.isSurfing(),
+      isUnderwater: player.isUnderwater(),
+      bikeMode: player.getBikeMode(),
+      isRidingBike: player.isBikeRiding(),
+    };
+  };
+
+  const runScriptSaveGame = (): boolean => {
+    const locationState = buildLocationStateForSave();
+    if (!locationState) {
+      return false;
+    }
+
+    const runtimeState = deps.objectEventManagerRef.current.getRuntimeState();
+    const result = saveManager.save(0, locationState, runtimeState);
+    return result.success;
+  };
+
   return {
     setDiveWarp: (mapId, x, y, warpId = 0) => {
       setFixedDiveWarpTarget(mapId, x, y, warpId);
@@ -268,6 +326,9 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     screenEffects: {
       startOrbEffect: (resultVar) => deps.orbEffectRuntimeRef.current.start(resultVar),
       fadeOutOrbEffect: () => deps.orbEffectRuntimeRef.current.fadeOut(),
+    },
+    save: {
+      saveGame: runScriptSaveGame,
     },
     mirageTower: {
       startShake: startMirageTowerShake,

@@ -447,6 +447,10 @@ export interface ScriptScreenEffectServices {
   fadeOutOrbEffect?: () => Promise<void>;
 }
 
+export interface ScriptSaveServices {
+  saveGame?: () => boolean | Promise<boolean>;
+}
+
 export interface ScriptRuntimeServices {
   setDiveWarp?: (mapId: string, x: number, y: number, warpId?: number) => void;
   fade?: ScriptFadeServices;
@@ -455,6 +459,7 @@ export interface ScriptRuntimeServices {
   time?: ScriptTimeServices;
   party?: ScriptPartyServices;
   screenEffects?: ScriptScreenEffectServices;
+  save?: ScriptSaveServices;
   camera?: ScriptCameraSpecialServices;
   legendary?: ScriptLegendarySpecialServices;
   mirageTower?: ScriptMirageTowerSpecialServices;
@@ -463,6 +468,7 @@ export interface ScriptRuntimeServices {
 export class ScriptRunner {
   private sources: MapScriptData[];
   private mapData: MapScriptData | null;
+  private labelFallthroughTargets = new Map<ScriptCommand[], ScriptCommand[]>();
   private ctx: StoryScriptContext;
   private services: ScriptRuntimeServices;
   private playerName: string;
@@ -497,6 +503,8 @@ export class ScriptRunner {
     this.mapData = dataSources.mapData;
     if (dataSources.mapData) this.sources.push(dataSources.mapData);
     this.sources.push(dataSources.commonData);
+    this.indexLabelFallthroughTargets(dataSources.mapData);
+    this.indexLabelFallthroughTargets(dataSources.commonData);
     this.ctx = ctx;
     this.services = services;
     this.currentMapId = currentMapId;
@@ -508,6 +516,14 @@ export class ScriptRunner {
       startTrainerBattle: ctx.startTrainerBattle,
       startWildBattle: ctx.startWildBattle,
     });
+  }
+
+  private indexLabelFallthroughTargets(source: MapScriptData | null | undefined): void {
+    if (!source) return;
+    const scriptStreams = Object.values(source.scripts);
+    for (let i = 0; i + 1 < scriptStreams.length; i++) {
+      this.labelFallthroughTargets.set(scriptStreams[i], scriptStreams[i + 1]);
+    }
   }
 
   /** Look up a script by label across all sources */
@@ -935,7 +951,19 @@ export class ScriptRunner {
     let switchValue: number | null = null;
     let switchMatched = false;
 
-    while (ip < commands.length) {
+    while (true) {
+      if (ip >= commands.length) {
+        // C scripts are linear bytecode; labels can fall through to the next label
+        // when no explicit end/return/goto is used.
+        const fallthrough = this.labelFallthroughTargets.get(commands);
+        if (!fallthrough) {
+          return;
+        }
+        commands = fallthrough;
+        ip = 0;
+        continue;
+      }
+
       const { cmd, args = [] } = commands[ip];
       ip++;
 
@@ -3066,6 +3094,32 @@ export class ScriptRunner {
       case 'OpenPokenavForTutorial':
         // Opens the full PokéNav UI — no-op since we don't have one.
         return undefined;
+      case 'SaveGame': {
+        const waitState = (async () => {
+          const confirmed = this.ctx.showYesNo
+            ? await this.ctx.showYesNo('Would you like to save the game?')
+            : true;
+          if (!confirmed) {
+            gameVariables.setVar('VAR_RESULT', 0);
+            return;
+          }
+
+          let saved = false;
+          try {
+            saved = Boolean(await this.services.save?.saveGame?.());
+          } catch (error) {
+            console.error('[ScriptRunner] SaveGame special failed:', error);
+            saved = false;
+          }
+
+          if (!this.services.save?.saveGame) {
+            console.warn('[ScriptRunner] SaveGame special requested but no save service is available.');
+          }
+          gameVariables.setVar('VAR_RESULT', saved ? 1 : 0);
+        })();
+        this.queueWaitState(waitState);
+        return undefined;
+      }
 
       // --- Berry tree specials ---
       case 'ObjectEventInteractionGetBerryTreeData':

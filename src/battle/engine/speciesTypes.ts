@@ -5,8 +5,8 @@
  * - public/pokeemerald/src/pokemon.c (GetMonData MON_DATA_TYPE1/TYPE2 usage)
  */
 
-import { getSpeciesInfo } from '../../data/speciesInfo';
-import type { BattlePokemon } from './types';
+import { getSpeciesInfo } from '../../data/speciesInfo.ts';
+import type { BattlePokemon } from './types.ts';
 
 export function getSpeciesTypes(speciesId: number): [string, string] {
   const info = getSpeciesInfo(speciesId);
@@ -18,4 +18,3 @@ export function getSpeciesTypes(speciesId: number): [string, string] {
 export function getBattlePokemonTypes(mon: BattlePokemon): [string, string] {
   return getSpeciesTypes(mon.pokemon.species);
 }
-

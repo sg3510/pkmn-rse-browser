@@ -12,17 +12,17 @@
  *   Held items × Abilities × Burn × Screens
  */
 
-import { STATUS } from '../../pokemon/types';
-import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen';
-import { getBattleMoveData } from '../../data/battleMoves.gen';
-import { getItemBattleEffect, HOLD_EFFECTS } from '../../data/itemBattleEffects.gen';
-import { getMoveInfo } from '../../data/moves';
-import { battleRandomInt } from './BattleRng';
-import { getSpeciesTypes } from './speciesTypes';
-import type { BattlePokemon, WeatherType } from './types';
-import type { SideState } from './types';
-import { applyStatStage, isPhysicalType } from './types';
-import { hasStatus } from './StatusEffects';
+import { STATUS } from '../../pokemon/types.ts';
+import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen.ts';
+import { getBattleMoveData } from '../../data/battleMoves.gen.ts';
+import { getItemBattleEffect, HOLD_EFFECTS } from '../../data/itemBattleEffects.gen.ts';
+import { getMoveInfo } from '../../data/moves.ts';
+import { battleRandomInt } from './BattleRng.ts';
+import { getSpeciesTypes } from './speciesTypes.ts';
+import type { BattlePokemon, WeatherType } from './types.ts';
+import type { SideState } from './types.ts';
+import { applyStatStage, isPhysicalType } from './types.ts';
+import { hasStatus } from './StatusEffects.ts';
 
 export interface DamageResult {
   damage: number;

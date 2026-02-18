@@ -12,10 +12,10 @@
  *   Confusion (1-4 turns, 50% self-hit), Flinch, etc. — see types.ts
  */
 
-import { STATUS } from '../../pokemon/types';
-import { battleRandomInt } from './BattleRng';
-import { getBattlePokemonTypes } from './speciesTypes';
-import type { BattlePokemon, BattleEvent } from './types';
+import { STATUS } from '../../pokemon/types.ts';
+import { battleRandomInt } from './BattleRng.ts';
+import { getBattlePokemonTypes } from './speciesTypes.ts';
+import type { BattlePokemon, BattleEvent } from './types.ts';
 
 // ── Primary status helpers ──
 

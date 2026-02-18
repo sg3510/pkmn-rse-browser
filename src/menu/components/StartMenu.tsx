@@ -31,6 +31,7 @@ interface MenuTileData {
 
 export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: StartMenuProps) {
   const { cursorIndex, isOpen, currentMenu, data } = useMenuState();
+  const onSaveToBrowser = data.onSaveToBrowser as (() => Promise<void> | void) | undefined;
 
   // Determine grid layout based on viewport aspect ratio
   // Landscape (wider than tall): 3 cols × 2 rows
@@ -96,6 +97,11 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         enabled: true,
         onSelect: () => {
           console.log('[StartMenu] Save selected');
+          if (onSaveToBrowser) {
+            menuStateManager.close();
+            void Promise.resolve(onSaveToBrowser());
+            return;
+          }
           menuStateManager.open('save');
         },
       },
@@ -111,7 +117,7 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         },
       },
     ];
-  }, [data]);
+  }, [data, onSaveToBrowser]);
 
   const visibleTiles = tiles.filter((t) => t.visible);
   const handleConfirm = useCallback(() => {

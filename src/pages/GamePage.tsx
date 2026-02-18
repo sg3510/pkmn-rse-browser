@@ -721,12 +721,58 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     moneyManager.setRegisteredItem(itemId);
   }, []);
 
+  const getLocationStateForStartMenuSave = useCallback((): LocationState | null => {
+    const player = playerRef.current;
+    if (!player || !playerLoadedRef.current) return null;
+
+    const worldManager = worldManagerRef.current;
+    const mapInstance = worldManager?.findMapAtPosition(player.tileX, player.tileY) ?? null;
+    const mapId = mapInstance?.entry.id ?? saveManager.getCurrentMapId();
+    const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
+    const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
+
+    return {
+      pos: { x: localX, y: localY },
+      location: { mapId, warpId: 0, x: localX, y: localY },
+      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
+      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      direction: player.getFacingDirection(),
+      elevation: player.getElevation(),
+      isSurfing: player.isSurfing(),
+      isUnderwater: player.isUnderwater(),
+      bikeMode: player.getBikeMode(),
+      isRidingBike: player.isBikeRiding(),
+    };
+  }, []);
+
+  const saveToBrowserFromStartMenu = useCallback(() => {
+    const locationState = getLocationStateForStartMenuSave();
+    if (!locationState) {
+      void showFieldMessage('Cannot save right now.');
+      return;
+    }
+
+    const runtimeState = objectEventManagerRef.current.getRuntimeState();
+    const result = saveManager.save(0, locationState, runtimeState);
+    if (result.success) {
+      gamePageLogger.info('Save completed');
+      void showFieldMessage('Saved to browser.');
+      return;
+    }
+
+    const error = result.error ?? 'Save failed';
+    gamePageLogger.error('Save/Load error:', error);
+    void showFieldMessage(`Save failed: ${error}`);
+  }, [getLocationStateForStartMenuSave, showFieldMessage]);
+
   const openStartMenu = useCallback(() => {
     menuStateManager.open('start', {
       onFieldUseItem: tryUseFieldItem,
       onFieldRegisterItem: registerFieldItem,
+      onSaveToBrowser: saveToBrowserFromStartMenu,
     });
-  }, [tryUseFieldItem, registerFieldItem]);
+  }, [tryUseFieldItem, registerFieldItem, saveToBrowserFromStartMenu]);
 
   // START/SELECT handler
   useEffect(() => {

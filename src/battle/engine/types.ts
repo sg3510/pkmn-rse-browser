@@ -5,7 +5,7 @@
  * C ref: public/pokeemerald/include/constants/battle.h (STATUS1/2, BATTLE_TYPE)
  */
 
-import type { PartyPokemon } from '../../pokemon/types';
+import type { PartyPokemon } from '../../pokemon/types.ts';
 
 // ── Stat stages ──
 
@@ -39,6 +39,7 @@ export interface VolatileStatus {
   curse: boolean;
   focusEnergy: boolean;
   protect: boolean;           // this turn
+  endure: boolean;            // this turn
   protectSuccessCount: number;
   attractedTo: number | null; // battler index
   encore: number;             // turns remaining
@@ -74,6 +75,7 @@ export function createDefaultVolatile(): VolatileStatus {
     curse: false,
     focusEnergy: false,
     protect: false,
+    endure: false,
     protectSuccessCount: 0,
     attractedTo: null,
     encore: 0,

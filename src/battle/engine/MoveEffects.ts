@@ -9,18 +9,24 @@
  * C ref: public/pokeemerald/src/battle_script_commands.c (implementations)
  */
 
-import { MOVE_EFFECTS, getBattleMoveData } from '../../data/battleMoves.gen';
-import { getMoveInfo, getMoveName } from '../../data/moves';
-import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen';
-import { STATUS } from '../../pokemon/types';
-import { battleRandomChance, battleRandomInt } from './BattleRng';
-import type { BattlePokemon, BattleEvent, SideState, StatStageId } from './types';
-import { isPhysicalType, clampStage, getAccuracyMultiplier } from './types';
-import { calculateDamage, type DamageResult } from './DamageCalculator';
-import { getBattlePokemonTypes } from './speciesTypes';
-import { tryApplyStatus, applyConfusion, hasStatus } from './StatusEffects';
-import { setWeather, getWeatherStartMessage, getWeatherAccuracyOverride } from './Weather';
-import type { WeatherState } from './types';
+import {
+  MOVE_EFFECTS,
+  MOVE_FLAGS,
+  MOVE_TARGETS,
+  getBattleMoveData,
+} from '../../data/battleMoves.gen.ts';
+import { BATTLE_MOVE_EFFECT_IDS, BATTLE_MOVE_EFFECT_INDEX } from '../../data/battleMoveEffects.gen.ts';
+import { getMoveInfo, getMoveName } from '../../data/moves.ts';
+import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen.ts';
+import { STATUS } from '../../pokemon/types.ts';
+import { battleRandomChance, battleRandomInt } from './BattleRng.ts';
+import type { BattlePokemon, BattleEvent, SideState, StatStageId } from './types.ts';
+import { isPhysicalType, clampStage, getAccuracyMultiplier } from './types.ts';
+import { calculateDamage, type DamageResult } from './DamageCalculator.ts';
+import { getBattlePokemonTypes } from './speciesTypes.ts';
+import { tryApplyStatus, applyConfusion, hasStatus } from './StatusEffects.ts';
+import { setWeather, getWeatherStartMessage, getWeatherAccuracyOverride } from './Weather.ts';
+import type { WeatherState } from './types.ts';
 
 export interface MoveContext {
   attacker: BattlePokemon;
@@ -38,6 +44,25 @@ export interface MoveResult {
   weather?: WeatherState;
   /** Whether the move was successfully executed. */
   success: boolean;
+}
+
+export interface MoveEffectCoverageEntry {
+  effectId: number;
+  effectName: string;
+  scriptLabel: string | null;
+  implemented: boolean;
+  moveCount: number;
+  moveIds: number[];
+}
+
+export interface MoveEffectCoverageReport {
+  totalDefinedEffects: number;
+  totalReferencedEffects: number;
+  implementedEffects: number;
+  implementedReferencedEffects: number;
+  aliasReferencedEffects: number;
+  resolvedReferencedEffects: number;
+  missingReferencedEffects: MoveEffectCoverageEntry[];
 }
 
 /**
@@ -65,6 +90,15 @@ export function executeMove(ctx: MoveContext): MoveResult {
     return { events, success: false };
   }
 
+  if (isMoveBlockedByProtect(ctx, battleData)) {
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} protected itself!`,
+    });
+    return { events, success: false };
+  }
+
   // Accuracy check (before effect)
   if (!checkAccuracy(ctx, events)) {
     return { events, success: false };
@@ -72,7 +106,7 @@ export function executeMove(ctx: MoveContext): MoveResult {
 
   // Dispatch to effect handler
   const effect = battleData.effect;
-  const handler = EFFECT_HANDLERS[effect];
+  const handler = resolveEffectHandler(effect);
   if (handler) {
     return handler(ctx, events);
   }
@@ -85,6 +119,13 @@ export function executeMove(ctx: MoveContext): MoveResult {
   // Non-damaging move with no handler
   events.push({ type: 'message', battler, message: 'But nothing happened!' });
   return { events, success: false };
+}
+
+function isMoveBlockedByProtect(ctx: MoveContext, battleData: NonNullable<ReturnType<typeof getBattleMoveData>>): boolean {
+  if (!ctx.defender.volatile.protect) return false;
+  if ((battleData.flags & MOVE_FLAGS.FLAG_PROTECT_AFFECTED) === 0) return false;
+  if (battleData.target === MOVE_TARGETS.USER || battleData.target === MOVE_TARGETS.OPPONENTS_FIELD) return false;
+  return true;
 }
 
 // ── Accuracy check ──
@@ -156,7 +197,9 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
     return result;
   }
 
-  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0);
+  const hpBefore = defender.currentHp;
+  const endureActive = defender.volatile.endure;
+  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0, endureActive ? 1 : 0);
   const maxDamage = Math.max(0, defender.currentHp - minRemainingHp);
   const appliedDamage = Math.min(result.damage, maxDamage);
   defender.currentHp = Math.max(0, defender.currentHp - appliedDamage);
@@ -167,6 +210,18 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
       battler: defBattler,
       value: appliedDamage,
       moveId,
+    });
+  }
+
+  const enduredHit = endureActive
+    && hpBefore > 1
+    && result.damage >= hpBefore
+    && defender.currentHp === 1;
+  if (enduredHit) {
+    events.push({
+      type: 'message',
+      battler: defBattler,
+      message: `${defender.name} endured the hit!`,
     });
   }
 
@@ -210,7 +265,9 @@ function doFixedDamage(
     return { success: false, damage: 0 };
   }
 
-  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0);
+  const hpBefore = ctx.defender.currentHp;
+  const endureActive = ctx.defender.volatile.endure;
+  const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0, endureActive ? 1 : 0);
   const maxDamage = Math.max(0, ctx.defender.currentHp - minRemainingHp);
   const damage = Math.min(Math.max(0, baseDamage), maxDamage);
   ctx.defender.currentHp = Math.max(0, ctx.defender.currentHp - damage);
@@ -220,6 +277,18 @@ function doFixedDamage(
       type: 'damage',
       battler: ctx.defender.isPlayer ? 0 : 1,
       value: damage,
+    });
+  }
+
+  const enduredHit = endureActive
+    && hpBefore > 1
+    && baseDamage >= hpBefore
+    && ctx.defender.currentHp === 1;
+  if (enduredHit) {
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} endured the hit!`,
     });
   }
 
@@ -286,15 +355,106 @@ function formatStatName(stat: StatStageId): string {
   return names[stat];
 }
 
+function tryApplyStatusWithSafeguard(
+  ctx: MoveContext,
+  status: number,
+  events: BattleEvent[],
+): boolean {
+  if (ctx.defenderSide.safeguard > 0) {
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} is protected by Safeguard!`,
+    });
+    return false;
+  }
+  return tryApplyStatus(ctx.defender, status, events);
+}
+
+function applyDefenderStatDrop(
+  ctx: MoveContext,
+  stat: StatStageId,
+  amount: number,
+  events: BattleEvent[],
+): boolean {
+  if (ctx.defenderSide.mist > 0) {
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} is protected by Mist!`,
+    });
+    return false;
+  }
+  return applyStatChange(ctx.defender, stat, amount, events);
+}
+
+const PROTECT_LIKE_SUCCESS_RATES = [1, 1 / 2, 1 / 4, 1 / 8] as const;
+
+function applyProtectLike(ctx: MoveContext, events: BattleEvent[], kind: 'protect' | 'endure'): MoveResult {
+  const count = Math.max(0, ctx.attacker.volatile.protectSuccessCount | 0);
+  const index = Math.min(count, PROTECT_LIKE_SUCCESS_RATES.length - 1);
+  const chance = PROTECT_LIKE_SUCCESS_RATES[index];
+  if (!battleRandomChance(chance)) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  if (kind === 'protect') {
+    ctx.attacker.volatile.protect = true;
+    events.push({ type: 'message', message: `${ctx.attacker.name} protected itself!` });
+  } else {
+    ctx.attacker.volatile.endure = true;
+    events.push({ type: 'message', message: `${ctx.attacker.name} braced itself!` });
+  }
+  ctx.attacker.volatile.protectSuccessCount++;
+  return { events, success: true };
+}
+
 // ── Effect Handlers ──
 
 type EffectHandler = (ctx: MoveContext, events: BattleEvent[]) => MoveResult;
 
 const EFFECT_HANDLERS: Record<number, EffectHandler> = {};
+let effectAliasMapCache: Map<number, number> | null = null;
 
 /** Register a handler for an effect ID. */
 function registerEffect(effectId: number, handler: EffectHandler): void {
   EFFECT_HANDLERS[effectId] = handler;
+  effectAliasMapCache = null;
+}
+
+function getEffectAliasMap(): Map<number, number> {
+  if (effectAliasMapCache !== null) return effectAliasMapCache;
+
+  const byScriptLabel = new Map<string, number[]>();
+  for (const effectId of getImplementedMoveEffectIds()) {
+    const scriptLabel = BATTLE_MOVE_EFFECT_INDEX[effectId]?.scriptLabel;
+    if (!scriptLabel) continue;
+    const ids = byScriptLabel.get(scriptLabel) ?? [];
+    ids.push(effectId);
+    byScriptLabel.set(scriptLabel, ids);
+  }
+
+  const map = new Map<number, number>();
+  for (const effectId of BATTLE_MOVE_EFFECT_IDS) {
+    if (EFFECT_HANDLERS[effectId]) continue;
+    const scriptLabel = BATTLE_MOVE_EFFECT_INDEX[effectId]?.scriptLabel;
+    if (!scriptLabel) continue;
+    const candidates = byScriptLabel.get(scriptLabel);
+    if (!candidates || candidates.length !== 1) continue;
+    map.set(effectId, candidates[0]);
+  }
+
+  effectAliasMapCache = map;
+  return map;
+}
+
+function resolveEffectHandler(effectId: number): EffectHandler | undefined {
+  const direct = EFFECT_HANDLERS[effectId];
+  if (direct) return direct;
+  const aliasEffectId = getEffectAliasMap().get(effectId);
+  if (aliasEffectId === undefined) return undefined;
+  return EFFECT_HANDLERS[aliasEffectId];
 }
 
 // ── EFFECT_HIT (0) — Basic damage ──
@@ -304,8 +464,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_HIT, (ctx, events) => {
 
 // ── EFFECT_SLEEP (1) ──
 registerEffect(MOVE_EFFECTS.EFFECT_SLEEP, (ctx, events) => {
-  const success = tryApplyStatus(ctx.defender, STATUS.SLEEP, events);
-  if (!success) {
+  const success = tryApplyStatusWithSafeguard(ctx, STATUS.SLEEP, events);
+  if (!success && ctx.defenderSide.safeguard === 0) {
     events.push({ type: 'message', message: 'But it failed!' });
   }
   return { events, success };
@@ -317,7 +477,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_POISON_HIT, (ctx, events) => {
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-      tryApplyStatus(ctx.defender, STATUS.POISON, events);
+      tryApplyStatusWithSafeguard(ctx, STATUS.POISON, events);
     }
   }
   return { events, success: true };
@@ -348,7 +508,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_BURN_HIT, (ctx, events) => {
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-      tryApplyStatus(ctx.defender, STATUS.BURN, events);
+      tryApplyStatusWithSafeguard(ctx, STATUS.BURN, events);
     }
   }
   return { events, success: true };
@@ -360,7 +520,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_FREEZE_HIT, (ctx, events) => {
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-      tryApplyStatus(ctx.defender, STATUS.FREEZE, events);
+      tryApplyStatusWithSafeguard(ctx, STATUS.FREEZE, events);
     }
   }
   return { events, success: true };
@@ -372,7 +532,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_PARALYZE_HIT, (ctx, events) => {
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-      tryApplyStatus(ctx.defender, STATUS.PARALYSIS, events);
+      tryApplyStatusWithSafeguard(ctx, STATUS.PARALYSIS, events);
     }
   }
   return { events, success: true };
@@ -415,7 +575,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_EVASION_UP, makeStatUpHandler('evasion', 1));
 // ── Stat-lowering moves (18-24) ──
 function makeStatDownHandler(stat: StatStageId, amount: number): EffectHandler {
   return (ctx, events) => {
-    const success = applyStatChange(ctx.defender, stat, amount, events);
+    const success = applyDefenderStatDrop(ctx, stat, amount, events);
     return { events, success };
   };
 }
@@ -453,7 +613,7 @@ function makeDamageStatDownHitHandler(stat: StatStageId): EffectHandler {
     if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
       const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
       if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-        applyStatChange(ctx.defender, stat, -1, events);
+        applyDefenderStatDrop(ctx, stat, -1, events);
       }
     }
     return { events, success: true };
@@ -589,8 +749,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_CONFUSE_HIT, (ctx, events) => {
 
 // ── EFFECT_POISON (66) ──
 registerEffect(MOVE_EFFECTS.EFFECT_POISON, (ctx, events) => {
-  const success = tryApplyStatus(ctx.defender, STATUS.POISON, events);
-  if (!success) {
+  const success = tryApplyStatusWithSafeguard(ctx, STATUS.POISON, events);
+  if (!success && ctx.defenderSide.safeguard === 0) {
     events.push({ type: 'message', message: 'But it failed!' });
   }
   return { events, success };
@@ -598,8 +758,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_POISON, (ctx, events) => {
 
 // ── EFFECT_PARALYZE (67) ──
 registerEffect(MOVE_EFFECTS.EFFECT_PARALYZE, (ctx, events) => {
-  const success = tryApplyStatus(ctx.defender, STATUS.PARALYSIS, events);
-  if (!success) {
+  const success = tryApplyStatusWithSafeguard(ctx, STATUS.PARALYSIS, events);
+  if (!success && ctx.defenderSide.safeguard === 0) {
     events.push({ type: 'message', message: 'But it failed!' });
   }
   return { events, success };
@@ -607,8 +767,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_PARALYZE, (ctx, events) => {
 
 // ── EFFECT_TOXIC (33) ──
 registerEffect(MOVE_EFFECTS.EFFECT_TOXIC, (ctx, events) => {
-  const success = tryApplyStatus(ctx.defender, STATUS.TOXIC, events);
-  if (!success) {
+  const success = tryApplyStatusWithSafeguard(ctx, STATUS.TOXIC, events);
+  if (!success && ctx.defenderSide.safeguard === 0) {
     events.push({ type: 'message', message: 'But it failed!' });
   }
   return { events, success };
@@ -616,8 +776,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_TOXIC, (ctx, events) => {
 
 // ── EFFECT_WILL_O_WISP (167) ──
 registerEffect(MOVE_EFFECTS.EFFECT_WILL_O_WISP, (ctx, events) => {
-  const success = tryApplyStatus(ctx.defender, STATUS.BURN, events);
-  if (!success) {
+  const success = tryApplyStatusWithSafeguard(ctx, STATUS.BURN, events);
+  if (!success && ctx.defenderSide.safeguard === 0) {
     events.push({ type: 'message', message: 'But it failed!' });
   }
   return { events, success };
@@ -678,17 +838,23 @@ registerEffect(MOVE_EFFECTS.EFFECT_REST, (ctx, events) => {
 
 // ── EFFECT_PROTECT (111) ──
 registerEffect(MOVE_EFFECTS.EFFECT_PROTECT, (ctx, events) => {
-  // Successive uses have decreasing chance: 1/1, 1/2, 1/4, 1/8, ...
-  const count = ctx.attacker.volatile.protectSuccessCount;
-  const chance = count === 0 ? 1 : Math.pow(0.5, count);
-  if (battleRandomChance(chance)) {
-    ctx.attacker.volatile.protect = true;
-    ctx.attacker.volatile.protectSuccessCount++;
-    events.push({ type: 'message', message: `${ctx.attacker.name} protected itself!` });
-    return { events, success: true };
+  return applyProtectLike(ctx, events, 'protect');
+});
+
+// ── EFFECT_ENDURE (116) ──
+registerEffect(MOVE_EFFECTS.EFFECT_ENDURE, (ctx, events) => {
+  return applyProtectLike(ctx, events, 'endure');
+});
+
+// ── EFFECT_MIST (46) ──
+registerEffect(MOVE_EFFECTS.EFFECT_MIST, (ctx, events) => {
+  if (ctx.attackerSide.mist > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
   }
-  events.push({ type: 'message', message: 'But it failed!' });
-  return { events, success: false };
+  ctx.attackerSide.mist = 5;
+  events.push({ type: 'message', message: `${ctx.attacker.name}'s team became shrouded in Mist!` });
+  return { events, success: true };
 });
 
 // ── EFFECT_REFLECT (65) ──
@@ -710,6 +876,28 @@ registerEffect(MOVE_EFFECTS.EFFECT_LIGHT_SCREEN, (ctx, events) => {
   }
   ctx.attackerSide.lightScreen = 5;
   events.push({ type: 'message', message: `${ctx.attacker.name}'s team raised Light Screen!` });
+  return { events, success: true };
+});
+
+// ── EFFECT_SAFEGUARD (124) ──
+registerEffect(MOVE_EFFECTS.EFFECT_SAFEGUARD, (ctx, events) => {
+  if (ctx.attackerSide.safeguard > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.attackerSide.safeguard = 5;
+  events.push({ type: 'message', message: `${ctx.attacker.name}'s team became cloaked in Safeguard!` });
+  return { events, success: true };
+});
+
+// ── EFFECT_SPIKES (112) ──
+registerEffect(MOVE_EFFECTS.EFFECT_SPIKES, (ctx, events) => {
+  if (ctx.defenderSide.spikes >= 3) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.defenderSide.spikes++;
+  events.push({ type: 'message', message: `Spikes were scattered around ${ctx.defender.name}'s team!` });
   return { events, success: true };
 });
 
@@ -856,7 +1044,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_THAW_HIT, (ctx, events) => {
   if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
-      tryApplyStatus(ctx.defender, STATUS.BURN, events);
+      tryApplyStatusWithSafeguard(ctx, STATUS.BURN, events);
     }
   }
   return { events, success: true };
@@ -869,9 +1057,9 @@ registerEffect(MOVE_EFFECTS.EFFECT_TRI_ATTACK, (ctx, events) => {
     const chance = getBattleMoveData(ctx.moveId)?.secondaryEffectChance ?? 0;
     if (chance > 0 && battleRandomInt(1, 100) <= chance) {
       const effect = battleRandomInt(1, 3);
-      if (effect === 1) tryApplyStatus(ctx.defender, STATUS.BURN, events);
-      else if (effect === 2) tryApplyStatus(ctx.defender, STATUS.FREEZE, events);
-      else tryApplyStatus(ctx.defender, STATUS.PARALYSIS, events);
+      if (effect === 1) tryApplyStatusWithSafeguard(ctx, STATUS.BURN, events);
+      else if (effect === 2) tryApplyStatusWithSafeguard(ctx, STATUS.FREEZE, events);
+      else tryApplyStatusWithSafeguard(ctx, STATUS.PARALYSIS, events);
     }
   }
   return { events, success: true };
@@ -968,8 +1156,8 @@ registerEffect(MOVE_EFFECTS.EFFECT_COSMIC_POWER, (ctx, events) => {
 
 // EFFECT_TICKLE (205)
 registerEffect(MOVE_EFFECTS.EFFECT_TICKLE, (ctx, events) => {
-  applyStatChange(ctx.defender, 'attack', -1, events);
-  applyStatChange(ctx.defender, 'defense', -1, events);
+  applyDefenderStatDrop(ctx, 'attack', -1, events);
+  applyDefenderStatDrop(ctx, 'defense', -1, events);
   return { events, success: true };
 });
 
@@ -1020,4 +1208,54 @@ function consumePP(attacker: BattlePokemon, moveSlot: number): void {
   if (moveSlot >= 0 && moveSlot < 4) {
     attacker.pokemon.pp[moveSlot] = Math.max(0, attacker.pokemon.pp[moveSlot] - 1) as 0;
   }
+}
+
+export function getImplementedMoveEffectIds(): number[] {
+  return Object.keys(EFFECT_HANDLERS)
+    .map((key) => Number(key))
+    .filter((id) => Number.isFinite(id))
+    .sort((a, b) => a - b);
+}
+
+export function getResolvedMoveEffectIds(): number[] {
+  const ids = new Set(getImplementedMoveEffectIds());
+  for (const effectId of getEffectAliasMap().keys()) {
+    ids.add(effectId);
+  }
+  return Array.from(ids).sort((a, b) => a - b);
+}
+
+export function getMoveEffectCoverageReport(): MoveEffectCoverageReport {
+  const implementedIds = new Set(getImplementedMoveEffectIds());
+  const resolvedIds = new Set(getResolvedMoveEffectIds());
+  const referencedEntries: MoveEffectCoverageEntry[] = BATTLE_MOVE_EFFECT_IDS
+    .map((effectId) => {
+      const row = BATTLE_MOVE_EFFECT_INDEX[effectId];
+      return {
+        effectId,
+        effectName: row.effectName,
+        scriptLabel: row.scriptLabel,
+        implemented: resolvedIds.has(effectId),
+        moveCount: row.moveCount,
+        moveIds: row.moveIds,
+      };
+    })
+    .sort((a, b) => a.effectId - b.effectId);
+
+  const missingReferencedEffects = referencedEntries
+    .filter((entry) => !entry.implemented)
+    .sort((a, b) => b.moveCount - a.moveCount || a.effectId - b.effectId);
+
+  const implementedReferencedEffects = referencedEntries.filter((entry) => entry.implemented).length;
+  const directImplementedReferencedEffects = referencedEntries.filter((entry) => implementedIds.has(entry.effectId)).length;
+
+  return {
+    totalDefinedEffects: Object.keys(MOVE_EFFECTS).length,
+    totalReferencedEffects: referencedEntries.length,
+    implementedEffects: implementedIds.size,
+    implementedReferencedEffects: directImplementedReferencedEffects,
+    aliasReferencedEffects: implementedReferencedEffects - directImplementedReferencedEffects,
+    resolvedReferencedEffects: implementedReferencedEffects,
+    missingReferencedEffects,
+  };
 }

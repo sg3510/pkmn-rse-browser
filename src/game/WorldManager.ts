@@ -45,6 +45,7 @@ import {
   computeSpatialConnectionOffset,
   isSpatialConnectionDirection,
 } from './mapConnections';
+import { applyTrainerHillDynamicFloorLayout } from './trainerHillFloorLayout';
 
 const PROJECT_ROOT = '/pokeemerald';
 const NUM_PALS_IN_PRIMARY = 6;
@@ -705,6 +706,8 @@ export class WorldManager {
         loadBorderMetatiles(`${layoutPath}/border.bin`).catch(() => [] as number[]),
         loadMapEvents(entry.folder),
       ]);
+
+      await applyTrainerHillDynamicFloorLayout(entry.id, mapData);
 
       // Check epoch after async - abort if world reinitialized
       if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
