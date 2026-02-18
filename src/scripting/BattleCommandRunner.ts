@@ -19,6 +19,7 @@ import {
   type ScriptTrainerBattleRequest,
   type ScriptWildBattleRequest,
 } from './battleTypes.ts';
+import { setFrontierBattleOutcome } from './runtime/frontierState.ts';
 
 export interface BattleCommandContext {
   delayFrames: (frames: number) => Promise<void>;
@@ -85,6 +86,7 @@ export class BattleCommandRunner {
   }
 
   private commitOutcome(outcome: ScriptBattleResult['outcome']): ScriptBattleResult {
+    setFrontierBattleOutcome(outcome);
     gameVariables.setVar(OUTCOME_VAR, outcome);
     return { outcome };
   }

@@ -52,11 +52,42 @@ import { isDebugMode } from '../utils/debug.ts';
 import { recordStoryScriptTimelineEvent } from '../game/debug/storyScriptTimeline.ts';
 import { berryManager } from '../game/berry/BerryManager.ts';
 import {
+  TRAINER_HILL_CONSTANTS,
+  getTrainerHillBattleTrainer,
+  getTrainerHillMode,
+  trainerHillCheckFinalTime,
+  trainerHillGetAllFloorsUsed,
+  trainerHillGetChallengeStatus,
+  trainerHillGetOwnerState,
+  trainerHillGetSavedGame,
+  trainerHillGetTimerFrames,
+  trainerHillGetUsingEReader,
+  trainerHillGetWon,
+  trainerHillInChallenge,
+  trainerHillMarkPrizeReceived,
+  trainerHillMarkTrainerDefeated,
+  trainerHillPreparePrizeResult,
+  trainerHillResumeTimer,
+  trainerHillSetAllTrainerFlags,
+  trainerHillSetLost,
+  trainerHillSetMode,
+  trainerHillSetSavedGame,
+  trainerHillClearSavedGame,
+  trainerHillStartChallenge,
+  trainerHillIsTrainerDefeated,
+} from '../game/trainerHillRuntime.ts';
+import {
   BERRY_STAGE_CONSTANTS,
   BERRY_TREE_CONSTANTS,
   berryTypeToItemId,
   itemIdToBerryType,
 } from '../game/berry/berryConstants.ts';
+import {
+  getFrontierData,
+  getFrontierStatusVarTempChallengeStatus,
+  setFrontierBattleOutcome,
+  setFrontierData,
+} from './runtime/frontierState.ts';
 
 /** Direction string used by StoryScriptContext */
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -259,6 +290,37 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'B_OUTCOME_NO_SAFARI_BALLS') return 8;
   if (val === 'B_OUTCOME_FORFEITED') return 9;
   if (val === 'B_OUTCOME_MON_TELEPORTED') return 10;
+  // Trainer battle mode constants (include/constants/battle_setup.h)
+  if (val === 'TRAINER_BATTLE_SINGLE') return 0;
+  if (val === 'TRAINER_BATTLE_CONTINUE_SCRIPT_NO_MUSIC') return 1;
+  if (val === 'TRAINER_BATTLE_CONTINUE_SCRIPT') return 2;
+  if (val === 'TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT') return 3;
+  if (val === 'TRAINER_BATTLE_DOUBLE') return 4;
+  if (val === 'TRAINER_BATTLE_REMATCH') return 5;
+  if (val === 'TRAINER_BATTLE_CONTINUE_SCRIPT_DOUBLE') return 6;
+  if (val === 'TRAINER_BATTLE_REMATCH_DOUBLE') return 7;
+  if (val === 'TRAINER_BATTLE_CONTINUE_SCRIPT_DOUBLE_NO_MUSIC') return 8;
+  if (val === 'TRAINER_BATTLE_PYRAMID') return 9;
+  if (val === 'TRAINER_BATTLE_SET_TRAINER_A') return 10;
+  if (val === 'TRAINER_BATTLE_SET_TRAINER_B') return 11;
+  if (val === 'TRAINER_BATTLE_HILL') return 12;
+  // Trainer Hill status constants (include/constants/trainer_hill.h)
+  if (val === 'TRAINER_HILL_PLAYER_STATUS_LOST') return 0;
+  if (val === 'TRAINER_HILL_PLAYER_STATUS_ECARD_SCANNED') return 1;
+  if (val === 'TRAINER_HILL_PLAYER_STATUS_NORMAL') return 2;
+  // Frontier data constants (include/constants/frontier_util.h)
+  if (val === 'FRONTIER_DATA_CHALLENGE_STATUS') return 0;
+  if (val === 'FRONTIER_DATA_LVL_MODE') return 1;
+  if (val === 'FRONTIER_DATA_BATTLE_NUM') return 2;
+  if (val === 'FRONTIER_DATA_PAUSED') return 3;
+  if (val === 'FRONTIER_DATA_SELECTED_MON_ORDER') return 4;
+  if (val === 'FRONTIER_DATA_BATTLE_OUTCOME') return 5;
+  if (val === 'FRONTIER_DATA_RECORD_DISABLED') return 6;
+  if (val === 'FRONTIER_DATA_HEARD_BRAIN_SPEECH') return 7;
+  if (val === 'CHALLENGE_STATUS_SAVING') return 1;
+  if (val === 'CHALLENGE_STATUS_PAUSED') return 2;
+  if (val === 'CHALLENGE_STATUS_WON') return 3;
+  if (val === 'CHALLENGE_STATUS_LOST') return 4;
   // Deoxys rock puzzle result constants (include/constants/field_specials.h)
   if (val === 'DEOXYS_ROCK_FAILED') return 0;
   if (val === 'DEOXYS_ROCK_PROGRESSED') return 1;
@@ -554,14 +616,103 @@ export class ScriptRunner {
 
   private async runTrainerBattleCommand(
     trainerId: string,
-    mode: ScriptTrainerBattleMode
+    mode: ScriptTrainerBattleMode,
+    trainer?: {
+      trainerConst: string;
+      trainerId: number;
+      trainerClass?: string;
+      trainerName?: string;
+      trainerPic?: string;
+      party: Array<{
+        species: number;
+        level: number;
+        heldItem?: number;
+        iv?: number;
+        moves?: readonly number[];
+      }>;
+    },
   ): Promise<boolean> {
-    const result = await this.battleCommands.runTrainerBattle({ trainerId, mode });
+    const result = await this.battleCommands.runTrainerBattle({ trainerId, mode, trainer });
     if (isPlayerDefeatedBattleOutcome(result.outcome)) {
       // C parity: losing trainer battles white-outs and the current script does not continue.
       return false;
     }
     return true;
+  }
+
+  private resolveSpeciesId(speciesConst: string): number {
+    const resolved = resolveConstant(speciesConst);
+    if (typeof resolved === 'number') return resolved;
+    if (resolved.startsWith('SPECIES_')) {
+      const key = resolved.slice('SPECIES_'.length);
+      const id = (SPECIES as Record<string, number>)[key];
+      if (typeof id === 'number') return id;
+    }
+    return 0;
+  }
+
+  private resolveMoveConstant(moveConst: string): number {
+    if (moveConst === 'MOVE_NONE') return 0;
+    const moveName = moveConst.startsWith('MOVE_') ? moveConst.slice('MOVE_'.length) : moveConst;
+    const moveId = (MOVES as Record<string, number>)[moveName];
+    return typeof moveId === 'number' ? moveId : 0;
+  }
+
+  private resolveItemConstant(itemConst: string): number {
+    if (itemConst === 'ITEM_NONE') return 0;
+    const itemId = getItemId(itemConst);
+    return itemId ?? 0;
+  }
+
+  private getHighestPartyLevel(): number {
+    const party = this.ctx.getParty?.() ?? [];
+    let highest = 1;
+    for (const mon of party) {
+      if (!mon) continue;
+      highest = Math.max(highest, mon.level | 0);
+    }
+    return highest;
+  }
+
+  private buildTrainerHillTrainerSpec(localId: number): {
+    trainerConst: string;
+    trainerId: number;
+    trainerClass?: string;
+    trainerName?: string;
+    trainerPic?: string;
+    party: Array<{
+      species: number;
+      level: number;
+      heldItem?: number;
+      iv?: number;
+      moves?: readonly number[];
+    }>;
+  } | null {
+    const trainer = getTrainerHillBattleTrainer(this.currentMapId, localId);
+    if (!trainer) return null;
+
+    const highestLevel = this.getHighestPartyLevel();
+    const party = trainer.party.map((mon) => ({
+      species: this.resolveSpeciesId(mon.species),
+      level: highestLevel,
+      heldItem: this.resolveItemConstant(mon.heldItem),
+      moves: mon.moves
+        .map((moveConst) => this.resolveMoveConstant(moveConst))
+        .filter((moveId) => moveId > 0),
+    }));
+
+    if (party.some((mon) => mon.species <= 0)) {
+      return null;
+    }
+
+    const mode = getTrainerHillMode();
+    return {
+      trainerConst: `TRAINER_HILL_${mode}_${trainer.floorIndex + 1}_${localId}`,
+      trainerId: 10000 + mode * 100 + trainer.floorIndex * 10 + localId,
+      trainerClass: trainer.facilityClass,
+      trainerName: trainer.name,
+      party,
+    };
   }
 
   /**
@@ -1649,11 +1800,132 @@ export class ScriptRunner {
 
         // --- Battle Frontier stubs ---
         case 'frontier_getstatus':
-          // GBA: sets VAR_TEMP_CHALLENGE_STATUS to 0xFF, then overwrites with
-          // actual status if a challenge is in progress. We have no frontier
-          // save data, so 0xFF ("no challenge") is always correct.
-          gameVariables.setVar('VAR_TEMP_CHALLENGE_STATUS', 0xFF);
+          // C parity: gSpecialVar_0x8004 = FRONTIER_UTIL_FUNC_GET_STATUS
+          // sets VAR_TEMP_CHALLENGE_STATUS.
+          gameVariables.setVar('VAR_TEMP_CHALLENGE_STATUS', getFrontierStatusVarTempChallengeStatus());
           break;
+
+        case 'frontier_get': {
+          const dataKey = asString(args[0]);
+          gameVariables.setVar('VAR_RESULT', getFrontierData(dataKey));
+          break;
+        }
+
+        case 'frontier_set': {
+          const dataKey = asString(args[0]);
+          const value = args.length > 1 ? this.resolveVarOrConst(args[1]) : gameVariables.getVar('VAR_RESULT');
+          setFrontierData(dataKey, value);
+          break;
+        }
+
+        // --- Trainer Hill command family ---
+        case 'trainerhill_start':
+          setFrontierBattleOutcome(0);
+          trainerHillStartChallenge();
+          break;
+
+        case 'trainerhill_getownerstate':
+          gameVariables.setVar('VAR_RESULT', trainerHillGetOwnerState());
+          break;
+
+        case 'trainerhill_giveprize': {
+          const prizeResult = trainerHillPreparePrizeResult();
+          if (prizeResult.result !== TRAINER_HILL_CONSTANTS.GIVE_PRIZE_RESULT.SUCCESS || !prizeResult.itemConst) {
+            gameVariables.setVar('VAR_RESULT', prizeResult.result);
+            break;
+          }
+
+          const itemId = getItemId(prizeResult.itemConst);
+          if (!itemId || itemId <= 0) {
+            gameVariables.setVar('VAR_RESULT', TRAINER_HILL_CONSTANTS.GIVE_PRIZE_RESULT.SKIP);
+            break;
+          }
+
+          if (bagManager.addItem(itemId, 1)) {
+            stringVars['STR_VAR_2'] = getItemName(itemId);
+            trainerHillMarkPrizeReceived();
+            gameVariables.setVar('VAR_RESULT', TRAINER_HILL_CONSTANTS.GIVE_PRIZE_RESULT.SUCCESS);
+          } else {
+            gameVariables.setVar('VAR_RESULT', TRAINER_HILL_CONSTANTS.GIVE_PRIZE_RESULT.BAG_FULL);
+          }
+          break;
+        }
+
+        case 'trainerhill_finaltime':
+          gameVariables.setVar('VAR_RESULT', trainerHillCheckFinalTime());
+          break;
+
+        case 'trainerhill_resumetimer':
+          trainerHillResumeTimer();
+          break;
+
+        case 'trainerhill_lost':
+          trainerHillSetLost();
+          break;
+
+        case 'trainerhill_getstatus':
+          gameVariables.setVar('VAR_RESULT', trainerHillGetChallengeStatus());
+          break;
+
+        case 'trainerhill_gettime': {
+          const total = trainerHillGetTimerFrames();
+          const minutes = Math.floor(total / 3600);
+          const rem = total % 3600;
+          const secondsWhole = Math.floor(rem / 60);
+          const secondsFraction = Math.floor(((rem % 60) * 168) / 100);
+          stringVars['STR_VAR_1'] = String(minutes).padStart(2, ' ');
+          stringVars['STR_VAR_2'] = String(secondsWhole).padStart(2, ' ');
+          stringVars['STR_VAR_3'] = String(secondsFraction).padStart(2, '0');
+          break;
+        }
+
+        case 'trainerhill_allfloorsused': {
+          const { allFloorsUsed, numFloors } = trainerHillGetAllFloorsUsed();
+          if (!allFloorsUsed) {
+            stringVars['STR_VAR_1'] = String(numFloors);
+          }
+          gameVariables.setVar('VAR_RESULT', allFloorsUsed ? 1 : 0);
+          break;
+        }
+
+        case 'trainerhill_getusingereader':
+          gameVariables.setVar('VAR_RESULT', trainerHillGetUsingEReader() ? 1 : 0);
+          break;
+
+        case 'trainerhill_inchallenge':
+          gameVariables.setVar('VAR_RESULT', trainerHillInChallenge(this.currentMapId) ? 1 : 0);
+          break;
+
+        case 'trainerhill_postbattletext':
+          // Full speech table decoding is not implemented; scripts still flow.
+          break;
+
+        case 'trainerhill_settrainerflags':
+          trainerHillSetAllTrainerFlags();
+          break;
+
+        case 'trainerhill_getsaved':
+          gameVariables.setVar('VAR_RESULT', trainerHillGetSavedGame() ? 1 : 0);
+          break;
+
+        case 'trainerhill_setsaved':
+          trainerHillSetSavedGame();
+          break;
+
+        case 'trainerhill_clearsaved':
+          trainerHillClearSavedGame();
+          break;
+
+        case 'trainerhill_getwon':
+          gameVariables.setVar('VAR_RESULT', trainerHillGetWon() ? 1 : 0);
+          break;
+
+        case 'trainerhill_setmode': {
+          const mode = this.resolveVarOrConst(args[0]);
+          trainerHillSetMode(mode);
+          gameVariables.setVar('VAR_TRAINER_HILL_MODE', getTrainerHillMode());
+          break;
+        }
 
         // --- additem: add item to bag and set VAR_RESULT ---
         // C ref: ScrCmd_additem in public/pokeemerald/src/scrcmd.c
@@ -1736,6 +2008,113 @@ export class ScriptRunner {
         // C refs:
         // - public/pokeemerald/src/battle_setup.c (BattleSetup_StartTrainerBattle, IsPlayerDefeated)
         // - public/pokeemerald/data/scripts/trainer_battle.inc (EventScript_DoTrainerBattle)
+        case 'trainerbattle': {
+          const battleType = this.resolveVarOrConst(args[0]);
+          const trainerId = asString(args[1]);
+
+          if (battleType === 12) { // TRAINER_BATTLE_HILL
+            const lastTalked = gameVariables.getVar('VAR_LAST_TALKED');
+            const localId = Number.isFinite(lastTalked) && lastTalked > 0 ? lastTalked : 1;
+            if (trainerHillIsTrainerDefeated(this.currentMapId, localId)) break;
+
+            const trainerSpec = this.buildTrainerHillTrainerSpec(localId);
+            const wonOrEscaped = await this.runTrainerBattleCommand(
+              trainerSpec?.trainerConst ?? trainerId,
+              'single',
+              trainerSpec ?? undefined,
+            );
+            if (!wonOrEscaped) return;
+            trainerHillMarkTrainerDefeated(this.currentMapId, localId);
+            break;
+          }
+
+          if (battleType === 10 || battleType === 11) { // TRAINER_BATTLE_SET_TRAINER_A/B
+            break;
+          }
+
+          if (battleType === 0 || battleType === 2 || battleType === 1) {
+            if (isTrainerDefeated(trainerId)) break;
+            await this.showTextByLabel(asString(args[3]));
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[4]));
+            setTrainerDefeated(trainerId);
+
+            if (battleType === 2 || battleType === 1) {
+              const defeatScriptArg = args.length > 5 ? asString(args[5]) : null;
+              if (defeatScriptArg && defeatScriptArg !== 'NO_MUSIC') {
+                const target = this.findScript(defeatScriptArg);
+                if (target) {
+                  callStack.push({ commands, ip });
+                  commands = target;
+                  ip = 0;
+                }
+              }
+            }
+            break;
+          }
+
+          if (battleType === 3) { // TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT
+            if (isTrainerDefeated(trainerId)) break;
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'no_intro');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[3]));
+            setTrainerDefeated(trainerId);
+            break;
+          }
+
+          if (battleType === 4 || battleType === 6 || battleType === 8) {
+            if (isTrainerDefeated(trainerId)) break;
+            await this.showTextByLabel(asString(args[3]));
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'double');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[4]));
+            setTrainerDefeated(trainerId);
+
+            if (battleType === 6 || battleType === 8) {
+              const defeatScriptArg = args.length > 6 ? asString(args[6]) : null;
+              if (defeatScriptArg && defeatScriptArg !== 'NO_MUSIC') {
+                const target = this.findScript(defeatScriptArg);
+                if (target) {
+                  callStack.push({ commands, ip });
+                  commands = target;
+                  ip = 0;
+                }
+              }
+            }
+            break;
+          }
+
+          if (battleType === 5) {
+            await this.showTextByLabel(asString(args[3]));
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[4]));
+            break;
+          }
+
+          if (battleType === 7) {
+            await this.showTextByLabel(asString(args[3]));
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch_double');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[4]));
+            break;
+          }
+
+          if (battleType === 9) { // TRAINER_BATTLE_PYRAMID
+            if (isTrainerDefeated(trainerId)) break;
+            await this.showTextByLabel(asString(args[3]));
+            const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
+            if (!wonOrEscaped) return;
+            await this.showTextByLabel(asString(args[4]));
+            setTrainerDefeated(trainerId);
+            break;
+          }
+
+          console.warn('[ScriptRunner] Unsupported trainerbattle type:', battleType, args);
+          break;
+        }
+
         case 'trainerbattle_single': {
           // args: [trainerId, introText, defeatText, defeatScript?, noMusic?]
           const trainerId = asString(args[0]);
@@ -1807,7 +2186,9 @@ export class ScriptRunner {
         case 'trainerbattle_no_intro': {
           // args: [trainerId, defeatText]
           const trainerId = asString(args[0]);
-          if (isTrainerDefeated(trainerId)) break;
+          // C parity: TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT maps to
+          // EventScript_DoNoIntroTrainerBattle, which does not pre-check trainer flags.
+          // This is required for Elite Four rematches after challenge reset.
 
           const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'no_intro');
           if (!wonOrEscaped) return;

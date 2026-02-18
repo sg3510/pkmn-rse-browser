@@ -236,8 +236,11 @@ export const OBJ_EVENT_GFX_ITEM_BALL = 'OBJ_EVENT_GFX_ITEM_BALL';
 export const OBJ_EVENT_GFX_TRUCK = 'OBJ_EVENT_GFX_TRUCK';
 
 /**
- * Exhaustive list of large (non-NPC) object graphics IDs currently supported by
+ * Exhaustive list of large-footprint object-event graphics IDs supported by
  * the renderer/object manager pipeline.
+ *
+ * Note: entries with a map `local_id` are routed through NPC-style storage so
+ * LOCALID script commands can target them.
  */
 export const LARGE_OBJECT_GRAPHICS_IDS = [
   'OBJ_EVENT_GFX_TRUCK',
@@ -312,9 +315,6 @@ const NPC_GRAPHICS_OVERRIDES = new Set<string>([
   // Birth Island puzzle rock is scripted like an object event/NPC in this runtime.
   'OBJ_EVENT_GFX_DEOXYS_TRIANGLE',
   'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
-  // Briney's boat is script-addressable via LOCALID_ROUTE104/109_BOAT and moved
-  // with applymovement, so it must be treated as an NPC-style object event.
-  'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
 ]);
 
 const NON_NPC_GRAPHICS_FALLBACKS = new Set<string>([

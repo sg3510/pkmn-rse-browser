@@ -78,24 +78,16 @@ const MAP_OFFSET = 7;
 const MAP_OFFSET_W = MAP_OFFSET * 2 + 1;
 const MAP_OFFSET_H = MAP_OFFSET * 2;
 const VIEWPORT_SPAWN_MARGIN_TILES = 2;
-const BRINEY_BOAT_GRAPHICS_ID = 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT';
-const BRINEY_BOAT_LOCAL_ID_SET = new Set<string>([
-  'LOCALID_ROUTE104_BOAT',
-  'LOCALID_ROUTE109_BOAT',
-  'LOCALID_DEWFORD_BOAT',
-]);
 
-function getBrineyBoatFlagForLocalId(localId: string): string {
-  switch (localId) {
-    case 'LOCALID_ROUTE104_BOAT':
-      return 'FLAG_HIDE_ROUTE_104_MR_BRINEY_BOAT';
-    case 'LOCALID_ROUTE109_BOAT':
-      return 'FLAG_HIDE_ROUTE_109_MR_BRINEY_BOAT';
-    case 'LOCALID_DEWFORD_BOAT':
-      return 'FLAG_HIDE_MR_BRINEY_BOAT_DEWFORD_TOWN';
-    default:
-      return '0';
-  }
+function isScriptAddressableLargeObject(
+  obj: ObjectEventData,
+  resolvedGraphicsId: string
+): boolean {
+  return (
+    isLargeObjectGraphicsId(resolvedGraphicsId)
+    && typeof obj.local_id === 'string'
+    && obj.local_id.length > 0
+  );
 }
 
 interface ObjectEventViewWindow {
@@ -308,15 +300,15 @@ export class ObjectEventManager {
       const obj = objectEvents[objIndex];
       if (isDecorationSlotPlaceholder(obj)) continue;
       const resolvedGraphicsId = resolveDynamicObjectGfx(obj.graphics_id, playerGender);
-      const forceNpcStyleObject = resolvedGraphicsId === BRINEY_BOAT_GRAPHICS_ID;
+      const parseAsNpcStyleObject = isScriptAddressableLargeObject(obj, resolvedGraphicsId);
       // Convert local coordinates to world coordinates
       const worldX = mapOffsetX + obj.x;
       const worldY = mapOffsetY + obj.y;
 
-      // Handle large non-NPC objects (e.g. truck). Briney's boat is special:
-      // it is rendered as a large sprite sheet, but scripted like an NPC
-      // (applymovement LOCALID_*), so it must be parsed in the NPC branch.
-      if (isLargeObjectGraphicsId(resolvedGraphicsId) && !forceNpcStyleObject) {
+      // C parity: large object templates with a local_id are script-addressable
+      // object events. Route those through NPC-style storage so LOCALID script
+      // commands (applymovement, removeobject, etc.) can target them directly.
+      if (isLargeObjectGraphicsId(resolvedGraphicsId) && !parseAsNpcStyleObject) {
         const id = `${mapId}_large_${worldX}_${worldY}`;
         const isHidden = obj.flag && obj.flag !== '0' ? gameFlags.isSet(obj.flag) : false;
         this.largeObjects.set(id, {
@@ -360,7 +352,7 @@ export class ObjectEventManager {
         this.offscreenDespawnedItemIds.delete(id);
       }
       // Handle NPCs
-      else if (forceNpcStyleObject || isNPCGraphicsId(resolvedGraphicsId)) {
+      else if (parseAsNpcStyleObject || isNPCGraphicsId(resolvedGraphicsId)) {
         // Create unique ID
         // GBA: local IDs are 1-indexed array positions. Auto-assign if not explicit.
         const localId = obj.local_id ?? String(objIndex + 1);
@@ -687,11 +679,6 @@ export class ObjectEventManager {
     const direct = this.npcs.get(key);
     if (direct) return direct;
 
-    if (BRINEY_BOAT_LOCAL_ID_SET.has(localId)) {
-      const migratedBoat = this.tryMigrateLegacyBrineyBoatLargeObject(mapId, localId);
-      if (migratedBoat) return migratedBoat;
-    }
-
     if (/^\d+$/.test(localId)) {
       const numericLocalId = Number.parseInt(localId, 10);
       const byNumericLocalId = this.findNPCByNumericLocalId(mapId, numericLocalId);
@@ -699,60 +686,6 @@ export class ObjectEventManager {
     }
 
     return null;
-  }
-
-  /**
-   * Compatibility migration for sessions that parsed Briney's boat as a large object.
-   * Promote the legacy large object into an NPC-style object on first lookup.
-   */
-  private tryMigrateLegacyBrineyBoatLargeObject(mapId: string, localId: string): NPCObject | null {
-    const mapPrefix = `${mapId}_large_`;
-    const legacyLargeObject = [...this.largeObjects.values()].find((obj) =>
-      obj.id.startsWith(mapPrefix) && obj.graphicsId === BRINEY_BOAT_GRAPHICS_ID
-    );
-    if (!legacyLargeObject) return null;
-
-    const id = `${mapId}_npc_${localId}`;
-    const migratedNpc: NPCObject = {
-      id,
-      localId,
-      localIdNumber: 0,
-      tileX: legacyLargeObject.tileX,
-      tileY: legacyLargeObject.tileY,
-      elevation: legacyLargeObject.elevation,
-      graphicsId: BRINEY_BOAT_GRAPHICS_ID,
-      direction: 'up',
-      movementType: parseMovementType('MOVEMENT_TYPE_FACE_UP'),
-      movementTypeRaw: 'MOVEMENT_TYPE_FACE_UP',
-      movementRangeX: 0,
-      movementRangeY: 0,
-      trainerType: parseTrainerType('TRAINER_TYPE_NONE'),
-      trainerSightRange: 0,
-      script: '0x0',
-      flag: getBrineyBoatFlagForLocalId(localId),
-      visible: legacyLargeObject.visible,
-      spriteHidden: false,
-      scriptRemoved: false,
-      renderAboveGrass: false,
-      tintR: 1,
-      tintG: 1,
-      tintB: 1,
-      subTileX: 0,
-      subTileY: 0,
-      isWalking: false,
-      initialTileX: legacyLargeObject.tileX,
-      initialTileY: legacyLargeObject.tileY,
-    };
-
-    this.largeObjects.delete(legacyLargeObject.id);
-    this.offscreenDespawnedLargeObjectIds.delete(legacyLargeObject.id);
-    this.npcs.set(id, migratedNpc);
-    this.offscreenDespawnedNpcIds.delete(id);
-    this.markObjectStateDirty();
-    console.warn(
-      `[ObjectEventManager] Migrated legacy Briney boat large object to NPC (${mapId}, ${localId})`
-    );
-    return migratedNpc;
   }
 
   /**

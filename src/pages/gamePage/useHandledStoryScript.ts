@@ -536,6 +536,30 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         },
         startTrainerBattle: async (request) => {
           if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
+          if (request.trainer) {
+            const lead = saveManager.getParty().find((mon): mon is PartyPokemon => mon !== null);
+            if (!lead) {
+              console.warn('[StoryScript] Cannot start trainer battle without a party Pokemon.');
+              return { outcome: BATTLE_OUTCOME.WON };
+            }
+
+            gameVariables.setVar('VAR_RESULT', 0);
+            const battleRequest: TrainerBattleStartRequest = {
+              battleType: 'trainer',
+              playerPokemon: lead,
+              trainer: request.trainer,
+              backgroundProfile: resolveBackgroundProfile(),
+              returnLocation: buildReturnLocation(),
+              returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
+            };
+            await stateManager.transitionTo(
+              GameState.BATTLE,
+              battleRequest as unknown as Record<string, unknown>,
+            );
+            await waitForBattleToEnd();
+            return readBattleResult();
+          }
+
           const trainerId = String(request.trainerId);
           const battle = resolveTrainerBattle(trainerId);
           const numericFallback = battle.kind === 'unknown_trainer' && /^\d+$/.test(trainerId)

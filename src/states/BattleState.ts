@@ -101,9 +101,9 @@ const HP_ANIMATION_RATE = 96; // HP units per second
 const EXP_ANIMATION_RATE = 0.9; // fraction of bar per second
 const ENEMY_INTRO_MS = 280;
 const INTRO_FRAME_MS = 1000 / 60;
-const ENEMY_TRAINER_SLIDE_IN_FRAMES = 48;
-const ENEMY_TRAINER_HOLD_FRAMES = 16;
-const ENEMY_TRAINER_SLIDE_OUT_FRAMES = 28;
+const ENEMY_TRAINER_SLIDE_IN_FRAMES = 120;
+const ENEMY_TRAINER_HOLD_FRAMES = 28;
+const ENEMY_TRAINER_SLIDE_OUT_FRAMES = 48;
 const ENEMY_TRAINER_INTRO_FRAMES = ENEMY_TRAINER_SLIDE_IN_FRAMES + ENEMY_TRAINER_HOLD_FRAMES + ENEMY_TRAINER_SLIDE_OUT_FRAMES;
 const ENEMY_TRAINER_INTRO_DELAY_MS = ENEMY_TRAINER_INTRO_FRAMES * INTRO_FRAME_MS;
 const TRAINER_THROW_TRANSLATE_FRAMES = 50;
@@ -113,6 +113,13 @@ const BALL_ARC_FRAMES = 25;
 const BALL_OPEN_FRAMES = 10;
 const MON_EMERGE_FRAMES = 12;
 const MON_SPRITE_ANIM_FRAME_MS = 140;
+const MON_SWITCH_SEND_OUT_MS = 260;
+const MON_SWITCH_SPRITE_ANIM_MS = 650;
+const BATTLE_TEXT_SPEED_DELAY_FRAMES: Record<'slow' | 'mid' | 'fast', number> = {
+  slow: 8,
+  mid: 4,
+  fast: 1,
+};
 const TRAINER_THROW_START_X = BATTLE_LAYOUT.trainerThrow.startX;
 const TRAINER_THROW_END_X = BATTLE_LAYOUT.trainerThrow.endX;
 const TRAINER_THROW_Y = BATTLE_LAYOUT.trainerThrow.y;
@@ -196,12 +203,20 @@ interface EnemyTrainerIntroVisualState {
   alpha: number;
 }
 
+interface BattlerSendOutVisual {
+  scale: number;
+  yOffset: number;
+  alpha: number;
+}
+
 export class BattleState implements StateRenderer {
   readonly id = GameState.BATTLE;
 
   private phase: BattlePhase = 'message';
   private messageQueue: string[] = [];
   private onMessagesFinished: (() => void) | null = null;
+  private messageVisibleChars = 0;
+  private messageElapsedMs = 0;
 
   private actionIndex = 0;
   private moveIndex = 0;
@@ -215,9 +230,12 @@ export class BattleState implements StateRenderer {
   private displayedPlayerExpPercent = 0;
   private displayedPlayerExpLevel = 1;
   private introElapsedMs = 0;
-  private spriteAnimationElapsedMs = 0;
   private playerSendOutElapsedMs = 0;
   private playerSendOutStarted = false;
+  private playerSwitchSendOutMs = 0;
+  private enemySwitchSendOutMs = 0;
+  private playerSwitchSpriteAnimMs = 0;
+  private enemySwitchSpriteAnimMs = 0;
   private moveFlashMs = 0;
   private moveFlashColor = DEFAULT_MOVE_ANIMATION.flashColor;
   private playerDamageFlashMs = 0;
@@ -362,9 +380,12 @@ export class BattleState implements StateRenderer {
     this.displayedPlayerExpLevel = this.playerMon.pokemon.level;
     this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
     this.introElapsedMs = 0;
-    this.spriteAnimationElapsedMs = 0;
     this.playerSendOutElapsedMs = 0;
     this.playerSendOutStarted = false;
+    this.playerSwitchSendOutMs = 0;
+    this.enemySwitchSendOutMs = 0;
+    this.playerSwitchSpriteAnimMs = 0;
+    this.enemySwitchSpriteAnimMs = 0;
     this.moveFlashMs = 0;
     this.moveFlashColor = DEFAULT_MOVE_ANIMATION.flashColor;
     this.playerDamageFlashMs = 0;
@@ -437,6 +458,12 @@ export class BattleState implements StateRenderer {
     this.waitingForBattleMenu = false;
     this.battleTurnCounter = 0;
     this.isUnderwaterBattle = false;
+    this.messageVisibleChars = 0;
+    this.messageElapsedMs = 0;
+    this.playerSwitchSendOutMs = 0;
+    this.enemySwitchSendOutMs = 0;
+    this.playerSwitchSpriteAnimMs = 0;
+    this.enemySwitchSpriteAnimMs = 0;
     if (menuStateManager.isMenuOpen()) {
       menuStateManager.close();
     }
@@ -448,7 +475,6 @@ export class BattleState implements StateRenderer {
 
   update(_dt: number, _frameCount: number): void {
     this.introElapsedMs += _dt;
-    this.spriteAnimationElapsedMs += _dt;
     if (!this.playerSendOutStarted) {
       const activeMessage = this.messageQueue[0] ?? '';
       if (
@@ -463,6 +489,10 @@ export class BattleState implements StateRenderer {
     if (this.playerSendOutStarted) {
       this.playerSendOutElapsedMs += _dt;
     }
+    this.tickMessagePrinter(_dt);
+    this.tickSwitchSendOutAnimation(_dt);
+    this.playerSwitchSpriteAnimMs = Math.max(0, this.playerSwitchSpriteAnimMs - _dt);
+    this.enemySwitchSpriteAnimMs = Math.max(0, this.enemySwitchSpriteAnimMs - _dt);
     this.tickHpAnimation(_dt);
     this.tickExpAnimation(_dt);
     this.moveFlashMs = Math.max(0, this.moveFlashMs - _dt);
@@ -490,6 +520,11 @@ export class BattleState implements StateRenderer {
 
     if (this.phase === 'message') {
       if (confirmPressed) {
+        const activeMessage = this.messageQueue[0] ?? '';
+        if (this.messageVisibleChars < activeMessage.length) {
+          this.revealCurrentMessage();
+          return null;
+        }
         this.advanceMessage();
       }
       return null;
@@ -626,12 +661,22 @@ export class BattleState implements StateRenderer {
           this.enemySpriteCoords,
           this.getPokemonSpriteFrame(enemy.pokemon.species, 'front'),
         );
+        const enemySendOutVisual = this.getBattlerSendOutVisual('enemy');
         const enemyIntroDelay = this.battleType === 'trainer' ? ENEMY_TRAINER_INTRO_DELAY_MS : 0;
         const enemyIntroElapsed = Math.max(0, this.introElapsedMs - enemyIntroDelay);
         const enemyProgress = Math.max(0, Math.min(1, enemyIntroElapsed / ENEMY_INTRO_MS));
         const enemyStartX = BATTLE_WIDTH + 12;
         enemySprite.worldX = Math.round(lerp(enemyStartX, enemySprite.worldX, enemyProgress));
         enemySprite.alpha = enemyProgress;
+        const enemyScaledW = Math.max(1, Math.round(enemySprite.width * enemySendOutVisual.scale));
+        const enemyScaledH = Math.max(1, Math.round(enemySprite.height * enemySendOutVisual.scale));
+        enemySprite.worldX = Math.round(enemySprite.worldX + ((enemySprite.width - enemyScaledW) / 2));
+        enemySprite.worldY = Math.round(
+          enemySprite.worldY + (enemySprite.height - enemyScaledH) + enemySendOutVisual.yOffset,
+        );
+        enemySprite.width = enemyScaledW;
+        enemySprite.height = enemyScaledH;
+        enemySprite.alpha *= enemySendOutVisual.alpha;
         enemySprite.worldY = Math.round(enemySprite.worldY + (this.enemyFaintProgress * 34));
         enemySprite.alpha *= (1 - (this.enemyFaintProgress * 0.85));
         if (this.enemyDamageFlashMs > 0 && Math.floor(this.enemyDamageFlashMs / 40) % 2 === 0) {
@@ -682,16 +727,20 @@ export class BattleState implements StateRenderer {
           this.playerSpriteCoords,
           this.getPokemonSpriteFrame(player.pokemon.species, 'back'),
         );
-        const scale = playerSendOut.pokemonScale;
+        const playerSendOutVisual = this.getBattlerSendOutVisual('player');
+        const scale = playerSendOut.pokemonScale * playerSendOutVisual.scale;
         const scaledW = Math.max(1, Math.round(playerSprite.width * scale));
         const scaledH = Math.max(1, Math.round(playerSprite.height * scale));
         playerSprite.worldX = Math.round(playerSprite.worldX + (playerSprite.width - scaledW) / 2);
         playerSprite.worldY = Math.round(
-          playerSprite.worldY + (playerSprite.height - scaledH) + playerSendOut.pokemonYOffset,
+          playerSprite.worldY
+          + (playerSprite.height - scaledH)
+          + playerSendOut.pokemonYOffset
+          + playerSendOutVisual.yOffset,
         );
         playerSprite.width = scaledW;
         playerSprite.height = scaledH;
-        playerSprite.alpha = 1;
+        playerSprite.alpha = playerSendOutVisual.alpha;
         playerSprite.worldY = Math.round(playerSprite.worldY + (this.playerFaintProgress * 34));
         playerSprite.alpha *= (1 - (this.playerFaintProgress * 0.85));
         if (this.playerDamageFlashMs > 0 && Math.floor(this.playerDamageFlashMs / 40) % 2 === 0) {
@@ -776,7 +825,7 @@ export class BattleState implements StateRenderer {
     // Text box / menus
     if (this.phase === 'message') {
       const message = this.messageQueue[0] ?? '';
-      drawTextBox(ctx2d, offsetX, offsetY, message);
+      drawTextBox(ctx2d, offsetX, offsetY, message, this.messageVisibleChars);
       ctx2d.restore();
       return;
     }
@@ -818,6 +867,7 @@ export class BattleState implements StateRenderer {
     this.messageQueue = [...messages];
     this.phase = 'message';
     this.onMessagesFinished = onComplete ?? null;
+    this.resetMessagePrinter();
   }
 
   private advanceMessage(): void {
@@ -829,7 +879,55 @@ export class BattleState implements StateRenderer {
       const callback = this.onMessagesFinished;
       this.onMessagesFinished = null;
       callback?.();
+      this.resetMessagePrinter();
+      return;
     }
+
+    this.resetMessagePrinter();
+  }
+
+  private resetMessagePrinter(): void {
+    this.messageVisibleChars = 0;
+    this.messageElapsedMs = 0;
+    if (this.messageQueue.length === 0) {
+      return;
+    }
+    const nextMessage = this.messageQueue[0] ?? '';
+    if (nextMessage.length === 0) {
+      this.messageVisibleChars = 0;
+      return;
+    }
+  }
+
+  private revealCurrentMessage(): void {
+    const message = this.messageQueue[0] ?? '';
+    this.messageVisibleChars = message.length;
+    this.messageElapsedMs = this.getBattleTextDelayMs() * Math.max(0, message.length);
+  }
+
+  private tickMessagePrinter(dt: number): void {
+    if (this.phase !== 'message') {
+      return;
+    }
+    const message = this.messageQueue[0] ?? '';
+    if (message.length === 0) {
+      this.messageVisibleChars = 0;
+      return;
+    }
+    if (this.messageVisibleChars >= message.length) {
+      return;
+    }
+
+    this.messageElapsedMs += dt;
+    const chars = Math.floor(this.messageElapsedMs / this.getBattleTextDelayMs());
+    this.messageVisibleChars = Math.max(0, Math.min(message.length, chars));
+  }
+
+  private getBattleTextDelayMs(): number {
+    const options = saveManager.getOptions();
+    const speed = options.textSpeed ?? 'mid';
+    const frames = BATTLE_TEXT_SPEED_DELAY_FRAMES[speed] ?? BATTLE_TEXT_SPEED_DELAY_FRAMES.mid;
+    return frames * INTRO_FRAME_MS;
   }
 
   private getPlayerMoves(): Array<{ moveId: number; moveSlot: number }> {
@@ -1242,6 +1340,8 @@ export class BattleState implements StateRenderer {
       { type: 'switch', partyIndex },
       [`${currentName}, that's enough! Come back!`, `Go! ${targetName}!`],
     );
+    this.startBattlerSendOutAnimation('player');
+    this.startSwitchSpriteAnimation('player');
   }
 
   private async ensurePlayerSpriteLoaded(species: number): Promise<void> {
@@ -1409,25 +1509,15 @@ export class BattleState implements StateRenderer {
       return false;
     }
 
-    const nextEnemyPokemon = this.createEnemyPartyPokemon(nextEnemySpec);
-    if (nextEnemyPokemon.species !== this.enemyMon.pokemon.species) {
-      void this.ensureEnemySpriteLoaded(nextEnemyPokemon.species);
+    const trainerLabel = this.trainer?.trainerName?.trim() || 'Trainer';
+    if (turnMessages.length === 0) {
+      void this.sendOutTrainerReplacement(nextEnemyIndex, nextEnemySpec, trainerLabel);
+      return true;
     }
 
-    this.enemyPartyIndex = nextEnemyIndex;
-    this.engine.replaceEnemyPokemon(nextEnemyPokemon, nextEnemyIndex);
-    this.syncFromEngine();
-    this.displayedEnemyHp = this.enemyMon?.currentHp ?? this.displayedEnemyHp;
-    this.enemyFaintProgress = 0;
-
-    const trainerLabel = this.trainer?.trainerName?.trim() || 'Trainer';
-    const nextEnemyName = this.enemyMon?.name ?? getSpeciesName(nextEnemyPokemon.species);
-    this.queueMessages(
-      [...turnMessages, `${trainerLabel} sent out ${nextEnemyName}!`],
-      () => {
-        this.phase = 'action';
-      },
-    );
+    this.queueMessages(turnMessages, () => {
+      void this.sendOutTrainerReplacement(nextEnemyIndex, nextEnemySpec, trainerLabel);
+    });
     return true;
   }
 
@@ -1460,8 +1550,57 @@ export class BattleState implements StateRenderer {
     }
     saveManager.setParty(party);
 
-    if (nextPartyMon.species !== this.playerMon.pokemon.species) {
-      void this.ensurePlayerSpriteLoaded(nextPartyMon.species);
+    if (turnMessages.length === 0) {
+      void this.sendOutPlayerReplacement(nextPartyIndex, nextPartyMon);
+      return true;
+    }
+
+    this.queueMessages(turnMessages, () => {
+      void this.sendOutPlayerReplacement(nextPartyIndex, nextPartyMon);
+    });
+    return true;
+  }
+
+  private async sendOutTrainerReplacement(
+    nextEnemyIndex: number,
+    nextEnemySpec: BattleEnemyPokemonSpec,
+    trainerLabel: string,
+  ): Promise<void> {
+    if (!this.engine) {
+      return;
+    }
+
+    const previousSpecies = this.enemyMon?.pokemon.species ?? 0;
+    const nextEnemyPokemon = this.createEnemyPartyPokemon(nextEnemySpec);
+    if (nextEnemyPokemon.species !== previousSpecies) {
+      await this.ensureEnemySpriteLoaded(nextEnemyPokemon.species);
+    }
+
+    this.enemyPartyIndex = nextEnemyIndex;
+    this.engine.replaceEnemyPokemon(nextEnemyPokemon, nextEnemyIndex);
+    this.syncFromEngine();
+    this.displayedEnemyHp = this.enemyMon?.currentHp ?? this.displayedEnemyHp;
+    this.enemyFaintProgress = 0;
+    this.startBattlerSendOutAnimation('enemy');
+    this.startSwitchSpriteAnimation('enemy');
+
+    const nextEnemyName = this.enemyMon?.name ?? getSpeciesName(nextEnemyPokemon.species);
+    this.queueMessages([`${trainerLabel} sent out ${nextEnemyName}!`], () => {
+      this.phase = 'action';
+    });
+  }
+
+  private async sendOutPlayerReplacement(
+    nextPartyIndex: number,
+    nextPartyMon: PartyPokemon,
+  ): Promise<void> {
+    if (!this.engine) {
+      return;
+    }
+
+    const previousSpecies = this.playerMon?.pokemon.species ?? 0;
+    if (nextPartyMon.species !== previousSpecies) {
+      await this.ensurePlayerSpriteLoaded(nextPartyMon.species);
     }
 
     this.engine.replacePlayerPokemon(nextPartyMon, nextPartyIndex);
@@ -1472,15 +1611,13 @@ export class BattleState implements StateRenderer {
     this.displayedPlayerExpLevel = this.playerMon?.pokemon.level ?? this.displayedPlayerExpLevel;
     this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
     this.persistPlayerBattleState();
+    this.startBattlerSendOutAnimation('player');
+    this.startSwitchSpriteAnimation('player');
 
     const nextName = this.playerMon?.name ?? getSpeciesName(nextPartyMon.species);
-    this.queueMessages(
-      [...turnMessages, `Go! ${nextName}!`],
-      () => {
-        this.phase = 'action';
-      },
-    );
-    return true;
+    this.queueMessages([`Go! ${nextName}!`], () => {
+      this.phase = 'action';
+    });
   }
 
   private applyMoveAnimationFromEvents(events: BattleEvent[]): void {
@@ -1740,6 +1877,50 @@ export class BattleState implements StateRenderer {
     };
   }
 
+  private tickSwitchSendOutAnimation(dt: number): void {
+    if (this.playerSwitchSendOutMs > 0) {
+      this.playerSwitchSendOutMs = Math.min(MON_SWITCH_SEND_OUT_MS, this.playerSwitchSendOutMs + dt);
+      if (this.playerSwitchSendOutMs >= MON_SWITCH_SEND_OUT_MS) {
+        this.playerSwitchSendOutMs = 0;
+      }
+    }
+    if (this.enemySwitchSendOutMs > 0) {
+      this.enemySwitchSendOutMs = Math.min(MON_SWITCH_SEND_OUT_MS, this.enemySwitchSendOutMs + dt);
+      if (this.enemySwitchSendOutMs >= MON_SWITCH_SEND_OUT_MS) {
+        this.enemySwitchSendOutMs = 0;
+      }
+    }
+  }
+
+  private startBattlerSendOutAnimation(side: 'player' | 'enemy'): void {
+    if (side === 'player') {
+      this.playerSwitchSendOutMs = 1;
+      return;
+    }
+    this.enemySwitchSendOutMs = 1;
+  }
+
+  private startSwitchSpriteAnimation(side: 'player' | 'enemy'): void {
+    if (side === 'player') {
+      this.playerSwitchSpriteAnimMs = MON_SWITCH_SPRITE_ANIM_MS;
+      return;
+    }
+    this.enemySwitchSpriteAnimMs = MON_SWITCH_SPRITE_ANIM_MS;
+  }
+
+  private getBattlerSendOutVisual(side: 'player' | 'enemy'): BattlerSendOutVisual {
+    const elapsed = side === 'player' ? this.playerSwitchSendOutMs : this.enemySwitchSendOutMs;
+    if (elapsed <= 0) {
+      return { scale: 1, yOffset: 0, alpha: 1 };
+    }
+    const t = clamp(elapsed / MON_SWITCH_SEND_OUT_MS, 0, 1);
+    return {
+      scale: lerp(0.25, 1, t),
+      yOffset: Math.round((1 - t) * 12),
+      alpha: t,
+    };
+  }
+
   private getTrainerThrowFrame(frame: number): number {
     let remaining = Math.max(0, Math.floor(frame));
     for (const step of TRAINER_THROW_FRAMES) {
@@ -1827,9 +2008,40 @@ export class BattleState implements StateRenderer {
       return 0;
     }
 
-    const elapsedFrames = Math.floor(this.spriteAnimationElapsedMs / MON_SPRITE_ANIM_FRAME_MS);
-    const speciesOffset = speciesId % frameCount;
-    return (elapsedFrames + speciesOffset) % frameCount;
+    const switchAnimRemaining = side === 'front' ? this.enemySwitchSpriteAnimMs : this.playerSwitchSpriteAnimMs;
+    const switchAnimElapsed = switchAnimRemaining > 0
+      ? MON_SWITCH_SPRITE_ANIM_MS - switchAnimRemaining
+      : -1;
+    if (switchAnimElapsed >= 0) {
+      const elapsedFrames = Math.floor(switchAnimElapsed / MON_SPRITE_ANIM_FRAME_MS);
+      return elapsedFrames % frameCount;
+    }
+
+    if (side === 'front') {
+      const introDelay = this.battleType === 'trainer' ? ENEMY_TRAINER_INTRO_DELAY_MS : 0;
+      const introElapsed = this.introElapsedMs - introDelay;
+      if (introElapsed < 0 || introElapsed > MON_SWITCH_SPRITE_ANIM_MS) {
+        return 0;
+      }
+      const elapsedFrames = Math.floor(introElapsed / MON_SPRITE_ANIM_FRAME_MS);
+      return elapsedFrames % frameCount;
+    }
+
+    if (!this.playerSendOutStarted) {
+      return 0;
+    }
+    const playerIntroStartMs = this.getPlayerIntroPokemonShowMs();
+    const playerIntroElapsed = this.playerSendOutElapsedMs - playerIntroStartMs;
+    if (playerIntroElapsed < 0 || playerIntroElapsed > MON_SWITCH_SPRITE_ANIM_MS) {
+      return 0;
+    }
+    const elapsedFrames = Math.floor(playerIntroElapsed / MON_SPRITE_ANIM_FRAME_MS);
+    return elapsedFrames % frameCount;
+  }
+
+  private getPlayerIntroPokemonShowMs(): number {
+    const showFrame = TRAINER_SEND_OUT_DELAY_FRAMES + BALL_SEND_OUT_TASK_SETUP_FRAMES + BALL_ARC_FRAMES;
+    return showFrame * INTRO_FRAME_MS;
   }
 
   private resolveEnemyMoveSet(
@@ -1892,8 +2104,29 @@ export class BattleState implements StateRenderer {
 
   private syncFromEngine(): void {
     if (!this.engine) return;
+    const previousPlayerSpecies = this.playerMon?.pokemon.species ?? null;
+    const previousEnemySpecies = this.enemyMon?.pokemon.species ?? null;
     this.playerMon = this.engine.getPlayer();
     this.enemyMon = this.engine.getEnemy();
+    const nextPlayerSpecies = this.playerMon?.pokemon.species ?? null;
+    const nextEnemySpecies = this.enemyMon?.pokemon.species ?? null;
+
+    if (
+      nextPlayerSpecies !== null
+      && previousPlayerSpecies !== null
+      && nextPlayerSpecies !== previousPlayerSpecies
+    ) {
+      void this.ensurePlayerSpriteLoaded(nextPlayerSpecies);
+      this.startSwitchSpriteAnimation('player');
+    }
+    if (
+      nextEnemySpecies !== null
+      && previousEnemySpecies !== null
+      && nextEnemySpecies !== previousEnemySpecies
+    ) {
+      void this.ensureEnemySpriteLoaded(nextEnemySpecies);
+      this.startSwitchSpriteAnimation('enemy');
+    }
   }
 
   private tickHpAnimation(dt: number): void {

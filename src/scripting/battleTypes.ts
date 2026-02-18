@@ -7,6 +7,7 @@
  */
 
 import { B_OUTCOME } from '../data/battleConstants.gen.ts';
+import type { BattleTrainerSpec } from '../battle/BattleStartRequest.ts';
 
 export const BATTLE_OUTCOME = {
   WON: B_OUTCOME.B_OUTCOME_WON,
@@ -37,6 +38,7 @@ export type ScriptTrainerBattleMode =
 export interface ScriptTrainerBattleRequest {
   trainerId: string;
   mode: ScriptTrainerBattleMode;
+  trainer?: BattleTrainerSpec;
 }
 
 export type ScriptWildBattleSource = 'setwildbattle' | 'special';

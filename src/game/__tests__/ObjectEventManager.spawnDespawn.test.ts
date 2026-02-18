@@ -61,6 +61,57 @@ test('Briney boat local IDs are parsed as NPC-style object events for applymovem
   assert.equal(boatNpc.graphicsId, 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT');
 });
 
+test('script-addressable large objects use NPC-style storage by local ID', () => {
+  resetRuntimeState();
+
+  const manager = new ObjectEventManager();
+  const localId = 'LOCALID_SLATEPORT_HARBOR_SUBMARINE';
+  const event: ObjectEventData = {
+    local_id: localId,
+    graphics_id: 'OBJ_EVENT_GFX_SUBMARINE_SHADOW',
+    x: 7,
+    y: 9,
+    elevation: 3,
+    movement_type: 'MOVEMENT_TYPE_FACE_RIGHT',
+    movement_range_x: 0,
+    movement_range_y: 0,
+    trainer_type: 'TRAINER_TYPE_NONE',
+    trainer_sight_or_berry_tree_id: '0',
+    script: '0x0',
+    flag: '0',
+  };
+
+  manager.parseMapObjects(MAP_ID, [event], 0, 0);
+  const scriptedLargeAsNpc = manager.getNPCByLocalId(MAP_ID, localId);
+  assert.ok(scriptedLargeAsNpc);
+  assert.equal(scriptedLargeAsNpc.graphicsId, 'OBJ_EVENT_GFX_SUBMARINE_SHADOW');
+  assert.equal(manager.getVisibleLargeObjects().length, 0);
+});
+
+test('non-script large objects without local IDs remain in large-object storage', () => {
+  resetRuntimeState();
+
+  const manager = new ObjectEventManager();
+  const event: ObjectEventData = {
+    graphics_id: 'OBJ_EVENT_GFX_TRUCK',
+    x: 2,
+    y: 10,
+    elevation: 3,
+    movement_type: 'MOVEMENT_TYPE_FACE_RIGHT',
+    movement_range_x: 0,
+    movement_range_y: 0,
+    trainer_type: 'TRAINER_TYPE_NONE',
+    trainer_sight_or_berry_tree_id: '0',
+    script: '0x0',
+    flag: '0',
+  };
+
+  manager.parseMapObjects(MAP_ID, [event], 0, 0);
+  const visibleLargeObjects = manager.getVisibleLargeObjects();
+  assert.equal(visibleLargeObjects.length, 1);
+  assert.equal(visibleLargeObjects[0]?.graphicsId, 'OBJ_EVENT_GFX_TRUCK');
+});
+
 test('camera-fixed window keeps top NPC visible when camera origin does not change', () => {
   resetRuntimeState();
 

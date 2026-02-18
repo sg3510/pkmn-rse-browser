@@ -31,6 +31,7 @@ import {
   type LocationState,
   type PlayTime,
   type PlayerProfile,
+  type GameOptions,
   type BerryState,
   type PokedexState,
   SAVE_VERSION,
@@ -615,6 +616,10 @@ class SaveManagerClass {
    */
   getPlayerName(): string {
     return this.profile.name;
+  }
+
+  getOptions(): GameOptions {
+    return saveStateStore.getOptions();
   }
 
   /**

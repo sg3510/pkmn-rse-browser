@@ -6,18 +6,20 @@ import { saveManager } from '../save/SaveManager';
 import { applyObjectEventOverridesForMap } from './overworld/applyObjectEventOverridesForMap';
 import { ensureBerryTreeAtlasesUploaded } from '../utils/berryTreeSpriteImport';
 import { isBerryTreeGraphicsId } from '../utils/berryTreeSpriteResolver';
+import { isLargeObjectGraphicsId, type ObjectEventData } from '../types/objectEvents';
+import { getTrainerHillDynamicObjectEvents } from './trainerHillRuntime';
 
 interface SpriteDimensionsLike {
   frameWidth: number;
   frameHeight: number;
 }
 
-const BRINEY_BOAT_GRAPHICS_ID = 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT';
-
-function getBrineyBoatLocalIds(objectEvents: ReadonlyArray<{ graphics_id: string; local_id?: string }>): string[] {
+function getScriptAddressableLargeObjectLocalIds(
+  objectEvents: ReadonlyArray<ObjectEventData>
+): string[] {
   const localIds: string[] = [];
   for (const event of objectEvents) {
-    if (event.graphics_id !== BRINEY_BOAT_GRAPHICS_ID) continue;
+    if (!isLargeObjectGraphicsId(event.graphics_id)) continue;
     if (typeof event.local_id !== 'string' || event.local_id.length === 0) continue;
     localIds.push(event.local_id);
   }
@@ -44,6 +46,17 @@ export interface LoadObjectEventsFromSnapshotParams {
    * temporary visibility/position changes) and only parse newly loaded maps.
    */
   preserveExistingMapRuntimeState?: boolean;
+}
+
+function getRuntimeObjectEvents(
+  mapId: string,
+  objectEvents: ReadonlyArray<ObjectEventData>
+): ObjectEventData[] {
+  const trainerHillEvents = getTrainerHillDynamicObjectEvents(mapId);
+  if (trainerHillEvents !== null) {
+    return trainerHillEvents;
+  }
+  return [...objectEvents];
 }
 
 function getMapIdFromNpcObjectId(id: string): string | null {
@@ -149,25 +162,28 @@ export async function loadObjectEventsFromSnapshot(
 
   // Parse objects and bg_events for newly added maps only
   for (const mapInst of snapshot.maps) {
+    const runtimeObjectEvents = getRuntimeObjectEvents(mapInst.entry.id, mapInst.objectEvents);
+    mapInst.objectEvents = runtimeObjectEvents;
+
     if (objectEventManager.hasMapObjects(mapInst.entry.id)) {
-      // Migration safety: older runtime state could have parsed Briney's boat
-      // as a large object (or dropped it entirely), which breaks applymovement.
-      // Re-parse this map if any Briney boat local ID is missing as an NPC.
-      const brineyBoatLocalIds = getBrineyBoatLocalIds(
-        mapInst.objectEvents
+      // Migration safety: older runtime state may have parsed script-addressable
+      // large objects (with local_id) into large-object storage instead of
+      // NPC-style object events, which breaks LOCALID script commands.
+      const scriptedLargeObjectLocalIds = getScriptAddressableLargeObjectLocalIds(
+        runtimeObjectEvents
       );
-      const allNpcs = objectEventManager.getAllNPCs();
+      const npcIdSet = new Set(objectEventManager.getAllNPCs().map((npc) => npc.id));
       if (
-        brineyBoatLocalIds.length > 0
-        && brineyBoatLocalIds.some((localId) => {
+        scriptedLargeObjectLocalIds.length > 0
+        && scriptedLargeObjectLocalIds.some((localId) => {
           const expectedNpcId = `${mapInst.entry.id}_npc_${localId}`;
-          return allNpcs.every((npc) => npc.id !== expectedNpcId);
+          return !npcIdSet.has(expectedNpcId);
         })
       ) {
         objectEventManager.removeMapObjects(mapInst.entry.id);
         objectEventManager.parseMapObjects(
           mapInst.entry.id,
-          mapInst.objectEvents,
+          runtimeObjectEvents,
           mapInst.offsetX,
           mapInst.offsetY,
           saveManager.getProfile().gender
@@ -206,7 +222,7 @@ export async function loadObjectEventsFromSnapshot(
     if (mapInst.objectEvents.length > 0) {
       objectEventManager.parseMapObjects(
         mapInst.entry.id,
-        mapInst.objectEvents,
+        runtimeObjectEvents,
         mapInst.offsetX,
         mapInst.offsetY,
         saveManager.getProfile().gender

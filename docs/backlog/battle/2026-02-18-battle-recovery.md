@@ -139,3 +139,66 @@
 - `CP2-NEXT-005` nickname + Dex-page catch UX parity.
 - `CP2-NEXT-006` Repeat Ball national/local dex semantics when national split lands.
 - `CP2-NEXT-007` Timer Ball turn-counter timing audit.
+
+## 2026-02-18 Night Pass 3 Start (UI/Flow Fidelity)
+
+### Planned IDs for this pass
+
+- `BTL-015`, `BTL-016`, `BTL-017`, `BTL-018`, `BTL-019`,
+  `BTL-020`, `BTL-021`, `BTL-022`, `BTL-023`, `BTL-024`.
+
+### Planned acceptance checks
+
+- `ACC-006`, `ACC-007`, `ACC-008`.
+
+### Notes
+
+- This pass focuses on C-style battle textbox/window page rendering, intro/switch pacing, and message ordering parity.
+- Implementation follows the canonical tracker in `docs/features/battle/plan.md`.
+
+## 2026-02-18 Night Pass 3 Completion
+
+### Completed IDs
+
+- `M9`
+- `BTL-015`, `BTL-016`, `BTL-017`, `BTL-018`, `BTL-019`
+- `BTL-020`, `BTL-021`, `BTL-022`, `BTL-023`, `BTL-024`
+
+### Shipped changes
+
+- Replaced stretched textbox rendering with tilemap-page rendering using:
+  `graphics/battle_interface/textbox.png` + `textbox_map.bin` + `textbox_0.pal` + `textbox_1.pal`.
+- Added shared UI page/window anchors in `BattleLayout` and moved battle UI rendering onto those constants.
+- Reworked action/move menu rendering to use C-style BG0 pages instead of ad-hoc flat rectangles.
+- Added save-option-driven battle message print pacing (`slow/mid/fast` -> C delay frame mapping).
+- Delayed trainer replacement send-out until after existing faint/EXP messages complete.
+- Added send-out transition visuals for player/enemy switch and constrained sprite frame animation to intro/switch windows.
+- Added deterministic species-swap sprite reload guard in battle state sync path.
+- Nudged healthbox name placement to match C spacing better.
+
+### Validation
+
+- `npm run verify:generated:battle`: PASS
+- `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
+- `npm run build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+### Remaining manual/runtime checks
+
+- `ACC-006`, `ACC-007`, `ACC-008` still require in-game visual smoke validation against live battle flows.
+
+## 2026-02-18 Elite Four Auto-Win Fix
+
+### Completed IDs
+
+- `BTL-025`
+
+### Shipped changes
+
+- Removed TS pre-check skip from `trainerbattle_no_intro` to match C `TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT` behavior.
+- This prevents Elite Four scripts from auto-advancing when trainer flags remain set but `FLAG_DEFEATED_ELITE_4_*` was reset.
+- Added regression coverage in `src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts`.
+
+### Validation
+
+- `node --test --experimental-strip-types src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts`: PASS
+- `node --test --experimental-strip-types src/scripting/__tests__/ScriptRunner.*.test.ts`: PASS

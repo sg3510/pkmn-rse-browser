@@ -54,6 +54,7 @@ CI/verification rule:
 - [x] `M6` Faint/switch/party flow parity
 - [x] `M7` EXP + battle completion loop parity
 - [ ] `M8` Regression net (automated + manual)
+- [x] `M9` C UI/flow parity pass 3 (battle textbox/window pages, switch/send-out timing, intro pacing)
 
 ## Work Items
 
@@ -71,9 +72,29 @@ CI/verification rule:
 - [x] `BTL-012` EXP bar rendering/rollover issues.
 - [x] `BTL-013` Corrupted sprites at bottom of screen.
 - [x] `BTL-014` Black flashing front sprites from malformed stacked `front.png`.
+- [x] `BTL-025` Elite Four auto-win regression: `trainerbattle_no_intro` must not pre-skip when trainer flag is set.
 - [x] `BTL-DAT-001` Replace lead-only trainer resolver with full generated roster resolver.
 - [x] `BTL-DAT-002` Resolve trainer mon moves from generated custom moves or generated level-up learnsets.
 - [x] `BTL-DAT-003` Enforce battle generator freshness checks.
+
+## Pass 3 Scope (2026-02-18 Night)
+
+- [x] `BTL-015` Battle textbox uses tilemap-driven C textbox layers (no black fill/stretch artifacts).
+- [x] `BTL-016` Action/move menu borders use C window page layout and tilemap background pages.
+- [x] `BTL-017` Trainer intro pacing aligned closer to C slide timing (no blink-in/blink-out).
+- [x] `BTL-018` Battle message print speed follows save text-speed option (`slow`/`mid`/`fast`).
+- [x] `BTL-019` Trainer next-Pokemon send-out occurs after prior message/EXP flow, not before.
+- [x] `BTL-020` Healthbox name anchors adjusted to C-like placement.
+- [x] `BTL-021` Player/enemy switch includes visible send-out transition animation.
+- [x] `BTL-022` Front/back sprite animation loops only during send-out windows (no constant flapping).
+- [x] `BTL-023` Runtime species/form sprite swaps resolve deterministically (no transform-like accidental swaps).
+- [x] `BTL-024` Battle UI window placement constants centralized for page-relative offsets.
+
+## Pass 3 Acceptance
+
+- [ ] `ACC-006` Message textbox and action/move windows render with non-corrupted borders and no black body fill.
+- [ ] `ACC-007` Trainer battle sequence: faint -> EXP text -> trainer send-out -> new mon appears in-order.
+- [ ] `ACC-008` Switch action visibly animates recall/send-out and settles to stable idle frame.
 
 ## Acceptance Scenarios
 
@@ -96,6 +117,7 @@ CI/verification rule:
 - Updated HP/EXP bar widths to C constants (`48` HP / `64` EXP), with EXP rollover animation behavior.
 - Added front-sprite malformed-sheet guard (black-flicker fix) and battle-scene overlay clipping to prevent lower-screen sprite artifacts.
 - Added battle-font preload path to ensure `"Pokemon Emerald"` is active before UI text draw.
+- Fixed `trainerbattle_no_intro` parity to always run battle setup (no pre-check on trainer flags), preventing Elite Four auto-skip after challenge-reset flows.
 - Implemented C-parity wild capture flow (ball multipliers, status bonuses, shake outcomes, bag consumption, caught outcome).
 - Added catch persistence hooks (party insert when space exists + Pokédex seen/caught updates).
 - Moved EXP awarding to enemy-faint timing and added trainer/Lucky Egg multipliers per C ordering.

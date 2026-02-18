@@ -228,8 +228,8 @@ function handleMapsChanged(
 
   // Reload object events (NPCs, items) for the new set of maps.
   // While a script is running, preserve runtime state on already-parsed maps
-  // but still parse newly loaded maps so long scripted movement (Briney boat)
-  // does not arrive in maps with missing NPCs.
+  // but still parse newly loaded maps so long scripted movement involving
+  // LOCALID-addressable large objects does not arrive in maps with missing NPCs.
   const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
   if (loadObjectEventsFromSnapshot) {
     loadObjectEventsFromSnapshot(snapshot, {
