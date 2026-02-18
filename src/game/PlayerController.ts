@@ -857,6 +857,7 @@ export class PlayerController {
   private bikeRiding: boolean = false;
   private scriptSpriteOverride: PlayerSpriteKey | null = null;
   private machBikeSpeedTier: 0 | 1 | 2 = 0;
+  private currentMoveSpeedPxPerMs: number = 0;
   private previousTrackDirection: 'up' | 'down' | 'left' | 'right' = 'down';
   private mapAllowsCyclingResolver: (() => boolean) | null = null;
   private cyclingRoadChallengeActive: boolean = false;
@@ -1254,6 +1255,8 @@ export class PlayerController {
       return false;
     }
 
+    const wasMovingAtFrameStart = this.isMoving;
+
     if (!this.isMoving) {
       this.currentState.handleInput(this, this.keysPressed);
     }
@@ -1298,7 +1301,15 @@ export class PlayerController {
 
     this.grassEffectManager.cleanup(ownerPositions);
 
-    return this.currentState.update(this, delta);
+    const moved = this.currentState.update(this, delta);
+
+    // C parity: when a held movement finishes, the next step can begin
+    // immediately on the same frame if input is still held.
+    if (wasMovingAtFrameStart && !this.isMoving && !this.inputLocked) {
+      this.currentState.handleInput(this, this.keysPressed);
+    }
+
+    return moved || this.isMoving;
   }
 
   // Helper for states to process movement
@@ -1308,6 +1319,7 @@ export class PlayerController {
     if (this.isMoving) {
       // Continue movement based on time delta
       const moveSpeed = this.scriptedMoveSpeedPxPerMs ?? speed;
+      this.currentMoveSpeedPxPerMs = moveSpeed;
       const moveAmount = moveSpeed * delta;
       this.pixelsMoved += moveAmount;
       
@@ -1380,6 +1392,9 @@ export class PlayerController {
 
         didRenderMove = true;
       }
+    }
+    if (!this.isMoving) {
+      this.currentMoveSpeedPxPerMs = 0;
     }
 
     return didRenderMove || this.isMoving;
@@ -3056,7 +3071,22 @@ export class PlayerController {
    * In Emerald this is true only on Mach Bike at top speed tier.
    */
   public isAtFastestPlayerSpeed(): boolean {
-    return this.bikeRiding && this.bikeMode === 'mach' && this.machBikeSpeedTier >= 2;
+    const onMachBike = this.bikeMode === 'mach' && (this.bikeRiding || this.currentState instanceof BikeState);
+    if (!onMachBike) {
+      return false;
+    }
+
+    if (this.machBikeSpeedTier >= 2) {
+      return true;
+    }
+
+    // Defensive parity: when movement speed is already at FASTEST, honor that
+    // for per-step callback checks even if tier bookkeeping is briefly stale.
+    return this.isMoving && this.currentMoveSpeedPxPerMs >= (this.BIKE_SPEED_FASTEST - 1e-6);
+  }
+
+  public getCurrentMoveSpeedPxPerMs(): number {
+    return this.currentMoveSpeedPxPerMs;
   }
 
   /**

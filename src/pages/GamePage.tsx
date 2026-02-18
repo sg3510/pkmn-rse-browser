@@ -1676,6 +1676,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
               pipelineRef.current?.invalidate();
             },
             pipelineRef,
+            gbaFramesAdvanced,
             gbaFrame: gbaFrameRef.current,
           });
         }

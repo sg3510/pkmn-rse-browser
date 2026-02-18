@@ -4,6 +4,7 @@ import { stepCallbackManager, type StepCallbackContext } from '../StepCallbackMa
 import { METATILE_LABELS } from '../../data/metatileLabels.gen.ts';
 import {
   MB_CRACKED_FLOOR,
+  MB_CRACKED_FLOOR_HOLE,
   MB_FORTREE_BRIDGE,
   MB_PACIFIDLOG_HORIZONTAL_LOG_LEFT,
   MB_PACIFIDLOG_HORIZONTAL_LOG_RIGHT,
@@ -54,6 +55,8 @@ function createContext(
   options?: {
     playerElevation?: number;
     isPlayerAtFastestSpeed?: boolean;
+    playerMoveSpeedPxPerMs?: number;
+    playerIsMoving?: boolean;
     drawPulses?: PulseCall[];
   },
 ): StepCallbackContext {
@@ -79,6 +82,8 @@ function createContext(
     },
     playerElevation: options?.playerElevation ?? 0,
     isPlayerAtFastestSpeed: options?.isPlayerAtFastestSpeed ?? false,
+    playerMoveSpeedPxPerMs: options?.playerMoveSpeedPxPerMs ?? 0,
+    playerIsMoving: options?.playerIsMoving ?? false,
   };
 }
 
@@ -273,5 +278,61 @@ test('Cracked floor preserves VAR_ICE_STEP_COUNT when moving at fastest speed', 
   stepCallbackManager.update(createContext(1, 1, state, setCalls, invalidate, { isPlayerAtFastestSpeed: true }));
 
   assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 7);
+  stepCallbackManager.reset();
+});
+
+test('Cracked floor uses movement-speed fallback for fastest parity when boolean is stale', () => {
+  stepCallbackManager.reset();
+  stepCallbackManager.setCallback(7);
+  gameVariables.reset();
+  gameVariables.setVar('VAR_ICE_STEP_COUNT', 7);
+
+  const state: GridState = {
+    behaviors: new Map<string, number>([
+      [key(1, 1), MB_CRACKED_FLOOR],
+    ]),
+    metatileIds: new Map<string, number>([
+      [key(1, 1), METATILE_CAVE_CRACKED_FLOOR],
+    ]),
+  };
+  const setCalls: SetCall[] = [];
+  const invalidate = { count: 0 };
+
+  stepCallbackManager.update(createContext(0, 0, state, setCalls, invalidate, {
+    isPlayerAtFastestSpeed: false,
+    playerMoveSpeedPxPerMs: 0,
+  }));
+  stepCallbackManager.update(createContext(1, 1, state, setCalls, invalidate, {
+    isPlayerAtFastestSpeed: false,
+    playerMoveSpeedPxPerMs: 0.24,
+  }));
+
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 7);
+  stepCallbackManager.reset();
+});
+
+test('Cracked floor hole always resets fall flag (C parity)', () => {
+  stepCallbackManager.reset();
+  stepCallbackManager.setCallback(7);
+  gameVariables.reset();
+  gameVariables.setVar('VAR_ICE_STEP_COUNT', 7);
+
+  const state: GridState = {
+    behaviors: new Map<string, number>([
+      [key(1, 1), MB_CRACKED_FLOOR_HOLE],
+    ]),
+    metatileIds: new Map<string, number>([
+      [key(1, 1), METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE],
+    ]),
+  };
+  const setCalls: SetCall[] = [];
+  const invalidate = { count: 0 };
+
+  stepCallbackManager.update(createContext(1, 1, state, setCalls, invalidate, {
+    isPlayerAtFastestSpeed: true,
+    playerMoveSpeedPxPerMs: 0.24,
+    playerIsMoving: true,
+  }));
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 0);
   stepCallbackManager.reset();
 });

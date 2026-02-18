@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PlayerController } from '../PlayerController';
+import { PlayerController } from '../PlayerController.ts';
 import {
   MB_JUMP_SOUTH,
   MB_MUDDY_SLOPE,
@@ -8,7 +8,7 @@ import {
   MB_VERTICAL_RAIL,
   MB_HORIZONTAL_RAIL,
   MB_ISOLATED_HORIZONTAL_RAIL,
-} from '../../utils/metatileBehaviors';
+} from '../../utils/metatileBehaviors.ts';
 
 function withWindowStub(run: () => void): void {
   const previousWindow = (globalThis as { window?: Window }).window;
@@ -259,6 +259,55 @@ test('Muddy slope forces player south unless climbing on max-speed Mach bike', (
     assert.equal(controller.tileY, 4);
     assert.equal(controller.isMoving, false);
     assert.equal(controller.dir, 'up');
+    controller.destroy();
+  });
+});
+
+test('Mach fastest check honors active movement speed when tier is temporarily stale', () => {
+  withWindowStub(() => {
+    const controller = new PlayerController();
+    controller.setPosition(4, 4);
+    controller.setTileResolver((x, y) => ({
+      mapTile: { metatileId: x + y * 100, collision: 0, elevation: 0 },
+      attributes: { behavior: 0, layerType: 0 },
+    }));
+
+    assert.equal(controller.tryUseBikeItem('mach'), 'mounted');
+    controller.handleBikeInput({ ArrowRight: true }, 'mach');
+    controller.update(16);
+
+    const internal = controller as unknown as {
+      machBikeSpeedTier: 0 | 1 | 2;
+      currentMoveSpeedPxPerMs: number;
+      isMoving: boolean;
+    };
+    internal.machBikeSpeedTier = 1;
+    internal.currentMoveSpeedPxPerMs = 0.24;
+    internal.isMoving = true;
+
+    assert.equal(controller.isAtFastestPlayerSpeed(), true);
+    controller.destroy();
+  });
+});
+
+test('Mach bike chains held input on the same frame a step completes', () => {
+  withWindowStub(() => {
+    const controller = new PlayerController();
+    controller.setPosition(4, 4);
+    controller.setTileResolver((x, y) => ({
+      mapTile: { metatileId: x + y * 100, collision: 0, elevation: 0 },
+      attributes: { behavior: 0, layerType: 0 },
+    }));
+
+    assert.equal(controller.tryUseBikeItem('mach'), 'mounted');
+    controller.handleBikeInput({ ArrowRight: true }, 'mach');
+    (controller as unknown as { keysPressed: Record<string, boolean> }).keysPressed = { ArrowRight: true };
+
+    controller.update(300);
+
+    assert.equal(controller.tileX, 5);
+    assert.equal(controller.tileY, 4);
+    assert.equal(controller.isMoving, true);
     controller.destroy();
   });
 });

@@ -493,6 +493,7 @@ export function runStepCallbacks(params: {
     frames?: number
   ) => void;
   pipelineRef: MutableRef<WebGLRenderPipeline | null>;
+  gbaFramesAdvanced?: number;
   gbaFrame?: number;
 }): void {
   const {
@@ -502,10 +503,17 @@ export function runStepCallbacks(params: {
     setMapMetatileLocal,
     drawMetatilePulseLocal,
     pipelineRef,
+    gbaFramesAdvanced = 1,
     gbaFrame,
   } = params;
   // C parity: callbacks continue ticking during lockall/delay script windows.
   void storyScriptRunningRef;
+
+  // Keep callback timers tied to emulated GBA frames, not display refresh rate.
+  // This prevents high-refresh displays from double-ticking delayed callbacks.
+  if (gbaFramesAdvanced <= 0) {
+    return;
+  }
 
   const playerObjectCoords = player.getObjectEventCoords();
   const playerCurrentTile = playerObjectCoords.current;
@@ -515,60 +523,64 @@ export function runStepCallbacks(params: {
 
   const offsetX = cbMap.offsetX;
   const offsetY = cbMap.offsetY;
-  stepCallbackManager.update({
-    playerLocalX: playerCurrentTile.x - offsetX,
-    playerLocalY: playerCurrentTile.y - offsetY,
-    playerDestLocalX: playerCurrentTile.x - offsetX,
-    playerDestLocalY: playerCurrentTile.y - offsetY,
-    currentMapId: cbMap.entry.id,
-    getTileBehaviorLocal: (localX, localY) => {
-      const resolver = player.getTileResolver();
-      if (!resolver) return undefined;
-      const resolved = resolver(localX + offsetX, localY + offsetY);
-      return resolved?.attributes?.behavior;
-    },
-    getTileMetatileIdLocal: (localX, localY) => {
-      const resolver = player.getTileResolver();
-      if (!resolver) return undefined;
-      const resolved = resolver(localX + offsetX, localY + offsetY);
-      return resolved?.mapTile?.metatileId;
-    },
-    setMapMetatile: (localX, localY, metatileId, collision) => {
-      setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId, collision);
-    },
-    drawMetatilePulseLocal: drawMetatilePulseLocal
-      ? (localX, localY, metatileId, frames) => {
-          drawMetatilePulseLocal(cbMap.entry.id, localX, localY, metatileId, frames);
-          recordStoryScriptTimelineEvent({
-            kind: 'metatile_pulse',
-            frame: gbaFrame ?? null,
-            mapId: cbMap.entry.id,
-            callback: stepCallbackManager.getDebugState(),
-            details: {
-              x: localX,
-              y: localY,
-              metatileId,
-              frames: frames ?? 1,
-            },
-          });
-        }
-      : undefined,
+  for (let i = 0; i < gbaFramesAdvanced; i++) {
+    stepCallbackManager.update({
+      playerLocalX: playerCurrentTile.x - offsetX,
+      playerLocalY: playerCurrentTile.y - offsetY,
+      playerDestLocalX: playerCurrentTile.x - offsetX,
+      playerDestLocalY: playerCurrentTile.y - offsetY,
+      currentMapId: cbMap.entry.id,
+      getTileBehaviorLocal: (localX, localY) => {
+        const resolver = player.getTileResolver();
+        if (!resolver) return undefined;
+        const resolved = resolver(localX + offsetX, localY + offsetY);
+        return resolved?.attributes?.behavior;
+      },
+      getTileMetatileIdLocal: (localX, localY) => {
+        const resolver = player.getTileResolver();
+        if (!resolver) return undefined;
+        const resolved = resolver(localX + offsetX, localY + offsetY);
+        return resolved?.mapTile?.metatileId;
+      },
+      setMapMetatile: (localX, localY, metatileId, collision) => {
+        setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId, collision);
+      },
+      drawMetatilePulseLocal: drawMetatilePulseLocal
+        ? (localX, localY, metatileId, frames) => {
+            drawMetatilePulseLocal(cbMap.entry.id, localX, localY, metatileId, frames);
+            recordStoryScriptTimelineEvent({
+              kind: 'metatile_pulse',
+              frame: gbaFrame ?? null,
+              mapId: cbMap.entry.id,
+              callback: stepCallbackManager.getDebugState(),
+              details: {
+                x: localX,
+                y: localY,
+                metatileId,
+                frames: frames ?? 1,
+              },
+            });
+          }
+        : undefined,
 
-    startFieldEffectLocal: (localX, localY, effectName, ownerObjectId = 'player') => {
-      player.getGrassEffectManager().create(
-        localX + offsetX,
-        localY + offsetY,
-        effectName,
-        false,
-        ownerObjectId
-      );
-    },
-    invalidateView: () => {
-      pipelineRef.current?.invalidate();
-    },
-    playerElevation: player.getElevation(),
-    isPlayerAtFastestSpeed: player.isAtFastestPlayerSpeed(),
-  });
+      startFieldEffectLocal: (localX, localY, effectName, ownerObjectId = 'player') => {
+        player.getGrassEffectManager().create(
+          localX + offsetX,
+          localY + offsetY,
+          effectName,
+          false,
+          ownerObjectId
+        );
+      },
+      invalidateView: () => {
+        pipelineRef.current?.invalidate();
+      },
+      playerElevation: player.getElevation(),
+      isPlayerAtFastestSpeed: player.isAtFastestPlayerSpeed(),
+      playerMoveSpeedPxPerMs: player.getCurrentMoveSpeedPxPerMs(),
+      playerIsMoving: player.isMoving,
+    });
+  }
 
   const callbackState = stepCallbackManager.getDebugState();
   if (callbackState.callbackId !== 0) {

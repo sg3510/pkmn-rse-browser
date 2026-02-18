@@ -214,6 +214,10 @@ export interface StepCallbackContext {
   playerElevation?: number;
   /** True when current movement speed is PLAYER_SPEED_FASTEST parity. */
   isPlayerAtFastestSpeed?: boolean;
+  /** Active movement speed in px/ms for fallback parity checks. */
+  playerMoveSpeedPxPerMs?: number;
+  /** Whether the player object is currently in-flight between tiles. */
+  playerIsMoving?: boolean;
 }
 
 export interface StepCallbackDebugState {
@@ -286,6 +290,7 @@ interface CrackedFloorState {
 
 class StepCallbackManagerImpl {
   private static readonly CALLBACK_COLLISION_PASSABLE = 0;
+  private static readonly PLAYER_SPEED_FASTEST_PX_PER_MS = 0.24;
 
   private callbackId: number = STEP_CB_DUMMY;
 
@@ -824,6 +829,9 @@ class StepCallbackManagerImpl {
     const x = ctx.playerDestLocalX;
     const y = ctx.playerDestLocalY;
     const behavior = ctx.getTileBehaviorLocal(x, y);
+    const isFastestBySpeed = (ctx.playerMoveSpeedPxPerMs ?? 0)
+      >= (StepCallbackManagerImpl.PLAYER_SPEED_FASTEST_PX_PER_MS - 1e-6);
+    const isPlayerAtFastestSpeed = Boolean(ctx.isPlayerAtFastestSpeed) || isFastestBySpeed;
     let changed = false;
 
     if (state.floor1Delay !== 0 && --state.floor1Delay === 0) {
@@ -834,6 +842,7 @@ class StepCallbackManagerImpl {
     }
 
     if (behavior === MB_CRACKED_FLOOR_HOLE) {
+      // C parity: cracked-floor hole always forces VAR_ICE_STEP_COUNT reset.
       gameVariables.setVar('VAR_ICE_STEP_COUNT', 0);
     }
 
@@ -847,7 +856,7 @@ class StepCallbackManagerImpl {
     state.prevX = x;
     state.prevY = y;
     if (behavior === MB_CRACKED_FLOOR) {
-      if (!ctx.isPlayerAtFastestSpeed) {
+      if (!isPlayerAtFastestSpeed) {
         gameVariables.setVar('VAR_ICE_STEP_COUNT', 0);
       }
 

@@ -245,3 +245,35 @@ test('copyvar still copies from variable references normally', async () => {
 
   assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 37);
 });
+
+test('copyvar with warn=FALSE and numeric string source keeps immediate value parity', async () => {
+  gameVariables.reset();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'copyvar', args: ['VAR_ICE_STEP_COUNT', '1', 'warn=FALSE'] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SKY_PILLAR_4F');
+  await runner.execute('Main');
+
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 1);
+});
+
+test('copyvar with numeric source keeps immediate value parity without warn flag', async () => {
+  gameVariables.reset();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'copyvar', args: ['VAR_ICE_STEP_COUNT', 1] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SKY_PILLAR_4F');
+  await runner.execute('Main');
+
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 1);
+});

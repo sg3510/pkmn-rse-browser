@@ -1162,13 +1162,18 @@ export class ScriptRunner {
         case 'copyvar': {
           const dest = asString(args[0]);
           const rawSrc = args[1];
-          const hasLegacyWarnFlag = args.some((arg) => arg === 'warn=FALSE');
+          const immediateLegacyValue = typeof rawSrc === 'number'
+            ? rawSrc
+            : (typeof rawSrc === 'string' && /^-?\d+$/.test(rawSrc))
+              ? Number.parseInt(rawSrc, 10)
+              : null;
           // Legacy script sources can emit both UBFIX and non-UBFIX branches.
           // For patterns like `copyvar VAR_X, 1, warn=FALSE`, keep UBFIX parity
-          // by treating numeric source values as immediates.
-          if (typeof rawSrc === 'number' && hasLegacyWarnFlag) {
+          // by treating numeric source values as immediates. We apply this for
+          // any numeric literal source to avoid accidental var-name dereference.
+          if (immediateLegacyValue !== null) {
             this.localStringVars.delete(dest);
-            gameVariables.setVar(dest, rawSrc);
+            gameVariables.setVar(dest, immediateLegacyValue);
             break;
           }
 

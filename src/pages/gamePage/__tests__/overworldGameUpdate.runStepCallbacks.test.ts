@@ -40,6 +40,7 @@ test('runStepCallbacks still advances callback state while story script is runni
     getGrassEffectManager: () => ({ create: () => {} }),
     getElevation: () => 0,
     isAtFastestPlayerSpeed: () => false,
+    getCurrentMoveSpeedPxPerMs: () => 0,
   } as unknown as PlayerController;
 
   const worldManager = {
@@ -79,6 +80,66 @@ test('runStepCallbacks still advances callback state while story script is runni
   assert.ok(metatileWrites.length > 0);
   assert.ok(metatileWrites.every((call) => call.collision === 0));
   assert.ok(pipelineInvalidations.count > 0);
+
+  stepCallbackManager.reset();
+});
+
+test('runStepCallbacks does not advance callback timers when no GBA frame advanced', () => {
+  stepCallbackManager.reset();
+  gameVariables.reset();
+  stepCallbackManager.setCallback(4); // STEP_CB_SOOTOPOLIS_ICE
+
+  const tiles = new Map<string, TileState>();
+  tiles.set(key(5, 6), { behavior: MB_THIN_ICE, metatileId: 0x205 });
+
+  const player = {
+    getObjectEventCoords: () => ({
+      current: { x: 5, y: 6 },
+      previous: { x: 5, y: 6 },
+    }),
+    getTileResolver: () => (worldX: number, worldY: number) => {
+      const tile = tiles.get(key(worldX, worldY));
+      if (!tile) return null;
+      return {
+        attributes: { behavior: tile.behavior, layerType: 0 },
+        mapTile: { metatileId: tile.metatileId, collision: 0, elevation: 0 },
+      };
+    },
+    getGrassEffectManager: () => ({ create: () => {} }),
+    getElevation: () => 0,
+    isAtFastestPlayerSpeed: () => false,
+    getCurrentMoveSpeedPxPerMs: () => 0,
+  } as unknown as PlayerController;
+
+  const worldManager = {
+    findMapAtPosition: () => ({
+      entry: { id: 'MAP_SOOTOPOLIS_CITY_GYM_1F' },
+      offsetX: 0,
+      offsetY: 0,
+    }),
+  } as unknown as WorldManager;
+
+  let invalidated = false;
+  runStepCallbacks({
+    player,
+    worldManager,
+    storyScriptRunningRef: { current: true },
+    setMapMetatileLocal: () => {
+      invalidated = true;
+    },
+    pipelineRef: {
+      current: {
+        invalidate: () => {
+          invalidated = true;
+        },
+      } as any,
+    },
+    gbaFramesAdvanced: 0,
+    gbaFrame: 1,
+  });
+
+  assert.equal(stepCallbackManager.getDebugState().iceState, 0);
+  assert.equal(invalidated, false);
 
   stepCallbackManager.reset();
 });
