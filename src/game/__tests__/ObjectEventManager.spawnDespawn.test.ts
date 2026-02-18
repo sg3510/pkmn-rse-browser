@@ -35,6 +35,32 @@ function createManagerWithNpc(x: number, y: number): ObjectEventManager {
   return manager;
 }
 
+test('Briney boat local IDs are parsed as NPC-style object events for applymovement', () => {
+  resetRuntimeState();
+
+  const manager = new ObjectEventManager();
+  const boatLocalId = 'LOCALID_ROUTE104_BOAT';
+  const boatEvent: ObjectEventData = {
+    local_id: boatLocalId,
+    graphics_id: 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
+    x: 12,
+    y: 54,
+    elevation: 3,
+    movement_type: 'MOVEMENT_TYPE_FACE_UP',
+    movement_range_x: 0,
+    movement_range_y: 0,
+    trainer_type: 'TRAINER_TYPE_NONE',
+    trainer_sight_or_berry_tree_id: '0',
+    script: '0x0',
+    flag: '0',
+  };
+
+  manager.parseMapObjects(MAP_ID, [boatEvent], 0, 0);
+  const boatNpc = manager.getNPCByLocalId(MAP_ID, boatLocalId);
+  assert.ok(boatNpc);
+  assert.equal(boatNpc.graphicsId, 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT');
+});
+
 test('camera-fixed window keeps top NPC visible when camera origin does not change', () => {
   resetRuntimeState();
 
@@ -109,6 +135,32 @@ test('addobject respawns NPC from template position after setobjectxyperm parity
   assert.equal(respawnedNpc.visible, true);
   assert.equal(respawnedNpc.tileX, 14);
   assert.equal(respawnedNpc.tileY, 21);
+});
+
+test('setobjectmovementtype does not clobber setobjectxyperm template coordinates before addobject', () => {
+  resetRuntimeState();
+
+  const manager = createManagerWithNpc(30, 10);
+  assert.equal(manager.setNPCVisibilityByLocalId(MAP_ID, NPC_LOCAL_ID, false, true), true);
+  // setobjectxyperm updates template only.
+  assert.equal(manager.setNPCTemplatePositionByLocalId(MAP_ID, NPC_LOCAL_ID, 14, 21), true);
+  // setobjectmovementtype must not overwrite template coords.
+  assert.equal(
+    manager.setNPCMovementTypeByLocalId(MAP_ID, NPC_LOCAL_ID, 'MOVEMENT_TYPE_FACE_RIGHT'),
+    true
+  );
+
+  const hiddenNpc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(hiddenNpc);
+  assert.equal(hiddenNpc.initialTileX, 14);
+  assert.equal(hiddenNpc.initialTileY, 21);
+
+  // addobject respawns from template.
+  assert.equal(manager.setNPCVisibilityByLocalId(MAP_ID, NPC_LOCAL_ID, true, false), true);
+  const shownNpc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(shownNpc);
+  assert.equal(shownNpc.tileX, 14);
+  assert.equal(shownNpc.tileY, 21);
 });
 
 test('showing a hidden NPC respawns from template even when not scriptRemoved', () => {

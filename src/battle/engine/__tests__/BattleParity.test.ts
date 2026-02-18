@@ -155,6 +155,70 @@ test('run in wild battle still consumes turn when escape fails', () => {
   }
 });
 
+test('replacing player battler clears terminal outcome and applies new mon state', () => {
+  const engine = new BattleEngine({
+    config: { type: 'trainer' },
+    playerPokemon: makePartyMon({
+      species: SPECIES.TREECKO,
+      moves: [MOVES.POUND, 0, 0, 0],
+      hp: 1,
+      speed: 1,
+    }),
+    enemyPokemon: makePartyMon({
+      species: SPECIES.TORCHIC,
+      moves: [MOVES.SCRATCH, 0, 0, 0],
+      speed: 300,
+    }),
+  });
+
+  const result = engine.executeTurn({ type: 'fight', moveId: MOVES.POUND, moveSlot: 0 });
+  assert.equal(result.outcome, 'lose');
+
+  const replacement = makePartyMon({
+    species: SPECIES.MUDKIP,
+    moves: [MOVES.TACKLE, 0, 0, 0],
+    hp: 60,
+  });
+  engine.replacePlayerPokemon(replacement, 2);
+
+  assert.equal(engine.getOutcome(), null);
+  assert.equal(engine.getPlayer().pokemon.species, SPECIES.MUDKIP);
+  assert.equal(engine.getPlayer().currentHp, replacement.stats.hp);
+  assert.equal(engine.getPlayer().partyIndex, 2);
+});
+
+test('replacing enemy battler clears terminal outcome and applies new mon state', () => {
+  const engine = new BattleEngine({
+    config: { type: 'trainer' },
+    playerPokemon: makePartyMon({
+      species: SPECIES.TREECKO,
+      moves: [MOVES.POUND, 0, 0, 0],
+      speed: 300,
+    }),
+    enemyPokemon: makePartyMon({
+      species: SPECIES.TORCHIC,
+      moves: [MOVES.SCRATCH, 0, 0, 0],
+      hp: 1,
+      speed: 1,
+    }),
+  });
+
+  const result = engine.executeTurn({ type: 'fight', moveId: MOVES.POUND, moveSlot: 0 });
+  assert.equal(result.outcome, 'win');
+
+  const replacement = makePartyMon({
+    species: SPECIES.POOCHYENA,
+    moves: [MOVES.TACKLE, 0, 0, 0],
+    hp: 55,
+  });
+  engine.replaceEnemyPokemon(replacement, 1);
+
+  assert.equal(engine.getOutcome(), null);
+  assert.equal(engine.getEnemy().pokemon.species, SPECIES.POOCHYENA);
+  assert.equal(engine.getEnemy().currentHp, replacement.stats.hp);
+  assert.equal(engine.getEnemy().partyIndex, 1);
+});
+
 test('False Swipe never emits a faint event when target is at 1 HP', () => {
   const attacker = makeBattleMon(
     makePartyMon({

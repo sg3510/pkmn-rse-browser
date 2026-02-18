@@ -59,12 +59,7 @@ function buildRoute103Override(species: number, level: number): BattleEnemyPokem
   };
 }
 
-export function resolveTrainerBattle(trainerConstName: string): TrainerBattleResolution {
-  const trainerId = TRAINER_IDS[trainerConstName];
-  if (typeof trainerId !== 'number') {
-    return { kind: 'unknown_trainer' };
-  }
-
+function buildTrainerFromId(trainerConstName: string, trainerId: number): TrainerBattleResolution {
   const trainer = getTrainerData(trainerId);
   const route103Override = ROUTE_103_TRAINER_BATTLES[trainerConstName];
 
@@ -88,6 +83,27 @@ export function resolveTrainerBattle(trainerConstName: string): TrainerBattleRes
       party,
     },
   };
+}
+
+export function resolveTrainerBattle(trainerConstName: string): TrainerBattleResolution {
+  const trainerId = TRAINER_IDS[trainerConstName];
+  if (typeof trainerId !== 'number') {
+    return { kind: 'unknown_trainer' };
+  }
+  return buildTrainerFromId(trainerConstName, trainerId);
+}
+
+export function resolveTrainerBattleById(trainerId: number): TrainerBattleResolution {
+  if (!Number.isFinite(trainerId) || trainerId <= 0) {
+    return { kind: 'unknown_trainer' };
+  }
+  const normalizedId = Math.trunc(trainerId);
+  const trainerData = getTrainerData(normalizedId);
+  const trainerConst = trainerData?.constName;
+  if (!trainerConst) {
+    return { kind: 'unknown_trainer' };
+  }
+  return buildTrainerFromId(trainerConst, normalizedId);
 }
 
 export type TrainerBattleLeadResolution =

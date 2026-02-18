@@ -312,6 +312,9 @@ const NPC_GRAPHICS_OVERRIDES = new Set<string>([
   // Birth Island puzzle rock is scripted like an object event/NPC in this runtime.
   'OBJ_EVENT_GFX_DEOXYS_TRIANGLE',
   'OBJ_EVENT_GFX_BIRTH_ISLAND_STONE',
+  // Briney's boat is script-addressable via LOCALID_ROUTE104/109_BOAT and moved
+  // with applymovement, so it must be treated as an NPC-style object event.
+  'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
 ]);
 
 const NON_NPC_GRAPHICS_FALLBACKS = new Set<string>([
@@ -324,7 +327,6 @@ const NON_NPC_GRAPHICS_FALLBACKS = new Set<string>([
   'OBJ_EVENT_GFX_SS_TIDAL',
   'OBJ_EVENT_GFX_SUBMARINE_SHADOW',
   'OBJ_EVENT_GFX_CABLE_CAR',
-  'OBJ_EVENT_GFX_MR_BRINEYS_BOAT',
   'OBJ_EVENT_GFX_BIRCHS_BAG',
 ]);
 

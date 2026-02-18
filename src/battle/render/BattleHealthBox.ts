@@ -21,6 +21,7 @@ export type PartyBallState = 'healthy' | 'status' | 'fainted' | 'empty';
 
 let assets: BattleInterfaceAssets | null = null;
 let assetsPromise: Promise<void> | null = null;
+let fontReadyPromise: Promise<void> | null = null;
 
 const ENEMY_HEALTHBOX_SRC = { x: 1, y: 2, width: 100, height: 28 };
 const PLAYER_HEALTHBOX_SRC = { x: 1, y: 2, width: 103, height: 36 };
@@ -37,6 +38,30 @@ function setBattleFont(
   ctx.font = `${weight} ${sizePx}px "Pokemon Emerald", monospace`;
 }
 
+function preloadBattleFonts(): Promise<void> {
+  if (fontReadyPromise) {
+    return fontReadyPromise;
+  }
+
+  fontReadyPromise = (async () => {
+    if (typeof document === 'undefined' || !('fonts' in document)) {
+      return;
+    }
+
+    try {
+      await Promise.all([
+        document.fonts.load('8px "Pokemon Emerald"'),
+        document.fonts.load('9px "Pokemon Emerald"'),
+        document.fonts.load('10px "Pokemon Emerald"'),
+      ]);
+    } catch (error) {
+      console.warn('[BattleHealthBox] Failed to preload Pokemon Emerald font:', error);
+    }
+  })();
+
+  return fontReadyPromise;
+}
+
 /**
  * Preload battle UI assets. Call once during battle state enter.
  */
@@ -50,7 +75,13 @@ export async function preloadBattleInterfaceAssets(): Promise<void> {
 
   assetsPromise = (async () => {
     try {
-      const [enemyHealthbox, playerHealthbox, statusIcons, textbox, ballDisplay] = await Promise.all([
+      const [
+        enemyHealthbox,
+        playerHealthbox,
+        statusIcons,
+        textbox,
+        ballDisplay,
+      ] = await Promise.all([
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/healthbox_singles_opponent.png', {
           transparency: { type: 'top-left' },
         }),
@@ -66,6 +97,7 @@ export async function preloadBattleInterfaceAssets(): Promise<void> {
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/ball_display.png', {
           transparency: { type: 'top-left' },
         }),
+        preloadBattleFonts(),
       ]);
 
       assets = {
@@ -217,9 +249,9 @@ export function drawEnemyHealthBox(
   ctx.fillText(`Lv${level}`, x + boxW - 5, y + 2);
 
   const hpPercent = maxHp > 0 ? clamp01(currentHp / maxHp) : 0;
-  const barX = x + 19;
+  const barX = x + 37;
   const barY = y + 14;
-  const barW = 77;
+  const barW = 48;
   const barH = 4;
 
   ctx.fillStyle = '#484848';
@@ -227,7 +259,7 @@ export function drawEnemyHealthBox(
   ctx.fillStyle = getHpColor(hpPercent);
   ctx.fillRect(barX, barY, Math.floor(barW * hpPercent), barH);
 
-  drawStatusIcon(ctx, x + 75, y + 16, status);
+  drawStatusIcon(ctx, x + 73, y + 16, status);
 }
 
 /** Draw the player's health box (single battle). */
@@ -275,10 +307,10 @@ export function drawPlayerHealthBox(
   ctx.fillText(`Lv${level}`, x + boxW - 6, y + 2);
 
   const hpPercent = maxHp > 0 ? clamp01(currentHp / maxHp) : 0;
-  const barX = x + 20;
+  const barX = x + 47;
   const barY = y + 14;
-  const barW = 76;
-  const barH = 5;
+  const barW = 48;
+  const barH = 4;
 
   ctx.fillStyle = '#484848';
   ctx.fillRect(barX, barY, barW, barH);
@@ -290,10 +322,10 @@ export function drawPlayerHealthBox(
   ctx.textAlign = 'right';
   ctx.fillText(`${Math.max(0, currentHp)}/${maxHp}`, x + boxW - 6, y + 21);
 
-  const expBarX = x + 8;
+  const expBarX = x + 31;
   const expBarY = y + 31;
-  const expBarW = boxW - 16;
-  const expBarH = 3;
+  const expBarW = 64;
+  const expBarH = 4;
   const clampedExpPercent = clamp01(expPercent);
 
   ctx.fillStyle = '#404040';

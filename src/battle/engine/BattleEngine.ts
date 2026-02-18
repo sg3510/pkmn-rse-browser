@@ -80,6 +80,16 @@ export class BattleEngine {
     return this.outcome;
   }
 
+  replacePlayerPokemon(pokemon: PartyPokemon, partyIndex: number): void {
+    this.applyPartyMonToBattler(this.player, pokemon, true, partyIndex);
+    this.outcome = null;
+  }
+
+  replaceEnemyPokemon(pokemon: PartyPokemon, partyIndex: number): void {
+    this.applyPartyMonToBattler(this.enemy, pokemon, false, partyIndex);
+    this.outcome = null;
+  }
+
   executeTurn(playerAction: BattleAction): TurnResult {
     const events: BattleEvent[] = [];
 
@@ -142,6 +152,24 @@ export class BattleEngine {
       partyIndex,
       isPlayer,
     };
+  }
+
+  private applyPartyMonToBattler(
+    target: BattlePokemon,
+    pokemon: PartyPokemon,
+    isPlayer: boolean,
+    partyIndex: number,
+  ): void {
+    const defaultName = getSpeciesName(pokemon.species);
+    target.pokemon = { ...pokemon };
+    target.name = pokemon.nickname?.trim() || defaultName;
+    target.currentHp = pokemon.stats.hp;
+    target.maxHp = pokemon.stats.maxHp;
+    target.stages = createDefaultStages();
+    target.volatile = createDefaultVolatile();
+    target.ability = getAbility(pokemon.species, pokemon.abilityNum);
+    target.partyIndex = partyIndex;
+    target.isPlayer = isPlayer;
   }
 
   private chooseEnemyAction(): FightAction {

@@ -272,6 +272,7 @@ export function createBackSprite(
 export type TrainerBackSpriteId = 'brendan' | 'may';
 
 const TRAINER_BACK_ATLAS_PREFIX = 'battle_trainer_back_';
+const TRAINER_FRONT_ATLAS_PREFIX = 'battle_trainer_front_';
 const POKEBALL_ATLAS = 'battle_pokeball_poke';
 const ENEMY_SHADOW_ATLAS = 'battle_enemy_shadow';
 
@@ -283,8 +284,58 @@ function trainerBackAtlas(id: TrainerBackSpriteId): string {
   return `${TRAINER_BACK_ATLAS_PREFIX}${id}`;
 }
 
+function trainerFrontAtlas(id: string): string {
+  return `${TRAINER_FRONT_ATLAS_PREFIX}${id}`;
+}
+
 export function pokeballAtlas(): string {
   return POKEBALL_ATLAS;
+}
+
+/**
+ * Converts TRAINER_PIC_* constants from generated trainer data to the
+ * pokeemerald front sprite filename key in `graphics/trainers/front_pics`.
+ */
+export function trainerFrontPicIdFromConstant(trainerPicConst: string): string {
+  let picId = trainerPicConst.replace(/^TRAINER_PIC_/, '').toLowerCase();
+  // pokeemerald files use `*_rs` while constants use `RS_*`.
+  if (picId.startsWith('rs_')) {
+    picId = `${picId.slice(3)}_rs`;
+  }
+  return picId;
+}
+
+/**
+ * Loads an opponent trainer front sprite sheet if available.
+ * Returns the resolved pic id, or null when unavailable.
+ */
+export async function loadTrainerFrontSprite(
+  webgl: BattleWebGLContext,
+  trainerPicConst?: string | null,
+): Promise<string | null> {
+  if (!trainerPicConst || trainerPicConst.length === 0) {
+    return null;
+  }
+
+  const picId = trainerFrontPicIdFromConstant(trainerPicConst);
+  const atlasName = trainerFrontAtlas(picId);
+  if (!webgl.hasSpriteSheet(atlasName)) {
+    try {
+      const frontCanvas = await loadSpriteCanvas(`/pokeemerald/graphics/trainers/front_pics/${picId}.png`);
+      webgl.uploadSpriteSheet(atlasName, frontCanvas, {
+        width: frontCanvas.width,
+        height: frontCanvas.height,
+        frameWidth: 64,
+        frameHeight: 64,
+        frameCount: Math.max(1, Math.floor(frontCanvas.height / 64)),
+      });
+    } catch (error) {
+      console.warn(`[BattleSpriteLoader] Failed to load trainer front sprite for ${trainerPicConst} (${picId}):`, error);
+      return null;
+    }
+  }
+
+  return picId;
 }
 
 /**
@@ -390,6 +441,36 @@ export function createPokeballSprite(
     tintG: 1,
     tintB: 1,
     sortKey: 22,
+    isReflection: false,
+  };
+}
+
+/**
+ * Opponent trainer front sprite instance for trainer battle intro.
+ */
+export function createTrainerFrontSprite(
+  trainerFrontPicId: string,
+  x: number,
+  y: number,
+  alpha = 1,
+): SpriteInstance {
+  return {
+    worldX: Math.round(x),
+    worldY: Math.round(y),
+    width: 64,
+    height: 64,
+    atlasName: trainerFrontAtlas(trainerFrontPicId),
+    atlasX: 0,
+    atlasY: 0,
+    atlasWidth: 64,
+    atlasHeight: 64,
+    flipX: false,
+    flipY: false,
+    alpha: Math.max(0, Math.min(1, alpha)),
+    tintR: 1,
+    tintG: 1,
+    tintB: 1,
+    sortKey: 17,
     isReflection: false,
   };
 }

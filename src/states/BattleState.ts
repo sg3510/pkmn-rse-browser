@@ -26,7 +26,7 @@ import { ITEMS, getItemName } from '../data/items';
 import { getMoveInfo, getMoveName, MOVES } from '../data/moves';
 import { getSpeciesInfo } from '../data/speciesInfo';
 import { getMovesAtLevel } from '../data/learnsets.gen';
-import { calculateLevelFromExp, getAbility, getExpForLevel, recalculatePartyStats } from '../pokemon/stats';
+import { calculateLevelFromExp, getExpForLevel, recalculatePartyStats } from '../pokemon/stats';
 import { createTestPokemon } from '../pokemon/testFactory';
 import { STATUS, type PartyPokemon } from '../pokemon/types';
 import type { SpriteInstance } from '../rendering/types';
@@ -34,15 +34,12 @@ import { BattleEngine } from '../battle/engine/BattleEngine';
 import type { BattleEnemyPokemonSpec, BattleStartRequest, BattleTrainerSpec } from '../battle/BattleStartRequest';
 import { toMoveSet } from '../battle/BattleStartRequest';
 import {
-  createDefaultStages,
-  createDefaultVolatile,
   type BattleAction,
   type BattleEvent,
   type BattlePokemon,
   type BattleOutcome,
 } from '../battle/engine/types';
 import { B_OUTCOME } from '../data/battleConstants.gen';
-import { getDialogBridge } from '../components/dialog/DialogBridge';
 import { menuStateManager } from '../menu';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
 import {
@@ -58,8 +55,10 @@ import {
   loadPokemonBattleSprites,
   loadBattleIntroSprites,
   loadBattleMiscSprites,
+  loadTrainerFrontSprite,
   createFrontSprite,
   createBackSprite,
+  createTrainerFrontSprite,
   getPokemonBattleFrontFrameCount,
   getPokemonBattleBackFrameCount,
   createEnemyShadowSprite,
@@ -92,6 +91,11 @@ const HP_ANIMATION_RATE = 96; // HP units per second
 const EXP_ANIMATION_RATE = 0.9; // fraction of bar per second
 const ENEMY_INTRO_MS = 280;
 const INTRO_FRAME_MS = 1000 / 60;
+const ENEMY_TRAINER_SLIDE_IN_FRAMES = 48;
+const ENEMY_TRAINER_HOLD_FRAMES = 16;
+const ENEMY_TRAINER_SLIDE_OUT_FRAMES = 28;
+const ENEMY_TRAINER_INTRO_FRAMES = ENEMY_TRAINER_SLIDE_IN_FRAMES + ENEMY_TRAINER_HOLD_FRAMES + ENEMY_TRAINER_SLIDE_OUT_FRAMES;
+const ENEMY_TRAINER_INTRO_DELAY_MS = ENEMY_TRAINER_INTRO_FRAMES * INTRO_FRAME_MS;
 const TRAINER_THROW_TRANSLATE_FRAMES = 50;
 const TRAINER_SEND_OUT_DELAY_FRAMES = 31;
 const BALL_SEND_OUT_TASK_SETUP_FRAMES = 1;
@@ -105,6 +109,10 @@ const TRAINER_THROW_Y = BATTLE_LAYOUT.trainerThrow.y;
 const BALL_START_X = BATTLE_LAYOUT.trainerThrow.ballStartX;
 const BALL_START_Y = BATTLE_LAYOUT.trainerThrow.ballStartY;
 const BALL_ARC_AMPLITUDE = -30;
+const ENEMY_TRAINER_START_X = BATTLE_LAYOUT.trainerIntro.enemyStartX;
+const ENEMY_TRAINER_HOLD_X = BATTLE_LAYOUT.trainerIntro.enemyHoldX;
+const ENEMY_TRAINER_END_X = BATTLE_LAYOUT.trainerIntro.enemyEndX;
+const ENEMY_TRAINER_Y = BATTLE_LAYOUT.trainerIntro.enemyY;
 const MOVE_FLASH_MS = 120;
 const BATTLE_FADE_MS = 220;
 
@@ -171,6 +179,13 @@ interface PlayerSendOutVisualState {
   pokemonYOffset: number;
 }
 
+interface EnemyTrainerIntroVisualState {
+  show: boolean;
+  x: number;
+  y: number;
+  alpha: number;
+}
+
 export class BattleState implements StateRenderer {
   readonly id = GameState.BATTLE;
 
@@ -209,10 +224,12 @@ export class BattleState implements StateRenderer {
   private battleType: 'wild' | 'trainer' = 'wild';
   private trainer: BattleTrainerSpec | null = null;
   private enemyPartyPreview: readonly BattleEnemyPokemonSpec[] = [];
+  private enemyTrainerFrontPicId: string | null = null;
+  private enemyPartyIndex = 0;
+  private enemyFaintedPartySlots = new Set<number>();
   private playerPartyIndex = 0;
   private playerGender: 0 | 1 = 0;
   private waitingForBattleMenu = false;
-  private usingSharedDialogMessages = false;
 
   private pendingTransition: StateTransition | null = null;
 
@@ -229,10 +246,12 @@ export class BattleState implements StateRenderer {
     this.battleType = typedData.battleType ?? 'wild';
     this.trainer = typedData.trainer ?? null;
     this.enemyPartyPreview = typedData.trainer?.party ?? typedData.enemyParty ?? [];
+    this.enemyTrainerFrontPicId = null;
+    this.enemyPartyIndex = 0;
+    this.enemyFaintedPartySlots.clear();
     this.pendingTransition = null;
     this.transitionReady = false;
     this.waitingForBattleMenu = false;
-    this.usingSharedDialogMessages = false;
     gameVariables.setVar(GAME_VARS.VAR_RESULT, 0);
 
     const playerFromData = typedData.playerPokemon;
@@ -286,6 +305,7 @@ export class BattleState implements StateRenderer {
     const leadSpec = this.battleType === 'trainer'
       ? (this.trainer?.party[0] ?? this.enemyPartyPreview[0])
       : undefined;
+    this.enemyPartyIndex = 0;
     const wildSpecies = Math.max(1, Math.trunc(leadSpec?.species ?? fallbackSpecies));
     const wildLevel = Math.max(1, Math.trunc(leadSpec?.level ?? fallbackLevel));
     const wildHeldItem = Math.max(0, Math.trunc(leadSpec?.heldItem ?? typedData.wildHeldItem ?? 0));
@@ -299,12 +319,14 @@ export class BattleState implements StateRenderer {
       terrain: typedData.terrain ?? 'tall_grass',
       variant: 'default',
     };
-    const wildPokemon = createTestPokemon({
-      species: wildSpecies,
-      level: wildLevel,
-      heldItem: wildHeldItem,
-      moves: enemyMoves,
-    });
+    const wildPokemon = leadSpec
+      ? this.createEnemyPartyPokemon(leadSpec)
+      : createTestPokemon({
+        species: wildSpecies,
+        level: wildLevel,
+        heldItem: wildHeldItem,
+        moves: enemyMoves,
+      });
     this.syncMovePpWithMoves(wildPokemon);
 
     this.engine = new BattleEngine({
@@ -346,21 +368,35 @@ export class BattleState implements StateRenderer {
     // Initialize WebGL battle renderer
     try {
       this.webgl = new BattleWebGLContext();
+      const trainerFrontLoad = this.battleType === 'trainer'
+        ? loadTrainerFrontSprite(this.webgl, this.trainer?.trainerPic ?? null)
+        : Promise.resolve<string | null>(null);
 
       // Load sprites and background in parallel
-      const [playerCoords, enemyCoords] = await Promise.all([
+      const [
+        playerCoords,
+        enemyCoords,
+        _backgroundLoaded,
+        _introLoaded,
+        _miscLoaded,
+        _interfaceLoaded,
+        enemyTrainerFrontPicId,
+      ] = await Promise.all([
         loadPokemonBattleSprites(this.webgl, playerPokemon.species),
         loadPokemonBattleSprites(this.webgl, wildSpecies),
         loadBattleBackground(this.webgl, backgroundProfile),
         loadBattleIntroSprites(this.webgl, this.playerGender),
         loadBattleMiscSprites(this.webgl),
         preloadBattleInterfaceAssets(),
+        trainerFrontLoad,
       ]);
       this.playerSpriteCoords = playerCoords;
       this.enemySpriteCoords = enemyCoords;
+      this.enemyTrainerFrontPicId = enemyTrainerFrontPicId;
     } catch (err) {
       console.warn('Failed to initialize battle WebGL:', err);
       this.webgl = null;
+      this.enemyTrainerFrontPicId = null;
     }
 
     const trainerLabel = this.trainer?.trainerName?.trim() || 'Trainer';
@@ -379,9 +415,11 @@ export class BattleState implements StateRenderer {
     this.enemyMon = null;
     this.trainer = null;
     this.enemyPartyPreview = [];
+    this.enemyTrainerFrontPicId = null;
+    this.enemyPartyIndex = 0;
+    this.enemyFaintedPartySlots.clear();
     this.lastSelectedMoveSlot = null;
     this.waitingForBattleMenu = false;
-    this.usingSharedDialogMessages = false;
     if (menuStateManager.isMenuOpen()) {
       menuStateManager.close();
     }
@@ -425,13 +463,10 @@ export class BattleState implements StateRenderer {
 
     const confirmPressed = inputMap.isPressed(input, GameButton.A);
     const cancelPressed = inputMap.isPressed(input, GameButton.B);
-    const dialogOpen = getDialogBridge()?.isOpen() ?? false;
 
     if (
       menuStateManager.isMenuOpen()
       || this.waitingForBattleMenu
-      || this.usingSharedDialogMessages
-      || dialogOpen
     ) {
       return null;
     }
@@ -556,6 +591,7 @@ export class BattleState implements StateRenderer {
     const player = this.playerMon;
     const enemy = this.enemyMon;
     const playerSendOut = this.getPlayerSendOutVisualState();
+    const enemyTrainerIntro = this.getEnemyTrainerIntroVisualState();
 
     // --- WebGL layer: background + Pokemon sprites ---
     if (this.webgl) {
@@ -573,7 +609,9 @@ export class BattleState implements StateRenderer {
           this.enemySpriteCoords,
           this.getPokemonSpriteFrame(enemy.pokemon.species, 'front'),
         );
-        const enemyProgress = Math.max(0, Math.min(1, this.introElapsedMs / ENEMY_INTRO_MS));
+        const enemyIntroDelay = this.battleType === 'trainer' ? ENEMY_TRAINER_INTRO_DELAY_MS : 0;
+        const enemyIntroElapsed = Math.max(0, this.introElapsedMs - enemyIntroDelay);
+        const enemyProgress = Math.max(0, Math.min(1, enemyIntroElapsed / ENEMY_INTRO_MS));
         const enemyStartX = BATTLE_WIDTH + 12;
         enemySprite.worldX = Math.round(lerp(enemyStartX, enemySprite.worldX, enemyProgress));
         enemySprite.alpha = enemyProgress;
@@ -592,6 +630,21 @@ export class BattleState implements StateRenderer {
 
         this.applyStatusTint(enemySprite, enemy.pokemon.status);
         sprites.push(enemySprite);
+      }
+
+      if (
+        this.battleType === 'trainer'
+        && this.enemyTrainerFrontPicId
+        && enemyTrainerIntro.show
+      ) {
+        sprites.push(
+          createTrainerFrontSprite(
+            this.enemyTrainerFrontPicId,
+            enemyTrainerIntro.x,
+            enemyTrainerIntro.y,
+            enemyTrainerIntro.alpha,
+          ),
+        );
       }
 
       if (playerSendOut.showTrainer) {
@@ -665,6 +718,10 @@ export class BattleState implements StateRenderer {
     }
 
     // --- ctx2d overlay: health boxes, text, menus ---
+    ctx2d.save();
+    ctx2d.beginPath();
+    ctx2d.rect(offsetX, offsetY, BATTLE_WIDTH, BATTLE_HEIGHT);
+    ctx2d.clip();
 
     // Enemy health box
     if (enemy) {
@@ -701,10 +758,9 @@ export class BattleState implements StateRenderer {
 
     // Text box / menus
     if (this.phase === 'message') {
-      if (!this.usingSharedDialogMessages) {
-        const message = this.messageQueue[0] ?? '';
-        drawTextBox(ctx2d, offsetX, offsetY, message);
-      }
+      const message = this.messageQueue[0] ?? '';
+      drawTextBox(ctx2d, offsetX, offsetY, message);
+      ctx2d.restore();
       return;
     }
 
@@ -715,6 +771,7 @@ export class BattleState implements StateRenderer {
         player?.name ?? 'POKéMON',
         this.firstBattle,
       );
+      ctx2d.restore();
       return;
     }
 
@@ -730,45 +787,20 @@ export class BattleState implements StateRenderer {
         };
       });
       drawMoveMenu(ctx2d, offsetX, offsetY, moves, this.moveIndex);
+      ctx2d.restore();
       return;
     }
 
     drawTextBox(ctx2d, offsetX, offsetY, 'Battle finished.');
+    ctx2d.restore();
   }
 
   // --- Internal battle logic ---
 
   private queueMessages(messages: string[], onComplete?: () => void): void {
-    const dialog = getDialogBridge();
-    if (dialog) {
-      this.phase = 'message';
-      this.messageQueue = [...messages];
-      this.onMessagesFinished = null;
-      this.usingSharedDialogMessages = true;
-      void this.showMessagesWithDialog(dialog, messages, onComplete);
-      return;
-    }
-
     this.messageQueue = [...messages];
     this.phase = 'message';
     this.onMessagesFinished = onComplete ?? null;
-  }
-
-  private async showMessagesWithDialog(
-    dialog: { showMessage: (text: string) => Promise<void> },
-    messages: readonly string[],
-    onComplete?: () => void,
-  ): Promise<void> {
-    try {
-      for (const message of messages) {
-        await dialog.showMessage(message);
-      }
-    } catch (error) {
-      console.warn('[BattleState] Dialog bridge message flow failed, continuing:', error);
-    } finally {
-      this.usingSharedDialogMessages = false;
-      onComplete?.();
-    }
   }
 
   private advanceMessage(): void {
@@ -817,15 +849,46 @@ export class BattleState implements StateRenderer {
   }
 
   private getEnemyPartyBallStates(): PartyBallState[] {
-    const states: PartyBallState[] = this.enemyPartyPreview.map(() => 'healthy');
+    const states: PartyBallState[] = [];
+
+    for (let i = 0; i < this.enemyPartyPreview.length; i++) {
+      if (this.enemyFaintedPartySlots.has(i)) {
+        states.push('fainted');
+        continue;
+      }
+      if (i === this.enemyPartyIndex && this.enemyMon) {
+        states.push(this.partyBallStateFromHpStatus(this.enemyMon.currentHp, this.enemyMon.pokemon.status));
+        continue;
+      }
+      states.push('healthy');
+    }
 
     if (states.length === 0 && this.enemyMon) {
       states.push(this.partyBallStateFromHpStatus(this.enemyMon.currentHp, this.enemyMon.pokemon.status));
-    } else if (states.length > 0 && this.enemyMon) {
-      states[0] = this.partyBallStateFromHpStatus(this.enemyMon.currentHp, this.enemyMon.pokemon.status);
     }
 
     return this.padPartyBallStates(states);
+  }
+
+  private getNextEnemyPartyIndex(): number | null {
+    for (let i = this.enemyPartyIndex + 1; i < this.enemyPartyPreview.length; i++) {
+      if (!this.enemyFaintedPartySlots.has(i)) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  private getNextUsablePlayerPartyIndex(): number | null {
+    const party = saveManager.getParty();
+    for (let i = 0; i < party.length; i++) {
+      if (i === this.playerPartyIndex) continue;
+      const mon = party[i];
+      if (mon && mon.stats.hp > 0) {
+        return i;
+      }
+    }
+    return null;
   }
 
   private partyBallStateFromHpStatus(hp: number, status: number): PartyBallState {
@@ -1062,15 +1125,8 @@ export class BattleState implements StateRenderer {
       await this.ensurePlayerSpriteLoaded(target.species);
     }
 
+    this.engine.replacePlayerPokemon(target, partyIndex);
     const player = this.engine.getPlayer();
-    player.pokemon = { ...target };
-    player.name = targetName;
-    player.currentHp = target.stats.hp;
-    player.maxHp = target.stats.maxHp;
-    player.stages = createDefaultStages();
-    player.volatile = createDefaultVolatile();
-    player.ability = getAbility(target.species, target.abilityNum);
-    player.partyIndex = partyIndex;
 
     this.playerMon = player;
     this.playerPartyIndex = partyIndex;
@@ -1089,6 +1145,15 @@ export class BattleState implements StateRenderer {
       this.playerSpriteCoords = await loadPokemonBattleSprites(this.webgl, species);
     } catch (error) {
       console.warn(`[BattleState] Failed to load switched sprite for species ${species}:`, error);
+    }
+  }
+
+  private async ensureEnemySpriteLoaded(species: number): Promise<void> {
+    if (!this.webgl) return;
+    try {
+      this.enemySpriteCoords = await loadPokemonBattleSprites(this.webgl, species);
+    } catch (error) {
+      console.warn(`[BattleState] Failed to load enemy switched sprite for species ${species}:`, error);
     }
   }
 
@@ -1133,6 +1198,14 @@ export class BattleState implements StateRenderer {
   }
 
   private handleTurnOutcome(outcome: BattleOutcome | null, turnMessages: string[]): void {
+    if (outcome === 'win' && this.tryContinueTrainerBattleAfterEnemyFaint(turnMessages)) {
+      return;
+    }
+
+    if (outcome === 'lose' && this.tryContinueBattleAfterPlayerFaint(turnMessages)) {
+      return;
+    }
+
     if (outcome === 'win') {
       this.handleWin(turnMessages);
       return;
@@ -1156,6 +1229,96 @@ export class BattleState implements StateRenderer {
     this.queueMessages(turnMessages, () => {
       this.phase = 'action';
     });
+  }
+
+  private tryContinueTrainerBattleAfterEnemyFaint(turnMessages: string[]): boolean {
+    if (this.battleType !== 'trainer' || !this.engine || !this.enemyMon) {
+      return false;
+    }
+
+    this.enemyFaintedPartySlots.add(this.enemyPartyIndex);
+    const nextEnemyIndex = this.getNextEnemyPartyIndex();
+    if (nextEnemyIndex === null) {
+      return false;
+    }
+
+    const nextEnemySpec = this.enemyPartyPreview[nextEnemyIndex];
+    if (!nextEnemySpec) {
+      return false;
+    }
+
+    const nextEnemyPokemon = this.createEnemyPartyPokemon(nextEnemySpec);
+    if (nextEnemyPokemon.species !== this.enemyMon.pokemon.species) {
+      void this.ensureEnemySpriteLoaded(nextEnemyPokemon.species);
+    }
+
+    this.enemyPartyIndex = nextEnemyIndex;
+    this.engine.replaceEnemyPokemon(nextEnemyPokemon, nextEnemyIndex);
+    this.syncFromEngine();
+    this.displayedEnemyHp = this.enemyMon?.currentHp ?? this.displayedEnemyHp;
+    this.enemyFaintProgress = 0;
+
+    const trainerLabel = this.trainer?.trainerName?.trim() || 'Trainer';
+    const nextEnemyName = this.enemyMon?.name ?? getSpeciesName(nextEnemyPokemon.species);
+    this.queueMessages(
+      [...turnMessages, `${trainerLabel} sent out ${nextEnemyName}!`],
+      () => {
+        this.phase = 'action';
+      },
+    );
+    return true;
+  }
+
+  private tryContinueBattleAfterPlayerFaint(turnMessages: string[]): boolean {
+    if (!this.engine || !this.playerMon) {
+      return false;
+    }
+
+    const nextPartyIndex = this.getNextUsablePlayerPartyIndex();
+    if (nextPartyIndex === null) {
+      return false;
+    }
+
+    const party = saveManager.getParty();
+    const current = party[this.playerPartyIndex];
+    if (current) {
+      party[this.playerPartyIndex] = {
+        ...current,
+        stats: {
+          ...current.stats,
+          hp: 0,
+        },
+      };
+    }
+
+    const nextPartyMon = party[nextPartyIndex];
+    if (!nextPartyMon || nextPartyMon.stats.hp <= 0) {
+      saveManager.setParty(party);
+      return false;
+    }
+    saveManager.setParty(party);
+
+    if (nextPartyMon.species !== this.playerMon.pokemon.species) {
+      void this.ensurePlayerSpriteLoaded(nextPartyMon.species);
+    }
+
+    this.engine.replacePlayerPokemon(nextPartyMon, nextPartyIndex);
+    this.syncFromEngine();
+    this.playerPartyIndex = nextPartyIndex;
+    this.playerFaintProgress = 0;
+    this.displayedPlayerHp = this.playerMon?.currentHp ?? this.displayedPlayerHp;
+    this.displayedPlayerExpLevel = this.playerMon?.pokemon.level ?? this.displayedPlayerExpLevel;
+    this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
+    this.persistPlayerBattleState();
+
+    const nextName = this.playerMon?.name ?? getSpeciesName(nextPartyMon.species);
+    this.queueMessages(
+      [...turnMessages, `Go! ${nextName}!`],
+      () => {
+        this.phase = 'action';
+      },
+    );
+    return true;
   }
 
   private applyMoveAnimationFromEvents(events: BattleEvent[]): void {
@@ -1284,6 +1447,58 @@ export class BattleState implements StateRenderer {
    * - public/pokeemerald/src/battle_controller_player.c (PlayerHandleIntroTrainerBallThrow, Task_StartSendOutAnim)
    * - public/pokeemerald/src/pokeball.c (Task_DoPokeballSendOutAnim, SpriteCB_PlayerMonSendOut_1/_2, SpriteCB_ReleaseMonFromBall)
    */
+  private getEnemyTrainerIntroVisualState(): EnemyTrainerIntroVisualState {
+    if (this.battleType !== 'trainer' || !this.enemyTrainerFrontPicId) {
+      return {
+        show: false,
+        x: ENEMY_TRAINER_END_X,
+        y: ENEMY_TRAINER_Y,
+        alpha: 0,
+      };
+    }
+
+    const frame = this.introElapsedMs / INTRO_FRAME_MS;
+    if (frame < ENEMY_TRAINER_SLIDE_IN_FRAMES) {
+      const t = clamp(frame / ENEMY_TRAINER_SLIDE_IN_FRAMES, 0, 1);
+      return {
+        show: true,
+        x: lerp(ENEMY_TRAINER_START_X, ENEMY_TRAINER_HOLD_X, t),
+        y: ENEMY_TRAINER_Y,
+        alpha: 1,
+      };
+    }
+
+    if (frame < ENEMY_TRAINER_SLIDE_IN_FRAMES + ENEMY_TRAINER_HOLD_FRAMES) {
+      return {
+        show: true,
+        x: ENEMY_TRAINER_HOLD_X,
+        y: ENEMY_TRAINER_Y,
+        alpha: 1,
+      };
+    }
+
+    if (frame < ENEMY_TRAINER_INTRO_FRAMES) {
+      const t = clamp(
+        (frame - ENEMY_TRAINER_SLIDE_IN_FRAMES - ENEMY_TRAINER_HOLD_FRAMES) / ENEMY_TRAINER_SLIDE_OUT_FRAMES,
+        0,
+        1,
+      );
+      return {
+        show: true,
+        x: lerp(ENEMY_TRAINER_HOLD_X, ENEMY_TRAINER_END_X, t),
+        y: ENEMY_TRAINER_Y,
+        alpha: Math.max(0, 1 - (t * 0.25)),
+      };
+    }
+
+    return {
+      show: false,
+      x: ENEMY_TRAINER_END_X,
+      y: ENEMY_TRAINER_Y,
+      alpha: 0,
+    };
+  }
+
   private getPlayerSendOutVisualState(): PlayerSendOutVisualState {
     const frame = this.playerSendOutElapsedMs / INTRO_FRAME_MS;
     const playerSpecies = this.playerMon?.pokemon.species;
@@ -1475,6 +1690,17 @@ export class BattleState implements StateRenderer {
     return toMoveSet([MOVES.TACKLE]);
   }
 
+  private createEnemyPartyPokemon(spec: BattleEnemyPokemonSpec): PartyPokemon {
+    const enemyPokemon = createTestPokemon({
+      species: Math.max(1, Math.trunc(spec.species)),
+      level: Math.max(1, Math.trunc(spec.level)),
+      heldItem: Math.max(0, Math.trunc(spec.heldItem ?? 0)),
+      moves: this.resolveEnemyMoveSet(spec.species, spec.level, spec.moves),
+    });
+    this.syncMovePpWithMoves(enemyPokemon);
+    return enemyPokemon;
+  }
+
   private syncMovePpWithMoves(mon: PartyPokemon): void {
     for (let slot = 0; slot < 4; slot++) {
       const moveId = mon.moves[slot] ?? 0;
@@ -1532,7 +1758,7 @@ export class BattleState implements StateRenderer {
     const info = getSpeciesInfo(mon.species);
     const growthRate = info?.growthRate ?? 'MEDIUM_FAST';
     if (mon.level >= 100) {
-      return { level: mon.level, percent: 1 };
+      return { level: mon.level, percent: 0 };
     }
 
     const currentLevelExp = getExpForLevel(growthRate, mon.level);
@@ -1586,6 +1812,7 @@ export class BattleState implements StateRenderer {
     const player = this.playerMon;
     const enemy = this.enemyMon;
     if (!player || !enemy) return;
+    this.enemyFaintedPartySlots.add(this.enemyPartyIndex);
 
     this.setScriptBattleResult('B_OUTCOME_WON');
 

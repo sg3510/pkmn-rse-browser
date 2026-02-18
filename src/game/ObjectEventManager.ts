@@ -819,6 +819,11 @@ export class ObjectEventManager {
   /**
    * Set an NPC's movement type by map-local ID.
    * Also updates direction and stops wandering.
+   *
+   * C parity:
+   * - setobjectmovementtype updates template movement type only
+   *   (see SetObjEventTemplateMovementType in overworld.c).
+   * - It must NOT overwrite template coords set via setobjectxyperm.
    */
   setNPCMovementTypeByLocalId(
     mapId: string,
@@ -833,10 +838,6 @@ export class ObjectEventManager {
     npc.isWalking = false;
     npc.subTileX = 0;
     npc.subTileY = 0;
-    // Update initial position to current position so movement range
-    // is centered on where the NPC actually is (not the original spawn).
-    npc.initialTileX = npc.tileX;
-    npc.initialTileY = npc.tileY;
     // Reset the movement engine's cached state so it re-initializes
     // with the new movement type and position on next update.
     npcMovementEngine.removeNPC(npc.id);

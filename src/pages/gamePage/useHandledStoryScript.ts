@@ -31,7 +31,7 @@ import { menuStateManager } from '../../menu/MenuStateManager';
 import { stepCallbackManager } from '../../game/StepCallbackManager';
 import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline';
 import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
-import { resolveTrainerBattle } from './trainerBattleFallback';
+import { resolveTrainerBattle, resolveTrainerBattleById } from './trainerBattleFallback';
 import type { MutableRef } from './types';
 
 
@@ -536,13 +536,16 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         },
         startTrainerBattle: async (request) => {
           if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
-          const trainerId = request.trainerId;
+          const trainerId = String(request.trainerId);
           const battle = resolveTrainerBattle(trainerId);
-          if (battle.kind === 'unknown_trainer') {
+          const numericFallback = battle.kind === 'unknown_trainer' && /^\d+$/.test(trainerId)
+            ? resolveTrainerBattleById(Number(trainerId))
+            : battle;
+          if (numericFallback.kind === 'unknown_trainer') {
             console.warn(`[StoryScript] Unknown trainer constant: ${trainerId}`);
             return { outcome: BATTLE_OUTCOME.WON };
           }
-          if (battle.kind === 'empty_party') {
+          if (numericFallback.kind === 'empty_party') {
             console.warn(`[StoryScript] Trainer has empty party: ${trainerId}`);
             return { outcome: BATTLE_OUTCOME.WON };
           }
@@ -557,7 +560,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           const battleRequest: TrainerBattleStartRequest = {
             battleType: 'trainer',
             playerPokemon: lead,
-            trainer: battle.trainer,
+            trainer: numericFallback.trainer,
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
             returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),

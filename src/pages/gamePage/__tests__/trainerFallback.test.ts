@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveTrainerBattle, resolveTrainerBattleLead } from '../trainerBattleFallback.ts';
+import { resolveTrainerBattle, resolveTrainerBattleById, resolveTrainerBattleLead } from '../trainerBattleFallback.ts';
 import { SPECIES } from '../../../data/species.ts';
 import { TRAINER_IDS } from '../../../data/trainerIds.gen.ts';
 import { getTrainerData } from '../../../data/trainerParties.gen.ts';
@@ -71,4 +71,15 @@ test('trainer move fallback uses generated learnsets for route 103 overrides', (
   assert.ok(lead);
   const expected = getMovesAtLevel(lead.species, lead.level);
   assert.deepEqual(lead.moves, expected.slice(0, 4));
+});
+
+test('trainer battle resolution supports numeric trainer IDs', () => {
+  const trainerId = TRAINER_IDS.TRAINER_ROXANNE_1;
+  const resolution = resolveTrainerBattleById(trainerId);
+  assert.equal(resolution.kind, 'ok');
+  if (resolution.kind !== 'ok') return;
+
+  assert.equal(resolution.trainer.trainerId, trainerId);
+  assert.equal(resolution.trainer.trainerConst, 'TRAINER_ROXANNE_1');
+  assert.equal(resolution.trainer.party[0]?.species, SPECIES.GEODUDE);
 });

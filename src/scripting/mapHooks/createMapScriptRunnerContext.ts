@@ -77,6 +77,10 @@ export function createMapScriptRunnerContext(
       }
       objectEventManager.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
     },
+    setNpcTemplatePosition: (mapId, localId, tileX, tileY) => {
+      const worldPos = mapLocalToWorld(mapId, tileX, tileY);
+      objectEventManager.setNPCTemplatePositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
+    },
     setNpcVisible: (mapId, localId, visible, persistent) => {
       objectEventManager.setNPCVisibilityByLocalId(mapId, localId, visible, persistent);
     },

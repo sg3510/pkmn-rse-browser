@@ -16,7 +16,7 @@ export const BATTLE_LAYOUT = {
   },
   enemy: {
     spriteX: 144,
-    spriteY: 16,
+    spriteY: 12,
     healthboxX: 16,
     healthboxY: 8,
     partyBallsX: 18,
@@ -36,5 +36,11 @@ export const BATTLE_LAYOUT = {
     y: 80,
     ballStartX: 24,
     ballStartY: 68,
+  },
+  trainerIntro: {
+    enemyStartX: 272,
+    enemyHoldX: 176,
+    enemyEndX: 280,
+    enemyY: 40,
   },
 } as const;
