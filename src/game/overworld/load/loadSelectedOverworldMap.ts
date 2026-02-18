@@ -347,6 +347,16 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
             fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
           }
         }
+
+        const shouldUnlockInput = (
+          !completingScriptedWarpLoad
+          && !storyScriptRunningRef.current
+          && pendingScriptedWarpRef.current === null
+          && !warpingRef.current
+        );
+        if (shouldUnlockInput) {
+          player.unlockInput();
+        }
       }
 
       setStats((stats) => ({ ...stats, error: null }));
