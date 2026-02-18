@@ -12,6 +12,18 @@ interface SpriteDimensionsLike {
   frameHeight: number;
 }
 
+const BRINEY_BOAT_GRAPHICS_ID = 'OBJ_EVENT_GFX_MR_BRINEYS_BOAT';
+
+function getBrineyBoatLocalIds(objectEvents: ReadonlyArray<{ graphics_id: string; local_id?: string }>): string[] {
+  const localIds: string[] = [];
+  for (const event of objectEvents) {
+    if (event.graphics_id !== BRINEY_BOAT_GRAPHICS_ID) continue;
+    if (typeof event.local_id !== 'string' || event.local_id.length === 0) continue;
+    localIds.push(event.local_id);
+  }
+  return localIds;
+}
+
 export interface NpcSpriteCacheLike {
   loadMany: (graphicsIds: string[]) => Promise<void>;
   get: (graphicsId: string) => HTMLCanvasElement | null;
@@ -138,6 +150,38 @@ export async function loadObjectEventsFromSnapshot(
   // Parse objects and bg_events for newly added maps only
   for (const mapInst of snapshot.maps) {
     if (objectEventManager.hasMapObjects(mapInst.entry.id)) {
+      // Migration safety: older runtime state could have parsed Briney's boat
+      // as a large object (or dropped it entirely), which breaks applymovement.
+      // Re-parse this map if any Briney boat local ID is missing as an NPC.
+      const brineyBoatLocalIds = getBrineyBoatLocalIds(
+        mapInst.objectEvents
+      );
+      const allNpcs = objectEventManager.getAllNPCs();
+      if (
+        brineyBoatLocalIds.length > 0
+        && brineyBoatLocalIds.some((localId) => {
+          const expectedNpcId = `${mapInst.entry.id}_npc_${localId}`;
+          return allNpcs.every((npc) => npc.id !== expectedNpcId);
+        })
+      ) {
+        objectEventManager.removeMapObjects(mapInst.entry.id);
+        objectEventManager.parseMapObjects(
+          mapInst.entry.id,
+          mapInst.objectEvents,
+          mapInst.offsetX,
+          mapInst.offsetY,
+          saveManager.getProfile().gender
+        );
+        if (mapInst.bgEvents.length > 0) {
+          objectEventManager.parseMapBgEvents(
+            mapInst.entry.id,
+            mapInst.bgEvents,
+            mapInst.offsetX,
+            mapInst.offsetY
+          );
+        }
+      }
+
       // Check for offset changes — happens when world stitching shifts
       const oldOffset = objectEventManager.getMapOffset(mapInst.entry.id);
       if (oldOffset) {

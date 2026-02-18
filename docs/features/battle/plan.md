@@ -96,6 +96,10 @@ CI/verification rule:
 - Updated HP/EXP bar widths to C constants (`48` HP / `64` EXP), with EXP rollover animation behavior.
 - Added front-sprite malformed-sheet guard (black-flicker fix) and battle-scene overlay clipping to prevent lower-screen sprite artifacts.
 - Added battle-font preload path to ensure `"Pokemon Emerald"` is active before UI text draw.
+- Implemented C-parity wild capture flow (ball multipliers, status bonuses, shake outcomes, bag consumption, caught outcome).
+- Added catch persistence hooks (party insert when space exists + Pokédex seen/caught updates).
+- Moved EXP awarding to enemy-faint timing and added trainer/Lucky Egg multipliers per C ordering.
+- Applied trainer IV scalar parity (`iv * 31 / 255`) for trainer mon materialization.
 
 ## Validation Runbook (Current)
 

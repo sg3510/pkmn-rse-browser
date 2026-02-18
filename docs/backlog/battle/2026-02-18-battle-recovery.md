@@ -98,3 +98,44 @@
 - `NS-003`: deeper mechanics parity expansion (status/weather/item/ability/AI edge cases).
 - `NS-004`: replay + seed-based repro tooling for bug reports.
 - `NS-005`: CI hard gate for generated battle data freshness.
+
+## 2026-02-18 Late-Night C Parity Pass 2 (Top-10 Implemented)
+
+### Checklist IDs completed
+
+- `CP2-001`, `CP2-002`, `CP2-003`, `CP2-004`, `CP2-005`, `CP2-006`, `CP2-007`, `CP2-008`, `CP2-009`, `CP2-010`.
+
+### What shipped
+
+- Replaced battle Poké Ball placeholder with full C-parity capture flow:
+  - ball multipliers (Ultra/Great/Poké/Net/Dive/Nest/Repeat/Timer/Master),
+  - status catch bonuses,
+  - shake resolution and break-free message mapping.
+- Added battle bag no-item guard + proper Poké Ball consumption path.
+- Implemented successful catch outcome path:
+  - sets `B_OUTCOME_CAUGHT`,
+  - persists caught mon to party when space exists,
+  - updates Pokédex seen/caught via `SaveManager` helpers.
+- Moved EXP grant timing to enemy-faint events (instead of final victory only) and added:
+  - trainer-battle EXP bonus,
+  - Lucky Egg EXP bonus.
+- Applied trainer IV scalar parity (`iv * 31 / 255`) when materializing trainer mons.
+- Added testable C-parity helper module + dedicated tests.
+
+### Validation
+
+- `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
+- `node --test src/pages/gamePage/__tests__/trainerFallback.test.ts`: PASS
+- `npm run verify:generated:battle`: PASS
+- `npm run validate:battle-sprites`: PASS
+- `npm run build`: PASS (existing Vite mixed JSON-attribute warning remains non-blocking)
+
+### Additional Scope queued after this pass
+
+- `CP2-NEXT-001` EXP Share split/distribution parity.
+- `CP2-NEXT-002` traded-mon EXP boost + message parity.
+- `CP2-NEXT-003` Safari/Wally ball-throw branch parity.
+- `CP2-NEXT-004` party-full caught-mon PC routing/message parity.
+- `CP2-NEXT-005` nickname + Dex-page catch UX parity.
+- `CP2-NEXT-006` Repeat Ball national/local dex semantics when national split lands.
+- `CP2-NEXT-007` Timer Ball turn-counter timing audit.

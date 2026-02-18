@@ -28,11 +28,12 @@ import { getSpeciesInfo } from '../data/speciesInfo';
 import { getMovesAtLevel } from '../data/learnsets.gen';
 import { calculateLevelFromExp, getExpForLevel, recalculatePartyStats } from '../pokemon/stats';
 import { createTestPokemon } from '../pokemon/testFactory';
-import { STATUS, type PartyPokemon } from '../pokemon/types';
+import { STATUS, type IVs, type PartyPokemon } from '../pokemon/types';
 import type { SpriteInstance } from '../rendering/types';
 import { BattleEngine } from '../battle/engine/BattleEngine';
 import type { BattleEnemyPokemonSpec, BattleStartRequest, BattleTrainerSpec } from '../battle/BattleStartRequest';
 import { toMoveSet } from '../battle/BattleStartRequest';
+import { battleRandomInt } from '../battle/engine/BattleRng';
 import {
   type BattleAction,
   type BattleEvent,
@@ -40,6 +41,7 @@ import {
   type BattleOutcome,
 } from '../battle/engine/types';
 import { B_OUTCOME } from '../data/battleConstants.gen';
+import { getItemBattleEffect, HOLD_EFFECTS } from '../data/itemBattleEffects.gen';
 import { menuStateManager } from '../menu';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
 import {
@@ -48,6 +50,14 @@ import {
   getBattleStatusCureMask,
   isBattlePokeBallItem,
 } from '../battle/items/battleItemRules';
+import {
+  calculateCatchOdds,
+  calculateFaintExpAward,
+  getBallEscapeMessage,
+  resolveBallMultiplierTenths,
+  resolveCaptureShakes,
+  scaleTrainerIvToBattleIv,
+} from '../battle/mechanics/cParityBattle';
 
 // WebGL rendering
 import { BattleWebGLContext, BATTLE_WIDTH, BATTLE_HEIGHT } from '../battle/render/BattleWebGLContext';
@@ -230,6 +240,8 @@ export class BattleState implements StateRenderer {
   private playerPartyIndex = 0;
   private playerGender: 0 | 1 = 0;
   private waitingForBattleMenu = false;
+  private battleTurnCounter = 0;
+  private isUnderwaterBattle = false;
 
   private pendingTransition: StateTransition | null = null;
 
@@ -252,6 +264,8 @@ export class BattleState implements StateRenderer {
     this.pendingTransition = null;
     this.transitionReady = false;
     this.waitingForBattleMenu = false;
+    this.battleTurnCounter = 0;
+    this.isUnderwaterBattle = false;
     gameVariables.setVar(GAME_VARS.VAR_RESULT, 0);
 
     const playerFromData = typedData.playerPokemon;
@@ -319,6 +333,7 @@ export class BattleState implements StateRenderer {
       terrain: typedData.terrain ?? 'tall_grass',
       variant: 'default',
     };
+    this.isUnderwaterBattle = backgroundProfile.terrain === 'underwater';
     const wildPokemon = leadSpec
       ? this.createEnemyPartyPokemon(leadSpec)
       : createTestPokemon({
@@ -420,6 +435,8 @@ export class BattleState implements StateRenderer {
     this.enemyFaintedPartySlots.clear();
     this.lastSelectedMoveSlot = null;
     this.waitingForBattleMenu = false;
+    this.battleTurnCounter = 0;
+    this.isUnderwaterBattle = false;
     if (menuStateManager.isMenuOpen()) {
       menuStateManager.close();
     }
@@ -989,16 +1006,26 @@ export class BattleState implements StateRenderer {
     }
 
     if (isBattlePokeBallItem(itemId)) {
-      if (this.battleType === 'trainer') {
-        this.queueMessages(['The TRAINER blocked the BALL!'], () => {
+      if (!bagManager.removeItem(itemId, 1)) {
+        this.queueMessages([`You don't have any ${getItemName(itemId)} left!`], () => {
           this.phase = 'action';
         });
         return;
       }
 
-      this.queueMessages(['Poké Ball capture flow is next in the battle checklist.'], () => {
-        this.phase = 'action';
-      });
+      if (this.battleType === 'trainer') {
+        this.executePlayerAction(
+          { type: 'item', itemId },
+          [
+            `${saveManager.getPlayerName()} used ${getItemName(itemId)}!`,
+            'The TRAINER blocked the BALL!',
+            "Don't be a thief!",
+          ],
+        );
+        return;
+      }
+
+      this.handleWildBallThrow(itemId);
       return;
     }
 
@@ -1021,6 +1048,84 @@ export class BattleState implements StateRenderer {
       { type: 'item', itemId },
       [`${saveManager.getPlayerName()} used ${getItemName(itemId)}!`, applied.message],
     );
+  }
+
+  private handleWildBallThrow(itemId: number): void {
+    const enemy = this.enemyMon;
+    if (!enemy) {
+      this.phase = 'action';
+      return;
+    }
+
+    const enemyInfo = getSpeciesInfo(enemy.pokemon.species);
+    const captureBallMultiplier = resolveBallMultiplierTenths({
+      itemId,
+      targetLevel: enemy.pokemon.level,
+      targetTypes: enemyInfo?.types ?? ['NORMAL', 'NORMAL'],
+      isUnderwater: this.isUnderwaterBattle,
+      speciesCaughtBefore: saveManager.hasCaughtSpecies(enemy.pokemon.species),
+      battleTurnCounter: this.battleTurnCounter,
+    });
+    const captureOdds = calculateCatchOdds({
+      catchRate: enemyInfo?.catchRate ?? 3,
+      ballMultiplierTenths: captureBallMultiplier,
+      targetHp: enemy.currentHp,
+      targetMaxHp: enemy.maxHp,
+      targetStatus: enemy.pokemon.status,
+    });
+    const shakeResult = resolveCaptureShakes({
+      itemId,
+      odds: captureOdds,
+      randomU16: () => battleRandomInt(0, 65535),
+    });
+
+    const useMessage = `${saveManager.getPlayerName()} used ${getItemName(itemId)}!`;
+    if (shakeResult.caught) {
+      const catchMessages = this.persistCaughtPokemonAndBuildMessages(itemId, enemy);
+      this.setScriptBattleResult('B_OUTCOME_CAUGHT');
+      this.queueMessages([useMessage, ...catchMessages], () => {
+        this.phase = 'finished';
+      });
+      return;
+    }
+
+    this.executePlayerAction(
+      { type: 'item', itemId },
+      [useMessage, getBallEscapeMessage(shakeResult.shakes)],
+    );
+  }
+
+  private persistCaughtPokemonAndBuildMessages(itemId: number, enemy: BattlePokemon): string[] {
+    const caughtMon: PartyPokemon = {
+      ...enemy.pokemon,
+      pokeball: itemId,
+      metLevel: enemy.pokemon.level,
+      stats: {
+        ...enemy.pokemon.stats,
+        hp: Math.max(1, Math.min(enemy.maxHp, enemy.currentHp)),
+      },
+    };
+
+    const party = saveManager.getParty();
+    const openSlot = party.findIndex((mon) => mon === null);
+    if (openSlot >= 0) {
+      party[openSlot] = caughtMon;
+      saveManager.setParty(party);
+    }
+
+    saveManager.registerSpeciesCaught(caughtMon.species);
+    this.enemyFaintedPartySlots.add(this.enemyPartyIndex);
+
+    const messages = [
+      `Gotcha! ${enemy.name} was caught!`,
+      `${enemy.name}'s data was added to the POKeDEX.`,
+    ];
+    if (openSlot >= 0) {
+      messages.push(`${enemy.name} was added to your party.`);
+    } else {
+      messages.push(`${enemy.name} was sent to SOMEONE'S PC.`);
+    }
+    return messages;
   }
 
   private applyItemToActivePokemon(itemId: number): { used: boolean; message: string } {
@@ -1179,9 +1284,20 @@ export class BattleState implements StateRenderer {
     this.applyStatIndicatorsFromEvents(result.events);
     this.syncFromEngine();
     this.persistPlayerBattleState();
+    if (this.didActionConsumeTurn(action)) {
+      this.battleTurnCounter++;
+    }
 
     const turnMessages = this.collectTurnMessages(result.events, prefixMessages);
+    turnMessages.push(...this.collectEnemyFaintExpMessages(result.events));
     this.handleTurnOutcome(result.outcome, turnMessages);
+  }
+
+  private didActionConsumeTurn(action: BattleAction): boolean {
+    if (action.type !== 'run') {
+      return true;
+    }
+    return !(this.battleType === 'trainer' || this.firstBattle);
   }
 
   private collectTurnMessages(events: BattleEvent[], prefixMessages: string[]): string[] {
@@ -1195,6 +1311,52 @@ export class BattleState implements StateRenderer {
       return [...prefixMessages];
     }
     return ['...'];
+  }
+
+  private collectEnemyFaintExpMessages(events: BattleEvent[]): string[] {
+    const enemyFainted = events.some((event) => event.type === 'faint' && event.battler === 1);
+    if (!enemyFainted) {
+      return [];
+    }
+    if (!this.playerMon || !this.enemyMon) {
+      return [];
+    }
+    if (this.playerMon.currentHp <= 0) {
+      return [];
+    }
+
+    const player = this.playerMon;
+    const enemy = this.enemyMon;
+    const enemyInfo = getSpeciesInfo(enemy.pokemon.species);
+    const luckyEggHeld = getItemBattleEffect(player.pokemon.heldItem)?.holdEffect === HOLD_EFFECTS.HOLD_EFFECT_LUCKY_EGG;
+    const gainedExp = calculateFaintExpAward(
+      enemyInfo?.expYield ?? 0,
+      enemy.pokemon.level,
+      { trainerBattle: this.battleType === 'trainer', luckyEgg: luckyEggHeld },
+    );
+    if (gainedExp <= 0) {
+      return [];
+    }
+
+    const previousLevel = player.pokemon.level;
+    const previousMaxHp = player.pokemon.stats.maxHp;
+    const previousHp = player.currentHp;
+
+    player.pokemon.experience += gainedExp;
+    const growthRate = getSpeciesInfo(player.pokemon.species)?.growthRate ?? 'MEDIUM_FAST';
+    const newLevel = calculateLevelFromExp(growthRate, player.pokemon.experience);
+
+    const messages = [`${player.name} gained ${gainedExp} EXP. Points!`];
+    if (newLevel > previousLevel) {
+      player.pokemon = recalculatePartyStats(player.pokemon);
+      const hpGain = player.pokemon.stats.maxHp - previousMaxHp;
+      player.currentHp = Math.min(player.pokemon.stats.maxHp, previousHp + Math.max(0, hpGain));
+      player.maxHp = player.pokemon.stats.maxHp;
+      messages.push(`${player.name} grew to Lv. ${newLevel}!`);
+    }
+
+    this.persistPlayerBattleState();
+    return messages;
   }
 
   private handleTurnOutcome(outcome: BattleOutcome | null, turnMessages: string[]): void {
@@ -1690,11 +1852,27 @@ export class BattleState implements StateRenderer {
     return toMoveSet([MOVES.TACKLE]);
   }
 
+  private resolveTrainerIvSet(rawTrainerIv?: number): IVs | undefined {
+    if (!Number.isFinite(rawTrainerIv)) {
+      return undefined;
+    }
+    const fixedIv = scaleTrainerIvToBattleIv(Math.trunc(rawTrainerIv ?? 0));
+    return {
+      hp: fixedIv,
+      attack: fixedIv,
+      defense: fixedIv,
+      speed: fixedIv,
+      spAttack: fixedIv,
+      spDefense: fixedIv,
+    };
+  }
+
   private createEnemyPartyPokemon(spec: BattleEnemyPokemonSpec): PartyPokemon {
     const enemyPokemon = createTestPokemon({
       species: Math.max(1, Math.trunc(spec.species)),
       level: Math.max(1, Math.trunc(spec.level)),
       heldItem: Math.max(0, Math.trunc(spec.heldItem ?? 0)),
+      ivs: this.resolveTrainerIvSet(spec.iv),
       moves: this.resolveEnemyMoveSet(spec.species, spec.level, spec.moves),
     });
     this.syncMovePpWithMoves(enemyPokemon);
@@ -1810,39 +1988,11 @@ export class BattleState implements StateRenderer {
 
   private handleWin(turnMessages: string[]): void {
     const player = this.playerMon;
-    const enemy = this.enemyMon;
-    if (!player || !enemy) return;
+    if (!player) return;
     this.enemyFaintedPartySlots.add(this.enemyPartyIndex);
 
     this.setScriptBattleResult('B_OUTCOME_WON');
-
-    const enemyInfo = getSpeciesInfo(enemy.pokemon.species);
-    const baseExpYield = enemyInfo?.expYield ?? 0;
-    const gainedExp = Math.floor((baseExpYield * enemy.pokemon.level) / 7);
-    const oldLevel = player.pokemon.level;
-
-    player.pokemon.experience += gainedExp;
-    const growthRate = getSpeciesInfo(player.pokemon.species)?.growthRate ?? 'MEDIUM_FAST';
-    const newLevel = calculateLevelFromExp(growthRate, player.pokemon.experience);
-
-    turnMessages.push(`${player.name} gained ${gainedExp} EXP. Points!`);
-
-    if (newLevel > oldLevel) {
-      const previousMaxHp = player.pokemon.stats.maxHp;
-      const previousHp = player.currentHp;
-      player.pokemon = recalculatePartyStats(player.pokemon);
-      const hpGain = player.pokemon.stats.maxHp - previousMaxHp;
-      player.currentHp = Math.min(player.pokemon.stats.maxHp, previousHp + Math.max(0, hpGain));
-      player.maxHp = player.pokemon.stats.maxHp;
-      turnMessages.push(`${player.name} grew to Lv. ${newLevel}!`);
-    }
-
-    const party = saveManager.getParty();
-    const active = party[this.playerPartyIndex];
-    if (active) {
-      party[this.playerPartyIndex] = this.toPersistedPartyPokemon(player);
-    }
-    saveManager.setParty(party);
+    this.persistPlayerBattleState();
 
     if (this.firstBattle) {
       gameFlags.set('FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE');

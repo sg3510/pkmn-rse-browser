@@ -32,6 +32,7 @@ import {
   type PlayTime,
   type PlayerProfile,
   type BerryState,
+  type PokedexState,
   SAVE_VERSION,
   SAVE_STORAGE_KEY,
   DEFAULT_PROFILE,
@@ -682,6 +683,44 @@ class SaveManagerClass {
    */
   hasParty(): boolean {
     return saveStateStore.hasParty();
+  }
+
+  // === Pokedex Management ===
+
+  getPokedex(): PokedexState {
+    return saveStateStore.getPokedex();
+  }
+
+  setPokedex(pokedex: PokedexState): void {
+    saveStateStore.setPokedex(pokedex);
+  }
+
+  hasCaughtSpecies(species: number): boolean {
+    if (!Number.isFinite(species) || species <= 0) return false;
+    const normalized = Math.trunc(species);
+    return saveStateStore.getPokedex().caught.includes(normalized);
+  }
+
+  registerSpeciesSeen(species: number): void {
+    if (!Number.isFinite(species) || species <= 0) return;
+    const normalized = Math.trunc(species);
+    const pokedex = saveStateStore.getPokedex();
+    if (pokedex.seen.includes(normalized)) return;
+    pokedex.seen.push(normalized);
+    saveStateStore.setPokedex(pokedex);
+  }
+
+  registerSpeciesCaught(species: number): void {
+    if (!Number.isFinite(species) || species <= 0) return;
+    const normalized = Math.trunc(species);
+    const pokedex = saveStateStore.getPokedex();
+    if (!pokedex.seen.includes(normalized)) {
+      pokedex.seen.push(normalized);
+    }
+    if (!pokedex.caught.includes(normalized)) {
+      pokedex.caught.push(normalized);
+    }
+    saveStateStore.setPokedex(pokedex);
   }
 
   // === Quick Save/Load (for development) ===
