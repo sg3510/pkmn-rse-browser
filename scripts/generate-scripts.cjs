@@ -367,6 +367,66 @@ function parseIncFile(content) {
 }
 
 /**
+ * Build a lookup of shared map_script_2 table entries keyed by table label.
+ * This lets map scripts reference tables defined in shared includes (e.g. cave_hole.inc).
+ */
+function collectSharedMapScriptTables(sharedFileNames) {
+  const tableEntriesByLabel = new Map();
+
+  for (const fileName of sharedFileNames) {
+    const filePath = path.join(SHARED_SCRIPTS_DIR, fileName);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const parsed = parseIncFile(content);
+
+    for (const entry of parsed.mapScriptEntries) {
+      if (entry.type !== '__table__') continue;
+      const existing = tableEntriesByLabel.get(entry.tableLabel) ?? [];
+      existing.push(entry);
+      tableEntriesByLabel.set(entry.tableLabel, existing);
+    }
+  }
+
+  return tableEntriesByLabel;
+}
+
+/**
+ * Resolve map script entries with shared table rows when MAP_SCRIPT_ON_*_TABLE
+ * points at a table label defined in shared includes.
+ */
+function resolveMapScriptEntriesWithSharedTables(mapScriptEntries, sharedTableEntriesByLabel) {
+  if (!Array.isArray(mapScriptEntries) || mapScriptEntries.length === 0) {
+    return mapScriptEntries;
+  }
+
+  const resolved = [...mapScriptEntries];
+  const localTableLabels = new Set(
+    mapScriptEntries
+      .filter(entry => entry.type === '__table__')
+      .map(entry => entry.tableLabel)
+  );
+
+  for (const entry of mapScriptEntries) {
+    if (entry.type === '__table__') continue;
+
+    const key = MAP_SCRIPT_TYPES[entry.type];
+    if (key !== 'onFrame' && key !== 'onWarpInto') continue;
+
+    const tableLabel = entry.label;
+    if (localTableLabels.has(tableLabel)) continue;
+
+    const sharedEntries = sharedTableEntriesByLabel.get(tableLabel);
+    if (!sharedEntries || sharedEntries.length === 0) continue;
+
+    for (const sharedEntry of sharedEntries) {
+      resolved.push({ ...sharedEntry });
+    }
+    localTableLabels.add(tableLabel);
+  }
+
+  return resolved;
+}
+
+/**
  * Parse a single command line into { cmd, args }
  * Example: "msgbox PlayersHouse_1F_Text_GoSetTheClock, MSGBOX_DEFAULT"
  *       → { cmd: "msgbox", args: ["PlayersHouse_1F_Text_GoSetTheClock", "MSGBOX_DEFAULT"] }
@@ -650,6 +710,8 @@ function generate() {
   // Discover all maps with scripts.inc
   const allMaps = discoverMaps();
   console.log(`Found ${allMaps.length} maps with scripts.inc\n`);
+  const sharedFiles = discoverSharedFiles();
+  const sharedMapScriptTables = collectSharedMapScriptTables(sharedFiles);
 
   // Process each map
   for (const mapName of allMaps) {
@@ -657,7 +719,11 @@ function generate() {
 
     const content = fs.readFileSync(incPath, 'utf8');
     const parsed = parseIncFile(content);
-    const mapScripts = buildMapScriptHeader(parsed.mapScriptEntries);
+    const resolvedMapScriptEntries = resolveMapScriptEntriesWithSharedTables(
+      parsed.mapScriptEntries,
+      sharedMapScriptTables
+    );
+    const mapScripts = buildMapScriptHeader(resolvedMapScriptEntries);
 
     const data = {
       mapScripts,
@@ -682,7 +748,6 @@ function generate() {
   }
 
   // Process all shared script files into common.gen.ts
-  const sharedFiles = discoverSharedFiles();
   console.log(`\nProcessing ${sharedFiles.length} shared script files...`);
   const commonScripts = {};
   const commonMovements = {};
@@ -771,6 +836,7 @@ module.exports = {
   parseIncFile,
   isAssemblerDirective,
   buildMapScriptHeader,
+  resolveMapScriptEntriesWithSharedTables,
   tryParseInt,
   generate,
 };

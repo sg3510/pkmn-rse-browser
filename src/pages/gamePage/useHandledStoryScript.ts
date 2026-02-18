@@ -37,6 +37,7 @@ interface PendingScriptedWarpLike {
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
   phase: 'pending' | 'fading' | 'loading';
+  style?: 'default' | 'fall';
   traversal?: {
     surfing: boolean;
     underwater: boolean;
@@ -64,6 +65,7 @@ export interface UseHandledStoryScriptParams {
   gbaFrameRef: MutableRef<number>;
   gbaFrameMs: number;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   scriptRuntimeServices?: ScriptRuntimeServices;
   getSavedWeather?: () => string | number | null;
 }
@@ -90,6 +92,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     gbaFrameRef,
     gbaFrameMs,
     setMapMetatile,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
     getSavedWeather,
   } = params;
@@ -590,7 +593,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           await waitForBattleToEnd();
           return readBattleResult();
         },
-        queueWarp: (mapId, x, y, direction) => {
+        queueWarp: (mapId, x, y, direction, options) => {
           pendingSavedLocationRef.current = {
             pos: { x, y },
             location: { mapId, warpId: 0, x, y },
@@ -611,6 +614,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             y,
             direction,
             phase: 'pending',
+            style: options?.style ?? 'default',
           };
           warpingRef.current = true;
         },
@@ -772,6 +776,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             .filter((npc) => npc.id.startsWith(`${mapId}_npc_`) && npc.localId != null)
             .map((npc) => npc.localId!);
         },
+        setCurrentMapLayoutById,
       };
 
       // Priority 1: hand-coded scripts (overrides)
@@ -879,6 +884,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     gbaFrameRef,
     gbaFrameMs,
     setMapMetatile,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
   ]);
 }

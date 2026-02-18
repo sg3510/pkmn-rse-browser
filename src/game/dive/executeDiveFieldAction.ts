@@ -25,6 +25,7 @@ interface PendingScriptedWarpLike {
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
   phase: 'pending' | 'fading' | 'loading';
+  style?: 'default' | 'fall';
   traversal?: {
     surfing: boolean;
     underwater: boolean;
@@ -125,6 +126,7 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
     y: destination.y,
     direction: facingDirection,
     phase: 'pending',
+    style: 'default',
     traversal: {
       surfing: destinationIsSurfing,
       underwater: destinationUnderwater,

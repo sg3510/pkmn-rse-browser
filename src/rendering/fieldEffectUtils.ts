@@ -27,6 +27,7 @@ export const FIELD_EFFECT_DIMENSIONS: Readonly<Record<string, { width: number; h
   bike_tire_tracks: { width: 16, height: 16 },
   puddle_splash: { width: 16, height: 8 },
   water_ripple: { width: 16, height: 16 },
+  GROUND_IMPACT_DUST: { width: 16, height: 8 },
   ASH: { width: 16, height: 16 },
   ash_launch: { width: 16, height: 16 },
   ash_puff: { width: 16, height: 16 },
@@ -46,6 +47,9 @@ export const FIELD_EFFECT_DIMENSIONS: Readonly<Record<string, { width: number; h
 export const FIELD_EFFECT_Y_OFFSETS: Readonly<Record<string, number>> = {
   water_ripple: 6,
   puddle_splash: 4,
+  // C parity: SetSpritePosToOffsetMapCoords(..., 8, 12) for ground-impact dust.
+  // Our field effects are centered at tile center (8,8), so +4px aligns to feet.
+  GROUND_IMPACT_DUST: 4,
 };
 
 /**

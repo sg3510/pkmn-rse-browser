@@ -198,7 +198,9 @@ export interface StepCallbackContext {
   /** Get raw metatile id at map-local coordinates */
   getTileMetatileIdLocal: (localX: number, localY: number) => number | undefined;
   /** Set a metatile at map-local coordinates */
-  setMapMetatile: (localX: number, localY: number, metatileId: number) => void;
+  setMapMetatile: (localX: number, localY: number, metatileId: number, collision?: number) => void;
+  /** Draw-only pulse override for a metatile at map-local coordinates. */
+  drawMetatilePulseLocal?: (localX: number, localY: number, metatileId: number, frames?: number) => void;
   /** Spawn a field effect at map-local coordinates */
   startFieldEffectLocal?: (
     localX: number,
@@ -283,6 +285,8 @@ interface CrackedFloorState {
 }
 
 class StepCallbackManagerImpl {
+  private static readonly CALLBACK_COLLISION_PASSABLE = 0;
+
   private callbackId: number = STEP_CB_DUMMY;
 
   // Position tracking (map-local)
@@ -550,7 +554,7 @@ class StepCallbackManagerImpl {
       const targetX = x + offset.x;
       const targetY = y + offset.y;
       if (ctx.getTileMetatileIdLocal(targetX, targetY) !== offset.metatileId) {
-        ctx.setMapMetatile(targetX, targetY, offset.metatileId);
+        this.setCallbackMetatilePassable(ctx, targetX, targetY, offset.metatileId);
         changed = true;
       }
     }
@@ -592,11 +596,11 @@ class StepCallbackManagerImpl {
 
     const metatileId = ctx.getTileMetatileIdLocal(x, y);
     if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED) {
-      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED);
+      this.setCallbackMetatilePassable(ctx, x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED);
       return true;
     }
     if (metatileId === METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED) {
-      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED);
+      this.setCallbackMetatilePassable(ctx, x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED);
       return true;
     }
     return false;
@@ -609,11 +613,11 @@ class StepCallbackManagerImpl {
 
     const metatileId = ctx.getTileMetatileIdLocal(x, y);
     if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED) {
-      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
+      this.setCallbackMetatilePassable(ctx, x, y, METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
       return true;
     }
     if (metatileId === METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED) {
-      ctx.setMapMetatile(x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED);
+      this.setCallbackMetatilePassable(ctx, x, y, METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED);
       return true;
     }
     return false;
@@ -634,13 +638,18 @@ class StepCallbackManagerImpl {
     const phase = state.bounceTime % 7;
 
     if (phase === 4) {
-      // Draw lowered frame now...
-      if (this.tryLowerFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx)) {
+      const currentMetatileId = ctx.getTileMetatileIdLocal(state.oldBridgeX, state.oldBridgeY);
+      const loweredMetatileId = this.getFortreeLoweredMetatileId(currentMetatileId);
+      if (loweredMetatileId !== null && ctx.drawMetatilePulseLocal) {
+        ctx.drawMetatilePulseLocal(state.oldBridgeX, state.oldBridgeY, loweredMetatileId, 1);
         changed = true;
+      } else {
+        // Fallback path for environments without draw pulse support.
+        if (this.tryLowerFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx)) {
+          changed = true;
+        }
+        this.tryRaiseFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx);
       }
-      // ...but immediately restore map-grid state (no draw this frame).
-      // A later redraw (phase 0) reveals the raised frame.
-      this.tryRaiseFortreeBridge(state.oldBridgeX, state.oldBridgeY, ctx);
     } else if (phase === 0) {
       // Emulate CurrentMapDrawMetatileAt-only frame even when metatile ID is unchanged.
       changed = true;
@@ -802,7 +811,7 @@ class StepCallbackManagerImpl {
       ? METATILE_CAVE_CRACKED_FLOOR_HOLE
       : METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE;
     if (metatileId !== holeMetatileId) {
-      ctx.setMapMetatile(x, y, holeMetatileId);
+      this.setCallbackMetatilePassable(ctx, x, y, holeMetatileId);
       return true;
     }
     return false;
@@ -936,7 +945,7 @@ class StepCallbackManagerImpl {
           )
         ];
 
-      ctx.setMapMetatile(entry.localX, entry.localY, metatileId);
+      this.setCallbackMetatilePassable(ctx, entry.localX, entry.localY, metatileId);
       changedMetatile = true;
 
       if (entry.remainingFrames > 0) {
@@ -972,7 +981,7 @@ class StepCallbackManagerImpl {
       for (let x = ICE_PUZZLE_L; x <= ICE_PUZZLE_R; x++) {
         const bit = 1 << (x - ICE_PUZZLE_L);
         if (bits & bit) {
-          ctx.setMapMetatile(x, y, METATILE_ICE_CRACKED);
+          this.setCallbackMetatilePassable(ctx, x, y, METATILE_ICE_CRACKED);
           changed = true;
         }
       }
@@ -1044,7 +1053,7 @@ class StepCallbackManagerImpl {
       }
 
       ctx.startFieldEffectLocal?.(effect.localX, effect.localY, 'ASH', 'player');
-      ctx.setMapMetatile(effect.localX, effect.localY, effect.replacementMetatileId);
+      this.setCallbackMetatilePassable(ctx, effect.localX, effect.localY, effect.replacementMetatileId);
       changedMetatile = true;
     }
 
@@ -1104,7 +1113,7 @@ class StepCallbackManagerImpl {
         this.iceDelay--;
         if (this.iceDelay <= 0) {
           // SE_ICE_CRACK would play here (audio not yet implemented)
-          ctx.setMapMetatile(this.iceTileX, this.iceTileY, METATILE_ICE_CRACKED);
+          this.setCallbackMetatilePassable(ctx, this.iceTileX, this.iceTileY, METATILE_ICE_CRACKED);
           ctx.invalidateView();
           this.markIceVisited(this.iceTileX, this.iceTileY);
           this.iceState = 1;
@@ -1116,7 +1125,7 @@ class StepCallbackManagerImpl {
         this.iceDelay--;
         if (this.iceDelay <= 0) {
           // SE_ICE_BREAK would play here (audio not yet implemented)
-          ctx.setMapMetatile(this.iceTileX, this.iceTileY, METATILE_ICE_BROKEN);
+          this.setCallbackMetatilePassable(ctx, this.iceTileX, this.iceTileY, METATILE_ICE_BROKEN);
           ctx.invalidateView();
           this.iceState = 1;
         }
@@ -1130,6 +1139,25 @@ class StepCallbackManagerImpl {
     if (!rowVar) return;
     const bits = gameVariables.getVar(rowVar);
     gameVariables.setVar(rowVar, bits | (1 << (x - ICE_PUZZLE_L)));
+  }
+
+  private setCallbackMetatilePassable(
+    ctx: Pick<StepCallbackContext, 'setMapMetatile'>,
+    x: number,
+    y: number,
+    metatileId: number
+  ): void {
+    ctx.setMapMetatile(x, y, metatileId, StepCallbackManagerImpl.CALLBACK_COLLISION_PASSABLE);
+  }
+
+  private getFortreeLoweredMetatileId(metatileId: number | undefined): number | null {
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED) {
+      return METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED;
+    }
+    if (metatileId === METATILE_FORTREE_BRIDGE_OVER_TREES_RAISED) {
+      return METATILE_FORTREE_BRIDGE_OVER_TREES_LOWERED;
+    }
+    return null;
   }
 }
 

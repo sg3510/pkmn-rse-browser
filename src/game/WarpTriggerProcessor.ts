@@ -10,11 +10,11 @@
  * without directly performing warp execution.
  */
 
-import { detectWarpTrigger, resolveTileAt, type WarpTrigger } from '../components/map/utils';
-import { isNonAnimatedDoorBehavior } from '../utils/metatileBehaviors';
-import type { RenderContext, ResolvedTile } from '../components/map/types';
-import type { PlayerController } from './PlayerController';
-import type { WarpHandler } from '../field/WarpHandler';
+import { detectWarpTrigger, resolveTileAt, type WarpTrigger } from '../components/map/utils.ts';
+import { isNonAnimatedDoorBehavior } from '../utils/metatileBehaviors.ts';
+import type { RenderContext, ResolvedTile } from '../components/map/types.ts';
+import type { PlayerController } from './PlayerController.ts';
+import type { WarpHandler } from '../field/WarpHandler.ts';
 
 // =============================================================================
 // Types

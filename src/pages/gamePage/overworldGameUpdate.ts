@@ -13,27 +13,28 @@ import type { RenderContext } from '../../rendering/types';
 import type { WorldSnapshot } from '../../game/WorldManager';
 import type { WarpTrigger } from '../../components/map/utils';
 import type { LavaridgeWarpSequencer } from '../../game/LavaridgeWarpSequencer';
+import type { FallWarpArrivalSequencer } from '../../game/FallWarpArrivalSequencer';
 import type { CameraController } from '../../game/CameraController';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
 import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
 import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
-import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../../game/DoorSequenceRunner';
-import { FADE_TIMING, type CardinalDirection } from '../../field/types';
-import { isSurfableBehavior } from '../../utils/metatileBehaviors';
-import { gameVariables, GAME_VARS } from '../../game/GameVariables';
-import { getMapScripts } from '../../data/scripts';
-import { shouldRunCoordEvent } from '../../game/NewGameFlow';
-import { scheduleInputUnlock, type InputUnlockGuards } from '../../game/overworld/inputLock/scheduleInputUnlock';
+import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../../game/DoorSequenceRunner.ts';
+import { FADE_TIMING, type CardinalDirection } from '../../field/types.ts';
+import { isSurfableBehavior } from '../../utils/metatileBehaviors.ts';
+import { gameVariables, GAME_VARS } from '../../game/GameVariables.ts';
+import { getMapScripts } from '../../data/scripts/index.ts';
+import { shouldRunCoordEvent } from '../../game/NewGameFlow.ts';
+import { scheduleInputUnlock, type InputUnlockGuards } from '../../game/overworld/inputLock/scheduleInputUnlock.ts';
 import type { WeatherManager } from '../../weather/WeatherManager';
-import { stepCallbackManager } from '../../game/StepCallbackManager';
-import { processWarpTrigger, updateWarpHandlerTile } from '../../game/WarpTriggerProcessor';
-import { getMetatileIdFromMapTile } from '../../utils/mapLoader';
-import { startSpecialWalkOverWarp } from '../../game/SpecialWarpBehaviorRegistry';
-import { isDiagnosticsEnabled, type DebugOptions, type PlayerDebugInfo } from '../../components/debug';
-import { createLogger } from '../../utils/logger';
-import { isDebugMode } from '../../utils/debug';
-import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline';
-import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
+import { stepCallbackManager } from '../../game/StepCallbackManager.ts';
+import { processWarpTrigger, updateWarpHandlerTile } from '../../game/WarpTriggerProcessor.ts';
+import { getMetatileIdFromMapTile } from '../../utils/mapLoader.ts';
+import { startSpecialWalkOverWarp } from '../../game/SpecialWarpBehaviorRegistry.ts';
+import { isDiagnosticsEnabled, type DebugOptions, type PlayerDebugInfo } from '../../components/debug/index.ts';
+import { createLogger } from '../../utils/logger.ts';
+import { isDebugMode } from '../../utils/debug.ts';
+import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline.ts';
+import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder.ts';
 import type { MutableRef } from './types';
 
 
@@ -264,6 +265,7 @@ export type PendingScriptedWarp = {
   y: number;
   direction: ScriptedWarpDirection;
   phase: ScriptedWarpPhase;
+  style?: 'default' | 'fall';
   traversal?: {
     surfing: boolean;
     underwater: boolean;
@@ -295,6 +297,7 @@ export function updateScriptedWarpStateMachine(params: {
   worldManagerRef: MutableRef<WorldManager | null>;
   inputUnlockGuards: InputUnlockGuards;
   selectMapForLoad: (mapId: string) => void;
+  startFallWarpArrival?: (scriptedWarp: PendingScriptedWarp, player: PlayerController, nowTime: number) => boolean;
 }): void {
   const {
     nowTime,
@@ -309,6 +312,7 @@ export function updateScriptedWarpStateMachine(params: {
     worldManagerRef,
     inputUnlockGuards,
     selectMapForLoad,
+    startFallWarpArrival,
   } = params;
 
   const scriptedWarp = pendingScriptedWarpRef.current;
@@ -372,9 +376,13 @@ export function updateScriptedWarpStateMachine(params: {
       fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
       pendingSavedLocationRef.current = null;
       pendingScriptedWarpRef.current = null;
-      warpingRef.current = false;
       warpHandler.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
-      scheduleInputUnlock(activePlayer, inputUnlockGuards);
+      const startedFallArrival = scriptedWarp.style === 'fall'
+        && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
+      if (!startedFallArrival) {
+        warpingRef.current = false;
+        scheduleInputUnlock(activePlayer, inputUnlockGuards);
+      }
     } else {
       debugLog('[ScriptedWarp] different map -> loading', { mapId: scriptedWarp.mapId });
       scriptedWarp.phase = 'loading';
@@ -397,12 +405,16 @@ export function updateScriptedWarpStateMachine(params: {
       overworldUpdateLogger.warn('[ScriptedWarp] loading fallback completion', { mapId: scriptedWarp.mapId });
       pendingScriptedWarpRef.current = null;
       scriptedWarpLoadMonitorRef.current = null;
-      warpingRef.current = false;
       warpHandler.updateLastCheckedTile(activePlayer.tileX, activePlayer.tileY, scriptedWarp.mapId);
       if (fade.getDirection() !== 'in' || !fade.isActive()) {
         fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
       }
-      scheduleInputUnlock(activePlayer, inputUnlockGuards);
+      const startedFallArrival = scriptedWarp.style === 'fall'
+        && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
+      if (!startedFallArrival) {
+        warpingRef.current = false;
+        scheduleInputUnlock(activePlayer, inputUnlockGuards);
+      }
     } else if (activePlayer && activeMapId === scriptedWarp.mapId && loadingRef.current) {
       let monitor = scriptedWarpLoadMonitorRef.current;
       if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
@@ -466,7 +478,20 @@ export function runStepCallbacks(params: {
   player: PlayerController;
   worldManager: WorldManager;
   storyScriptRunningRef: MutableRef<boolean>;
-  setMapMetatileLocal: (mapId: string, localX: number, localY: number, metatileId: number) => void;
+  setMapMetatileLocal: (
+    mapId: string,
+    localX: number,
+    localY: number,
+    metatileId: number,
+    collision?: number
+  ) => void;
+  drawMetatilePulseLocal?: (
+    mapId: string,
+    localX: number,
+    localY: number,
+    metatileId: number,
+    frames?: number
+  ) => void;
   pipelineRef: MutableRef<WebGLRenderPipeline | null>;
   gbaFrame?: number;
 }): void {
@@ -475,11 +500,12 @@ export function runStepCallbacks(params: {
     worldManager,
     storyScriptRunningRef,
     setMapMetatileLocal,
+    drawMetatilePulseLocal,
     pipelineRef,
     gbaFrame,
   } = params;
-
-  if (storyScriptRunningRef.current) return;
+  // C parity: callbacks continue ticking during lockall/delay script windows.
+  void storyScriptRunningRef;
 
   const playerObjectCoords = player.getObjectEventCoords();
   const playerCurrentTile = playerObjectCoords.current;
@@ -507,9 +533,27 @@ export function runStepCallbacks(params: {
       const resolved = resolver(localX + offsetX, localY + offsetY);
       return resolved?.mapTile?.metatileId;
     },
-    setMapMetatile: (localX, localY, metatileId) => {
-      setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId);
+    setMapMetatile: (localX, localY, metatileId, collision) => {
+      setMapMetatileLocal(cbMap.entry.id, localX, localY, metatileId, collision);
     },
+    drawMetatilePulseLocal: drawMetatilePulseLocal
+      ? (localX, localY, metatileId, frames) => {
+          drawMetatilePulseLocal(cbMap.entry.id, localX, localY, metatileId, frames);
+          recordStoryScriptTimelineEvent({
+            kind: 'metatile_pulse',
+            frame: gbaFrame ?? null,
+            mapId: cbMap.entry.id,
+            callback: stepCallbackManager.getDebugState(),
+            details: {
+              x: localX,
+              y: localY,
+              metatileId,
+              frames: frames ?? 1,
+            },
+          });
+        }
+      : undefined,
+
     startFieldEffectLocal: (localX, localY, effectName, ownerObjectId = 'player') => {
       player.getGrassEffectManager().create(
         localX + offsetX,
@@ -667,6 +711,7 @@ export function advanceWarpSequences(params: {
   dialogIsOpenRef: MutableRef<boolean>;
   pendingWarpRef: MutableRef<WarpTrigger | null>;
   lavaridgeWarpSequencer: LavaridgeWarpSequencer;
+  fallWarpArrivalSequencer?: FallWarpArrivalSequencer;
   pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null>;
   scriptedWarpLoadMonitorRef: MutableRef<ScriptedWarpLoadMonitor | null>;
   loadingRef: MutableRef<boolean>;
@@ -691,6 +736,7 @@ export function advanceWarpSequences(params: {
     dialogIsOpenRef,
     pendingWarpRef,
     lavaridgeWarpSequencer,
+    fallWarpArrivalSequencer,
     pendingScriptedWarpRef,
     scriptedWarpLoadMonitorRef,
     loadingRef,
@@ -748,6 +794,16 @@ export function advanceWarpSequences(params: {
     );
   }
 
+  if (player && cameraRef.current && fallWarpArrivalSequencer?.isActive()) {
+    fallWarpArrivalSequencer.update({
+      nowTime,
+      player,
+      camera: cameraRef.current,
+      fieldEffects: player.getGrassEffectManager(),
+      fadeController: fadeControllerRef.current,
+    });
+  }
+
   // Handle scripted (warpsilent-style) warps from story scripts.
   updateScriptedWarpStateMachine({
     nowTime,
@@ -762,6 +818,43 @@ export function advanceWarpSequences(params: {
     worldManagerRef,
     inputUnlockGuards,
     selectMapForLoad,
+    startFallWarpArrival: (scriptedWarp, activePlayer) => {
+      if (!fallWarpArrivalSequencer || !cameraRef.current || fallWarpArrivalSequencer.isActive()) {
+        return fallWarpArrivalSequencer?.isActive() ?? false;
+      }
+
+      playerHiddenRef.current = true;
+      fallWarpArrivalSequencer.start({
+        onStartFall: () => {
+          playerHiddenRef.current = false;
+          recordStoryScriptTimelineEvent({
+            kind: 'fall_warp_start',
+            frame: null,
+            mapId: scriptedWarp.mapId,
+            callback: stepCallbackManager.getDebugState(),
+          });
+        },
+        onLand: () => {
+          recordStoryScriptTimelineEvent({
+            kind: 'fall_warp_land',
+            frame: null,
+            mapId: scriptedWarp.mapId,
+            callback: stepCallbackManager.getDebugState(),
+          });
+        },
+        onComplete: () => {
+          warpingRef.current = false;
+          recordStoryScriptTimelineEvent({
+            kind: 'fall_warp_end',
+            frame: null,
+            mapId: scriptedWarp.mapId,
+            callback: stepCallbackManager.getDebugState(),
+          });
+          scheduleInputUnlock(activePlayer, inputUnlockGuards);
+        },
+      });
+      return true;
+    },
   });
 
   // Handle pending warp when fade out completes

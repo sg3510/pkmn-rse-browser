@@ -8,8 +8,8 @@
  * - src/event_object_movement.c: Ground effect triggers
  */
 
-import { TICK_60FPS_MS } from '../config/timing';
-import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
+import { TICK_60FPS_MS } from '../config/timing.ts';
+import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen.ts';
 
 // GBA/NDS-style tick used by field effects (60fps cadence)
 const MS_PER_TICK = TICK_60FPS_MS;

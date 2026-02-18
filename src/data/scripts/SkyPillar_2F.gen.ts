@@ -6,6 +6,9 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "SkyPillar_2F_OnTransition",
     onResume: "SkyPillar_2F_SetHoleWarp",
+    onFrame: [
+      { var: "VAR_ICE_STEP_COUNT", value: 0, script: "EventScript_FallDownHole" },
+    ],
   },
   scripts: {
     "SkyPillar_2F_OnTransition": [

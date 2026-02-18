@@ -7,6 +7,7 @@ const {
   parseIncFile,
   isAssemblerDirective,
   buildMapScriptHeader,
+  resolveMapScriptEntriesWithSharedTables,
 } = require('../generate-scripts.cjs');
 
 test('isAssemblerDirective keeps script/string terminators and filters assembler control directives', () => {
@@ -65,3 +66,78 @@ test('event_scripts.s includes Common_EventScript_LegendaryFlewAway label for sh
   assert.ok(script.some((cmd) => cmd.cmd === 'msgbox'));
 });
 
+test('shared map_script_2 tables resolve for MAP_SCRIPT_ON_FRAME_TABLE labels', () => {
+  const mapIncPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'public',
+    'pokeemerald',
+    'data',
+    'maps',
+    'SkyPillar_4F',
+    'scripts.inc'
+  );
+  const sharedIncPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'public',
+    'pokeemerald',
+    'data',
+    'scripts',
+    'cave_hole.inc'
+  );
+
+  const mapParsed = parseIncFile(fs.readFileSync(mapIncPath, 'utf8'));
+  const sharedParsed = parseIncFile(fs.readFileSync(sharedIncPath, 'utf8'));
+
+  const sharedTables = new Map();
+  for (const entry of sharedParsed.mapScriptEntries) {
+    if (entry.type !== '__table__') continue;
+    const existing = sharedTables.get(entry.tableLabel) ?? [];
+    existing.push(entry);
+    sharedTables.set(entry.tableLabel, existing);
+  }
+
+  const resolvedEntries = resolveMapScriptEntriesWithSharedTables(mapParsed.mapScriptEntries, sharedTables);
+  const header = buildMapScriptHeader(resolvedEntries);
+
+  assert.ok(Array.isArray(header.onFrame));
+  assert.deepEqual(header.onFrame, [
+    {
+      var: 'VAR_ICE_STEP_COUNT',
+      value: 0,
+      script: 'EventScript_FallDownHole',
+    },
+  ]);
+});
+
+test('generated cave-hole maps include onFrame EventScript_FallDownHole trigger', () => {
+  const maps = [
+    'SkyPillar_2F',
+    'SkyPillar_4F',
+    'MirageTower_2F',
+    'MirageTower_3F',
+    'GraniteCave_B1F',
+    'MtPyre_2F',
+  ];
+
+  for (const mapName of maps) {
+    const generatedPath = path.join(
+      __dirname,
+      '..',
+      '..',
+      'src',
+      'data',
+      'scripts',
+      `${mapName}.gen.ts`
+    );
+    const content = fs.readFileSync(generatedPath, 'utf8');
+    assert.match(content, /onFrame:\s*\[/);
+    assert.match(
+      content,
+      /\{\s*var:\s*"VAR_ICE_STEP_COUNT",\s*value:\s*0,\s*script:\s*"EventScript_FallDownHole"\s*\}/
+    );
+  }
+});

@@ -31,7 +31,7 @@ import {
   isArrowWarpBehavior,
   isNonAnimatedDoorBehavior,
   getArrowDirectionFromBehavior,
-} from '../utils/metatileBehaviors';
+} from '../utils/metatileBehaviors.ts';
 
 // =============================================================================
 // Types

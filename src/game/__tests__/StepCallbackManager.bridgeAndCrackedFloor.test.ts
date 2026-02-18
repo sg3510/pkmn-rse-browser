@@ -31,6 +31,14 @@ interface SetCall {
   x: number;
   y: number;
   metatileId: number;
+  collision?: number;
+}
+
+interface PulseCall {
+  x: number;
+  y: number;
+  metatileId: number;
+  frames: number;
 }
 
 function key(x: number, y: number): string {
@@ -46,6 +54,7 @@ function createContext(
   options?: {
     playerElevation?: number;
     isPlayerAtFastestSpeed?: boolean;
+    drawPulses?: PulseCall[];
   },
 ): StepCallbackContext {
   return {
@@ -56,10 +65,15 @@ function createContext(
     currentMapId: 'MAP_TEST',
     getTileBehaviorLocal: (x, y) => gridState.behaviors.get(key(x, y)) ?? 0,
     getTileMetatileIdLocal: (x, y) => gridState.metatileIds.get(key(x, y)),
-    setMapMetatile: (x, y, metatileId) => {
+    setMapMetatile: (x, y, metatileId, collision) => {
       gridState.metatileIds.set(key(x, y), metatileId);
-      setCalls.push({ x, y, metatileId });
+      setCalls.push({ x, y, metatileId, collision });
     },
+    drawMetatilePulseLocal: options?.drawPulses
+      ? (x, y, metatileId, frames) => {
+          options.drawPulses!.push({ x, y, metatileId, frames: frames ?? 1 });
+        }
+      : undefined,
     invalidateView: () => {
       invalidate.count++;
     },
@@ -109,11 +123,60 @@ test('Pacifidlog callback applies 8-frame sink and raise delays', () => {
   }
   assert.equal(state.metatileIds.get(key(10, 5)), METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_LEFT);
   assert.equal(state.metatileIds.get(key(11, 5)), METATILE_PACIFIDLOG_FLOATING_HORIZONTAL_RIGHT);
+  assert.ok(setCalls.length > 0);
+  assert.ok(setCalls.every((call) => call.collision === 0));
 
   stepCallbackManager.reset();
 });
 
-test('Fortree callback animates bridge bounce over 16-frame window', () => {
+test('Fortree callback animates bridge bounce over 16-frame window using draw pulse when available', () => {
+  stepCallbackManager.reset();
+  stepCallbackManager.setCallback(2);
+
+  const state: GridState = {
+    behaviors: new Map<string, number>([
+      [key(5, 5), MB_FORTREE_BRIDGE],
+    ]),
+    metatileIds: new Map<string, number>([
+      [key(5, 5), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED],
+    ]),
+  };
+  const setCalls: SetCall[] = [];
+  const drawPulses: PulseCall[] = [];
+  const invalidate = { count: 0 };
+
+  // Callback starts while on bridge: lower immediately.
+  stepCallbackManager.update(createContext(5, 5, state, setCalls, invalidate, { playerElevation: 0, drawPulses }));
+  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED);
+
+  // Step off bridge: it raises and enters bounce state.
+  stepCallbackManager.update(createContext(6, 5, state, setCalls, invalidate, { playerElevation: 0, drawPulses }));
+  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
+
+  const preBounceCallCount = setCalls.length;
+  const preBouncePulseCount = drawPulses.length;
+  for (let i = 0; i < 24; i++) {
+    stepCallbackManager.update(createContext(6, 5, state, setCalls, invalidate, { playerElevation: 0, drawPulses }));
+  }
+
+  const bounceCalls = setCalls.slice(preBounceCallCount).filter((c) => c.x === 5 && c.y === 5);
+  const bouncePulses = drawPulses
+    .slice(preBouncePulseCount)
+    .filter((pulse) => pulse.x === 5 && pulse.y === 5);
+  const loweredWrites = bounceCalls.filter((c) => c.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED).length;
+
+  // C parity: phase-4 bounce lowers for draw-only pulse while persistent map-grid stays raised.
+  assert.ok(bouncePulses.some((pulse) => pulse.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED));
+  assert.equal(loweredWrites, 0);
+  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
+  assert.ok(invalidate.count > 0);
+  assert.ok(setCalls.length > 0);
+  assert.ok(setCalls.every((call) => call.collision === 0));
+
+  stepCallbackManager.reset();
+});
+
+test('Fortree callback falls back to lower+raise writes when pulse hook is unavailable', () => {
   stepCallbackManager.reset();
   stepCallbackManager.setCallback(2);
 
@@ -128,13 +191,8 @@ test('Fortree callback animates bridge bounce over 16-frame window', () => {
   const setCalls: SetCall[] = [];
   const invalidate = { count: 0 };
 
-  // Callback starts while on bridge: lower immediately.
   stepCallbackManager.update(createContext(5, 5, state, setCalls, invalidate, { playerElevation: 0 }));
-  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED);
-
-  // Step off bridge: it raises and enters bounce state.
   stepCallbackManager.update(createContext(6, 5, state, setCalls, invalidate, { playerElevation: 0 }));
-  assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
 
   const preBounceCallCount = setCalls.length;
   for (let i = 0; i < 24; i++) {
@@ -144,12 +202,12 @@ test('Fortree callback animates bridge bounce over 16-frame window', () => {
   const bounceCalls = setCalls.slice(preBounceCallCount).filter((c) => c.x === 5 && c.y === 5);
   const loweredWrites = bounceCalls.filter((c) => c.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_LOWERED).length;
   const raisedWrites = bounceCalls.filter((c) => c.metatileId === METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED).length;
-
-  // C parity: bounce applies lowered draw pulse(s) while restoring raised map-grid state.
   assert.ok(loweredWrites >= 1);
   assert.ok(raisedWrites >= loweredWrites);
   assert.equal(state.metatileIds.get(key(5, 5)), METATILE_FORTREE_BRIDGE_OVER_GRASS_RAISED);
   assert.ok(invalidate.count > 0);
+  assert.ok(setCalls.length > 0);
+  assert.ok(setCalls.every((call) => call.collision === 0));
 
   stepCallbackManager.reset();
 });
@@ -188,6 +246,8 @@ test('Cracked floor callback supports dual 3-frame hole timers and speed gating'
   assert.equal(state.metatileIds.get(key(2, 1)), METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE);
   assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 0);
   assert.ok(invalidate.count > 0);
+  assert.ok(setCalls.some((call) => call.metatileId === METATILE_CAVE_CRACKED_FLOOR_HOLE && call.collision === 0));
+  assert.ok(setCalls.some((call) => call.metatileId === METATILE_PACIFIDLOG_SKYPILLAR_CRACKED_FLOOR_HOLE && call.collision === 0));
 
   stepCallbackManager.reset();
 });

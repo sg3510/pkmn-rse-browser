@@ -24,7 +24,7 @@ import {
   handleDoorExitAction,
   createAnimationDoneChecker,
   type DoorActionDeps,
-} from './DoorActionDispatcher';
+} from './DoorActionDispatcher.ts';
 
 // =============================================================================
 // Types

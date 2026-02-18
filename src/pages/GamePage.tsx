@@ -54,7 +54,7 @@ import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import { type NPCObject, type ItemBallObject, type ObjectEventRuntimeState } from '../types/objectEvents';
-import { METATILE_SIZE } from '../utils/mapLoader';
+import { METATILE_SIZE, loadMapLayout, loadBorderMetatiles } from '../utils/mapLoader';
 import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
@@ -74,6 +74,8 @@ import { useDoorAnimations } from '../hooks/useDoorAnimations';
 import { useArrowOverlay } from '../hooks/useArrowOverlay';
 import { useDoorSequencer } from '../hooks/useDoorSequencer';
 import { useLavaridgeWarpSequencer } from '../hooks/useLavaridgeWarpSequencer';
+import { FallWarpArrivalSequencer } from '../game/FallWarpArrivalSequencer';
+import { TransientMetatilePulseManager } from '../game/TransientMetatilePulseManager';
 import { useWebGLSpriteBuilder } from '../hooks/useWebGLSpriteBuilder';
 import {
   DebugPanel,
@@ -159,6 +161,19 @@ import { MobileControlDeck } from '../components/controls/MobileControlDeck';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
+const POKEEMERALD_ASSET_ROOT = '/pokeemerald';
+
+interface LayoutCatalogEntry {
+  id: string;
+  width: number;
+  height: number;
+  blockdata_filepath: string;
+  border_filepath: string;
+}
+
+interface LayoutCatalogJson {
+  layouts?: LayoutCatalogEntry[];
+}
 
 type RenderStats = {
   webgl2Supported: boolean;
@@ -561,6 +576,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const arrowOverlay = useArrowOverlay();
   const doorSequencer = useDoorSequencer({ warpHandler: warpHandlerRef.current });
   const lavaridgeWarpSequencer = useLavaridgeWarpSequencer();
+  const fallWarpArrivalSequencerRef = useRef<FallWarpArrivalSequencer>(new FallWarpArrivalSequencer());
+  const transientMetatilePulseManagerRef = useRef<TransientMetatilePulseManager>(new TransientMetatilePulseManager());
 
   // Field sprites (grass, sand, etc.)
   const fieldSprites = useFieldSprites();
@@ -861,6 +878,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
   const pendingOverworldEntryReasonRef = useRef<OverworldEntryReason | null>(null);
   const pendingScriptedWarpRef = useRef<PendingScriptedWarp | null>(null);
+  const layoutCatalogPromiseRef = useRef<Promise<Map<string, LayoutCatalogEntry>> | null>(null);
 
   const setMapMetatileLocal = useCallback((
     mapId: string,
@@ -876,6 +894,103 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     () => createMetatileUpdater(setMapMetatileLocal, pipelineRef),
     [setMapMetatileLocal]
   );
+
+  const getLayoutCatalog = useCallback(async (): Promise<Map<string, LayoutCatalogEntry>> => {
+    if (!layoutCatalogPromiseRef.current) {
+      layoutCatalogPromiseRef.current = (async () => {
+        const response = await fetch(`${POKEEMERALD_ASSET_ROOT}/data/layouts/layouts.json`);
+        if (!response.ok) {
+          throw new Error(`Failed to load layouts.json (${response.status})`);
+        }
+
+        const payload = (await response.json()) as LayoutCatalogJson;
+        const layouts = Array.isArray(payload.layouts) ? payload.layouts : [];
+        const byId = new Map<string, LayoutCatalogEntry>();
+        for (const layout of layouts) {
+          if (!layout?.id) continue;
+          byId.set(layout.id, layout);
+        }
+        return byId;
+      })();
+    }
+
+    return layoutCatalogPromiseRef.current;
+  }, []);
+
+  const setCurrentMapLayoutById = useCallback(async (layoutId: string): Promise<boolean> => {
+    const player = playerRef.current;
+    const worldManager = worldManagerRef.current;
+    const snapshot = worldSnapshotRef.current;
+    if (!player || !worldManager || !snapshot) {
+      return false;
+    }
+
+    const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
+    if (!currentMap) {
+      console.warn('[setmaplayoutindex] Unable to resolve current map for layout swap.', { layoutId });
+      return false;
+    }
+
+    let layoutMeta: LayoutCatalogEntry | undefined;
+    try {
+      const layoutCatalog = await getLayoutCatalog();
+      layoutMeta = layoutCatalog.get(layoutId);
+    } catch (error) {
+      console.warn('[setmaplayoutindex] Failed to load layout catalog.', { layoutId, error });
+      return false;
+    }
+
+    if (!layoutMeta) {
+      console.warn('[setmaplayoutindex] Unknown layout ID.', { layoutId });
+      return false;
+    }
+
+    if (layoutMeta.width !== currentMap.mapData.width || layoutMeta.height !== currentMap.mapData.height) {
+      console.warn('[setmaplayoutindex] Layout dimension mismatch; skipping unsafe swap.', {
+        mapId: currentMap.entry.id,
+        layoutId,
+        current: { width: currentMap.mapData.width, height: currentMap.mapData.height },
+        next: { width: layoutMeta.width, height: layoutMeta.height },
+      });
+      return false;
+    }
+
+    const blockPath = `${POKEEMERALD_ASSET_ROOT}/${layoutMeta.blockdata_filepath.replace(/^\/+/, '')}`;
+    const borderPath = `${POKEEMERALD_ASSET_ROOT}/${layoutMeta.border_filepath.replace(/^\/+/, '')}`;
+
+    let nextLayoutData: Awaited<ReturnType<typeof loadMapLayout>>;
+    let nextBorder: Awaited<ReturnType<typeof loadBorderMetatiles>>;
+    try {
+      [nextLayoutData, nextBorder] = await Promise.all([
+        loadMapLayout(blockPath, layoutMeta.width, layoutMeta.height),
+        loadBorderMetatiles(borderPath),
+      ]);
+    } catch (error) {
+      console.warn('[setmaplayoutindex] Failed loading layout assets.', {
+        layoutId,
+        mapId: currentMap.entry.id,
+        blockPath,
+        borderPath,
+        error,
+      });
+      return false;
+    }
+
+    currentMap.mapData.layout = nextLayoutData.layout;
+    currentMap.borderMetatiles = nextBorder;
+    const snapshotMap = snapshot.maps.find((map) => map.entry.id === currentMap.entry.id);
+    if (snapshotMap && snapshotMap !== currentMap) {
+      snapshotMap.mapData.layout = nextLayoutData.layout;
+      snapshotMap.borderMetatiles = nextBorder;
+    }
+    if (snapshot.anchorMapId === currentMap.entry.id) {
+      snapshot.anchorBorderMetatiles = nextBorder;
+    }
+
+    transientMetatilePulseManagerRef.current.clear();
+    pipelineRef.current?.invalidate();
+    return true;
+  }, [getLayoutCatalog]);
 
   const inputUnlockGuards = useMemo<InputUnlockGuards>(() => ({
     warpingRef,
@@ -969,6 +1084,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     gbaFrameRef,
     gbaFrameMs: GBA_FRAME_MS,
     setMapMetatile: setMapMetatileAndInvalidate,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
     getSavedWeather: () => weatherManagerRef.current.getStateSnapshot().savedWeather,
   });
@@ -1119,7 +1235,14 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const resolverId = ++resolverIdRef.current;
     gamePageLogger.debug(`[RESOLVER] #${resolverId} anchor:${snapshot.anchorMapId} maps:${snapshot.maps.length} pairs:${snapshot.tilesetPairs.length}`,
       snapshot.maps.map(m => m.entry.id));
-    return TileResolverFactory.fromSnapshot(snapshot, resolverId);
+    const baseResolver = TileResolverFactory.fromSnapshot(snapshot, resolverId);
+    return (worldX: number, worldY: number) => {
+      const pulseOverride = transientMetatilePulseManagerRef.current.resolveOverride(worldX, worldY, snapshot);
+      if (pulseOverride) {
+        return pulseOverride;
+      }
+      return baseResolver(worldX, worldY);
+    };
   }, []);
 
   // Create player tile resolver from WorldSnapshot using TileResolverFactory
@@ -1170,6 +1293,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       snapshot.maps.map((map) => ({ mapId: map.entry.id, mapWeather: map.mapWeather }))
     );
     weatherDefaultsSnapshotRef.current = snapshot;
+    fallWarpArrivalSequencerRef.current.reset(playerRef.current ?? undefined, cameraRef.current ?? undefined);
+    transientMetatilePulseManagerRef.current.clear();
 
     // Build tileset runtimes for reflection detection
     buildTilesetRuntimesFromSnapshot(snapshot);
@@ -1540,6 +1665,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             worldManager,
             storyScriptRunningRef,
             setMapMetatileLocal,
+            drawMetatilePulseLocal: (mapId, localX, localY, metatileId, frames) => {
+              transientMetatilePulseManagerRef.current.queueLocalPulse(
+                mapId,
+                localX,
+                localY,
+                metatileId,
+                frames
+              );
+              pipelineRef.current?.invalidate();
+            },
             pipelineRef,
             gbaFrame: gbaFrameRef.current,
           });
@@ -1629,6 +1764,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         dialogIsOpenRef,
         pendingWarpRef,
         lavaridgeWarpSequencer,
+        fallWarpArrivalSequencer: fallWarpArrivalSequencerRef.current,
         pendingScriptedWarpRef,
         scriptedWarpLoadMonitorRef,
         loadingRef,
@@ -1808,6 +1944,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         recordRuntimePerfSection('renderStats', performance.now() - renderStatsStart);
       }
 
+      transientMetatilePulseManagerRef.current.tick(1);
       recordRuntimePerfSection('frameTotal', performance.now() - framePerfStart);
       endRuntimePerfFrame();
       rafRef.current = requestAnimationFrame(renderLoop);
@@ -1817,6 +1954,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      fallWarpArrivalSequencerRef.current.reset(playerRef.current ?? undefined, cameraRef.current ?? undefined);
+      transientMetatilePulseManagerRef.current.clear();
       displayCtx2dRef.current = null;
       pipelineRef.current?.dispose();
       pipelineRef.current = null;

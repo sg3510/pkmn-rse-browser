@@ -10,7 +10,11 @@ export type StoryScriptTimelineKind =
   | 'story_script_end'
   | 'lock_wait_start'
   | 'lock_wait_end'
-  | 'warphole_coords';
+  | 'warphole_coords'
+  | 'fall_warp_start'
+  | 'fall_warp_land'
+  | 'fall_warp_end'
+  | 'metatile_pulse';
 
 export interface StoryScriptTimelineEvent {
   kind: StoryScriptTimelineKind;

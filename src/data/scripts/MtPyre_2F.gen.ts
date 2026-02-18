@@ -6,6 +6,9 @@ export const data: MapScriptData = {
   mapScripts: {
     onTransition: "CaveHole_FixCrackedGround",
     onResume: "MtPyre_2F_SetHoleWarp",
+    onFrame: [
+      { var: "VAR_ICE_STEP_COUNT", value: 0, script: "EventScript_FallDownHole" },
+    ],
   },
   scripts: {
     "MtPyre_2F_SetHoleWarp": [

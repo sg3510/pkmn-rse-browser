@@ -8,22 +8,22 @@
  * - public/pokeemerald/data/maps/Route101/scripts.inc
  */
 
-import { gameFlags } from './GameFlags';
-import { gameVariables, GAME_VARS } from './GameVariables';
-import { clearDynamicWarpTarget } from './DynamicWarp';
-import { clearFixedHoleWarpTarget } from './FixedHoleWarp';
-import { resetDynamicObjectGfxVars } from './DynamicObjectGfx';
-import { SPECIES, getSpeciesName } from '../data/species';
-import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen';
-import { MOVES, getMoveInfo } from '../data/moves';
-import { createTestPokemon } from '../pokemon/testFactory';
-import { STATUS, type PartyPokemon } from '../pokemon/types';
-import type { PlayerSpriteKey } from './playerSprites';
+import { gameFlags } from './GameFlags.ts';
+import { gameVariables, GAME_VARS } from './GameVariables.ts';
+import { clearDynamicWarpTarget } from './DynamicWarp.ts';
+import { clearFixedHoleWarpTarget } from './FixedHoleWarp.ts';
+import { resetDynamicObjectGfxVars } from './DynamicObjectGfx.ts';
+import { SPECIES, getSpeciesName } from '../data/species.ts';
+import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen.ts';
+import { MOVES, getMoveInfo } from '../data/moves.ts';
+import { createTestPokemon } from '../pokemon/testFactory.ts';
+import { STATUS, type PartyPokemon } from '../pokemon/types.ts';
+import type { PlayerSpriteKey } from './playerSprites.ts';
 import type {
   ScriptBattleResult,
   ScriptTrainerBattleRequest,
   ScriptWildBattleRequest,
-} from '../scripting/battleTypes';
+} from '../scripting/battleTypes.ts';
 
 type ScriptDirection = 'up' | 'down' | 'left' | 'right';
 type ScriptMoveMode =
@@ -56,7 +56,13 @@ export interface StoryScriptContext {
   startFirstBattle: (starter: PartyPokemon) => Promise<void>;
   startTrainerBattle?: (request: ScriptTrainerBattleRequest) => Promise<ScriptBattleResult>;
   startWildBattle?: (request: ScriptWildBattleRequest) => Promise<ScriptBattleResult>;
-  queueWarp: (mapId: string, x: number, y: number, direction: ScriptDirection) => void;
+  queueWarp: (
+    mapId: string,
+    x: number,
+    y: number,
+    direction: ScriptDirection,
+    options?: { style?: 'default' | 'fall' }
+  ) => void;
   forcePlayerStep: (direction: ScriptDirection) => void;
   delayFrames: (frames: number) => Promise<void>;
   movePlayer: (direction: ScriptDirection, mode?: ScriptMoveMode) => Promise<void>;
@@ -118,6 +124,8 @@ export interface StoryScriptContext {
   getMapMetatile?: (mapId: string, tileX: number, tileY: number) => number;
   /** Get all NPC local IDs on a given map (used by rotating tile puzzle) */
   getAllNpcLocalIds?: (mapId: string) => string[];
+  /** Swap the current map's layout by layout constant (setmaplayoutindex parity). */
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
 }
 
 type StarterChoice = {

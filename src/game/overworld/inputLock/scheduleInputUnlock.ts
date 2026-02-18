@@ -1,5 +1,5 @@
-import type { PlayerController } from '../../PlayerController';
-import { FADE_TIMING } from '../../../field/types';
+import type { PlayerController } from '../../PlayerController.ts';
+import { FADE_TIMING } from '../../../field/types.ts';
 
 interface MutableRef<T> {
   current: T;

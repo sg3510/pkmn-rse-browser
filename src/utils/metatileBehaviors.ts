@@ -35,7 +35,7 @@ import {
   MB_CRACKED_FLOOR_HOLE,
   MB_MUDDY_SLOPE,
   MB_BUMPY_SLOPE,
-} from './metatileBehaviors.generated';
+} from './metatileBehaviors.generated.ts';
 
 export {
   MB_TALL_GRASS,

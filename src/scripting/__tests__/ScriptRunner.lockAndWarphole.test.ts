@@ -10,6 +10,7 @@ interface QueueWarpCall {
   x: number;
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
+  style?: 'default' | 'fall';
 }
 
 function createData(commands: ScriptCommand[]): { mapData: MapScriptData; commonData: MapScriptData } {
@@ -41,8 +42,8 @@ function createContext(
     hasPartyPokemon: () => true,
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: (mapId, x, y, direction) => {
-      queueWarpCalls.push({ mapId, x, y, direction });
+    queueWarp: (mapId, x, y, direction, options) => {
+      queueWarpCalls.push({ mapId, x, y, direction, style: options?.style });
     },
     forcePlayerStep: () => {},
     delayFrames: async () => {},
@@ -131,7 +132,7 @@ test('warphole prefers destination-local coordinates when available', async () =
   await runner.execute('Main');
 
   assert.deepEqual(queueWarpCalls, [
-    { mapId: 'MAP_ROUTE111', x: 9, y: 17, direction: 'down' },
+    { mapId: 'MAP_ROUTE111', x: 9, y: 17, direction: 'down', style: 'fall' },
   ]);
 });
 
@@ -151,7 +152,7 @@ test('warphole falls back safely when destination-local coordinates are unavaila
   await runner.execute('Main');
 
   assert.deepEqual(queueWarpCalls, [
-    { mapId: 'MAP_ROUTE111', x: 2, y: 3, direction: 'down' },
+    { mapId: 'MAP_ROUTE111', x: 2, y: 3, direction: 'down', style: 'fall' },
   ]);
 });
 
@@ -171,6 +172,76 @@ test('warphole uses (-1,-1) fallback when no local position is available', async
   await runner.execute('Main');
 
   assert.deepEqual(queueWarpCalls, [
-    { mapId: 'MAP_ROUTE111', x: -1, y: -1, direction: 'down' },
+    { mapId: 'MAP_ROUTE111', x: -1, y: -1, direction: 'down', style: 'fall' },
   ]);
+});
+
+test('setmaplayoutindex forwards layout ID to context handler when available', async () => {
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const layoutCalls: string[] = [];
+  const ctx = createContext(queueWarpCalls, {
+    setCurrentMapLayoutById: async (layoutId: string) => {
+      layoutCalls.push(layoutId);
+      return true;
+    },
+  });
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setmaplayoutindex', args: ['LAYOUT_SKY_PILLAR_4F_CLEAN'] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SKY_PILLAR_4F');
+  await runner.execute('Main');
+
+  assert.deepEqual(layoutCalls, ['LAYOUT_SKY_PILLAR_4F_CLEAN']);
+});
+
+test('setmaplayoutindex is a no-op when context handler is unavailable', async () => {
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setmaplayoutindex', args: ['LAYOUT_SKY_PILLAR_4F_CLEAN'] },
+    { cmd: 'setvar', args: ['VAR_0x8004', 7] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SKY_PILLAR_4F');
+  await runner.execute('Main');
+
+  assert.equal(gameVariables.getVar('VAR_0x8004'), 7);
+});
+
+test('copyvar with warn=FALSE and numeric source keeps immediate value parity', async () => {
+  gameVariables.reset();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'copyvar', args: ['VAR_ICE_STEP_COUNT', 1, 'warn=FALSE'] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_GRANITE_CAVE_B1F');
+  await runner.execute('Main');
+
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 1);
+});
+
+test('copyvar still copies from variable references normally', async () => {
+  gameVariables.reset();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setvar', args: ['VAR_TEMP_1', 37] },
+    { cmd: 'copyvar', args: ['VAR_ICE_STEP_COUNT', 'VAR_TEMP_1'] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_GRANITE_CAVE_B1F');
+  await runner.execute('Main');
+
+  assert.equal(gameVariables.getVar('VAR_ICE_STEP_COUNT'), 37);
 });

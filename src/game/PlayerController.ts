@@ -1,5 +1,5 @@
-import type { MetatileAttributes, MapTileData } from '../utils/mapLoader';
-import { isCollisionPassable } from '../utils/mapLoader';
+import type { MetatileAttributes, MapTileData } from '../utils/mapLoader.ts';
+import { isCollisionPassable } from '../utils/mapLoader.ts';
 import {
   MB_JUMP_EAST,
   MB_JUMP_WEST,
@@ -31,25 +31,25 @@ import {
   isBumpySlopeBehavior,
   getSlideDirection,
   getArrowDirectionFromBehavior,
-} from '../utils/metatileBehaviors';
-import { FieldEffectManager, type FieldEffectDirection } from './FieldEffectManager';
-import { SurfingController } from './surfing';
+} from '../utils/metatileBehaviors.ts';
+import { FieldEffectManager, type FieldEffectDirection } from './FieldEffectManager.ts';
+import { SurfingController } from './surfing/index.ts';
 import {
   getPlayerSpriteFrameMetrics,
   resolvePlayerSpriteFrameIndex,
   type PlayerSpriteKey,
-} from './playerSprites';
-import { getShadowPosition } from '../rendering/spriteUtils';
-import { loadImageCanvasAsset } from '../utils/assetLoader';
-import { createLogger } from '../utils/logger';
-import { isDebugMode } from '../utils/debug';
-import { directionToOffset } from '../utils/direction';
-import { areElevationsCompatible } from '../utils/elevation';
-import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL, JUMP_ARC_LOW } from './jumpArc';
-import { inputMap, GameButton } from '../core/InputMap';
-import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing';
-import { getSurfingFrameSelection } from './playerFrameSelection';
-import { gameFlags } from './GameFlags';
+} from './playerSprites.ts';
+import { getShadowPosition } from '../rendering/spriteUtils.ts';
+import { loadImageCanvasAsset } from '../utils/assetLoader.ts';
+import { createLogger } from '../utils/logger.ts';
+import { isDebugMode } from '../utils/debug.ts';
+import { directionToOffset } from '../utils/direction.ts';
+import { areElevationsCompatible } from '../utils/elevation.ts';
+import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL, JUMP_ARC_LOW } from './jumpArc.ts';
+import { inputMap, GameButton } from '../core/InputMap.ts';
+import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing.ts';
+import { getSurfingFrameSelection } from './playerFrameSelection.ts';
+import { gameFlags } from './GameFlags.ts';
 
 const playerLogger = createLogger('PlayerController');
 

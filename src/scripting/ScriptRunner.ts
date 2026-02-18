@@ -1161,7 +1161,18 @@ export class ScriptRunner {
 
         case 'copyvar': {
           const dest = asString(args[0]);
-          const src = asString(args[1]);
+          const rawSrc = args[1];
+          const hasLegacyWarnFlag = args.some((arg) => arg === 'warn=FALSE');
+          // Legacy script sources can emit both UBFIX and non-UBFIX branches.
+          // For patterns like `copyvar VAR_X, 1, warn=FALSE`, keep UBFIX parity
+          // by treating numeric source values as immediates.
+          if (typeof rawSrc === 'number' && hasLegacyWarnFlag) {
+            this.localStringVars.delete(dest);
+            gameVariables.setVar(dest, rawSrc);
+            break;
+          }
+
+          const src = asString(rawSrc);
           const srcStringValue = this.localStringVars.get(src);
           if (srcStringValue !== undefined) {
             this.localStringVars.set(dest, srcStringValue);
@@ -1528,6 +1539,14 @@ export class ScriptRunner {
           if (this.ctx.setMapMetatile) {
             this.ctx.setMapMetatile(this.currentMapId, x, y, metatileId, collision);
           }
+          break;
+        }
+
+        // --- setmaplayoutindex: swap the current map's layout variant ---
+        // C ref: scrcmd.c ScrCmd_setmaplayoutindex
+        case 'setmaplayoutindex': {
+          const layoutId = asString(args[0]);
+          await this.ctx.setCurrentMapLayoutById?.(layoutId);
           break;
         }
 
@@ -2015,7 +2034,7 @@ export class ScriptRunner {
                 y: -1,
               },
             });
-            this.ctx.queueWarp(targetMapId, -1, -1, 'down');
+            this.ctx.queueWarp(targetMapId, -1, -1, 'down', { style: 'fall' });
             break;
           }
 
@@ -2031,7 +2050,7 @@ export class ScriptRunner {
               y: playerLocal.y,
             },
           });
-          this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down');
+          this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down', { style: 'fall' });
           break;
         }
 

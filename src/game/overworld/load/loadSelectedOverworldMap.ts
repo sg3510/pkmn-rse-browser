@@ -29,6 +29,7 @@ interface MutableRef<T> {
 interface PendingScriptedWarpLike {
   mapId: string;
   phase: 'pending' | 'fading' | 'loading';
+  style?: 'default' | 'fall';
 }
 
 type PendingOverworldEntryReason = 'continue' | 'new-game' | 'state-transition';
@@ -336,20 +337,15 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         }
 
         if (completingScriptedWarpLoad && scriptedWarp) {
-          pendingScriptedWarpRef.current = null;
-          warpingRef.current = false;
           // Pre-seed the warp handler's last checked tile so the warp detector
           // sees tileChanged=false on the first frame. Without this, landing on
           // a staircase tile after a scripted warp would immediately re-warp.
           warpHandlerRef.current.updateLastCheckedTile(player.tileX, player.tileY, entry.id);
           const fade = fadeControllerRef.current;
           const now = performance.now();
-          fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
-          setTimeout(() => {
-            if (!warpingRef.current && !storyScriptRunningRef.current && !pendingScriptedWarpRef.current) {
-              player.unlockInput();
-            }
-          }, FADE_TIMING.DEFAULT_DURATION_MS);
+          if (fade.getDirection() !== 'in' || !fade.isActive()) {
+            fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, now);
+          }
         }
       }
 

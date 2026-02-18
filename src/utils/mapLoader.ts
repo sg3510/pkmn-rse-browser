@@ -1,6 +1,6 @@
 import UPNG from 'upng-js';
-import { loadBinaryAsset, loadTextAsset } from './assetLoader';
-import { isDebugMode } from './debug';
+import { loadBinaryAsset, loadTextAsset } from './assetLoader.ts';
+import { isDebugMode } from './debug.ts';
 
 export interface Palette {
   colors: string[]; // 16 hex strings: "#RRGGBB"

@@ -1,13 +1,13 @@
-import type { WarpTrigger } from '../components/map/utils';
-import type { WarpHandler } from '../field/WarpHandler';
-import type { PlayerController } from './PlayerController';
-import type { LavaridgeWarpSequencer } from './LavaridgeWarpSequencer';
+import type { WarpTrigger } from '../components/map/utils.ts';
+import type { WarpHandler } from '../field/WarpHandler.ts';
+import type { PlayerController } from './PlayerController.ts';
+import type { LavaridgeWarpSequencer } from './LavaridgeWarpSequencer.ts';
 import {
   MB_LAVARIDGE_GYM_B1F_WARP,
   MB_LAVARIDGE_GYM_1F_WARP,
   isLavaridgeB1FTo1FWarpPair,
   isLavaridgeGymWarpBehavior,
-} from '../utils/metatileBehaviors';
+} from '../utils/metatileBehaviors.ts';
 
 export interface SpecialWalkOverWarpContext {
   trigger: WarpTrigger;

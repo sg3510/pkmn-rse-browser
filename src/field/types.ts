@@ -17,7 +17,7 @@
  */
 
 import type { CardinalDirection } from '../utils/metatileBehaviors';
-import { directionToOffset } from '../utils/direction';
+import { directionToOffset } from '../utils/direction.ts';
 
 // Re-export for convenience
 export type { CardinalDirection };

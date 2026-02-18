@@ -9,6 +9,9 @@ export const data: MapScriptData = {
     onFrame: [
       { var: "VAR_TEMP_0", value: 0, script: "BattleFrontier_BattlePikeRoomNormal_EventScript_EnterRoom" },
     ],
+    onWarpInto: [
+      { var: "VAR_TEMP_4", value: 0, script: "BattleFrontier_BattlePikeRoomNormal_EventScript_InitRoomObjects" },
+    ],
   },
   scripts: {
     "BattleFrontier_BattlePikeRoomNormal_EventScript_EnterRoom": [
