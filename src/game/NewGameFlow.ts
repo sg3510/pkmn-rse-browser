@@ -74,6 +74,11 @@ export interface StoryScriptContext {
   ) => Promise<void>;
   faceNpcToPlayer: (mapId: string, localId: string) => void;
   setNpcPosition: (mapId: string, localId: string, tileX: number, tileY: number) => void;
+  /**
+   * Set an NPC's template/spawn map-local position (setobjectxyperm parity).
+   * This should not move a currently visible NPC immediately.
+   */
+  setNpcTemplatePosition?: (mapId: string, localId: string, tileX: number, tileY: number) => void;
   setNpcVisible: (mapId: string, localId: string, visible: boolean, persistent?: boolean) => void;
   playDoorAnimation: (
     mapId: string,

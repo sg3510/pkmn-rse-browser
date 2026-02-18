@@ -706,15 +706,36 @@ export class ObjectEventManager {
   }
 
   /**
+   * Update an NPC's template/spawn tile without moving its current runtime tile.
+   * Used by setobjectxyperm/copyobjectxytoperm parity.
+   */
+  setNPCTemplatePositionByLocalId(
+    mapId: string,
+    localId: string,
+    tileX: number,
+    tileY: number
+  ): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc) return false;
+    npc.initialTileX = tileX;
+    npc.initialTileY = tileY;
+    return true;
+  }
+
+  /**
    * Set an NPC's visibility by map-local ID.
    */
   setNPCVisibilityByLocalId(mapId: string, localId: string, visible: boolean, persistent: boolean = false): boolean {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
+    const wasVisible = npc.visible;
     npc.visible = visible;
     this.offscreenDespawnedNpcIds.delete(npc.id);
     if (!visible) {
       npcMovementEngine.removeNPC(npc.id);
+    } else if (!wasVisible) {
+      // C parity: addobject/showobjectat respawn from template coords.
+      this.resetNpcRuntimeSpawnState(npc);
     }
     // Track runtime script removal so refreshNPCVisibility won't undo it.
     npc.scriptRemoved = !visible;

@@ -37,6 +37,8 @@
     "validate:battle-sprites": "node scripts/validate-battle-sprites.cjs",
     "generate:learnsets": "node scripts/generate-learnsets.cjs",
     "generate:item-effects": "node scripts/generate-item-battle-effects.cjs",
+    "generate:battle-data": "npm run generate:trainers && npm run generate:trainer-parties && npm run generate:learnsets && npm run generate:battle-moves && npm run generate:battle-scripts && npm run generate:battle-constants",
+    "verify:generated:battle": "node scripts/verify-generated-battle-data.cjs",
     "perf:analyze:logs": "node scripts/perf/analyze-console-log.mjs",
     "perf:analyze:heapprofile": "node scripts/perf/analyze-heapprofile.mjs",
     "perf:analyze:heapsnapshot": "node scripts/perf/analyze-heapsnapshot.mjs",

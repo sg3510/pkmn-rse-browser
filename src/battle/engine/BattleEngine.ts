@@ -88,11 +88,11 @@ export class BattleEngine {
     }
 
     if (playerAction.type === 'run') {
-      this.handleRunAttempt(events);
-      if (this.outcome === null && this.player.currentHp > 0 && this.enemy.currentHp > 0) {
+      const consumesTurn = this.handleRunAttempt(events);
+      if (consumesTurn && this.outcome === null && this.player.currentHp > 0 && this.enemy.currentHp > 0) {
         this.executeEnemyActionOnly(events);
       }
-      if (this.outcome === null) {
+      if (consumesTurn && this.outcome === null) {
         this.applyEndOfTurn(events);
         this.resolveOutcome();
       }
@@ -291,14 +291,14 @@ export class BattleEngine {
     }
   }
 
-  private handleRunAttempt(events: BattleEvent[]): void {
+  private handleRunAttempt(events: BattleEvent[]): boolean {
     if (this.config.type === 'trainer' || this.config.firstBattle) {
       events.push({
         type: 'message',
         battler: 0,
         message: "No! There's no running from this battle!",
       });
-      return;
+      return false;
     }
 
     const playerCanAlwaysRun = this.player.ability === ABILITIES.RUN_AWAY
@@ -311,7 +311,7 @@ export class BattleEngine {
         battler: 0,
         message: 'Got away safely!',
       });
-      return;
+      return true;
     }
 
     const playerSpeed = this.getEffectiveSpeed(this.player);
@@ -342,6 +342,7 @@ export class BattleEngine {
         message: "Can't escape!",
       });
     }
+    return true;
   }
 
   private applyEndOfTurn(events: BattleEvent[]): void {

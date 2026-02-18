@@ -21,13 +21,17 @@ import {
   type ScriptBattleResult,
   type ScriptWildBattleRequest,
 } from '../../scripting/battleTypes';
+import type {
+  TrainerBattleStartRequest,
+  WildBattleStartRequest,
+} from '../../battle/BattleStartRequest';
 import { getMapScripts, getCommonScripts } from '../../data/scripts';
 import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
 import { menuStateManager } from '../../menu/MenuStateManager';
 import { stepCallbackManager } from '../../game/StepCallbackManager';
 import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline';
 import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
-import { resolveTrainerBattleLead } from './trainerBattleFallback';
+import { resolveTrainerBattle } from './trainerBattleFallback';
 import type { MutableRef } from './types';
 
 
@@ -517,7 +521,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         startFirstBattle: async (starter: PartyPokemon) => {
           if (!stateManager) return;
 
-          await stateManager.transitionTo(GameState.BATTLE, {
+          const battleRequest: WildBattleStartRequest = {
             battleType: 'wild',
             playerPokemon: starter,
             wildSpecies: SPECIES.POOCHYENA,
@@ -526,18 +530,19 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
             returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
-          });
+          };
+          await stateManager.transitionTo(GameState.BATTLE, battleRequest as unknown as Record<string, unknown>);
           await waitForBattleToEnd();
         },
         startTrainerBattle: async (request) => {
           if (!stateManager) return { outcome: BATTLE_OUTCOME.WON };
           const trainerId = request.trainerId;
-          const battleLead = resolveTrainerBattleLead(trainerId);
-          if (battleLead.kind === 'unknown_trainer') {
+          const battle = resolveTrainerBattle(trainerId);
+          if (battle.kind === 'unknown_trainer') {
             console.warn(`[StoryScript] Unknown trainer constant: ${trainerId}`);
             return { outcome: BATTLE_OUTCOME.WON };
           }
-          if (battleLead.kind === 'empty_party') {
+          if (battle.kind === 'empty_party') {
             console.warn(`[StoryScript] Trainer has empty party: ${trainerId}`);
             return { outcome: BATTLE_OUTCOME.WON };
           }
@@ -549,15 +554,18 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           }
 
           gameVariables.setVar('VAR_RESULT', 0);
-          await stateManager.transitionTo(GameState.BATTLE, {
+          const battleRequest: TrainerBattleStartRequest = {
             battleType: 'trainer',
             playerPokemon: lead,
-            wildSpecies: battleLead.species,
-            wildLevel: battleLead.level,
+            trainer: battle.trainer,
             backgroundProfile: resolveBackgroundProfile(),
             returnLocation: buildReturnLocation(),
             returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
-          });
+          };
+          await stateManager.transitionTo(
+            GameState.BATTLE,
+            battleRequest as unknown as Record<string, unknown>,
+          );
           await waitForBattleToEnd();
           return readBattleResult();
         },
@@ -577,7 +585,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           }
 
           gameVariables.setVar('VAR_RESULT', 0);
-          await stateManager.transitionTo(GameState.BATTLE, {
+          const battleRequest: WildBattleStartRequest = {
             battleType: 'wild',
             playerPokemon: lead,
             wildSpecies: Math.trunc(speciesId),
@@ -589,7 +597,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             }),
             returnLocation: buildReturnLocation(),
             returnObjectEventRuntimeState: objectEventManagerRef.current.getRuntimeState(),
-          });
+          };
+          await stateManager.transitionTo(GameState.BATTLE, battleRequest as unknown as Record<string, unknown>);
           await waitForBattleToEnd();
           return readBattleResult();
         },
@@ -667,6 +676,10 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           }
 
           objectEventManagerRef.current.setNPCPositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
+        },
+        setNpcTemplatePosition: (mapId, localId, tileX, tileY) => {
+          const worldPos = mapLocalToWorld(mapId, tileX, tileY);
+          objectEventManagerRef.current.setNPCTemplatePositionByLocalId(mapId, localId, worldPos.x, worldPos.y);
         },
         setNpcVisible: (mapId, localId, visible, persistent) => {
           objectEventManagerRef.current.setNPCVisibilityByLocalId(mapId, localId, visible, persistent);

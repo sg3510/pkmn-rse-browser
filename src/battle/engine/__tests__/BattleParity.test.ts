@@ -104,6 +104,57 @@ test('switch action consumes turn and enemy still acts', () => {
   assert.equal(result.events.some((event) => event.type === 'damage' && event.battler === 0), true);
 });
 
+test('run in trainer battle does not consume turn', () => {
+  const engine = new BattleEngine({
+    config: { type: 'trainer' },
+    playerPokemon: makePartyMon({
+      species: SPECIES.TREECKO,
+      moves: [MOVES.POUND, 0, 0, 0],
+      hp: 120,
+    }),
+    enemyPokemon: makePartyMon({
+      species: SPECIES.TORCHIC,
+      moves: [MOVES.SCRATCH, 0, 0, 0],
+      speed: 10,
+    }),
+  });
+
+  const hpBefore = engine.getPlayer().currentHp;
+  const result = engine.executeTurn({ type: 'run' });
+
+  assert.equal(result.events.some((event) => event.message?.includes("no running")), true);
+  assert.equal(result.events.some((event) => event.type === 'damage' && event.battler === 0), false);
+  assert.equal(engine.getPlayer().currentHp, hpBefore);
+});
+
+test('run in wild battle still consumes turn when escape fails', () => {
+  setBattleRngAdapter({ next: () => 255 });
+  try {
+    const engine = new BattleEngine({
+      config: { type: 'wild' },
+      playerPokemon: makePartyMon({
+        species: SPECIES.TREECKO,
+        level: 5,
+        moves: [MOVES.POUND, 0, 0, 0],
+        hp: 120,
+        speed: 5,
+      }),
+      enemyPokemon: makePartyMon({
+        species: SPECIES.TORCHIC,
+        level: 50,
+        moves: [MOVES.SCRATCH, 0, 0, 0],
+        speed: 200,
+      }),
+    });
+
+    const result = engine.executeTurn({ type: 'run' });
+    assert.equal(result.events.some((event) => event.message === "Can't escape!"), true);
+    assert.equal(result.events.some((event) => event.type === 'damage' && event.battler === 0), true);
+  } finally {
+    resetBattleRngAdapter();
+  }
+});
+
 test('False Swipe never emits a faint event when target is at 1 HP', () => {
   const attacker = makeBattleMon(
     makePartyMon({

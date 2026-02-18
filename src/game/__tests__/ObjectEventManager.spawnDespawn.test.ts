@@ -83,3 +83,51 @@ test('expanded viewport height keeps distant NPC within camera spawn window', ()
   manager.updateObjectEventSpawnDespawnForCamera(0, 0, 20, 30);
   assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), true);
 });
+
+test('addobject respawns NPC from template position after setobjectxyperm parity update', () => {
+  resetRuntimeState();
+
+  const manager = createManagerWithNpc(14, 21);
+  // Simulate prior stage where template and runtime were moved to a later location.
+  assert.equal(manager.setNPCPositionByLocalId(MAP_ID, NPC_LOCAL_ID, 30, 10, { updateInitialPosition: true }), true);
+  // Simulate removeobject.
+  assert.equal(manager.setNPCVisibilityByLocalId(MAP_ID, NPC_LOCAL_ID, false, true), true);
+  // setobjectxyperm should update template only.
+  assert.equal(manager.setNPCTemplatePositionByLocalId(MAP_ID, NPC_LOCAL_ID, 14, 21), true);
+
+  const hiddenNpc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(hiddenNpc);
+  assert.equal(hiddenNpc.tileX, 30);
+  assert.equal(hiddenNpc.tileY, 10);
+  assert.equal(hiddenNpc.initialTileX, 14);
+  assert.equal(hiddenNpc.initialTileY, 21);
+
+  // Simulate addobject: NPC should respawn at template coords.
+  assert.equal(manager.setNPCVisibilityByLocalId(MAP_ID, NPC_LOCAL_ID, true, false), true);
+  const respawnedNpc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(respawnedNpc);
+  assert.equal(respawnedNpc.visible, true);
+  assert.equal(respawnedNpc.tileX, 14);
+  assert.equal(respawnedNpc.tileY, 21);
+});
+
+test('showing a hidden NPC respawns from template even when not scriptRemoved', () => {
+  resetRuntimeState();
+
+  const manager = createManagerWithNpc(14, 21);
+  const npc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(npc);
+
+  npc.tileX = 30;
+  npc.tileY = 10;
+  npc.initialTileX = 14;
+  npc.initialTileY = 21;
+  npc.visible = false;
+  npc.scriptRemoved = false;
+
+  assert.equal(manager.setNPCVisibilityByLocalId(MAP_ID, NPC_LOCAL_ID, true, false), true);
+  const shownNpc = manager.getNPCByLocalId(MAP_ID, NPC_LOCAL_ID);
+  assert.ok(shownNpc);
+  assert.equal(shownNpc.tileX, 14);
+  assert.equal(shownNpc.tileY, 21);
+});

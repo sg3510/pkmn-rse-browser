@@ -2,7 +2,8 @@
  * Load Pokemon sprites from pokeemerald graphics for battle rendering.
  *
  * Sprites are at:
- *   public/pokeemerald/graphics/pokemon/{species_name}/front.png  (64×64 frames; some sheets are stacked)
+ *   public/pokeemerald/graphics/pokemon/{species_name}/anim_front.png (preferred front animation source)
+ *   public/pokeemerald/graphics/pokemon/{species_name}/front.png      (fallback front source)
  *   public/pokeemerald/graphics/pokemon/{species_name}/back.png   (64×64 frames; some sheets are stacked)
  *
  * C ref: src/data/pokemon_graphics/front_pic_table.h, back_pic_table.h
@@ -12,6 +13,7 @@ import { getPokemonSpriteCoords, type PokemonSpriteCoords } from '../../data/pok
 import { loadImageCanvasAsset, makeCanvasTransparent } from '../../utils/assetLoader';
 import type { BattleWebGLContext } from './BattleWebGLContext';
 import type { SpriteInstance } from '../../rendering/types';
+import { BATTLE_LAYOUT } from './BattleLayout';
 
 const MON_SPRITE_FRAME_WIDTH = 64;
 const MON_SPRITE_FRAME_HEIGHT = 64;
@@ -90,7 +92,16 @@ function getMonSpriteFrameCount(
     return 1;
   }
 
-  return Math.max(1, Math.floor(canvas.height / MON_SPRITE_FRAME_HEIGHT));
+  const frameCount = Math.max(1, Math.floor(canvas.height / MON_SPRITE_FRAME_HEIGHT));
+  if (side === 'front' && frameCount > 2) {
+    console.warn(
+      `[BattleSpriteLoader] front sprite for species ${speciesId} (${dirName}) `
+      + `has ${frameCount} frames. Expected <= 2 for battle animation. `
+      + 'Clamping to first frame to avoid malformed stacked-frame flicker.',
+    );
+    return 1;
+  }
+  return frameCount;
 }
 
 /** Load a sprite canvas with alpha-aware transparency fallback. */
@@ -100,6 +111,14 @@ async function loadSpriteCanvas(url: string): Promise<HTMLCanvasElement> {
     return canvas;
   }
   return makeCanvasTransparent(canvas, { type: 'top-left' });
+}
+
+async function loadFrontSpriteCanvas(basePath: string): Promise<HTMLCanvasElement> {
+  try {
+    return await loadSpriteCanvas(`${basePath}/anim_front.png`);
+  } catch {
+    return loadSpriteCanvas(`${basePath}/front.png`);
+  }
 }
 
 function normalizeFrameIndex(frameIndex: number, frameCount: number): number {
@@ -138,7 +157,7 @@ export async function loadPokemonBattleSprites(
   // Load front sprite if not already uploaded
   if (!webgl.hasSpriteSheet(frontAtlas)) {
     try {
-      const frontCanvas = await loadSpriteCanvas(`${basePath}/front.png`);
+      const frontCanvas = await loadFrontSpriteCanvas(basePath);
       frontFrameCount = getMonSpriteFrameCount(frontCanvas, 'front', speciesId, dirName);
       webgl.uploadSpriteSheet(frontAtlas, frontCanvas, {
         width: frontCanvas.width,
@@ -191,8 +210,8 @@ export function createFrontSprite(
   const frameY = normalizeFrameIndex(frameIndex, frameCount) * MON_SPRITE_FRAME_HEIGHT;
 
   return {
-    worldX: 144,
-    worldY: 16 + yOffset - elevation,
+    worldX: BATTLE_LAYOUT.enemy.spriteX,
+    worldY: BATTLE_LAYOUT.enemy.spriteY + yOffset - elevation,
     width: MON_SPRITE_FRAME_WIDTH,
     height: MON_SPRITE_FRAME_HEIGHT,
     atlasName: atlas,
@@ -228,8 +247,8 @@ export function createBackSprite(
   const frameY = normalizeFrameIndex(frameIndex, frameCount) * MON_SPRITE_FRAME_HEIGHT;
 
   return {
-    worldX: 40,
-    worldY: 56 + yOffset,
+    worldX: BATTLE_LAYOUT.player.spriteX,
+    worldY: BATTLE_LAYOUT.player.spriteY + yOffset,
     width: MON_SPRITE_FRAME_WIDTH,
     height: MON_SPRITE_FRAME_HEIGHT,
     atlasName: atlas,

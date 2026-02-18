@@ -1308,6 +1308,7 @@ export class ScriptRunner {
           // C parity: setobjectxyperm updates template coords only.
           // Runtime/current position is not changed immediately.
           saveStateStore.setObjectEventOverride(objectMapId, resolvedId, x, y);
+          this.ctx.setNpcTemplatePosition?.(objectMapId, resolvedId, x, y);
           break;
         }
 
@@ -1325,6 +1326,7 @@ export class ScriptRunner {
               const localX = worldPos.tileX - mapOffset.offsetX;
               const localY = worldPos.tileY - mapOffset.offsetY;
               saveStateStore.setObjectEventOverride(objectMapId, localId, localX, localY);
+              this.ctx.setNpcTemplatePosition?.(objectMapId, localId, localX, localY);
             }
           }
           break;

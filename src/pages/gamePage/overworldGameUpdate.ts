@@ -984,12 +984,14 @@ export function handleWorldUpdateAndEvents(params: {
   // Find current map
   const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
   if (currentMap) {
+    // Coord triggers in pokeemerald use PlayerGetDestCoords (object-event current coords).
+    const coordTriggerTile = player.getDestinationTile();
     weatherManagerRef.current.setCurrentMap(currentMap.entry.id);
     const tileChanged =
       !lastCoordTriggerTileRef.current ||
       lastCoordTriggerTileRef.current.mapId !== currentMap.entry.id ||
-      lastCoordTriggerTileRef.current.x !== player.tileX ||
-      lastCoordTriggerTileRef.current.y !== player.tileY;
+      lastCoordTriggerTileRef.current.x !== coordTriggerTile.x ||
+      lastCoordTriggerTileRef.current.y !== coordTriggerTile.y;
 
     if (tileChanged) {
       // Seam transition detection + logging
@@ -1049,8 +1051,8 @@ export function handleWorldUpdateAndEvents(params: {
       if (canProcessCoordEvents) {
         const { consumed } = processCoordEventsForTile({
           currentMap,
-          playerTileX: player.tileX,
-          playerTileY: player.tileY,
+          playerTileX: coordTriggerTile.x,
+          playerTileY: coordTriggerTile.y,
           playerElevation: player.getCurrentElevation(),
           weatherManager: weatherManagerRef.current,
           runScript,
@@ -1058,8 +1060,8 @@ export function handleWorldUpdateAndEvents(params: {
         if (consumed) {
           lastCoordTriggerTileRef.current = {
             mapId: currentMap.entry.id,
-            x: player.tileX,
-            y: player.tileY,
+            x: coordTriggerTile.x,
+            y: coordTriggerTile.y,
           };
         }
       }

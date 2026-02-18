@@ -7,6 +7,7 @@
  */
 import { loadImageCanvasAsset } from '../../utils/assetLoader';
 import { STATUS } from '../../pokemon/types';
+import { BATTLE_LAYOUT } from './BattleLayout';
 
 interface BattleInterfaceAssets {
   enemyHealthbox: HTMLCanvasElement;
@@ -26,6 +27,14 @@ const PLAYER_HEALTHBOX_SRC = { x: 1, y: 2, width: 103, height: 36 };
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function setBattleFont(
+  ctx: CanvasRenderingContext2D,
+  sizePx: number,
+  weight: 'normal' | 'bold' = 'normal',
+): void {
+  ctx.font = `${weight} ${sizePx}px "Pokemon Emerald", monospace`;
 }
 
 /**
@@ -137,7 +146,7 @@ function drawStatusIcon(
 
   const labels = ['PSN', 'PAR', 'SLP', 'FRZ', 'BRN'];
   ctx.fillStyle = '#383838';
-  ctx.font = '7px monospace';
+  setBattleFont(ctx, 7);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(labels[row] ?? '', x, y);
@@ -175,8 +184,8 @@ export function drawEnemyHealthBox(
   maxHp: number,
   status: number = STATUS.NONE,
 ): void {
-  const x = offsetX + 16;
-  const y = offsetY + 8;
+  const x = offsetX + BATTLE_LAYOUT.enemy.healthboxX;
+  const y = offsetY + BATTLE_LAYOUT.enemy.healthboxY;
   const boxW = ENEMY_HEALTHBOX_SRC.width;
 
   if (assets) {
@@ -200,7 +209,7 @@ export function drawEnemyHealthBox(
   }
 
   ctx.fillStyle = '#383028';
-  ctx.font = '9px monospace';
+  setBattleFont(ctx, 9);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(name, x + 4, y + 2);
@@ -233,8 +242,8 @@ export function drawPlayerHealthBox(
   expPercent = 0,
   status: number = STATUS.NONE,
 ): void {
-  const x = offsetX + 128;
-  const y = offsetY + 76;
+  const x = offsetX + BATTLE_LAYOUT.player.healthboxX;
+  const y = offsetY + BATTLE_LAYOUT.player.healthboxY;
   const boxW = PLAYER_HEALTHBOX_SRC.width;
 
   if (assets) {
@@ -258,7 +267,7 @@ export function drawPlayerHealthBox(
   }
 
   ctx.fillStyle = '#383028';
-  ctx.font = '9px monospace';
+  setBattleFont(ctx, 9);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(name, x + 4, y + 2);
@@ -277,7 +286,7 @@ export function drawPlayerHealthBox(
   ctx.fillRect(barX, barY, Math.floor(barW * hpPercent), barH);
 
   ctx.fillStyle = '#383028';
-  ctx.font = '8px monospace';
+  setBattleFont(ctx, 8);
   ctx.textAlign = 'right';
   ctx.fillText(`${Math.max(0, currentHp)}/${maxHp}`, x + boxW - 6, y + 21);
 
@@ -302,15 +311,15 @@ export function drawTextBox(
   offsetY: number,
   text: string,
 ): void {
-  const x = offsetX;
-  const y = offsetY + 112;
-  const w = 240;
-  const h = 48;
+  const x = offsetX + BATTLE_LAYOUT.scene.textboxX;
+  const y = offsetY + BATTLE_LAYOUT.scene.textboxY;
+  const w = BATTLE_LAYOUT.scene.textboxWidth;
+  const h = BATTLE_LAYOUT.scene.textboxHeight;
 
   drawTextboxBackdrop(ctx, x, y, w, h);
 
   ctx.fillStyle = '#383838';
-  ctx.font = '10px monospace';
+  setBattleFont(ctx, 10);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
@@ -343,9 +352,9 @@ export function drawActionMenu(
   firstBattle: boolean,
 ): void {
   const x = offsetX;
-  const y = offsetY + 112;
+  const y = offsetY + BATTLE_LAYOUT.scene.textboxY;
 
-  drawTextboxBackdrop(ctx, x, y, 240, 48);
+  drawTextboxBackdrop(ctx, x, y, BATTLE_LAYOUT.scene.textboxWidth, BATTLE_LAYOUT.scene.textboxHeight);
 
   ctx.fillStyle = '#f8f8f8';
   ctx.fillRect(x + 4, y + 4, 116, 40);
@@ -353,7 +362,7 @@ export function drawActionMenu(
   ctx.fillRect(x + 124, y + 4, 112, 40);
 
   ctx.fillStyle = '#383838';
-  ctx.font = '10px monospace';
+  setBattleFont(ctx, 10);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText('What will', x + 12, y + 10);
@@ -374,7 +383,7 @@ export function drawActionMenu(
     }
 
     ctx.fillStyle = disabled ? '#989898' : '#383838';
-    ctx.font = '9px monospace';
+    setBattleFont(ctx, 9);
     ctx.fillText(actions[i] ?? '', bx + 8, by);
   }
 }
@@ -388,16 +397,16 @@ export function drawMoveMenu(
   selectedIndex: number,
 ): void {
   const x = offsetX;
-  const y = offsetY + 112;
+  const y = offsetY + BATTLE_LAYOUT.scene.textboxY;
 
-  drawTextboxBackdrop(ctx, x, y, 240, 48);
+  drawTextboxBackdrop(ctx, x, y, BATTLE_LAYOUT.scene.textboxWidth, BATTLE_LAYOUT.scene.textboxHeight);
 
   ctx.fillStyle = '#f8f8f8';
   ctx.fillRect(x + 4, y + 4, 160, 40);
   ctx.fillStyle = '#e8e0d0';
   ctx.fillRect(x + 168, y + 4, 68, 40);
 
-  ctx.font = '9px monospace';
+  setBattleFont(ctx, 9);
   ctx.textBaseline = 'top';
 
   for (let i = 0; i < 4; i++) {
@@ -429,7 +438,7 @@ export function drawMoveMenu(
   if (selectedIndex < moves.length) {
     const move = moves[selectedIndex];
     ctx.fillStyle = '#383838';
-    ctx.font = '8px monospace';
+    setBattleFont(ctx, 8);
     ctx.textAlign = 'left';
     ctx.fillText(`PP ${move?.pp ?? 0}/${move?.maxPp ?? 0}`, x + 174, y + 10);
     ctx.fillText(`TYPE/${move?.type ?? 'NORMAL'}`, x + 174, y + 26);
@@ -445,6 +454,11 @@ export function drawPartyBallIndicators(
   playerStates: readonly PartyBallState[],
   enemyStates: readonly PartyBallState[],
 ): void {
-  drawPartyBallRow(ctx, offsetX + 18, offsetY + 40, enemyStates);
-  drawPartyBallRow(ctx, offsetX + 174, offsetY + 68, playerStates);
+  drawPartyBallRow(ctx, offsetX + BATTLE_LAYOUT.enemy.partyBallsX, offsetY + BATTLE_LAYOUT.enemy.partyBallsY, enemyStates);
+  drawPartyBallRow(
+    ctx,
+    offsetX + BATTLE_LAYOUT.player.partyBallsX,
+    offsetY + BATTLE_LAYOUT.player.partyBallsY,
+    playerStates,
+  );
 }
