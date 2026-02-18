@@ -76,6 +76,7 @@ CI/verification rule:
 - [x] `BTL-DAT-001` Replace lead-only trainer resolver with full generated roster resolver.
 - [x] `BTL-DAT-002` Resolve trainer mon moves from generated custom moves or generated level-up learnsets.
 - [x] `BTL-DAT-003` Enforce battle generator freshness checks.
+- [x] `BTL-DAT-004` Run battle data structure imports from a single manifest-driven mass-generator command.
 
 ## Pass 3 Scope (2026-02-18 Night)
 
@@ -156,6 +157,9 @@ CI/verification rule:
 - Normalized battle-engine import specifiers for direct Node ESM test/report execution and hardened flaky run-attempt parity test RNG sequencing.
 - Added generated move-effect index artifact and switched move-coverage reporting to consume generated index data.
 - Extended `verify:generated:battle` to enforce battle script + move-effect generated freshness.
+- Added canonical battle generator manifest + mass-import runner:
+  `scripts/battle-data-manifest.cjs` + `scripts/generate-battle-data.cjs`,
+  and rewired `verify:generated:battle` to consume that same manifest (no script/output drift).
 - Implemented C-parity wild capture flow (ball multipliers, status bonuses, shake outcomes, bag consumption, caught outcome).
 - Added catch persistence hooks (party insert when space exists + Pokédex seen/caught updates).
 - Moved EXP awarding to enemy-faint timing and added trainer/Lucky Egg multipliers per C ordering.

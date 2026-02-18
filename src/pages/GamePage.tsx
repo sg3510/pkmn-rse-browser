@@ -107,6 +107,11 @@ import { getDynamicWarpTarget } from '../game/DynamicWarp';
 import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
 import { ITEMS } from '../data/items';
+import {
+  resetOverworldWildEncounterTracking,
+  tryStartOverworldWildEncounter,
+  type WildEncounterStepState,
+} from '../game/encounters/overworldWildEncounterFlow';
 import type { MapScriptData } from '../data/scripts/types';
 import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
 import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
@@ -463,6 +468,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Refs to avoid stale closures in the long-lived render loop.
   const currentStateRef = useRef(currentState);
   currentStateRef.current = currentState;
+  const stateManagerRef = useRef(stateManager);
+  stateManagerRef.current = stateManager;
 
   const dialogIsOpenRef = useRef(false);
 
@@ -604,6 +611,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const storyScriptRunningRef = useRef<boolean>(false);
   const lastCoordTriggerTileRef = useRef<{ mapId: string; x: number; y: number } | null>(null);
   const lastPlayerMapIdRef = useRef<string | null>(null);
+  const lastWildEncounterStepRef = useRef<WildEncounterStepState | null>(null);
+  const wildEncounterTransitionInFlightRef = useRef<boolean>(false);
 
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
@@ -1760,9 +1769,28 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           });
         }
 
+        const wildEncounterStartedThisFrame = tryStartOverworldWildEncounter({
+          worldManager,
+          player,
+          menuOpen,
+          dialogOpen,
+          warping: warpingRef.current,
+          storyScriptRunning: storyScriptRunningRef.current,
+          seamTransitionScriptsRunning,
+          doorSequenceActive: doorSequencer.isActive(),
+          hasPendingScriptedWarp: pendingScriptedWarpRef.current !== null,
+          stateManager: stateManagerRef.current,
+          lastStepRef: lastWildEncounterStepRef,
+          transitionInFlightRef: wildEncounterTransitionInFlightRef,
+          worldSnapshot: worldSnapshotRef.current,
+          buildLocationStateFromPlayer,
+          getWeatherSnapshot: () => weatherManagerRef.current.getStateSnapshot(),
+          getObjectEventRuntimeState: () => objectEventManagerRef.current.getRuntimeState(),
+        });
+
         // Update arrow overlay based on current tile behavior
         const snapshot = worldSnapshotRef.current;
-        if (snapshot && !warpHandlerRef.current.isInProgress()) {
+        if (!wildEncounterStartedThisFrame && snapshot && !warpHandlerRef.current.isInProgress()) {
           const renderContext = getRenderContextFromSnapshot(snapshot);
           if (renderContext) {
             const resolved = resolveTileAt(renderContext, player.tileX, player.tileY);
@@ -1779,22 +1807,24 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         }
 
         // Check for warps using shared WarpTriggerProcessor
-        checkWarpTriggers({
-          player,
-          snapshot,
-          nowTime,
-          storyScriptRunningRef,
-          dialogIsOpenRef,
-          pendingScriptedWarpRef,
-          warpHandlerRef,
-          warpingRef,
-          pendingWarpRef,
-          fadeControllerRef,
-          getRenderContextFromSnapshot,
-          doorSequencer,
-          arrowOverlay,
-          lavaridgeWarpSequencer,
-        });
+        if (!wildEncounterStartedThisFrame) {
+          checkWarpTriggers({
+            player,
+            snapshot,
+            nowTime,
+            storyScriptRunningRef,
+            dialogIsOpenRef,
+            pendingScriptedWarpRef,
+            warpHandlerRef,
+            warpingRef,
+            pendingWarpRef,
+            fadeControllerRef,
+            getRenderContextFromSnapshot,
+            doorSequencer,
+            arrowOverlay,
+            lavaridgeWarpSequencer,
+          });
+        }
       }
 
       // Advance door sequences, Lavaridge warps, scripted warps, and pending warp execution
@@ -2059,6 +2089,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     pendingSavedLocationRef,
     pendingOverworldEntryReasonRef,
   });
+
+  useEffect(() => {
+    if (currentState !== GameState.OVERWORLD) {
+      resetOverworldWildEncounterTracking({
+        lastStepRef: lastWildEncounterStepRef,
+        transitionInFlightRef: wildEncounterTransitionInFlightRef,
+      });
+    }
+  }, [currentState]);
 
   // Load selected map assets and configure pipeline when in OVERWORLD state.
   useEffect(() => {

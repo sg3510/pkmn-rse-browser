@@ -9,29 +9,13 @@
 
 const { execFileSync, spawnSync } = require('child_process');
 const path = require('path');
+const { BATTLE_DATA_GENERATED_FILES, BATTLE_DATA_GENERATOR_SCRIPTS } = require('./battle-data-manifest.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 process.chdir(ROOT);
 
-const generators = [
-  'scripts/generate-trainer-ids.cjs',
-  'scripts/generate-trainer-parties.cjs',
-  'scripts/generate-learnsets.cjs',
-  'scripts/generate-battle-moves.cjs',
-  'scripts/generate-wild-encounters.cjs',
-  'scripts/generate-battle-scripts.cjs',
-  'scripts/generate-battle-move-effects.cjs',
-];
-
-const generatedFiles = [
-  'src/data/trainerIds.gen.ts',
-  'src/data/trainerParties.gen.ts',
-  'src/data/learnsets.gen.ts',
-  'src/data/battleMoves.gen.ts',
-  'src/data/wildEncounters.gen.ts',
-  'src/data/battleScripts.gen.ts',
-  'src/data/battleMoveEffects.gen.ts',
-];
+const generators = BATTLE_DATA_GENERATOR_SCRIPTS;
+const generatedFiles = BATTLE_DATA_GENERATED_FILES;
 
 for (const script of generators) {
   console.log(`[verify:generated:battle] running ${script}`);

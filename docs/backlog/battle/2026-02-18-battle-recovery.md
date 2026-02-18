@@ -290,3 +290,26 @@
 - `npm run report:battle:move-effects -- --top 12`: PASS
 - `node --test src/battle/engine/__tests__/MoveEffects.scalable.test.ts src/battle/engine/__tests__/BattleParity.test.ts`: PASS
 - `npm run build`: PASS
+
+## 2026-02-18 Battle Data Mass-Import Orchestration
+
+### Completed IDs
+
+- `BTL-DAT-004`
+
+### Shipped changes
+
+- Added canonical manifest for battle generated data:
+  `scripts/battle-data-manifest.cjs` (IDs, scripts, outputs).
+- Added scalable mass-import runner:
+  `scripts/generate-battle-data.cjs` with `--list`, `--only`, `--skip`.
+- Rewired `scripts/verify-generated-battle-data.cjs` to read generators/outputs from that manifest.
+- Updated npm wiring:
+  - `generate:battle-data` now runs manifest-driven runner.
+  - `generate:battle-data:list` added for discoverability.
+  - `generate:all` now calls `generate:battle-data` instead of duplicating battle generation chains.
+
+### Validation
+
+- `npm run generate:battle-data`: PASS
+- `npm run verify:generated:battle`: PASS
