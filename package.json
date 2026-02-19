@@ -38,6 +38,7 @@
     "generate:sprite-coords": "node scripts/generate-pokemon-sprite-coords.cjs",
     "validate:battle-sprites": "node scripts/validate-battle-sprites.cjs",
     "generate:learnsets": "node scripts/generate-learnsets.cjs",
+    "generate:evolutions": "node scripts/generate-evolutions.cjs",
     "generate:item-effects": "node scripts/generate-item-battle-effects.cjs",
     "generate:battle-data": "node scripts/generate-battle-data.cjs",
     "generate:battle-data:list": "node scripts/generate-battle-data.cjs --list",

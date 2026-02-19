@@ -9,6 +9,7 @@ export type MenuType =
   | 'start'
   | 'bag'
   | 'party'
+  | 'moveForget'
   | 'pokedex'
   | 'trainerCard'
   | 'save'
@@ -26,6 +27,14 @@ export interface BagMenuOpenData {
   onBerrySelectionCancel?: () => void;
   onFieldUseItem?: (itemId: number) => Promise<boolean> | boolean;
   onFieldRegisterItem?: (itemId: number) => void;
+}
+
+export interface MoveForgetMenuOpenData {
+  pokemonName: string;
+  pokemonMoves: [number, number, number, number];
+  pokemonPp: [number, number, number, number];
+  moveToLearnId: number;
+  onMoveSlotChosen: (moveSlot: number | null) => void;
 }
 
 export interface MenuState {

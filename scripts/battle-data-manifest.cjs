@@ -26,6 +26,12 @@ const BATTLE_DATA_GENERATORS = Object.freeze([
     description: 'Species level-up learnsets',
   },
   {
+    id: 'evolutions',
+    script: 'scripts/generate-evolutions.cjs',
+    outputs: ['src/data/evolutions.gen.ts'],
+    description: 'Species evolution rules',
+  },
+  {
     id: 'battle-moves',
     script: 'scripts/generate-battle-moves.cjs',
     outputs: ['src/data/battleMoves.gen.ts'],
@@ -81,4 +87,3 @@ module.exports = {
   BATTLE_DATA_GENERATOR_SCRIPTS,
   BATTLE_DATA_GENERATED_FILES,
 };
-

@@ -292,9 +292,9 @@ last_verified: 2026-02-12
 |--------|---------|-------|
 | □ | Participant-based exp distribution | Only Pokemon that fought get exp |
 | □ | EV yield application | From speciesInfo.evYield |
-| □ | Level-up move learning | Check learnset, prompt replacement |
-| □ | Move replacement prompt (at 4 moves) | Via dialog showChoice |
-| □ | Evolution check (post-battle) | Deferred — needs evolution data |
+| ■ | Level-up move learning | C-style level-range extraction, replacement loops, HM retry, B/NO parity |
+| ■ | Move replacement prompt (at 4 moves) | Dedicated `moveForget` modal with InputMap controls |
+| ■ | Evolution check (post-battle) | Battle win now builds and runs queued evolutions via `GameState.EVOLUTION` |
 | ■ | Basic exp gain formula | `(baseExp * level) / 7` |
 | ■ | Level-up detection | calculateLevelFromExp |
 | ■ | Stat recalculation on level-up | recalculatePartyStats |

@@ -54,7 +54,7 @@ Primary C references:
 
 ## Follow-up Scope Discovered (Post-CP2)
 
-- `CP2-NEXT-001` EXP Share distribution parity (split sent-in vs Exp Share recipients, not just active mon).
+- [x] `CP2-NEXT-001` EXP Share distribution parity (split sent-in vs Exp Share recipients, not just active mon). Completed 2026-02-19.
 - `CP2-NEXT-002` Traded-mon EXP boost parity and corresponding battle string variants.
 - `CP2-NEXT-003` Safari/Wally-specific ball throw branches (`BATTLE_TYPE_SAFARI`, `BATTLE_TYPE_WALLY_TUTORIAL`).
 - `CP2-NEXT-004` Caught-mon routing parity when party is full (PC box target + box-full message variants).

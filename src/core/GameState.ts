@@ -16,6 +16,7 @@ export const GameState = {
   NEW_GAME_BIRCH: 'NEW_GAME_BIRCH',
   OVERWORLD: 'OVERWORLD',
   BATTLE: 'BATTLE',
+  EVOLUTION: 'EVOLUTION',
   // Future states:
   // POKEMON_MENU: 'POKEMON_MENU',
   // BAG: 'BAG',

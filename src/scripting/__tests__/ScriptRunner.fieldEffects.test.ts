@@ -5,12 +5,15 @@ import type { MapScriptData, ScriptCommand } from '../../data/scripts/types.ts';
 import type { StoryScriptContext } from '../../game/NewGameFlow.ts';
 import { gameVariables } from '../../game/GameVariables.ts';
 
-function createData(commands: ScriptCommand[]): { mapData: MapScriptData; commonData: MapScriptData } {
+function createData(
+  commands: ScriptCommand[],
+  movements: MapScriptData['movements'] = {}
+): { mapData: MapScriptData; commonData: MapScriptData } {
   return {
     mapData: {
       mapScripts: {},
       scripts: { Main: commands },
-      movements: {},
+      movements,
       text: {},
     },
     commonData: {
@@ -127,4 +130,49 @@ test('dofieldeffectsparkle + waitfieldeffect + orb/weather specials execute via 
   assert.equal(orbStartVar, 2);
   assert.equal(orbFadeCalls, 1);
   assert.equal(weatherWaitCalls, 1);
+});
+
+test('applymovement emote step dispatches trainer icon field effect with object owner args', async () => {
+  const runCalls: Array<{
+    effectName: string;
+    args: ReadonlyMap<number, string | number>;
+    context?: { mapId: string };
+  }> = [];
+
+  const services: ScriptRuntimeServices = {
+    fieldEffects: {
+      run: async (effectName, args, context) => {
+        runCalls.push({ effectName, args: new Map(args), context });
+      },
+    },
+  };
+
+  const { mapData, commonData } = createData(
+    [
+      { cmd: 'applymovement', args: ['LOCALID_TEST_NPC', 'Test_Emote_Exclaim'] },
+      { cmd: 'waitmovement', args: ['LOCALID_TEST_NPC'] },
+      { cmd: 'end' },
+    ],
+    {
+      Test_Emote_Exclaim: ['emote_exclamation_mark'],
+    }
+  );
+
+  const context = createContext();
+  context.hasNpc = () => true;
+
+  const runner = new ScriptRunner(
+    { mapData, commonData },
+    context,
+    'MAP_LITTLEROOT_TOWN',
+    services
+  );
+
+  await runner.execute('Main');
+
+  assert.equal(runCalls.length, 1);
+  assert.equal(runCalls[0].effectName, 'FLDEFF_EXCLAMATION_MARK_ICON');
+  assert.deepEqual(runCalls[0].args.get(0), 'LOCALID_TEST_NPC');
+  assert.deepEqual(runCalls[0].args.get(1), 'MAP_LITTLEROOT_TOWN');
+  assert.deepEqual(runCalls[0].context, { mapId: 'MAP_LITTLEROOT_TOWN' });
 });

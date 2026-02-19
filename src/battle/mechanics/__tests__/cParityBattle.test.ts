@@ -4,6 +4,7 @@ import { ITEMS } from '../../../data/items.ts';
 import { STATUS } from '../../../pokemon/types.ts';
 import {
   calculateCatchOdds,
+  calculateFaintExpDistribution,
   calculateFaintExpAward,
   getBallEscapeMessage,
   resolveBallMultiplierTenths,
@@ -112,4 +113,80 @@ test('EXP award applies Lucky Egg and trainer bonuses in C order', () => {
   assert.equal(luckyOnly, 94);
   assert.equal(trainerOnly, 94);
   assert.equal(both, 141);
+});
+
+test('EXP distribution splits 50/50 between participant and Exp Share holder', () => {
+  const gains = calculateFaintExpDistribution({
+    baseExpYield: 63,
+    faintedLevel: 7,
+    trainerBattle: false,
+    party: [
+      { isPresent: true, level: 10, hp: 30, heldItem: ITEMS.ITEM_NONE, participated: true },
+      { isPresent: true, level: 9, hp: 20, heldItem: ITEMS.ITEM_EXP_SHARE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+    ],
+  });
+
+  assert.deepEqual(gains, [31, 31, 0, 0, 0, 0]);
+});
+
+test('participant holding Exp Share receives both portions', () => {
+  const gains = calculateFaintExpDistribution({
+    baseExpYield: 63,
+    faintedLevel: 7,
+    trainerBattle: false,
+    party: [
+      { isPresent: true, level: 10, hp: 30, heldItem: ITEMS.ITEM_EXP_SHARE, participated: true },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+    ],
+  });
+
+  assert.equal(gains[0], 62);
+});
+
+test('Lucky Egg and trainer multipliers apply per recipient after base split', () => {
+  const gains = calculateFaintExpDistribution({
+    baseExpYield: 63,
+    faintedLevel: 7,
+    trainerBattle: true,
+    party: [
+      { isPresent: true, level: 10, hp: 30, heldItem: ITEMS.ITEM_NONE, participated: true },
+      { isPresent: true, level: 9, hp: 20, heldItem: ITEMS.ITEM_EXP_SHARE, participated: false },
+      { isPresent: true, level: 12, hp: 25, heldItem: ITEMS.ITEM_LUCKY_EGG, participated: true },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+    ],
+  });
+
+  // baseExp=63 -> split 31/31: sent-in share 31 split by 2 participants => 15 each.
+  // Exp Share side has one holder => 31.
+  // trainer bonus (x1.5): 31 -> 46, 15 -> 22.
+  // Lucky Egg then trainer bonus: 15 -> 22 -> 33.
+  assert.deepEqual(gains, [22, 46, 33, 0, 0, 0]);
+});
+
+test('level 100 participants still dilute the sent-in share but receive no EXP', () => {
+  const gains = calculateFaintExpDistribution({
+    baseExpYield: 63,
+    faintedLevel: 7,
+    trainerBattle: false,
+    party: [
+      { isPresent: true, level: 100, hp: 100, heldItem: ITEMS.ITEM_NONE, participated: true },
+      { isPresent: true, level: 10, hp: 30, heldItem: ITEMS.ITEM_NONE, participated: true },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+      { isPresent: false, level: 0, hp: 0, heldItem: ITEMS.ITEM_NONE, participated: false },
+    ],
+  });
+
+  assert.deepEqual(gains, [0, 31, 0, 0, 0, 0]);
 });

@@ -89,3 +89,118 @@ test('trainerbattle_no_intro does not skip battle when trainer flag is already s
   assert.equal(gameVariables.getVar('VAR_0x8004'), 1);
   assert.deepEqual(shownMessages, ['Sidney was defeated!']);
 });
+
+test('trainerbattle_single shows intro text before battle when intro label exists', async () => {
+  gameVariables.reset();
+  saveStateStore.resetRuntimeState();
+
+  const trainerBattleCalls: ScriptTrainerBattleRequest[] = [];
+  const shownMessages: string[] = [];
+  const ctx = createContext({
+    showMessage: async (text: string) => {
+      shownMessages.push(text);
+    },
+    startTrainerBattle: async (request) => {
+      trainerBattleCalls.push(request);
+      return { outcome: BATTLE_OUTCOME.WON };
+    },
+  });
+
+  const { mapData, commonData } = createData(
+    [
+      { cmd: 'trainerbattle_single', args: ['TRAINER_JOSH', 'Text_Intro', 'Text_Defeat'] },
+      { cmd: 'end' },
+    ],
+    {
+      Text_Intro: 'Josh: I will crush you!',
+      Text_Defeat: 'Josh: I lost...',
+    },
+  );
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_RUSTBORO_CITY');
+  await runner.execute('Main');
+
+  assert.equal(trainerBattleCalls.length, 1);
+  assert.equal(trainerBattleCalls[0].trainerId, 'TRAINER_JOSH');
+  assert.equal(trainerBattleCalls[0].mode, 'single');
+  assert.deepEqual(shownMessages, ['Josh: I will crush you!', 'Josh: I lost...']);
+});
+
+test('trainerbattle_single falls back to generic intro text when intro label is missing', async () => {
+  gameVariables.reset();
+  saveStateStore.resetRuntimeState();
+
+  const trainerBattleCalls: ScriptTrainerBattleRequest[] = [];
+  const shownMessages: string[] = [];
+  const ctx = createContext({
+    showMessage: async (text: string) => {
+      shownMessages.push(text);
+    },
+    startTrainerBattle: async (request) => {
+      trainerBattleCalls.push(request);
+      return { outcome: BATTLE_OUTCOME.WON };
+    },
+  });
+
+  const { mapData, commonData } = createData(
+    [
+      { cmd: 'trainerbattle_single', args: ['TRAINER_ROXANNE_1', 'Text_MissingIntro', 'Text_Defeat'] },
+      { cmd: 'end' },
+    ],
+    {
+      Text_Defeat: 'Roxanne was defeated!',
+    },
+  );
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_RUSTBORO_CITY');
+  await runner.execute('Main');
+
+  assert.equal(trainerBattleCalls.length, 1);
+  assert.equal(trainerBattleCalls[0].trainerId, 'TRAINER_ROXANNE_1');
+  assert.equal(trainerBattleCalls[0].mode, 'single');
+  assert.deepEqual(shownMessages, ["ROXANNE: Let's battle!", 'Roxanne was defeated!']);
+});
+
+test('legacy trainerbattle single path uses intro fallback when intro label is missing', async () => {
+  gameVariables.reset();
+  saveStateStore.resetRuntimeState();
+
+  const trainerBattleCalls: ScriptTrainerBattleRequest[] = [];
+  const shownMessages: string[] = [];
+  const ctx = createContext({
+    showMessage: async (text: string) => {
+      shownMessages.push(text);
+    },
+    startTrainerBattle: async (request) => {
+      trainerBattleCalls.push(request);
+      return { outcome: BATTLE_OUTCOME.WON };
+    },
+  });
+
+  const { mapData, commonData } = createData(
+    [
+      {
+        cmd: 'trainerbattle',
+        args: [
+          'TRAINER_BATTLE_SINGLE',
+          'TRAINER_ROXANNE_1',
+          'LOCALID_NONE',
+          'Text_MissingIntro',
+          'Text_Defeat',
+        ],
+      },
+      { cmd: 'end' },
+    ],
+    {
+      Text_Defeat: 'Roxanne was defeated!',
+    },
+  );
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_RUSTBORO_CITY');
+  await runner.execute('Main');
+
+  assert.equal(trainerBattleCalls.length, 1);
+  assert.equal(trainerBattleCalls[0].trainerId, 'TRAINER_ROXANNE_1');
+  assert.equal(trainerBattleCalls[0].mode, 'single');
+  assert.deepEqual(shownMessages, ["ROXANNE: Let's battle!", 'Roxanne was defeated!']);
+});

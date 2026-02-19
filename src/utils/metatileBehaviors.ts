@@ -69,7 +69,10 @@ export {
 };
 
 export const MB_DEEP_SAND = 6;
+export const MB_UNUSED_05 = 5;
+export const MB_CAVE = 8;
 export const MB_SAND = 33;  // 0x21 - Regular sand (footprints behavior)
+export const MB_ASHGRASS = 36;
 export const MB_FOOTPRINTS = 37; // 0x25 - Generic footprint-producing terrain
 
 export const MB_POND_WATER = 16;
@@ -343,6 +346,44 @@ export function isTallGrassBehavior(behavior: number): boolean {
 
 export function isLongGrassBehavior(behavior: number): boolean {
   return behavior === MB_LONG_GRASS;
+}
+
+const ENCOUNTER_TILE_BEHAVIORS = new Set<number>([
+  MB_TALL_GRASS,
+  MB_LONG_GRASS,
+  MB_UNUSED_05,
+  MB_DEEP_SAND,
+  MB_CAVE,
+  MB_INDOOR_ENCOUNTER,
+  MB_POND_WATER,
+  MB_INTERIOR_DEEP_WATER,
+  MB_DEEP_WATER,
+  MB_OCEAN_WATER,
+  MB_SEAWEED,
+  MB_ASHGRASS,
+  MB_FOOTPRINTS,
+  MB_SEAWEED_NO_SURFACING,
+]);
+
+/**
+ * C ref: MetatileBehavior_IsEncounterTile (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isEncounterTileBehavior(behavior: number): boolean {
+  return ENCOUNTER_TILE_BEHAVIORS.has(behavior);
+}
+
+/**
+ * C ref: MetatileBehavior_IsLandWildEncounter (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isLandWildEncounterBehavior(behavior: number): boolean {
+  return !MetatileBehavior_IsSurfableWaterOrUnderwater(behavior) && isEncounterTileBehavior(behavior);
+}
+
+/**
+ * C ref: MetatileBehavior_IsWaterWildEncounter (public/pokeemerald/src/metatile_behavior.c)
+ */
+export function isWaterWildEncounterBehavior(behavior: number): boolean {
+  return MetatileBehavior_IsSurfableWaterOrUnderwater(behavior) && isEncounterTileBehavior(behavior);
 }
 
 /**

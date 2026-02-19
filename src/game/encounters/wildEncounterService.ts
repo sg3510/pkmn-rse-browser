@@ -11,14 +11,21 @@ import { getSpeciesInfo } from '../../data/speciesInfo.ts';
 import { getMapWildEncounterData, WILD_ENCOUNTER_SLOT_RATES } from '../../data/wildEncounters.gen.ts';
 import type { PartyPokemon } from '../../pokemon/types.ts';
 import { getAbility } from '../../pokemon/stats.ts';
-import { isLongGrassBehavior, isTallGrassBehavior } from '../../utils/metatileBehaviors.ts';
+import {
+  isBridgeOverWaterBehavior,
+  isLandWildEncounterBehavior,
+  isWaterWildEncounterBehavior,
+} from '../../utils/metatileBehaviors.ts';
 
 const MAX_ENCOUNTER_RATE = 2880;
 
-export interface LandEncounterRollRequest {
+export type StepEncounterArea = 'land' | 'water';
+
+export interface WildEncounterRollRequest {
   mapId: string;
   currentTileBehavior?: number;
   previousTileBehavior?: number;
+  playerIsSurfing?: boolean;
   leadPokemon: PartyPokemon | null;
   isBikeRiding: boolean;
   weatherName?: string | null;
@@ -28,7 +35,26 @@ export interface LandEncounterRollRequest {
   randomInt?: (maxExclusive: number) => number;
 }
 
+export interface WildEncounterRollResult {
+  species: number;
+  level: number;
+  slotIndex: number;
+  area: StepEncounterArea;
+}
+
+export interface LandEncounterRollRequest extends WildEncounterRollRequest {}
+
+export interface WaterEncounterRollRequest extends WildEncounterRollRequest {
+  playerIsSurfing: boolean;
+}
+
 export interface LandEncounterRollResult {
+  species: number;
+  level: number;
+  slotIndex: number;
+}
+
+export interface WaterEncounterRollResult {
   species: number;
   level: number;
   slotIndex: number;
@@ -95,6 +121,19 @@ function chooseLandSlotIndex(
   return chooseWeightedIndex(WILD_ENCOUNTER_SLOT_RATES.land, randomInt);
 }
 
+function chooseWaterSlotIndex(
+  slotSpecies: readonly number[],
+  leadAbility: number,
+  randomInt: (maxExclusive: number) => number,
+): number {
+  if (leadAbility === ABILITIES.STATIC) {
+    const index = chooseAbilityInfluencedSlotIndex(slotSpecies, 'ELECTRIC', randomInt);
+    if (index !== null) return index;
+  }
+
+  return chooseWeightedIndex(WILD_ENCOUNTER_SLOT_RATES.water, randomInt);
+}
+
 function chooseWildLevel(
   minLevelRaw: number,
   maxLevelRaw: number,
@@ -124,7 +163,7 @@ function chooseWildLevel(
 
 function applyEncounterRateModifiers(
   baseEncounterRate: number,
-  req: LandEncounterRollRequest,
+  req: WildEncounterRollRequest,
   leadAbility: number,
 ): number {
   let encounterRate = Math.max(0, Math.trunc(baseEncounterRate)) * 16;
@@ -166,21 +205,47 @@ function applyEncounterRateModifiers(
 }
 
 /**
- * Attempt to generate a roaming land encounter from current map + grass step state.
+ * Resolve the encounter area for the player's current step.
+ *
+ * C refs:
+ * - public/pokeemerald/src/metatile_behavior.c (MetatileBehavior_IsLandWildEncounter / IsWaterWildEncounter)
+ * - public/pokeemerald/src/wild_encounter.c (StandardWildEncounter water-bridge branch)
  */
-export function tryGenerateLandEncounter(req: LandEncounterRollRequest): LandEncounterRollResult | null {
-  const randomInt = req.randomInt ?? defaultRandomInt;
+function resolveStepEncounterArea(req: WildEncounterRollRequest): StepEncounterArea | null {
   const behavior = req.currentTileBehavior;
   if (behavior === undefined) return null;
-  if (!isTallGrassBehavior(behavior) && !isLongGrassBehavior(behavior)) return null;
+
+  if (isLandWildEncounterBehavior(behavior)) {
+    return 'land';
+  }
+
+  if (
+    isWaterWildEncounterBehavior(behavior)
+    || (req.playerIsSurfing === true && isBridgeOverWaterBehavior(behavior))
+  ) {
+    return 'water';
+  }
+
+  return null;
+}
+
+/**
+ * Attempt to generate a roaming step encounter (land or surfing water).
+ */
+export function tryGenerateStepEncounter(req: WildEncounterRollRequest): WildEncounterRollResult | null {
+  const randomInt = req.randomInt ?? defaultRandomInt;
+  const area = resolveStepEncounterArea(req);
+  if (!area) return null;
 
   const wildData = getMapWildEncounterData(req.mapId);
-  const landTable = wildData?.land;
-  if (!landTable || landTable.slots.length === 0) return null;
+  const encounterTable = area === 'land' ? wildData?.land : wildData?.water;
+  if (!encounterTable || encounterTable.slots.length === 0) return null;
 
   // C parity: changing metatile behavior has a 40% chance to skip wild check.
+  const behavior = req.currentTileBehavior;
   if (
-    req.previousTileBehavior !== undefined
+    behavior !== undefined
+    && req.previousTileBehavior !== undefined
     && req.previousTileBehavior !== behavior
     && randomInt(100) >= 60
   ) {
@@ -188,14 +253,16 @@ export function tryGenerateLandEncounter(req: LandEncounterRollRequest): LandEnc
   }
 
   const leadAbility = getLeadAbility(req.leadPokemon);
-  const encounterRate = applyEncounterRateModifiers(landTable.encounterRate, req, leadAbility);
+  const encounterRate = applyEncounterRateModifiers(encounterTable.encounterRate, req, leadAbility);
   if (randomInt(MAX_ENCOUNTER_RATE) >= encounterRate) {
     return null;
   }
 
-  const slotSpecies = landTable.slots.map((slot) => slot.species);
-  const slotIndex = chooseLandSlotIndex(slotSpecies, leadAbility, randomInt);
-  const selectedSlot = landTable.slots[Math.max(0, Math.min(landTable.slots.length - 1, slotIndex))];
+  const slotSpecies = encounterTable.slots.map((slot) => slot.species);
+  const slotIndex = area === 'land'
+    ? chooseLandSlotIndex(slotSpecies, leadAbility, randomInt)
+    : chooseWaterSlotIndex(slotSpecies, leadAbility, randomInt);
+  const selectedSlot = encounterTable.slots[Math.max(0, Math.min(encounterTable.slots.length - 1, slotIndex))];
   if (!selectedSlot || selectedSlot.species <= 0) return null;
 
   const level = chooseWildLevel(selectedSlot.minLevel, selectedSlot.maxLevel, leadAbility, randomInt);
@@ -221,6 +288,36 @@ export function tryGenerateLandEncounter(req: LandEncounterRollRequest): LandEnc
     species: selectedSlot.species,
     level,
     slotIndex,
+    area,
   };
 }
 
+/**
+ * Attempt to generate a roaming land encounter from the current step.
+ */
+export function tryGenerateLandEncounter(req: LandEncounterRollRequest): LandEncounterRollResult | null {
+  const result = tryGenerateStepEncounter(req);
+  if (!result || result.area !== 'land') {
+    return null;
+  }
+  return {
+    species: result.species,
+    level: result.level,
+    slotIndex: result.slotIndex,
+  };
+}
+
+/**
+ * Attempt to generate a roaming water encounter from the current step.
+ */
+export function tryGenerateWaterEncounter(req: WaterEncounterRollRequest): WaterEncounterRollResult | null {
+  const result = tryGenerateStepEncounter(req);
+  if (!result || result.area !== 'water') {
+    return null;
+  }
+  return {
+    species: result.species,
+    level: result.level,
+    slotIndex: result.slotIndex,
+  };
+}

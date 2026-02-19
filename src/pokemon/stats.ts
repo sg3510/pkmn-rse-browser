@@ -258,6 +258,55 @@ export function recalculatePartyStats(pokemon: PartyPokemon): PartyPokemon {
 }
 
 /**
+ * Recalculate party stats with Emerald-like HP delta behavior.
+ *
+ * C ref: public/pokeemerald/src/pokemon.c (CalculateMonStats)
+ */
+export function recalculatePartyStatsCStyle(pokemon: PartyPokemon): PartyPokemon {
+  const info = getSpeciesInfo(pokemon.species);
+  if (!info) return pokemon;
+
+  const oldMaxHp = pokemon.stats.maxHp;
+  const oldHp = pokemon.stats.hp;
+  const level = calculateLevelFromExp(info.growthRate, pokemon.experience);
+  const stats = calculateAllStats(
+    pokemon.species,
+    level,
+    pokemon.ivs,
+    pokemon.evs,
+    pokemon.personality,
+  );
+
+  const newMaxHp = stats.hp;
+  let hp = oldHp;
+
+  if (newMaxHp <= 1) {
+    hp = (oldHp !== 0 || oldMaxHp === 0) ? 1 : 0;
+  } else if (oldHp === 0 && oldMaxHp === 0) {
+    hp = newMaxHp;
+  } else if (oldHp !== 0) {
+    hp = oldHp + (newMaxHp - oldMaxHp);
+    if (hp <= 0) hp = 1;
+  } else {
+    hp = 0;
+  }
+
+  return {
+    ...pokemon,
+    level,
+    stats: {
+      hp: Math.max(0, Math.min(newMaxHp, hp)),
+      maxHp: newMaxHp,
+      attack: stats.attack,
+      defense: stats.defense,
+      speed: stats.speed,
+      spAttack: stats.spAttack,
+      spDefense: stats.spDefense,
+    },
+  };
+}
+
+/**
  * Convert BoxPokemon to PartyPokemon (calculate stats)
  */
 export function boxToParty(box: BoxPokemon): PartyPokemon {

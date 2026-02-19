@@ -468,7 +468,11 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       const waitForBattleToEnd = async (): Promise<void> => {
         if (!stateManager) return;
         let guard = 0;
-        while (stateManager.getCurrentState() === GameState.BATTLE && guard < 72000) {
+        while (
+          (stateManager.getCurrentState() === GameState.BATTLE
+            || stateManager.getCurrentState() === GameState.EVOLUTION)
+          && guard < 72000
+        ) {
           await waitFrames(1);
           guard++;
         }
@@ -796,6 +800,22 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         getCurrentGbaFrame: () => gbaFrameRef.current,
         getPlayerAvatarBike: () => player.getBikeSpecialValue(),
         getLastUsedWarpMapId: () => null,
+        showEmote: async (mapId, localId, emote, waitFramesOverride = 48) => {
+          const effectName = emote === 'exclamation'
+            ? 'FLDEFF_EXCLAMATION_MARK_ICON'
+            : emote === 'question'
+              ? 'FLDEFF_QUESTION_MARK_ICON'
+              : 'FLDEFF_HEART_ICON';
+
+          const effectArgs = new Map<number, string | number>();
+          effectArgs.set(0, localId);
+          if (localId !== 'LOCALID_PLAYER' && localId !== '255') {
+            effectArgs.set(1, mapId);
+          }
+
+          await scriptRuntimeServices?.fieldEffects?.run?.(effectName, effectArgs, { mapId });
+          await waitFrames(Math.max(0, Math.trunc(waitFramesOverride)));
+        },
         setCyclingRoadChallengeActive: (active) => {
           player.setCyclingRoadChallengeActive(active);
         },

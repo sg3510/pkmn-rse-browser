@@ -2,7 +2,7 @@
 title: Battle Recovery Plan (Doc-First + Generator-First)
 status: in_progress
 written_on: 2026-02-18
-last_verified: 2026-02-18
+last_verified: 2026-02-19
 ---
 
 # Battle Recovery Plan (Doc-First + Generator-First)
@@ -73,6 +73,13 @@ CI/verification rule:
 - [x] `BTL-013` Corrupted sprites at bottom of screen.
 - [x] `BTL-014` Black flashing front sprites from malformed stacked `front.png`.
 - [x] `BTL-025` Elite Four auto-win regression: `trainerbattle_no_intro` must not pre-skip when trainer flag is set.
+- [x] `BTL-026` Overworld trainer "meet-eyes" LOS trigger runs before free movement input (C call-order parity).
+- [x] `BTL-027` Trainer LOS trigger uses C-style active object-event scope (spawned trainer objects around camera), avoiding far offscreen pull-in without truncating valid trainer sight range.
+- [ ] `BTL-028` Full C trainer approach task/script parity (`EventScript_StartTrainerApproach` + `DoTrainerApproach` task chain, including double-approach edge cases).
+- [x] `BTL-029` Trainer LOS must trigger only after player completes a step into sight line, then run `!` + trainer walk-up before battle script start.
+- [x] `BTL-030` Trainer pre-battle speech reliability: ensure trainerbattle intro path always attempts intro text and falls back to deterministic generic trainer line if intro label is missing.
+- [x] `BTL-031` Trainer LOS step probing uses destination tile while moving (C `PlayerGetDestCoords` parity) so fast running cannot skip sight trigger checks.
+- [x] `BTL-032` Turn-script timing parity: defer HP/EXP UI updates to battle event/message timing slots instead of applying full turn-state immediately.
 - [x] `BTL-DAT-001` Replace lead-only trainer resolver with full generated roster resolver.
 - [x] `BTL-DAT-002` Resolve trainer mon moves from generated custom moves or generated level-up learnsets.
 - [x] `BTL-DAT-003` Enforce battle generator freshness checks.
@@ -115,18 +122,19 @@ CI/verification rule:
 
 ## Wild Encounter + Capture Scale Track (2026-02-18)
 
-- [ ] `ENC-DOC-001` Canonical plan/checklist for this slice: `docs/features/battle/wild-encounter-capture-scale-plan.md`.
-- [ ] `ENC-DAT-001` Generator: `scripts/generate-wild-encounters.cjs`.
-- [ ] `ENC-DAT-002` Generated map encounter dataset: `src/data/wildEncounters.gen.ts`.
-- [ ] `ENC-DAT-003` Script/verification wiring for encounter generated freshness.
-- [ ] `ENC-RUN-001` C-rate wild encounter checks in overworld grass traversal.
-- [ ] `ENC-RUN-002` Generated weighted slot + level roll resolution.
-- [ ] `ENC-RUN-003` Lead-modifier support (Keen Eye/Intimidate, Magnet Pull/Static, Hustle/Vital Spirit/Pressure).
-- [ ] `ENC-RUN-004` Overworld step integration and guarded `GameState.BATTLE` transition.
-- [ ] `ENC-RUN-005` Return-location/runtime-state safe wild battle start payload.
+- [x] `ENC-DOC-001` Canonical plan/checklist for this slice: `docs/features/battle/wild-encounter-capture-scale-plan.md`.
+- [x] `ENC-DAT-001` Generator: `scripts/generate-wild-encounters.cjs`.
+- [x] `ENC-DAT-002` Generated map encounter dataset: `src/data/wildEncounters.gen.ts`.
+- [x] `ENC-DAT-003` Script/verification wiring for encounter generated freshness.
+- [x] `ENC-RUN-001` C-rate wild encounter checks in overworld traversal.
+- [x] `ENC-RUN-002` Generated weighted slot + level roll resolution.
+- [x] `ENC-RUN-003` Lead-modifier support (Keen Eye/Intimidate, Magnet Pull/Static, Hustle/Vital Spirit/Pressure).
+- [x] `ENC-RUN-004` Overworld step integration and guarded `GameState.BATTLE` transition.
+- [x] `ENC-RUN-005` Return-location/runtime-state safe wild battle start payload.
+- [x] `ENC-RUN-006` C tile routing parity for land/water/bridge encounter checks.
 - [ ] `CAP-001` Poké Ball usage path validated for roaming wild battles.
 - [ ] `CAP-002` Catch odds/shake/message parity validated for roaming wild battles.
-- [ ] `ENC-TST-001` Encounter service deterministic tests.
+- [x] `ENC-TST-001` Encounter service deterministic tests.
 - [ ] `ENC-TST-002` Capture path deterministic tests.
 - [ ] `ENC-ACC-001` Grass encounter species distribution aligns with generated slot weights over sample runs.
 - [ ] `ENC-ACC-002` Roaming wild battle supports Poké Ball capture outcome end-to-end.
@@ -154,6 +162,12 @@ CI/verification rule:
 - Added front-sprite malformed-sheet guard (black-flicker fix) and battle-scene overlay clipping to prevent lower-screen sprite artifacts.
 - Added battle-font preload path to ensure `"Pokemon Emerald"` is active before UI text draw.
 - Fixed `trainerbattle_no_intro` parity to always run battle setup (no pre-check on trainer flags), preventing Elite Four auto-skip after challenge-reset flows.
+- Added modular trainer LOS detection (`src/game/trainers/trainerSightEncounter.ts`) and integrated pre-input "meet-eyes" trigger ordering before ON_FRAME script evaluation.
+- Aligned trainer LOS candidate scope to C active object-event behavior (spawn/despawn window around camera) instead of strict on-screen-only filtering, preventing shortened sight-range regressions.
+- Added modular trainer sight intro runner (`src/game/trainers/playTrainerSightIntro.ts`) for deterministic `!` icon wait + approach walk + facing before trainer script launch.
+- Changed trainer LOS activation timing to settled-tile step transitions only (no immediate stationary trigger on map load / pre-step trigger), and guarded cutscene sequencing with an in-flight lock.
+- Updated trainer LOS probe coordinates to movement destination tiles while running, matching C destination-coordinate checks and preventing missed meet-eyes triggers at high movement speed.
+- Hardened trainerbattle intro messaging: all trainerbattle intro variants now route through a shared intro presenter with missing-label diagnostics and deterministic fallback text.
 - Normalized battle-engine import specifiers for direct Node ESM test/report execution and hardened flaky run-attempt parity test RNG sequencing.
 - Added generated move-effect index artifact and switched move-coverage reporting to consume generated index data.
 - Extended `verify:generated:battle` to enforce battle script + move-effect generated freshness.
@@ -162,8 +176,12 @@ CI/verification rule:
   and rewired `verify:generated:battle` to consume that same manifest (no script/output drift).
 - Implemented C-parity wild capture flow (ball multipliers, status bonuses, shake outcomes, bag consumption, caught outcome).
 - Added catch persistence hooks (party insert when space exists + Pokédex seen/caught updates).
+- Expanded roaming wild encounter parity from grass-only to C tile-based land/water routing:
+  cave/indoor encounter tiles, surfing water encounter tiles, and bridge-over-water surfing checks.
 - Moved EXP awarding to enemy-faint timing and added trainer/Lucky Egg multipliers per C ordering.
+- Added C-parity Exp Share distribution for enemy-faint EXP (50/50 split between sent-in and Exp Share sides, per-recipient stacking for sent-in + Exp Share holders, and level-100 recipient skip semantics).
 - Applied trainer IV scalar parity (`iv * 31 / 255`) for trainer mon materialization.
+- Added battle turn timeline staging so HP deltas, faint HP-zero targets, move/stat UI markers, and EXP grants are applied when their event/message step becomes active (closer to C script command timing like `healthbar_update` / `getexp` sequencing).
 
 ## Validation Runbook (Current)
 

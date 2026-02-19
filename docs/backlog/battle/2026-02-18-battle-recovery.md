@@ -313,3 +313,197 @@
 
 - `npm run generate:battle-data`: PASS
 - `npm run verify:generated:battle`: PASS
+
+## 2026-02-18 Wild Encounter Parity Pass (Land + Water + Cave)
+
+### Completed IDs
+
+- `ENC-RUN-001`, `ENC-RUN-002`, `ENC-RUN-003`, `ENC-RUN-004`, `ENC-RUN-005`, `ENC-RUN-006`
+- `ENC-TST-001`
+
+### Shipped changes
+
+- Added C-parity metatile encounter helpers:
+  - `isEncounterTileBehavior`
+  - `isLandWildEncounterBehavior`
+  - `isWaterWildEncounterBehavior`
+  in `src/utils/metatileBehaviors.ts`.
+- Expanded encounter service from grass-only to step-based land/water routing:
+  - new `tryGenerateStepEncounter` supports land and surfing water flows
+  - retained `tryGenerateLandEncounter` and added `tryGenerateWaterEncounter` wrappers
+  - implemented bridge-over-water surfing branch parity.
+- Updated overworld encounter flow to call the new step encounter resolver and preserve guarded battle transition semantics.
+- Added deterministic tests covering:
+  - cave land encounters
+  - surfing water encounters
+  - bridge-over-water surfing encounter behavior.
+
+### Validation
+
+- `node --test src/game/encounters/__tests__/wildEncounterService.test.ts`: PASS
+- `npm run build`: PASS
+
+## 2026-02-18 Trainer Sight + Viewport Gating Pass
+
+### Completed IDs
+
+- `BTL-026`
+- `BTL-027`
+
+### Shipped changes
+
+- Added modular trainer LOS detector at `src/game/trainers/trainerSightEncounter.ts` with C-referenced directional range/path checks.
+- Integrated trainer sight trigger into pre-input overworld ordering in `src/pages/GamePage.tsx`, before ON_FRAME and before free movement input.
+- Added viewport-tile gating from live camera view so offscreen trainers in spawn margins cannot trigger "meet-eyes" battles.
+- Added defeated-trainer suppression via trainer script command ID extraction and trainer flag checks.
+- Added unit tests for LOS happy path, viewport exclusion, blocked path, and defeated-trainer suppression.
+
+### Validation
+
+- `node --test --experimental-strip-types src/game/trainers/__tests__/trainerSightEncounter.test.ts`: PASS
+- `npm run build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 Trainer Sight Timing + Approach Intro Pass
+
+### Completed IDs
+
+- `BTL-029`
+
+### Shipped changes
+
+- Added `src/game/trainers/playTrainerSightIntro.ts` to run trainer sight intro as a modular cutscene step:
+  - exclamation icon field effect wait
+  - trainer walk-up by `approachDistance - 1` tiles
+  - player/trainer facing synchronization before script start
+- Updated `src/pages/GamePage.tsx` trainer LOS flow to only evaluate trigger entry after the player completes a settled tile-step on the same map.
+- Added an in-flight trainer sight cutscene lock to prevent overlap with ON_FRAME/free movement while intro sequencing runs.
+- Battle script launch is now delayed until intro sequencing completes, fixing early-start timing.
+
+### Validation
+
+- `node --test --experimental-strip-types src/game/trainers/__tests__/trainerSightEncounter.test.ts src/game/trainers/__tests__/playTrainerSightIntro.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 Trainer Pre-Battle Intro Reliability Pass
+
+### Completed IDs
+
+- `BTL-030`
+
+### Shipped changes
+
+- Audited Emerald C flow first:
+  - `public/pokeemerald/data/scripts/trainer_battle.inc` (`EventScript_ShowTrainerIntroMsg`)
+  - `public/pokeemerald/src/battle_setup.c` (`ShowTrainerIntroSpeech`, `BattleSetup_ConfigureTrainerBattle`)
+- Updated `src/scripting/ScriptRunner.ts` so all trainerbattle intro-bearing variants (`trainerbattle` supported intro types, `trainerbattle_single`, `trainerbattle_double`, `trainerbattle_rematch`, `trainerbattle_rematch_double`) use shared intro presentation via `showTrainerIntroText`.
+- Preserved `trainerbattle_no_intro` semantics unchanged.
+- Added regression coverage in `src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts`:
+  - intro label present -> intro shown before battle
+  - intro label missing -> deterministic fallback intro line
+
+### Validation
+
+- `node --test --experimental-strip-types src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 Trainer LOS Range Scope Correction
+
+### Updated IDs
+
+- `BTL-027`
+
+### Shipped changes
+
+- Investigated C references (`public/pokeemerald/src/trainer_see.c`) and confirmed trainer checks run against active object events, not strict on-screen-only filtering.
+- Removed strict viewport-only trainer candidate filtering from `src/game/trainers/trainerSightEncounter.ts`.
+- Trainer LOS now evaluates over currently spawned/active trainer objects (already bounded by object-event spawn/despawn window), restoring full configured trainer sight ranges while still avoiding far offscreen triggers.
+- Updated trainer LOS test expectations in `src/game/trainers/__tests__/trainerSightEncounter.test.ts` for near-offscreen-but-active trainers.
+
+### Validation
+
+- `node --test --experimental-strip-types src/game/trainers/__tests__/trainerSightEncounter.test.ts src/game/trainers/__tests__/playTrainerSightIntro.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 Trainer LOS Fast-Run Miss Fix
+
+### Completed IDs
+
+- `BTL-031`
+
+### Shipped changes
+
+- Added modular trainer LOS probe helper at `src/game/trainers/trainerSightProbe.ts` to resolve player probe coords from movement destination tiles while the player is in-step.
+- Updated pre-input trainer LOS trigger flow in `src/pages/GamePage.tsx` to use probe tiles for step transition tracking and LOS checks.
+- This matches C destination-coordinate behavior (`PlayerGetDestCoords` path) and prevents missed "meet-eyes" triggers when the player is running quickly through trainer sight lines.
+- Added focused coverage in `src/game/trainers/__tests__/trainerSightProbe.test.ts`.
+
+### Validation
+
+- `node --test --experimental-strip-types src/game/trainers/__tests__/trainerSightEncounter.test.ts src/game/trainers/__tests__/playTrainerSightIntro.test.ts src/game/trainers/__tests__/trainerSightProbe.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 EXP Share Distribution Parity
+
+### Completed IDs
+
+- `CP2-NEXT-001`
+
+### Investigation Summary (C first)
+
+- Audited `public/pokeemerald/src/battle_script_commands.c` (`Cmd_getexp`) for exact EXP redistribution flow.
+- Confirmed Emerald behavior used for implementation:
+  - 50/50 split only when at least one Exp Share holder exists.
+  - sent-in recipients split within sent-in side; Exp Share holders split within Exp Share side.
+  - sent-in + Exp Share holder receives both portions.
+  - Lucky Egg applies before trainer-battle multiplier.
+  - level-100 mons receive no EXP but still influence sent-in divisor if alive/participating.
+
+### Shipped changes
+
+- Added reusable C-parity EXP distribution helper:
+  - `src/battle/mechanics/cParityBattle.ts` -> `calculateFaintExpDistribution(...)`.
+- Updated battle EXP awarding pipeline in `src/states/BattleState.ts`:
+  - tracks per-enemy participant party slots,
+  - applies EXP awards to all eligible party recipients on enemy faint (not just active mon),
+  - preserves level-up HP gain semantics per recipient,
+  - updates active battler runtime state when active mon receives EXP/level-up.
+- Added focused parity tests in `src/battle/mechanics/__tests__/cParityBattle.test.ts`.
+
+### Validation
+
+- `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
+- `node --test src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-19 Turn Timing Parity (HP/EXP Script Ordering)
+
+### Completed IDs
+
+- `BTL-032`
+
+### Investigation Summary (C first)
+
+- Audited `public/pokeemerald/src/battle_script_commands.c` timing flow:
+  - `Cmd_healthbarupdate` emits HP bar updates as explicit script steps.
+  - `Cmd_getexp` stages EXP via state machine (`PrepareStringBattle(STRINGID_PKMNGAINEDEXP)` then `BtlController_EmitExpUpdate`).
+- Confirmed current TS flow was applying full turn state immediately at `executeTurn` return, then printing messages afterward.
+
+### Shipped changes
+
+- Refactored battle message sequencing in `src/states/BattleState.ts`:
+  - added per-message `onStart` callbacks,
+  - added effect-only timeline steps (empty message entries with immediate callback execution).
+- Deferred turn effects to message/event timing slots:
+  - HP target deltas now apply when corresponding battle events activate in the message timeline,
+  - faint HP-zero targeting is applied at faint event timing,
+  - move flash + stat indicator visuals are triggered per-event instead of pre-applied for full turn.
+- Deferred EXP mutation to EXP message timing:
+  - enemy-faint EXP rewards are precomputed,
+  - actual party/active battler EXP application occurs in EXP message `onStart` callbacks.
+- Added explicit HP/EXP animation targets decoupled from immediate engine state so bars no longer start changing before their event/message slot.
+
+### Validation
+
+- `node --test src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)

@@ -19,6 +19,7 @@ import {
   createBirchSpeechState,
   createOverworldState,
   createBattleState,
+  createEvolutionState,
 } from '../states';
 import { isWebGL2Supported } from '../rendering/webgl/WebGLContext';
 import { WebGLRenderPipeline } from '../rendering/webgl/WebGLRenderPipeline';
@@ -132,6 +133,7 @@ import { useDebugTileGrid } from './gamePage/useDebugTileGrid';
 import { createScriptRuntimeServices } from '../scripting/runtime/createScriptRuntimeServices';
 import { renderOverworldSprites } from '../rendering/overworld/renderOverworldSprites';
 import {
+  ensureMapScriptsCached,
   evaluateOnFrameScripts,
   evaluateOnFrameSafetyNets,
   runStepCallbacks,
@@ -143,6 +145,9 @@ import {
   type ScriptedWarpLoadMonitor,
   type FrameCounter,
 } from './gamePage/overworldGameUpdate';
+import { findTrainerSightEncounterTrigger } from '../game/trainers/trainerSightEncounter.ts';
+import { getTrainerSightProbeTile } from '../game/trainers/trainerSightProbe.ts';
+import { playTrainerSightIntro } from '../game/trainers/playTrainerSightIntro.ts';
 import { createRotatingGateCollisionChecker } from './gamePage/collisionChecker';
 import { executeSeamTransitionScripts } from '../game/overworld/seam/seamTransitionScripts';
 import { createActionCallbacks } from './gamePage/actionCallbacks';
@@ -152,6 +157,7 @@ import {
   isTruckSequenceLocked,
   syncTruckSequenceRuntime,
 } from '../game/TruckSequenceRunner';
+import { isTrainerDefeated } from '../scripting/trainerFlags.ts';
 import { rotatingGateManager } from '../game/RotatingGateManager';
 import { WeatherManager } from '../weather/WeatherManager';
 import {
@@ -385,6 +391,7 @@ export function GamePage() {
     manager.registerState(GameState.NEW_GAME_BIRCH, createBirchSpeechState);
     manager.registerState(GameState.OVERWORLD, createOverworldState);
     manager.registerState(GameState.BATTLE, createBattleState);
+    manager.registerState(GameState.EVOLUTION, createEvolutionState);
 
     // Set state to trigger child re-render
     setStateManager(manager);
@@ -532,6 +539,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           y: player.y + METATILE_SIZE,
         };
       },
+      getPlayerSpriteHeight: () => {
+        const player = playerRef.current;
+        if (!player || !playerLoadedRef.current) return null;
+        return player.getSpriteSize().height;
+      },
       getNpcWorldPosition: (mapId, localId) => {
         const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
         if (!npc) return null;
@@ -541,6 +553,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           x: npc.tileX * METATILE_SIZE + subTileX + METATILE_SIZE / 2,
           y: npc.tileY * METATILE_SIZE + subTileY + METATILE_SIZE,
         };
+      },
+      getNpcSpriteHeight: (mapId, localId) => {
+        const npc = objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+        if (!npc) return null;
+        return npcSpriteCache.getDimensions(npc.graphicsId).frameHeight;
       },
     })
   );
@@ -613,6 +630,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const lastPlayerMapIdRef = useRef<string | null>(null);
   const lastWildEncounterStepRef = useRef<WildEncounterStepState | null>(null);
   const wildEncounterTransitionInFlightRef = useRef<boolean>(false);
+  const lastTrainerSightStepRef = useRef<{ mapId: string; tileX: number; tileY: number } | null>(null);
+  const trainerSightSequenceInFlightRef = useRef<boolean>(false);
 
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
@@ -1684,23 +1703,116 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         const worldManager = worldManagerRef.current;
         let preInputOnFrameTriggered = false;
 
-        // GBA-style priority: run ON_FRAME scripts before free movement input.
-        // This prevents held keys from moving the player out of scripted start positions.
-        if (!storyScriptRunningRef.current && !seamTransitionScriptsRunning && worldManager && !doorSequencer.isActive()) {
+        // GBA-style priority: trainer sight checks before ON_FRAME scripts,
+        // then ON_FRAME scripts before free movement input.
+        if (
+          !storyScriptRunningRef.current
+          && !trainerSightSequenceInFlightRef.current
+          && !seamTransitionScriptsRunning
+          && worldManager
+          && !doorSequencer.isActive()
+        ) {
           const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
           if (currentMap) {
             const currentMapId = currentMap.entry.id;
             const runScript = (scriptName: string, mapId: string) => void runHandledStoryScriptRef.current(scriptName, mapId);
-            preInputOnFrameTriggered = evaluateOnFrameScripts({
-              currentMapId,
-              mapScriptCache: mapScriptCacheRef.current,
-              mapScriptLoading: mapScriptLoadingRef.current,
-              onFrameSuppressed: onFrameSuppressedRef.current,
-              objectEventManager: objectEventManagerRef.current,
-              currentMapObjectEventsLength: currentMap.objectEvents.length,
-              runScript,
-              gbaFrame: gbaFrameRef.current,
+            const cameraView = cameraRef.current?.getView(0);
+            const tileResolver = player.getTileResolver();
+            const trainerSightProbeTile = getTrainerSightProbeTile({
+              playerTileX: player.tileX,
+              playerTileY: player.tileY,
+              playerDirection: player.dir,
+              playerIsMoving: player.isMoving,
             });
+            const trainerSightMap = worldManager.findMapAtPosition(
+              trainerSightProbeTile.tileX,
+              trainerSightProbeTile.tileY
+            ) ?? currentMap;
+            const trainerSightMapId = trainerSightMap.entry.id;
+            const previousTrainerStepState = lastTrainerSightStepRef.current;
+            const steppedToNewTile =
+              previousTrainerStepState !== null
+              && previousTrainerStepState.mapId === trainerSightMapId
+              && (
+                previousTrainerStepState.tileX !== trainerSightProbeTile.tileX
+                || previousTrainerStepState.tileY !== trainerSightProbeTile.tileY
+              );
+
+            lastTrainerSightStepRef.current = {
+              mapId: trainerSightMapId,
+              tileX: trainerSightProbeTile.tileX,
+              tileY: trainerSightProbeTile.tileY,
+            };
+
+            if (cameraView && tileResolver && steppedToNewTile) {
+              ensureMapScriptsCached(trainerSightMapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
+              const trainerSightTrigger = findTrainerSightEncounterTrigger({
+                npcs: visibleNpcsForFrame,
+                playerTileX: trainerSightProbeTile.tileX,
+                playerTileY: trainerSightProbeTile.tileY,
+                viewport: {
+                  left: cameraView.startTileX,
+                  right: cameraView.startTileX + cameraView.tilesWide - 1,
+                  top: cameraView.startTileY,
+                  bottom: cameraView.startTileY + cameraView.tilesHigh - 1,
+                },
+                resolveTile: (tileX, tileY) => tileResolver(tileX, tileY) ?? undefined,
+                hasBlockingObjectAt: (tileX, tileY, trainerElevation) =>
+                  objectEventManagerRef.current.hasObjectCollisionAt(tileX, tileY, trainerElevation),
+                getTrainerScriptCommands: (mapId, scriptName) => {
+                  ensureMapScriptsCached(mapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
+                  const scriptData = mapScriptCacheRef.current.get(mapId);
+                  return scriptData?.scripts?.[scriptName] ?? null;
+                },
+                isTrainerDefeated: (trainerId) => isTrainerDefeated(trainerId),
+              });
+
+              if (trainerSightTrigger) {
+                trainerSightSequenceInFlightRef.current = true;
+                preInputOnFrameTriggered = true;
+                const trigger = trainerSightTrigger;
+                void (async () => {
+                  player.lockInput();
+                  npcMovement.setEnabled(false);
+                  try {
+                    await playTrainerSightIntro({
+                      trigger,
+                      player,
+                      objectEventManager: objectEventManagerRef.current,
+                      scriptRuntimeServices,
+                      waitFrames: waitScriptFrames,
+                    });
+                    gameVariables.setVar('VAR_FACING', { down: 1, up: 2, left: 3, right: 4 }[player.dir] ?? 0);
+                    gameVariables.setVar('VAR_LAST_TALKED', trigger.localIdNumber);
+                    if (!warpingRef.current) {
+                      await runHandledStoryScriptRef.current(trigger.scriptName, trigger.mapId);
+                    }
+                  } finally {
+                    trainerSightSequenceInFlightRef.current = false;
+                    if (!storyScriptRunningRef.current) {
+                      npcMovement.setEnabled(true);
+                      const activePlayer = playerRef.current;
+                      if (!warpingRef.current && activePlayer) {
+                        activePlayer.unlockInput();
+                      }
+                    }
+                  }
+                })();
+              }
+            }
+
+            if (!preInputOnFrameTriggered) {
+              preInputOnFrameTriggered = evaluateOnFrameScripts({
+                currentMapId,
+                mapScriptCache: mapScriptCacheRef.current,
+                mapScriptLoading: mapScriptLoadingRef.current,
+                onFrameSuppressed: onFrameSuppressedRef.current,
+                objectEventManager: objectEventManagerRef.current,
+                currentMapObjectEventsLength: currentMap.objectEvents.length,
+                runScript,
+                gbaFrame: gbaFrameRef.current,
+              });
+            }
             if (!preInputOnFrameTriggered) {
               const mapObjectsReady = currentMap.objectEvents.length === 0
                 || objectEventManagerRef.current.hasMapObjects(currentMapId);
@@ -2050,6 +2162,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       playerSpritesLoadPromiseRef.current = null;
       fieldSpritesLoadPromiseRef.current = null;
       lastWorldUpdateRef.current = null;
+      lastTrainerSightStepRef.current = null;
+      trainerSightSequenceInFlightRef.current = false;
       scriptFieldEffectAnimationManagerRef.current.clear();
       orbEffectRuntimeRef.current.clear(cameraRef.current);
       mirageTowerCollapseRuntimeRef.current.clear();
@@ -2096,6 +2210,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         lastStepRef: lastWildEncounterStepRef,
         transitionInFlightRef: wildEncounterTransitionInFlightRef,
       });
+      lastTrainerSightStepRef.current = null;
+      trainerSightSequenceInFlightRef.current = false;
     }
   }, [currentState]);
 

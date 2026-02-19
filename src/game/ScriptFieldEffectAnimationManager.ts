@@ -9,10 +9,10 @@
  *   - SpriteCB_NPCFlyOut
  */
 
-import { GBA_FRAME_MS } from '../config/timing';
-import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen';
-import type { SpriteInstance, WorldCameraView } from '../rendering/types';
-import { calculateSortKey, getFieldEffectAtlasName } from '../rendering/spriteUtils';
+import { GBA_FRAME_MS } from '../config/timing.ts';
+import { FIELD_EFFECT_REGISTRY } from '../data/fieldEffects.gen.ts';
+import type { SpriteInstance, WorldCameraView } from '../rendering/types.ts';
+import { calculateSortKey, getFieldEffectAtlasName } from '../rendering/spriteUtils.ts';
 
 export type ScriptFieldEffectArgValue = string | number;
 export type ScriptFieldEffectArgs = ReadonlyMap<number, ScriptFieldEffectArgValue>;
@@ -25,6 +25,8 @@ export type ScriptFieldEffectOwner =
 export interface ScriptFieldEffectPositionResolvers {
   getPlayerWorldPosition: () => { x: number; y: number } | null;
   getNpcWorldPosition: (mapId: string, localId: string) => { x: number; y: number } | null;
+  getPlayerSpriteHeight?: () => number | null;
+  getNpcSpriteHeight?: (mapId: string, localId: string) => number | null;
 }
 
 interface NpcFlyOutState {
@@ -56,7 +58,18 @@ interface SparkleState {
   priority: number;
 }
 
-type ScriptFieldEffectState = NpcFlyOutState | SparkleState;
+interface EmotionIconState {
+  type: 'emotionIcon';
+  atlasName: string;
+  width: number;
+  height: number;
+  elapsedFrames: number;
+  totalFrames: number;
+  yVelocity: number;
+  yOffset: number;
+}
+
+type ScriptFieldEffectState = NpcFlyOutState | SparkleState | EmotionIconState;
 
 interface ScriptFieldEffectInstance {
   id: string;
@@ -76,6 +89,9 @@ const NPC_FLY_OUT_RADIUS_Y = 0x48; // 72
 
 const FULL_TRIG_CIRCLE = 256;
 const RAD_PER_TRIG_STEP = (Math.PI * 2) / FULL_TRIG_CIRCLE;
+const EMOTION_ICON_TOTAL_FRAMES = 60;
+const EMOTION_ICON_OWNER_CENTER_Y_OFFSET = -16;
+const DEFAULT_OWNER_SPRITE_HEIGHT = 32;
 
 function trigCos(angle: number, amplitude: number): number {
   const radians = (angle & 0xff) * RAD_PER_TRIG_STEP;
@@ -87,22 +103,51 @@ function trigSin(angle: number, amplitude: number): number {
   return Math.round(Math.sin(radians) * amplitude);
 }
 
+function resolveEmotionRegistryKey(effectName: string): string | null {
+  switch (effectName) {
+    case 'FLDEFF_EXCLAMATION_MARK_ICON':
+      return 'EXCLAMATION_MARK_ICON';
+    case 'FLDEFF_QUESTION_MARK_ICON':
+      return 'QUESTION_MARK_ICON';
+    case 'FLDEFF_HEART_ICON':
+      return 'HEART_ICON';
+    default:
+      return null;
+  }
+}
+
 function resolveOwnerFromArgs(args: ScriptFieldEffectArgs): ScriptFieldEffectOwner {
   const arg0 = args.get(0);
   const arg1 = args.get(1);
 
-  if (typeof arg0 === 'string') {
-    if (arg0 === 'LOCALID_PLAYER' || arg0 === '255') {
-      return { kind: 'player' };
+  const localIdFromValue = (value: ScriptFieldEffectArgValue | undefined): string | null => {
+    if (typeof value === 'string') {
+      return value;
     }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(Math.trunc(value));
+    }
+    return null;
+  };
 
-    if (arg0.startsWith('LOCALID_') && typeof arg1 === 'string' && arg1.startsWith('MAP_')) {
-      return { kind: 'npc', mapId: arg1, localId: arg0 };
-    }
+  const localId0 = localIdFromValue(arg0);
+  const localId1 = localIdFromValue(arg1);
 
-    if (arg0.startsWith('MAP_') && typeof arg1 === 'string' && arg1.startsWith('LOCALID_')) {
-      return { kind: 'npc', mapId: arg0, localId: arg1 };
-    }
+  if (localId0 === 'LOCALID_PLAYER' || localId0 === '255') {
+    return { kind: 'player' };
+  }
+
+  const isResolvableLocalId = (value: string | null): boolean => {
+    if (!value) return false;
+    return value.startsWith('LOCALID_') || /^\d+$/.test(value);
+  };
+
+  if (localId0 && isResolvableLocalId(localId0) && typeof arg1 === 'string' && arg1.startsWith('MAP_')) {
+    return { kind: 'npc', mapId: arg1, localId: localId0 };
+  }
+
+  if (localId1 && typeof arg0 === 'string' && arg0.startsWith('MAP_') && isResolvableLocalId(localId1)) {
+    return { kind: 'npc', mapId: arg0, localId: localId1 };
   }
 
   return { kind: 'screen' };
@@ -145,6 +190,10 @@ export class ScriptFieldEffectAnimationManager {
         return this.startNpcFlyOut(effectName, args);
       case 'FLDEFF_SPARKLE':
         return this.startSparkle(effectName, args);
+      case 'FLDEFF_EXCLAMATION_MARK_ICON':
+      case 'FLDEFF_QUESTION_MARK_ICON':
+      case 'FLDEFF_HEART_ICON':
+        return this.startEmotionIcon(effectName, args);
       default:
         return Promise.resolve();
     }
@@ -192,7 +241,7 @@ export class ScriptFieldEffectAnimationManager {
       if (instance.state.type === 'npcFlyOut') {
         if (!hasAtlas(instance.state.atlasName)) continue;
 
-        const center = this.resolveWorldCenter(instance, view);
+        const center = this.resolveOwnerWorldPosition(instance, view);
         if (!center) continue;
 
         const { width, height, atlasName } = instance.state;
@@ -215,6 +264,45 @@ export class ScriptFieldEffectAnimationManager {
           tintG: 1.0,
           tintB: 1.0,
           sortKey: calculateSortKey(center.y + height / 2, 192),
+          isReflection: false,
+        });
+        continue;
+      }
+
+      if (instance.state.type === 'emotionIcon') {
+        const state = instance.state;
+        if (!hasAtlas(state.atlasName)) {
+          continue;
+        }
+
+        const center = this.resolveOwnerWorldPosition(instance, view);
+        if (!center) {
+          continue;
+        }
+
+        const ownerSpriteHeight = this.resolveOwnerSpriteHeight(instance);
+        // trainer_see.c SpriteCB_TrainerIcons parity:
+        // icon center Y = owner sprite center Y - 16 + bounce offset.
+        const ownerCenterY = center.y - ownerSpriteHeight / 2;
+        const iconCenterY = ownerCenterY + EMOTION_ICON_OWNER_CENTER_Y_OFFSET + state.yOffset;
+
+        sprites.push({
+          worldX: Math.round(center.x - state.width / 2),
+          worldY: Math.round(iconCenterY - state.height / 2),
+          width: state.width,
+          height: state.height,
+          atlasName: state.atlasName,
+          atlasX: 0,
+          atlasY: 0,
+          atlasWidth: state.width,
+          atlasHeight: state.height,
+          flipX: false,
+          flipY: false,
+          alpha: 1.0,
+          tintR: 1.0,
+          tintG: 1.0,
+          tintB: 1.0,
+          sortKey: calculateSortKey(center.y, 255),
           isReflection: false,
         });
         continue;
@@ -340,6 +428,46 @@ export class ScriptFieldEffectAnimationManager {
     return completion;
   }
 
+  private startEmotionIcon(effectName: string, args: ScriptFieldEffectArgs): Promise<void> {
+    const registryKey = resolveEmotionRegistryKey(effectName);
+    if (!registryKey) {
+      return Promise.resolve();
+    }
+
+    const metadata = FIELD_EFFECT_REGISTRY[registryKey];
+    if (!metadata) {
+      return Promise.resolve();
+    }
+
+    let resolveCompletion = () => {};
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+
+    const instanceId = `script_field_effect_${this.nextInstanceId++}`;
+    const instance: ScriptFieldEffectInstance = {
+      id: instanceId,
+      effectName,
+      owner: resolveOwnerFromArgs(args),
+      state: {
+        type: 'emotionIcon',
+        atlasName: getFieldEffectAtlasName(registryKey),
+        width: metadata.width,
+        height: metadata.height,
+        elapsedFrames: 0,
+        totalFrames: EMOTION_ICON_TOTAL_FRAMES,
+        yVelocity: -5,
+        yOffset: 0,
+      },
+      completion,
+      resolveCompletion,
+    };
+
+    this.instances.set(instanceId, instance);
+    this.markActive(effectName, instanceId);
+    return completion;
+  }
+
   private advanceOneFrame(): void {
     if (this.instances.size === 0) return;
 
@@ -351,6 +479,9 @@ export class ScriptFieldEffectAnimationManager {
       switch (instance.state.type) {
         case 'npcFlyOut':
           this.advanceNpcFlyOut(instance);
+          break;
+        case 'emotionIcon':
+          this.advanceEmotionIcon(instance);
           break;
         case 'sparkle':
           this.advanceSparkle(instance);
@@ -368,6 +499,28 @@ export class ScriptFieldEffectAnimationManager {
     state.angle = (state.angle + NPC_FLY_OUT_ANGLE_STEP) & 0xff;
     state.elapsedFrames++;
     if (state.elapsedFrames >= NPC_FLY_OUT_FRAMES) {
+      this.finishInstance(instance);
+    }
+  }
+
+  private advanceEmotionIcon(instance: ScriptFieldEffectInstance): void {
+    const state = instance.state;
+    if (state.type !== 'emotionIcon') return;
+
+    if (!this.resolveOwnerWorldPosition(instance, null)) {
+      this.finishInstance(instance);
+      return;
+    }
+
+    state.yOffset += state.yVelocity;
+    if (state.yOffset !== 0) {
+      state.yVelocity++;
+    } else {
+      state.yVelocity = 0;
+    }
+
+    state.elapsedFrames++;
+    if (state.elapsedFrames >= state.totalFrames) {
       this.finishInstance(instance);
     }
   }
@@ -403,21 +556,23 @@ export class ScriptFieldEffectAnimationManager {
     }
   }
 
-  private resolveWorldCenter(
+  private resolveOwnerWorldPosition(
     instance: ScriptFieldEffectInstance,
-    view: WorldCameraView
+    view: WorldCameraView | null
   ): { x: number; y: number } | null {
-    if (instance.state.type !== 'npcFlyOut') return null;
-
-    const state = instance.state;
-    const offsetX = trigCos(state.angle, state.radiusX);
-    const offsetY = trigSin(state.angle, state.radiusY);
+    let offsetX = 0;
+    let offsetY = 0;
+    if (instance.state.type === 'npcFlyOut') {
+      offsetX = trigCos(instance.state.angle, instance.state.radiusX);
+      offsetY = trigSin(instance.state.angle, instance.state.radiusY);
+    }
 
     switch (instance.owner.kind) {
       case 'screen':
+        if (!view || instance.state.type !== 'npcFlyOut') return null;
         return {
-          x: view.cameraWorldX + state.baseScreenX + offsetX,
-          y: view.cameraWorldY + state.baseScreenY + offsetY,
+          x: view.cameraWorldX + instance.state.baseScreenX + offsetX,
+          y: view.cameraWorldY + instance.state.baseScreenY + offsetY,
         };
       case 'player': {
         const playerPos = this.positionResolvers.getPlayerWorldPosition();
@@ -441,6 +596,24 @@ export class ScriptFieldEffectAnimationManager {
       default:
         return null;
     }
+  }
+
+  private resolveOwnerSpriteHeight(instance: ScriptFieldEffectInstance): number {
+    let height: number | null = null;
+
+    if (instance.owner.kind === 'player') {
+      height = this.positionResolvers.getPlayerSpriteHeight?.() ?? null;
+    } else if (instance.owner.kind === 'npc') {
+      height = this.positionResolvers.getNpcSpriteHeight?.(
+        instance.owner.mapId,
+        instance.owner.localId
+      ) ?? null;
+    }
+
+    if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0) {
+      return DEFAULT_OWNER_SPRITE_HEIGHT;
+    }
+    return Math.max(1, Math.round(height));
   }
 
   private finishInstance(instance: ScriptFieldEffectInstance): void {

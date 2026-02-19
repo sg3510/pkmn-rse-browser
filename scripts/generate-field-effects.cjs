@@ -20,6 +20,33 @@ const OBJECTS_PATH = path.join(ROOT, 'public/pokeemerald/src/data/field_effects/
 const GRAPHICS_PATH = path.join(ROOT, 'public/pokeemerald/src/data/object_events/object_event_graphics.h');
 const OUTPUT_PATH = path.join(ROOT, 'src/data/fieldEffects.gen.ts');
 
+const SCRIPT_ONLY_EFFECTS = [
+    {
+        key: 'EXCLAMATION_MARK_ICON',
+        id: 'FLDEFF_EXCLAMATION_MARK_ICON',
+        imagePath: '/pokeemerald/graphics/field_effects/pics/emotion_exclamation.png',
+        width: 16,
+        height: 16,
+        animation: [{ frame: 0, duration: 60, hFlip: false, vFlip: false }],
+    },
+    {
+        key: 'QUESTION_MARK_ICON',
+        id: 'FLDEFF_QUESTION_MARK_ICON',
+        imagePath: '/pokeemerald/graphics/field_effects/pics/emotion_question.png',
+        width: 16,
+        height: 16,
+        animation: [{ frame: 0, duration: 60, hFlip: false, vFlip: false }],
+    },
+    {
+        key: 'HEART_ICON',
+        id: 'FLDEFF_HEART_ICON',
+        imagePath: '/pokeemerald/graphics/field_effects/pics/emotion_heart.png',
+        width: 16,
+        height: 16,
+        animation: [{ frame: 0, duration: 60, hFlip: false, vFlip: false }],
+    },
+];
+
 function parsePointers(source) {
     const map = new Map();
     const regex = /\[(FLDEFFOBJ_[A-Z0-9_]+)\]\s*=\s*&?(gFieldEffectObjectTemplate_[A-Za-z0-9_]+)/g;
@@ -196,6 +223,16 @@ function main() {
             width,
             height,
             animation: animation
+        };
+    }
+
+    for (const effect of SCRIPT_ONLY_EFFECTS) {
+        registry[effect.key] = {
+            id: effect.id,
+            imagePath: effect.imagePath,
+            width: effect.width,
+            height: effect.height,
+            animation: effect.animation,
         };
     }
 

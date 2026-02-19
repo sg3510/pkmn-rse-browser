@@ -623,11 +623,56 @@ export class ScriptRunner {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  private async showTextByLabel(textLabel: string | null): Promise<void> {
-    if (!textLabel) return;
+  private async showTextByLabel(
+    textLabel: string | null,
+    options?: { warnIfMissing?: boolean }
+  ): Promise<boolean> {
+    if (!textLabel) return false;
     const rawText = this.findText(textLabel);
-    if (!rawText) return;
+    if (!rawText) {
+      if (options?.warnIfMissing) {
+        console.warn(`[ScriptRunner] Text not found: ${textLabel}`);
+      }
+      return false;
+    }
     await this.ctx.showMessage(formatScriptText(rawText, this.playerName, this.playerGender));
+    return true;
+  }
+
+  private getTrainerFallbackSpeaker(trainerId: string): string | null {
+    const normalized = trainerId.trim();
+    if (!normalized.startsWith('TRAINER_')) {
+      return null;
+    }
+
+    const parts = normalized.slice('TRAINER_'.length).split('_').filter(Boolean);
+    while (parts.length > 0 && /^\d+$/.test(parts[parts.length - 1])) {
+      parts.pop();
+    }
+    if (parts.length === 0) {
+      return null;
+    }
+
+    if (parts.length >= 3 && parts[1] === 'AND') {
+      return `${parts[0]} & ${parts[2]}`;
+    }
+
+    return parts[0] ?? null;
+  }
+
+  private async showTrainerIntroText(trainerId: string, introTextLabel: string | null): Promise<void> {
+    const shown = await this.showTextByLabel(introTextLabel, { warnIfMissing: true });
+    if (shown) {
+      return;
+    }
+
+    const speaker = this.getTrainerFallbackSpeaker(trainerId);
+    if (speaker) {
+      await this.ctx.showMessage(`${speaker}: Let's battle!`);
+      return;
+    }
+
+    await this.ctx.showMessage("Let's battle!");
   }
 
   private async runTrainerBattleCommand(
@@ -2062,7 +2107,7 @@ export class ScriptRunner {
 
           if (battleType === 0 || battleType === 2 || battleType === 1) {
             if (isTrainerDefeated(trainerId)) break;
-            await this.showTextByLabel(asString(args[3]));
+            await this.showTrainerIntroText(trainerId, asString(args[3]));
             const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
             if (!wonOrEscaped) return;
             await this.showTextByLabel(asString(args[4]));
@@ -2093,7 +2138,7 @@ export class ScriptRunner {
 
           if (battleType === 4 || battleType === 6 || battleType === 8) {
             if (isTrainerDefeated(trainerId)) break;
-            await this.showTextByLabel(asString(args[3]));
+            await this.showTrainerIntroText(trainerId, asString(args[3]));
             const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'double');
             if (!wonOrEscaped) return;
             await this.showTextByLabel(asString(args[4]));
@@ -2114,7 +2159,7 @@ export class ScriptRunner {
           }
 
           if (battleType === 5) {
-            await this.showTextByLabel(asString(args[3]));
+            await this.showTrainerIntroText(trainerId, asString(args[3]));
             const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch');
             if (!wonOrEscaped) return;
             await this.showTextByLabel(asString(args[4]));
@@ -2122,7 +2167,7 @@ export class ScriptRunner {
           }
 
           if (battleType === 7) {
-            await this.showTextByLabel(asString(args[3]));
+            await this.showTrainerIntroText(trainerId, asString(args[3]));
             const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch_double');
             if (!wonOrEscaped) return;
             await this.showTextByLabel(asString(args[4]));
@@ -2131,7 +2176,7 @@ export class ScriptRunner {
 
           if (battleType === 9) { // TRAINER_BATTLE_PYRAMID
             if (isTrainerDefeated(trainerId)) break;
-            await this.showTextByLabel(asString(args[3]));
+            await this.showTrainerIntroText(trainerId, asString(args[3]));
             const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
             if (!wonOrEscaped) return;
             await this.showTextByLabel(asString(args[4]));
@@ -2148,7 +2193,7 @@ export class ScriptRunner {
           const trainerId = asString(args[0]);
           if (isTrainerDefeated(trainerId)) break;
 
-          await this.showTextByLabel(asString(args[1]));
+          await this.showTrainerIntroText(trainerId, asString(args[1]));
           const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'single');
           if (!wonOrEscaped) return;
 
@@ -2172,7 +2217,7 @@ export class ScriptRunner {
           const trainerId = asString(args[0]);
           if (isTrainerDefeated(trainerId)) break;
 
-          await this.showTextByLabel(asString(args[1]));
+          await this.showTrainerIntroText(trainerId, asString(args[1]));
           const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'double');
           if (!wonOrEscaped) return;
 
@@ -2194,7 +2239,7 @@ export class ScriptRunner {
         case 'trainerbattle_rematch': {
           // args: [trainerId, introText, defeatText]
           const trainerId = asString(args[0]);
-          await this.showTextByLabel(asString(args[1]));
+          await this.showTrainerIntroText(trainerId, asString(args[1]));
           const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch');
           if (!wonOrEscaped) return;
           await this.showTextByLabel(asString(args[2]));
@@ -2204,7 +2249,7 @@ export class ScriptRunner {
         case 'trainerbattle_rematch_double': {
           // args: [trainerId, introText, defeatText, notEnoughText]
           const trainerId = asString(args[0]);
-          await this.showTextByLabel(asString(args[1]));
+          await this.showTrainerIntroText(trainerId, asString(args[1]));
           const wonOrEscaped = await this.runTrainerBattleCommand(trainerId, 'rematch_double');
           if (!wonOrEscaped) return;
           await this.showTextByLabel(asString(args[2]));
@@ -2749,10 +2794,27 @@ export class ScriptRunner {
       }
     }
 
+    const emoteToFieldEffect: Record<string, string> = {
+      emote_exclamation_mark: 'FLDEFF_EXCLAMATION_MARK_ICON',
+      emote_question_mark: 'FLDEFF_QUESTION_MARK_ICON',
+      emote_heart: 'FLDEFF_HEART_ICON',
+    };
+
     for (const step of steps) {
-      // --- Emote commands (bubble animation stand-ins) ---
+      // --- Emote commands ---
       if (step.startsWith('emote_')) {
-        await this.ctx.delayFrames(8);
+        const effectName = emoteToFieldEffect[step];
+        if (effectName && this.services.fieldEffects?.run) {
+          const effectArgs = new Map<number, string | number>();
+          effectArgs.set(0, resolvedId);
+          if (!isPlayer) {
+            effectArgs.set(1, objectMapId);
+          }
+          await this.services.fieldEffects.run(effectName, effectArgs, { mapId: objectMapId });
+          await this.ctx.delayFrames(1);
+        } else {
+          await this.ctx.delayFrames(8);
+        }
         continue;
       }
 

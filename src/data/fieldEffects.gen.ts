@@ -1097,5 +1097,47 @@ export const FIELD_EFFECT_REGISTRY: Record<string, FieldEffectMetadata> = {
         "vFlip": false
       }
     ]
+  },
+  "EXCLAMATION_MARK_ICON": {
+    "id": "FLDEFF_EXCLAMATION_MARK_ICON",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/emotion_exclamation.png",
+    "width": 16,
+    "height": 16,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 60,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "QUESTION_MARK_ICON": {
+    "id": "FLDEFF_QUESTION_MARK_ICON",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/emotion_question.png",
+    "width": 16,
+    "height": 16,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 60,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
+  },
+  "HEART_ICON": {
+    "id": "FLDEFF_HEART_ICON",
+    "imagePath": "/pokeemerald/graphics/field_effects/pics/emotion_heart.png",
+    "width": 16,
+    "height": 16,
+    "animation": [
+      {
+        "frame": 0,
+        "duration": 60,
+        "hFlip": false,
+        "vFlip": false
+      }
+    ]
   }
 };

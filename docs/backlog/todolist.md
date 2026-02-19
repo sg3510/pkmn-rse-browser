@@ -288,7 +288,7 @@ See: [docs/systems/scripts-logic/script-engine-design.md](../systems/scripts-log
 ### 0.13 Field Effect Emotes
 > C ref: `src/field_effect.c` (exclamation mark, question mark)
 
-- [ ] Implement exclamation mark field effect used in early intro scenes (`Common_Movement_ExclamationMark`)
+- [x] Implement exclamation mark field effect used in early intro scenes (`Common_Movement_ExclamationMark`)
 - [x] Ensure field effects render above NPCs and respect script locking
 
 ### 0.14 Player Movement Timing Parity

@@ -244,6 +244,35 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
           return;
         }
 
+        if (
+          effectName === 'FLDEFF_EXCLAMATION_MARK_ICON'
+          || effectName === 'FLDEFF_QUESTION_MARK_ICON'
+          || effectName === 'FLDEFF_HEART_ICON'
+        ) {
+          const localId = args.get(0);
+          const mapId = typeof args.get(1) === 'string' && String(args.get(1)).startsWith('MAP_')
+            ? String(args.get(1))
+            : context?.mapId;
+
+          const normalizedArgs = new Map<number, string | number>(args);
+          if (
+            localId !== undefined
+            && (localId === 'LOCALID_PLAYER' || localId === '255' || typeof localId === 'number')
+          ) {
+            normalizedArgs.set(0, localId);
+          } else if (typeof localId === 'string' && localId.length > 0) {
+            normalizedArgs.set(0, localId);
+          }
+
+          if (mapId) {
+            normalizedArgs.set(1, mapId);
+          }
+
+          const job = deps.scriptFieldEffectAnimationManagerRef.current.start(effectName, normalizedArgs);
+          registerActiveFieldEffectJob(effectName, job);
+          return;
+        }
+
         if (effectName === 'FLDEFF_SPARKLE') {
           const tileX = Number(args.get(0));
           const tileY = Number(args.get(1));
@@ -297,7 +326,13 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
           return;
         }
 
-        if (effectName === 'FLDEFF_NPCFLY_OUT' || effectName === 'FLDEFF_SPARKLE') {
+        if (
+          effectName === 'FLDEFF_NPCFLY_OUT'
+          || effectName === 'FLDEFF_SPARKLE'
+          || effectName === 'FLDEFF_EXCLAMATION_MARK_ICON'
+          || effectName === 'FLDEFF_QUESTION_MARK_ICON'
+          || effectName === 'FLDEFF_HEART_ICON'
+        ) {
           await deps.scriptFieldEffectAnimationManagerRef.current.wait(effectName);
         }
       },

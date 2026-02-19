@@ -8,6 +8,7 @@
  */
 
 import { ITEMS } from '../../data/items.ts';
+import { getItemBattleEffect, HOLD_EFFECTS } from '../../data/itemBattleEffects.gen.ts';
 import { STATUS } from '../../pokemon/types.ts';
 
 export const BALL_SHAKES_SUCCESS = 3;
@@ -38,6 +39,21 @@ export interface CaptureShakeContext {
 export interface CaptureShakeResult {
   caught: boolean;
   shakes: 0 | 1 | 2 | 3;
+}
+
+export interface FaintExpDistributionPartySlot {
+  isPresent: boolean;
+  level: number;
+  hp: number;
+  heldItem: number;
+  participated: boolean;
+}
+
+export interface FaintExpDistributionContext {
+  baseExpYield: number;
+  faintedLevel: number;
+  trainerBattle: boolean;
+  party: readonly FaintExpDistributionPartySlot[];
 }
 
 export function scaleTrainerIvToBattleIv(rawIv: number): number {
@@ -153,4 +169,83 @@ export function calculateFaintExpAward(
   }
 
   return Math.max(1, exp);
+}
+
+/**
+ * C-parity EXP distribution for an enemy faint.
+ *
+ * Mirrors Cmd_getexp sent-in/Exp Share split:
+ * - If any Exp Share holders exist, base exp is split 50/50:
+ *   sent-in side / Exp Share side.
+ * - Sent-in share is divided among sent-in mons that are alive/present.
+ * - Exp Share share is divided among alive/present Exp Share holders.
+ * - A mon that both participated and holds Exp Share gets both portions.
+ * - Lucky Egg multiplier is applied before trainer-battle multiplier.
+ *
+ * C refs:
+ * - public/pokeemerald/src/battle_script_commands.c (Cmd_getexp)
+ */
+export function calculateFaintExpDistribution(
+  context: FaintExpDistributionContext
+): number[] {
+  const calculatedExp = Math.floor(
+    (Math.max(0, context.baseExpYield) * Math.max(1, context.faintedLevel)) / 7
+  );
+
+  let viaSentIn = 0;
+  let viaExpShare = 0;
+
+  for (const slot of context.party) {
+    if (!slot.isPresent || slot.hp <= 0) continue;
+    if (slot.participated) {
+      viaSentIn++;
+    }
+
+    const holdEffect = getItemBattleEffect(slot.heldItem)?.holdEffect;
+    if (holdEffect === HOLD_EFFECTS.HOLD_EFFECT_EXP_SHARE) {
+      viaExpShare++;
+    }
+  }
+
+  let sentInExp = 0;
+  let expShareExp = 0;
+
+  if (viaExpShare > 0) {
+    sentInExp = viaSentIn > 0 ? Math.floor(Math.floor(calculatedExp / 2) / viaSentIn) : 0;
+    if (sentInExp === 0) sentInExp = 1;
+
+    expShareExp = Math.floor(Math.floor(calculatedExp / 2) / viaExpShare);
+    if (expShareExp === 0) expShareExp = 1;
+  } else {
+    sentInExp = viaSentIn > 0 ? Math.floor(calculatedExp / viaSentIn) : 0;
+    if (sentInExp === 0) sentInExp = 1;
+  }
+
+  return context.party.map((slot) => {
+    if (!slot.isPresent || slot.hp <= 0 || slot.level >= 100) {
+      return 0;
+    }
+
+    const holdEffect = getItemBattleEffect(slot.heldItem)?.holdEffect;
+    const receivesViaExpShare = holdEffect === HOLD_EFFECTS.HOLD_EFFECT_EXP_SHARE;
+    const receivesViaParticipation = slot.participated;
+
+    if (!receivesViaExpShare && !receivesViaParticipation) {
+      return 0;
+    }
+
+    let exp = receivesViaParticipation ? sentInExp : 0;
+    if (receivesViaExpShare) {
+      exp += expShareExp;
+    }
+
+    if (holdEffect === HOLD_EFFECTS.HOLD_EFFECT_LUCKY_EGG) {
+      exp = Math.floor((exp * 150) / 100);
+    }
+    if (context.trainerBattle) {
+      exp = Math.floor((exp * 150) / 100);
+    }
+
+    return Math.max(1, exp);
+  });
 }

@@ -20,6 +20,7 @@ import { StartMenu } from './StartMenu';
 import { BagMenu } from './BagMenu';
 import { PartyMenuContent } from './PartyMenuContent';
 import { PokemonSummaryContent } from './PokemonSummaryContent';
+import { MoveForgetMenuContent } from './MoveForgetMenuContent';
 import type { PartyPokemon } from '../../pokemon/types';
 import '../styles/menu-overlay.css';
 
@@ -55,6 +56,7 @@ export function MenuOverlay() {
     'menu-container',
     layout.isFullscreen ? 'menu-container--fullscreen' : '',
   ].filter(Boolean).join(' ');
+  const showBackButton = currentMenu !== 'moveForget';
 
   // All other menus use the unified fullscreen container
   return (
@@ -65,12 +67,14 @@ export function MenuOverlay() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Back button - corner triangle, consistent across all menus */}
-        <button
-          className="menu-back-btn"
-          onClick={() => menuStateManager.back()}
-          title="Back (B)"
-          aria-label="Back"
-        />
+        {showBackButton ? (
+          <button
+            className="menu-back-btn"
+            onClick={() => menuStateManager.back()}
+            title="Back (B)"
+            aria-label="Back"
+          />
+        ) : null}
 
         {/* Menu content - switches based on currentMenu */}
         <MenuContent
@@ -94,6 +98,9 @@ function MenuContent({ currentMenu, data }: MenuContentProps) {
 
     case 'party':
       return <PartyMenuContent />;
+
+    case 'moveForget':
+      return <MoveForgetMenuContent />;
 
     case 'pokemonSummary': {
       const pokemon = data.pokemon as PartyPokemon | undefined;

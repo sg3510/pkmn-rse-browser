@@ -9,7 +9,7 @@ import type { LocationState } from '../../save/types';
 import { saveManager } from '../../save/SaveManager';
 import type { ObjectEventRuntimeState } from '../../types/objectEvents';
 import type { WeatherStateSnapshot } from '../../weather/types';
-import { tryGenerateLandEncounter } from './wildEncounterService';
+import { tryGenerateStepEncounter } from './wildEncounterService';
 
 interface MutableRef<T> {
   current: T;
@@ -139,10 +139,11 @@ export function tryStartOverworldWildEncounter(params: TryStartOverworldWildEnco
     const leadPokemon = getLeadPokemon();
     if (leadPokemon) {
       const weatherState = getWeatherSnapshot();
-      const encounter = tryGenerateLandEncounter({
+      const encounter = tryGenerateStepEncounter({
         mapId: currentStepState.mapId,
         currentTileBehavior: currentStepState.behavior,
         previousTileBehavior: previousStepState?.behavior,
+        playerIsSurfing: player.isSurfing(),
         leadPokemon,
         isBikeRiding: player.isBikeRiding(),
         weatherName: weatherState.activeWeather,
@@ -164,10 +165,6 @@ export function tryStartOverworldWildEncounter(params: TryStartOverworldWildEnco
             mapIdHint: currentStepState.mapId,
             playerIsSurfing: player.isSurfing(),
             savedWeather: weatherState.savedWeather,
-            wildBattle: {
-              source: 'special',
-              speciesId: encounter.species,
-            },
           }),
           returnLocation: buildLocationStateFromPlayer(player, currentStepState.mapId),
           returnObjectEventRuntimeState: getObjectEventRuntimeState(),
