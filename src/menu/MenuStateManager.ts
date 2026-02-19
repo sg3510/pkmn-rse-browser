@@ -37,6 +37,11 @@ export interface MoveForgetMenuOpenData {
   onMoveSlotChosen: (moveSlot: number | null) => void;
 }
 
+export interface FieldItemPartyMenuOpenData {
+  mode: 'fieldItemUse';
+  onFieldPartySelected: (partyIndex: number | null) => void;
+}
+
 export interface MenuState {
   /** Whether any menu is currently open */
   isOpen: boolean;

@@ -108,6 +108,19 @@ import { getDynamicWarpTarget } from '../game/DynamicWarp';
 import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
 import { ITEMS } from '../data/items';
+import { getSpeciesName } from '../data/species';
+import { getSpeciesInfo } from '../data/speciesInfo';
+import { getExpForLevel, recalculatePartyStatsCStyle } from '../pokemon/stats';
+import type { PartyPokemon } from '../pokemon/types';
+import {
+  getLevelUpMovesBetween,
+  runMoveLearningSequence,
+  type MoveLearningPrompts,
+} from '../pokemon/moveLearning';
+import { EVOLUTION_MODES } from '../data/evolutions.gen';
+import { getEvolutionTargetSpecies } from '../pokemon/evolution';
+import type { EvolutionQueueEntry } from '../evolution/types';
+import type { MoveForgetMenuOpenData } from '../menu/MenuStateManager';
 import {
   resetOverworldWildEncounterTracking,
   tryStartOverworldWildEncounter,
@@ -715,6 +728,183 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     }
   }, [showMessage]);
 
+  const openFieldItemPartyMenu = useCallback((): Promise<number | null> => {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value: number | null): void => {
+        if (settled) return;
+        settled = true;
+        unsubscribe();
+        resolve(value);
+      };
+      const unsubscribe = menuStateManager.subscribe((state) => {
+        if (!state.isOpen || state.currentMenu !== 'party') {
+          finish(null);
+        }
+      });
+
+      menuStateManager.open('party', {
+        mode: 'fieldItemUse',
+        onFieldPartySelected: (partyIndex: number | null) => {
+          finish(partyIndex);
+        },
+      });
+    });
+  }, []);
+
+  const openMoveForgetMenu = useCallback(
+    (mon: PartyPokemon, moveToLearnId: number): Promise<number | null> => {
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (value: number | null): void => {
+          if (settled) return;
+          settled = true;
+          unsubscribe();
+          resolve(value);
+        };
+        const unsubscribe = menuStateManager.subscribe((state) => {
+          if (!state.isOpen) {
+            finish(null);
+          }
+        });
+
+        const data: MoveForgetMenuOpenData = {
+          pokemonName: getPartyMonDisplayName(mon),
+          pokemonMoves: mon.moves,
+          pokemonPp: mon.pp,
+          moveToLearnId,
+          onMoveSlotChosen: (moveSlot) => {
+            finish(moveSlot);
+          },
+        };
+        menuStateManager.open('moveForget', data as unknown as Record<string, unknown>);
+      });
+    },
+    [],
+  );
+
+  const useRareCandyInField = useCallback(async (): Promise<boolean> => {
+    const partyIndex = await openFieldItemPartyMenu();
+    if (partyIndex === null) {
+      return false;
+    }
+
+    // Close bag/menu stack before dialog-driven level-up and move-learning flow.
+    menuStateManager.close();
+
+    const party = saveManager.getParty();
+    const mon = party[partyIndex];
+    if (!mon) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+    if (mon.level >= 100) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    const previousLevel = mon.level;
+    const speciesInfo = getSpeciesInfo(mon.species);
+    const growthRate = speciesInfo?.growthRate ?? 'MEDIUM_FAST';
+    const nextLevel = Math.min(100, previousLevel + 1);
+    const nextLevelExp = getExpForLevel(growthRate, nextLevel);
+
+    let updatedMon = recalculatePartyStatsCStyle({
+      ...mon,
+      experience: Math.max(mon.experience, nextLevelExp),
+    });
+    if (updatedMon.level <= previousLevel) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    if (!bagManager.removeItem(ITEMS.ITEM_RARE_CANDY, 1)) {
+      await showFieldMessage("There's no such item in your BAG.");
+      return false;
+    }
+
+    const partyAfterLevel = saveManager.getParty();
+    if (!partyAfterLevel[partyIndex]) {
+      return false;
+    }
+    partyAfterLevel[partyIndex] = updatedMon;
+    saveManager.setParty(partyAfterLevel);
+
+    await showFieldMessage(`${getPartyMonDisplayName(updatedMon)} grew to Lv. ${updatedMon.level}!`);
+
+    const movesToLearn = getLevelUpMovesBetween(updatedMon.species, previousLevel, updatedMon.level);
+    if (movesToLearn.length > 0) {
+      const prompts: MoveLearningPrompts = {
+        showMessage: (text) => showFieldMessage(text),
+        askYesNo: (text, options) => showYesNo(text, { defaultYes: options?.defaultYes ?? true }),
+        chooseMoveToReplace: (context) => openMoveForgetMenu(context.pokemon, context.moveId),
+      };
+      const result = await runMoveLearningSequence(updatedMon, movesToLearn, prompts);
+      updatedMon = result.pokemon;
+
+      const partyAfterMoves = saveManager.getParty();
+      if (partyAfterMoves[partyIndex]) {
+        partyAfterMoves[partyIndex] = updatedMon;
+        saveManager.setParty(partyAfterMoves);
+      }
+    }
+
+    const targetSpecies = getEvolutionTargetSpecies(
+      updatedMon,
+      EVOLUTION_MODES.EVO_MODE_NORMAL,
+    );
+    if (targetSpecies <= 0) {
+      return true;
+    }
+
+    const activePlayer = playerRef.current;
+    const runtimeState = objectEventManagerRef.current.getRuntimeState();
+    let returnLocation: LocationState | undefined;
+    if (activePlayer) {
+      const worldManager = worldManagerRef.current;
+      const mapInstance = worldManager?.findMapAtPosition(activePlayer.tileX, activePlayer.tileY) ?? null;
+      const mapId = mapInstance?.entry.id ?? saveManager.getCurrentMapId();
+      const localX = mapInstance ? activePlayer.tileX - mapInstance.offsetX : activePlayer.tileX;
+      const localY = mapInstance ? activePlayer.tileY - mapInstance.offsetY : activePlayer.tileY;
+      returnLocation = {
+        pos: { x: localX, y: localY },
+        location: { mapId, warpId: 0, x: localX, y: localY },
+        continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
+        lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+        escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+        direction: activePlayer.getFacingDirection(),
+        elevation: activePlayer.getElevation(),
+        isSurfing: activePlayer.isSurfing(),
+        isUnderwater: activePlayer.isUnderwater(),
+        bikeMode: activePlayer.getBikeMode(),
+        isRidingBike: activePlayer.isBikeRiding(),
+      };
+    }
+
+    const manager = stateManagerRef.current;
+    if (!manager) {
+      return true;
+    }
+
+    const queue: EvolutionQueueEntry[] = [{
+      partyIndex,
+      targetSpecies,
+      canStop: true,
+    }];
+
+    await manager.transitionTo(GameState.EVOLUTION, {
+      queue,
+      returnLocation,
+      returnObjectEventRuntimeState: runtimeState,
+    });
+    return true;
+  }, [
+    openFieldItemPartyMenu,
+    showFieldMessage,
+    showYesNo,
+    openMoveForgetMenu,
+  ]);
+
   const tryUseFieldItem = useCallback(async (itemId: number): Promise<boolean> => {
     const activePlayer = playerRef.current;
     if (!activePlayer) return false;
@@ -722,6 +912,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     if (!bagManager.hasItem(itemId, 1)) {
       await showFieldMessage("There's no such item in your BAG.");
       return false;
+    }
+
+    if (itemId === ITEMS.ITEM_RARE_CANDY) {
+      return useRareCandyInField();
     }
 
     if (itemId !== ITEMS.ITEM_MACH_BIKE && itemId !== ITEMS.ITEM_ACRO_BIKE) {
@@ -743,7 +937,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     // Keep SELECT registration synced to the bike the player just used.
     moneyManager.setRegisteredItem(itemId);
     return true;
-  }, [showFieldMessage]);
+  }, [showFieldMessage, useRareCandyInField]);
 
   const registerFieldItem = useCallback((itemId: number): void => {
     moneyManager.setRegisteredItem(itemId);
@@ -2591,6 +2785,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       />
     </div>
   );
+}
+
+function getPartyMonDisplayName(mon: PartyPokemon): string {
+  const nickname = mon.nickname?.trim();
+  return nickname && nickname.length > 0 ? nickname : getSpeciesName(mon.species);
 }
 
 export default GamePage;

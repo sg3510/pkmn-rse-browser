@@ -55,8 +55,10 @@ export function PartyMenuContent() {
   const party = localParty;
   const partyCount = party.filter(p => p !== null).length;
   const battleMode = data.mode === 'battle';
+  const fieldItemMode = data.mode === 'fieldItemUse';
   const activePartyIndex = typeof data.activePartyIndex === 'number' ? data.activePartyIndex : 0;
   const onBattlePartySelected = data.onBattlePartySelected as ((partyIndex: number | null) => void) | undefined;
+  const onFieldPartySelected = data.onFieldPartySelected as ((partyIndex: number | null) => void) | undefined;
 
   // Reset mode when menu opens
   useEffect(() => {
@@ -77,6 +79,11 @@ export function PartyMenuContent() {
             return;
           }
           onBattlePartySelected?.(cursorIndex);
+          menuStateManager.close();
+          return;
+        }
+        if (fieldItemMode) {
+          onFieldPartySelected?.(cursorIndex);
           menuStateManager.close();
           return;
         }
@@ -115,8 +122,10 @@ export function PartyMenuContent() {
     partyContext,
     localParty,
     battleMode,
+    fieldItemMode,
     activePartyIndex,
     onBattlePartySelected,
+    onFieldPartySelected,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -127,11 +136,14 @@ export function PartyMenuContent() {
     } else if (battleMode) {
       onBattlePartySelected?.(null);
       menuStateManager.close();
+    } else if (fieldItemMode) {
+      onFieldPartySelected?.(null);
+      menuStateManager.close();
     } else {
       // Go back via MenuStateManager
       menuStateManager.back();
     }
-  }, [mode, battleMode, onBattlePartySelected]);
+  }, [mode, battleMode, fieldItemMode, onBattlePartySelected, onFieldPartySelected]);
 
   const handleUp = useCallback(() => {
     const newIndex = navigateGrid(cursorIndex, 'up', 2, 6);
@@ -199,7 +211,13 @@ export function PartyMenuContent() {
           <span className="party-hint">Select slot or B: Cancel</span>
         ) : (
           <span className="party-hint">
-            {partyCount === 0 ? 'No POKéMON' : (battleMode ? 'A: Switch  B: Cancel' : 'A: View  B: Back')}
+            {partyCount === 0 ? 'No POKéMON' : (
+              battleMode
+                ? 'A: Switch  B: Cancel'
+                : fieldItemMode
+                  ? 'A: Use  B: Cancel'
+                  : 'A: View  B: Back'
+            )}
           </span>
         )}
       </div>

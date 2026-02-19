@@ -11,6 +11,7 @@ last_verified: 2026-02-19
 Implemented battle-integrated Gen 3 evolution and move-learning flow with Emerald-focused behavior:
 
 - Post-battle evolution queue for mons that leveled during battle (party index order).
+- Rare Candy field-use level-up path now reuses move-learning + evolution checks.
 - `EVO_MODE_NORMAL` resolution parity for level/friendship/day-night/beauty/atk-def/Silcoon-Cascoon/Ninjask branches.
 - Everstone blocking in normal mode.
 - Evolution cancel support while cycling sprites (`B` hold during cancel window, when `canStop` is true).

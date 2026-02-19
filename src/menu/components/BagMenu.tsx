@@ -159,16 +159,17 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
       return;
     }
 
-    // Field path: A = use item. Bikes can be mounted/dismounted from bag.
+    // Field path: A = use item. Supports key and non-key items (e.g. Rare Candy).
+    if (onFieldUseItem) {
+      void Promise.resolve(onFieldUseItem(selectedItem.itemId)).then((handled) => {
+        if (handled) {
+          menuStateManager.close();
+        }
+      });
+      return;
+    }
+
     if (pocket.id === 'keyItems') {
-      if (onFieldUseItem) {
-        void Promise.resolve(onFieldUseItem(selectedItem.itemId)).then((handled) => {
-          if (handled) {
-            menuStateManager.close();
-          }
-        });
-        return;
-      }
       moneyManager.setRegisteredItem(selectedItem.itemId);
       console.log('[BagMenu] Registered key item:', getItemName(selectedItem.itemId));
       menuStateManager.back();
