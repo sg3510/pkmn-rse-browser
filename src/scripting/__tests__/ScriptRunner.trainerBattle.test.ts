@@ -204,3 +204,39 @@ test('legacy trainerbattle single path uses intro fallback when intro label is m
   assert.equal(trainerBattleCalls[0].mode, 'single');
   assert.deepEqual(shownMessages, ["ROXANNE: Let's battle!", 'Roxanne was defeated!']);
 });
+
+test('trainerbattle_single sequence keeps intro text before battle callback', async () => {
+  gameVariables.reset();
+  saveStateStore.resetRuntimeState();
+
+  const eventLog: string[] = [];
+  const ctx = createContext({
+    showMessage: async (text: string) => {
+      eventLog.push(`message:${text}`);
+    },
+    startTrainerBattle: async (request) => {
+      eventLog.push(`battle-start:${request.trainerId}`);
+      return { outcome: BATTLE_OUTCOME.WON };
+    },
+  });
+
+  const { mapData, commonData } = createData(
+    [
+      { cmd: 'trainerbattle_single', args: ['TRAINER_JOSH', 'Text_Intro', 'Text_Defeat'] },
+      { cmd: 'end' },
+    ],
+    {
+      Text_Intro: 'Josh: I will crush you!',
+      Text_Defeat: 'Josh: I lost...',
+    },
+  );
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_RUSTBORO_CITY');
+  await runner.execute('Main');
+
+  assert.deepEqual(eventLog, [
+    'message:Josh: I will crush you!',
+    'battle-start:TRAINER_JOSH',
+    'message:Josh: I lost...',
+  ]);
+});

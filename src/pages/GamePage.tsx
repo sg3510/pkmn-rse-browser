@@ -162,7 +162,7 @@ import {
 } from './gamePage/overworldGameUpdate';
 import { findTrainerSightEncounterTrigger } from '../game/trainers/trainerSightEncounter.ts';
 import { getTrainerSightProbeTile } from '../game/trainers/trainerSightProbe.ts';
-import { playTrainerSightIntro } from '../game/trainers/playTrainerSightIntro.ts';
+import { runTrainerSightSequence } from '../game/trainers/runTrainerSightSequence.ts';
 import { createRotatingGateCollisionChecker } from './gamePage/collisionChecker';
 import { executeSeamTransitionScripts } from '../game/overworld/seam/seamTransitionScripts';
 import { createActionCallbacks } from './gamePage/actionCallbacks';
@@ -2045,30 +2045,23 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 preInputOnFrameTriggered = true;
                 const trigger = trainerSightTrigger;
                 void (async () => {
-                  player.lockInput();
-                  npcMovement.setEnabled(false);
                   try {
-                    await playTrainerSightIntro({
+                    await runTrainerSightSequence({
                       trigger,
                       player,
+                      npcMovement,
                       objectEventManager: objectEventManagerRef.current,
                       scriptRuntimeServices,
                       waitFrames: waitScriptFrames,
+                      runTrainerScript: (scriptName, mapId) =>
+                        runHandledStoryScriptRef.current(scriptName, mapId),
+                      setVarFacing: (value) => gameVariables.setVar('VAR_FACING', value),
+                      setVarLastTalked: (localId) => gameVariables.setVar('VAR_LAST_TALKED', localId),
+                      isWarping: () => warpingRef.current,
+                      isStoryScriptRunning: () => storyScriptRunningRef.current,
                     });
-                    gameVariables.setVar('VAR_FACING', { down: 1, up: 2, left: 3, right: 4 }[player.dir] ?? 0);
-                    gameVariables.setVar('VAR_LAST_TALKED', trigger.localIdNumber);
-                    if (!warpingRef.current) {
-                      await runHandledStoryScriptRef.current(trigger.scriptName, trigger.mapId);
-                    }
                   } finally {
                     trainerSightSequenceInFlightRef.current = false;
-                    if (!storyScriptRunningRef.current) {
-                      npcMovement.setEnabled(true);
-                      const activePlayer = playerRef.current;
-                      if (!warpingRef.current && activePlayer) {
-                        activePlayer.unlockInput();
-                      }
-                    }
                   }
                 })();
               }

@@ -17,6 +17,7 @@ import {
 import { AbnormalWeatherEffect } from './effects/AbnormalWeatherEffect';
 import { AshEffect } from './effects/AshEffect';
 import { CloudLayerEffect } from './effects/CloudLayerEffect';
+import { ColorTintEffect } from './effects/ColorTintEffect';
 import { FogLayerEffect } from './effects/FogLayerEffect';
 import { NoopWeatherEffect } from './effects/NoopWeatherEffect';
 import { RainEffect } from './effects/RainEffect';
@@ -51,7 +52,13 @@ const WEATHER_EFFECT_FACTORIES_BY_KEY: Partial<
   sandstorm: () => new SandstormEffect(),
   shade: () => new NoopWeatherEffect(),
   snow: () => new SnowEffect(),
-  sunny: () => new NoopWeatherEffect(),
+  sunny: () =>
+    new ColorTintEffect({
+      // Visual calibration for WEATHER_SUNNY on modern canvas/WebGL output.
+      // Keeps a visible warm/yellow sunlight cast in open routes like Route 118.
+      color: 'rgb(255, 226, 120)',
+      alpha: 0.14,
+    }),
   thunderstorm: () => new RainEffect('thunderstorm'),
   underwater_bubbles: () => new UnderwaterBubblesEffect(),
   volcanic_ash: () => new AshEffect(),

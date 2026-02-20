@@ -18,6 +18,9 @@ interface FogLayerOptions {
 }
 
 const FOG_ASSET_KEY = 'fog';
+// Canvas source-over alpha tends to overstate cave fog density vs GBA OBJ blend.
+// Scale down fog alpha to better match in-game perceived intensity.
+const FOG_BLEND_ALPHA_GAIN = 0.65;
 
 export class FogLayerEffect implements WeatherEffect {
   private fogCanvas: HTMLCanvasElement | null = null;
@@ -63,7 +66,10 @@ export class FogLayerEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     if (!this.fogCanvas) return;
-    const blendAlpha = Math.max(0, Math.min(1, context.blendEva / 16));
+    const blendAlpha = Math.max(
+      0,
+      Math.min(1, (context.blendEva / 16) * FOG_BLEND_ALPHA_GAIN)
+    );
     if (blendAlpha <= 0) return;
 
     this.renderer.render(context.ctx2d, this.fogCanvas, context.view, {
