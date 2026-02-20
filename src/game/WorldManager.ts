@@ -172,6 +172,10 @@ export class WorldManager {
 
   /** Tileset pair scheduler for smart loading/unloading */
   private scheduler: TilesetPairScheduler = new TilesetPairScheduler();
+  /** Last known player position/facing, used to keep GPU slot assignment fresh during async map loads. */
+  private lastPlayerTileX: number | null = null;
+  private lastPlayerTileY: number | null = null;
+  private lastPlayerDirection: 'up' | 'down' | 'left' | 'right' | null = null;
   /** Prevent overlapping connected-map load runs */
   private connectedMapsLoadInFlight: Promise<void> | null = null;
   /** Track background initialize stitching */
@@ -327,6 +331,9 @@ export class WorldManager {
 
     // Reset scheduler state (but keep callbacks)
     this.scheduler.reset();
+    this.lastPlayerTileX = null;
+    this.lastPlayerTileY = null;
+    this.lastPlayerDirection = null;
     this.connectedMapsLoadInFlight = null;
     this.backgroundInitializeLoadInFlight = null;
 
@@ -411,33 +418,10 @@ export class WorldManager {
 
     // Update scheduler - this handles GPU slot swapping and preloading
     if (currentPair) {
-      const result = this.scheduler.update(
-        playerTileX,
-        playerTileY,
-        currentPair.id,
-        playerDirection
-      );
-
-      if (result.needsRebuild) {
-        // GPU slots changed, notify listeners
-        this.emit({
-          type: 'gpuSlotsSwapped',
-          slot0PairId: result.newSlot0,
-          slot1PairId: result.newSlot1,
-          needsRebuild: true,
-        });
-
-        // Also emit tilesetsChanged for backward compatibility
-        const pair0 = result.newSlot0 ? this.scheduler.getCachedPair(result.newSlot0) : null;
-        const pair1 = result.newSlot1 ? this.scheduler.getCachedPair(result.newSlot1) : null;
-        if (pair0) {
-          this.emit({
-            type: 'tilesetsChanged',
-            pair0,
-            pair1,
-          });
-        }
-      }
+      this.lastPlayerTileX = playerTileX;
+      this.lastPlayerTileY = playerTileY;
+      this.lastPlayerDirection = playerDirection;
+      this.refreshSchedulerSlots(playerTileX, playerTileY, playerDirection, currentPair.id);
     }
 
     // Lightweight anchor tracking: update anchorMapId when player enters a new map
@@ -449,6 +433,74 @@ export class WorldManager {
 
     // Load any missing connected maps
     await this.loadConnectedMapsGuarded(currentMap);
+  }
+
+  private refreshSchedulerSlots(
+    playerTileX: number,
+    playerTileY: number,
+    playerDirection: 'up' | 'down' | 'left' | 'right' | null,
+    currentPairId: string
+  ): void {
+    const result = this.scheduler.update(
+      playerTileX,
+      playerTileY,
+      currentPairId,
+      playerDirection
+    );
+
+    if (!result.needsRebuild) {
+      return;
+    }
+
+    // GPU slots changed, notify listeners
+    this.emit({
+      type: 'gpuSlotsSwapped',
+      slot0PairId: result.newSlot0,
+      slot1PairId: result.newSlot1,
+      needsRebuild: true,
+    });
+
+    // Also emit tilesetsChanged for backward compatibility
+    const pair0 = result.newSlot0 ? this.scheduler.getCachedPair(result.newSlot0) : null;
+    const pair1 = result.newSlot1 ? this.scheduler.getCachedPair(result.newSlot1) : null;
+    if (pair0) {
+      this.emit({
+        type: 'tilesetsChanged',
+        pair0,
+        pair1,
+      });
+    }
+  }
+
+  /**
+   * During async map stitching, a freshly loaded map can become renderable before the next
+   * regular update() tick. Refresh slots against the latest known player position so
+   * secondary metatiles never resolve against a missing/old GPU slot mapping.
+   */
+  private refreshSchedulerSlotsForLastPlayerPosition(): void {
+    if (this.lastPlayerTileX === null || this.lastPlayerTileY === null) {
+      return;
+    }
+    const playerMap = this.findMapAtPosition(this.lastPlayerTileX, this.lastPlayerTileY);
+    if (!playerMap) {
+      return;
+    }
+
+    const pairIndex = this.mapTilesetPairIndex.get(playerMap.entry.id);
+    if (pairIndex === undefined) {
+      return;
+    }
+    const pair = this.tilesetPairs[pairIndex];
+    if (!pair) {
+      return;
+    }
+
+    this.refreshSchedulerSlots(
+      this.lastPlayerTileX,
+      this.lastPlayerTileY,
+      this.lastPlayerDirection,
+      pair.id
+    );
   }
 
   /**
@@ -926,6 +978,9 @@ export class WorldManager {
 
       this.maps.set(entry.id, mapInstance);
       this.mapTilesetPairIndex.set(entry.id, pairIndex);
+
+      // Keep GPU slot assignment coherent with newly loaded maps before resolvers rebuild.
+      this.refreshSchedulerSlotsForLastPlayerPosition();
 
       // Emit maps changed
       this.debugLog(`[MAPS_CHANGED] Emitting after loading ${entry.id}. Total maps: ${this.maps.size}, anchor: ${this.anchorMapId}`);
