@@ -10,7 +10,7 @@ import { ABILITIES } from '../../data/abilities.ts';
 import { getBattleMoveData } from '../../data/battleMoves.gen.ts';
 import { HOLD_EFFECTS, getItemBattleEffect } from '../../data/itemBattleEffects.gen.ts';
 import { MOVES } from '../../data/moves.ts';
-import { getSpeciesName } from '../../data/species.ts';
+import { formatPokemonDisplayName } from '../../pokemon/displayName.ts';
 import type { PartyPokemon } from '../../pokemon/types.ts';
 import { STATUS } from '../../pokemon/types.ts';
 import { getAbility } from '../../pokemon/stats.ts';
@@ -140,10 +140,9 @@ export class BattleEngine {
   }
 
   private wrapPartyMon(pokemon: PartyPokemon, isPlayer: boolean, partyIndex: number): BattlePokemon {
-    const defaultName = getSpeciesName(pokemon.species);
     return {
       pokemon: { ...pokemon },
-      name: pokemon.nickname?.trim() || defaultName,
+      name: formatPokemonDisplayName(pokemon),
       currentHp: pokemon.stats.hp,
       maxHp: pokemon.stats.maxHp,
       stages: createDefaultStages(),
@@ -160,9 +159,8 @@ export class BattleEngine {
     isPlayer: boolean,
     partyIndex: number,
   ): void {
-    const defaultName = getSpeciesName(pokemon.species);
     target.pokemon = { ...pokemon };
-    target.name = pokemon.nickname?.trim() || defaultName;
+    target.name = formatPokemonDisplayName(pokemon);
     target.currentHp = pokemon.stats.hp;
     target.maxHp = pokemon.stats.maxHp;
     target.stages = createDefaultStages();

@@ -21,6 +21,7 @@ import {
 import { berryManager } from '../../game/berry/BerryManager.ts';
 import { saveManager } from '../../save/SaveManager';
 import type { LocationState } from '../../save/types';
+import { buildLocationState } from '../../world/locationStateFactory';
 
 interface MutableRef<T> {
   current: T;
@@ -187,19 +188,17 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
     const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
 
-    return {
-      pos: { x: localX, y: localY },
-      location: { mapId, warpId: 0, x: localX, y: localY },
-      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+    return buildLocationState({
+      mapId,
+      x: localX,
+      y: localY,
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
-    };
+    });
   };
 
   const runScriptSaveGame = (): boolean => {

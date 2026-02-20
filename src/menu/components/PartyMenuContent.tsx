@@ -8,7 +8,12 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
-import { menuStateManager } from '../MenuStateManager';
+import {
+  getMenuDataFor,
+  menuStateManager,
+  type BattlePartyMenuOpenData,
+  type FieldItemPartyMenuOpenData,
+} from '../MenuStateManager';
 import { navigateGrid } from '../types';
 import { usePartyOptional } from '../../contexts/PartyContext';
 import { PartySlot } from './PartySlot';
@@ -18,6 +23,14 @@ import type { PartyPokemon } from '../../pokemon/types';
 import '../styles/party-menu-content.css';
 
 type PartyMode = 'select' | 'swap';
+
+function isBattlePartyMenuData(data: unknown): data is BattlePartyMenuOpenData {
+  return Boolean(data && typeof data === 'object' && 'mode' in data && (data as { mode?: unknown }).mode === 'battle');
+}
+
+function isFieldItemPartyMenuData(data: unknown): data is FieldItemPartyMenuOpenData {
+  return Boolean(data && typeof data === 'object' && 'mode' in data && (data as { mode?: unknown }).mode === 'fieldItemUse');
+}
 
 export function PartyMenuContent() {
   const { cursorIndex, isOpen, currentMenu, data } = useMenuState();
@@ -54,11 +67,14 @@ export function PartyMenuContent() {
 
   const party = localParty;
   const partyCount = party.filter(p => p !== null).length;
-  const battleMode = data.mode === 'battle';
-  const fieldItemMode = data.mode === 'fieldItemUse';
-  const activePartyIndex = typeof data.activePartyIndex === 'number' ? data.activePartyIndex : 0;
-  const onBattlePartySelected = data.onBattlePartySelected as ((partyIndex: number | null) => void) | undefined;
-  const onFieldPartySelected = data.onFieldPartySelected as ((partyIndex: number | null) => void) | undefined;
+  const partyData = getMenuDataFor({ currentMenu, data }, 'party') ?? {};
+  const battleData = isBattlePartyMenuData(partyData) ? partyData : null;
+  const fieldData = isFieldItemPartyMenuData(partyData) ? partyData : null;
+  const battleMode = battleData !== null;
+  const fieldItemMode = fieldData !== null;
+  const activePartyIndex = typeof battleData?.activePartyIndex === 'number' ? battleData.activePartyIndex : 0;
+  const onBattlePartySelected = battleData?.onBattlePartySelected;
+  const onFieldPartySelected = fieldData?.onFieldPartySelected;
 
   // Reset mode when menu opens
   useEffect(() => {
@@ -79,12 +95,12 @@ export function PartyMenuContent() {
             return;
           }
           onBattlePartySelected?.(cursorIndex);
-          menuStateManager.close();
+          menuStateManager.resolveAsync(cursorIndex);
           return;
         }
         if (fieldItemMode) {
           onFieldPartySelected?.(cursorIndex);
-          menuStateManager.close();
+          menuStateManager.resolveAsync(cursorIndex);
           return;
         }
 
@@ -135,10 +151,10 @@ export function PartyMenuContent() {
       setSwapSourceIndex(null);
     } else if (battleMode) {
       onBattlePartySelected?.(null);
-      menuStateManager.close();
+      menuStateManager.resolveAsync(null);
     } else if (fieldItemMode) {
       onFieldPartySelected?.(null);
-      menuStateManager.close();
+      menuStateManager.resolveAsync(null);
     } else {
       // Go back via MenuStateManager
       menuStateManager.back();

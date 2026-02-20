@@ -29,6 +29,7 @@ This folder uses frontmatter in every markdown document to make status explicit.
 
 ## Recently Updated
 - Birch intro rendering/layering + scaling notes: `docs/architecture/intro/birch-intro-rendering.md`
+- Prompt/menu/move-flow unification architecture note: `docs/architecture/prompt-menu-unification.md`
 
 ## How to keep docs accurate
 1. Update the frontmatter `status` and `last_verified` whenever behavior changes.

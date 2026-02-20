@@ -9,8 +9,8 @@
 
 import { getLearnset } from '../data/learnsets.gen.ts';
 import { getMoveInfo, getMoveName, MOVES } from '../data/moves.ts';
-import { getSpeciesName } from '../data/species.ts';
 import type { PartyPokemon } from './types.ts';
+import { formatPokemonDisplayName } from './displayName.ts';
 
 export const HM_MOVES = new Set<number>([
   MOVES.CUT,
@@ -50,11 +50,6 @@ export interface MoveLearningResult {
 export interface MoveLearnAttemptResult {
   kind: 'already_knows' | 'learned' | 'needs_replacement';
   pokemon: PartyPokemon;
-}
-
-function getDisplayName(mon: PartyPokemon): string {
-  const nickname = mon.nickname?.trim();
-  return nickname && nickname.length > 0 ? nickname : getSpeciesName(mon.species);
 }
 
 function withMoveSlot(mon: PartyPokemon, slot: number, moveId: number): PartyPokemon {
@@ -102,6 +97,37 @@ export function getMovesAtExactLevel(
     .map((entry) => entry.moveId);
 }
 
+/**
+ * C ref: public/pokeemerald/src/pokemon.c (GetNumberOfRelearnableMoves)
+ * Returns level-up moves up to current level that the mon does not currently know.
+ */
+export function getRelearnableMoves(mon: PartyPokemon): number[] {
+  if (mon.isEgg) {
+    return [];
+  }
+
+  const knownMoves = new Set(mon.moves.filter((moveId) => moveId !== MOVES.NONE));
+  const relearnable: number[] = [];
+  const seen = new Set<number>();
+  const learnset = getLearnset(mon.species);
+
+  for (const entry of learnset) {
+    if (entry.level > mon.level) {
+      continue;
+    }
+    if (knownMoves.has(entry.moveId)) {
+      continue;
+    }
+    if (seen.has(entry.moveId)) {
+      continue;
+    }
+    seen.add(entry.moveId);
+    relearnable.push(entry.moveId);
+  }
+
+  return relearnable;
+}
+
 export function isHmMove(moveId: number): boolean {
   return HM_MOVES.has(moveId);
 }
@@ -144,7 +170,7 @@ async function runReplaceFlow(
   moveId: number,
   prompts: MoveLearningPrompts,
 ): Promise<{ pokemon: PartyPokemon; learned: boolean }> {
-  const pokemonName = getDisplayName(mon);
+  const pokemonName = formatPokemonDisplayName(mon);
   const moveName = getMoveName(moveId);
 
   for (;;) {
@@ -221,7 +247,7 @@ export async function runMoveLearningSequence(
     if (attempt.kind === 'learned') {
       nextMon = attempt.pokemon;
       learnedMoveIds.push(moveId);
-      await prompts.showMessage(`${getDisplayName(nextMon)} learned ${getMoveName(moveId)}!`);
+      await prompts.showMessage(`${formatPokemonDisplayName(nextMon)} learned ${getMoveName(moveId)}!`);
       continue;
     }
 

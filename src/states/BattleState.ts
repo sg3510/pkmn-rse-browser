@@ -15,6 +15,7 @@ import {
   type StateTransition,
 } from '../core/GameState';
 import { inputMap, GameButton } from '../core/InputMap';
+import { PromptService, drawPromptYesNo } from '../core/prompt/PromptService';
 import type { ViewportConfig } from '../config/viewport';
 import type { LocationState } from '../save/types';
 import { saveManager } from '../save/SaveManager';
@@ -62,9 +63,9 @@ import { getEvolutionTargetSpecies } from '../pokemon/evolution';
 import {
   getLevelUpMovesBetween,
   runMoveLearningSequence,
-  type MoveLearningPrompts,
 } from '../pokemon/moveLearning';
-import type { MoveForgetMenuOpenData } from '../menu/MenuStateManager';
+import { formatPokemonDisplayName } from '../pokemon/displayName';
+import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter';
 import type { EvolutionQueueEntry } from '../evolution/types';
 
 // WebGL rendering
@@ -235,25 +236,6 @@ interface PendingLevelUpMoveLearning {
   updatedLevel: number;
 }
 
-interface MessagePromptState {
-  type: 'message';
-  text: string;
-  visibleChars: number;
-  elapsedMs: number;
-  resolve: () => void;
-}
-
-interface YesNoPromptState {
-  type: 'yesNo';
-  text: string;
-  visibleChars: number;
-  elapsedMs: number;
-  cursor: 0 | 1;
-  resolve: (answer: boolean) => void;
-}
-
-type InteractivePromptState = MessagePromptState | YesNoPromptState;
-
 export class BattleState implements StateRenderer {
   readonly id = GameState.BATTLE;
 
@@ -316,7 +298,7 @@ export class BattleState implements StateRenderer {
   private pendingLevelUpMoveLearning: PendingLevelUpMoveLearning[] = [];
   private leveledPartySlots = new Set<number>();
   private evolutionQueue: EvolutionQueueEntry[] = [];
-  private promptState: InteractivePromptState | null = null;
+  private promptService = new PromptService();
 
   // WebGL rendering
   private webgl: BattleWebGLContext | null = null;
@@ -338,7 +320,7 @@ export class BattleState implements StateRenderer {
     this.pendingLevelUpMoveLearning = [];
     this.leveledPartySlots.clear();
     this.evolutionQueue = [];
-    this.promptState = null;
+    this.promptService.clear();
     this.transitionReady = false;
     this.waitingForBattleMenu = false;
     this.battleTurnCounter = 0;
@@ -523,7 +505,7 @@ export class BattleState implements StateRenderer {
     this.pendingLevelUpMoveLearning = [];
     this.leveledPartySlots.clear();
     this.evolutionQueue = [];
-    this.promptState = null;
+    this.promptService.clear();
     this.waitingForBattleMenu = false;
     this.battleTurnCounter = 0;
     this.isUnderwaterBattle = false;
@@ -564,7 +546,7 @@ export class BattleState implements StateRenderer {
       this.playerSendOutElapsedMs += _dt;
     }
     this.tickMessagePrinter(_dt);
-    this.tickPromptPrinter(_dt);
+    this.promptService.tick(_dt, this.getBattleTextDelayMs());
     this.tickSwitchSendOutAnimation(_dt);
     this.playerSwitchSpriteAnimMs = Math.max(0, this.playerSwitchSpriteAnimMs - _dt);
     this.enemySwitchSpriteAnimMs = Math.max(0, this.enemySwitchSpriteAnimMs - _dt);
@@ -586,8 +568,13 @@ export class BattleState implements StateRenderer {
     const confirmPressed = inputMap.isPressed(input, GameButton.A);
     const cancelPressed = inputMap.isPressed(input, GameButton.B);
 
-    if (this.promptState) {
-      this.handlePromptInput(input, confirmPressed, cancelPressed);
+    if (this.promptService.isActive()) {
+      this.promptService.handleInput({
+        confirmPressed,
+        cancelPressed,
+        upPressed: inputMap.isPressed(input, GameButton.UP),
+        downPressed: inputMap.isPressed(input, GameButton.DOWN),
+      });
       return null;
     }
 
@@ -913,19 +900,17 @@ export class BattleState implements StateRenderer {
 
     this.renderStatIndicators(ctx2d, offsetX, offsetY);
 
-    if (this.promptState) {
+    const promptRenderState = this.promptService.getRenderState();
+    if (promptRenderState) {
       drawTextBox(
         ctx2d,
         offsetX,
         offsetY,
-        this.promptState.text,
-        this.promptState.visibleChars,
+        promptRenderState.text,
+        promptRenderState.visibleChars,
       );
-      if (
-        this.promptState.type === 'yesNo'
-        && this.promptState.visibleChars >= this.promptState.text.length
-      ) {
-        this.drawYesNoPrompt(ctx2d, offsetX, offsetY, this.promptState.cursor);
+      if (promptRenderState.type === 'yesNo' && promptRenderState.isFullyVisible) {
+        drawPromptYesNo(ctx2d, offsetX, offsetY, promptRenderState.cursor ?? 0);
       }
       ctx2d.restore();
       return;
@@ -1056,105 +1041,12 @@ export class BattleState implements StateRenderer {
     this.messageVisibleChars = Math.max(0, Math.min(message.length, chars));
   }
 
-  private tickPromptPrinter(dt: number): void {
-    if (!this.promptState) {
-      return;
-    }
-    this.promptState.elapsedMs += dt;
-    const chars = Math.floor(this.promptState.elapsedMs / this.getBattleTextDelayMs());
-    this.promptState.visibleChars = Math.max(0, Math.min(this.promptState.text.length, chars));
-  }
-
-  private handlePromptInput(input: InputState, confirmPressed: boolean, cancelPressed: boolean): void {
-    const prompt = this.promptState;
-    if (!prompt) {
-      return;
-    }
-
-    if (prompt.visibleChars < prompt.text.length) {
-      if (confirmPressed || cancelPressed) {
-        prompt.visibleChars = prompt.text.length;
-      }
-      return;
-    }
-
-    if (prompt.type === 'message') {
-      if (confirmPressed || cancelPressed) {
-        const resolve = prompt.resolve;
-        this.promptState = null;
-        resolve();
-      }
-      return;
-    }
-
-    if (inputMap.isPressed(input, GameButton.UP) || inputMap.isPressed(input, GameButton.DOWN)) {
-      prompt.cursor = prompt.cursor === 0 ? 1 : 0;
-      return;
-    }
-
-    if (confirmPressed) {
-      const resolve = prompt.resolve;
-      const answer = prompt.cursor === 0;
-      this.promptState = null;
-      resolve(answer);
-      return;
-    }
-
-    if (cancelPressed) {
-      const resolve = prompt.resolve;
-      this.promptState = null;
-      resolve(false);
-    }
-  }
-
   private showPromptMessage(text: string): Promise<void> {
-    return new Promise((resolve) => {
-      this.promptState = {
-        type: 'message',
-        text,
-        visibleChars: 0,
-        elapsedMs: 0,
-        resolve,
-      };
-    });
+    return this.promptService.showMessage(text);
   }
 
   private showPromptYesNo(text: string, defaultYes: boolean): Promise<boolean> {
-    return new Promise((resolve) => {
-      this.promptState = {
-        type: 'yesNo',
-        text,
-        visibleChars: 0,
-        elapsedMs: 0,
-        cursor: defaultYes ? 0 : 1,
-        resolve,
-      };
-    });
-  }
-
-  private drawYesNoPrompt(
-    ctx: CanvasRenderingContext2D,
-    offsetX: number,
-    offsetY: number,
-    cursor: 0 | 1,
-  ): void {
-    const boxX = offsetX + 182;
-    const boxY = offsetY + 104;
-    const boxWidth = 48;
-    const boxHeight = 34;
-
-    ctx.fillStyle = '#f8f8f8';
-    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-    ctx.strokeStyle = '#303030';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-
-    ctx.fillStyle = '#383838';
-    ctx.font = '10px "Pokemon Emerald", monospace';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(cursor === 0 ? '▶ YES' : '  YES', boxX + 6, boxY + 7);
-    ctx.fillText(cursor === 1 ? '▶ NO' : '  NO', boxX + 6, boxY + 18);
+    return this.promptService.showYesNo(text, defaultYes);
   }
 
   private getBattleTextDelayMs(): number {
@@ -1298,85 +1190,26 @@ export class BattleState implements StateRenderer {
   }
 
   private openBattleBagMenu(): Promise<number | null> {
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (value: number | null): void => {
-        if (settled) return;
-        settled = true;
-        unsubscribe();
-        resolve(value);
-      };
-      const unsubscribe = menuStateManager.subscribe((state) => {
-        if (!state.isOpen) {
-          finish(null);
-        }
-      });
-
-      menuStateManager.open('bag', {
-        mode: 'battle',
-        onBattleItemSelected: (itemId: number | null) => {
-          finish(itemId);
-        },
-      });
-    });
+    return menuStateManager.openAsync<'bag', number>('bag', { mode: 'battle' });
   }
 
   private openBattlePartyMenu(): Promise<number | null> {
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (value: number | null): void => {
-        if (settled) return;
-        settled = true;
-        unsubscribe();
-        resolve(value);
-      };
-      const unsubscribe = menuStateManager.subscribe((state) => {
-        if (!state.isOpen) {
-          finish(null);
-        }
-      });
-
-      menuStateManager.open('party', {
-        mode: 'battle',
-        activePartyIndex: this.playerPartyIndex,
-        onBattlePartySelected: (partyIndex: number | null) => {
-          finish(partyIndex);
-        },
-      });
+    return menuStateManager.openAsync<'party', number>('party', {
+      mode: 'battle',
+      activePartyIndex: this.playerPartyIndex,
     });
   }
 
-  private openMoveForgetMenu(mon: PartyPokemon, moveToLearnId: number): Promise<number | null> {
-    return new Promise((resolve) => {
-      this.waitingForBattleMenu = true;
-      let settled = false;
-
-      const finish = (value: number | null): void => {
-        if (settled) return;
-        settled = true;
-        unsubscribe();
-        this.waitingForBattleMenu = false;
-        resolve(value);
-      };
-
-      const unsubscribe = menuStateManager.subscribe((state) => {
-        if (!state.isOpen) {
-          finish(null);
-        }
+  private async openMoveForgetMenu(mon: PartyPokemon, moveToLearnId: number): Promise<number | null> {
+    this.waitingForBattleMenu = true;
+    try {
+      return await menuStateManager.openAsync<'moveForget', number>('moveForget', {
+        ...createMoveForgetMenuData(mon, moveToLearnId),
+        mode: 'learn',
       });
-
-      const data: MoveForgetMenuOpenData = {
-        pokemonName: getDisplayName(mon),
-        pokemonMoves: mon.moves,
-        pokemonPp: mon.pp,
-        moveToLearnId,
-        onMoveSlotChosen: (moveSlot) => {
-          finish(moveSlot);
-        },
-      };
-
-      menuStateManager.open('moveForget', data as unknown as Record<string, unknown>);
-    });
+    } finally {
+      this.waitingForBattleMenu = false;
+    }
   }
 
   private handleBattleItemSelection(itemId: number): void {
@@ -1602,7 +1435,7 @@ export class BattleState implements StateRenderer {
 
     const current = this.playerMon;
     const currentName = current.name;
-    const targetName = target.nickname?.trim() || getSpeciesName(target.species);
+    const targetName = formatPokemonDisplayName(target);
     const prevSpecies = current.pokemon.species;
 
     party[this.playerPartyIndex] = this.toPersistedPartyPokemon(current);
@@ -1832,7 +1665,7 @@ export class BattleState implements StateRenderer {
 
     const entries: BattleMessageEntry[] = [];
     for (const reward of pendingRewards) {
-      const monName = reward.updatedMon.nickname?.trim() || getSpeciesName(reward.updatedMon.species);
+      const monName = formatPokemonDisplayName(reward.updatedMon);
       entries.push({
         text: `${monName} gained ${reward.gainedExp} EXP. Points!`,
         onStart: () => {
@@ -1865,7 +1698,7 @@ export class BattleState implements StateRenderer {
       return;
     }
 
-    const monName = reward.updatedMon.nickname?.trim() || getSpeciesName(reward.updatedMon.species);
+    const monName = formatPokemonDisplayName(reward.updatedMon);
     this.playerMon.pokemon = {
       ...reward.updatedMon,
       stats: {
@@ -1909,11 +1742,15 @@ export class BattleState implements StateRenderer {
         continue;
       }
 
-      const prompts: MoveLearningPrompts = {
-        showMessage: (text) => this.showPromptMessage(text),
-        askYesNo: (text, options) => this.showPromptYesNo(text, options?.defaultYes ?? true),
-        chooseMoveToReplace: (context) => this.openMoveForgetMenu(context.pokemon, context.moveId),
-      };
+      const prompts = createMoveLearningPromptAdapter(
+        {
+          showMessage: (text) => this.showPromptMessage(text),
+          showYesNo: (text, defaultYes) => this.showPromptYesNo(text, defaultYes),
+        },
+        {
+          openMoveForgetMenu: (pokemon, moveId) => this.openMoveForgetMenu(pokemon, moveId),
+        },
+      );
       const result = await runMoveLearningSequence(mon, movesToLearn, prompts);
 
       const latestParty = saveManager.getParty();
@@ -1932,7 +1769,7 @@ export class BattleState implements StateRenderer {
               ...updatedMon.stats,
             },
           };
-          this.playerMon.name = getDisplayName(updatedMon);
+          this.playerMon.name = formatPokemonDisplayName(updatedMon);
           this.playerMon.currentHp = updatedMon.stats.hp;
           this.playerMon.maxHp = updatedMon.stats.maxHp;
           this.playerHpTarget = updatedMon.stats.hp;
@@ -2827,11 +2664,6 @@ export class BattleState implements StateRenderer {
 
 export function createBattleState(): StateRenderer {
   return new BattleState();
-}
-
-function getDisplayName(mon: PartyPokemon): string {
-  const nickname = mon.nickname?.trim();
-  return nickname && nickname.length > 0 ? nickname : getSpeciesName(mon.species);
 }
 
 function lerp(start: number, end: number, t: number): number {

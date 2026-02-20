@@ -9,6 +9,7 @@ import { loadBinaryAsset, loadImageCanvasAsset, loadTextAsset } from '../../util
 import { decodeGbaBgTilemap, drawGbaBgTilemap, type IndexedGbaTilesetSource } from '../../rendering/gbaTilemap';
 import { loadTilesetImage, parsePalette, type TilesetImageData } from '../../utils/mapLoader';
 import { STATUS } from '../../pokemon/types';
+import { wrapPromptParagraphs } from '../../core/prompt/textLayout';
 import { BATTLE_LAYOUT } from './BattleLayout';
 
 interface BattleInterfaceAssets {
@@ -471,27 +472,14 @@ export function drawTextBox(
     : Math.max(0, Math.min(text.length, Math.trunc(visibleChars)));
   const visibleText = text.slice(0, clampedVisibleChars);
 
-  const lines: string[] = [];
-  const paragraphs = visibleText.split('\n');
-  for (const paragraph of paragraphs) {
-    const words = paragraph.split(' ');
-    let currentLine = '';
-    for (const word of words) {
-      const nextLine = currentLine.length > 0 ? `${currentLine} ${word}` : word;
-      if (ctx.measureText(nextLine).width > window.textWidth && currentLine.length > 0) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = nextLine;
-      }
-      if (lines.length >= window.maxLines) break;
-    }
-    if (lines.length >= window.maxLines) break;
-    if (currentLine.length > 0 || paragraph.length === 0) {
-      lines.push(currentLine);
-    }
-    if (lines.length >= window.maxLines) break;
-  }
+  const lines = wrapPromptParagraphs(
+    visibleText,
+    {
+      maxWidth: window.textWidth,
+      measureText: (value) => ctx.measureText(value).width,
+    },
+    window.maxLines,
+  );
 
   for (let i = 0; i < Math.min(lines.length, window.maxLines); i++) {
     ctx.fillText(

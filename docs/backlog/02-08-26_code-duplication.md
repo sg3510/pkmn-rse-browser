@@ -1,16 +1,16 @@
 ---
-title: "Code Duplication Patterns (#14–#28)"
+title: "Code Duplication Patterns (#14–#34)"
 status: verified
-last_verified: 2026-02-08
+last_verified: 2026-02-20
 ---
 
-# Code Duplication Patterns (#14–#28)
+# Code Duplication Patterns (#14–#34)
 
 Addendum to [`02-08-26_optimisations.md`](./02-08-26_optimisations.md). A cross-cutting scan of `src/` revealed 15 duplication patterns — copy-pasted constants, duplicated type definitions, repeated utility functions, and dead code — that are distinct from the 13 runtime/architecture findings in the original doc. Numbering continues from #13.
 
 ## Status Snapshot
-- Last updated: 2026-02-08 15:57 EST
-- Tracking: implementation progress for #14-#28
+- Last updated: 2026-02-20
+- Tracking: implementation progress for #14-#34
 - Legend: `• ■` done, `• □` not done/partial
 
 ## Implementation Checklist
@@ -29,6 +29,12 @@ Addendum to [`02-08-26_optimisations.md`](./02-08-26_optimisations.md). A cross-
 • □ #26 Canvas helper added (`src/utils/canvasHelper.ts`) and adopted in shared asset loader, but not fully rolled out to all call sites.
 • □ #27 NPC sprite cache still uses custom cache wrapper rather than the generic async cache abstraction.
 • ■ #28 Elevation compatibility logic centralized (`src/utils/elevation.ts`) and used by both player + NPC collision paths.
+• ■ #29 Typed async menu gateway implemented in `src/menu/MenuStateManager.ts` with shared `openAsync()`/`resolveAsync()` call pattern across field, battle, evolution, and script specials.
+• ■ #30 Move-learning prompt adapter centralized (`src/pokemon/moveLearningPromptAdapter.ts`) and reused by battle, evolution, and script relearner flow.
+• ■ #31 Legacy duplicate party/summary components removed (`src/menu/components/PartyMenu.tsx`, `src/menu/components/PokemonSummary.tsx`) after reference cleanup.
+• ■ #32 Shared location-state + display-name helpers introduced (`src/world/locationStateFactory.ts`, `src/pokemon/displayName.ts`) and wired into runtime call sites.
+• ■ #33 Prompt text wrapping/pagination primitives centralized under `src/core/prompt/textLayout.ts` and reused by both battle textbox rendering and dialog pagination.
+• □ #34 Overworld `DialogContext` internals still run their own reducer path and are not yet fully migrated onto `src/core/prompt/PromptService.ts`.
 
 ## P0: Quick Wins (constants, debug utils, type dedup)
 

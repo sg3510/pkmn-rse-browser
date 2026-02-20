@@ -3,7 +3,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { menuStateManager, type MenuState, type MenuType } from '../MenuStateManager';
+import {
+  menuStateManager,
+  type MenuState,
+  type MenuType,
+  type MenuDataFor,
+} from '../MenuStateManager';
 import { inputMap, GameButton } from '../../core/InputMap';
 
 /**
@@ -16,7 +21,7 @@ export function useMenuState() {
     return menuStateManager.subscribe(setState);
   }, []);
 
-  const openMenu = useCallback((menu: MenuType, data?: Record<string, unknown>) => {
+  const openMenu = useCallback(<TMenu extends MenuType>(menu: TMenu, data?: MenuDataFor<TMenu>) => {
     menuStateManager.open(menu, data);
   }, []);
 

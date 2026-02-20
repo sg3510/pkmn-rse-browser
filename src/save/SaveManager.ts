@@ -50,6 +50,7 @@ import { createEmptyParty } from '../pokemon/types';
 import { saveStateStore } from './SaveStateStore';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
 import { berryManager, isValidBerryEpochTimestamp } from '../game/berry/BerryManager.ts';
+import { buildLocationState } from '../world/locationStateFactory';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -741,19 +742,18 @@ class SaveManagerClass {
     isSurfing: boolean = false,
     isUnderwater: boolean = false
   ): SaveResult {
-    const locationState: LocationState = {
-      pos: { x: tileX, y: tileY },
-      location: { mapId, warpId: 0, x: tileX, y: tileY },
-      continueGameWarp: { mapId, warpId: 0, x: tileX, y: tileY },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+    const locationState: LocationState = buildLocationState({
+      mapId,
+      x: tileX,
+      y: tileY,
       direction,
-      elevation: 3, // Default elevation
+      elevation: 3,
+      warpId: 0,
       isSurfing: isSurfing && !isUnderwater,
       isUnderwater,
       bikeMode: 'none',
       isRidingBike: false,
-    };
+    });
 
     return this.save(0, locationState);
   }

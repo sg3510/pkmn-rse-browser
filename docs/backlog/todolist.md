@@ -71,6 +71,14 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [x] Fix multi-plant wipe regression by normalizing legacy berry timestamps and enforcing epoch-ms berry clock domain
 - [x] Fix berry soil/tree placement parity with stage-aware feet anchoring and feet-derived sort keys
 
+## Prompt/Menu Duplication Reduction (2026-02-20)
+
+- [x] Add shared prompt core primitives in `src/core/prompt/` and reuse for battle/evolution prompt yes/no handling.
+- [x] Add typed async menu gateway (`openAsync`/`resolveAsync`) and migrate duplicated menu-await wrappers in GamePage/BattleState/EvolutionState/script specials.
+- [x] Centralize move-learning prompt adapter + move-list model/navigation and route move-learning/relearner/deleter flows through shared menu/prompt APIs.
+- [x] Remove dead legacy menu duplicates (`src/menu/components/PartyMenu.tsx`, `src/menu/components/PokemonSummary.tsx`) after zero runtime references.
+- [-] Fully migrate `src/components/dialog/DialogContext.tsx` state machine internals to `src/core/prompt/PromptService.ts` (overworld reducer path still separate).
+
 ---
 
 ## Phase 0: Foundation Systems (Prerequisite)

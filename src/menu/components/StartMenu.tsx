@@ -9,7 +9,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
-import { menuStateManager } from '../MenuStateManager';
+import { getMenuDataFor, menuStateManager } from '../MenuStateManager';
 import { navigateGrid } from '../types';
 import { gameFlags } from '../../game/GameFlags';
 import { saveManager } from '../../save/SaveManager';
@@ -31,7 +31,8 @@ interface MenuTileData {
 
 export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: StartMenuProps) {
   const { cursorIndex, isOpen, currentMenu, data } = useMenuState();
-  const onSaveToBrowser = data.onSaveToBrowser as (() => Promise<void> | void) | undefined;
+  const startData = getMenuDataFor({ currentMenu, data }, 'start') ?? {};
+  const onSaveToBrowser = startData.onSaveToBrowser;
 
   // Determine grid layout based on viewport aspect ratio
   // Landscape (wider than tall): 3 cols × 2 rows
@@ -75,7 +76,11 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         enabled: true,
         onSelect: () => {
           console.log('[StartMenu] Bag selected');
-          menuStateManager.open('bag', { ...data, mode: 'field' });
+          menuStateManager.open('bag', {
+            mode: 'field',
+            onFieldUseItem: startData.onFieldUseItem,
+            onFieldRegisterItem: startData.onFieldRegisterItem,
+          });
         },
       },
       {
@@ -117,7 +122,7 @@ export function StartMenu({ zoom = 1, viewport = { width: 240, height: 160 } }: 
         },
       },
     ];
-  }, [data, onSaveToBrowser]);
+  }, [onSaveToBrowser, startData.onFieldRegisterItem, startData.onFieldUseItem]);
 
   const visibleTiles = tiles.filter((t) => t.visible);
   const handleConfirm = useCallback(() => {

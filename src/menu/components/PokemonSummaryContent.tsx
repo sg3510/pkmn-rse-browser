@@ -15,10 +15,12 @@ import { getSpeciesName } from '../../data/species';
 import { getSpeciesInfo } from '../../data/speciesInfo';
 import { getNatureName, getNatureStatEffect } from '../../data/natures';
 import { ABILITY_NAMES, getAbilityDescription } from '../../data/abilities';
-import { MOVE_NAMES, getMoveInfo, getMoveDescription } from '../../data/moves';
+import { getMoveInfo } from '../../data/moves';
 import { getGenderFromPersonality, getExpProgress, getExpToNextLevel } from '../../pokemon/stats';
 import { loadTransparentSprite } from '../../utils/transparentSprite';
 import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
+import { createMoveListModel } from '../moves/MoveListModel';
+import { useMoveListNavigation } from '../moves/useMoveListNavigation';
 // Type images loaded via transparentSprite utility (keys out black background)
 import '../styles/pokemon-summary-emerald.css';
 
@@ -35,6 +37,11 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
   const { isOpen, currentMenu } = useMenuState();
   const [currentPage, setCurrentPage] = useState<SummaryPage>('info');
   const [selectedMoveIndex, setSelectedMoveIndex] = useState(0);
+  const { moveUp, moveDown } = useMoveListNavigation({
+    selectedIndex: selectedMoveIndex,
+    setSelectedIndex: setSelectedMoveIndex,
+    maxIndex: 3,
+  });
 
   const pages: SummaryPage[] = ['info', 'skills', 'moves'];
   const pageIndex = pages.indexOf(currentPage);
@@ -52,15 +59,15 @@ export function PokemonSummaryContent({ pokemon, partyIndex: _partyIndex }: Poke
 
   const handleUp = useCallback(() => {
     if (currentPage === 'moves') {
-      setSelectedMoveIndex(i => Math.max(0, i - 1));
+      moveUp();
     }
-  }, [currentPage]);
+  }, [currentPage, moveUp]);
 
   const handleDown = useCallback(() => {
     if (currentPage === 'moves') {
-      setSelectedMoveIndex(i => Math.min(3, i + 1));
+      moveDown();
     }
-  }, [currentPage]);
+  }, [currentPage, moveDown]);
 
   const handleCancel = useCallback(() => {
     menuStateManager.back();
@@ -450,17 +457,7 @@ interface MovesPageProps {
 }
 
 function MovesPage({ pokemon, selectedIndex, onSelectMove }: MovesPageProps) {
-  const moves = pokemon.moves.map((moveId, i) => {
-    const info = getMoveInfo(moveId);
-    return {
-      id: moveId,
-      name: MOVE_NAMES[moveId] || (moveId === 0 ? '—' : `Move #${moveId}`),
-      pp: pokemon.pp[i],
-      maxPp: info?.pp ?? 0,
-      type: info?.type ?? 'NORMAL',
-      description: getMoveDescription(moveId) || 'No description available.',
-    };
-  });
+  const moves = createMoveListModel(pokemon);
 
   const selectedMoveDesc = moves[selectedIndex]?.description || 'Select a move to see details.';
 
@@ -476,10 +473,10 @@ function MovesPage({ pokemon, selectedIndex, onSelectMove }: MovesPageProps) {
         {moves.map((move, i) => (
           <div
             key={i}
-            className={`summary-move-row ${selectedIndex === i ? 'selected' : ''} ${move.id === 0 ? 'empty' : ''}`}
-            onClick={() => move.id !== 0 && onSelectMove(i)}
+            className={`summary-move-row ${selectedIndex === i ? 'selected' : ''} ${move.isEmpty ? 'empty' : ''}`}
+            onClick={() => !move.isEmpty && onSelectMove(i)}
           >
-            {move.id !== 0 ? (
+            {!move.isEmpty ? (
               <>
                 <TypeBadge type={move.type} className="summary-move-type-img" />
                 <span className="summary-move-name">{move.name}</span>

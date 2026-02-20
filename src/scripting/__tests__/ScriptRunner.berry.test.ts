@@ -72,7 +72,7 @@ test('Bag_ChooseBerry returns from black fade before waitstate resumes', async (
   gameVariables.reset();
   berryManager.reset();
 
-  const originalOpen = menuStateManager.open.bind(menuStateManager);
+  const originalOpenAsync = menuStateManager.openAsync.bind(menuStateManager);
   const fadeEvents: string[] = [];
   let fadeDirection: 'in' | 'out' | null = null;
   let fadeComplete = false;
@@ -104,13 +104,13 @@ test('Bag_ChooseBerry returns from black fade before waitstate resumes', async (
     },
   };
 
-  (menuStateManager as unknown as { open: typeof menuStateManager.open }).open = ((menu, data) => {
+  (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = (async (menu, data) => {
     assert.equal(menu, 'bag');
     const payload = data as Record<string, unknown>;
-    const onBerrySelected = payload.onBerrySelected as ((itemId: number) => void) | undefined;
+    assert.equal(payload.mode, 'berrySelect');
     fadeEvents.push('bag:open');
-    onBerrySelected?.(ITEMS.ITEM_ORAN_BERRY);
-  }) as typeof menuStateManager.open;
+    return ITEMS.ITEM_ORAN_BERRY;
+  }) as typeof menuStateManager.openAsync;
 
   try {
     const { mapData, commonData } = createData([
@@ -146,7 +146,7 @@ test('Bag_ChooseBerry returns from black fade before waitstate resumes', async (
     assert.equal(gameVariables.getVar('VAR_0x8004'), 1);
     assert.equal(gameVariables.getVar('VAR_ITEM_ID'), ITEMS.ITEM_ORAN_BERRY);
   } finally {
-    (menuStateManager as unknown as { open: typeof menuStateManager.open }).open = originalOpen;
+    (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = originalOpenAsync;
   }
 });
 
@@ -154,7 +154,7 @@ test('Bag_ChooseBerry does not force fade-in when not blacked out', async () => 
   gameVariables.reset();
   berryManager.reset();
 
-  const originalOpen = menuStateManager.open.bind(menuStateManager);
+  const originalOpenAsync = menuStateManager.openAsync.bind(menuStateManager);
   let fadeStartCalls = 0;
   const runtimeServices: ScriptRuntimeServices = {
     fade: {
@@ -168,12 +168,12 @@ test('Bag_ChooseBerry does not force fade-in when not blacked out', async () => 
     },
   };
 
-  (menuStateManager as unknown as { open: typeof menuStateManager.open }).open = ((menu, data) => {
+  (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = (async (menu, data) => {
     assert.equal(menu, 'bag');
     const payload = data as Record<string, unknown>;
-    const onBerrySelectionCancel = payload.onBerrySelectionCancel as (() => void) | undefined;
-    onBerrySelectionCancel?.();
-  }) as typeof menuStateManager.open;
+    assert.equal(payload.mode, 'berrySelect');
+    return null;
+  }) as typeof menuStateManager.openAsync;
 
   try {
     const { mapData, commonData } = createData([
@@ -193,7 +193,7 @@ test('Bag_ChooseBerry does not force fade-in when not blacked out', async () => 
     assert.equal(fadeStartCalls, 0);
     assert.equal(gameVariables.getVar('VAR_ITEM_ID'), ITEMS.ITEM_NONE);
   } finally {
-    (menuStateManager as unknown as { open: typeof menuStateManager.open }).open = originalOpen;
+    (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = originalOpenAsync;
   }
 });
 

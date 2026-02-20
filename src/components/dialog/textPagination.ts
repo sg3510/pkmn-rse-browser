@@ -9,6 +9,7 @@
  * line width measurement.
  */
 
+import { wrapPromptLine } from '../../core/prompt/textLayout';
 import { DIALOG_DIMENSIONS, TILE_SIZE, TEXT_SPECS } from './types';
 
 /** A single page of dialog text with transition metadata */
@@ -31,35 +32,6 @@ function getCtx(font: string): CanvasRenderingContext2D {
   }
   measureCtx.font = font;
   return measureCtx;
-}
-
-/**
- * Word-wrap a single line to fit within maxWidth pixels.
- * Breaks at word boundaries (spaces).
- */
-function wordWrapLine(
-  line: string,
-  maxWidth: number,
-  ctx: CanvasRenderingContext2D,
-): string[] {
-  if (ctx.measureText(line).width <= maxWidth) return [line];
-
-  const words = line.split(' ');
-  const result: string[] = [];
-  let current = '';
-
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (ctx.measureText(test).width <= maxWidth) {
-      current = test;
-    } else {
-      if (current) result.push(current);
-      current = word;
-    }
-  }
-  if (current) result.push(current);
-
-  return result.length > 0 ? result : [line];
 }
 
 /**
@@ -108,7 +80,10 @@ export function paginateDialogText(
       if (line.length === 0) {
         visualLines.push('');
       } else {
-        visualLines.push(...wordWrapLine(line, innerWidth, ctx));
+        visualLines.push(...wrapPromptLine(line, {
+          maxWidth: innerWidth,
+          measureText: (value) => ctx.measureText(value).width,
+        }));
       }
     }
 

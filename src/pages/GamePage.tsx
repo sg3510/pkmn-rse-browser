@@ -103,25 +103,25 @@ import { useActionInput } from '../hooks/useActionInput';
 import { SaveLoadButtons } from '../components/SaveLoadButtons';
 import { MenuOverlay, menuStateManager } from '../menu';
 import type { LocationState } from '../save/types';
+import { buildLocationState } from '../world/locationStateFactory';
 import { gameVariables, GAME_VARS } from '../game/GameVariables';
 import { saveManager } from '../save/SaveManager';
 import { getDynamicWarpTarget } from '../game/DynamicWarp';
 import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
 import { ITEMS } from '../data/items';
-import { getSpeciesName } from '../data/species';
 import { getSpeciesInfo } from '../data/speciesInfo';
 import { getExpForLevel, recalculatePartyStatsCStyle } from '../pokemon/stats';
 import type { PartyPokemon } from '../pokemon/types';
 import {
   getLevelUpMovesBetween,
   runMoveLearningSequence,
-  type MoveLearningPrompts,
 } from '../pokemon/moveLearning';
+import { formatPokemonDisplayName } from '../pokemon/displayName';
+import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter';
 import { EVOLUTION_MODES } from '../data/evolutions.gen';
 import { getEvolutionTargetSpecies } from '../pokemon/evolution';
 import type { EvolutionQueueEntry } from '../evolution/types';
-import type { MoveForgetMenuOpenData } from '../menu/MenuStateManager';
 import {
   resetOverworldWildEncounterTracking,
   tryStartOverworldWildEncounter,
@@ -732,55 +732,16 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   }, [showMessage]);
 
   const openFieldItemPartyMenu = useCallback((): Promise<number | null> => {
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (value: number | null): void => {
-        if (settled) return;
-        settled = true;
-        unsubscribe();
-        resolve(value);
-      };
-      const unsubscribe = menuStateManager.subscribe((state) => {
-        if (!state.isOpen || state.currentMenu !== 'party') {
-          finish(null);
-        }
-      });
-
-      menuStateManager.open('party', {
-        mode: 'fieldItemUse',
-        onFieldPartySelected: (partyIndex: number | null) => {
-          finish(partyIndex);
-        },
-      });
+    return menuStateManager.openAsync<'party', number>('party', {
+      mode: 'fieldItemUse',
     });
   }, []);
 
   const openMoveForgetMenu = useCallback(
     (mon: PartyPokemon, moveToLearnId: number): Promise<number | null> => {
-      return new Promise((resolve) => {
-        let settled = false;
-        const finish = (value: number | null): void => {
-          if (settled) return;
-          settled = true;
-          unsubscribe();
-          resolve(value);
-        };
-        const unsubscribe = menuStateManager.subscribe((state) => {
-          if (!state.isOpen) {
-            finish(null);
-          }
-        });
-
-        const data: MoveForgetMenuOpenData = {
-          pokemonName: getPartyMonDisplayName(mon),
-          pokemonMoves: mon.moves,
-          pokemonPp: mon.pp,
-          moveToLearnId,
-          onMoveSlotChosen: (moveSlot) => {
-            finish(moveSlot);
-          },
-        };
-        menuStateManager.open('moveForget', data as unknown as Record<string, unknown>);
+      return menuStateManager.openAsync<'moveForget', number>('moveForget', {
+        ...createMoveForgetMenuData(mon, moveToLearnId),
+        mode: 'learn',
       });
     },
     [],
@@ -833,15 +794,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     partyAfterLevel[partyIndex] = updatedMon;
     saveManager.setParty(partyAfterLevel);
 
-    await showFieldMessage(`${getPartyMonDisplayName(updatedMon)} grew to Lv. ${updatedMon.level}!`);
+    await showFieldMessage(`${formatPokemonDisplayName(updatedMon)} grew to Lv. ${updatedMon.level}!`);
 
     const movesToLearn = getLevelUpMovesBetween(updatedMon.species, previousLevel, updatedMon.level);
     if (movesToLearn.length > 0) {
-      const prompts: MoveLearningPrompts = {
-        showMessage: (text) => showFieldMessage(text),
-        askYesNo: (text, options) => showYesNo(text, { defaultYes: options?.defaultYes ?? true }),
-        chooseMoveToReplace: (context) => openMoveForgetMenu(context.pokemon, context.moveId),
-      };
+      const prompts = createMoveLearningPromptAdapter(
+        {
+          showMessage: (text) => showFieldMessage(text),
+          showYesNo: (text, defaultYes) => showYesNo(text, { defaultYes }),
+        },
+        {
+          openMoveForgetMenu: (pokemon, moveId) => openMoveForgetMenu(pokemon, moveId),
+        },
+      );
       const result = await runMoveLearningSequence(updatedMon, movesToLearn, prompts);
       updatedMon = result.pokemon;
 
@@ -869,19 +834,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const mapId = mapInstance?.entry.id ?? saveManager.getCurrentMapId();
       const localX = mapInstance ? activePlayer.tileX - mapInstance.offsetX : activePlayer.tileX;
       const localY = mapInstance ? activePlayer.tileY - mapInstance.offsetY : activePlayer.tileY;
-      returnLocation = {
-        pos: { x: localX, y: localY },
-        location: { mapId, warpId: 0, x: localX, y: localY },
-        continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
-        lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-        escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      returnLocation = buildLocationState({
+        mapId,
+        x: localX,
+        y: localY,
         direction: activePlayer.getFacingDirection(),
         elevation: activePlayer.getElevation(),
         isSurfing: activePlayer.isSurfing(),
         isUnderwater: activePlayer.isUnderwater(),
         bikeMode: activePlayer.getBikeMode(),
         isRidingBike: activePlayer.isBikeRiding(),
-      };
+      });
     }
 
     const manager = stateManagerRef.current;
@@ -956,19 +919,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
     const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
 
-    return {
-      pos: { x: localX, y: localY },
-      location: { mapId, warpId: 0, x: localX, y: localY },
-      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+    return buildLocationState({
+      mapId,
+      x: localX,
+      y: localY,
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
-    };
+    });
   }, []);
 
   const saveToBrowserFromStartMenu = useCallback(() => {
@@ -1291,19 +1252,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
     const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
 
-    return {
-      pos: { x: localX, y: localY },
-      location: { mapId, warpId: 0, x: localX, y: localY },
-      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+    return buildLocationState({
+      mapId,
+      x: localX,
+      y: localY,
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
-    };
+    });
   }, []);
 
   const waitScriptFrames = useCallback(async (frames: number): Promise<void> => {
@@ -2590,19 +2549,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const localX = mapInstance ? player.tileX - mapInstance.offsetX : player.tileX;
     const localY = mapInstance ? player.tileY - mapInstance.offsetY : player.tileY;
 
-    return {
-      pos: { x: localX, y: localY },
-      location: { mapId, warpId: 0, x: localX, y: localY },
-      continueGameWarp: { mapId, warpId: 0, x: localX, y: localY },
-      lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-      escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+    return buildLocationState({
+      mapId,
+      x: localX,
+      y: localY,
       direction: player.getFacingDirection(),
       elevation: player.getElevation(),
       isSurfing: player.isSurfing(),
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
-    };
+    });
   }, [mapDebugInfo?.currentMap, selectedMap.id]);
 
   const getObjectEventRuntimeState = useCallback((): ObjectEventRuntimeState | null => {
@@ -2890,11 +2847,6 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       />
     </div>
   );
-}
-
-function getPartyMonDisplayName(mon: PartyPokemon): string {
-  const nickname = mon.nickname?.trim();
-  return nickname && nickname.length > 0 ? nickname : getSpeciesName(mon.species);
 }
 
 export default GamePage;

@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
-import { menuStateManager } from '../MenuStateManager';
+import { getMenuDataFor, menuStateManager } from '../MenuStateManager';
 import { bagManager } from '../../game/BagManager';
 import { moneyManager } from '../../game/MoneyManager';
 import { getItemName, getItemIconPath, getItemDescription } from '../../data/items';
@@ -51,13 +51,14 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const [isShaking, setIsShaking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState<number[]>([0, 0, 0, 0, 0]);
   const [scrollPosition, setScrollPosition] = useState<number[]>([0, 0, 0, 0, 0]);
-  const battleMode = data.mode === 'battle';
-  const berrySelectMode = data.mode === 'berrySelect';
-  const onBattleItemSelected = data.onBattleItemSelected as ((itemId: number | null) => void) | undefined;
-  const onBerrySelected = data.onBerrySelected as ((itemId: number) => void) | undefined;
-  const onBerrySelectionCancel = data.onBerrySelectionCancel as (() => void) | undefined;
-  const onFieldUseItem = data.onFieldUseItem as ((itemId: number) => Promise<boolean> | boolean) | undefined;
-  const onFieldRegisterItem = data.onFieldRegisterItem as ((itemId: number) => void) | undefined;
+  const bagData = getMenuDataFor({ currentMenu, data }, 'bag') ?? {};
+  const battleMode = bagData.mode === 'battle';
+  const berrySelectMode = bagData.mode === 'berrySelect';
+  const onBattleItemSelected = bagData.onBattleItemSelected;
+  const onBerrySelected = bagData.onBerrySelected;
+  const onBerrySelectionCancel = bagData.onBerrySelectionCancel;
+  const onFieldUseItem = bagData.onFieldUseItem;
+  const onFieldRegisterItem = bagData.onFieldRegisterItem;
 
   const MAX_VISIBLE_ITEMS = 6;
 
@@ -127,12 +128,12 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
   const handleClose = useCallback(() => {
     if (berrySelectMode) {
       onBerrySelectionCancel?.();
-      menuStateManager.close();
+      menuStateManager.resolveAsync(null);
       return;
     }
     if (battleMode) {
       onBattleItemSelected?.(null);
-      menuStateManager.close();
+      menuStateManager.resolveAsync(null);
       return;
     }
     menuStateManager.back();
@@ -150,12 +151,12 @@ export function BagMenu({ isEmbedded = true }: { isEmbedded?: boolean }) {
     if (!selectedItem) return;
     if (berrySelectMode) {
       onBerrySelected?.(selectedItem.itemId);
-      menuStateManager.close();
+      menuStateManager.resolveAsync(selectedItem.itemId);
       return;
     }
     if (battleMode) {
       onBattleItemSelected?.(selectedItem.itemId);
-      menuStateManager.close();
+      menuStateManager.resolveAsync(selectedItem.itemId);
       return;
     }
 

@@ -33,6 +33,7 @@ import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTime
 import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
 import { resolveTrainerBattle, resolveTrainerBattleById } from './trainerBattleFallback';
 import type { MutableRef } from './types';
+import { buildLocationState } from '../../world/locationStateFactory';
 
 
 interface PendingScriptedWarpLike {
@@ -634,19 +635,17 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           return readBattleResult();
         },
         queueWarp: (mapId, x, y, direction, options) => {
-          pendingSavedLocationRef.current = {
-            pos: { x, y },
-            location: { mapId, warpId: 0, x, y },
-            continueGameWarp: { mapId, warpId: 0, x, y },
-            lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-            escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+          pendingSavedLocationRef.current = buildLocationState({
+            mapId,
+            x,
+            y,
             direction,
             elevation: player.getElevation(),
             isSurfing: player.isSurfing(),
             isUnderwater: player.isUnderwater(),
             bikeMode: player.getBikeMode(),
             isRidingBike: player.isBikeRiding(),
-          };
+          });
 
           pendingScriptedWarpRef.current = {
             mapId,

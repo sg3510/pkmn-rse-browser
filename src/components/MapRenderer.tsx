@@ -34,6 +34,7 @@ import { useActionInput } from '../hooks/useActionInput';
 import { useTilesetPatching } from '../hooks/useTilesetPatching';
 import { shiftWorld } from '../utils/worldUtils';
 import { initializeGame } from './MapRendererInit';
+import { buildLocationState } from '../world/locationStateFactory';
 
 interface MapRendererProps {
   mapId: string;
@@ -280,19 +281,17 @@ export const MapRenderer = forwardRef<MapRendererHandle, MapRendererProps>(({
       }
 
       const currentMapId = ctx.anchor.entry.id;
-      const locationState: LocationState = {
-        pos: { x: player.tileX, y: player.tileY },
-        location: { mapId: currentMapId, warpId: 0, x: player.tileX, y: player.tileY },
-        continueGameWarp: { mapId: currentMapId, warpId: 0, x: player.tileX, y: player.tileY },
-        lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-        escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+      const locationState: LocationState = buildLocationState({
+        mapId: currentMapId,
+        x: player.tileX,
+        y: player.tileY,
         direction: player.dir,
         elevation: 3,
         isSurfing: player.isSurfing(),
         isUnderwater: player.isUnderwater(),
         bikeMode: player.getBikeMode(),
         isRidingBike: player.isBikeRiding(),
-      };
+      });
 
       return saveManager.save(0, locationState);
     },

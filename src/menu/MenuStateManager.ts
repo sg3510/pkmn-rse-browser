@@ -5,6 +5,8 @@
  * Manages which menu is open, cursor position, and navigation history.
  */
 
+import type { PartyPokemon } from '../pokemon/types';
+
 export type MenuType =
   | 'start'
   | 'bag'
@@ -20,8 +22,14 @@ export type MenuType =
  * Payload contract for opening the bag menu.
  * Used by battle item selection and berry selection script specials.
  */
+export interface StartMenuOpenData {
+  onFieldUseItem?: (itemId: number) => Promise<boolean> | boolean;
+  onFieldRegisterItem?: (itemId: number) => void;
+  onSaveToBrowser?: () => void;
+}
+
 export interface BagMenuOpenData {
-  mode?: 'battle' | 'berrySelect';
+  mode?: 'field' | 'battle' | 'berrySelect';
   onBattleItemSelected?: (itemId: number | null) => void;
   onBerrySelected?: (itemId: number) => void;
   onBerrySelectionCancel?: () => void;
@@ -30,17 +38,52 @@ export interface BagMenuOpenData {
 }
 
 export interface MoveForgetMenuOpenData {
+  mode?: 'learn' | 'delete';
+  promptText?: string;
   pokemonName: string;
   pokemonMoves: [number, number, number, number];
   pokemonPp: [number, number, number, number];
-  moveToLearnId: number;
-  onMoveSlotChosen: (moveSlot: number | null) => void;
+  moveToLearnId?: number;
+  onMoveSlotChosen?: (moveSlot: number | null) => void;
 }
 
 export interface FieldItemPartyMenuOpenData {
   mode: 'fieldItemUse';
-  onFieldPartySelected: (partyIndex: number | null) => void;
+  onFieldPartySelected?: (partyIndex: number | null) => void;
 }
+
+export interface BattlePartyMenuOpenData {
+  mode: 'battle';
+  activePartyIndex: number;
+  onBattlePartySelected?: (partyIndex: number | null) => void;
+}
+
+export interface PokemonSummaryMenuOpenData {
+  pokemon: PartyPokemon;
+  partyIndex?: number;
+}
+
+export type PartyMenuOpenData =
+  | FieldItemPartyMenuOpenData
+  | BattlePartyMenuOpenData
+  | Record<string, never>;
+
+export interface MenuDataMap {
+  start: StartMenuOpenData;
+  bag: BagMenuOpenData;
+  party: PartyMenuOpenData;
+  moveForget: MoveForgetMenuOpenData;
+  pokedex: Record<string, never>;
+  trainerCard: Record<string, never>;
+  save: Record<string, never>;
+  options: Record<string, never>;
+  pokemonSummary: PokemonSummaryMenuOpenData;
+}
+
+export type MenuDataFor<TMenu extends MenuType> = MenuDataMap[TMenu];
+export type AnyMenuData = MenuDataMap[MenuType];
+
+const EMPTY_MENU_DATA: Record<string, never> = {};
 
 export interface MenuState {
   /** Whether any menu is currently open */
@@ -52,7 +95,7 @@ export interface MenuState {
   /** Navigation history for back button */
   history: MenuType[];
   /** Additional data passed to menu (e.g., selected Pokemon index) */
-  data: Record<string, unknown>;
+  data: AnyMenuData;
 }
 
 type MenuListener = (state: MenuState) => void;
@@ -63,10 +106,11 @@ class MenuStateManagerClass {
     currentMenu: null,
     cursorIndex: 0,
     history: [],
-    data: {},
+    data: EMPTY_MENU_DATA,
   };
 
   private listeners: Set<MenuListener> = new Set();
+  private pendingAsyncResolve: ((value: unknown | null) => void) | null = null;
 
   /**
    * Get current menu state
@@ -92,7 +136,7 @@ class MenuStateManagerClass {
   /**
    * Open a menu
    */
-  open(menu: MenuType, data?: Record<string, unknown>): void {
+  open<TMenu extends MenuType>(menu: TMenu, data?: MenuDataFor<TMenu>): void {
     // If already in a menu, push current to history
     if (this.state.currentMenu && this.state.currentMenu !== menu) {
       this.state.history.push(this.state.currentMenu);
@@ -103,11 +147,34 @@ class MenuStateManagerClass {
       currentMenu: menu,
       cursorIndex: 0,
       history: this.state.history,
-      data: data ?? {},
+      data: (data ?? EMPTY_MENU_DATA) as AnyMenuData,
     };
 
     console.log(`[MenuStateManager] Opened menu: ${menu}`);
     this.notifyListeners();
+  }
+
+  /**
+   * Open a menu and await a typed result.
+   * The promise resolves with null when the menu stack closes without selection.
+   */
+  openAsync<TMenu extends MenuType, TResult = unknown>(
+    menu: TMenu,
+    data?: MenuDataFor<TMenu>,
+  ): Promise<TResult | null> {
+    this.settlePendingAsync(null);
+    return new Promise<TResult | null>((resolve) => {
+      this.pendingAsyncResolve = resolve as (value: unknown | null) => void;
+      this.open(menu, data);
+    });
+  }
+
+  /**
+   * Resolve the current async menu flow and close the menu stack.
+   */
+  resolveAsync<TResult>(value: TResult): void {
+    this.settlePendingAsync(value);
+    this.close();
   }
 
   /**
@@ -122,7 +189,7 @@ class MenuStateManagerClass {
         currentMenu: previousMenu,
         cursorIndex: 0,
         history: this.state.history,
-        data: {},
+        data: EMPTY_MENU_DATA,
       };
       console.log(`[MenuStateManager] Back to: ${previousMenu}`);
     } else {
@@ -136,12 +203,13 @@ class MenuStateManagerClass {
    * Close all menus
    */
   close(): void {
+    this.settlePendingAsync(null);
     this.state = {
       isOpen: false,
       currentMenu: null,
       cursorIndex: 0,
       history: [],
-      data: {},
+      data: EMPTY_MENU_DATA,
     };
     console.log('[MenuStateManager] Closed all menus');
     this.notifyListeners();
@@ -194,6 +262,25 @@ class MenuStateManagerClass {
       listener(state);
     }
   }
+
+  private settlePendingAsync(value: unknown | null): void {
+    const resolve = this.pendingAsyncResolve;
+    if (!resolve) {
+      return;
+    }
+    this.pendingAsyncResolve = null;
+    resolve(value);
+  }
+}
+
+export function getMenuDataFor<TMenu extends MenuType>(
+  state: Pick<MenuState, 'currentMenu' | 'data'>,
+  menu: TMenu,
+): MenuDataFor<TMenu> | null {
+  if (state.currentMenu !== menu) {
+    return null;
+  }
+  return state.data as MenuDataFor<TMenu>;
 }
 
 // Singleton instance

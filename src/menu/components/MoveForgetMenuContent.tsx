@@ -4,53 +4,56 @@
 
 import { useMemo, useCallback } from 'react';
 import { useMenuInput, useMenuState } from '../hooks/useMenuState';
-import { menuStateManager } from '../MenuStateManager';
+import { getMenuDataFor, menuStateManager } from '../MenuStateManager';
 import { getMoveInfo, getMoveName, MOVES } from '../../data/moves';
+import { createMoveListModel } from '../moves/MoveListModel';
+import { useMoveListNavigation } from '../moves/useMoveListNavigation';
 import '../styles/move-forget-menu.css';
 
 export function MoveForgetMenuContent() {
   const { isOpen, currentMenu, data, cursorIndex } = useMenuState();
 
-  const pokemonName = (data.pokemonName as string | undefined) ?? 'POKeMON';
-  const pokemonMoves = (data.pokemonMoves as [number, number, number, number] | undefined)
+  const menuData = getMenuDataFor({ currentMenu, data }, 'moveForget');
+  const mode = menuData?.mode ?? 'learn';
+  const pokemonName = menuData?.pokemonName ?? 'POKeMON';
+  const pokemonMoves = menuData?.pokemonMoves
     ?? [MOVES.NONE, MOVES.NONE, MOVES.NONE, MOVES.NONE];
-  const pokemonPp = (data.pokemonPp as [number, number, number, number] | undefined)
+  const pokemonPp = menuData?.pokemonPp
     ?? [0, 0, 0, 0];
-  const moveToLearnId = (data.moveToLearnId as number | undefined) ?? MOVES.NONE;
-  const onMoveSlotChosen = data.onMoveSlotChosen as ((moveSlot: number | null) => void) | undefined;
+  const moveToLearnId = menuData?.moveToLearnId ?? MOVES.NONE;
+  const onMoveSlotChosen = menuData?.onMoveSlotChosen;
+  const promptText = menuData?.promptText;
 
   const effectiveCursor = Math.max(0, Math.min(4, cursorIndex));
   const focusedMoveSlot = effectiveCursor < 4 ? effectiveCursor : null;
+  const moveRows = useMemo(
+    () => createMoveListModel({ moves: pokemonMoves, pp: pokemonPp }),
+    [pokemonMoves, pokemonPp],
+  );
 
   const focusedMove = useMemo(() => {
     if (focusedMoveSlot === null) return null;
-    const moveId = pokemonMoves[focusedMoveSlot] ?? MOVES.NONE;
-    const moveInfo = getMoveInfo(moveId);
-    return {
-      id: moveId,
-      name: getMoveName(moveId),
-      pp: pokemonPp[focusedMoveSlot] ?? 0,
-      maxPp: moveInfo?.pp ?? 0,
-      type: moveInfo?.type ?? 'NORMAL',
-    };
-  }, [focusedMoveSlot, pokemonMoves, pokemonPp]);
+    return moveRows[focusedMoveSlot] ?? null;
+  }, [focusedMoveSlot, moveRows]);
 
   const moveToLearnInfo = getMoveInfo(moveToLearnId);
+  const showMoveToLearnPanel = mode !== 'delete' && moveToLearnId !== MOVES.NONE;
+  const subtitleText = mode === 'delete'
+    ? (promptText ?? `Select a move for ${pokemonName}.`)
+    : `${pokemonName} wants to learn ${getMoveName(moveToLearnId)}`;
+  const titleText = mode === 'delete' ? 'Choose a Move to Forget' : 'Forget Which Move?';
 
   const closeWithChoice = useCallback((slot: number | null) => {
     onMoveSlotChosen?.(slot);
-    menuStateManager.close();
+    menuStateManager.resolveAsync(slot);
   }, [onMoveSlotChosen]);
 
-  const onUp = useCallback(() => {
-    const next = effectiveCursor <= 0 ? 4 : effectiveCursor - 1;
-    menuStateManager.setCursor(next);
-  }, [effectiveCursor]);
-
-  const onDown = useCallback(() => {
-    const next = effectiveCursor >= 4 ? 0 : effectiveCursor + 1;
-    menuStateManager.setCursor(next);
-  }, [effectiveCursor]);
+  const { moveUp, moveDown } = useMoveListNavigation({
+    selectedIndex: effectiveCursor,
+    setSelectedIndex: (next) => menuStateManager.setCursor(next),
+    maxIndex: 4,
+    wrap: true,
+  });
 
   const onConfirm = useCallback(() => {
     if (effectiveCursor >= 4) {
@@ -66,31 +69,18 @@ export function MoveForgetMenuContent() {
 
   useMenuInput({
     enabled: isOpen && currentMenu === 'moveForget',
-    onUp,
-    onDown,
+    onUp: moveUp,
+    onDown: moveDown,
     onConfirm,
     onCancel,
-  });
-
-  const moveRows = pokemonMoves.map((moveId, index) => {
-    const moveInfo = getMoveInfo(moveId);
-    return {
-      slot: index,
-      moveId,
-      name: getMoveName(moveId),
-      pp: pokemonPp[index] ?? 0,
-      maxPp: moveInfo?.pp ?? 0,
-      type: moveInfo?.type ?? 'NORMAL',
-      selected: effectiveCursor === index,
-    };
   });
 
   return (
     <div className="move-forget-content">
       <div className="move-forget-header">
-        <div className="move-forget-title">Forget Which Move?</div>
+        <div className="move-forget-title">{titleText}</div>
         <div className="move-forget-subtitle">
-          {pokemonName} wants to learn {getMoveName(moveToLearnId)}
+          {subtitleText}
         </div>
       </div>
 
@@ -99,11 +89,11 @@ export function MoveForgetMenuContent() {
           {moveRows.map((row) => (
             <button
               key={row.slot}
-              className={`move-forget-row ${row.selected ? 'is-selected' : ''}`}
+              className={`move-forget-row ${effectiveCursor === row.slot ? 'is-selected' : ''}`}
               onMouseEnter={() => menuStateManager.setCursor(row.slot)}
               onClick={() => closeWithChoice(row.slot)}
             >
-              <span className="move-forget-cursor">{row.selected ? '▶' : ''}</span>
+              <span className="move-forget-cursor">{effectiveCursor === row.slot ? '▶' : ''}</span>
               <span className="move-forget-name">{row.name}</span>
               <span className="move-forget-pp">{row.pp}/{row.maxPp}</span>
             </button>
@@ -120,13 +110,15 @@ export function MoveForgetMenuContent() {
         </div>
 
         <div className="move-forget-panel">
-          <div className="move-forget-panel-block">
-            <div className="move-forget-panel-label">MOVE TO LEARN</div>
-            <div className="move-forget-panel-name">{getMoveName(moveToLearnId)}</div>
-            <div className="move-forget-panel-meta">
-              TYPE/{moveToLearnInfo?.type ?? 'NORMAL'} PP {moveToLearnInfo?.pp ?? 0}
+          {showMoveToLearnPanel ? (
+            <div className="move-forget-panel-block">
+              <div className="move-forget-panel-label">MOVE TO LEARN</div>
+              <div className="move-forget-panel-name">{getMoveName(moveToLearnId)}</div>
+              <div className="move-forget-panel-meta">
+                TYPE/{moveToLearnInfo?.type ?? 'NORMAL'} PP {moveToLearnInfo?.pp ?? 0}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="move-forget-panel-block">
             <div className="move-forget-panel-label">SELECTED MOVE</div>

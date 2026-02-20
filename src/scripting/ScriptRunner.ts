@@ -28,8 +28,11 @@ import { moneyManager } from '../game/MoneyManager.ts';
 import { saveStateStore } from '../save/SaveStateStore.ts';
 import { menuStateManager } from '../menu/MenuStateManager.ts';
 import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags.ts';
-import { MOVES, getMoveInfo } from '../data/moves.ts';
-import { STATUS, type PartyPokemon } from '../pokemon/types.ts';
+import { MOVES, getMoveInfo, getMoveName } from '../data/moves.ts';
+import { PARTY_SIZE, STATUS, type PartyPokemon } from '../pokemon/types.ts';
+import { getRelearnableMoves, runMoveLearningSequence } from '../pokemon/moveLearning.ts';
+import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter.ts';
+import { formatPokemonDisplayName } from '../pokemon/displayName.ts';
 import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
 import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen.ts';
 import { stepCallbackManager } from '../game/StepCallbackManager.ts';
@@ -268,11 +271,20 @@ function resolveConstant(val: string | number): string | number {
     const speciesKey = val.replace('SPECIES_', '');
     if (speciesKey in SPECIES) return SPECIES[speciesKey as keyof typeof SPECIES];
   }
+  if (val.startsWith('TUTOR_MOVE_')) {
+    const moveKey = val.replace('TUTOR_MOVE_', '');
+    const moveId = (MOVES as Record<string, number>)[moveKey];
+    if (typeof moveId === 'number') {
+      return moveId;
+    }
+  }
   if (val === 'MALE') return GENDER_MALE;
   if (val === 'FEMALE') return GENDER_FEMALE;
   if (val === 'TRUE' || val === 'YES') return 1;
   if (val === 'FALSE' || val === 'NO') return 0;
   if (val === 'PARTY_SIZE') return 6;
+  if (val === 'PARTY_NOTHING_CHOSEN') return 0xFF;
+  if (val === 'MAX_MON_MOVES') return 4;
   if (val === 'FADE_TO_BLACK') return 1;
   if (val === 'FADE_FROM_BLACK') return 0;
   // GBA direction constants (from include/constants/event_object_movement.h)
@@ -918,6 +930,150 @@ export class ScriptRunner {
     return this.resolveVarOrConst(moveArg);
   }
 
+  private async choosePartyMonForScript(): Promise<number | null> {
+    const selectedPartyIndex = await menuStateManager.openAsync<'party', number>('party', {
+      mode: 'fieldItemUse',
+    });
+    if (selectedPartyIndex === null || selectedPartyIndex < 0 || selectedPartyIndex >= PARTY_SIZE) {
+      return null;
+    }
+
+    const party = this.ctx.getParty?.() ?? [];
+    const selectedMon = party[selectedPartyIndex];
+    if (!selectedMon) {
+      return null;
+    }
+
+    return selectedPartyIndex;
+  }
+
+  private getPartySnapshot(): (PartyPokemon | null)[] {
+    return this.ctx.getParty?.() ?? saveStateStore.getParty();
+  }
+
+  private setPartySnapshot(party: (PartyPokemon | null)[]): void {
+    this.ctx.setParty(party);
+  }
+
+  private getSelectedPartyMon(): { party: (PartyPokemon | null)[]; index: number; mon: PartyPokemon } | null {
+    const party = this.getPartySnapshot();
+    const selectedIndex = gameVariables.getVar('VAR_0x8004');
+    if (selectedIndex < 0 || selectedIndex >= PARTY_SIZE) {
+      return null;
+    }
+    const mon = party[selectedIndex];
+    if (!mon) {
+      return null;
+    }
+    return { party, index: selectedIndex, mon };
+  }
+
+  private applyMoveDeleterForgetMove(mon: PartyPokemon, moveSlot: number): PartyPokemon {
+    const normalizedSlot = Math.max(0, Math.min(3, moveSlot));
+    const nextMoves = [...mon.moves];
+    const nextPp = [...mon.pp];
+    let nextPpBonuses = mon.ppBonuses;
+
+    for (let i = normalizedSlot; i < 3; i++) {
+      nextMoves[i] = nextMoves[i + 1];
+      nextPp[i] = nextPp[i + 1];
+      const movedBonus = (nextPpBonuses >> ((i + 1) * 2)) & 0x3;
+      const clearMask = ~(0x3 << (i * 2));
+      nextPpBonuses = (nextPpBonuses & clearMask) | (movedBonus << (i * 2));
+    }
+    nextMoves[3] = MOVES.NONE;
+    nextPp[3] = 0;
+    nextPpBonuses &= ~(0x3 << 6);
+
+    return {
+      ...mon,
+      moves: nextMoves as [number, number, number, number],
+      pp: nextPp as [number, number, number, number],
+      ppBonuses: nextPpBonuses,
+    };
+  }
+
+  private countKnownMoves(mon: PartyPokemon): number {
+    let count = 0;
+    for (let i = 0; i < 4; i++) {
+      if ((mon.moves[i] ?? MOVES.NONE) !== MOVES.NONE) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private async chooseMoveDeleterSlot(mon: PartyPokemon): Promise<number | null> {
+    const slot = await menuStateManager.openAsync<'moveForget', number>('moveForget', {
+      mode: 'delete',
+      promptText: 'Which move should be forgotten?',
+      pokemonName: formatPokemonDisplayName(mon),
+      pokemonMoves: mon.moves,
+      pokemonPp: mon.pp,
+    });
+    if (slot === null || slot < 0 || slot >= 4) {
+      return null;
+    }
+    if ((mon.moves[slot] ?? MOVES.NONE) === MOVES.NONE) {
+      return null;
+    }
+    return slot;
+  }
+
+  private async runMoveRelearnerTeachingFlow(monIndex: number): Promise<boolean> {
+    const party = this.getPartySnapshot();
+    const mon = party[monIndex];
+    if (!mon) {
+      return false;
+    }
+
+    const relearnableMoves = getRelearnableMoves(mon);
+    if (relearnableMoves.length === 0) {
+      return false;
+    }
+
+    const selectedMove = await this.ctx.showChoice(
+      `${formatPokemonDisplayName(mon)} can relearn which move?`,
+      relearnableMoves.map((moveId) => ({
+        label: getMoveName(moveId),
+        value: moveId,
+      })),
+      { cancelable: true },
+    );
+    if (selectedMove === null) {
+      return false;
+    }
+
+    const prompts = createMoveLearningPromptAdapter(
+      {
+        showMessage: (text) => this.ctx.showMessage(text),
+        showYesNo: async (text, defaultYes) => {
+          if (!this.ctx.showYesNo) {
+            return defaultYes;
+          }
+          return this.ctx.showYesNo(text);
+        },
+      },
+      {
+        openMoveForgetMenu: (pokemon, moveId) => menuStateManager.openAsync<'moveForget', number>('moveForget', {
+          ...createMoveForgetMenuData(pokemon, moveId),
+          mode: 'learn',
+        }),
+      },
+    );
+
+    const result = await runMoveLearningSequence(mon, [selectedMove], prompts);
+    const taught = result.learnedMoveIds.includes(selectedMove);
+    if (!taught) {
+      return false;
+    }
+
+    const nextParty = [...party];
+    nextParty[monIndex] = result.pokemon;
+    this.setPartySnapshot(nextParty);
+    return true;
+  }
+
   private findFirstPartyIndexWithMove(moveId: number): number {
     const party = this.ctx.getParty?.() ?? [];
     const customResolver = this.services.party?.findFirstPartyIndexWithMove;
@@ -1493,7 +1649,7 @@ export class ScriptRunner {
           const party = this.ctx.getParty?.() ?? [];
           const mon = slot >= 0 && slot < party.length ? party[slot] : null;
           if (mon) {
-            stringVars[destKey] = mon.nickname?.trim() || getSpeciesName(mon.species);
+            stringVars[destKey] = formatPokemonDisplayName(mon);
           } else {
             stringVars[destKey] = '';
           }
@@ -3474,6 +3630,149 @@ export class ScriptRunner {
         return undefined;
       }
 
+      case 'ChoosePartyMon': {
+        this.queueCallbackSpecialWaitState((complete) => {
+          void (async () => {
+            const selectedIndex = await this.choosePartyMonForScript();
+            gameVariables.setVar('VAR_0x8004', selectedIndex ?? 0xFF);
+          })()
+            .catch((error) => {
+              console.error('[ScriptRunner] ChoosePartyMon special failed:', error);
+              gameVariables.setVar('VAR_0x8004', 0xFF);
+            })
+            .finally(complete);
+        });
+        return undefined;
+      }
+
+      case 'ChooseMonForMoveRelearner': {
+        this.queueCallbackSpecialWaitState((complete) => {
+          void (async () => {
+            const selectedIndex = await this.choosePartyMonForScript();
+            if (selectedIndex === null) {
+              gameVariables.setVar('VAR_0x8004', 0xFF);
+              return;
+            }
+
+            const party = this.getPartySnapshot();
+            const mon = party[selectedIndex];
+            gameVariables.setVar('VAR_0x8004', selectedIndex);
+            gameVariables.setVar('VAR_0x8005', mon ? getRelearnableMoves(mon).length : 0);
+          })()
+            .catch((error) => {
+              console.error('[ScriptRunner] ChooseMonForMoveRelearner special failed:', error);
+              gameVariables.setVar('VAR_0x8004', 0xFF);
+              gameVariables.setVar('VAR_0x8005', 0);
+            })
+            .finally(complete);
+        });
+        return undefined;
+      }
+
+      case 'TeachMoveRelearnerMove': {
+        this.queueCallbackSpecialWaitState((complete) => {
+          void (async () => {
+            const selectedIndex = gameVariables.getVar('VAR_0x8004');
+            if (selectedIndex < 0 || selectedIndex >= PARTY_SIZE) {
+              gameVariables.setVar('VAR_0x8004', 0);
+              return;
+            }
+
+            const taught = await this.runMoveRelearnerTeachingFlow(selectedIndex);
+            gameVariables.setVar('VAR_0x8004', taught ? 1 : 0);
+          })()
+            .catch((error) => {
+              console.error('[ScriptRunner] TeachMoveRelearnerMove special failed:', error);
+              gameVariables.setVar('VAR_0x8004', 0);
+            })
+            .finally(complete);
+        });
+        return undefined;
+      }
+
+      case 'MoveDeleterChooseMoveToForget': {
+        this.queueCallbackSpecialWaitState((complete) => {
+          void (async () => {
+            const selected = this.getSelectedPartyMon();
+            if (!selected) {
+              gameVariables.setVar('VAR_0x8005', 4);
+              return;
+            }
+
+            const selectedSlot = await this.chooseMoveDeleterSlot(selected.mon);
+            gameVariables.setVar('VAR_0x8005', selectedSlot ?? 4);
+          })()
+            .catch((error) => {
+              console.error('[ScriptRunner] MoveDeleterChooseMoveToForget special failed:', error);
+              gameVariables.setVar('VAR_0x8005', 4);
+            })
+            .finally(complete);
+        });
+        return undefined;
+      }
+
+      case 'BufferMoveDeleterNicknameAndMove': {
+        const selected = this.getSelectedPartyMon();
+        if (!selected) {
+          stringVars['STR_VAR_1'] = '';
+          stringVars['STR_VAR_2'] = '';
+          return undefined;
+        }
+
+        const slot = gameVariables.getVar('VAR_0x8005');
+        const moveId = slot >= 0 && slot < 4 ? selected.mon.moves[slot] : MOVES.NONE;
+        stringVars['STR_VAR_1'] = formatPokemonDisplayName(selected.mon);
+        stringVars['STR_VAR_2'] = getMoveName(moveId ?? MOVES.NONE);
+        return undefined;
+      }
+
+      case 'GetNumMovesSelectedMonHas': {
+        const selected = this.getSelectedPartyMon();
+        const count = selected ? this.countKnownMoves(selected.mon) : 0;
+        gameVariables.setVar('VAR_RESULT', count);
+        return count;
+      }
+
+      case 'MoveDeleterForgetMove': {
+        const selected = this.getSelectedPartyMon();
+        const slot = gameVariables.getVar('VAR_0x8005');
+        if (!selected || slot < 0 || slot >= 4) {
+          return undefined;
+        }
+
+        const nextParty = [...selected.party];
+        nextParty[selected.index] = this.applyMoveDeleterForgetMove(selected.mon, slot);
+        this.setPartySnapshot(nextParty);
+        return undefined;
+      }
+
+      case 'IsSelectedMonEgg': {
+        const selected = this.getSelectedPartyMon();
+        const isEgg = selected?.mon.isEgg ? 1 : 0;
+        gameVariables.setVar('VAR_RESULT', isEgg);
+        return isEgg;
+      }
+
+      case 'IsLastMonThatKnowsSurf': {
+        const selected = this.getSelectedPartyMon();
+        let result = 0;
+        if (selected) {
+          const moveSlot = gameVariables.getVar('VAR_0x8005');
+          const selectedMove = moveSlot >= 0 && moveSlot < 4 ? selected.mon.moves[moveSlot] : MOVES.NONE;
+          if (selectedMove === MOVES.SURF) {
+            const otherHasSurf = selected.party.some((partyMon, partyIndex) => {
+              if (!partyMon || partyIndex === selected.index) {
+                return false;
+              }
+              return partyMon.moves.includes(MOVES.SURF);
+            });
+            result = otherHasSurf ? 0 : 1;
+          }
+        }
+        gameVariables.setVar('VAR_RESULT', result);
+        return result;
+      }
+
       // --- Berry tree specials ---
       case 'ObjectEventInteractionGetBerryTreeData':
         berryManager.runTimeBasedEvents(Date.now());
@@ -3506,19 +3805,17 @@ export class ScriptRunner {
         return bagManager.getPocket('berries').length > 0 ? 1 : 0;
       case 'Bag_ChooseBerry': {
         this.queueCallbackSpecialWaitState((complete) => {
-          let resolved = false;
-          const resolveSelection = (itemId: number): void => {
-            if (resolved) return;
-            resolved = true;
-            gameVariables.setVar('VAR_ITEM_ID', itemId);
-            complete();
-          };
-
-          menuStateManager.open('bag', {
-            mode: 'berrySelect',
-            onBerrySelected: (itemId: number) => resolveSelection(itemId),
-            onBerrySelectionCancel: () => resolveSelection(ITEMS.ITEM_NONE),
-          });
+          void (async () => {
+            const selectedBerryItem = await menuStateManager.openAsync<'bag', number>('bag', {
+              mode: 'berrySelect',
+            });
+            gameVariables.setVar('VAR_ITEM_ID', selectedBerryItem ?? ITEMS.ITEM_NONE);
+          })()
+            .catch((error) => {
+              console.error('[ScriptRunner] Bag_ChooseBerry special failed:', error);
+              gameVariables.setVar('VAR_ITEM_ID', ITEMS.ITEM_NONE);
+            })
+            .finally(complete);
         });
         return undefined;
       }

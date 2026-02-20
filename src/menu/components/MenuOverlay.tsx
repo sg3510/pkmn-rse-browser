@@ -13,7 +13,12 @@
  */
 
 import { useMenuState } from '../hooks/useMenuState';
-import { menuStateManager } from '../MenuStateManager';
+import {
+  menuStateManager,
+  type AnyMenuData,
+  getMenuDataFor,
+  type MenuType,
+} from '../MenuStateManager';
 import { useDialogContext } from '../../components/dialog/DialogContext';
 import { useMenuLayout } from '../hooks/useMenuLayout';
 import { StartMenu } from './StartMenu';
@@ -21,7 +26,6 @@ import { BagMenu } from './BagMenu';
 import { PartyMenuContent } from './PartyMenuContent';
 import { PokemonSummaryContent } from './PokemonSummaryContent';
 import { MoveForgetMenuContent } from './MoveForgetMenuContent';
-import type { PartyPokemon } from '../../pokemon/types';
 import '../styles/menu-overlay.css';
 
 export function MenuOverlay() {
@@ -87,8 +91,8 @@ export function MenuOverlay() {
 }
 
 interface MenuContentProps {
-  currentMenu: string;
-  data: Record<string, unknown>;
+  currentMenu: MenuType;
+  data: AnyMenuData;
 }
 
 function MenuContent({ currentMenu, data }: MenuContentProps) {
@@ -103,8 +107,9 @@ function MenuContent({ currentMenu, data }: MenuContentProps) {
       return <MoveForgetMenuContent />;
 
     case 'pokemonSummary': {
-      const pokemon = data.pokemon as PartyPokemon | undefined;
-      const partyIndex = data.partyIndex as number | undefined;
+      const summaryData = getMenuDataFor({ currentMenu, data }, 'pokemonSummary');
+      const pokemon = summaryData?.pokemon;
+      const partyIndex = summaryData?.partyIndex;
       if (!pokemon) {
         return <div className="menu-placeholder">No Pokemon selected</div>;
       }

@@ -21,6 +21,7 @@ import { initializeNewGameStoryState } from '../game/NewGameFlow';
 import { getDialogBridge, type DialogBridgeApi } from '../components/dialog/DialogBridge';
 import { BIRCH_SCENE_WIDTH, BIRCH_SCENE_HEIGHT, getBirchSceneFit, drawSceneWithEdgeExtension } from './birchSceneLayout';
 import { loadImageCanvasAsset, loadUint16LEAsset } from '../utils/assetLoader';
+import { buildLocationState } from '../world/locationStateFactory';
 
 type BirchPhase = 'birchIntro' | 'pokemonIntro' | 'gender' | 'name' | 'confirm';
 
@@ -43,19 +44,18 @@ const BIRCH_POKEMON_MESSAGES = [
 ];
 
 function createInitialLocationState(): LocationState {
-  return {
-    pos: { x: 2, y: 2 },
-    location: { mapId: 'MAP_INSIDE_OF_TRUCK', warpId: 0, x: 2, y: 2 },
-    continueGameWarp: { mapId: 'MAP_INSIDE_OF_TRUCK', warpId: 0, x: 2, y: 2 },
-    lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-    escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+  return buildLocationState({
+    mapId: 'MAP_INSIDE_OF_TRUCK',
+    x: 2,
+    y: 2,
     direction: 'down',
     elevation: 3,
+    warpId: 0,
     isSurfing: false,
     isUnderwater: false,
     bikeMode: 'none',
     isRidingBike: false,
-  };
+  });
 }
 
 export class BirchSpeechState implements StateRenderer {

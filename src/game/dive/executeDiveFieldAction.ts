@@ -14,6 +14,7 @@ import { resolveDiveWarp } from './DiveWarpResolver';
 import { clearFixedDiveWarpTarget } from '../FixedDiveWarp';
 import { runMapDiveScript } from '../../scripting/mapHooks/runMapDiveScript';
 import type { SetMapMetatileAndInvalidateFn } from '../overworld/metatile/mapMetatileUtils';
+import { buildLocationState } from '../../world/locationStateFactory';
 
 interface MutableRef<T> {
   current: T;
@@ -106,19 +107,18 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
 
   const destinationIsSurfing = !destinationUnderwater;
 
-  pendingSavedLocationRef.current = {
-    pos: { x: destination.x, y: destination.y },
-    location: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
-    continueGameWarp: { mapId: destination.mapId, warpId: destination.warpId, x: destination.x, y: destination.y },
-    lastHealLocation: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
-    escapeWarp: { mapId: 'MAP_LITTLEROOT_TOWN', warpId: 0, x: 5, y: 3 },
+  pendingSavedLocationRef.current = buildLocationState({
+    mapId: destination.mapId,
+    x: destination.x,
+    y: destination.y,
+    warpId: destination.warpId,
     direction: facingDirection,
     elevation: player.getElevation(),
     isSurfing: destinationIsSurfing,
     isUnderwater: destinationUnderwater,
     bikeMode: 'none',
     isRidingBike: false,
-  };
+  });
 
   pendingScriptedWarpRef.current = {
     mapId: destination.mapId,
