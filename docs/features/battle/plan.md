@@ -75,7 +75,7 @@ CI/verification rule:
 - [x] `BTL-025` Elite Four auto-win regression: `trainerbattle_no_intro` must not pre-skip when trainer flag is set.
 - [x] `BTL-026` Overworld trainer "meet-eyes" LOS trigger runs before free movement input (C call-order parity).
 - [x] `BTL-027` Trainer LOS trigger uses C-style active object-event scope (spawned trainer objects around camera), avoiding far offscreen pull-in without truncating valid trainer sight range.
-- [ ] `BTL-028` Full C trainer approach task/script parity (`EventScript_StartTrainerApproach` + `DoTrainerApproach` task chain, including double-approach edge cases).
+- [x] `BTL-028` Full C trainer approach task/script parity (`EventScript_StartTrainerApproach` + `DoTrainerApproach` task chain, including double-approach edge cases).
 - [x] `BTL-029` Trainer LOS must trigger only after player completes a step into sight line, then run `!` + trainer walk-up before battle script start.
 - [x] `BTL-030` Trainer pre-battle speech reliability: ensure trainerbattle intro path always attempts intro text and falls back to deterministic generic trainer line if intro label is missing.
 - [x] `BTL-031` Trainer LOS step probing uses destination tile while moving (C `PlayerGetDestCoords` parity) so fast running cannot skip sight trigger checks.

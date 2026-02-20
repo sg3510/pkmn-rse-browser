@@ -19,7 +19,14 @@ export {
 } from './NPCSpriteLoader';
 
 // Rendering
-export { renderNPCs, renderSingleNPC, renderNPCReflections, renderNPCGrassEffects, type NPCRenderView } from './NPCRenderer';
+export {
+  renderNPCs,
+  renderSingleNPC,
+  renderNPCReflections,
+  renderNPCGrassEffects,
+  renderNPCDisguiseOverlays,
+  type NPCRenderView,
+} from './NPCRenderer';
 
 // Animation
 export { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';

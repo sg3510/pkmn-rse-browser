@@ -37,6 +37,8 @@ import { rotatingGateManager } from '../game/RotatingGateManager.ts';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager.ts';
 import { BattleCommandRunner } from './BattleCommandRunner.ts';
 import { isPlayerDefeatedBattleOutcome, type ScriptTrainerBattleMode } from './battleTypes.ts';
+import type { TrainerApproachRuntime } from '../game/trainers/trainerApproachRuntime.ts';
+import { TRAINER_BATTLE_MODE, isTrainerDoubleBattleMode } from '../game/trainers/trainerSightEncounter.ts';
 import { executeWeatherSpecial } from './specials/weatherSpecials.ts';
 import { executeGabbyAndTySpecial } from './specials/gabbyAndTySpecials.ts';
 import {
@@ -304,6 +306,10 @@ function resolveConstant(val: string | number): string | number {
   if (val === 'TRAINER_BATTLE_SET_TRAINER_A') return 10;
   if (val === 'TRAINER_BATTLE_SET_TRAINER_B') return 11;
   if (val === 'TRAINER_BATTLE_HILL') return 12;
+  // Party-state constants for doubles checks (include/constants/pokemon.h)
+  if (val === 'PLAYER_HAS_TWO_USABLE_MONS') return 0;
+  if (val === 'PLAYER_HAS_ONE_MON') return 1;
+  if (val === 'PLAYER_HAS_ONE_USABLE_MON') return 2;
   // Trainer Hill status constants (include/constants/trainer_hill.h)
   if (val === 'TRAINER_HILL_PLAYER_STATUS_LOST') return 0;
   if (val === 'TRAINER_HILL_PLAYER_STATUS_ECARD_SCANNED') return 1;
@@ -451,6 +457,13 @@ export interface ScriptSaveServices {
   saveGame?: () => boolean | Promise<boolean>;
 }
 
+export interface ScriptTrainerApproachServices {
+  runtime: TrainerApproachRuntime;
+  runCurrentApproachIntro?: () => Promise<void>;
+  setSelectedTrainerFacingDirection?: () => void;
+  facePlayerAfterBattle?: () => void | Promise<void>;
+}
+
 export interface ScriptRuntimeServices {
   setDiveWarp?: (mapId: string, x: number, y: number, warpId?: number) => void;
   fade?: ScriptFadeServices;
@@ -463,6 +476,7 @@ export interface ScriptRuntimeServices {
   camera?: ScriptCameraSpecialServices;
   legendary?: ScriptLegendarySpecialServices;
   mirageTower?: ScriptMirageTowerSpecialServices;
+  trainerApproach?: ScriptTrainerApproachServices;
 }
 
 export class ScriptRunner {
@@ -698,6 +712,92 @@ export class ScriptRunner {
       // C parity: losing trainer battles white-outs and the current script does not continue.
       return false;
     }
+    return true;
+  }
+
+  private resolveScriptTrainerBattleModeFromTrainerBattleMode(
+    battleMode: number,
+    approachingTrainerCount: number
+  ): ScriptTrainerBattleMode {
+    if (approachingTrainerCount >= 2) {
+      return 'double';
+    }
+
+    switch (battleMode) {
+      case TRAINER_BATTLE_MODE.SINGLE_NO_INTRO_TEXT:
+        return 'no_intro';
+      case TRAINER_BATTLE_MODE.REMATCH:
+        return 'rematch';
+      case TRAINER_BATTLE_MODE.REMATCH_DOUBLE:
+        return 'rematch_double';
+      default:
+        return isTrainerDoubleBattleMode(battleMode) ? 'double' : 'single';
+    }
+  }
+
+  private getMonsStateToDoubles(): number {
+    const party = this.ctx.getParty?.() ?? [];
+    let totalMons = 0;
+    let usableMons = 0;
+
+    for (const mon of party) {
+      if (!mon || mon.isEgg) continue;
+      totalMons++;
+      if (mon.stats.hp > 0) usableMons++;
+    }
+
+    if (totalMons <= 1) {
+      return resolveConstant('PLAYER_HAS_ONE_MON') as number;
+    }
+    if (usableMons <= 1) {
+      return resolveConstant('PLAYER_HAS_ONE_USABLE_MON') as number;
+    }
+    return resolveConstant('PLAYER_HAS_TWO_USABLE_MONS') as number;
+  }
+
+  private async runConfiguredApproachingTrainerBattle(): Promise<boolean> {
+    const runtime = this.services.trainerApproach?.runtime;
+    if (!runtime || !runtime.hasApproachingTrainers()) {
+      console.warn('[ScriptRunner] dotrainerbattle called without an active approaching trainer runtime.');
+      return true;
+    }
+
+    const primaryBattle = runtime.getPrimaryTrainerBattle();
+    if (!primaryBattle) {
+      console.warn('[ScriptRunner] dotrainerbattle missing primary trainer battle metadata.');
+      return true;
+    }
+
+    const approachingTrainerCount = runtime.getApproachingTrainerCount();
+    const approachingTrainerIds: string[] = [];
+    for (let i = 0; i < approachingTrainerCount; i++) {
+      const trainer = runtime.getApproachingTrainerAt(i);
+      const trainerId = trainer?.battle?.trainerId;
+      if (!trainerId) continue;
+      if (!approachingTrainerIds.includes(trainerId)) {
+        approachingTrainerIds.push(trainerId);
+      }
+    }
+
+    const mode = this.resolveScriptTrainerBattleModeFromTrainerBattleMode(
+      primaryBattle.battleMode,
+      approachingTrainerCount
+    );
+
+    runtime.onTrainerBattleStarted();
+    const result = await this.battleCommands.runTrainerBattle({
+      trainerId: primaryBattle.trainerId,
+      mode,
+    });
+
+    if (isPlayerDefeatedBattleOutcome(result.outcome)) {
+      return false;
+    }
+
+    for (const trainerId of approachingTrainerIds) {
+      setTrainerDefeated(trainerId);
+    }
+
     return true;
   }
 
@@ -1258,6 +1358,49 @@ export class ScriptRunner {
               commands = target;
               ip = 0;
             }
+          }
+          break;
+        }
+
+        // --- Trainer approach commands (C parity: trainer_battle.inc path) ---
+        case 'selectapproachingtrainer': {
+          const runtime = this.services.trainerApproach?.runtime;
+          const selected = runtime?.selectCurrentApproachingTrainer();
+          if (selected) {
+            gameVariables.setVar('VAR_LAST_TALKED', selected.localIdNumber);
+          }
+          break;
+        }
+
+        case 'lockfortrainer':
+          await this.ctx.waitForPlayerIdle?.();
+          break;
+
+        case 'dotrainerbattle': {
+          const wonOrEscaped = await this.runConfiguredApproachingTrainerBattle();
+          if (!wonOrEscaped) return;
+          break;
+        }
+
+        case 'gotopostbattlescript': {
+          const postBattleCommands = this.services.trainerApproach?.runtime.getPostBattleCommands();
+          if (postBattleCommands && postBattleCommands.length > 0) {
+            commands = postBattleCommands;
+            ip = 0;
+          }
+          break;
+        }
+
+        case 'gotobeatenscript': {
+          const runtime = this.services.trainerApproach?.runtime;
+          const targetLabel = runtime?.getTrainerPostBattleScriptLabel() ?? null;
+          if (!targetLabel) break;
+          const target = this.findScript(targetLabel);
+          if (target) {
+            commands = target;
+            ip = 0;
+          } else {
+            console.warn(`[ScriptRunner] gotobeatenscript target not found: ${targetLabel}`);
           }
           break;
         }
@@ -2962,8 +3105,40 @@ export class ScriptRunner {
         continue;
       }
 
+      // --- reveal_trainer: tree/mountain/buried trainer reveal timing ---
+      if (step === 'reveal_trainer') {
+        let startedDisguiseReveal = false;
+        if (!isPlayer) {
+          startedDisguiseReveal = this.ctx.startNpcDisguiseReveal?.(objectMapId, resolvedId) === true;
+          if (!startedDisguiseReveal) {
+            this.ctx.setSpriteHidden?.(objectMapId, resolvedId, false);
+          }
+        }
+        // C reveal_disguise has 7 animation frames at 4-frame ticks (total 28).
+        await this.ctx.delayFrames(28);
+        if (!isPlayer) {
+          if (startedDisguiseReveal) {
+            const finished = this.ctx.finishNpcDisguiseReveal?.(objectMapId, resolvedId) === true;
+            if (!finished) {
+              this.ctx.setSpriteHidden?.(objectMapId, resolvedId, false);
+            }
+          }
+          const pos = this.ctx.getNpcPosition?.(objectMapId, resolvedId);
+          const mapOffset = this.ctx.getMapOffset?.(objectMapId);
+          if (pos && mapOffset) {
+            this.ctx.setNpcTemplatePosition?.(
+              objectMapId,
+              resolvedId,
+              pos.tileX - mapOffset.offsetX,
+              pos.tileY - mapOffset.offsetY
+            );
+          }
+        }
+        continue;
+      }
+
       // --- Special one-off animations (delay as stand-in) ---
-      if (step === 'nurse_joy_bow' || step === 'reveal_trainer' ||
+      if (step === 'nurse_joy_bow' ||
           step === 'rock_smash_break' || step === 'cut_tree' ||
           step === 'figure_8' || step === 'fly_up' || step === 'fly_down' ||
           step === 'levitate' || step === 'stop_levitate' ||
@@ -3044,6 +3219,37 @@ export class ScriptRunner {
    * Returns a numeric result for specialvar, or undefined.
    */
   private async executeSpecial(name: string): Promise<number | undefined> {
+    const rawSpecialName = name;
+    const normalizedSpecialNameRaw = rawSpecialName.trim().replace(/\(\)\s*$/, '');
+    const normalizedTrainerSpecialName = (() => {
+      switch (normalizedSpecialNameRaw.toLowerCase()) {
+        case 'playtrainerencountermusic':
+          return 'PlayTrainerEncounterMusic';
+        case 'dotrainerapproach':
+          return 'DoTrainerApproach';
+        case 'showtrainerintrospeech':
+          return 'ShowTrainerIntroSpeech';
+        case 'showtrainercantbattlespeech':
+          return 'ShowTrainerCantBattleSpeech';
+        case 'trypreparesecondapproachingtrainer':
+          return 'TryPrepareSecondApproachingTrainer';
+        case 'settrainerfacingdirection':
+          return 'SetTrainerFacingDirection';
+        case 'gettrainerflag':
+          return 'GetTrainerFlag';
+        case 'gettrainerbattlemode':
+          return 'GetTrainerBattleMode';
+        case 'hasenoughmonsfordoublebattle':
+          return 'HasEnoughMonsForDoubleBattle';
+        case 'shouldtrygettrainerscript':
+          return 'ShouldTryGetTrainerScript';
+        case 'playerfacetrainerafterbattle':
+          return 'PlayerFaceTrainerAfterBattle';
+        default:
+          return normalizedSpecialNameRaw;
+      }
+    })();
+
     const setSpecialVar = (varName: string, value: number | string): void => {
       if (typeof value === 'string') {
         this.localStringVars.set(varName, value);
@@ -3055,7 +3261,7 @@ export class ScriptRunner {
       gameVariables.setVar(varName, value);
     };
 
-    const gabbyAndTyResult = executeGabbyAndTySpecial(name, {
+    const gabbyAndTyResult = executeGabbyAndTySpecial(normalizedTrainerSpecialName, {
       getVar: (varName) => gameVariables.getVar(varName),
       setVar: setSpecialVar,
     });
@@ -3063,7 +3269,7 @@ export class ScriptRunner {
       return gabbyAndTyResult.result;
     }
 
-    const legendarySpecial = await executeLegendaryIslandSpecial(name, {
+    const legendarySpecial = await executeLegendaryIslandSpecial(normalizedTrainerSpecialName, {
       getVar: (varName) => gameVariables.getVar(varName),
       setVar: (varName, value) => gameVariables.setVar(varName, value),
       isFlagSet: (flagName) => gameFlags.isSet(flagName),
@@ -3076,7 +3282,7 @@ export class ScriptRunner {
       return legendarySpecial.result;
     }
 
-    const mirageTowerSpecial = executeMirageTowerSpecial(name, {
+    const mirageTowerSpecial = executeMirageTowerSpecial(normalizedTrainerSpecialName, {
       currentMapId: this.currentMapId,
       getVar: (varName) => gameVariables.getVar(varName),
       isFlagSet: (flagName) => gameFlags.isSet(flagName),
@@ -3118,7 +3324,7 @@ export class ScriptRunner {
       stringVars['STR_VAR_1'] = berryData.berryCountString;
     };
 
-    switch (name) {
+    switch (normalizedTrainerSpecialName) {
       case 'GetRivalSonDaughterString':
         // Male player → rival is female → "daughter"; Female → "son"
         stringVars['STR_VAR_1'] = this.ctx.getPlayerGender() === 0 ? 'daughter' : 'son';
@@ -3133,6 +3339,91 @@ export class ScriptRunner {
         // Prevents gym leaders and 70+ rematchable trainers from
         // incorrectly entering the rematch branch after initial defeat.
         return 0;
+      case 'PlayTrainerEncounterMusic':
+        // Music routing is handled by the field audio subsystem outside ScriptRunner.
+        return undefined;
+      case 'DoTrainerApproach': {
+        const runCurrentApproachIntro = this.services.trainerApproach?.runCurrentApproachIntro;
+        if (runCurrentApproachIntro) {
+          this.queueWaitState(runCurrentApproachIntro());
+        } else {
+          this.queueWaitState(this.ctx.delayFrames(1));
+        }
+        return undefined;
+      }
+      case 'ShowTrainerIntroSpeech': {
+        const runtime = this.services.trainerApproach?.runtime;
+        const battle = runtime?.getCurrentTrainerBattle()
+          ?? runtime?.getSelectedTrainerBattle()
+          ?? runtime?.getPrimaryTrainerBattle()
+          ?? null;
+        if (!battle) {
+          return undefined;
+        }
+        await this.showTrainerIntroText(battle.trainerId, battle.introTextLabel);
+        return undefined;
+      }
+      case 'ShowTrainerCantBattleSpeech': {
+        const runtime = this.services.trainerApproach?.runtime;
+        const battle = runtime?.getCurrentTrainerBattle()
+          ?? runtime?.getSelectedTrainerBattle()
+          ?? runtime?.getPrimaryTrainerBattle()
+          ?? null;
+        if (!battle) {
+          await this.ctx.showMessage('You need two usable POKeMON for a double battle.');
+          return undefined;
+        }
+
+        const shown = await this.showTextByLabel(battle.cannotBattleTextLabel, { warnIfMissing: true });
+        if (!shown) {
+          await this.ctx.showMessage('You need two usable POKeMON for a double battle.');
+        }
+        return undefined;
+      }
+      case 'TryPrepareSecondApproachingTrainer': {
+        const prepared = this.services.trainerApproach?.runtime.tryPrepareSecondApproachingTrainer() ?? false;
+        gameVariables.setVar('VAR_RESULT', prepared ? 1 : 0);
+        return prepared ? 1 : 0;
+      }
+      case 'SetTrainerFacingDirection':
+        this.services.trainerApproach?.setSelectedTrainerFacingDirection?.();
+        return undefined;
+      case 'GetTrainerFlag': {
+        const runtime = this.services.trainerApproach?.runtime;
+        const battle = runtime?.getCurrentTrainerBattle()
+          ?? runtime?.getSelectedTrainerBattle()
+          ?? runtime?.getPrimaryTrainerBattle()
+          ?? null;
+        const defeated = battle ? isTrainerDefeated(battle.trainerId) : false;
+        const result = defeated ? 1 : 0;
+        gameVariables.setVar('VAR_RESULT', result);
+        return result;
+      }
+      case 'GetTrainerBattleMode': {
+        const runtime = this.services.trainerApproach?.runtime;
+        const mode = runtime?.getPrimaryTrainerBattle()?.battleMode ?? TRAINER_BATTLE_MODE.SINGLE;
+        gameVariables.setVar('VAR_RESULT', mode);
+        return mode;
+      }
+      case 'HasEnoughMonsForDoubleBattle': {
+        const state = this.getMonsStateToDoubles();
+        gameVariables.setVar('VAR_RESULT', state);
+        return state;
+      }
+      case 'ShouldTryGetTrainerScript': {
+        const should = this.services.trainerApproach?.runtime.shouldTryGetTrainerScript() ?? false;
+        gameVariables.setVar('VAR_RESULT', should ? 1 : 0);
+        return should ? 1 : 0;
+      }
+      case 'PlayerFaceTrainerAfterBattle': {
+        const movement = (async () => {
+          await this.services.trainerApproach?.facePlayerAfterBattle?.();
+          await this.ctx.delayFrames(1);
+        })();
+        this.pendingMovements.set('LOCALID_PLAYER', movement);
+        this.pendingMovements.set('255', movement);
+        return undefined;
+      }
       case 'ScriptMenu_CreateStartMenuForPokenavTutorial': {
         // Opens a fake start menu for PokéNav tutorial (RustboroCity scripts.inc:76–101).
         // The script's switch/case loops back for any selection other than POKéNAV (3).
@@ -3462,7 +3753,10 @@ export class ScriptRunner {
         return undefined;
 
       default:
-        console.warn(`[ScriptRunner] Unimplemented special: ${name}`);
+        console.warn(
+          `[ScriptRunner] Unimplemented special: ${normalizedTrainerSpecialName}`
+          + (normalizedTrainerSpecialName !== rawSpecialName ? ` (raw: ${rawSpecialName})` : '')
+        );
         return undefined;
     }
   }

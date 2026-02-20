@@ -507,3 +507,59 @@
 - `node --test src/battle/engine/__tests__/BattleParity.test.ts`: PASS
 - `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
 - `npm run -s build`: PASS (existing Vite JSON import-attributes warning remains non-blocking)
+
+## 2026-02-20 Trainer Approach Script Parity + Post-Battle Position Stability
+
+### Completed IDs
+
+- `BTL-028`
+
+### Investigation Summary (C first)
+
+- Re-verified command/special chain in:
+  - `public/pokeemerald/data/scripts/trainer_battle.inc`
+  - `public/pokeemerald/src/scrcmd.c` (`selectapproachingtrainer`, `lockfortrainer`, `dotrainerbattle`, `gotopostbattlescript`, `gotobeatenscript`)
+  - `public/pokeemerald/src/trainer_see.c` (`DoTrainerApproach`, `TryPrepareSecondApproachingTrainer`, `PlayerFaceTrainerAfterBattle`)
+  - `public/pokeemerald/src/battle_setup.c` (`ShowTrainerIntroSpeech`, `GetTrainerBattleMode`, `ShouldTryGetTrainerScript`)
+
+### Shipped changes
+
+- Finalized C-style trainer sight selection runtime shape at `src/game/trainers/trainerSightEncounter.ts`:
+  - supports multi-approacher selection with trainer battle metadata.
+  - retains backward-compatible single-trigger helper for legacy tests/callers.
+- Added dedicated trainer approach runtime model at `src/game/trainers/trainerApproachRuntime.ts` and wired it into `GamePage` trigger flow.
+- Wired trainer approach runtime services in `src/scripting/runtime/createScriptRuntimeServices.ts`:
+  - `runCurrentApproachIntro`
+  - `setSelectedTrainerFacingDirection`
+  - `facePlayerAfterBattle`
+- Implemented missing trainer approach script commands in `src/scripting/ScriptRunner.ts`:
+  - `selectapproachingtrainer`
+  - `lockfortrainer`
+  - `dotrainerbattle`
+  - `gotopostbattlescript`
+  - `gotobeatenscript`
+- Implemented missing trainer approach specials in `src/scripting/ScriptRunner.ts`:
+  - `PlayTrainerEncounterMusic` (flow-safe stub)
+  - `DoTrainerApproach`
+  - `ShowTrainerIntroSpeech`
+  - `ShowTrainerCantBattleSpeech`
+  - `TryPrepareSecondApproachingTrainer`
+  - `SetTrainerFacingDirection`
+  - `GetTrainerFlag`
+  - `GetTrainerBattleMode`
+  - `HasEnoughMonsForDoubleBattle`
+  - `ShouldTryGetTrainerScript`
+  - `PlayerFaceTrainerAfterBattle`
+- Added doubles party-state constant resolution parity:
+  - `PLAYER_HAS_TWO_USABLE_MONS`
+  - `PLAYER_HAS_ONE_MON`
+  - `PLAYER_HAS_ONE_USABLE_MON`
+- Strengthened reveal/approach stability at `src/game/trainers/playTrainerSightIntro.ts` and movement handling in `src/scripting/ScriptRunner.ts`:
+  - reveal branch timing for `reveal_trainer`
+  - trainer facing stabilization after approach
+  - template position sync so trainers remain at approached coordinates post-battle (no snap-back)
+
+### Validation
+
+- `node --test --experimental-strip-types src/game/trainers/__tests__/trainerSightEncounter.test.ts src/game/trainers/__tests__/trainerSightProbe.test.ts src/game/trainers/__tests__/playTrainerSightIntro.test.ts src/game/trainers/__tests__/trainerApproachRuntime.test.ts src/scripting/__tests__/ScriptRunner.trainerBattle.test.ts src/scripting/__tests__/ScriptRunner.trainerApproachParity.test.ts`: PASS
+- `npm run -s build`: PASS (existing Vite JSON import-attributes warning and chunk-size warnings remain non-blocking)

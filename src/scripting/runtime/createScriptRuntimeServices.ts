@@ -1,6 +1,8 @@
 import type { ScriptRuntimeServices } from '../ScriptRunner';
 import type { WorldSnapshot } from '../../game/WorldManager';
 import type { ObjectEventManager } from '../../game/ObjectEventManager';
+import { playTrainerSightIntro } from '../../game/trainers/playTrainerSightIntro.ts';
+import type { TrainerApproachRuntime } from '../../game/trainers/trainerApproachRuntime.ts';
 import type { WebGLSpriteRenderer } from '../../rendering/webgl/WebGLSpriteRenderer';
 import type { WebGLRenderPipeline } from '../../rendering/webgl/WebGLRenderPipeline';
 import type { FadeController } from '../../field/FadeController';
@@ -44,6 +46,7 @@ export interface ScriptRuntimeServicesDeps {
   mirageTowerCollapseRuntimeRef: MutableRef<MirageTowerCollapseRuntime>;
   mewEmergingGrassEffectIdRef: MutableRef<string | null>;
   deoxysRockRenderDebugRef: MutableRef<{ active: boolean; startMs: number; lastLogMs: number }>;
+  trainerApproachRuntimeRef?: MutableRef<TrainerApproachRuntime>;
   waitScriptFrames: (frames: number) => Promise<void>;
 }
 
@@ -210,7 +213,74 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
     return result.success;
   };
 
-  return {
+  const getFacingMovementType = (direction: 'up' | 'down' | 'left' | 'right'): string => {
+    if (direction === 'up') return 'MOVEMENT_TYPE_FACE_UP';
+    if (direction === 'down') return 'MOVEMENT_TYPE_FACE_DOWN';
+    if (direction === 'left') return 'MOVEMENT_TYPE_FACE_LEFT';
+    return 'MOVEMENT_TYPE_FACE_RIGHT';
+  };
+
+  const getOppositeDirection = (direction: 'up' | 'down' | 'left' | 'right'): 'up' | 'down' | 'left' | 'right' => {
+    if (direction === 'up') return 'down';
+    if (direction === 'down') return 'up';
+    if (direction === 'left') return 'right';
+    return 'left';
+  };
+
+  const persistTrainerTemplatePosition = (mapId: string, localId: string): void => {
+    const npc = deps.objectEventManagerRef.current.getNPCByLocalId(mapId, localId);
+    if (!npc) return;
+    deps.objectEventManagerRef.current.setNPCTemplatePositionByLocalId(mapId, localId, npc.tileX, npc.tileY);
+  };
+
+  const runCurrentApproachIntro = async (runtime: TrainerApproachRuntime): Promise<void> => {
+    const trainer = runtime.getCurrentApproachingTrainer();
+    const player = deps.playerRef.current;
+    if (!trainer || !player) return;
+
+    await playTrainerSightIntro({
+      trigger: trainer,
+      player,
+      objectEventManager: deps.objectEventManagerRef.current,
+      scriptRuntimeServices: runtimeServices,
+      waitFrames: deps.waitScriptFrames,
+    });
+
+    persistTrainerTemplatePosition(trainer.mapId, trainer.localId);
+  };
+
+  const setSelectedTrainerFacingDirection = (runtime: TrainerApproachRuntime): void => {
+    const trainer = runtime.getSelectedApproachingTrainer();
+    const player = deps.playerRef.current;
+    if (!trainer || !player) return;
+
+    deps.objectEventManagerRef.current.faceNpcTowardPlayer(
+      trainer.mapId,
+      trainer.localId,
+      player.tileX,
+      player.tileY
+    );
+    const npc = deps.objectEventManagerRef.current.getNPCByLocalId(trainer.mapId, trainer.localId);
+    if (!npc) return;
+    deps.objectEventManagerRef.current.setNPCMovementTypeByLocalId(
+      trainer.mapId,
+      trainer.localId,
+      getFacingMovementType(npc.direction)
+    );
+    persistTrainerTemplatePosition(trainer.mapId, trainer.localId);
+  };
+
+  const facePlayerAfterBattle = (runtime: TrainerApproachRuntime): void => {
+    const player = deps.playerRef.current;
+    if (!player) return;
+    const trainer = runtime.getTrainerToFaceAfterBattle();
+    if (!trainer) return;
+    const npc = deps.objectEventManagerRef.current.getNPCByLocalId(trainer.mapId, trainer.localId);
+    if (!npc) return;
+    player.dir = getOppositeDirection(npc.direction);
+  };
+
+  const runtimeServices: ScriptRuntimeServices = {
     setDiveWarp: (mapId, x, y, warpId = 0) => {
       setFixedDiveWarpTarget(mapId, x, y, warpId);
     },
@@ -455,5 +525,15 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
       mewEmergingGrassEffectIdRef: deps.mewEmergingGrassEffectIdRef,
       deoxysRockRenderDebugRef: deps.deoxysRockRenderDebugRef,
     }),
+    trainerApproach: deps.trainerApproachRuntimeRef
+      ? {
+          runtime: deps.trainerApproachRuntimeRef.current,
+          runCurrentApproachIntro: () => runCurrentApproachIntro(deps.trainerApproachRuntimeRef!.current),
+          setSelectedTrainerFacingDirection: () => setSelectedTrainerFacingDirection(deps.trainerApproachRuntimeRef!.current),
+          facePlayerAfterBattle: () => facePlayerAfterBattle(deps.trainerApproachRuntimeRef!.current),
+        }
+      : undefined,
   };
+
+  return runtimeServices;
 }

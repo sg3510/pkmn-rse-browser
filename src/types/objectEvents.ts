@@ -117,6 +117,15 @@ export type NPCMovementType =
  */
 export type NPCTrainerType = 'none' | 'normal' | 'see_all_directions' | 'buried';
 
+export type NPCDisguiseType = 'tree' | 'mountain';
+
+export interface NPCDisguiseState {
+  type: NPCDisguiseType;
+  active: boolean;
+  revealing: boolean;
+  revealStartedAtMs: number | null;
+}
+
 /**
  * Processed NPC object for rendering and interaction
  */
@@ -165,6 +174,8 @@ export interface NPCObject {
    * When enabled, sprite should render above grass overlays and skip long-grass body clipping.
    */
   renderAboveGrass: boolean;
+  /** Optional overlay state for tree/mountain disguised trainers. */
+  disguiseState?: NPCDisguiseState | null;
   /** Runtime tint override for palette-like scripted effects (0..1, defaults to 1). */
   tintR?: number;
   tintG?: number;

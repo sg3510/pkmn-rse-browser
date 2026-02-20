@@ -8,7 +8,7 @@ import {
   type RuntimePerfSection,
   type RuntimePerfStats,
   type RuntimePerfSummary,
-} from './runtimePerfTypes';
+} from './runtimePerfTypes.ts';
 
 const MAX_CAPTURE_SAMPLES = 600;
 

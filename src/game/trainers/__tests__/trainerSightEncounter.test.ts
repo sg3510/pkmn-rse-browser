@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { NPCObject } from '../../../types/objectEvents.ts';
-import { findTrainerSightEncounterTrigger } from '../trainerSightEncounter.ts';
+import {
+  findTrainerSightEncounterSelection,
+  findTrainerSightEncounterTrigger,
+} from '../trainerSightEncounter.ts';
 
 function createTrainerNpc(overrides: Partial<NPCObject> = {}): NPCObject {
   return {
@@ -101,4 +104,111 @@ test('does not trigger when trainer battle flag is already set', () => {
   });
 
   assert.equal(trigger, null);
+});
+
+test('returns up to two approaching trainers for C-style dual single-trainer selection', () => {
+  const trainerA = createTrainerNpc({
+    id: 'MAP_TEST_npc_1',
+    localId: '1',
+    localIdNumber: 1,
+    tileX: 3,
+    tileY: 2,
+    script: 'TrainerScriptA',
+  });
+  const trainerB = createTrainerNpc({
+    id: 'MAP_TEST_npc_2',
+    localId: '2',
+    localIdNumber: 2,
+    tileX: 1,
+    tileY: 2,
+    script: 'TrainerScriptB',
+  });
+
+  const selection = findTrainerSightEncounterSelection({
+    npcs: [trainerA, trainerB],
+    playerTileX: 6,
+    playerTileY: 2,
+    viewport: { left: 0, right: 12, top: 0, bottom: 10 },
+    resolveTile: () => PASSABLE_TILE,
+    hasBlockingObjectAt: () => false,
+    getTrainerScriptCommands: (_mapId, scriptName) => {
+      if (scriptName === 'TrainerScriptA') {
+        return [{ cmd: 'trainerbattle_single', args: ['TRAINER_A', 'IntroA', 'DefeatA'] }];
+      }
+      if (scriptName === 'TrainerScriptB') {
+        return [{ cmd: 'trainerbattle_single', args: ['TRAINER_B', 'IntroB', 'DefeatB'] }];
+      }
+      return null;
+    },
+    hasEnoughMonsForDoubleBattle: () => true,
+  });
+
+  assert.ok(selection);
+  assert.equal(selection.approachingTrainers.length, 2);
+  assert.equal(selection.approachingTrainers[0].battle.trainerId, 'TRAINER_A');
+  assert.equal(selection.approachingTrainers[1].battle.trainerId, 'TRAINER_B');
+});
+
+test('stops after first single trainer when player does not have enough mons for doubles', () => {
+  const trainerA = createTrainerNpc({
+    id: 'MAP_TEST_npc_1',
+    localId: '1',
+    localIdNumber: 1,
+    tileX: 3,
+    tileY: 2,
+    script: 'TrainerScriptA',
+  });
+  const trainerB = createTrainerNpc({
+    id: 'MAP_TEST_npc_2',
+    localId: '2',
+    localIdNumber: 2,
+    tileX: 1,
+    tileY: 2,
+    script: 'TrainerScriptB',
+  });
+
+  const selection = findTrainerSightEncounterSelection({
+    npcs: [trainerA, trainerB],
+    playerTileX: 6,
+    playerTileY: 2,
+    viewport: { left: 0, right: 12, top: 0, bottom: 10 },
+    resolveTile: () => PASSABLE_TILE,
+    hasBlockingObjectAt: () => false,
+    getTrainerScriptCommands: (_mapId, scriptName) => {
+      if (scriptName === 'TrainerScriptA') {
+        return [{ cmd: 'trainerbattle_single', args: ['TRAINER_A', 'IntroA', 'DefeatA'] }];
+      }
+      if (scriptName === 'TrainerScriptB') {
+        return [{ cmd: 'trainerbattle_single', args: ['TRAINER_B', 'IntroB', 'DefeatB'] }];
+      }
+      return null;
+    },
+    hasEnoughMonsForDoubleBattle: () => false,
+  });
+
+  assert.ok(selection);
+  assert.equal(selection.approachingTrainers.length, 1);
+  assert.equal(selection.approachingTrainers[0].battle.trainerId, 'TRAINER_A');
+});
+
+test('breaks immediately when first matched trainer is a scripted double battle', () => {
+  const selection = findTrainerSightEncounterSelection({
+    npcs: [createTrainerNpc({ script: 'TrainerScriptDouble' }), createTrainerNpc({ id: 'MAP_TEST_npc_2', localId: '2', localIdNumber: 2, tileX: 1 })],
+    playerTileX: 6,
+    playerTileY: 2,
+    viewport: { left: 0, right: 12, top: 0, bottom: 10 },
+    resolveTile: () => PASSABLE_TILE,
+    hasBlockingObjectAt: () => false,
+    getTrainerScriptCommands: (_mapId, scriptName) => {
+      if (scriptName === 'TrainerScriptDouble') {
+        return [{ cmd: 'trainerbattle_double', args: ['TRAINER_DOUBLE', 'Intro', 'Defeat', 'CantBattle'] }];
+      }
+      return [{ cmd: 'trainerbattle_single', args: ['TRAINER_OTHER', 'Intro', 'Defeat'] }];
+    },
+    hasEnoughMonsForDoubleBattle: () => true,
+  });
+
+  assert.ok(selection);
+  assert.equal(selection.approachingTrainers.length, 1);
+  assert.equal(selection.approachingTrainers[0].battle.trainerId, 'TRAINER_DOUBLE');
 });

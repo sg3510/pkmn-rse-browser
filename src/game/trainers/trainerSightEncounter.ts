@@ -54,6 +54,47 @@ export interface TrainerSightEncounterParams {
   hasBlockingObjectAt: (tileX: number, tileY: number, trainerElevation: number) => boolean;
   getTrainerScriptCommands: (mapId: string, scriptName: string) => ScriptCommand[] | null;
   isTrainerDefeated?: (trainerId: string) => boolean;
+  hasEnoughMonsForDoubleBattle?: () => boolean;
+}
+
+export const TRAINER_BATTLE_MODE = {
+  SINGLE: 0,
+  CONTINUE_SCRIPT_NO_MUSIC: 1,
+  CONTINUE_SCRIPT: 2,
+  SINGLE_NO_INTRO_TEXT: 3,
+  DOUBLE: 4,
+  REMATCH: 5,
+  CONTINUE_SCRIPT_DOUBLE: 6,
+  REMATCH_DOUBLE: 7,
+  CONTINUE_SCRIPT_DOUBLE_NO_MUSIC: 8,
+  PYRAMID: 9,
+  SET_TRAINER_A: 10,
+  SET_TRAINER_B: 11,
+  HILL: 12,
+} as const;
+
+const TRAINER_BATTLE_DOUBLE_MODES = new Set<number>([
+  TRAINER_BATTLE_MODE.DOUBLE,
+  TRAINER_BATTLE_MODE.REMATCH_DOUBLE,
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE,
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE_NO_MUSIC,
+]);
+
+const TRAINER_BATTLE_CONTINUE_SCRIPT_MODES = new Set<number>([
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT,
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_NO_MUSIC,
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE,
+  TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE_NO_MUSIC,
+]);
+
+export interface TrainerBattleMetadata {
+  battleMode: number;
+  trainerId: string;
+  introTextLabel: string | null;
+  defeatTextLabel: string | null;
+  cannotBattleTextLabel: string | null;
+  beatenScriptLabel: string | null;
+  postBattleCommands: ScriptCommand[];
 }
 
 export interface TrainerSightEncounterTrigger {
@@ -64,6 +105,18 @@ export interface TrainerSightEncounterTrigger {
   scriptName: string;
   approachDistance: number;
   approachDirection: NPCDirection;
+  trainerType?: NPCObject['trainerType'];
+  movementTypeRaw?: string;
+}
+
+export interface TrainerSightApproachingTrainer extends TrainerSightEncounterTrigger {
+  trainerType: NPCObject['trainerType'];
+  movementTypeRaw: string;
+  battle: TrainerBattleMetadata;
+}
+
+export interface TrainerSightEncounterSelection {
+  approachingTrainers: TrainerSightApproachingTrainer[];
 }
 
 const SEE_ALL_DIRECTIONS: readonly NPCDirection[] = ['down', 'up', 'left', 'right'];
@@ -219,18 +272,208 @@ function getTrainerApproachResult(
   return null;
 }
 
-export function extractTrainerIdFromScript(commands: ScriptCommand[]): string | null {
-  for (const command of commands) {
+function asScriptArgString(value: string | number | undefined): string | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(Math.trunc(value)) : null;
+  }
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return normalized;
+}
+
+function asLabelOrNull(value: string | number | undefined): string | null {
+  const normalized = asScriptArgString(value);
+  if (!normalized) return null;
+  if (normalized === 'NULL' || normalized === '0x0') return null;
+  return normalized;
+}
+
+function resolveTrainerBattleMode(rawMode: string | number | undefined): number {
+  if (typeof rawMode === 'number') {
+    return Number.isFinite(rawMode) ? Math.trunc(rawMode) : TRAINER_BATTLE_MODE.SINGLE;
+  }
+  if (typeof rawMode !== 'string') return TRAINER_BATTLE_MODE.SINGLE;
+
+  const normalized = rawMode.trim();
+  if (!normalized) return TRAINER_BATTLE_MODE.SINGLE;
+  if (/^-?\d+$/.test(normalized)) {
+    return Number.parseInt(normalized, 10);
+  }
+
+  switch (normalized) {
+    case 'TRAINER_BATTLE_SINGLE':
+      return TRAINER_BATTLE_MODE.SINGLE;
+    case 'TRAINER_BATTLE_CONTINUE_SCRIPT_NO_MUSIC':
+      return TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_NO_MUSIC;
+    case 'TRAINER_BATTLE_CONTINUE_SCRIPT':
+      return TRAINER_BATTLE_MODE.CONTINUE_SCRIPT;
+    case 'TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT':
+      return TRAINER_BATTLE_MODE.SINGLE_NO_INTRO_TEXT;
+    case 'TRAINER_BATTLE_DOUBLE':
+      return TRAINER_BATTLE_MODE.DOUBLE;
+    case 'TRAINER_BATTLE_REMATCH':
+      return TRAINER_BATTLE_MODE.REMATCH;
+    case 'TRAINER_BATTLE_CONTINUE_SCRIPT_DOUBLE':
+      return TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE;
+    case 'TRAINER_BATTLE_REMATCH_DOUBLE':
+      return TRAINER_BATTLE_MODE.REMATCH_DOUBLE;
+    case 'TRAINER_BATTLE_CONTINUE_SCRIPT_DOUBLE_NO_MUSIC':
+      return TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE_NO_MUSIC;
+    case 'TRAINER_BATTLE_PYRAMID':
+      return TRAINER_BATTLE_MODE.PYRAMID;
+    case 'TRAINER_BATTLE_SET_TRAINER_A':
+      return TRAINER_BATTLE_MODE.SET_TRAINER_A;
+    case 'TRAINER_BATTLE_SET_TRAINER_B':
+      return TRAINER_BATTLE_MODE.SET_TRAINER_B;
+    case 'TRAINER_BATTLE_HILL':
+      return TRAINER_BATTLE_MODE.HILL;
+    default:
+      return TRAINER_BATTLE_MODE.SINGLE;
+  }
+}
+
+function parseLegacyTrainerBattleCommand(
+  commands: ScriptCommand[],
+  index: number
+): TrainerBattleMetadata | null {
+  const args = commands[index].args ?? [];
+  const battleMode = resolveTrainerBattleMode(args[0]);
+  const trainerId = asScriptArgString(args[1]);
+  if (!trainerId) return null;
+
+  let introTextLabel = asLabelOrNull(args[3]);
+  let defeatTextLabel = asLabelOrNull(args[4]);
+  let cannotBattleTextLabel: string | null = null;
+  let beatenScriptLabel: string | null = null;
+
+  if (battleMode === TRAINER_BATTLE_MODE.SINGLE_NO_INTRO_TEXT) {
+    introTextLabel = null;
+    defeatTextLabel = asLabelOrNull(args[3]);
+  }
+
+  if (TRAINER_BATTLE_DOUBLE_MODES.has(battleMode)) {
+    cannotBattleTextLabel = asLabelOrNull(args[5]);
+  }
+
+  if (
+    battleMode === TRAINER_BATTLE_MODE.CONTINUE_SCRIPT
+    || battleMode === TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_NO_MUSIC
+  ) {
+    beatenScriptLabel = asLabelOrNull(args[5]);
+  } else if (
+    battleMode === TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE
+    || battleMode === TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE_NO_MUSIC
+  ) {
+    beatenScriptLabel = asLabelOrNull(args[6]);
+  }
+
+  return {
+    battleMode,
+    trainerId,
+    introTextLabel,
+    defeatTextLabel,
+    cannotBattleTextLabel,
+    beatenScriptLabel,
+    postBattleCommands: commands.slice(index + 1),
+  };
+}
+
+export function extractTrainerBattleMetadata(commands: ScriptCommand[]): TrainerBattleMetadata | null {
+  for (let index = 0; index < commands.length; index++) {
+    const command = commands[index];
     const args = command.args ?? [];
+
     switch (command.cmd) {
-      case 'trainerbattle_single':
-      case 'trainerbattle_double':
-      case 'trainerbattle_rematch':
-      case 'trainerbattle_rematch_double':
-      case 'trainerbattle_no_intro':
-        return typeof args[0] === 'string' ? args[0] : null;
+      case 'trainerbattle_single': {
+        const trainerId = asScriptArgString(args[0]);
+        if (!trainerId) return null;
+
+        const continuation = asLabelOrNull(args[3]);
+        const noMusic = asScriptArgString(args[4]) === 'NO_MUSIC'
+          || asScriptArgString(args[3]) === 'NO_MUSIC';
+        let battleMode: number = TRAINER_BATTLE_MODE.SINGLE;
+        if (continuation) {
+          battleMode = TRAINER_BATTLE_MODE.CONTINUE_SCRIPT;
+        } else if (noMusic) {
+          battleMode = TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_NO_MUSIC;
+        }
+
+        return {
+          battleMode,
+          trainerId,
+          introTextLabel: asLabelOrNull(args[1]),
+          defeatTextLabel: asLabelOrNull(args[2]),
+          cannotBattleTextLabel: null,
+          beatenScriptLabel: continuation,
+          postBattleCommands: commands.slice(index + 1),
+        };
+      }
+      case 'trainerbattle_double': {
+        const trainerId = asScriptArgString(args[0]);
+        if (!trainerId) return null;
+
+        const continuation = asLabelOrNull(args[4]);
+        const noMusic = asScriptArgString(args[5]) === 'NO_MUSIC'
+          || asScriptArgString(args[4]) === 'NO_MUSIC';
+        let battleMode: number = TRAINER_BATTLE_MODE.DOUBLE;
+        if (continuation) {
+          battleMode = TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE;
+        } else if (noMusic) {
+          battleMode = TRAINER_BATTLE_MODE.CONTINUE_SCRIPT_DOUBLE_NO_MUSIC;
+        }
+
+        return {
+          battleMode,
+          trainerId,
+          introTextLabel: asLabelOrNull(args[1]),
+          defeatTextLabel: asLabelOrNull(args[2]),
+          cannotBattleTextLabel: asLabelOrNull(args[3]),
+          beatenScriptLabel: continuation,
+          postBattleCommands: commands.slice(index + 1),
+        };
+      }
+      case 'trainerbattle_rematch': {
+        const trainerId = asScriptArgString(args[0]);
+        if (!trainerId) return null;
+        return {
+          battleMode: TRAINER_BATTLE_MODE.REMATCH,
+          trainerId,
+          introTextLabel: asLabelOrNull(args[1]),
+          defeatTextLabel: asLabelOrNull(args[2]),
+          cannotBattleTextLabel: null,
+          beatenScriptLabel: null,
+          postBattleCommands: commands.slice(index + 1),
+        };
+      }
+      case 'trainerbattle_rematch_double': {
+        const trainerId = asScriptArgString(args[0]);
+        if (!trainerId) return null;
+        return {
+          battleMode: TRAINER_BATTLE_MODE.REMATCH_DOUBLE,
+          trainerId,
+          introTextLabel: asLabelOrNull(args[1]),
+          defeatTextLabel: asLabelOrNull(args[2]),
+          cannotBattleTextLabel: asLabelOrNull(args[3]),
+          beatenScriptLabel: null,
+          postBattleCommands: commands.slice(index + 1),
+        };
+      }
+      case 'trainerbattle_no_intro': {
+        const trainerId = asScriptArgString(args[0]);
+        if (!trainerId) return null;
+        return {
+          battleMode: TRAINER_BATTLE_MODE.SINGLE_NO_INTRO_TEXT,
+          trainerId,
+          introTextLabel: null,
+          defeatTextLabel: asLabelOrNull(args[1]),
+          cannotBattleTextLabel: null,
+          beatenScriptLabel: null,
+          postBattleCommands: commands.slice(index + 1),
+        };
+      }
       case 'trainerbattle':
-        return typeof args[1] === 'string' ? args[1] : null;
+        return parseLegacyTrainerBattleCommand(commands, index);
       case 'return':
       case 'end':
         return null;
@@ -242,9 +485,44 @@ export function extractTrainerIdFromScript(commands: ScriptCommand[]): string | 
   return null;
 }
 
-export function findTrainerSightEncounterTrigger(
+export function extractTrainerIdFromScript(commands: ScriptCommand[]): string | null {
+  return extractTrainerBattleMetadata(commands)?.trainerId ?? null;
+}
+
+export function isTrainerContinueScriptMode(battleMode: number): boolean {
+  return TRAINER_BATTLE_CONTINUE_SCRIPT_MODES.has(battleMode);
+}
+
+export function isTrainerDoubleBattleMode(battleMode: number): boolean {
+  return TRAINER_BATTLE_DOUBLE_MODES.has(battleMode);
+}
+
+function buildApproachingTrainerCandidate(
+  npc: NPCObject,
+  mapId: string,
+  approach: { distance: number; direction: NPCDirection },
+  battle: TrainerBattleMetadata
+): TrainerSightApproachingTrainer {
+  return {
+    npcId: npc.id,
+    mapId,
+    localId: npc.localId ?? String(npc.localIdNumber),
+    localIdNumber: npc.localIdNumber,
+    scriptName: npc.script,
+    approachDistance: approach.distance,
+    approachDirection: approach.direction,
+    trainerType: npc.trainerType,
+    movementTypeRaw: npc.movementTypeRaw,
+    battle,
+  };
+}
+
+export function findTrainerSightEncounterSelection(
   params: TrainerSightEncounterParams
-): TrainerSightEncounterTrigger | null {
+): TrainerSightEncounterSelection | null {
+  const approachingTrainers: TrainerSightApproachingTrainer[] = [];
+  const hasEnoughMonsForDoubleBattle = params.hasEnoughMonsForDoubleBattle ?? (() => true);
+
   for (const npc of params.npcs) {
     if (!npc.visible || npc.scriptRemoved) continue;
     if (!isTrainerTypeSupportedForSight(npc)) continue;
@@ -255,23 +533,54 @@ export function findTrainerSightEncounterTrigger(
     if (!mapId) continue;
 
     const commands = params.getTrainerScriptCommands(mapId, npc.script);
-    const trainerId = commands ? extractTrainerIdFromScript(commands) : null;
-    if (trainerId && params.isTrainerDefeated?.(trainerId)) continue;
+    if (!commands) continue;
+
+    const battleMetadata = extractTrainerBattleMetadata(commands);
+    if (!battleMetadata) continue;
+    if (params.isTrainerDefeated?.(battleMetadata.trainerId)) continue;
 
     const approach = getTrainerApproachResult(npc, params);
     if (!approach) continue;
 
-    const localId = npc.localId ?? String(npc.localIdNumber);
-    return {
-      npcId: npc.id,
-      mapId,
-      localId,
-      localIdNumber: npc.localIdNumber,
-      scriptName: npc.script,
-      approachDistance: approach.distance,
-      approachDirection: approach.direction,
-    };
+    const isDoubleBattleTrainer = isTrainerDoubleBattleMode(battleMetadata.battleMode);
+    if (isDoubleBattleTrainer && !hasEnoughMonsForDoubleBattle()) {
+      continue;
+    }
+
+    approachingTrainers.push(
+      buildApproachingTrainerCandidate(npc, mapId, approach, battleMetadata)
+    );
+
+    const numTrainers = isDoubleBattleTrainer ? 2 : 1;
+    if (numTrainers === 2) {
+      break;
+    }
+
+    if (approachingTrainers.length > 1) {
+      break;
+    }
+
+    if (!hasEnoughMonsForDoubleBattle()) {
+      break;
+    }
   }
 
-  return null;
+  if (approachingTrainers.length === 0) {
+    return null;
+  }
+
+  return {
+    approachingTrainers: approachingTrainers.slice(0, 2),
+  };
+}
+
+/**
+ * Legacy single-trainer helper retained for code paths/tests not yet migrated
+ * to the C-style multi-approacher selection result.
+ */
+export function findTrainerSightEncounterTrigger(
+  params: TrainerSightEncounterParams
+): TrainerSightEncounterTrigger | null {
+  const selection = findTrainerSightEncounterSelection(params);
+  return selection?.approachingTrainers[0] ?? null;
 }

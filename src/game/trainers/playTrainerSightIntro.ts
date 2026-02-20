@@ -14,10 +14,13 @@ import type { ObjectEventManager } from '../ObjectEventManager.ts';
 import type { ScriptRuntimeServices } from '../../scripting/ScriptRunner.ts';
 import type { NPCDirection } from '../../types/objectEvents.ts';
 import type { TrainerSightEncounterTrigger } from './trainerSightEncounter.ts';
+import { isTrainerDisguiseMovementType } from './trainerDisguise.ts';
 
 const TILE_PIXELS = 16;
 const TRAINER_WALK_FRAMES = 16;
 const EXCLAMATION_FALLBACK_FRAMES = 60;
+const DISGUISE_REVEAL_FRAMES = 28;
+const BURIED_REVEAL_FRAMES = 24;
 
 function getDirectionDelta(direction: NPCDirection): { dx: number; dy: number } {
   if (direction === 'up') return { dx: 0, dy: -1 };
@@ -31,6 +34,78 @@ function getOppositeDirection(direction: NPCDirection): NPCDirection {
   if (direction === 'down') return 'up';
   if (direction === 'left') return 'right';
   return 'left';
+}
+
+function getFacingMovementType(direction: NPCDirection): string {
+  if (direction === 'up') return 'MOVEMENT_TYPE_FACE_UP';
+  if (direction === 'down') return 'MOVEMENT_TYPE_FACE_DOWN';
+  if (direction === 'left') return 'MOVEMENT_TYPE_FACE_LEFT';
+  return 'MOVEMENT_TYPE_FACE_RIGHT';
+}
+
+function hasBuriedMovement(movementTypeRaw: string | undefined): boolean {
+  if (!movementTypeRaw) return false;
+  return movementTypeRaw.includes('BURIED');
+}
+
+async function revealTrainerIfNeeded(
+  trigger: TrainerSightEncounterTrigger,
+  player: PlayerController,
+  objectEventManager: ObjectEventManager,
+  waitFrames: (frames: number) => Promise<void>
+): Promise<void> {
+  const npc = objectEventManager.getNPCByLocalId(trigger.mapId, trigger.localId);
+  if (!npc) return;
+
+  const movementTypeRaw = trigger.movementTypeRaw ?? npc.movementTypeRaw;
+  const isBuried = trigger.trainerType === 'buried' || hasBuriedMovement(movementTypeRaw);
+  const isDisguise = isTrainerDisguiseMovementType(movementTypeRaw);
+  if (!isBuried && !isDisguise) return;
+
+  if (isBuried) {
+    objectEventManager.faceNpcTowardPlayer(trigger.mapId, trigger.localId, player.tileX, player.tileY);
+    npc.spriteHidden = false;
+    await waitFrames(BURIED_REVEAL_FRAMES);
+    return;
+  }
+
+  const startedReveal = objectEventManager.startNPCDisguiseRevealByLocalId?.(
+    trigger.mapId,
+    trigger.localId
+  ) ?? false;
+  await waitFrames(DISGUISE_REVEAL_FRAMES);
+  const completedReveal = objectEventManager.completeNPCDisguiseRevealByLocalId?.(
+    trigger.mapId,
+    trigger.localId
+  ) ?? false;
+  if (!startedReveal || !completedReveal) {
+    npc.spriteHidden = false;
+  }
+}
+
+function stabilizeTrainerFacingAndPosition(
+  trigger: TrainerSightEncounterTrigger,
+  objectEventManager: ObjectEventManager
+): void {
+  const npc = objectEventManager.getNPCByLocalId(trigger.mapId, trigger.localId);
+  if (!npc) return;
+
+  const managerWithMovementType = objectEventManager as unknown as {
+    setNPCMovementTypeByLocalId?: (mapId: string, localId: string, movementTypeRaw: string) => boolean;
+    setNPCTemplatePositionByLocalId?: (mapId: string, localId: string, tileX: number, tileY: number) => boolean;
+  };
+
+  managerWithMovementType.setNPCMovementTypeByLocalId?.(
+    trigger.mapId,
+    trigger.localId,
+    getFacingMovementType(npc.direction)
+  );
+  managerWithMovementType.setNPCTemplatePositionByLocalId?.(
+    trigger.mapId,
+    trigger.localId,
+    npc.tileX,
+    npc.tileY
+  );
 }
 
 async function moveTrainerOneTile(
@@ -98,6 +173,8 @@ export async function playTrainerSightIntro(params: PlayTrainerSightIntroParams)
     await waitFrames(EXCLAMATION_FALLBACK_FRAMES);
   }
 
+  await revealTrainerIfNeeded(trigger, player, objectEventManager, waitFrames);
+
   const walkTiles = Math.max(0, trigger.approachDistance - 1);
   for (let i = 0; i < walkTiles; i++) {
     const moved = await moveTrainerOneTile(
@@ -116,5 +193,6 @@ export async function playTrainerSightIntro(params: PlayTrainerSightIntroParams)
   } else {
     player.dir = getOppositeDirection(trigger.approachDirection);
   }
+  stabilizeTrainerFacingAndPosition(trigger, objectEventManager);
   await waitFrames(1);
 }

@@ -22,7 +22,7 @@ import type { UseFieldSpritesReturn } from './useFieldSprites';
 import { ObjectRenderer } from '../components/map/renderers/ObjectRenderer';
 import { DebugRenderer } from '../components/map/renderers/DebugRenderer';
 import { getSpritePriorityForElevation } from '../utils/elevationPriority';
-import { renderNPCs, renderNPCReflections, npcAnimationManager } from '../game/npc';
+import { renderNPCs, renderNPCReflections, renderNPCDisguiseOverlays, npcAnimationManager } from '../game/npc';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
 import { buildSpriteBatches, getEffectsForNPC, getPlayerEffectsForLayer } from '../rendering/SpriteBatcher';
 import { isDebugMode } from '../utils/debug';
@@ -138,7 +138,15 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         if (player) {
           const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
           renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', 2, playerPriority);
+          renderNPCDisguiseOverlays(mainCtx, npcs, view, player.tileY, 'bottom', {
+            treeDisguise: fieldSprites.sprites.TREE_DISGUISE ?? null,
+            mountainDisguise: fieldSprites.sprites.MOUNTAIN_DISGUISE ?? null,
+          }, 2, playerPriority, nowMs);
           renderNPCs(mainCtx, npcs, view, player.tileY, 'top', 2, playerPriority);
+          renderNPCDisguiseOverlays(mainCtx, npcs, view, player.tileY, 'top', {
+            treeDisguise: fieldSprites.sprites.TREE_DISGUISE ?? null,
+            mountainDisguise: fieldSprites.sprites.MOUNTAIN_DISGUISE ?? null,
+          }, 2, playerPriority, nowMs);
         }
 
         // Now composite topBelow layer (bridges, tree tops rendered behind player)
@@ -185,6 +193,10 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
         arrow: arrowOverlay.getSprite(),
         itemBall: fieldSprites.sprites.itemBall ?? null,
       };
+      const disguiseSpriteCache = {
+        treeDisguise: fieldSprites.sprites.TREE_DISGUISE ?? null,
+        mountainDisguise: fieldSprites.sprites.MOUNTAIN_DISGUISE ?? null,
+      };
 
       // Build set of NPC IDs for separating player vs NPC effects
       const npcIds = new Set(npcs.filter(n => n.visible && !n.spriteHidden).map(n => n.id));
@@ -220,6 +232,17 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
         // Render NPCs at player's priority behind player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', playerPriority);
+        renderNPCDisguiseOverlays(
+          mainCtx,
+          npcs,
+          view,
+          player.tileY,
+          'bottom',
+          disguiseSpriteCache,
+          playerPriority,
+          undefined,
+          nowMs
+        );
 
         // Render NPC grass effects for NPCs behind player (grass ON TOP of each NPC)
         for (const npc of npcs) {
@@ -304,6 +327,17 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
 
         // Render NPCs at player's priority in front of player (Y-sorted with player)
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top', playerPriority);
+        renderNPCDisguiseOverlays(
+          mainCtx,
+          npcs,
+          view,
+          player.tileY,
+          'top',
+          disguiseSpriteCache,
+          playerPriority,
+          undefined,
+          nowMs
+        );
 
         // Render NPC grass effects for NPCs in front of player (grass ON TOP of each NPC)
         for (const npc of npcs) {
@@ -330,7 +364,15 @@ export function useCompositeScene(options: UseCompositeSceneOptions): UseComposi
       if (player) {
         const npcs = refs.objectEventManagerRef.current.getVisibleNPCs();
         renderNPCs(mainCtx, npcs, view, player.tileY, 'bottom', 0, playerPriority);
+        renderNPCDisguiseOverlays(mainCtx, npcs, view, player.tileY, 'bottom', {
+          treeDisguise: fieldSprites.sprites.TREE_DISGUISE ?? null,
+          mountainDisguise: fieldSprites.sprites.MOUNTAIN_DISGUISE ?? null,
+        }, 0, playerPriority, nowMs);
         renderNPCs(mainCtx, npcs, view, player.tileY, 'top', 0, playerPriority);
+        renderNPCDisguiseOverlays(mainCtx, npcs, view, player.tileY, 'top', {
+          treeDisguise: fieldSprites.sprites.TREE_DISGUISE ?? null,
+          mountainDisguise: fieldSprites.sprites.MOUNTAIN_DISGUISE ?? null,
+        }, 0, playerPriority, nowMs);
       }
 
       // Render debug overlays if enabled

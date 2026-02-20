@@ -38,6 +38,10 @@ import {
   resolveBerryTreePlacement,
   resolveBerryTreeSpriteFrame,
 } from '../utils/berryTreeSpriteResolver';
+import {
+  getTrainerDisguiseRegistryKey,
+  TRAINER_DISGUISE_REVEAL_FRAME_COUNT,
+} from '../game/trainers/trainerDisguise.ts';
 
 /**
  * GBA-accurate reflection tint colors (normalized 0-1)
@@ -484,6 +488,50 @@ export function createNPCSpriteInstance(
     tintG: 1.0,
     tintB: 1.0,
     sortKey,
+    isReflection: false,
+  };
+}
+
+/**
+ * Create a SpriteInstance for a tree/mountain disguise overlay bound to an NPC.
+ */
+export function createTrainerDisguiseSpriteInstance(
+  npc: NPCObject,
+  sortKey: number,
+  frame: number
+): SpriteInstance | null {
+  const disguise = npc.disguiseState;
+  if (!disguise || !disguise.active) return null;
+
+  const registryKey = getTrainerDisguiseRegistryKey(disguise.type);
+  const metadata = FIELD_EFFECT_REGISTRY[registryKey];
+  if (!metadata) return null;
+
+  const subTileX = npc.subTileX ?? 0;
+  const subTileY = npc.subTileY ?? 0;
+  const spriteYOffset = npc.spriteYOffset ?? 0;
+  const worldX = npc.tileX * METATILE_SIZE + subTileX + Math.floor((METATILE_SIZE - metadata.width) / 2);
+  const worldY = npc.tileY * METATILE_SIZE + subTileY - (metadata.height - METATILE_SIZE) + spriteYOffset;
+  const clampedFrame = Math.max(0, Math.floor(frame));
+  const maxFrame = Math.max(0, TRAINER_DISGUISE_REVEAL_FRAME_COUNT - 1);
+
+  return {
+    worldX,
+    worldY,
+    width: metadata.width,
+    height: metadata.height,
+    atlasName: getFieldEffectAtlasName(registryKey),
+    atlasX: Math.min(clampedFrame, maxFrame) * metadata.width,
+    atlasY: 0,
+    atlasWidth: metadata.width,
+    atlasHeight: metadata.height,
+    flipX: false,
+    flipY: false,
+    alpha: 1.0,
+    tintR: 1.0,
+    tintG: 1.0,
+    tintB: 1.0,
+    sortKey: sortKey - 1,
     isReflection: false,
   };
 }

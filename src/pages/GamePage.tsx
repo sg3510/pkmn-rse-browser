@@ -160,9 +160,9 @@ import {
   type ScriptedWarpLoadMonitor,
   type FrameCounter,
 } from './gamePage/overworldGameUpdate';
-import { findTrainerSightEncounterTrigger } from '../game/trainers/trainerSightEncounter.ts';
+import { findTrainerSightEncounterSelection } from '../game/trainers/trainerSightEncounter.ts';
 import { getTrainerSightProbeTile } from '../game/trainers/trainerSightProbe.ts';
-import { runTrainerSightSequence } from '../game/trainers/runTrainerSightSequence.ts';
+import { TrainerApproachRuntime } from '../game/trainers/trainerApproachRuntime.ts';
 import { createRotatingGateCollisionChecker } from './gamePage/collisionChecker';
 import { executeSeamTransitionScripts } from '../game/overworld/seam/seamTransitionScripts';
 import { createActionCallbacks } from './gamePage/actionCallbacks';
@@ -647,6 +647,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const wildEncounterTransitionInFlightRef = useRef<boolean>(false);
   const lastTrainerSightStepRef = useRef<{ mapId: string; tileX: number; tileY: number } | null>(null);
   const trainerSightSequenceInFlightRef = useRef<boolean>(false);
+  const trainerApproachRuntimeRef = useRef<TrainerApproachRuntime>(new TrainerApproachRuntime());
 
   // Cached map script data for data-driven ON_FRAME triggering
   const mapScriptCacheRef = useRef<Map<string, MapScriptData | null>>(new Map());
@@ -1331,6 +1332,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       mewEmergingGrassEffectIdRef,
       deoxysRockRenderDebugRef,
       weatherManagerRef,
+      trainerApproachRuntimeRef,
       waitScriptFrames,
     }),
     [waitScriptFrames]
@@ -2019,7 +2021,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
             if (cameraView && tileResolver && steppedToNewTile) {
               ensureMapScriptsCached(trainerSightMapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
-              const trainerSightTrigger = findTrainerSightEncounterTrigger({
+              const trainerSightSelection = findTrainerSightEncounterSelection({
                 npcs: visibleNpcsForFrame,
                 playerTileX: trainerSightProbeTile.tileX,
                 playerTileY: trainerSightProbeTile.tileY,
@@ -2038,29 +2040,30 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                   return scriptData?.scripts?.[scriptName] ?? null;
                 },
                 isTrainerDefeated: (trainerId) => isTrainerDefeated(trainerId),
+                hasEnoughMonsForDoubleBattle: () => {
+                  const party = saveManager.getParty();
+                  let totalMons = 0;
+                  let usableMons = 0;
+                  for (const mon of party) {
+                    if (!mon || mon.isEgg) continue;
+                    totalMons++;
+                    if (mon.stats.hp > 0) usableMons++;
+                  }
+                  if (totalMons <= 1) return false;
+                  return usableMons > 1;
+                },
               });
 
-              if (trainerSightTrigger) {
+              if (trainerSightSelection) {
                 trainerSightSequenceInFlightRef.current = true;
                 preInputOnFrameTriggered = true;
-                const trigger = trainerSightTrigger;
+                const selection = trainerSightSelection;
                 void (async () => {
                   try {
-                    await runTrainerSightSequence({
-                      trigger,
-                      player,
-                      npcMovement,
-                      objectEventManager: objectEventManagerRef.current,
-                      scriptRuntimeServices,
-                      waitFrames: waitScriptFrames,
-                      runTrainerScript: (scriptName, mapId) =>
-                        runHandledStoryScriptRef.current(scriptName, mapId),
-                      setVarFacing: (value) => gameVariables.setVar('VAR_FACING', value),
-                      setVarLastTalked: (localId) => gameVariables.setVar('VAR_LAST_TALKED', localId),
-                      isWarping: () => warpingRef.current,
-                      isStoryScriptRunning: () => storyScriptRunningRef.current,
-                    });
+                    trainerApproachRuntimeRef.current.prepareForSightEncounter(selection);
+                    await runHandledStoryScriptRef.current('EventScript_StartTrainerApproach', trainerSightMapId);
                   } finally {
+                    trainerApproachRuntimeRef.current.clear();
                     trainerSightSequenceInFlightRef.current = false;
                   }
                 })();
@@ -2433,6 +2436,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       lastWorldUpdateRef.current = null;
       lastTrainerSightStepRef.current = null;
       trainerSightSequenceInFlightRef.current = false;
+      trainerApproachRuntimeRef.current.clear();
       scriptFieldEffectAnimationManagerRef.current.clear();
       orbEffectRuntimeRef.current.clear(cameraRef.current);
       mirageTowerCollapseRuntimeRef.current.clear();
@@ -2482,6 +2486,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       });
       lastTrainerSightStepRef.current = null;
       trainerSightSequenceInFlightRef.current = false;
+      // Preserve trainer-approach runtime while a story script is in-flight
+      // (trainer battle transitions temporarily leave OVERWORLD mid-script).
+      if (!storyScriptRunningRef.current) {
+        trainerApproachRuntimeRef.current.clear();
+      }
     }
   }, [currentState]);
 

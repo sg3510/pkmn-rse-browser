@@ -104,6 +104,15 @@ export function createMapScriptRunnerContext(
     setNpcMovementType: (mapId, localId, movementTypeRaw) => {
       objectEventManager.setNPCMovementTypeByLocalId(mapId, localId, movementTypeRaw);
     },
+    setSpriteHidden: (mapId, localId, hidden) => {
+      objectEventManager.setNPCSpriteHiddenByLocalId(mapId, localId, hidden);
+    },
+    startNpcDisguiseReveal: (mapId, localId) => {
+      return objectEventManager.startNPCDisguiseRevealByLocalId(mapId, localId);
+    },
+    finishNpcDisguiseReveal: (mapId, localId) => {
+      return objectEventManager.completeNPCDisguiseRevealByLocalId(mapId, localId);
+    },
     showYesNo: async () => false,
     getParty: () => saveManager.getParty(),
     setPlayerDirection: (dir) => {

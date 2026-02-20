@@ -132,3 +132,71 @@ test('falls back to fixed exclamation wait and still faces player when trainer o
   assert.equal(player.dir, 'down');
   assert.ok(waitedFrames >= 61);
 });
+
+test('reveals disguised trainer and persists final facing/position template', async () => {
+  const npc = createTrainerNpc({
+    tileX: 7,
+    tileY: 9,
+    direction: 'up',
+    movementTypeRaw: 'MOVEMENT_TYPE_TREE_DISGUISE',
+    spriteHidden: true,
+  });
+  const trigger = createTrigger({
+    approachDistance: 1,
+    movementTypeRaw: 'MOVEMENT_TYPE_TREE_DISGUISE',
+  });
+  const player = {
+    tileX: 7,
+    tileY: 11,
+    dir: 'left',
+  } as unknown as PlayerController;
+  let templateUpdate:
+    | { mapId: string; localId: string; tileX: number; tileY: number }
+    | null = null;
+  let movementTypeSet: string | null = null;
+  let startRevealCalls = 0;
+  let finishRevealCalls = 0;
+
+  const objectEventManager = {
+    getNPCByLocalId: () => npc,
+    faceNpcTowardPlayer: () => {
+      npc.direction = 'down';
+    },
+    startNPCDisguiseRevealByLocalId: () => {
+      startRevealCalls++;
+      return true;
+    },
+    completeNPCDisguiseRevealByLocalId: () => {
+      finishRevealCalls++;
+      npc.spriteHidden = false;
+      return true;
+    },
+    setNPCMovementTypeByLocalId: (_mapId: string, _localId: string, movementTypeRaw: string) => {
+      movementTypeSet = movementTypeRaw;
+      return true;
+    },
+    setNPCTemplatePositionByLocalId: (mapId: string, localId: string, tileX: number, tileY: number) => {
+      templateUpdate = { mapId, localId, tileX, tileY };
+      return true;
+    },
+  } as unknown as ObjectEventManager;
+
+  await playTrainerSightIntro({
+    trigger,
+    player,
+    objectEventManager,
+    scriptRuntimeServices: {},
+    waitFrames: async () => {},
+  });
+
+  assert.equal(npc.spriteHidden, false);
+  assert.equal(startRevealCalls, 1);
+  assert.equal(finishRevealCalls, 1);
+  assert.equal(movementTypeSet, 'MOVEMENT_TYPE_FACE_DOWN');
+  assert.deepEqual(templateUpdate, {
+    mapId: 'MAP_TEST',
+    localId: '1',
+    tileX: 7,
+    tileY: 9,
+  });
+});

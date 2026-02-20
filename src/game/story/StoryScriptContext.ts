@@ -75,6 +75,14 @@ export interface StoryScriptContext {
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   setNpcMovementType?: (mapId: string, localId: string, movementTypeRaw: string) => void;
   setSpriteHidden?: (mapId: string, localId: string, hidden: boolean) => void;
+  /**
+   * Start tree/mountain disguise reveal animation while keeping trainer sprite hidden.
+   */
+  startNpcDisguiseReveal?: (mapId: string, localId: string) => boolean;
+  /**
+   * End tree/mountain disguise reveal animation and unhide trainer sprite.
+   */
+  finishNpcDisguiseReveal?: (mapId: string, localId: string) => boolean;
   showYesNo?: (text: string) => Promise<boolean>;
   getParty?: () => (PartyPokemon | null)[];
   hasNpc?: (mapId: string, localId: string) => boolean;

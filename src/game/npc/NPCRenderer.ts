@@ -18,6 +18,10 @@ import type { RenderContext } from '../../components/map/types';
 import { isTallGrassBehavior, isLongGrassBehavior } from '../../utils/metatileBehaviors';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 import { npcAnimationManager, shouldAnimate } from './NPCAnimationEngine';
+import {
+  getTrainerDisguiseAnimationFrame,
+  TRAINER_DISGUISE_REVEAL_FRAME_COUNT,
+} from '../trainers/trainerDisguise.ts';
 
 export interface NPCRenderView {
   cameraWorldX: number;
@@ -163,6 +167,85 @@ export function renderNPCs(
     } else {
       ctx.drawImage(sprite, sx, sy, sw, sh, screenX, screenY, sw, sh);
     }
+  }
+}
+
+interface DisguiseSpriteCache {
+  treeDisguise: HTMLCanvasElement | null;
+  mountainDisguise: HTMLCanvasElement | null;
+}
+
+export function renderNPCDisguiseOverlays(
+  ctx: CanvasRenderingContext2D,
+  npcs: NPCObject[],
+  view: NPCRenderView,
+  playerTileY: number,
+  layer: 'bottom' | 'top',
+  disguiseSprites: DisguiseSpriteCache,
+  priorityFilter?: number,
+  excludePlayerPriority?: number,
+  nowMs: number = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+): void {
+  if (npcs.length === 0) return;
+
+  ctx.imageSmoothingEnabled = false;
+
+  for (const npc of npcs) {
+    const disguise = npc.disguiseState;
+    if (!npc.visible || !disguise?.active) continue;
+
+    const npcPriority = getSpritePriorityForElevation(npc.elevation);
+    if (priorityFilter !== undefined && npcPriority !== priorityFilter) continue;
+    if (excludePlayerPriority !== undefined && npcPriority === excludePlayerPriority) continue;
+
+    const isInFront = npc.tileY >= playerTileY;
+    if (layer === 'bottom' && isInFront) continue;
+    if (layer === 'top' && !isInFront) continue;
+
+    const sprite = disguise.type === 'tree'
+      ? disguiseSprites.treeDisguise
+      : disguiseSprites.mountainDisguise;
+    if (!sprite) continue;
+
+    const frame = Math.max(
+      0,
+      Math.min(
+        TRAINER_DISGUISE_REVEAL_FRAME_COUNT - 1,
+        getTrainerDisguiseAnimationFrame(disguise, nowMs)
+      )
+    );
+    const frameWidth = 16;
+    const frameHeight = 32;
+    const atlasX = frame * frameWidth;
+
+    const subTileX = npc.subTileX ?? 0;
+    const subTileY = npc.subTileY ?? 0;
+    const spriteYOffset = npc.spriteYOffset ?? 0;
+    const worldX = npc.tileX * METATILE_SIZE + subTileX;
+    const worldY = npc.tileY * METATILE_SIZE + subTileY - (frameHeight - METATILE_SIZE) + spriteYOffset;
+    const screenX = Math.round(worldX - view.cameraWorldX);
+    const screenY = Math.round(worldY - view.cameraWorldY);
+
+    if (
+      screenX + frameWidth < 0
+      || screenX > view.pixelWidth
+      || screenY + frameHeight < 0
+      || screenY > view.pixelHeight
+    ) {
+      continue;
+    }
+
+    ctx.drawImage(
+      sprite,
+      atlasX,
+      0,
+      frameWidth,
+      frameHeight,
+      screenX,
+      screenY,
+      frameWidth,
+      frameHeight
+    );
   }
 }
 

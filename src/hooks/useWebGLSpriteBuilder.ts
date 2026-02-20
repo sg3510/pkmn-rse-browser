@@ -32,12 +32,14 @@ import {
   createPlayerReflectionSprite,
   createPlayerShadowSprite,
   createNPCSpriteInstance,
+  createTrainerDisguiseSpriteInstance,
   createNPCShadowSprite,
   createNPCReflectionSprite,
   createDoorAnimationSprite,
   createItemBallSpriteInstance,
   createScriptObjectSpriteInstance,
   createLargeObjectSpriteInstance,
+  getFieldEffectAtlasName,
   getNPCAtlasName,
   getLargeObjectAtlasName,
   calculateSortKey,
@@ -60,11 +62,13 @@ import { npcAnimationManager, shouldAnimate } from '../game/npc/NPCAnimationEngi
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager';
 import { getNPCFrameInfo } from '../game/npc/NPCSpriteLoader';
 import { berryManager } from '../game/berry/BerryManager.ts';
+import { getNPCRenderLayer } from '../utils/elevationPriority';
 import {
   isBerryTreeGraphicsId,
   resolveBerryTreePlacement,
   resolveBerryTreeSpriteFrame,
 } from '../utils/berryTreeSpriteResolver';
+import { getTrainerDisguiseAnimationFrame } from '../game/trainers/trainerDisguise.ts';
 
 // =============================================================================
 // Types
@@ -326,6 +330,35 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       includePlayerShadow: player.showShadow,
       playerHidden,
     }, items);
+    const playerElevation = player.getElevation();
+
+    const appendDisguiseOverlaySprite = (npc: NPCObject): void => {
+      if (!npc.visible || !npc.disguiseState?.active) return;
+
+      const registryKey = npc.disguiseState.type === 'tree' ? 'TREE_DISGUISE' : 'MOUNTAIN_DISGUISE';
+      const atlasName = getFieldEffectAtlasName(registryKey);
+      if (!spriteRenderer.hasSpriteSheet(atlasName)) return;
+
+      const subTileY = npc.subTileY ?? 0;
+      const npcFeetY = npc.tileY * METATILE_SIZE + METATILE_SIZE + subTileY;
+      const sortKey = calculateSortKey(npcFeetY, 128);
+      const frame = getTrainerDisguiseAnimationFrame(npc.disguiseState, nowTime);
+      const sprite = createTrainerDisguiseSpriteInstance(npc, sortKey, frame);
+      if (!sprite) return;
+
+      const renderLayer = getNPCRenderLayer(npc.elevation, playerElevation);
+      if (renderLayer === 'aboveAll') {
+        priority0Sprites.push(sprite);
+      } else if (renderLayer === 'behindBridge') {
+        lowPrioritySprites.push(sprite);
+      } else {
+        allSprites.push(sprite);
+      }
+    };
+
+    for (const npc of npcs) {
+      appendDisguiseOverlaySprite(npc);
+    }
 
     // Helper to create NPC sprite with reflections and grass effects
     const createNPCWithExtras = (

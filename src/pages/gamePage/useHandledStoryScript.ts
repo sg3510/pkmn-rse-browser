@@ -730,6 +730,12 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         setSpriteHidden: (mapId, localId, hidden) => {
           objectEventManagerRef.current.setNPCSpriteHiddenByLocalId(mapId, localId, hidden);
         },
+        startNpcDisguiseReveal: (mapId, localId) => {
+          return objectEventManagerRef.current.startNPCDisguiseRevealByLocalId(mapId, localId);
+        },
+        finishNpcDisguiseReveal: (mapId, localId) => {
+          return objectEventManagerRef.current.completeNPCDisguiseRevealByLocalId(mapId, localId);
+        },
         showYesNo,
         getParty: () => saveManager.getParty(),
         hasNpc: (mapId, localId) => {

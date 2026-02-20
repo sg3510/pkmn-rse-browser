@@ -20,6 +20,7 @@ import {
   type ObjectEventData,
   type ItemBallObject,
   type NPCObject,
+  type NPCDisguiseState,
   type ScriptObject,
   type LargeObject,
   type ObjectEventRuntimeState,
@@ -32,6 +33,7 @@ import { resolveDynamicObjectGfx } from './DynamicObjectGfx.ts';
 import { npcMovementEngine } from './npc/NPCMovementEngine.ts';
 import { incrementRuntimePerfCounter } from './perf/runtimePerfRecorder.ts';
 import { resolveBerryTreeId } from './berry/berryConstants.ts';
+import { resolveTrainerDisguiseType } from './trainers/trainerDisguise.ts';
 
 /**
  * Processed background event for tile-based interaction (signs, hidden items)
@@ -109,6 +111,10 @@ function getMapIdFromNpcObjectId(id: string): string | null {
   const idx = id.indexOf(marker);
   if (idx <= 0) return null;
   return id.slice(0, idx);
+}
+
+function getNowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
 export class ObjectEventManager {
@@ -207,6 +213,47 @@ export class ObjectEventManager {
    */
   getMapOffset(mapId: string): { x: number; y: number } | null {
     return this.parsedMapOffsets.get(mapId) ?? null;
+  }
+
+  private createDisguiseStateForMovementType(movementTypeRaw: string): NPCDisguiseState | null {
+    const type = resolveTrainerDisguiseType(movementTypeRaw);
+    if (!type) return null;
+    return {
+      type,
+      active: true,
+      revealing: false,
+      revealStartedAtMs: null,
+    };
+  }
+
+  private syncNpcDisguiseState(npc: NPCObject): void {
+    const type = resolveTrainerDisguiseType(npc.movementTypeRaw);
+    if (!type) {
+      npc.disguiseState = null;
+      return;
+    }
+
+    if (!npc.disguiseState || npc.disguiseState.type !== type) {
+      npc.disguiseState = {
+        type,
+        active: npc.spriteHidden,
+        revealing: false,
+        revealStartedAtMs: null,
+      };
+      return;
+    }
+
+    if (!npc.spriteHidden) {
+      npc.disguiseState.active = false;
+      npc.disguiseState.revealing = false;
+      npc.disguiseState.revealStartedAtMs = null;
+      return;
+    }
+
+    if (!npc.disguiseState.revealing) {
+      npc.disguiseState.active = true;
+      npc.disguiseState.revealStartedAtMs = null;
+    }
   }
 
   /**
@@ -366,6 +413,8 @@ export class ObjectEventManager {
         const trainerSightRange = parseInt(obj.trainer_sight_or_berry_tree_id, 10) || 0;
 
         const movementType = parseMovementType(obj.movement_type);
+        const disguiseState = this.createDisguiseStateForMovementType(obj.movement_type);
+        const spriteHidden = movementType === 'invisible' || disguiseState !== null;
         this.npcs.set(id, {
           id,
           localId,
@@ -384,9 +433,10 @@ export class ObjectEventManager {
           script: obj.script,
           flag: obj.flag,
           visible: !isHidden,
-          spriteHidden: movementType === 'invisible',
+          spriteHidden,
           scriptRemoved: false,
           renderAboveGrass: false,
+          disguiseState,
           tintR: 1,
           tintG: 1,
           tintB: 1,
@@ -768,6 +818,7 @@ export class ObjectEventManager {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
     npc.spriteHidden = hidden;
+    this.syncNpcDisguiseState(npc);
     return true;
   }
 
@@ -843,8 +894,13 @@ export class ObjectEventManager {
   ): boolean {
     const npc = this.getNPCByLocalId(mapId, localId);
     if (!npc) return false;
+    const disguiseType = resolveTrainerDisguiseType(movementTypeRaw);
     npc.movementType = parseMovementType(movementTypeRaw);
     npc.movementTypeRaw = movementTypeRaw;
+    if (disguiseType) {
+      npc.spriteHidden = true;
+    }
+    this.syncNpcDisguiseState(npc);
     npc.direction = getInitialDirection(movementTypeRaw);
     npc.isWalking = false;
     npc.subTileX = 0;
@@ -852,6 +908,33 @@ export class ObjectEventManager {
     // Reset the movement engine's cached state so it re-initializes
     // with the new movement type and position on next update.
     npcMovementEngine.removeNPC(npc.id);
+    return true;
+  }
+
+  /**
+   * Begin reveal animation for tree/mountain disguised trainers.
+   * Keeps the trainer sprite hidden while the disguise overlay animates.
+   */
+  startNPCDisguiseRevealByLocalId(mapId: string, localId: string): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc || !npc.disguiseState) return false;
+    npc.spriteHidden = true;
+    npc.disguiseState.active = true;
+    npc.disguiseState.revealing = true;
+    npc.disguiseState.revealStartedAtMs = getNowMs();
+    return true;
+  }
+
+  /**
+   * Finish reveal animation and unhide trainer sprite.
+   */
+  completeNPCDisguiseRevealByLocalId(mapId: string, localId: string): boolean {
+    const npc = this.getNPCByLocalId(mapId, localId);
+    if (!npc || !npc.disguiseState) return false;
+    npc.disguiseState.active = false;
+    npc.disguiseState.revealing = false;
+    npc.disguiseState.revealStartedAtMs = null;
+    npc.spriteHidden = false;
     return true;
   }
 
@@ -1369,6 +1452,7 @@ export class ObjectEventManager {
         npc.movementTypeRaw = snapshot.movementTypeRaw;
         npc.movementType = parseMovementType(snapshot.movementTypeRaw);
       }
+      this.syncNpcDisguiseState(npc);
       npc.subTileX = 0;
       npc.subTileY = 0;
       npc.isWalking = false;
@@ -1597,6 +1681,7 @@ export class ObjectEventManager {
     npc.subTileY = 0;
     npc.isWalking = false;
     npc.direction = getInitialDirection(npc.movementTypeRaw);
+    this.syncNpcDisguiseState(npc);
     npcMovementEngine.removeNPC(npc.id);
   }
 
