@@ -79,7 +79,10 @@ export interface LoadSelectedOverworldMapParams {
   createSnapshotPlayerTileResolver: (snapshot: WorldSnapshot) => PlayerTileResolver;
   loadObjectEventsFromSnapshot: (
     snapshot: WorldSnapshot,
-    options?: { preserveExistingMapRuntimeState?: boolean }
+    options?: {
+      preserveExistingMapRuntimeState?: boolean;
+      cooperativeChunkMs?: number;
+    }
   ) => Promise<void>;
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;

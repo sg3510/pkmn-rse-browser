@@ -387,12 +387,12 @@ export class TilesetPairScheduler {
    * - Slot 1: First visible adjacent tileset pair (prioritized by direction)
    * - Slot 2: Second visible adjacent tileset pair (if different from slot 1)
    */
-  async update(
+  update(
     playerTileX: number,
     playerTileY: number,
     currentMapPairId: string,
     playerDirection: 'up' | 'down' | 'left' | 'right' | null = null
-  ): Promise<{ needsRebuild: boolean; newSlot0: string | null; newSlot1: string | null; newSlot2: string | null }> {
+  ): { needsRebuild: boolean; newSlot0: string | null; newSlot1: string | null; newSlot2: string | null } {
     this.currentFrame++;
 
     let needsRebuild = false;

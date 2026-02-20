@@ -46,6 +46,11 @@ export interface LoadObjectEventsFromSnapshotParams {
    * temporary visibility/position changes) and only parse newly loaded maps.
    */
   preserveExistingMapRuntimeState?: boolean;
+  /**
+   * Optional cooperative chunk budget for map/object parsing work.
+   * When set > 0, yields back to the browser between chunks.
+   */
+  cooperativeChunkMs?: number;
 }
 
 function getRuntimeObjectEvents(
@@ -134,6 +139,20 @@ function getPreloadMapIds(snapshot: WorldSnapshot, scope: 'all' | 'anchor-and-ne
   return preloadMapIds;
 }
 
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function yieldToMainThread(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
 export async function loadObjectEventsFromSnapshot(
   params: LoadObjectEventsFromSnapshotParams
 ): Promise<void> {
@@ -146,7 +165,18 @@ export async function loadObjectEventsFromSnapshot(
     debugLog,
     spritePreloadScope = 'anchor-and-neighbors',
     preserveExistingMapRuntimeState = false,
+    cooperativeChunkMs = 0,
   } = params;
+
+  const cooperative = cooperativeChunkMs > 0;
+  let chunkStartMs = cooperative ? nowMs() : 0;
+  const maybeYield = async (): Promise<void> => {
+    if (!cooperative) return;
+    const elapsed = nowMs() - chunkStartMs;
+    if (elapsed < cooperativeChunkMs) return;
+    await yieldToMainThread();
+    chunkStartMs = nowMs();
+  };
 
   // Incremental update: only add/remove maps that changed.
   // This preserves NPC runtime state (positions, visibility) on still-loaded maps.
@@ -157,6 +187,7 @@ export async function loadObjectEventsFromSnapshot(
   for (const mapId of existingMapIds) {
     if (!newMapIds.has(mapId)) {
       objectEventManager.removeMapObjects(mapId);
+      await maybeYield();
     }
   }
 
@@ -216,6 +247,7 @@ export async function loadObjectEventsFromSnapshot(
         applyObjectEventOverridesForMap(mapInst.entry.id, snapshot, objectEventManager);
       }
 
+      await maybeYield();
       continue;
     }
 
@@ -240,6 +272,7 @@ export async function loadObjectEventsFromSnapshot(
 
     // Apply persistent NPC position overrides (from copyobjectxytoperm).
     applyObjectEventOverridesForMap(mapInst.entry.id, snapshot, objectEventManager);
+    await maybeYield();
   }
 
   const preloadMapIds = getPreloadMapIds(snapshot, spritePreloadScope);
@@ -298,6 +331,7 @@ export async function loadObjectEventsFromSnapshot(
       });
       uploadedSpriteIds?.add(graphicsId);
       debugLog?.(`[WebGL] Uploaded NPC sprite: ${atlasName} (${sprite.width}x${sprite.height})`);
+      await maybeYield();
     }
   }
 }

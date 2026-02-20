@@ -1531,7 +1531,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Load object events from snapshot (object events are now included in LoadedMapInstance)
   const loadObjectEventsFromSnapshot = useCallback(async (
     snapshot: WorldSnapshot,
-    options?: { preserveExistingMapRuntimeState?: boolean }
+    options?: {
+      preserveExistingMapRuntimeState?: boolean;
+      cooperativeChunkMs?: number;
+    }
   ): Promise<void> => {
     await loadObjectEventsFromSnapshotUtil({
       snapshot,
@@ -1541,6 +1544,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       uploadedSpriteIds: npcSpritesLoadedRef.current,
       clearAnimations: () => npcAnimationManager.clear(),
       preserveExistingMapRuntimeState: options?.preserveExistingMapRuntimeState,
+      cooperativeChunkMs: options?.cooperativeChunkMs,
       debugLog: isDebugMode()
         ? (message) => {
           gamePageLogger.debug(message);

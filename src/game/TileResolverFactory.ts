@@ -69,11 +69,11 @@ export class TileResolverFactory {
     const log = logger ?? (() => {});
     const spatialIndex = buildSnapshotSpatialIndex(snapshot);
 
-    // Helper to convert tileset pair array index to GPU slot (0 or 1)
-    const getGpuSlot = (pairIndex: number): number => {
+    // Helper to convert tileset pair array index to GPU slot.
+    const getGpuSlot = (pairIndex: number): number | null => {
       const pair = tilesetPairs[pairIndex];
-      if (!pair) return 0;
-      return pairIdToGpuSlot.get(pair.id) ?? 0;
+      if (!pair) return null;
+      return pairIdToGpuSlot.get(pair.id) ?? null;
     };
 
     // Get anchor map's tileset pair for border rendering
@@ -105,6 +105,7 @@ export class TileResolverFactory {
 
         const pairIndex = mapTilesetPairIndex.get(map.entry.id) ?? 0;
         const pair = tilesetPairs[pairIndex];
+        if (!pair) return null;
 
         const idx = localY * map.entry.width + localX;
         const mapTile = map.mapData.layout[idx];
@@ -128,6 +129,7 @@ export class TileResolverFactory {
 
         // Use GPU slot index (0 or 1), not array index
         const gpuSlot = getGpuSlot(pairIndex);
+        if (gpuSlot === null) return null;
 
         if (shouldLog) {
           log(
@@ -208,6 +210,7 @@ export class TileResolverFactory {
 
       // Use GPU slot index (0, 1, or 2) of the selected border map's tileset pair.
       const gpuSlot = getGpuSlot(borderPairIndex);
+      if (gpuSlot === null) return null;
 
       if (shouldLog) {
         log(

@@ -115,7 +115,10 @@ export interface WorldManagerEventDeps {
   /** Optional: Reload object events (NPCs, items) when maps change */
   loadObjectEventsFromSnapshot?: (
     snapshot: WorldSnapshot,
-    options?: { preserveExistingMapRuntimeState?: boolean }
+    options?: {
+      preserveExistingMapRuntimeState?: boolean;
+      cooperativeChunkMs?: number;
+    }
   ) => Promise<void>;
 
   /** Ref indicating a story script is currently running */
@@ -198,7 +201,8 @@ function updateResolversFromSnapshot(
  */
 function handleMapsChanged(
   deps: WorldManagerEventDeps,
-  snapshot: WorldSnapshot
+  snapshot: WorldSnapshot,
+  enqueueObjectEventReload?: (snapshot: WorldSnapshot) => void
 ): void {
   const {
     pipeline,
@@ -233,10 +237,13 @@ function handleMapsChanged(
   // While a script is running, preserve runtime state on already-parsed maps
   // but still parse newly loaded maps so long scripted movement involving
   // LOCALID-addressable large objects does not arrive in maps with missing NPCs.
-  const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
-  if (loadObjectEventsFromSnapshot) {
+  if (enqueueObjectEventReload) {
+    enqueueObjectEventReload(snapshot);
+  } else if (loadObjectEventsFromSnapshot) {
+    const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
     loadObjectEventsFromSnapshot(snapshot, {
       preserveExistingMapRuntimeState: scriptRunning,
+      cooperativeChunkMs: 4,
     }).catch((err) => {
       console.warn('[WorldManager] Failed to reload object events:', err);
     });
@@ -372,11 +379,56 @@ export function createWorldManagerEventHandler(
   deps: WorldManagerEventDeps,
   worldManager: { getScheduler: () => TilesetPairScheduler; getSnapshot: () => WorldSnapshot }
 ): (event: WorldManagerEvent) => void {
+  let pendingObjectReloadSnapshot: WorldSnapshot | null = null;
+  let objectReloadInFlight = false;
+
+  const flushObjectEventReload = async (): Promise<void> => {
+    if (!deps.loadObjectEventsFromSnapshot) {
+      objectReloadInFlight = false;
+      pendingObjectReloadSnapshot = null;
+      return;
+    }
+
+    while (!deps.isCancelled()) {
+      const snapshot = pendingObjectReloadSnapshot;
+      if (!snapshot) {
+        objectReloadInFlight = false;
+        return;
+      }
+
+      pendingObjectReloadSnapshot = null;
+
+      try {
+        const scriptRunning = deps.storyScriptRunningRef?.current ?? false;
+        await deps.loadObjectEventsFromSnapshot(snapshot, {
+          preserveExistingMapRuntimeState: scriptRunning,
+          cooperativeChunkMs: 4,
+        });
+      } catch (err) {
+        console.warn('[WorldManager] Failed to reload object events:', err);
+      }
+    }
+
+    objectReloadInFlight = false;
+  };
+
+  const enqueueObjectEventReload = (snapshot: WorldSnapshot): void => {
+    if (!deps.loadObjectEventsFromSnapshot) {
+      return;
+    }
+    pendingObjectReloadSnapshot = snapshot;
+    if (objectReloadInFlight) {
+      return;
+    }
+    objectReloadInFlight = true;
+    void flushObjectEventReload();
+  };
+
   return (event: WorldManagerEvent) => {
     if (deps.isCancelled()) return;
 
     if (event.type === 'mapsChanged') {
-      handleMapsChanged(deps, event.snapshot);
+      handleMapsChanged(deps, event.snapshot, enqueueObjectEventReload);
     }
 
     if (event.type === 'anchorChanged') {

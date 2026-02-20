@@ -65,6 +65,8 @@ const RUNTIME_STITCH_DEPTH = 2;
 const DEFAULT_INITIAL_STITCH_DEPTH = 1;
 /** Default target depth after background stitching completes */
 const DEFAULT_TARGET_STITCH_DEPTH = 2;
+/** Keep background stitching cooperative so it doesn't monopolize frame time. */
+const STITCH_COOPERATIVE_SLICE_MS = 4;
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
@@ -222,6 +224,29 @@ export class WorldManager {
       return fallback;
     }
     return Math.max(0, Math.floor(depth as number));
+  }
+
+  private nowMs(): number {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now();
+  }
+
+  private async yieldToMainThread(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => resolve());
+        return;
+      }
+      setTimeout(resolve, 0);
+    });
+  }
+
+  private async maybeYieldForCooperativeStitch(lastYieldMs: number): Promise<number> {
+    const now = this.nowMs();
+    if (now - lastYieldMs < STITCH_COOPERATIVE_SLICE_MS) {
+      return lastYieldMs;
+    }
+    await this.yieldToMainThread();
+    return this.nowMs();
   }
 
   private startBackgroundInitializeStitch(
@@ -386,7 +411,7 @@ export class WorldManager {
 
     // Update scheduler - this handles GPU slot swapping and preloading
     if (currentPair) {
-      const result = await this.scheduler.update(
+      const result = this.scheduler.update(
         playerTileX,
         playerTileY,
         currentPair.id,
@@ -539,6 +564,7 @@ export class WorldManager {
     const queue: Array<{ map: LoadedMapInstance; depth: number }> = [{ map: fromMap, depth: 0 }];
     const visited = new Set<string>([fromMap.entry.id]);
     const MAX_CONNECTION_DEPTH = RUNTIME_STITCH_DEPTH;
+    let lastYieldMs = this.nowMs();
 
     // Only log if there are unloaded connections (reduce log noise)
     const connections = (fromMap.entry.connections ?? []).filter((connection) =>
@@ -622,6 +648,8 @@ export class WorldManager {
             connection: { direction: connection.direction, offset: connection.offset },
           });
 
+          lastYieldMs = await this.maybeYieldForCooperativeStitch(lastYieldMs);
+
           // Check epoch after async operation
           if (this.worldEpoch !== startEpoch) {
             this.debugLog(`[LOAD_CONNECTED] Aborting after loadMap - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
@@ -680,6 +708,7 @@ export class WorldManager {
     const queue: QueueItem[] = [
       { entry: anchorEntry, offsetX: anchorOffsetX, offsetY: anchorOffsetY, depth: 0 },
     ];
+    let lastYieldMs = this.nowMs();
 
     while (queue.length > 0) {
       if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
@@ -706,6 +735,14 @@ export class WorldManager {
         expectedEpoch,
         current.sourceInfo
       );
+
+      lastYieldMs = await this.maybeYieldForCooperativeStitch(lastYieldMs);
+      if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
+        this.debugLog(
+          `[LOAD_FROM_ANCHOR] Aborting after cooperative yield - epoch changed from ${expectedEpoch} to ${this.worldEpoch}`
+        );
+        return;
+      }
 
       // Queue connected maps if not at max depth
       if (current.depth < maxDepth) {
