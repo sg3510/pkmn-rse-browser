@@ -9,7 +9,7 @@ import {
   type MenuType,
   type MenuDataFor,
 } from '../MenuStateManager';
-import { inputMap, GameButton } from '../../core/InputMap';
+import { consumeModalInputEvent, getModalInputAction } from '../../core/input/modalKeyRouting';
 
 /**
  * Hook to subscribe to menu state changes
@@ -79,57 +79,34 @@ export function useMenuInput(options: {
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Confirm: A button
-      if (inputMap.matchesCode(e.code, GameButton.A)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onConfirm?.();
+      const action = getModalInputAction(e.code);
+      if (action === null) {
         return;
       }
 
-      // Cancel: B button
-      if (inputMap.matchesCode(e.code, GameButton.B)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onCancel?.();
-        return;
-      }
-
-      // Select: SELECT button
-      if (inputMap.matchesCode(e.code, GameButton.SELECT)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onSelect?.();
-        return;
-      }
-
-      // Navigation: D-pad
-      if (inputMap.matchesCode(e.code, GameButton.UP)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onUp?.();
-        return;
-      }
-
-      if (inputMap.matchesCode(e.code, GameButton.DOWN)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onDown?.();
-        return;
-      }
-
-      if (inputMap.matchesCode(e.code, GameButton.LEFT)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onLeft?.();
-        return;
-      }
-
-      if (inputMap.matchesCode(e.code, GameButton.RIGHT)) {
-        e.preventDefault();
-        e.stopPropagation();
-        onRight?.();
-        return;
+      consumeModalInputEvent(e);
+      switch (action) {
+        case 'confirm':
+          onConfirm?.();
+          return;
+        case 'cancel':
+          onCancel?.();
+          return;
+        case 'select':
+          onSelect?.();
+          return;
+        case 'up':
+          onUp?.();
+          return;
+        case 'down':
+          onDown?.();
+          return;
+        case 'left':
+          onLeft?.();
+          return;
+        case 'right':
+          onRight?.();
+          return;
       }
     };
 

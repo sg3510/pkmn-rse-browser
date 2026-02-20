@@ -10,7 +10,7 @@
 import React, {
   createContext,
   useContext,
-  useReducer,
+  useState,
   useCallback,
   useRef,
   useEffect,
@@ -26,106 +26,10 @@ import type {
   UseDialogReturn,
 } from './types';
 import { DEFAULT_CONFIG, TEXT_SPEED_DELAYS } from './types';
-import { inputMap, GameButton } from '../../core/InputMap';
+import { inputMap } from '../../core/InputMap';
+import { consumeModalInputEvent, getModalInputAction } from '../../core/input/modalKeyRouting';
+import { PromptController } from '../../core/prompt/PromptController';
 import { paginateDialogText } from './textPagination';
-
-// === Reducer ===
-
-function dialogReducer(
-  state: DialogState,
-  action: DialogAction,
-  messages: DialogMessage[]
-): DialogState {
-  switch (action.type) {
-    case 'OPEN':
-      return { type: 'printing', messageIndex: 0, charIndex: 0 };
-
-    case 'ADVANCE_CHAR':
-      if (state.type === 'printing') {
-        const currentMessage = messages[state.messageIndex];
-        if (currentMessage && state.charIndex < currentMessage.text.length) {
-          return { ...state, charIndex: state.charIndex + 1 };
-        }
-      }
-      return state;
-
-    case 'COMPLETE_TEXT':
-      if (state.type === 'printing') {
-        return { type: 'waiting', messageIndex: state.messageIndex };
-      }
-      return state;
-
-    case 'START_SCROLL':
-      if (state.type === 'waiting') {
-        return { type: 'scrolling', messageIndex: state.messageIndex, scrollProgress: 0 };
-      }
-      return state;
-
-    case 'UPDATE_SCROLL':
-      if (state.type === 'scrolling') {
-        return { ...state, scrollProgress: action.progress };
-      }
-      return state;
-
-    case 'FINISH_SCROLL':
-      if (state.type === 'scrolling') {
-        const nextMsg = messages[state.messageIndex + 1];
-        const prefilled = nextMsg?.prefilledChars ?? 0;
-        return { type: 'printing', messageIndex: state.messageIndex + 1, charIndex: prefilled };
-      }
-      return state;
-
-    case 'SHOW_OPTIONS':
-      if (state.type === 'waiting') {
-        return {
-          type: 'choosing',
-          messageIndex: state.messageIndex,
-          selectedIndex: action.options.defaultIndex ?? 0,
-        };
-      }
-      return state;
-
-    case 'START_EDITING':
-      if (state.type === 'waiting') {
-        return {
-          type: 'editing',
-          messageIndex: state.messageIndex,
-          value: action.initialValue,
-        };
-      }
-      return state;
-
-    case 'UPDATE_INPUT':
-      if (state.type === 'editing') {
-        return { ...state, value: action.value };
-      }
-      return state;
-
-    case 'SELECT_OPTION':
-      if (state.type === 'choosing') {
-        return { ...state, selectedIndex: action.index };
-      }
-      return state;
-
-    case 'NEXT_MESSAGE':
-      if (state.type === 'waiting') {
-        const nextIndex = state.messageIndex + 1;
-        if (nextIndex < messages.length) {
-          return { type: 'printing', messageIndex: nextIndex, charIndex: 0 };
-        }
-        return { type: 'closed' };
-      }
-      return state;
-
-    case 'CONFIRM_OPTION':
-    case 'CANCEL':
-    case 'CLOSE':
-      return { type: 'closed' };
-
-    default:
-      return state;
-  }
-}
 
 // === Context ===
 
@@ -154,61 +58,201 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
   const optionsRef = useRef<DialogOptions | null>(null);
   const textInputRef = useRef<DialogTextInput | null>(null);
   const resolveRef = useRef<((value: unknown) => void) | null>(null);
+  const promptControllerRef = useRef(new PromptController());
+  const activePromptKeyRef = useRef<string | null>(null);
+  const dialogRunIdRef = useRef(0);
 
-  // Reducer with access to messages ref
-  const [state, baseDispatch] = useReducer(
-    (currentState: DialogState, action: DialogAction) => {
-      // Handle actions that modify refs
-      if (action.type === 'OPEN') {
-        messagesRef.current = action.messages;
-        optionsRef.current = action.options ?? null;
-        textInputRef.current = action.textInput ?? null;
-      }
-      if (action.type === 'SHOW_OPTIONS') {
-        optionsRef.current = action.options;
-      }
-      if (action.type === 'CLOSE' || action.type === 'CONFIRM_OPTION' || action.type === 'CANCEL') {
-        messagesRef.current = [];
-        optionsRef.current = null;
-        textInputRef.current = null;
-      }
-      return dialogReducer(currentState, action, messagesRef.current);
-    },
-    { type: 'closed' } as DialogState
-  );
+  const [state, setState] = useState<DialogState>({ type: 'closed' });
+  const stateRef = useRef<DialogState>(state);
 
-  // Wrap dispatch to trigger re-renders properly
-  const dispatch = useCallback((action: DialogAction) => {
-    baseDispatch(action);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const closeDialogState = useCallback(() => {
+    messagesRef.current = [];
+    optionsRef.current = null;
+    textInputRef.current = null;
+    promptControllerRef.current.clear();
+    activePromptKeyRef.current = null;
+    return { type: 'closed' } as DialogState;
   }, []);
 
-  // Text animation effect
+  const dispatch = useCallback((action: DialogAction) => {
+    setState((currentState) => {
+      switch (action.type) {
+        case 'OPEN':
+          dialogRunIdRef.current += 1;
+          messagesRef.current = action.messages;
+          optionsRef.current = action.options ?? null;
+          textInputRef.current = action.textInput ?? null;
+          promptControllerRef.current.clear();
+          activePromptKeyRef.current = null;
+          return { type: 'printing', messageIndex: 0, charIndex: 0 };
+
+        case 'ADVANCE_CHAR':
+          if (currentState.type === 'printing') {
+            const currentMessage = messagesRef.current[currentState.messageIndex];
+            if (currentMessage && currentState.charIndex < currentMessage.text.length) {
+              return { ...currentState, charIndex: currentState.charIndex + 1 };
+            }
+          }
+          return currentState;
+
+        case 'COMPLETE_TEXT':
+          if (currentState.type === 'printing') {
+            return { type: 'waiting', messageIndex: currentState.messageIndex };
+          }
+          return currentState;
+
+        case 'START_SCROLL':
+          if (currentState.type === 'waiting') {
+            return { type: 'scrolling', messageIndex: currentState.messageIndex, scrollProgress: 0 };
+          }
+          return currentState;
+
+        case 'UPDATE_SCROLL':
+          if (currentState.type === 'scrolling') {
+            return { ...currentState, scrollProgress: action.progress };
+          }
+          return currentState;
+
+        case 'FINISH_SCROLL':
+          if (currentState.type === 'scrolling') {
+            const nextMsg = messagesRef.current[currentState.messageIndex + 1];
+            const prefilled = nextMsg?.prefilledChars ?? 0;
+            return { type: 'printing', messageIndex: currentState.messageIndex + 1, charIndex: prefilled };
+          }
+          return currentState;
+
+        case 'SHOW_OPTIONS':
+          if (currentState.type === 'waiting') {
+            optionsRef.current = action.options;
+            return {
+              type: 'choosing',
+              messageIndex: currentState.messageIndex,
+              selectedIndex: action.options.defaultIndex ?? 0,
+            };
+          }
+          return currentState;
+
+        case 'START_EDITING':
+          if (currentState.type === 'waiting') {
+            return {
+              type: 'editing',
+              messageIndex: currentState.messageIndex,
+              value: action.initialValue,
+            };
+          }
+          return currentState;
+
+        case 'UPDATE_INPUT':
+          if (currentState.type === 'editing') {
+            return { ...currentState, value: action.value };
+          }
+          return currentState;
+
+        case 'SELECT_OPTION':
+          if (currentState.type === 'choosing') {
+            return { ...currentState, selectedIndex: action.index };
+          }
+          return currentState;
+
+        case 'NEXT_MESSAGE':
+          if (currentState.type === 'waiting') {
+            const nextIndex = currentState.messageIndex + 1;
+            if (nextIndex < messagesRef.current.length) {
+              return { type: 'printing', messageIndex: nextIndex, charIndex: 0 };
+            }
+            return closeDialogState();
+          }
+          return currentState;
+
+        case 'CONFIRM_OPTION':
+        case 'CANCEL':
+        case 'CLOSE':
+          return closeDialogState();
+
+        default:
+          return currentState;
+      }
+    });
+  }, [closeDialogState]);
+
+  // Start/restart prompt controller for each printed message.
   useEffect(() => {
-    if (state.type !== 'printing') return;
+    if (state.type !== 'printing') {
+      if (state.type !== 'waiting') {
+        promptControllerRef.current.clear();
+        activePromptKeyRef.current = null;
+      }
+      return;
+    }
 
     const currentMessage = messagesRef.current[state.messageIndex];
-    if (!currentMessage) return;
-
-    // Check if text is complete
-    if (state.charIndex >= currentMessage.text.length) {
-      dispatch({ type: 'COMPLETE_TEXT' });
+    if (!currentMessage) {
       return;
     }
 
-    // Calculate delay
-    const delay = TEXT_SPEED_DELAYS[config.textSpeed];
-    if (delay === 0) {
-      // Instant: complete immediately
-      dispatch({ type: 'COMPLETE_TEXT' });
+    const key = `${dialogRunIdRef.current}:${state.messageIndex}`;
+    if (activePromptKeyRef.current === key) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      dispatch({ type: 'ADVANCE_CHAR' });
-    }, delay);
+    activePromptKeyRef.current = key;
+    promptControllerRef.current.clear();
+    void promptControllerRef.current.showMessage(currentMessage.text, {
+      initialVisibleChars: state.charIndex,
+    });
+  }, [state]);
 
-    return () => clearTimeout(timer);
-  }, [state, config.textSpeed, dispatch]);
+  // Sync prompt rendering/timing (shared with battle/evolution prompt controller semantics).
+  useEffect(() => {
+    if (state.type !== 'printing' && state.type !== 'waiting') {
+      return;
+    }
+
+    const promptController = promptControllerRef.current;
+    const delayMs = TEXT_SPEED_DELAYS[config.textSpeed];
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const tick = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+      promptController.tick(dt, delayMs);
+
+      const renderState = promptController.getRenderState();
+      if (renderState?.type === 'message') {
+        setState((current) => {
+          if (current.type !== 'printing' && current.type !== 'waiting') {
+            return current;
+          }
+
+          if (renderState.isFullyVisible) {
+            if (current.type === 'waiting') {
+              return current;
+            }
+            return { type: 'waiting', messageIndex: current.messageIndex };
+          }
+
+          if (current.type === 'printing' && current.charIndex === renderState.visibleChars) {
+            return current;
+          }
+          return {
+            type: 'printing',
+            messageIndex: current.messageIndex,
+            charIndex: renderState.visibleChars,
+          };
+        });
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [state.type, config.textSpeed]);
 
   // Scroll animation effect — drives scrollProgress from 0 to 1 using rAF
   useEffect(() => {
@@ -248,6 +292,8 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
     const delay = currentMessage.autoAdvanceMs ?? 2000;
     const timer = setTimeout(() => {
+      promptControllerRef.current.clear();
+      activePromptKeyRef.current = null;
       dispatch({ type: useScroll ? 'START_SCROLL' : 'NEXT_MESSAGE' });
     }, delay);
 
@@ -276,6 +322,173 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     const initialValue = textInputRef.current.initialValue ?? '';
     dispatch({ type: 'START_EDITING', initialValue });
   }, [state, dispatch]);
+
+  // Shared modal input handling (overworld prompt + choices + text entry).
+  useEffect(() => {
+    if (state.type === 'closed') {
+      return;
+    }
+
+    const resolveAndClear = (value: unknown) => {
+      const resolve = resolveRef.current;
+      if (!resolve) {
+        return;
+      }
+      resolve(value);
+      resolveRef.current = null;
+    };
+
+    const advanceWaitingMessage = (
+      waitingState: Extract<DialogState, { type: 'waiting' }>,
+    ) => {
+      const messages = messagesRef.current;
+      const options = optionsRef.current;
+      const textInput = textInputRef.current;
+      const isLastMessage = waitingState.messageIndex === messages.length - 1;
+
+      if (!isLastMessage) {
+        const nextMsg = messages[waitingState.messageIndex + 1];
+        dispatch({ type: nextMsg?.transition === 'scroll' ? 'START_SCROLL' : 'NEXT_MESSAGE' });
+        return;
+      }
+
+      if (!options && !textInput) {
+        dispatch({ type: 'CLOSE' });
+        resolveAndClear(undefined);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const currentState = stateRef.current;
+      if (!currentState || currentState.type === 'closed') {
+        return;
+      }
+
+      const options = optionsRef.current;
+      const textInput = textInputRef.current;
+      const mappedAction = getModalInputAction(e.code);
+
+      if (currentState.type === 'editing') {
+        if (mappedAction === 'confirm' || e.code === 'NumpadEnter') {
+          consumeModalInputEvent(e);
+
+          const normalize = textInput?.normalize;
+          const normalizedValue = normalize ? normalize(currentState.value) : currentState.value;
+          const allowEmpty = textInput?.allowEmpty ?? false;
+          if (!allowEmpty && normalizedValue.trim().length === 0) {
+            return;
+          }
+
+          dispatch({ type: 'CLOSE' });
+          resolveAndClear(normalizedValue);
+          return;
+        }
+
+        if (mappedAction === 'cancel' && (textInput?.cancelable ?? true)) {
+          consumeModalInputEvent(e);
+          dispatch({ type: 'CANCEL' });
+          resolveAndClear(null);
+          return;
+        }
+
+        if (e.code === 'Backspace') {
+          consumeModalInputEvent(e);
+          dispatch({ type: 'UPDATE_INPUT', value: currentState.value.slice(0, -1) });
+          return;
+        }
+
+        const maxLength = textInput?.maxLength ?? 12;
+        if (currentState.value.length >= maxLength) {
+          return;
+        }
+
+        let append: string | null = null;
+        if (textInput?.mapKey) {
+          append = textInput.mapKey(e);
+        } else {
+          const letterMatch = e.code.match(/^Key([A-Z])$/);
+          const digitMatch = e.code.match(/^Digit([0-9])$/);
+          if (letterMatch) append = letterMatch[1];
+          else if (digitMatch) append = digitMatch[1];
+          else if (e.code === 'Space') append = ' ';
+        }
+
+        if (append && append.length > 0) {
+          consumeModalInputEvent(e);
+          dispatch({ type: 'UPDATE_INPUT', value: (currentState.value + append).slice(0, maxLength) });
+        }
+        return;
+      }
+
+      const isConfirm = mappedAction === 'confirm' || inputMap.matchesCode(e.code, ...config.advanceKeys);
+      const isCancel = mappedAction === 'cancel' || inputMap.matchesCode(e.code, ...config.cancelKeys);
+
+      if (isConfirm || isCancel) {
+        consumeModalInputEvent(e);
+
+        if (currentState.type === 'scrolling') {
+          dispatch({ type: 'FINISH_SCROLL' });
+          return;
+        }
+
+        if (currentState.type === 'printing' || currentState.type === 'waiting') {
+          if (currentState.type === 'printing' && !config.allowSkip) {
+            return;
+          }
+
+          const promptController = promptControllerRef.current;
+          const wasActive = promptController.isActive();
+          promptController.handleInput({
+            confirmPressed: isConfirm,
+            cancelPressed: isCancel,
+            upPressed: false,
+            downPressed: false,
+          });
+
+          if (wasActive && !promptController.isActive() && currentState.type === 'waiting') {
+            advanceWaitingMessage(currentState);
+          }
+          return;
+        }
+
+        if (currentState.type === 'choosing' && options) {
+          if (isConfirm) {
+            const selectedChoice = options.choices[currentState.selectedIndex];
+            if (selectedChoice && !selectedChoice.disabled) {
+              dispatch({ type: 'CONFIRM_OPTION' });
+              resolveAndClear(selectedChoice.value);
+            }
+            return;
+          }
+
+          if (isCancel && options.cancelable) {
+            dispatch({ type: 'CANCEL' });
+            resolveAndClear(options.cancelValue ?? null);
+          }
+        }
+        return;
+      }
+
+      if (currentState.type === 'choosing' && options) {
+        if (mappedAction === 'up') {
+          consumeModalInputEvent(e);
+          const newIndex = Math.max(0, currentState.selectedIndex - 1);
+          dispatch({ type: 'SELECT_OPTION', index: newIndex });
+          options.onSelectionChange?.(newIndex);
+        }
+        if (mappedAction === 'down') {
+          consumeModalInputEvent(e);
+          const newIndex = Math.min(options.choices.length - 1, currentState.selectedIndex + 1);
+          dispatch({ type: 'SELECT_OPTION', index: newIndex });
+          options.onSelectionChange?.(newIndex);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [state.type, config.advanceKeys, config.cancelKeys, config.allowSkip, dispatch]);
 
   // Resolve setter/getter
   const setResolve = useCallback((fn: ((value: unknown) => void) | null) => {
@@ -431,211 +644,6 @@ export function useDialog(): UseDialogReturn {
       context.setResolve(null);
     }
   }, [context]);
-
-  // Handle keyboard input
-  // Track state and options to properly update handler when they change
-  const stateRef = useRef(context?.state);
-  const optionsRef = useRef(context?.options);
-  const messagesRef = useRef(context?.messages);
-  const textInputRef = useRef(context?.textInput);
-
-  // Update refs when context changes
-  useEffect(() => {
-    if (context) {
-      stateRef.current = context.state;
-      optionsRef.current = context.options;
-      messagesRef.current = context.messages;
-      textInputRef.current = context.textInput;
-    }
-  }, [context?.state, context?.options, context?.messages, context?.textInput, context]);
-
-  useEffect(() => {
-    if (!context || context.state.type === 'closed') return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const state = stateRef.current;
-      const options = optionsRef.current;
-      const messages = messagesRef.current;
-      const textInput = textInputRef.current;
-      if (!state || !context) return;
-
-      const { config, dispatch, getResolve, setResolve } = context;
-
-      if (state.type === 'editing') {
-        // Submit: A button or NumpadEnter (special case for text entry)
-        if (inputMap.matchesCode(e.code, GameButton.A) || e.code === 'NumpadEnter') {
-          e.preventDefault();
-          e.stopPropagation();
-
-          const normalize = textInput?.normalize;
-          const normalizedValue = normalize ? normalize(state.value) : state.value;
-          const allowEmpty = textInput?.allowEmpty ?? false;
-          if (!allowEmpty && normalizedValue.trim().length === 0) {
-            return;
-          }
-
-          dispatch({ type: 'CLOSE' });
-          const resolve = getResolve();
-          if (resolve) {
-            resolve(normalizedValue);
-            setResolve(null);
-          }
-          return;
-        }
-
-        // Cancel: B button
-        if (inputMap.matchesCode(e.code, GameButton.B) && (textInput?.cancelable ?? true)) {
-          e.preventDefault();
-          e.stopPropagation();
-          dispatch({ type: 'CANCEL' });
-          const resolve = getResolve();
-          if (resolve) {
-            resolve(null);
-            setResolve(null);
-          }
-          return;
-        }
-
-        if (e.code === 'Backspace') {
-          e.preventDefault();
-          e.stopPropagation();
-          dispatch({ type: 'UPDATE_INPUT', value: state.value.slice(0, -1) });
-          return;
-        }
-
-        const maxLength = textInput?.maxLength ?? 12;
-        if (state.value.length >= maxLength) {
-          return;
-        }
-
-        let append: string | null = null;
-        if (textInput?.mapKey) {
-          append = textInput.mapKey(e);
-        } else {
-          const letterMatch = e.code.match(/^Key([A-Z])$/);
-          const digitMatch = e.code.match(/^Digit([0-9])$/);
-          if (letterMatch) append = letterMatch[1];
-          else if (digitMatch) append = digitMatch[1];
-          else if (e.code === 'Space') append = ' ';
-        }
-
-        if (append && append.length > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          dispatch({ type: 'UPDATE_INPUT', value: (state.value + append).slice(0, maxLength) });
-        }
-        return;
-      }
-
-      // Advance keys (A button)
-      if (inputMap.matchesCode(e.code, ...config.advanceKeys)) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (state.type === 'printing') {
-          if (config.allowSkip) {
-            dispatch({ type: 'COMPLETE_TEXT' });
-          }
-        } else if (state.type === 'scrolling') {
-          // Skip scroll animation
-          dispatch({ type: 'FINISH_SCROLL' });
-        } else if (state.type === 'waiting') {
-          const isLastMessage = state.messageIndex === (messages?.length ?? 1) - 1;
-          if (!isLastMessage) {
-            // Check if next message wants scroll transition
-            const nextMsg = messages?.[state.messageIndex + 1];
-            if (nextMsg?.transition === 'scroll') {
-              dispatch({ type: 'START_SCROLL' });
-            } else {
-              dispatch({ type: 'NEXT_MESSAGE' });
-            }
-          } else if (!options) {
-            dispatch({ type: 'CLOSE' });
-            const resolve = getResolve();
-            if (resolve) {
-              resolve(undefined);
-              setResolve(null);
-            }
-          }
-        } else if (state.type === 'choosing' && options) {
-          const selectedChoice = options.choices[state.selectedIndex];
-          if (selectedChoice && !selectedChoice.disabled) {
-            dispatch({ type: 'CONFIRM_OPTION' });
-            const resolve = getResolve();
-            if (resolve) {
-              resolve(selectedChoice.value);
-              setResolve(null);
-            }
-          }
-        }
-        return;
-      }
-
-      // Cancel keys (B button)
-      // GBA behavior: B advances text like A, but cancels choices instead of confirming
-      if (inputMap.matchesCode(e.code, ...config.cancelKeys)) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (state.type === 'printing') {
-          if (config.allowSkip) {
-            dispatch({ type: 'COMPLETE_TEXT' });
-          }
-        } else if (state.type === 'scrolling') {
-          dispatch({ type: 'FINISH_SCROLL' });
-        } else if (state.type === 'waiting') {
-          const isLastMessage = state.messageIndex === (messages?.length ?? 1) - 1;
-          if (!isLastMessage) {
-            const nextMsg = messages?.[state.messageIndex + 1];
-            if (nextMsg?.transition === 'scroll') {
-              dispatch({ type: 'START_SCROLL' });
-            } else {
-              dispatch({ type: 'NEXT_MESSAGE' });
-            }
-          } else if (!options) {
-            // B closes dialog at end (same as A), but does NOT open choices
-            dispatch({ type: 'CLOSE' });
-            const resolve = getResolve();
-            if (resolve) {
-              resolve(undefined);
-              setResolve(null);
-            }
-          }
-        } else if (state.type === 'choosing' && options?.cancelable) {
-          dispatch({ type: 'CANCEL' });
-          const resolve = getResolve();
-          if (resolve) {
-            resolve(options.cancelValue ?? null);
-            setResolve(null);
-          }
-        }
-        return;
-      }
-
-      // D-pad for menu navigation
-      if (state.type === 'choosing' && options) {
-        if (inputMap.matchesCode(e.code, GameButton.UP)) {
-          e.preventDefault();
-          e.stopPropagation();
-          const newIndex = Math.max(0, state.selectedIndex - 1);
-          dispatch({ type: 'SELECT_OPTION', index: newIndex });
-          options.onSelectionChange?.(newIndex);
-        }
-        if (inputMap.matchesCode(e.code, GameButton.DOWN)) {
-          e.preventDefault();
-          e.stopPropagation();
-          const newIndex = Math.min(options.choices.length - 1, state.selectedIndex + 1);
-          dispatch({ type: 'SELECT_OPTION', index: newIndex });
-          options.onSelectionChange?.(newIndex);
-        }
-        return;
-      }
-
-    };
-
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [context, context?.state.type]);
 
   const isOpen = context ? context.state.type !== 'closed' : false;
 

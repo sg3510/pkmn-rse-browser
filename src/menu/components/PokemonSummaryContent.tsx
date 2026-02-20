@@ -21,6 +21,7 @@ import { loadTransparentSprite } from '../../utils/transparentSprite';
 import { toPublicAssetUrl } from '../../utils/publicAssetUrl';
 import { createMoveListModel } from '../moves/MoveListModel';
 import { useMoveListNavigation } from '../moves/useMoveListNavigation';
+import { MoveRowFields } from '../moves/MoveRow';
 // Type images loaded via transparentSprite utility (keys out black background)
 import '../styles/pokemon-summary-emerald.css';
 
@@ -478,12 +479,14 @@ function MovesPage({ pokemon, selectedIndex, onSelectMove }: MovesPageProps) {
           >
             {!move.isEmpty ? (
               <>
-                <TypeBadge type={move.type} className="summary-move-type-img" />
-                <span className="summary-move-name">{move.name}</span>
-                <span className="summary-move-pp">
-                  <span className="summary-move-pp-label">PP</span>
-                  {move.pp}/{move.maxPp}
-                </span>
+                <MoveRowFields
+                  move={move}
+                  renderType={(type) => <TypeBadge type={type} className="summary-move-type-img" />}
+                  nameClassName="summary-move-name"
+                  ppClassName="summary-move-pp"
+                  ppLabelClassName="summary-move-pp-label"
+                  showPpLabel
+                />
               </>
             ) : (
               <>

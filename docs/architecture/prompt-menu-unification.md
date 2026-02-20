@@ -43,5 +43,5 @@ Reduce duplicated prompt/menu/move-selection code paths while preserving gamepla
 
 ## Remaining Gap
 
-- Overworld `src/components/dialog/DialogContext.tsx` still uses its internal reducer path and is not fully migrated to `src/core/prompt/PromptService.ts`.
-- Current status is intentionally incremental to avoid behavior regressions in script-driven UI flow.
+- Overworld prompt printing/waiting timing + confirm/cancel flow now runs through `src/core/prompt/PromptController.ts`.
+- Choice-menu and text-entry submodes in `src/components/dialog/DialogContext.tsx` still keep local UI state handling (by design) while sharing modal key routing.

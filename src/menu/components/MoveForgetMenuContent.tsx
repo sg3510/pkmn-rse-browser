@@ -7,6 +7,7 @@ import { useMenuInput, useMenuState } from '../hooks/useMenuState';
 import { getMenuDataFor, menuStateManager } from '../MenuStateManager';
 import { getMoveInfo, getMoveName, MOVES } from '../../data/moves';
 import { createMoveListModel } from '../moves/MoveListModel';
+import { MoveRowFields, formatMoveTypePp } from '../moves/MoveRow';
 import { useMoveListNavigation } from '../moves/useMoveListNavigation';
 import '../styles/move-forget-menu.css';
 
@@ -89,15 +90,18 @@ export function MoveForgetMenuContent() {
           {moveRows.map((row) => (
             <button
               key={row.slot}
-              className={`move-forget-row ${effectiveCursor === row.slot ? 'is-selected' : ''}`}
-              onMouseEnter={() => menuStateManager.setCursor(row.slot)}
-              onClick={() => closeWithChoice(row.slot)}
-            >
-              <span className="move-forget-cursor">{effectiveCursor === row.slot ? '▶' : ''}</span>
-              <span className="move-forget-name">{row.name}</span>
-              <span className="move-forget-pp">{row.pp}/{row.maxPp}</span>
-            </button>
-          ))}
+                className={`move-forget-row ${effectiveCursor === row.slot ? 'is-selected' : ''}`}
+                onMouseEnter={() => menuStateManager.setCursor(row.slot)}
+                onClick={() => closeWithChoice(row.slot)}
+              >
+                <span className="move-forget-cursor">{effectiveCursor === row.slot ? '▶' : ''}</span>
+                <MoveRowFields
+                  move={row}
+                  nameClassName="move-forget-name"
+                  ppClassName="move-forget-pp"
+                />
+              </button>
+            ))}
 
           <button
             className={`move-forget-row move-forget-cancel ${effectiveCursor === 4 ? 'is-selected' : ''}`}
@@ -115,7 +119,11 @@ export function MoveForgetMenuContent() {
               <div className="move-forget-panel-label">MOVE TO LEARN</div>
               <div className="move-forget-panel-name">{getMoveName(moveToLearnId)}</div>
               <div className="move-forget-panel-meta">
-                TYPE/{moveToLearnInfo?.type ?? 'NORMAL'} PP {moveToLearnInfo?.pp ?? 0}
+                {formatMoveTypePp({
+                  type: moveToLearnInfo?.type ?? 'NORMAL',
+                  pp: moveToLearnInfo?.pp ?? 0,
+                  maxPp: moveToLearnInfo?.pp ?? 0,
+                })}
               </div>
             </div>
           ) : null}
@@ -126,7 +134,7 @@ export function MoveForgetMenuContent() {
               <>
                 <div className="move-forget-panel-name">{focusedMove.name}</div>
                 <div className="move-forget-panel-meta">
-                  TYPE/{focusedMove.type} PP {focusedMove.pp}/{focusedMove.maxPp}
+                  {formatMoveTypePp(focusedMove)}
                 </div>
               </>
             ) : (

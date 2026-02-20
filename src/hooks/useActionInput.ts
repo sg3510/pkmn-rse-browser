@@ -14,6 +14,7 @@ import {
   type FieldActionResolverPolicy,
   resolveFieldActions,
 } from '../game/fieldActions/FieldActionResolver';
+import { formatFoundItemMessage } from '../game/messages/itemMessages';
 
 export interface ActionInputDeps {
   playerControllerRef: React.RefObject<PlayerController | null>;
@@ -178,7 +179,7 @@ export function useActionInput({
           bagManager.addItem(itemBall.itemId, 1);
           const itemName = itemBall.itemName;
           const playerName = saveManager.getPlayerName();
-          await showMessage(`${playerName} found one ${itemName}!`);
+          await showMessage(formatFoundItemMessage(playerName, itemName));
         } finally {
           itemPickupInProgressRef.current = false;
           player.unlockInput();

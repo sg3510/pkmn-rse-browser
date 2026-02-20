@@ -12,6 +12,7 @@ import { getItemId, getItemName } from '../../data/items';
 import { bagManager } from '../../game/BagManager';
 import { saveManager } from '../../save/SaveManager';
 import { berryManager } from '../../game/berry/BerryManager.ts';
+import { formatFoundItemMessage } from '../../game/messages/itemMessages';
 import type { MutableRef } from './types';
 
 
@@ -135,7 +136,7 @@ export function createActionCallbacks(deps: ActionCallbackDeps) {
           bagManager.addItem(itemId, 1);
           const playerName = saveManager.getPlayerName();
           const itemName = getItemName(itemId);
-          await showMessage(`${playerName} found one ${itemName}!`);
+          await showMessage(formatFoundItemMessage(playerName, itemName));
         }
         return;
       }

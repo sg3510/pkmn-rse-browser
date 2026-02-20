@@ -26,6 +26,7 @@ import { BagMenu } from './BagMenu';
 import { PartyMenuContent } from './PartyMenuContent';
 import { PokemonSummaryContent } from './PokemonSummaryContent';
 import { MoveForgetMenuContent } from './MoveForgetMenuContent';
+import { ScriptChoiceMenuContent } from './ScriptChoiceMenuContent';
 import '../styles/menu-overlay.css';
 
 export function MenuOverlay() {
@@ -60,11 +61,18 @@ export function MenuOverlay() {
     'menu-container',
     layout.isFullscreen ? 'menu-container--fullscreen' : '',
   ].filter(Boolean).join(' ');
-  const showBackButton = currentMenu !== 'moveForget';
+  const scriptChoiceData = getMenuDataFor({ currentMenu, data }, 'scriptChoice');
+  const canCloseScriptChoice = scriptChoiceData?.cancelable ?? true;
+  const canBackdropClose = currentMenu !== 'scriptChoice' || canCloseScriptChoice;
+  const showBackButton = currentMenu !== 'moveForget' && canBackdropClose;
 
   // All other menus use the unified fullscreen container
   return (
-    <div className="menu-overlay" onClick={() => menuStateManager.back()}>
+    <div className="menu-overlay" onClick={() => {
+      if (canBackdropClose) {
+        menuStateManager.back();
+      }
+    }}>
       <div
         className={containerClasses}
         style={containerStyle}
@@ -105,6 +113,9 @@ function MenuContent({ currentMenu, data }: MenuContentProps) {
 
     case 'moveForget':
       return <MoveForgetMenuContent />;
+
+    case 'scriptChoice':
+      return <ScriptChoiceMenuContent />;
 
     case 'pokemonSummary': {
       const summaryData = getMenuDataFor({ currentMenu, data }, 'pokemonSummary');

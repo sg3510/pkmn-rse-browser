@@ -16,6 +16,7 @@ import {
 import type { ViewportConfig } from '../config/viewport';
 import { inputMap, GameButton } from '../core/InputMap';
 import { PromptService, drawPromptYesNo } from '../core/prompt/PromptService';
+import { getBattlePromptDelayMs } from '../core/prompt/textSpeed';
 import { saveManager } from '../save/SaveManager';
 import type { LocationState } from '../save/types';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
@@ -33,7 +34,8 @@ import {
   runMoveLearningSequence,
 } from '../pokemon/moveLearning';
 import { formatPokemonDisplayName } from '../pokemon/displayName';
-import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter';
+import { createMoveLearningPromptAdapter } from '../pokemon/moveLearningPromptAdapter';
+import { openMoveForgetMenu as openMoveForgetMenuGateway } from '../menu/moves/openMoveForgetMenu';
 import {
   getShedinjaEvolutionTarget,
   resolvePostEvolutionNickname,
@@ -44,11 +46,6 @@ import type {
   EvolutionStateData,
 } from '../evolution/types';
 
-const BATTLE_TEXT_SPEED_DELAY_FRAMES: Record<'slow' | 'mid' | 'fast', number> = {
-  slow: 8,
-  mid: 4,
-  fast: 1,
-};
 
 const FRAME_MS = 1000 / 60;
 
@@ -357,9 +354,10 @@ export class EvolutionState implements StateRenderer {
   private async openMoveForgetMenu(mon: PartyPokemon, moveToLearnId: number): Promise<number | null> {
     this.waitingForMenu = true;
     try {
-      return await menuStateManager.openAsync<'moveForget', number>('moveForget', {
-        ...createMoveForgetMenuData(mon, moveToLearnId),
+      return await openMoveForgetMenuGateway({
+        pokemon: mon,
         mode: 'learn',
+        moveToLearnId,
       });
     } finally {
       this.waitingForMenu = false;
@@ -376,9 +374,7 @@ export class EvolutionState implements StateRenderer {
 
   private getBattleTextDelayMs(): number {
     const options = saveManager.getOptions();
-    const speed = options.textSpeed ?? 'mid';
-    const frames = BATTLE_TEXT_SPEED_DELAY_FRAMES[speed] ?? BATTLE_TEXT_SPEED_DELAY_FRAMES.mid;
-    return frames * FRAME_MS;
+    return getBattlePromptDelayMs(options.textSpeed, FRAME_MS);
   }
 
   private finishToOverworld(): void {

@@ -12,6 +12,7 @@ export type MenuType =
   | 'bag'
   | 'party'
   | 'moveForget'
+  | 'scriptChoice'
   | 'pokedex'
   | 'trainerCard'
   | 'save'
@@ -47,6 +48,26 @@ export interface MoveForgetMenuOpenData {
   onMoveSlotChosen?: (moveSlot: number | null) => void;
 }
 
+export interface ScriptChoiceMenuChoice {
+  label: string;
+  value: number;
+  disabled?: boolean;
+}
+
+export interface ScriptChoiceMenuOpenData {
+  title?: string;
+  promptText?: string;
+  choices: ScriptChoiceMenuChoice[];
+  cancelable?: boolean;
+  defaultIndex?: number;
+  columns?: number;
+  menuPosition?: {
+    leftRatio: number;
+    topRatio: number;
+  };
+  onSelectionChange?: (index: number) => void;
+}
+
 export interface FieldItemPartyMenuOpenData {
   mode: 'fieldItemUse';
   onFieldPartySelected?: (partyIndex: number | null) => void;
@@ -73,6 +94,7 @@ export interface MenuDataMap {
   bag: BagMenuOpenData;
   party: PartyMenuOpenData;
   moveForget: MoveForgetMenuOpenData;
+  scriptChoice: ScriptChoiceMenuOpenData;
   pokedex: Record<string, never>;
   trainerCard: Record<string, never>;
   save: Record<string, never>;
@@ -82,6 +104,20 @@ export interface MenuDataMap {
 
 export type MenuDataFor<TMenu extends MenuType> = MenuDataMap[TMenu];
 export type AnyMenuData = MenuDataMap[MenuType];
+export interface MenuResultMap {
+  start: never;
+  bag: number;
+  party: number;
+  moveForget: number;
+  scriptChoice: number;
+  pokedex: never;
+  trainerCard: never;
+  save: never;
+  options: never;
+  pokemonSummary: never;
+}
+export type MenuResultFor<TMenu extends MenuType> = MenuResultMap[TMenu];
+export type AnyMenuResult = MenuResultMap[MenuType];
 
 const EMPTY_MENU_DATA: Record<string, never> = {};
 
@@ -110,7 +146,7 @@ class MenuStateManagerClass {
   };
 
   private listeners: Set<MenuListener> = new Set();
-  private pendingAsyncResolve: ((value: unknown | null) => void) | null = null;
+  private pendingAsyncResolve: ((value: AnyMenuResult | null) => void) | null = null;
 
   /**
    * Get current menu state
@@ -158,13 +194,13 @@ class MenuStateManagerClass {
    * Open a menu and await a typed result.
    * The promise resolves with null when the menu stack closes without selection.
    */
-  openAsync<TMenu extends MenuType, TResult = unknown>(
+  openAsync<TMenu extends MenuType>(
     menu: TMenu,
     data?: MenuDataFor<TMenu>,
-  ): Promise<TResult | null> {
+  ): Promise<MenuResultFor<TMenu> | null> {
     this.settlePendingAsync(null);
-    return new Promise<TResult | null>((resolve) => {
-      this.pendingAsyncResolve = resolve as (value: unknown | null) => void;
+    return new Promise<MenuResultFor<TMenu> | null>((resolve) => {
+      this.pendingAsyncResolve = resolve as (value: AnyMenuResult | null) => void;
       this.open(menu, data);
     });
   }
@@ -172,7 +208,7 @@ class MenuStateManagerClass {
   /**
    * Resolve the current async menu flow and close the menu stack.
    */
-  resolveAsync<TResult>(value: TResult): void {
+  resolveAsync<TMenu extends MenuType>(value: MenuResultFor<TMenu> | null): void {
     this.settlePendingAsync(value);
     this.close();
   }
@@ -263,7 +299,7 @@ class MenuStateManagerClass {
     }
   }
 
-  private settlePendingAsync(value: unknown | null): void {
+  private settlePendingAsync(value: AnyMenuResult | null): void {
     const resolve = this.pendingAsyncResolve;
     if (!resolve) {
       return;

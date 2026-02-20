@@ -31,10 +31,12 @@ import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './t
 import { MOVES, getMoveInfo, getMoveName } from '../data/moves.ts';
 import { PARTY_SIZE, STATUS, type PartyPokemon } from '../pokemon/types.ts';
 import { getRelearnableMoves, runMoveLearningSequence } from '../pokemon/moveLearning.ts';
-import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter.ts';
+import { createMoveLearningPromptAdapter } from '../pokemon/moveLearningPromptAdapter.ts';
 import { formatPokemonDisplayName } from '../pokemon/displayName.ts';
 import { METATILE_LABELS } from '../data/metatileLabels.gen.ts';
-import { getMultichoiceIdByName, getMultichoiceList } from '../data/multichoice.gen.ts';
+import { getMultichoiceIdByName } from '../data/multichoice.gen.ts';
+import { scriptMenuHost } from './menu/ScriptMenuHost.ts';
+import { openMoveForgetMenu as openMoveForgetMenuGateway } from '../menu/moves/openMoveForgetMenu.ts';
 import { stepCallbackManager } from '../game/StepCallbackManager.ts';
 import { rotatingGateManager } from '../game/RotatingGateManager.ts';
 import { objectEventAffineManager } from '../game/npc/ObjectEventAffineManager.ts';
@@ -931,7 +933,7 @@ export class ScriptRunner {
   }
 
   private async choosePartyMonForScript(): Promise<number | null> {
-    const selectedPartyIndex = await menuStateManager.openAsync<'party', number>('party', {
+    const selectedPartyIndex = await menuStateManager.openAsync<'party'>('party', {
       mode: 'fieldItemUse',
     });
     if (selectedPartyIndex === null || selectedPartyIndex < 0 || selectedPartyIndex >= PARTY_SIZE) {
@@ -1004,12 +1006,10 @@ export class ScriptRunner {
   }
 
   private async chooseMoveDeleterSlot(mon: PartyPokemon): Promise<number | null> {
-    const slot = await menuStateManager.openAsync<'moveForget', number>('moveForget', {
+    const slot = await openMoveForgetMenuGateway({
+      pokemon: mon,
       mode: 'delete',
       promptText: 'Which move should be forgotten?',
-      pokemonName: formatPokemonDisplayName(mon),
-      pokemonMoves: mon.moves,
-      pokemonPp: mon.pp,
     });
     if (slot === null || slot < 0 || slot >= 4) {
       return null;
@@ -1055,10 +1055,7 @@ export class ScriptRunner {
         },
       },
       {
-        openMoveForgetMenu: (pokemon, moveId) => menuStateManager.openAsync<'moveForget', number>('moveForget', {
-          ...createMoveForgetMenuData(pokemon, moveId),
-          mode: 'learn',
-        }),
+        openMoveForgetMenu: (pokemon, moveId) => this.openMoveForgetMenuForMoveLearning(pokemon, moveId),
       },
     );
 
@@ -1072,6 +1069,51 @@ export class ScriptRunner {
     nextParty[monIndex] = result.pokemon;
     this.setPartySnapshot(nextParty);
     return true;
+  }
+
+  private getScriptChoiceResultFromCancel(): number {
+    const fallbackCancel = getMultichoiceIdByName('MULTI_B_PRESSED');
+    return fallbackCancel ?? 127;
+  }
+
+  private async openScriptMultichoice(
+    left: number,
+    top: number,
+    multichoiceId: number,
+    ignoreBPress: boolean,
+    defaultChoice?: number,
+  ): Promise<number> {
+    return scriptMenuHost.openMultichoice({
+      left,
+      top,
+      multichoiceId,
+      ignoreBPress,
+      defaultChoice,
+    });
+  }
+
+  private async openScriptMultichoiceGrid(
+    left: number,
+    top: number,
+    multichoiceId: number,
+    columns: number,
+    ignoreBPress: boolean,
+  ): Promise<number> {
+    return scriptMenuHost.openMultichoiceGrid({
+      left,
+      top,
+      multichoiceId,
+      columns,
+      ignoreBPress,
+    });
+  }
+
+  private async openMoveForgetMenuForMoveLearning(pokemon: PartyPokemon, moveId: number): Promise<number | null> {
+    return openMoveForgetMenuGateway({
+      pokemon,
+          mode: 'learn',
+      moveToLearnId: moveId,
+    });
   }
 
   private findFirstPartyIndexWithMove(moveId: number): number {
@@ -2823,28 +2865,52 @@ export class ScriptRunner {
           break;
         }
 
-        // --- multichoice / multichoicedefault ---
+        // --- multichoice / multichoicedefault / multichoicegrid ---
         // C ref: scrcmd.c ScrCmd_multichoice — shows menu from sMultichoiceLists[id]
-        // args: [left, top, multichoiceId, ignoreBPress]
+        // args:
+        //   multichoice: [left, top, multichoiceId, ignoreBPress]
+        //   multichoicedefault: [left, top, multichoiceId, defaultChoice, ignoreBPress]
+        //   multichoicegrid: [left, top, multichoiceId, numColumns, ignoreBPress]
         case 'multichoice':
-        case 'multichoicedefault': {
+        case 'multichoicedefault':
+        case 'multichoicegrid': {
+          const left = asNumber(args[0]);
+          const top = asNumber(args[1]);
           const multichoiceId = asNumber(args[2]);
-          const ignoreBPress = asNumber(args[3]) === 1;
-          const defaultChoice = cmd === 'multichoicedefault' ? asNumber(args[3]) : 0;
-          const ignoreBForDefault = cmd === 'multichoicedefault' ? asNumber(args[4]) === 1 : ignoreBPress;
+          const fallbackCancel = this.getScriptChoiceResultFromCancel();
 
-          const choices = getMultichoiceList(multichoiceId);
-          if (choices) {
-            const result = await this.ctx.showChoice(
-              '',
-              choices.map((label, i) => ({ label, value: i })),
-              { cancelable: !ignoreBForDefault, defaultIndex: defaultChoice }
+          let result = 0;
+          if (cmd === 'multichoicegrid') {
+            const numColumns = Math.max(1, asNumber(args[3]));
+            const ignoreBPress = asNumber(args[4]) === 1;
+            result = await this.openScriptMultichoiceGrid(
+              left,
+              top,
+              multichoiceId,
+              numColumns,
+              ignoreBPress,
             );
-            gameVariables.setVar('VAR_RESULT', result ?? 127); // 127 = MULTI_B_PRESSED
+          } else if (cmd === 'multichoicedefault') {
+            const defaultChoice = asNumber(args[3]);
+            const ignoreBPress = asNumber(args[4]) === 1;
+            result = await this.openScriptMultichoice(
+              left,
+              top,
+              multichoiceId,
+              ignoreBPress,
+              defaultChoice,
+            );
           } else {
-            console.warn(`[ScriptRunner] Unknown multichoice ID: ${multichoiceId}`);
-            gameVariables.setVar('VAR_RESULT', 0);
+            const ignoreBPress = asNumber(args[3]) === 1;
+            result = await this.openScriptMultichoice(
+              left,
+              top,
+              multichoiceId,
+              ignoreBPress,
+            );
           }
+
+          gameVariables.setVar('VAR_RESULT', Number.isFinite(result) ? result : fallbackCancel);
           break;
         }
 
@@ -3581,23 +3647,24 @@ export class ScriptRunner {
         return undefined;
       }
       case 'ScriptMenu_CreateStartMenuForPokenavTutorial': {
-        // Opens a fake start menu for PokéNav tutorial (RustboroCity scripts.inc:76–101).
-        // The script's switch/case loops back for any selection other than POKéNAV (3).
-        const menuResult = await this.ctx.showChoice(
-          'START MENU',
-          [
-            { label: 'POKéDEX', value: 0 },
-            { label: 'POKéMON', value: 1 },
-            { label: 'BAG', value: 2 },
-            { label: 'POKéNAV', value: 3 },
-            { label: this.playerName, value: 4 },
-            { label: 'SAVE', value: 5 },
-            { label: 'OPTION', value: 6 },
-            { label: 'EXIT', value: 7 },
-          ],
-          { cancelable: true }
-        );
-        gameVariables.setVar('VAR_RESULT', menuResult ?? 127);
+        const menuResult = await scriptMenuHost.openForcedStartMenu(this.playerName);
+        gameVariables.setVar('VAR_RESULT', menuResult);
+        return undefined;
+      }
+      case 'ScriptMenu_CreatePCMultichoice': {
+        const menuResult = await scriptMenuHost.openPcMultichoice(this.playerName);
+        gameVariables.setVar('VAR_RESULT', menuResult);
+        return undefined;
+      }
+      case 'ScriptMenu_CreateLilycoveSSTidalMultichoice': {
+        const selectionMode = gameVariables.getVar('VAR_0x8004');
+        const menuResult = await scriptMenuHost.openLilycoveSSTidalMultichoice(selectionMode);
+        gameVariables.setVar('VAR_RESULT', menuResult);
+        return undefined;
+      }
+      case 'GetLilycoveSSTidalSelection': {
+        const result = gameVariables.getVar('VAR_RESULT');
+        gameVariables.setVar('VAR_RESULT', scriptMenuHost.mapLilycoveSelectionResult(result));
         return undefined;
       }
       case 'OpenPokenavForTutorial':
@@ -3806,7 +3873,7 @@ export class ScriptRunner {
       case 'Bag_ChooseBerry': {
         this.queueCallbackSpecialWaitState((complete) => {
           void (async () => {
-            const selectedBerryItem = await menuStateManager.openAsync<'bag', number>('bag', {
+            const selectedBerryItem = await menuStateManager.openAsync<'bag'>('bag', {
               mode: 'berrySelect',
             });
             gameVariables.setVar('VAR_ITEM_ID', selectedBerryItem ?? ITEMS.ITEM_NONE);

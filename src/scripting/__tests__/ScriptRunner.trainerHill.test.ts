@@ -15,6 +15,7 @@ import { BATTLE_OUTCOME, type ScriptTrainerBattleRequest } from '../battleTypes.
 import { getFrontierData, resetFrontierRuntimeState, setFrontierBattleOutcome } from '../runtime/frontierState.ts';
 import { data as commonScriptData } from '../../data/scripts/common.gen.ts';
 import { data as trainerHillEntranceScriptData } from '../../data/scripts/TrainerHill_Entrance.gen.ts';
+import { menuStateManager } from '../../menu/MenuStateManager.ts';
 
 function createData(commands: ScriptCommand[]): { mapData: MapScriptData; commonData: MapScriptData } {
   return {
@@ -241,32 +242,39 @@ test('trainer hill entry trigger starts challenge after successful save and choi
   let choiceCalls = 0;
   const ctx = createContext({
     showYesNo: async () => true,
-    showChoice: async () => {
-      choiceCalls++;
-      // 1st: MULTI_YESNOINFO -> choose "Yes"
-      // 2nd: MULTI_TAG_MATCH_TYPE -> choose mode 0 (Normal)
-      return 0;
-    },
   });
 
-  const runner = new ScriptRunner(
-    {
-      mapData: trainerHillEntranceScriptData,
-      commonData: commonScriptData,
-    },
-    ctx,
-    'MAP_TRAINER_HILL_ENTRANCE',
-    {
-      save: {
-        saveGame: () => {
-          saveCalls++;
-          return true;
+  const originalOpenAsync = menuStateManager.openAsync.bind(menuStateManager);
+  (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = (async (menu) => {
+    assert.equal(menu, 'scriptChoice');
+    choiceCalls++;
+    // 1st: MULTI_YESNOINFO -> choose "Yes"
+    // 2nd: MULTI_TAG_MATCH_TYPE -> choose mode 0 (Normal)
+    return 0;
+  }) as typeof menuStateManager.openAsync;
+
+  try {
+    const runner = new ScriptRunner(
+      {
+        mapData: trainerHillEntranceScriptData,
+        commonData: commonScriptData,
+      },
+      ctx,
+      'MAP_TRAINER_HILL_ENTRANCE',
+      {
+        save: {
+          saveGame: () => {
+            saveCalls++;
+            return true;
+          },
         },
       },
-    },
-  );
+    );
 
-  await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+    await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+  } finally {
+    (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = originalOpenAsync;
+  }
 
   assert.equal(saveCalls, 1);
   assert.equal(choiceCalls, 2);
@@ -284,30 +292,36 @@ test('trainer hill entry trigger cancels immediately when save prompt is decline
   let choiceCalls = 0;
   const ctx = createContext({
     showYesNo: async () => false,
-    showChoice: async () => {
-      choiceCalls++;
-      return 0;
-    },
   });
 
-  const runner = new ScriptRunner(
-    {
-      mapData: trainerHillEntranceScriptData,
-      commonData: commonScriptData,
-    },
-    ctx,
-    'MAP_TRAINER_HILL_ENTRANCE',
-    {
-      save: {
-        saveGame: () => {
-          saveCalls++;
-          return true;
+  const originalOpenAsync = menuStateManager.openAsync.bind(menuStateManager);
+  (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = (async () => {
+    choiceCalls++;
+    return 0;
+  }) as typeof menuStateManager.openAsync;
+
+  try {
+    const runner = new ScriptRunner(
+      {
+        mapData: trainerHillEntranceScriptData,
+        commonData: commonScriptData,
+      },
+      ctx,
+      'MAP_TRAINER_HILL_ENTRANCE',
+      {
+        save: {
+          saveGame: () => {
+            saveCalls++;
+            return true;
+          },
         },
       },
-    },
-  );
+    );
 
-  await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+    await runner.execute('TrainerHill_Entrance_EventScript_EntryTrigger');
+  } finally {
+    (menuStateManager as unknown as { openAsync: typeof menuStateManager.openAsync }).openAsync = originalOpenAsync;
+  }
 
   assert.equal(saveCalls, 0);
   assert.equal(choiceCalls, 0);

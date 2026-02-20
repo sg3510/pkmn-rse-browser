@@ -77,7 +77,7 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [x] Add typed async menu gateway (`openAsync`/`resolveAsync`) and migrate duplicated menu-await wrappers in GamePage/BattleState/EvolutionState/script specials.
 - [x] Centralize move-learning prompt adapter + move-list model/navigation and route move-learning/relearner/deleter flows through shared menu/prompt APIs.
 - [x] Remove dead legacy menu duplicates (`src/menu/components/PartyMenu.tsx`, `src/menu/components/PokemonSummary.tsx`) after zero runtime references.
-- [-] Fully migrate `src/components/dialog/DialogContext.tsx` state machine internals to `src/core/prompt/PromptService.ts` (overworld reducer path still separate).
+- [x] Migrate overworld `src/components/dialog/DialogContext.tsx` prompt printing/waiting state and modal input flow to shared `src/core/prompt/PromptController.ts` while retaining local UI state for choice/text-entry submodes.
 
 ---
 

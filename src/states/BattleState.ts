@@ -16,6 +16,7 @@ import {
 } from '../core/GameState';
 import { inputMap, GameButton } from '../core/InputMap';
 import { PromptService, drawPromptYesNo } from '../core/prompt/PromptService';
+import { getBattlePromptDelayMs } from '../core/prompt/textSpeed';
 import type { ViewportConfig } from '../config/viewport';
 import type { LocationState } from '../save/types';
 import { saveManager } from '../save/SaveManager';
@@ -65,7 +66,8 @@ import {
   runMoveLearningSequence,
 } from '../pokemon/moveLearning';
 import { formatPokemonDisplayName } from '../pokemon/displayName';
-import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter';
+import { createMoveLearningPromptAdapter } from '../pokemon/moveLearningPromptAdapter';
+import { openMoveForgetMenu as openMoveForgetMenuGateway } from '../menu/moves/openMoveForgetMenu';
 import type { EvolutionQueueEntry } from '../evolution/types';
 
 // WebGL rendering
@@ -124,11 +126,6 @@ const MON_EMERGE_FRAMES = 12;
 const MON_SPRITE_ANIM_FRAME_MS = 140;
 const MON_SWITCH_SEND_OUT_MS = 260;
 const MON_SWITCH_SPRITE_ANIM_MS = 650;
-const BATTLE_TEXT_SPEED_DELAY_FRAMES: Record<'slow' | 'mid' | 'fast', number> = {
-  slow: 8,
-  mid: 4,
-  fast: 1,
-};
 const TRAINER_THROW_START_X = BATTLE_LAYOUT.trainerThrow.startX;
 const TRAINER_THROW_END_X = BATTLE_LAYOUT.trainerThrow.endX;
 const TRAINER_THROW_Y = BATTLE_LAYOUT.trainerThrow.y;
@@ -1051,9 +1048,7 @@ export class BattleState implements StateRenderer {
 
   private getBattleTextDelayMs(): number {
     const options = saveManager.getOptions();
-    const speed = options.textSpeed ?? 'mid';
-    const frames = BATTLE_TEXT_SPEED_DELAY_FRAMES[speed] ?? BATTLE_TEXT_SPEED_DELAY_FRAMES.mid;
-    return frames * INTRO_FRAME_MS;
+    return getBattlePromptDelayMs(options.textSpeed, INTRO_FRAME_MS);
   }
 
   private getPlayerMoves(): Array<{ moveId: number; moveSlot: number }> {
@@ -1190,11 +1185,11 @@ export class BattleState implements StateRenderer {
   }
 
   private openBattleBagMenu(): Promise<number | null> {
-    return menuStateManager.openAsync<'bag', number>('bag', { mode: 'battle' });
+    return menuStateManager.openAsync<'bag'>('bag', { mode: 'battle' });
   }
 
   private openBattlePartyMenu(): Promise<number | null> {
-    return menuStateManager.openAsync<'party', number>('party', {
+    return menuStateManager.openAsync<'party'>('party', {
       mode: 'battle',
       activePartyIndex: this.playerPartyIndex,
     });
@@ -1203,9 +1198,10 @@ export class BattleState implements StateRenderer {
   private async openMoveForgetMenu(mon: PartyPokemon, moveToLearnId: number): Promise<number | null> {
     this.waitingForBattleMenu = true;
     try {
-      return await menuStateManager.openAsync<'moveForget', number>('moveForget', {
-        ...createMoveForgetMenuData(mon, moveToLearnId),
+      return await openMoveForgetMenuGateway({
+        pokemon: mon,
         mode: 'learn',
+        moveToLearnId,
       });
     } finally {
       this.waitingForBattleMenu = false;

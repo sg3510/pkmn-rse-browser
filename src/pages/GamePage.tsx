@@ -118,7 +118,9 @@ import {
   runMoveLearningSequence,
 } from '../pokemon/moveLearning';
 import { formatPokemonDisplayName } from '../pokemon/displayName';
-import { createMoveLearningPromptAdapter, createMoveForgetMenuData } from '../pokemon/moveLearningPromptAdapter';
+import { createMoveLearningPromptAdapter } from '../pokemon/moveLearningPromptAdapter';
+import { mapSaveTextSpeedToDialog } from '../core/prompt/textSpeed';
+import { openMoveForgetMenu as openMoveForgetMenuGateway } from '../menu/moves/openMoveForgetMenu';
 import { EVOLUTION_MODES } from '../data/evolutions.gen';
 import { getEvolutionTargetSpecies } from '../pokemon/evolution';
 import type { EvolutionQueueEntry } from '../evolution/types';
@@ -430,15 +432,16 @@ export function GamePage() {
   // Compute viewport pixel size for responsive menus
   const viewportPixelSize = getViewportPixelSize(activeViewportConfig);
   const activeZoom = isTouchMobile ? mobileLayout.zoom : zoom;
+  const saveTextSpeed = saveManager.getOptions().textSpeed;
 
   const dialogConfig = useMemo(
     () => ({
       // C source passes `canABSpeedUpPrint = TRUE` for Birch speech text
       // (AddTextPrinterForMessage(TRUE) in main_menu.c:1339), so allow skip everywhere.
       allowSkip: true,
-      textSpeed: 'medium' as const,
+      textSpeed: mapSaveTextSpeedToDialog(saveTextSpeed),
     }),
-    []
+    [saveTextSpeed]
   );
 
   return (
@@ -732,16 +735,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   }, [showMessage]);
 
   const openFieldItemPartyMenu = useCallback((): Promise<number | null> => {
-    return menuStateManager.openAsync<'party', number>('party', {
+    return menuStateManager.openAsync<'party'>('party', {
       mode: 'fieldItemUse',
     });
   }, []);
 
   const openMoveForgetMenu = useCallback(
     (mon: PartyPokemon, moveToLearnId: number): Promise<number | null> => {
-      return menuStateManager.openAsync<'moveForget', number>('moveForget', {
-        ...createMoveForgetMenuData(mon, moveToLearnId),
+      return openMoveForgetMenuGateway({
+        pokemon: mon,
         mode: 'learn',
+        moveToLearnId,
       });
     },
     [],
