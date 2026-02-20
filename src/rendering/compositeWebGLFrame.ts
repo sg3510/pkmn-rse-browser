@@ -18,6 +18,7 @@ import type { WebGLRenderPipeline } from './webgl/WebGLRenderPipeline';
 import type { WebGLSpriteRenderer } from './webgl/WebGLSpriteRenderer';
 import type { WebGLFadeRenderer } from './webgl/WebGLFadeRenderer';
 import type { WebGLScanlineRenderer } from './webgl/WebGLScanlineRenderer';
+import type { WaterMaskData } from './ISpriteRenderer';
 import type { WorldSnapshot } from '../game/WorldManager';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import { buildWaterMaskFromView } from './spriteUtils';
@@ -48,7 +49,14 @@ export interface CompositeFrameContext {
   /** Tileset runtimes for reflection detection */
   tilesetRuntimes: Map<string, TilesetRuntimeType>;
   /** Optional weather renderer (runs below scanline/fade overlays) */
-  renderWeather?: (ctx2d: CanvasRenderingContext2D, view: WorldCameraView, nowMs: number) => void;
+  renderWeather?: (
+    ctx2d: CanvasRenderingContext2D,
+    view: WorldCameraView,
+    nowMs: number,
+    waterMask: WaterMaskData | null,
+    gl: WebGL2RenderingContext,
+    webglCanvas: HTMLCanvasElement
+  ) => void;
   /** Optional scripted full-screen effect renderer (runs after weather, before scanline/fade) */
   renderScriptScreenEffect?: (ctx: {
     ctx2d: CanvasRenderingContext2D;
@@ -175,6 +183,17 @@ export function compositeWebGLFrame(
   }
   if (arrowSprite) overlaySprites.push(arrowSprite);
 
+  // Build a viewport water mask once so both reflection rendering and weather effects
+  // can share the same clipping data.
+  const needsWaterMask = !!snapshot && (
+    !!renderWeather
+    || reflectionLayerSprites.length > 0
+    || lowPriorityReflections.length > 0
+  );
+  const weatherWaterMask = needsWaterMask
+    ? buildViewportWaterMask(view, snapshot as WorldSnapshot, tilesetRuntimes)
+    : null;
+
   if ((reflectionLayerSprites.length > 0 || lowPriorityReflections.length > 0) && snapshot) {
     // === Split layer rendering for reflections ===
     compositeWithReflections(
@@ -185,8 +204,7 @@ export function compositeWebGLFrame(
       normalLowPrioritySprites,
       overlaySprites,
       gl,
-      snapshot,
-      tilesetRuntimes
+      weatherWaterMask
     );
   } else {
     // === Standard compositing (no reflections) ===
@@ -204,7 +222,7 @@ export function compositeWebGLFrame(
   }
 
   // Weather renders as a post-composite field layer, below scanline/fade overlays.
-  renderWeather?.(ctx2d, view, nowMs);
+  renderWeather?.(ctx2d, view, nowMs, weatherWaterMask, gl, webglCanvas);
 
   // Scripted screen effects render after weather but before scanline/fade overlays.
   renderScriptScreenEffect?.({
@@ -242,8 +260,7 @@ function compositeWithReflections(
   normalLowPrioritySprites: SpriteInstance[],
   overlaySprites: SpriteInstance[],
   gl: WebGL2RenderingContext,
-  snapshot: WorldSnapshot,
-  tilesetRuntimes: Map<string, TilesetRuntimeType>
+  waterMask: WaterMaskData | null
 ): void {
   const { pipeline, spriteRenderer, ctx2d, webglCanvas, view } = ctx;
 
@@ -252,18 +269,6 @@ function compositeWithReflections(
 
   // Step 2: Render reflection-layer sprites with water mask
   clearAndBindFramebuffer(gl, webglCanvas, view);
-
-  incrementRuntimePerfCounter('waterMaskBuilds');
-  const waterMask = buildWaterMaskFromView(
-    view.pixelWidth,
-    view.pixelHeight,
-    view.cameraWorldX,
-    view.cameraWorldY,
-    (tileX, tileY) => {
-      const meta = getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, tileX, tileY);
-      return meta?.meta ? { isReflective: meta.meta.isReflective, pixelMask: meta.meta.pixelMask } : null;
-    }
-  );
   spriteRenderer.setWaterMask(waterMask);
 
   if (reflectionLayerSprites.length > 0) {
@@ -297,6 +302,24 @@ function compositeWithReflections(
     spriteRenderer.renderBatch(normalSprites, view);
     ctx2d.drawImage(webglCanvas, 0, 0);
   }
+}
+
+function buildViewportWaterMask(
+  view: WorldCameraView,
+  snapshot: WorldSnapshot,
+  tilesetRuntimes: Map<string, TilesetRuntimeType>
+): WaterMaskData {
+  incrementRuntimePerfCounter('waterMaskBuilds');
+  return buildWaterMaskFromView(
+    view.pixelWidth,
+    view.pixelHeight,
+    view.cameraWorldX,
+    view.cameraWorldY,
+    (tileX, tileY) => {
+      const meta = getReflectionMetaFromSnapshot(snapshot, tilesetRuntimes, tileX, tileY);
+      return meta?.meta ? { isReflective: meta.meta.isReflective, pixelMask: meta.meta.pixelMask } : null;
+    }
+  );
 }
 
 function compositeStandard(

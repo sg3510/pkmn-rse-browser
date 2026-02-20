@@ -17,8 +17,8 @@ import {
 import { AbnormalWeatherEffect } from './effects/AbnormalWeatherEffect';
 import { AshEffect } from './effects/AshEffect';
 import { CloudLayerEffect } from './effects/CloudLayerEffect';
-import { ColorTintEffect } from './effects/ColorTintEffect';
 import { FogLayerEffect } from './effects/FogLayerEffect';
+import { NoopWeatherEffect } from './effects/NoopWeatherEffect';
 import { RainEffect } from './effects/RainEffect';
 import { SandstormEffect } from './effects/SandstormEffect';
 import { SnowEffect } from './effects/SnowEffect';
@@ -32,17 +32,10 @@ const WEATHER_EFFECT_FACTORIES_BY_KEY: Partial<
   abnormal: () => new AbnormalWeatherEffect(),
   clouds: () => new CloudLayerEffect(),
   downpour: () => new RainEffect('downpour'),
-  drought: () =>
-    new ColorTintEffect({
-      color: '#ffb060',
-      alpha: 0.16,
-      pulseAmplitude: 0.03,
-      pulseHz: 0.9,
-    }),
+  drought: () => new NoopWeatherEffect(),
   fog_diagonal: () =>
     new FogLayerEffect({
       assetPath: '/pokeemerald/graphics/weather/fog_diagonal.png',
-      alpha: 0.28,
       scrollXStepFrames: 3,
       scrollYStepFrames: 5,
       scrollXDirection: 1,
@@ -51,25 +44,14 @@ const WEATHER_EFFECT_FACTORIES_BY_KEY: Partial<
   fog_horizontal: () =>
     new FogLayerEffect({
       assetPath: '/pokeemerald/graphics/weather/fog_horizontal.png',
-      alpha: 0.24,
       scrollXStepFrames: 4,
       scrollXDirection: 1,
     }),
   rain: () => new RainEffect('rain'),
   sandstorm: () => new SandstormEffect(),
-  shade: () =>
-    new ColorTintEffect({
-      color: '#102030',
-      alpha: 0.14,
-    }),
+  shade: () => new NoopWeatherEffect(),
   snow: () => new SnowEffect(),
-  sunny: () =>
-    new ColorTintEffect({
-      color: '#fff0a0',
-      alpha: 0.06,
-      pulseAmplitude: 0.015,
-      pulseHz: 0.7,
-    }),
+  sunny: () => new NoopWeatherEffect(),
   thunderstorm: () => new RainEffect('thunderstorm'),
   underwater_bubbles: () => new UnderwaterBubblesEffect(),
   volcanic_ash: () => new AshEffect(),

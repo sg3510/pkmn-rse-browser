@@ -5,8 +5,13 @@
  * - public/pokeemerald/src/field_weather_effect.c (Task_DoAbnormalWeather, CreateAbnormalWeatherTask)
  */
 
-import type { WeatherEffect, WeatherRenderContext, WeatherUpdateContext } from '../types';
-import { ColorTintEffect } from './ColorTintEffect';
+import type {
+  WeatherColorCommand,
+  WeatherEffect,
+  WeatherRenderContext,
+  WeatherUpdateContext,
+} from '../types';
+import { NoopWeatherEffect } from './NoopWeatherEffect';
 import { RainEffect } from './RainEffect';
 
 type AbnormalMode = 'downpour' | 'drought';
@@ -15,12 +20,7 @@ const CYCLE_FRAMES = 600;
 
 export class AbnormalWeatherEffect implements WeatherEffect {
   private readonly downpour = new RainEffect('downpour');
-  private readonly drought = new ColorTintEffect({
-    color: '#ffb060',
-    alpha: 0.16,
-    pulseAmplitude: 0.03,
-    pulseHz: 0.9,
-  });
+  private readonly drought = new NoopWeatherEffect();
 
   private activeMode: AbnormalMode = 'downpour';
   private frameAccumulator = 0;
@@ -56,6 +56,10 @@ export class AbnormalWeatherEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     this.getActiveEffect().render?.(context);
+  }
+
+  consumeColorCommands(): readonly WeatherColorCommand[] {
+    return this.getActiveEffect().consumeColorCommands?.() ?? [];
   }
 
   private getActiveEffect(): WeatherEffect {

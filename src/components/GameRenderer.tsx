@@ -408,8 +408,8 @@ export const GameRenderer = forwardRef<GameRendererHandle, GameRendererProps>(({
       subTileOffsetY: camView.subTileOffsetY,
       tilesWide: camView.tilesWide,
       tilesHigh: camView.tilesHigh,
-      pixelWidth: camView.tilesWide * METATILE_SIZE,
-      pixelHeight: camView.tilesHigh * METATILE_SIZE,
+      pixelWidth: camView.pixelWidth,
+      pixelHeight: camView.pixelHeight,
     });
 
     // Get player elevation

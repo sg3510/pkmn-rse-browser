@@ -67,17 +67,22 @@ export class SandstormEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     const { ctx2d, view } = context;
+    const blendAlpha = Math.max(0, Math.min(1, context.blendEva / 16));
+    if (blendAlpha <= 0) {
+      return;
+    }
 
     if (this.sandCanvas) {
       this.renderer.render(ctx2d, this.sandCanvas, view, {
-        alpha: 0.5,
+        alpha: blendAlpha,
         scrollX: this.xOffset,
         scrollY: this.yOffset,
       });
     }
 
     ctx2d.save();
-    ctx2d.fillStyle = 'rgba(220, 188, 120, 0.72)';
+    ctx2d.globalAlpha = blendAlpha;
+    ctx2d.fillStyle = 'rgb(220, 188, 120)';
     for (const swirl of this.swirlParticles) {
       if (swirl.entranceDelay >= 0) continue;
       const angle = (swirl.waveIndex / 256) * Math.PI * 2;

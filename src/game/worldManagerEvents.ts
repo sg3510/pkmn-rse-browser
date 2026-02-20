@@ -123,6 +123,9 @@ export interface WorldManagerEventDeps {
 
   /** Map script cache for eager pre-population on anchor change */
   mapScriptCacheRef?: React.MutableRefObject<Map<string, unknown> | null>;
+
+  /** Optional callback for loading activity during background stitching */
+  onLoadingStateChanged?: (loadingCount: number) => void;
 }
 
 /**
@@ -354,6 +357,13 @@ function handleGpuSlotsSwapped(
   }
 }
 
+function handleLoadingStateChanged(
+  deps: WorldManagerEventDeps,
+  loadingCount: number
+): void {
+  deps.onLoadingStateChanged?.(loadingCount);
+}
+
 /**
  * Create the main WorldManager event handler.
  * This is the callback passed to worldManager.on()
@@ -379,6 +389,10 @@ export function createWorldManagerEventHandler(
 
     if (event.type === 'gpuSlotsSwapped') {
       handleGpuSlotsSwapped(deps, worldManager, event.needsRebuild);
+    }
+
+    if (event.type === 'loadingStateChanged') {
+      handleLoadingStateChanged(deps, event.loadingCount);
     }
   };
 }

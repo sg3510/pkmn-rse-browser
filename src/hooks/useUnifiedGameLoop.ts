@@ -28,6 +28,7 @@ import type { UseDoorAnimationsReturn } from './useDoorAnimations';
 import type { UseArrowOverlayReturn } from './useArrowOverlay';
 import type { WarpTrigger, ResolvedTile } from '../components/map/utils';
 import { GBA_FRAME_MS } from '../config/timing';
+import { guardFixedStep } from '../utils/fixedStepGuard';
 
 /**
  * World bounds for camera clamping
@@ -368,17 +369,25 @@ export function useUnifiedGameLoop(
     if (!isRunningRef.current) return;
 
     const nowTime = performance.now();
-    const dt = nowTime - lastTimeRef.current;
+    const rawDt = nowTime - lastTimeRef.current;
     lastTimeRef.current = nowTime;
+    const stepGuard = guardFixedStep({
+      rawDeltaMs: rawDt,
+      accumulatorMs: gbaAccumRef.current,
+      stepMs: GBA_FRAME_MS,
+    });
+    gbaAccumRef.current = stepGuard.nextAccumulatorMs;
+    const dt = stepGuard.clampedDeltaMs;
 
     // Advance GBA frame counter
-    gbaAccumRef.current += dt;
-    while (gbaAccumRef.current >= GBA_FRAME_MS) {
-      gbaAccumRef.current -= GBA_FRAME_MS;
+    for (let i = 0; i < stepGuard.stepsToRun; i++) {
       gbaFrameRef.current++;
     }
 
     // Update shimmer animation
+    if (stepGuard.resumeReset) {
+      getGlobalShimmer().reset();
+    }
     getGlobalShimmer().update(nowTime);
 
     // Update warp handler cooldown

@@ -369,8 +369,22 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           view: spriteView,
           snapshot: currentSnapshot,
           tilesetRuntimes,
-          renderWeather: (weatherCtx, weatherView, weatherNowMs) => {
-            weatherManager.render(weatherCtx, weatherView, weatherNowMs);
+          renderWeather: (
+            weatherCtx,
+            weatherView,
+            weatherNowMs,
+            weatherWaterMask,
+            weatherGl,
+            weatherWebglCanvas
+          ) => {
+            weatherManager.render(
+              weatherCtx,
+              weatherView,
+              weatherNowMs,
+              weatherWaterMask,
+              weatherGl,
+              weatherWebglCanvas
+            );
           },
           renderScriptScreenEffect: (effectCtx) => {
             const state = orbEffectRuntime.getRenderState();

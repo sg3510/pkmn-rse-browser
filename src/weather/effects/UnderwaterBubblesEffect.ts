@@ -98,15 +98,21 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     const { ctx2d, view } = context;
+    const blendAlpha = Math.max(0, Math.min(1, context.blendEva / 16));
+    if (blendAlpha <= 0) {
+      return;
+    }
 
     if (this.fogCanvas) {
       this.fogRenderer.render(ctx2d, this.fogCanvas, view, {
-        alpha: 0.24,
+        alpha: blendAlpha,
         scrollX: this.fogScrollOffset,
       });
     }
 
     if (this.bubbleCanvas) {
+      ctx2d.save();
+      ctx2d.globalAlpha = blendAlpha;
       const prevSmoothing = ctx2d.imageSmoothingEnabled;
       ctx2d.imageSmoothingEnabled = false;
       this.bubbles.forEach((bubble) => {
@@ -127,12 +133,14 @@ export class UnderwaterBubblesEffect implements WeatherEffect {
         );
       });
       ctx2d.imageSmoothingEnabled = prevSmoothing;
+      ctx2d.restore();
       return;
     }
 
     // Fallback while bubble sheet is loading.
     ctx2d.save();
-    ctx2d.fillStyle = 'rgba(220, 240, 255, 0.75)';
+    ctx2d.globalAlpha = blendAlpha;
+    ctx2d.fillStyle = 'rgb(220, 240, 255)';
     this.bubbles.forEach((bubble) => {
       const drawX = Math.round(bubble.x + bubble.xOffset);
       const drawY = Math.round(bubble.y);

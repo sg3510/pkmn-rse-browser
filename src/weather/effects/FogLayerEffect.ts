@@ -11,7 +11,6 @@ import { TiledLayerRenderer } from './primitives/TiledLayerRenderer';
 
 interface FogLayerOptions {
   assetPath: string;
-  alpha: number;
   scrollXStepFrames: number;
   scrollYStepFrames?: number;
   scrollXDirection?: 1 | -1;
@@ -64,9 +63,11 @@ export class FogLayerEffect implements WeatherEffect {
 
   render(context: WeatherRenderContext): void {
     if (!this.fogCanvas) return;
+    const blendAlpha = Math.max(0, Math.min(1, context.blendEva / 16));
+    if (blendAlpha <= 0) return;
 
     this.renderer.render(context.ctx2d, this.fogCanvas, context.view, {
-      alpha: this.options.alpha,
+      alpha: blendAlpha,
       scrollX: this.scrollX,
       scrollY: this.scrollY,
     });

@@ -689,6 +689,7 @@ export class WebGLRenderPipeline {
   private handleContextLost(): void {
     console.warn('WebGL context lost');
     resetTilesetUploadDedupeState(this);
+    this.passRenderer.invalidate();
     this.tilesetsUploaded = false;
     this.needsFullRender = true;
     this.needsWarmupRender = true;
@@ -715,15 +716,29 @@ export class WebGLRenderPipeline {
     console.info('WebGL context restored');
     resetTilesetUploadDedupeState(this);
 
-    // Re-initialize components
+    // Recreate pass/framebuffer resources so stale GL handles are never reused.
+    this.framebufferManager.dispose();
+    this.framebufferManager = new WebGLFramebufferManager(this.gl);
+
+    // Re-initialize components tied to current GL context
     this.tileRenderer.initialize();
+    this.passRenderer = new WebGLPassRenderer(
+      this.gl,
+      this.framebufferManager,
+      this.tileRenderer
+    );
     this.compositor.initialize();
+    this.animationManager = new WebGLAnimationManager(
+      this.gl,
+      this.tileRenderer.getTextureManager()
+    );
 
     // Tilesets need to be re-uploaded by the application
     this.tilesetsUploaded = false;
     this.needsFullRender = true;
     this.needsWarmupRender = true;
     this.lastRenderedTilesetVersion = -1;
+    this.lastViewHash = '';
     this.recordRenderEvent({
       reason: 'contextRestored',
       animationOnly: false,

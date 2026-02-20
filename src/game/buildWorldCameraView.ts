@@ -35,8 +35,10 @@ export function buildWorldCameraView(
     subTileOffsetY: camView.subTileOffsetY,
     tilesWide: camView.tilesWide,
     tilesHigh: camView.tilesHigh,
-    pixelWidth: camView.tilesWide * METATILE_SIZE,
-    pixelHeight: camView.tilesHigh * METATILE_SIZE,
+    // Preserve true viewport pixel size from CameraView.
+    // tilesWide/tilesHigh may include +1 overscan tiles for sub-tile scrolling.
+    pixelWidth: camView.pixelWidth,
+    pixelHeight: camView.pixelHeight,
     // WorldCameraView specific fields (with world offset for map stitching)
     worldStartTileX: camView.startTileX + worldOffsetX,
     worldStartTileY: camView.startTileY + worldOffsetY,

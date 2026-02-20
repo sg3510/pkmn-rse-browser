@@ -74,6 +74,7 @@ export interface LoadSelectedOverworldMapParams {
   setCameraDisplay: (position: { x: number; y: number }) => void;
   setWorldSize: (size: { width: number; height: number }) => void;
   setStitchedMapCount: (count: number) => void;
+  onLoadingStateChanged?: (loadingCount: number) => void;
   createSnapshotTileResolver: (snapshot: WorldSnapshot) => TileResolverFn;
   createSnapshotPlayerTileResolver: (snapshot: WorldSnapshot) => PlayerTileResolver;
   loadObjectEventsFromSnapshot: (
@@ -116,6 +117,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     setCameraDisplay,
     setWorldSize,
     setStitchedMapCount,
+    onLoadingStateChanged,
     createSnapshotTileResolver,
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
@@ -163,6 +165,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           loadObjectEventsFromSnapshot,
           storyScriptRunningRef,
           mapScriptCacheRef,
+          onLoadingStateChanged,
         },
         worldManager
       );
@@ -170,7 +173,11 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
 
       worldManager.setGpuUploadCallback(createGpuUploadCallback(pipeline));
 
-      const snapshot = await worldManager.initialize(entry.id);
+      const snapshot = await worldManager.initialize(entry.id, {
+        initialDepth: 1,
+        targetDepth: 2,
+        backgroundStitch: true,
+      });
       if (cancelled) return;
 
       await initializeWorldFromSnapshot(snapshot, pipeline);
@@ -380,6 +387,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
       if (!cancelled) {
         loadingRef.current = false;
         setLoading(false);
+        onLoadingStateChanged?.(0);
       }
     }
   };
@@ -390,6 +398,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     cancelled = true;
     loadingRef.current = false;
     setLoading(false);
+    onLoadingStateChanged?.(0);
     lastWorldUpdateRef.current = null;
     if (worldManagerRef.current) {
       worldManagerRef.current.dispose();

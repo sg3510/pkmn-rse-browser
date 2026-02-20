@@ -7,6 +7,7 @@
 
 import { loadWeatherAssets } from '../assets';
 import type { WeatherAssetDescriptor, WeatherEffect, WeatherRenderContext, WeatherUpdateContext } from '../types';
+import type { WeatherColorCommand } from '../types';
 import { SpriteParticleEmitter } from './primitives/SpriteParticleEmitter';
 
 type RainVariant = 'rain' | 'thunderstorm' | 'downpour';
@@ -21,9 +22,17 @@ interface RainVariantOptions {
   velX: number;
   velY: number;
   lightning: boolean;
-  screenTintColor: string;
-  screenTintAlpha: number;
 }
+
+type LightningPhase =
+  | 'idleWait'
+  | 'shortFlash'
+  | 'shortGap'
+  | 'longPrep'
+  | 'longFlash'
+  | 'longFade';
+
+const LONG_BOLT_FADE_FRAMES = 80;
 
 const RAIN_ASSETS: readonly WeatherAssetDescriptor[] = [
   {
@@ -39,26 +48,22 @@ const VARIANT_OPTIONS: Record<RainVariant, RainVariantOptions> = {
     velX: -3.5,
     velY: 8.5,
     lightning: false,
-    screenTintColor: '#0f1f32',
-    screenTintAlpha: 0.18,
   },
   thunderstorm: {
     targetDrops: 16,
     velX: -4,
     velY: 10,
     lightning: true,
-    screenTintColor: '#0c1b2d',
-    screenTintAlpha: 0.22,
   },
   downpour: {
     targetDrops: 24,
     velX: -5,
     velY: 12,
     lightning: true,
-    screenTintColor: '#081629',
-    screenTintAlpha: 0.26,
   },
 };
+
+const EMPTY_COLOR_COMMANDS: readonly WeatherColorCommand[] = [];
 
 export class RainEffect implements WeatherEffect {
   private rainCanvas: HTMLCanvasElement | null = null;
@@ -69,8 +74,11 @@ export class RainEffect implements WeatherEffect {
 
   private frameAccumulator = 0;
 
+  private lightningPhase: LightningPhase = 'idleWait';
   private lightningTimerFrames = 0;
-  private lightningActiveFrames = 0;
+  private lightningShortBoltsRemaining = 0;
+  private lightningHasLongBolt = false;
+  private colorCommandQueue: WeatherColorCommand[] = [];
 
   constructor(variant: RainVariant) {
     this.options = VARIANT_OPTIONS[variant];
@@ -79,8 +87,15 @@ export class RainEffect implements WeatherEffect {
   onEnter(): void {
     this.drops.clear();
     this.frameAccumulator = 0;
-    this.lightningTimerFrames = this.randomLightningDelay();
-    this.lightningActiveFrames = 0;
+    if (this.options.lightning) {
+      this.startImmediateCycle();
+    } else {
+      this.lightningPhase = 'idleWait';
+      this.lightningTimerFrames = 0;
+      this.lightningShortBoltsRemaining = 0;
+      this.lightningHasLongBolt = false;
+    }
+    this.colorCommandQueue = [];
     void this.ensureAssetsLoaded();
   }
 
@@ -130,24 +145,17 @@ export class RainEffect implements WeatherEffect {
       }
     }
 
-    if (this.options.screenTintAlpha > 0) {
-      ctx2d.save();
-      ctx2d.globalAlpha = this.options.screenTintAlpha;
-      ctx2d.fillStyle = this.options.screenTintColor;
-      ctx2d.fillRect(0, 0, context.view.pixelWidth, context.view.pixelHeight);
-      ctx2d.restore();
-    }
-
-    if (this.options.lightning && this.lightningActiveFrames > 0) {
-      const alpha = Math.min(0.35, 0.16 + this.lightningActiveFrames * 0.05);
-      ctx2d.save();
-      ctx2d.globalAlpha = alpha;
-      ctx2d.fillStyle = '#ffffff';
-      ctx2d.fillRect(0, 0, context.view.pixelWidth, context.view.pixelHeight);
-      ctx2d.restore();
-    }
-
     ctx2d.imageSmoothingEnabled = prevSmoothing;
+  }
+
+  consumeColorCommands(): readonly WeatherColorCommand[] {
+    if (this.colorCommandQueue.length === 0) {
+      return EMPTY_COLOR_COMMANDS;
+    }
+
+    const commands = this.colorCommandQueue;
+    this.colorCommandQueue = [];
+    return commands;
   }
 
   private collectDrops(): RainDrop[] {
@@ -171,17 +179,7 @@ export class RainEffect implements WeatherEffect {
   }
 
   private stepFrame(viewW: number, viewH: number): void {
-    if (this.options.lightning) {
-      if (this.lightningActiveFrames > 0) {
-        this.lightningActiveFrames -= 1;
-      } else if (this.lightningTimerFrames > 0) {
-        this.lightningTimerFrames -= 1;
-      } else {
-        // C parity approximation: periodic short lightning cycles.
-        this.lightningActiveFrames = 2 + Math.floor(Math.random() * 3);
-        this.lightningTimerFrames = this.randomLightningDelay();
-      }
-    }
+    this.stepLightningFrame();
 
     this.drops.update((drop) => {
       drop.x += this.options.velX;
@@ -195,9 +193,98 @@ export class RainEffect implements WeatherEffect {
     });
   }
 
-  private randomLightningDelay(): number {
-    // C thunderstorm cycles sit in ~360-720 frame waits.
-    return 360 + Math.floor(Math.random() * 360);
+  private stepLightningFrame(): void {
+    if (!this.options.lightning) {
+      return;
+    }
+
+    switch (this.lightningPhase) {
+    case 'idleWait':
+      if (this.tickLightningTimer()) {
+        this.lightningHasLongBolt = Math.random() < 0.5;
+        this.lightningShortBoltsRemaining = this.randomFrameRange(1, 2);
+        this.startShortBolt();
+      }
+      break;
+    case 'shortFlash':
+      if (this.tickLightningTimer()) {
+        this.enqueueColorCommand({ kind: 'applyColorMapIfIdle', colorMapIndex: 3 });
+        if (--this.lightningShortBoltsRemaining > 0) {
+          this.lightningTimerFrames = this.randomFrameRange(60, 75);
+          this.lightningPhase = 'shortGap';
+        } else if (this.lightningHasLongBolt) {
+          this.lightningTimerFrames = this.randomFrameRange(60, 75);
+          this.lightningPhase = 'longPrep';
+        } else {
+          this.startCycleWait();
+        }
+      }
+      break;
+    case 'shortGap':
+      if (this.tickLightningTimer()) {
+        this.startShortBolt();
+      }
+      break;
+    case 'longPrep':
+      if (this.tickLightningTimer()) {
+        this.enqueueColorCommand({ kind: 'applyColorMapIfIdle', colorMapIndex: 19 });
+        this.lightningTimerFrames = this.randomFrameRange(30, 45);
+        this.lightningPhase = 'longFlash';
+      }
+      break;
+    case 'longFlash':
+      if (this.tickLightningTimer()) {
+        this.enqueueColorCommand({
+          kind: 'applyColorMapIfIdleGradual',
+          colorMapIndex: 19,
+          targetColorMapIndex: 3,
+          colorMapStepDelay: 5,
+        });
+        this.lightningTimerFrames = LONG_BOLT_FADE_FRAMES;
+        this.lightningPhase = 'longFade';
+      }
+      break;
+    case 'longFade':
+      this.lightningTimerFrames -= 1;
+      if (this.lightningTimerFrames <= 0) {
+        this.startCycleWait();
+      }
+      break;
+    }
+  }
+
+  private startShortBolt(): void {
+    this.enqueueColorCommand({ kind: 'applyColorMapIfIdle', colorMapIndex: 19 });
+    this.lightningTimerFrames = this.randomFrameRange(6, 8);
+    this.lightningPhase = 'shortFlash';
+  }
+
+  private startImmediateCycle(): void {
+    this.lightningHasLongBolt = Math.random() < 0.5;
+    this.lightningShortBoltsRemaining = this.randomFrameRange(1, 2);
+    this.startShortBolt();
+  }
+
+  private startCycleWait(): void {
+    this.lightningPhase = 'idleWait';
+    this.lightningTimerFrames = this.randomFrameRange(360, 719);
+    this.lightningShortBoltsRemaining = 0;
+    this.lightningHasLongBolt = false;
+  }
+
+  private tickLightningTimer(): boolean {
+    if (this.lightningTimerFrames > 0) {
+      this.lightningTimerFrames -= 1;
+    }
+    return this.lightningTimerFrames <= 0;
+  }
+
+  private randomFrameRange(min: number, max: number): number {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  private enqueueColorCommand(command: WeatherColorCommand): void {
+    this.colorCommandQueue.push(command);
   }
 
   private async ensureAssetsLoaded(): Promise<void> {

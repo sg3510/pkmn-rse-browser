@@ -59,8 +59,12 @@ const worldManagerLogger = createLogger('WorldManager');
  */
 const MAX_TILESET_PAIRS_IN_MEMORY = 16;
 
-/** Maximum depth for map loading from current position */
-const LOAD_DEPTH = 2;
+/** Runtime stitch depth while moving */
+const RUNTIME_STITCH_DEPTH = 2;
+/** Default depth loaded synchronously during initialize() */
+const DEFAULT_INITIAL_STITCH_DEPTH = 1;
+/** Default target depth after background stitching completes */
+const DEFAULT_TARGET_STITCH_DEPTH = 2;
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
 
@@ -131,9 +135,16 @@ export type WorldManagerEvent =
   | { type: 'mapsChanged'; snapshot: WorldSnapshot }
   | { type: 'anchorChanged'; snapshot: WorldSnapshot; newAnchorMapId: string }
   | { type: 'tilesetsChanged'; pair0: TilesetPairInfo; pair1: TilesetPairInfo | null }
-| { type: 'gpuSlotsSwapped'; slot0PairId: string | null; slot1PairId: string | null; needsRebuild: boolean };
+  | { type: 'gpuSlotsSwapped'; slot0PairId: string | null; slot1PairId: string | null; needsRebuild: boolean }
+  | { type: 'loadingStateChanged'; loadingCount: number };
 
 export type WorldManagerEventHandler = (event: WorldManagerEvent) => void;
+
+export interface WorldInitializeOptions {
+  initialDepth?: number;
+  targetDepth?: number;
+  backgroundStitch?: boolean;
+}
 
 // Re-export scheduler for external use
 export { TilesetPairScheduler } from './TilesetPairScheduler';
@@ -152,12 +163,19 @@ export class WorldManager {
 
   private eventHandlers: WorldManagerEventHandler[] = [];
   private loadingMaps: Set<string> = new Set();
+  private lastLoadingCount = 0;
 
   /** Epoch counter - incremented on initialize() to invalidate stale async operations */
   private worldEpoch: number = 0;
 
   /** Tileset pair scheduler for smart loading/unloading */
   private scheduler: TilesetPairScheduler = new TilesetPairScheduler();
+  /** Prevent overlapping connected-map load runs */
+  private connectedMapsLoadInFlight: Promise<void> | null = null;
+  /** Track background initialize stitching */
+  private backgroundInitializeLoadInFlight: Promise<void> | null = null;
+  /** Suppress expensive per-map event churn during initial blocking load */
+  private suppressLoadEvents = false;
 
   private debugLog(...args: unknown[]): void {
     if (!isDebugMode()) return;
@@ -199,17 +217,74 @@ export class WorldManager {
     return this.scheduler;
   }
 
+  private normalizeDepth(depth: number | undefined, fallback: number): number {
+    if (!Number.isFinite(depth)) {
+      return fallback;
+    }
+    return Math.max(0, Math.floor(depth as number));
+  }
+
+  private startBackgroundInitializeStitch(
+    anchorEntry: MapIndexEntry,
+    anchorOffsetX: number,
+    anchorOffsetY: number,
+    targetDepth: number,
+    expectedEpoch: number
+  ): void {
+    if (this.backgroundInitializeLoadInFlight) {
+      return;
+    }
+
+    let task: Promise<void> | null = null;
+    task = (async () => {
+      try {
+        await this.loadMapsFromAnchor(
+          anchorEntry,
+          anchorOffsetX,
+          anchorOffsetY,
+          targetDepth,
+          expectedEpoch
+        );
+
+        if (this.worldEpoch !== expectedEpoch) {
+          return;
+        }
+
+        this.scheduler.updateBoundaries(
+          Array.from(this.maps.values()),
+          this.mapTilesetPairIndex,
+          this.tilesetPairs
+        );
+      } catch (err) {
+        this.debugWarn('[INIT_BG] Background stitching failed:', err);
+      } finally {
+        if (this.backgroundInitializeLoadInFlight === task) {
+          this.backgroundInitializeLoadInFlight = null;
+        }
+      }
+    })();
+
+    this.backgroundInitializeLoadInFlight = task;
+  }
+
   /**
    * Initialize the world with a starting map
    *
    * This CLEARS all existing maps and tileset data before loading the new world.
    * Call this when warping to a completely new area.
    */
-  async initialize(startMapId: string): Promise<WorldSnapshot> {
+  async initialize(startMapId: string, options: WorldInitializeOptions = {}): Promise<WorldSnapshot> {
     const startEntry = mapIndexData.find(m => m.id === startMapId);
     if (!startEntry) {
       throw new Error(`Map not found: ${startMapId}`);
     }
+
+    const initialDepth = this.normalizeDepth(options.initialDepth, DEFAULT_INITIAL_STITCH_DEPTH);
+    const targetDepth = Math.max(
+      initialDepth,
+      this.normalizeDepth(options.targetDepth, DEFAULT_TARGET_STITCH_DEPTH)
+    );
+    const backgroundStitch = options.backgroundStitch ?? true;
 
     // CRITICAL: Clear all existing world data before loading new world
     // This is essential for warping to work correctly!
@@ -218,19 +293,31 @@ export class WorldManager {
     this.tilesetPairMap.clear();
     this.mapTilesetPairIndex.clear();
     this.loadingMaps.clear();
+    this.emitLoadingStateIfChanged();
 
     // Increment epoch to invalidate any in-flight async operations from old world
     this.worldEpoch++;
-    this.debugLog(`[INIT] World epoch incremented to ${this.worldEpoch}`);
+    const startEpoch = this.worldEpoch;
+    this.debugLog(`[INIT] World epoch incremented to ${startEpoch}`);
 
     // Reset scheduler state (but keep callbacks)
     this.scheduler.reset();
+    this.connectedMapsLoadInFlight = null;
+    this.backgroundInitializeLoadInFlight = null;
 
     this.anchorMapId = startMapId;
 
     // Load initial world
-    this.debugLog(`[INIT] Starting initialize for ${startMapId}, connections:`, startEntry.connections || 'NONE');
-    await this.loadMapsFromAnchor(startEntry, 0, 0, LOAD_DEPTH);
+    this.debugLog(
+      `[INIT] Starting initialize for ${startMapId} (initialDepth=${initialDepth}, targetDepth=${targetDepth}, bg=${backgroundStitch})`,
+      startEntry.connections || 'NONE'
+    );
+    this.suppressLoadEvents = true;
+    try {
+      await this.loadMapsFromAnchor(startEntry, 0, 0, initialDepth, startEpoch);
+    } finally {
+      this.suppressLoadEvents = false;
+    }
     this.debugLog(`[INIT] After loadMapsFromAnchor, loaded maps:`, Array.from(this.maps.keys()));
 
     // Update scheduler with loaded maps and boundaries
@@ -256,7 +343,13 @@ export class WorldManager {
       this.scheduler.setGpuSlot(this.tilesetPairs[2].id, 2);
     }
 
-    return this.getSnapshot();
+    const snapshot = this.getSnapshot();
+
+    if (backgroundStitch && targetDepth > initialDepth) {
+      this.startBackgroundInitializeStitch(startEntry, 0, 0, targetDepth, startEpoch);
+    }
+
+    return snapshot;
   }
 
   /**
@@ -330,7 +423,7 @@ export class WorldManager {
     }
 
     // Load any missing connected maps
-    await this.loadConnectedMaps(currentMap);
+    await this.loadConnectedMapsGuarded(currentMap);
   }
 
   /**
@@ -412,6 +505,21 @@ export class WorldManager {
     return this.tilesetPairs[pairIndex] ?? null;
   }
 
+  private async loadConnectedMapsGuarded(fromMap: LoadedMapInstance): Promise<void> {
+    if (this.connectedMapsLoadInFlight) {
+      return this.connectedMapsLoadInFlight;
+    }
+
+    let task: Promise<void> | null = null;
+    task = this.loadConnectedMaps(fromMap).finally(() => {
+      if (this.connectedMapsLoadInFlight === task) {
+        this.connectedMapsLoadInFlight = null;
+      }
+    });
+    this.connectedMapsLoadInFlight = task;
+    return task!;
+  }
+
   /**
    * Load maps connected to a given map, including neighbors-of-neighbors
    * This ensures maps are always stitched close to the player
@@ -430,7 +538,7 @@ export class WorldManager {
     // Use BFS to load maps up to 2 connections deep from current map
     const queue: Array<{ map: LoadedMapInstance; depth: number }> = [{ map: fromMap, depth: 0 }];
     const visited = new Set<string>([fromMap.entry.id]);
-    const MAX_CONNECTION_DEPTH = 2;
+    const MAX_CONNECTION_DEPTH = RUNTIME_STITCH_DEPTH;
 
     // Only log if there are unloaded connections (reduce log noise)
     const connections = (fromMap.entry.connections ?? []).filter((connection) =>
@@ -553,8 +661,13 @@ export class WorldManager {
     anchorEntry: MapIndexEntry,
     anchorOffsetX: number,
     anchorOffsetY: number,
-    maxDepth: number
+    maxDepth: number,
+    expectedEpoch?: number
   ): Promise<void> {
+    if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
+      return;
+    }
+
     // Queue includes optional source info for offset recalculation
     interface QueueItem {
       entry: MapIndexEntry;
@@ -569,6 +682,13 @@ export class WorldManager {
     ];
 
     while (queue.length > 0) {
+      if (expectedEpoch !== undefined && this.worldEpoch !== expectedEpoch) {
+        this.debugLog(
+          `[LOAD_FROM_ANCHOR] Aborting - epoch changed from ${expectedEpoch} to ${this.worldEpoch}`
+        );
+        return;
+      }
+
       const current = queue.shift()!;
       if (this.maps.has(current.entry.id)) continue;
 
@@ -583,7 +703,7 @@ export class WorldManager {
         current.entry,
         current.offsetX,
         current.offsetY,
-        undefined, // no epoch check during initialize
+        expectedEpoch,
         current.sourceInfo
       );
 
@@ -650,6 +770,7 @@ export class WorldManager {
     this.debugLog(`[LOAD_MAP] Entry connections:`, entry.connections?.map(c => `${c.direction}->${c.map}`) || 'NONE');
 
     this.loadingMaps.add(entry.id);
+    this.emitLoadingStateIfChanged();
 
     try {
       // Ensure tileset pair is loaded
@@ -692,11 +813,13 @@ export class WorldManager {
         // Emit tileset change
         this.debugLog(`[TILESET_CHANGE] New pair loaded: ${pair.id}, total pairs now: ${this.tilesetPairs.length}`);
         this.debugLog(`[TILESET_CHANGE] For map: ${entry.id}, anchor: ${this.anchorMapId}`);
-        this.emit({
-          type: 'tilesetsChanged',
-          pair0: this.tilesetPairs[0],
-          pair1: this.tilesetPairs[1] ?? null,
-        });
+        if (!this.suppressLoadEvents) {
+          this.emit({
+            type: 'tilesetsChanged',
+            pair0: this.tilesetPairs[0],
+            pair1: this.tilesetPairs[1] ?? null,
+          });
+        }
       }
 
       // Load map layout, border metatiles, and events (warps + objects)
@@ -769,9 +892,12 @@ export class WorldManager {
 
       // Emit maps changed
       this.debugLog(`[MAPS_CHANGED] Emitting after loading ${entry.id}. Total maps: ${this.maps.size}, anchor: ${this.anchorMapId}`);
-      this.emit({ type: 'mapsChanged', snapshot: this.getSnapshot() });
+      if (!this.suppressLoadEvents) {
+        this.emit({ type: 'mapsChanged', snapshot: this.getSnapshot() });
+      }
     } finally {
       this.loadingMaps.delete(entry.id);
+      this.emitLoadingStateIfChanged();
     }
   }
 
@@ -891,6 +1017,15 @@ export class WorldManager {
     for (const handler of this.eventHandlers) {
       handler(event);
     }
+  }
+
+  private emitLoadingStateIfChanged(): void {
+    const loadingCount = this.loadingMaps.size;
+    if (loadingCount === this.lastLoadingCount) {
+      return;
+    }
+    this.lastLoadingCount = loadingCount;
+    this.emit({ type: 'loadingStateChanged', loadingCount });
   }
 
   /**
@@ -1020,5 +1155,9 @@ export class WorldManager {
     this.mapTilesetPairIndex.clear();
     this.eventHandlers = [];
     this.loadingMaps.clear();
+    this.lastLoadingCount = 0;
+    this.connectedMapsLoadInFlight = null;
+    this.backgroundInitializeLoadInFlight = null;
+    this.suppressLoadEvents = false;
   }
 }

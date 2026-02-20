@@ -350,7 +350,9 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
       applyCurrentWeather: () => {
         deps.weatherManagerRef.current.doCurrentWeather();
       },
-      waitForChangeComplete: async () => {},
+      waitForChangeComplete: async () => {
+        await deps.weatherManagerRef.current.waitForChangeComplete();
+      },
     },
     time: {
       runTimeBasedEvents: () => {

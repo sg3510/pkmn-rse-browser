@@ -13,6 +13,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { getGlobalShimmer } from '../field/ReflectionRenderer';
 import { GBA_FPS, GBA_FRAME_MS } from '../config/timing';
+import { guardFixedStep } from '../utils/fixedStepGuard';
 
 // Animation frame period: every 10 GBA frames (~167ms)
 const ANIMATION_FRAME_TICKS = 10;
@@ -96,16 +97,24 @@ export function useGameLoop(
   const tick = useCallback((currentTime: number) => {
     if (!runningRef.current) return;
 
-    const deltaTime = currentTime - lastTimeRef.current;
+    const rawDeltaTime = currentTime - lastTimeRef.current;
     lastTimeRef.current = currentTime;
-    accumulatorRef.current += deltaTime;
+    const stepGuard = guardFixedStep({
+      rawDeltaMs: rawDeltaTime,
+      accumulatorMs: accumulatorRef.current,
+      stepMs: frameMs,
+    });
+    accumulatorRef.current = stepGuard.nextAccumulatorMs;
+    const deltaTime = stepGuard.clampedDeltaMs;
 
     // Update shimmer animation
+    if (stepGuard.resumeReset) {
+      getGlobalShimmer().reset();
+    }
     getGlobalShimmer().update(currentTime);
 
     // Fixed timestep loop
-    while (accumulatorRef.current >= frameMs) {
-      accumulatorRef.current -= frameMs;
+    for (let i = 0; i < stepGuard.stepsToRun; i++) {
       gbaFrameRef.current++;
 
       // Call update function each fixed step
@@ -186,17 +195,24 @@ export function useGBAFrameCounter(): {
 
   useEffect(() => {
     const tick = (currentTime: number) => {
-      const deltaTime = currentTime - lastTimeRef.current;
+      const rawDeltaTime = currentTime - lastTimeRef.current;
       lastTimeRef.current = currentTime;
-      accumulatorRef.current += deltaTime;
+      const stepGuard = guardFixedStep({
+        rawDeltaMs: rawDeltaTime,
+        accumulatorMs: accumulatorRef.current,
+        stepMs: GBA_FRAME_MS,
+      });
+      accumulatorRef.current = stepGuard.nextAccumulatorMs;
       timestampRef.current = currentTime;
 
       // Update shimmer
+      if (stepGuard.resumeReset) {
+        getGlobalShimmer().reset();
+      }
       getGlobalShimmer().update(currentTime);
 
       // Fixed timestep
-      while (accumulatorRef.current >= GBA_FRAME_MS) {
-        accumulatorRef.current -= GBA_FRAME_MS;
+      for (let i = 0; i < stepGuard.stepsToRun; i++) {
         gbaFrameRef.current++;
       }
 

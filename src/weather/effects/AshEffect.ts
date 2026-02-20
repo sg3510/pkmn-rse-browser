@@ -49,6 +49,10 @@ export class AshEffect implements WeatherEffect {
     if (!this.ashCanvas) return;
 
     const { ctx2d, view } = context;
+    const blendAlpha = Math.max(0, Math.min(1, context.blendEva / 16));
+    if (blendAlpha <= 0) {
+      return;
+    }
     const prevSmoothing = ctx2d.imageSmoothingEnabled;
     ctx2d.imageSmoothingEnabled = false;
 
@@ -59,7 +63,7 @@ export class AshEffect implements WeatherEffect {
       + this.wrapPositive(this.offsetY, 64);
 
     ctx2d.save();
-    ctx2d.globalAlpha = 0.65;
+    ctx2d.globalAlpha = blendAlpha;
 
     for (let drawY = anchorY - 64; drawY < view.pixelHeight + 64; drawY += 64) {
       for (let drawX = anchorX - 64; drawX < view.pixelWidth + 64; drawX += 64) {

@@ -60,6 +60,7 @@ import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
 import { GBA_FRAME_MS } from '../config/timing';
+import { guardFixedStep } from '../utils/fixedStepGuard';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
   computeReflectionState,
@@ -137,6 +138,7 @@ import { useStateMachineRenderLoop } from './gamePage/useStateMachineRenderLoop'
 import { useOverworldContinueLocation, type OverworldEntryReason } from './gamePage/useOverworldContinueLocation';
 import { performWarpTransition } from '../game/overworld/warp/performWarpTransition';
 import { loadSelectedOverworldMap } from '../game/overworld/load/loadSelectedOverworldMap';
+import { countReachableMapsWithinDepth } from '../game/mapGraph';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
 import { setMapMetatileInSnapshot, createMetatileUpdater } from '../game/overworld/metatile/mapMetatileUtils';
 import type { InputUnlockGuards } from '../game/overworld/inputLock/scheduleInputUnlock';
@@ -1076,6 +1078,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     () => renderableMaps.find((m) => m.id === selectedMapId) || defaultMap || renderableMaps[0],
     [selectedMapId, renderableMaps, defaultMap]
   );
+  const selectedMapIdRef = useRef(selectedMapId);
+  selectedMapIdRef.current = selectedMapId;
 
   const [stats, setStats] = useState<RenderStats>({
     webgl2Supported: false,
@@ -1085,6 +1089,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     error: null,
   });
   const [loading, setLoading] = useState(false);
+  const [stitchingLoadingCount, setStitchingLoadingCount] = useState(0);
   const [overworldEntryReady, setOverworldEntryReady] = useState(false);
   const [cameraDisplay, setCameraDisplay] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [mapDebugInfo, setMapDebugInfo] = useState<{
@@ -1731,30 +1736,81 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       return;
     }
 
-    try {
-      const pipeline = new WebGLRenderPipeline(webglCanvas);
-      pipelineRef.current = pipeline;
-      setStats((s) => ({ ...s, webgl2Supported: true, error: null }));
+    const resetLoopTiming = () => {
+      lastTimeRef.current = performance.now();
+      gbaAccumRef.current = 0;
+      getGlobalShimmer().reset();
+    };
 
-      // Initialize sprite renderer (shares GL context with pipeline)
+    const recreateAuxRenderers = (pipeline: WebGLRenderPipeline) => {
+      spriteRendererRef.current?.dispose();
+      fadeRendererRef.current?.dispose();
+      scanlineRendererRef.current?.dispose();
+      orbEffectRendererRef.current?.dispose();
+
       const spriteRenderer = new WebGLSpriteRenderer(pipeline.getGL());
       spriteRenderer.initialize();
       spriteRendererRef.current = spriteRenderer;
 
-      // Initialize fade renderer (for screen fade transitions)
       const fadeRenderer = new WebGLFadeRenderer(pipeline.getGL());
       fadeRenderer.initialize();
       fadeRendererRef.current = fadeRenderer;
 
-      // Initialize scanline renderer (for CRT effect when menus open)
       const scanlineRenderer = new WebGLScanlineRenderer(pipeline.getGL());
       scanlineRenderer.initialize();
       scanlineRendererRef.current = scanlineRenderer;
 
-      // Initialize orb effect renderer (scripted cutscene screen effects)
       const orbEffectRenderer = new WebGLOrbEffectRenderer(pipeline.getGL());
       orbEffectRenderer.initialize();
       orbEffectRendererRef.current = orbEffectRenderer;
+    };
+
+    const recoverContextRestore = async () => {
+      const pipeline = pipelineRef.current;
+      if (!pipeline) return;
+
+      try {
+        recreateAuxRenderers(pipeline);
+        npcSpritesLoadedRef.current.clear();
+        doorSpritesUploadedRef.current.clear();
+        arrowSpriteUploadedRef.current = false;
+        playerLoadedRef.current = false;
+        playerSpritesLoadPromiseRef.current = null;
+        fieldSpritesLoadedRef.current = false;
+        fieldSpritesLoadPromiseRef.current = null;
+        lastTimeRef.current = performance.now();
+        gbaAccumRef.current = 0;
+
+        const snapshot = worldSnapshotRef.current;
+        if (!snapshot) {
+          throw new Error('No world snapshot available for context restore recovery');
+        }
+
+        uploadTilesetsFromSnapshot(pipeline, snapshot);
+        await loadObjectEventsFromSnapshot(snapshot, { preserveExistingMapRuntimeState: true });
+        ensureOverworldRuntimeAssetsRef.current();
+        pipeline.invalidate();
+        setStats((s) => ({ ...s, error: null }));
+      } catch (err) {
+        gamePageLogger.error('[WebGL] Context restore recovery failed; reloading map.', err);
+        const fallbackMapId = worldSnapshotRef.current?.anchorMapId ?? selectedMapIdRef.current;
+        if (fallbackMapId) {
+          selectMapForLoad(fallbackMapId);
+        }
+      }
+    };
+
+    try {
+      const pipeline = new WebGLRenderPipeline(webglCanvas);
+      pipelineRef.current = pipeline;
+      setStats((s) => ({ ...s, webgl2Supported: true, error: null }));
+      recreateAuxRenderers(pipeline);
+      pipeline.setContextLostCallback(() => {
+        setStats((s) => ({ ...s, error: 'WebGL context lost. Recovering...' }));
+      });
+      pipeline.setContextRestoredCallback(() => {
+        void recoverContextRestore();
+      });
     } catch (e) {
       // WebGL pipeline creation failed - redirect to legacy Canvas2D mode
       gamePageLogger.error('Failed to create WebGL pipeline, redirecting to legacy Canvas2D mode:', e);
@@ -1769,10 +1825,20 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       createRotatingGateCollisionChecker(playerRef, worldManagerRef, worldSnapshotRef, rotatingGateManager)
     );
     const frameCounter: FrameCounter = { frameCount: 0, fpsTime: performance.now() };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        resetLoopTiming();
+      }
+    };
+    const handlePageShow = () => {
+      resetLoopTiming();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
 
     const renderLoop = () => {
       if (currentStateRef.current !== GameState.OVERWORLD) {
-        lastTimeRef.current = performance.now();
+        resetLoopTiming();
         rafRef.current = requestAnimationFrame(renderLoop);
         return;
       }
@@ -1798,12 +1864,21 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
       // Advance GBA-frame counter
       const nowTime = performance.now();
-      const dt = nowTime - lastTimeRef.current;
+      const rawDt = nowTime - lastTimeRef.current;
       lastTimeRef.current = nowTime;
-      gbaAccumRef.current += dt;
+      const stepGuard = guardFixedStep({
+        rawDeltaMs: rawDt,
+        accumulatorMs: gbaAccumRef.current,
+        stepMs: GBA_FRAME_MS,
+      });
+      gbaAccumRef.current = stepGuard.nextAccumulatorMs;
+      const dt = stepGuard.clampedDeltaMs;
+      if (stepGuard.resumeReset) {
+        getGlobalShimmer().reset();
+      }
+
       let gbaFramesAdvanced = 0;
-      while (gbaAccumRef.current >= GBA_FRAME_MS) {
-        gbaAccumRef.current -= GBA_FRAME_MS;
+      for (let i = 0; i < stepGuard.stepsToRun; i++) {
         gbaFrameRef.current++;
         gbaFramesAdvanced++;
       }
@@ -2198,8 +2273,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           subTileOffsetY: camView.subTileOffsetY,
           tilesWide: camView.tilesWide,
           tilesHigh: camView.tilesHigh,
-          pixelWidth: camView.tilesWide * METATILE_SIZE,
-          pixelHeight: camView.tilesHigh * METATILE_SIZE,
+          pixelWidth: camView.pixelWidth,
+          pixelHeight: camView.pixelHeight,
         });
 
         // Truck sequence: execute metatile swaps, camera panning, and moving-box offsets.
@@ -2333,10 +2408,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       rafRef.current = requestAnimationFrame(renderLoop);
     };
 
+    resetLoopTiming();
     rafRef.current = requestAnimationFrame(renderLoop);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
       fallWarpArrivalSequencerRef.current.reset(playerRef.current ?? undefined, cameraRef.current ?? undefined);
       transientMetatilePulseManagerRef.current.clear();
       displayCtx2dRef.current = null;
@@ -2400,6 +2478,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   useEffect(() => {
     if (currentState !== GameState.OVERWORLD) {
+      setStitchingLoadingCount(0);
       resetOverworldWildEncounterTracking({
         lastStepRef: lastWildEncounterStepRef,
         transitionInFlightRef: wildEncounterTransitionInFlightRef,
@@ -2417,6 +2496,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     const pipeline = pipelineRef.current;
     if (!entry || !pipeline) return;
 
+    setStitchingLoadingCount(0);
     ensureOverworldRuntimeAssetsRef.current();
     return loadSelectedOverworldMap({
       entry,
@@ -2448,6 +2528,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       setCameraDisplay,
       setWorldSize,
       setStitchedMapCount,
+      onLoadingStateChanged: (loadingCount) => {
+        setStitchingLoadingCount(loadingCount);
+      },
       createSnapshotTileResolver,
       createSnapshotPlayerTileResolver,
       loadObjectEventsFromSnapshot,
@@ -2545,6 +2628,17 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   const viewportDisplayWidth = viewportPixelSize.width * zoom;
   const viewportDisplayHeight = viewportPixelSize.height * zoom;
+  const stitchTargetMapId = displayMapId || selectedMap?.id || '';
+  const stitchTargetMapCount = useMemo(
+    () => countReachableMapsWithinDepth(mapIndexData, stitchTargetMapId, 2),
+    [stitchTargetMapId]
+  );
+  const stitchedProgressCount = Math.min(stitchedMapCount, stitchTargetMapCount || stitchedMapCount);
+  const showStitchingStatus =
+    currentState === GameState.OVERWORLD
+    && !loading
+    && stitchingLoadingCount > 0
+    && stitchTargetMapCount > 1;
 
   const defaultDialogViewport = {
     width: viewportDisplayWidth,
@@ -2584,6 +2678,11 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       />
       {/* Menu overlay */}
       <MenuOverlay />
+      {showStitchingStatus && (
+        <div className="stitching-status-chip" role="status" aria-live="polite">
+          Stitching nearby maps... {stitchedProgressCount}/{stitchTargetMapCount}
+        </div>
+      )}
     </div>
   );
 

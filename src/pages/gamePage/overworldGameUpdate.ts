@@ -986,7 +986,11 @@ export function handleWorldUpdateAndEvents(params: {
   if (currentMap) {
     // Coord triggers in pokeemerald use PlayerGetDestCoords (object-event current coords).
     const coordTriggerTile = player.getDestinationTile();
-    weatherManagerRef.current.setCurrentMap(currentMap.entry.id);
+    weatherManagerRef.current.setCurrentMap(
+      currentMap.entry.id,
+      currentMap.offsetX,
+      currentMap.offsetY
+    );
     const tileChanged =
       !lastCoordTriggerTileRef.current ||
       lastCoordTriggerTileRef.current.mapId !== currentMap.entry.id ||

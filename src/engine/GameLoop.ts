@@ -3,6 +3,7 @@ import type { GameState } from './GameState';
 import type { ObservableState } from './GameState';
 import { UpdateCoordinator, type UpdateResult } from './UpdateCoordinator';
 import { TICK_60FPS_MS } from '../config/timing';
+import { guardFixedStep } from '../utils/fixedStepGuard';
 
 export type FrameHandler = (
   state: GameState,
@@ -45,9 +46,15 @@ export class GameLoop {
     const tick = (currentTime: number) => {
       if (!this.running) return;
 
-      const deltaMs = currentTime - this.lastTime;
+      const rawDeltaMs = currentTime - this.lastTime;
       this.lastTime = currentTime;
-      this.accumulator += deltaMs;
+      const stepGuard = guardFixedStep({
+        rawDeltaMs,
+        accumulatorMs: this.accumulator,
+        stepMs: this.FRAME_MS,
+      });
+      this.accumulator = stepGuard.nextAccumulatorMs;
+      const deltaMs = stepGuard.clampedDeltaMs;
 
       // CRITICAL: Accumulate results across all catch-up iterations
       // If ANY iteration needs rendering, we must render. Otherwise jitter occurs
@@ -60,7 +67,7 @@ export class GameLoop {
         playerDirty: false,
       };
 
-      while (this.accumulator >= this.FRAME_MS) {
+      for (let i = 0; i < stepGuard.stepsToRun; i++) {
         this.animationTimer.update(this.FRAME_MS);
         this.state.update({
           animationFrame: this.animationTimer.getCurrentFrame(),
@@ -77,8 +84,6 @@ export class GameLoop {
           animationFrameChanged: combinedResult.animationFrameChanged || result.animationFrameChanged,
           playerDirty: combinedResult.playerDirty || result.playerDirty,
         };
-
-        this.accumulator -= this.FRAME_MS;
       }
 
       onFrame(this.state.get(), combinedResult, deltaMs, currentTime);
