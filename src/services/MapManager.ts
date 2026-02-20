@@ -59,6 +59,7 @@ export interface LoadedMapData {
   coordEvents: Array<ScriptCoordEvent | WeatherCoordEvent>;
   bgEvents: BgEvent[];
   mapWeather: string | null;
+  mapRequiresFlash: boolean;
 }
 
 export interface WorldMapInstance extends LoadedMapData {
@@ -166,6 +167,7 @@ export class MapManager {
       coordEvents: mapEvents.coordEvents,
       bgEvents: mapEvents.bgEvents,
       mapWeather: mapEvents.mapWeather,
+      mapRequiresFlash: mapEvents.mapRequiresFlash,
     };
 
     this.mapCache.set(mapId, loaded);

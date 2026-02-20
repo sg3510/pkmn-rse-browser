@@ -49,6 +49,7 @@ export interface ScriptRuntimeServicesDeps {
   deoxysRockRenderDebugRef: MutableRef<{ active: boolean; startMs: number; lastLogMs: number }>;
   trainerApproachRuntimeRef?: MutableRef<TrainerApproachRuntime>;
   waitScriptFrames: (frames: number) => Promise<void>;
+  getFlashLevel?: () => number;
 }
 
 export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): ScriptRuntimeServices {
@@ -198,6 +199,7 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
+      flashLevel: deps.getFlashLevel?.() ?? 0,
     });
   };
 

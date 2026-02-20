@@ -32,6 +32,7 @@ import type { PendingScriptedWarp } from '../../pages/gamePage/overworldGameUpda
 import { createLogger } from '../../utils/logger';
 import { recordRuntimePerfSection } from '../../game/perf/runtimePerfRecorder';
 import type { WebGLOrbEffectRenderer } from '../webgl/WebGLOrbEffectRenderer';
+import { getFlashRadiusForLevel } from '../../game/flash/FlashController';
 
 interface MutableRef<T> {
   current: T;
@@ -100,6 +101,7 @@ export interface RenderOverworldSpritesParams {
     spriteWidth?: number,
     spriteHeight?: number,
   ) => ReflectionState;
+  getFlashRenderRadius?: () => number;
 
   // Zoom
   zoom: number;
@@ -160,6 +162,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     arrowOverlay,
     buildSprites,
     computeReflectionState,
+    getFlashRenderRadius,
     zoom,
   } = params;
 
@@ -414,6 +417,42 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
               targetWidth,
               targetHeight
             );
+          },
+          renderDarknessMask: ({ ctx2d: maskCtx, view: maskView }) => {
+            const radius = getFlashRenderRadius?.();
+            if (!Number.isFinite(radius)) return;
+
+            const normalizedRadius = Math.max(0, Math.trunc(radius as number));
+            const fullBrightRadius = getFlashRadiusForLevel(0);
+            if (normalizedRadius >= fullBrightRadius) {
+              return;
+            }
+
+            const width = maskView.pixelWidth;
+            const height = maskView.pixelHeight;
+            const playerFrame = player.getFrameInfo();
+            const defaultCenterX = width / 2;
+            const defaultCenterY = height / 2;
+            const playerScreenCenterX = playerFrame
+              ? (playerFrame.renderX + playerFrame.sw / 2) - maskView.cameraWorldX
+              : defaultCenterX;
+            const playerScreenCenterY = playerFrame
+              ? (playerFrame.renderY + playerFrame.sh / 2) - maskView.cameraWorldY
+              : defaultCenterY;
+            const centerX = Math.max(0, Math.min(width - 1, playerScreenCenterX));
+            const centerY = Math.max(0, Math.min(height - 1, playerScreenCenterY));
+            maskCtx.save();
+            maskCtx.fillStyle = '#000000';
+            if (normalizedRadius <= 0) {
+              maskCtx.fillRect(0, 0, width, height);
+            } else {
+              maskCtx.beginPath();
+              maskCtx.rect(0, 0, width, height);
+              maskCtx.arc(centerX, centerY, normalizedRadius, 0, Math.PI * 2);
+              maskCtx.fill('evenodd');
+            }
+
+            maskCtx.restore();
           },
         },
         {

@@ -51,6 +51,9 @@ export interface ExecuteDiveFieldActionParams {
   warpingRef: MutableRef<boolean>;
   mapIndexData: MapIndexEntry[];
   showMessage: (msg: string) => Promise<void>;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
+  getFlashLevel?: () => number;
 }
 
 export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParams): Promise<boolean> {
@@ -68,6 +71,9 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
     warpingRef,
     mapIndexData,
     showMessage,
+    setFlashLevel,
+    animateFlashLevel,
+    getFlashLevel,
   } = params;
 
   const player = playerRef.current;
@@ -91,6 +97,8 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
         mapScriptCache: mapScriptCacheRef.current,
         setMapMetatile: setMapMetatileAndInvalidate,
         scriptRuntimeServices,
+        setFlashLevel,
+        animateFlashLevel,
       }),
     }
   );
@@ -118,6 +126,7 @@ export async function executeDiveFieldAction(params: ExecuteDiveFieldActionParam
     isUnderwater: destinationUnderwater,
     bikeMode: 'none',
     isRidingBike: false,
+    flashLevel: getFlashLevel?.() ?? 0,
   });
 
   pendingScriptedWarpRef.current = {

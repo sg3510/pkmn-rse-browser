@@ -270,6 +270,12 @@ export type PendingScriptedWarp = {
     surfing: boolean;
     underwater: boolean;
   };
+  completion?: {
+    promise: Promise<void>;
+    resolve: () => void;
+    reject: (error?: unknown) => void;
+    settled: boolean;
+  };
 };
 
 const SCRIPTED_WARP_LOAD_RETRY_INTERVAL_MS = 1500;
@@ -281,6 +287,20 @@ export type ScriptedWarpLoadMonitor = {
   retries: number;
   fallbackDeferredLogged: boolean;
 };
+
+function resolveScriptedWarpCompletion(warp: PendingScriptedWarp): void {
+  const completion = warp.completion;
+  if (!completion || completion.settled) return;
+  completion.settled = true;
+  completion.resolve();
+}
+
+function rejectScriptedWarpCompletion(warp: PendingScriptedWarp, error: unknown): void {
+  const completion = warp.completion;
+  if (!completion || completion.settled) return;
+  completion.settled = true;
+  completion.reject(error);
+}
 
 // ─── updateScriptedWarpStateMachine ──────────────────────────────────────────
 // Advances the scripted warp (warpsilent-style) state machine each frame.

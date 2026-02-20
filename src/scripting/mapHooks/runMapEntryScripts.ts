@@ -38,6 +38,8 @@ export interface RunMapEntryScriptsParams {
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   scriptRuntimeServices?: ScriptRuntimeServices;
   mode?: 'warp' | 'camera-transition' | 'return-to-field';
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
 }
 
 const TEMP_VAR_NAMES = [
@@ -94,6 +96,8 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     setMapMetatile,
     scriptRuntimeServices,
     mode = 'warp',
+    setFlashLevel,
+    animateFlashLevel,
   } = params;
   const logPrefix = mode === 'warp'
     ? '[WARP]'
@@ -146,6 +150,8 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       setMapMetatile,
       lastUsedWarpMapType,
       lastUsedWarpMapId,
+      setFlashLevel,
+      animateFlashLevel,
     });
 
     const runner = new ScriptRunner(

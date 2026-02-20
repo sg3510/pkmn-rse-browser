@@ -65,6 +65,12 @@ export interface CompositeFrameContext {
     gl: WebGL2RenderingContext;
     webglCanvas: HTMLCanvasElement;
   }) => void;
+  /** Optional darkness/pinhole overlay renderer (runs before scanline/fade). */
+  renderDarknessMask?: (ctx: {
+    ctx2d: CanvasRenderingContext2D;
+    view: WorldCameraView;
+    nowMs: number;
+  }) => void;
 }
 
 export interface SpriteGroups {
@@ -126,7 +132,7 @@ export function compositeWebGLFrame(
   options: CompositeFrameOptions
 ): void {
   const { pipeline, spriteRenderer, fadeRenderer, scanlineRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
-  const { renderWeather, renderScriptScreenEffect } = ctx;
+  const { renderWeather, renderScriptScreenEffect, renderDarknessMask } = ctx;
   const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
   const { fadeAlpha, scanlineIntensity = 0, zoom = 1, nowMs = performance.now() } = options;
 
@@ -231,6 +237,13 @@ export function compositeWebGLFrame(
     nowMs,
     gl,
     webglCanvas,
+  });
+
+  // Darkness mask renders after scripted/weather effects and before scanline/fade.
+  renderDarknessMask?.({
+    ctx2d,
+    view,
+    nowMs,
   });
 
   // Scanline overlay (CRT effect when menu is open)

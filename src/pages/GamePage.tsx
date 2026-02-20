@@ -184,6 +184,10 @@ import {
   incrementRuntimePerfCounter,
   recordRuntimePerfSection,
 } from '../game/perf/runtimePerfRecorder';
+import {
+  FlashController,
+  type FlashDefaultInput,
+} from '../game/flash/FlashController';
 import { useIsTouchMobile } from '../hooks/useIsTouchMobile';
 import { useVirtualKeyboardBridge } from '../hooks/useVirtualKeyboardBridge';
 import { MobileControlDeck } from '../components/controls/MobileControlDeck';
@@ -285,6 +289,11 @@ const MOBILE_MIN_SCREEN_ASPECT = 0.75;
 const MOBILE_MAX_SCREEN_ASPECT = 2.1;
 const MOBILE_MIN_VIEWPORT_ASPECT = 1.0;
 const MOBILE_MAX_VIEWPORT_ASPECT = 16 / 9;
+
+function waitFlashFrames(frames: number): Promise<void> {
+  const delayMs = Math.max(1, Math.round(Math.max(0, frames) * GBA_FRAME_MS));
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -645,6 +654,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const visibleNPCsRef = useRef<NPCObject[]>([]);
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
   const storyScriptRunningRef = useRef<boolean>(false);
+  const mapEntryCutsceneGateRef = useRef<boolean>(false);
   const lastCoordTriggerTileRef = useRef<{ mapId: string; x: number; y: number } | null>(null);
   const lastPlayerMapIdRef = useRef<string | null>(null);
   const lastWildEncounterStepRef = useRef<WildEncounterStepState | null>(null);
@@ -849,6 +859,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         isUnderwater: activePlayer.isUnderwater(),
         bikeMode: activePlayer.getBikeMode(),
         isRidingBike: activePlayer.isBikeRiding(),
+        flashLevel: flashControllerRef.current.getFlashLevel(),
       });
     }
 
@@ -934,6 +945,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
+      flashLevel: flashControllerRef.current.getFlashLevel(),
     });
   }, []);
 
@@ -1118,6 +1130,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const pendingSavedLocationRef = useRef<LocationState | null>(null);
   const pendingOverworldEntryReasonRef = useRef<OverworldEntryReason | null>(null);
   const pendingScriptedWarpRef = useRef<PendingScriptedWarp | null>(null);
+  const flashControllerRef = useRef<FlashController>(new FlashController(waitFlashFrames));
   const layoutCatalogPromiseRef = useRef<Promise<Map<string, LayoutCatalogEntry>> | null>(null);
 
   const setMapMetatileLocal = useCallback((
@@ -1236,6 +1249,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     warpingRef,
     storyScriptRunningRef,
     dialogIsOpenRef: dialogIsOpenRef,
+    pendingScriptedWarpRef,
+    mapEntryCutsceneGateRef,
   }), []);
 
   const applyTruckOnLoadMetatileCompatibilityLocal = useCallback((): void => {
@@ -1267,6 +1282,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
+      flashLevel: flashControllerRef.current.getFlashLevel(),
     });
   }, []);
 
@@ -1275,6 +1291,26 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     if (frameCount <= 0) return;
     const delayMs = Math.max(1, Math.round(frameCount * GBA_FRAME_MS));
     await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+  }, []);
+
+  const getFlashLevel = useCallback((): number => {
+    return flashControllerRef.current.getFlashLevel();
+  }, []);
+
+  const getFlashRenderRadius = useCallback((): number => {
+    return flashControllerRef.current.getRenderRadius();
+  }, []);
+
+  const setFlashLevel = useCallback((level: number): void => {
+    flashControllerRef.current.setFlashLevel(level);
+  }, []);
+
+  const animateFlashLevel = useCallback(async (level: number): Promise<void> => {
+    await flashControllerRef.current.animateFlashLevel(level);
+  }, []);
+
+  const setDefaultFlashLevel = useCallback((input: FlashDefaultInput): void => {
+    flashControllerRef.current.setDefaultFlashLevel(input);
   }, []);
 
   const scriptRuntimeServices = useMemo<ScriptRuntimeServices>(
@@ -1298,8 +1334,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       weatherManagerRef,
       trainerApproachRuntimeRef,
       waitScriptFrames,
+      getFlashLevel,
     }),
-    [waitScriptFrames]
+    [waitScriptFrames, getFlashLevel]
   );
 
   const runHandledStoryScript = useHandledStoryScript({
@@ -1317,6 +1354,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     warpingRef,
     playerHiddenRef,
     storyScriptRunningRef,
+    mapEntryCutsceneGateRef,
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
@@ -1326,6 +1364,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     setCurrentMapLayoutById,
     scriptRuntimeServices,
     getSavedWeather: () => weatherManagerRef.current.getStateSnapshot().savedWeather,
+    setFlashLevel,
+    animateFlashLevel,
+    getFlashLevel,
   });
 
   const runHandledStoryScriptRef = useRef(runHandledStoryScript);
@@ -1346,8 +1387,18 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpingRef,
       mapIndexData,
       showMessage,
+      setFlashLevel,
+      animateFlashLevel,
+      getFlashLevel,
     });
-  }, [scriptRuntimeServices, setMapMetatileLocal, showMessage]);
+  }, [
+    scriptRuntimeServices,
+    setMapMetatileLocal,
+    showMessage,
+    setFlashLevel,
+    animateFlashLevel,
+    getFlashLevel,
+  ]);
 
   const runSeamTransitionScripts = useCallback(async (mapId: string): Promise<void> => {
     return executeSeamTransitionScripts({
@@ -1364,8 +1415,10 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       seamTransitionScriptsInFlightRef,
       setMapMetatile: setMapMetatileAndInvalidate,
       scriptRuntimeServices,
+      setFlashLevel,
+      animateFlashLevel,
     });
-  }, [scriptRuntimeServices, setMapMetatileLocal]);
+  }, [scriptRuntimeServices, setMapMetatileLocal, setFlashLevel, animateFlashLevel]);
 
   // Action input hook (handles X key for surf/item pickup dialogs)
   const actionCallbacks = useMemo(() => createActionCallbacks({
@@ -1673,6 +1726,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       setMapMetatile: setMapMetatileAndInvalidate,
       mapScriptCache: mapScriptCacheRef.current,
       scriptRuntimeServices,
+      setDefaultFlashLevel,
+      setFlashLevel,
+      animateFlashLevel,
       onMapChanged: (mapId: string) => {
         setDisplayMapId(mapId);
       },
@@ -1685,6 +1741,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     doorAnimations,
     npcMovement,
     scriptRuntimeServices,
+    setDefaultFlashLevel,
+    setFlashLevel,
+    animateFlashLevel,
   ]);
 
   // Initialize WebGL pipeline and player once
@@ -1941,6 +2000,12 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       if (player && playerLoadedRef.current && !warpingRef.current && !menuOpen && !truckLocked && !dialogOpen) {
         const worldManager = worldManagerRef.current;
         let preInputOnFrameTriggered = false;
+        const mapEntryGateActive = mapEntryCutsceneGateRef.current;
+        let mapEntryGateSatisfiedThisFrame = !mapEntryGateActive;
+
+        if (mapEntryGateActive && storyScriptRunningRef.current) {
+          mapEntryGateSatisfiedThisFrame = true;
+        }
 
         // GBA-style priority: trainer sight checks before ON_FRAME scripts,
         // then ON_FRAME scripts before free movement input.
@@ -2066,10 +2131,29 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 || objectEventManagerRef.current.hasMapObjects(currentMapId);
               preInputOnFrameTriggered = evaluateOnFrameSafetyNets(currentMapId, mapObjectsReady, runScript);
             }
+
+            if (mapEntryGateActive) {
+              const mapObjectsReady = currentMap.objectEvents.length === 0
+                || objectEventManagerRef.current.hasMapObjects(currentMapId);
+              const mapScriptCacheReady = (
+                mapScriptCacheRef.current.has(currentMapId)
+                && !mapScriptLoadingRef.current.has(currentMapId)
+              );
+              if (mapObjectsReady && mapScriptCacheReady) {
+                mapEntryGateSatisfiedThisFrame = true;
+              }
+            }
           }
         }
 
-        if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning) {
+        if (mapEntryGateActive && mapEntryGateSatisfiedThisFrame) {
+          mapEntryCutsceneGateRef.current = false;
+        }
+        const shouldBlockForMapEntryGate =
+          mapEntryGateActive
+          && !mapEntryGateSatisfiedThisFrame;
+
+        if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning && !shouldBlockForMapEntryGate) {
           player.update(dt);
         }
 
@@ -2346,6 +2430,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             arrowOverlay,
             buildSprites,
             computeReflectionState: computeReflectionStateFromSnapshot,
+            getFlashRenderRadius,
             zoom: zoomRef.current,
           });
 
@@ -2459,6 +2544,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   useEffect(() => {
     if (currentState !== GameState.OVERWORLD) {
       setStitchingLoadingCount(0);
+      mapEntryCutsceneGateRef.current = false;
       resetOverworldWildEncounterTracking({
         lastStepRef: lastWildEncounterStepRef,
         transitionInFlightRef: wildEncounterTransitionInFlightRef,
@@ -2502,6 +2588,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       warpingRef,
       playerHiddenRef,
       storyScriptRunningRef,
+      mapEntryCutsceneGateRef,
       mapScriptCacheRef,
       lastCoordTriggerTileRef,
       lastPlayerMapIdRef,
@@ -2522,6 +2609,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       initializeWorldFromSnapshot,
       setMapMetatile: setMapMetatileAndInvalidate,
       scriptRuntimeServices,
+      setDefaultFlashLevel,
+      setFlashLevel,
+      animateFlashLevel,
     });
   }, [
     selectedMap,
@@ -2536,6 +2626,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
     scriptRuntimeServices,
+    setDefaultFlashLevel,
+    setFlashLevel,
+    animateFlashLevel,
   ]);
 
   // Update camera controller when viewport config changes
@@ -2579,8 +2672,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       isUnderwater: player.isUnderwater(),
       bikeMode: player.getBikeMode(),
       isRidingBike: player.isBikeRiding(),
+      flashLevel: getFlashLevel(),
     });
-  }, [mapDebugInfo?.currentMap, selectedMap.id]);
+  }, [mapDebugInfo?.currentMap, selectedMap.id, getFlashLevel]);
 
   const getObjectEventRuntimeState = useCallback((): ObjectEventRuntimeState | null => {
     return objectEventManagerRef.current.getRuntimeState();

@@ -96,3 +96,25 @@ test('buried trainers spawn hidden and stay visible once switched to face moveme
   assert.ok(stillVisibleNpc);
   assert.equal(stillVisibleNpc.spriteHidden, false);
 });
+
+test('revealed buried trainers stay visible after map unload/reload', () => {
+  const manager = new ObjectEventManager();
+  manager.parseMapObjects(MAP_ID, [createBuriedTrainerObject('MOVEMENT_TYPE_BURIED')], 0, 0);
+
+  // Simulate post-reveal state after trainer approach interaction.
+  manager.setNPCSpriteHiddenByLocalId(MAP_ID, LOCAL_ID, false);
+  manager.setNPCMovementTypeByLocalId(MAP_ID, LOCAL_ID, 'MOVEMENT_TYPE_FACE_RIGHT');
+  manager.setNPCTemplatePositionByLocalId(MAP_ID, LOCAL_ID, 12, 9);
+  manager.setNPCPositionByLocalId(MAP_ID, LOCAL_ID, 12, 9, { updateInitialPosition: true });
+
+  manager.removeMapObjects(MAP_ID);
+  manager.parseMapObjects(MAP_ID, [createBuriedTrainerObject('MOVEMENT_TYPE_BURIED')], 0, 0);
+
+  const npc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
+  assert.ok(npc);
+  assert.equal(npc.spriteHidden, false);
+  assert.equal(npc.movementTypeRaw, 'MOVEMENT_TYPE_FACE_RIGHT');
+  assert.equal(npc.direction, 'right');
+  assert.equal(npc.tileX, 12);
+  assert.equal(npc.tileY, 9);
+});

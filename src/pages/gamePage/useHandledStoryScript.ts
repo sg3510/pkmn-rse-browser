@@ -39,6 +39,7 @@ import { shouldAutoRecoverStoryScriptFade } from './storyScriptFadeRecovery';
 import { resolveTrainerBattle, resolveTrainerBattleById } from './trainerBattleFallback';
 import type { MutableRef } from './types';
 import { buildLocationState } from '../../world/locationStateFactory';
+import { tryUnlockInput } from '../../game/overworld/inputLock/scriptWarpInputGuard';
 
 
 interface PendingScriptedWarpLike {
@@ -51,6 +52,12 @@ interface PendingScriptedWarpLike {
   traversal?: {
     surfing: boolean;
     underwater: boolean;
+  };
+  completion?: {
+    promise: Promise<void>;
+    resolve: () => void;
+    reject: (error?: unknown) => void;
+    settled: boolean;
   };
 }
 
@@ -69,6 +76,7 @@ export interface UseHandledStoryScriptParams {
   warpingRef: MutableRef<boolean>;
   playerHiddenRef: MutableRef<boolean>;
   storyScriptRunningRef: MutableRef<boolean>;
+  mapEntryCutsceneGateRef: MutableRef<boolean>;
   objectEventManagerRef: MutableRef<ObjectEventManager>;
   npcMovement: UseNPCMovementReturn;
   doorAnimations: UseDoorAnimationsReturn;
@@ -78,6 +86,9 @@ export interface UseHandledStoryScriptParams {
   setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   scriptRuntimeServices?: ScriptRuntimeServices;
   getSavedWeather?: () => string | number | null;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
+  getFlashLevel?: () => number;
 }
 
 export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scriptName: string, currentMapId?: string) => Promise<boolean> {
@@ -96,6 +107,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     warpingRef,
     playerHiddenRef,
     storyScriptRunningRef,
+    mapEntryCutsceneGateRef,
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
@@ -105,6 +117,9 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     setCurrentMapLayoutById,
     scriptRuntimeServices,
     getSavedWeather,
+    setFlashLevel,
+    animateFlashLevel,
+    getFlashLevel,
   } = params;
 
   const SCRIPT_CALLBACK_RECOVERY_FADE_FRAMES = 16;
@@ -150,10 +165,16 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
       const resolvedCommands = await getScriptCommandsResolved(effectiveMapId, scriptName);
       // Script not in hand-coded set AND not in generated/owner/common data → not handled
       if (!resolvedCommands) {
-        // Script doesn't exist — unlock immediately
-        player.unlockInput();
-        npcMovement.setEnabled(true);
         storyScriptRunningRef.current = false;
+        // Script doesn't exist — unlock immediately if no guard requires lock.
+        tryUnlockInput(player, {
+          warpingRef,
+          storyScriptRunningRef,
+          dialogIsOpenRef: { current: false },
+          pendingScriptedWarpRef,
+          mapEntryCutsceneGateRef,
+        });
+        npcMovement.setEnabled(true);
         recordStoryScriptTimelineEvent({
           kind: 'story_script_end',
           frame: gbaFrameRef.current,
@@ -323,7 +344,9 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
 
         const walkFrames = getWalkFramesForMode(mode);
         const speedPxPerMs = TILE_PIXELS / (walkFrames * gbaFrameMs);
-        player.forceMove(direction, true, speedPxPerMs);
+        player.forceMove(direction, true, speedPxPerMs, {
+          suppressPostMoveSpecialTileCheck: true,
+        });
         let guard = 0;
         while (player.isMoving && guard < 120) {
           await waitFrames(1);
@@ -634,7 +657,21 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           await waitForBattleToEnd();
           return readBattleResult();
         },
-        queueWarp: (mapId, x, y, direction, options) => {
+        queueWarp: async (mapId, x, y, direction, options) => {
+          const previousWarp = pendingScriptedWarpRef.current;
+          if (previousWarp?.completion && !previousWarp.completion.settled) {
+            previousWarp.completion.settled = true;
+            previousWarp.completion.reject(
+              new Error('[StoryScript] queueWarp called while a prior scripted warp was still pending.')
+            );
+          }
+          let resolveCompletion!: () => void;
+          let rejectCompletion!: (error?: unknown) => void;
+          const completionPromise = new Promise<void>((resolve, reject) => {
+            resolveCompletion = resolve;
+            rejectCompletion = reject;
+          });
+
           pendingSavedLocationRef.current = buildLocationState({
             mapId,
             x,
@@ -645,6 +682,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             isUnderwater: player.isUnderwater(),
             bikeMode: player.getBikeMode(),
             isRidingBike: player.isBikeRiding(),
+            flashLevel: getFlashLevel?.() ?? 0,
           });
 
           pendingScriptedWarpRef.current = {
@@ -654,8 +692,15 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             direction,
             phase: 'pending',
             style: options?.style ?? 'default',
+            completion: {
+              promise: completionPromise,
+              resolve: resolveCompletion,
+              reject: rejectCompletion,
+              settled: false,
+            },
           };
           warpingRef.current = true;
+          return completionPromise;
         },
         forcePlayerStep: (direction) => {
           let deltaX = 0;
@@ -825,6 +870,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
           player.setCyclingRoadChallengeActive(active);
         },
         getCyclingRoadChallengeCollisions: () => player.getCyclingRoadChallengeCollisions(),
+        setFlashLevel,
+        animateFlashLevel,
         getMapMetatile: (mapId, tileX, tileY) => {
           const snapshot = worldManagerRef.current?.getSnapshot();
           if (!snapshot) return 0;
@@ -932,11 +979,17 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
         }
       }
 
-      if (!warpingRef.current && !hasPendingScriptedWarp) {
-        console.log('[StoryScript] ■ Unlocking input (no active/pending warp)');
-        player.unlockInput();
-      }
       storyScriptRunningRef.current = false;
+      if (!warpingRef.current && !hasPendingScriptedWarp) {
+        console.log('[StoryScript] ■ Attempting input unlock (no active/pending warp)');
+      }
+      tryUnlockInput(player, {
+        warpingRef,
+        storyScriptRunningRef,
+        dialogIsOpenRef: { current: false },
+        pendingScriptedWarpRef,
+        mapEntryCutsceneGateRef,
+      });
     }
   }, [
     showMessage,
@@ -953,6 +1006,7 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     warpingRef,
     playerHiddenRef,
     storyScriptRunningRef,
+    mapEntryCutsceneGateRef,
     objectEventManagerRef,
     npcMovement,
     doorAnimations,
@@ -961,5 +1015,8 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
     setMapMetatile,
     setCurrentMapLayoutById,
     scriptRuntimeServices,
+    setFlashLevel,
+    animateFlashLevel,
+    getFlashLevel,
   ]);
 }

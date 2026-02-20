@@ -19,6 +19,8 @@ export interface RunMapDiveScriptParams {
   mapScriptCache?: Map<string, MapScriptData | null>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   scriptRuntimeServices?: ScriptRuntimeServices;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
 }
 
 export async function runMapDiveScript(params: RunMapDiveScriptParams): Promise<boolean> {
@@ -31,6 +33,8 @@ export async function runMapDiveScript(params: RunMapDiveScriptParams): Promise<
     mapScriptCache,
     setMapMetatile,
     scriptRuntimeServices,
+    setFlashLevel,
+    animateFlashLevel,
   } = params;
 
   const [mapData, commonData] = await Promise.all([
@@ -52,6 +56,8 @@ export async function runMapDiveScript(params: RunMapDiveScriptParams): Promise<
     player,
     playerHiddenRef,
     setMapMetatile,
+    setFlashLevel,
+    animateFlashLevel,
   });
 
   const runner = new ScriptRunner(
@@ -62,4 +68,3 @@ export async function runMapDiveScript(params: RunMapDiveScriptParams): Promise<
   );
   return runner.execute(onDiveScript);
 }
-

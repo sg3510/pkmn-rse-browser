@@ -35,6 +35,8 @@ export interface SeamTransitionScriptsParams {
   seamTransitionScriptsInFlightRef: MutableRef<Set<string>>;
   setMapMetatile: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   scriptRuntimeServices: ScriptRuntimeServices;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
 }
 
 export async function executeSeamTransitionScripts(params: SeamTransitionScriptsParams): Promise<void> {
@@ -52,6 +54,8 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
     seamTransitionScriptsInFlightRef,
     setMapMetatile,
     scriptRuntimeServices,
+    setFlashLevel,
+    animateFlashLevel,
   } = params;
 
   if (seamTransitionScriptsInFlightRef.current.has(mapId)) {
@@ -99,6 +103,8 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
       setMapMetatile,
       scriptRuntimeServices,
       mode: 'camera-transition',
+      setFlashLevel,
+      animateFlashLevel,
     });
   } finally {
     seamTransitionScriptsInFlightRef.current.delete(mapId);

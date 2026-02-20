@@ -52,6 +52,8 @@ export interface ILoadedMapInstance {
   borderMetatiles: number[];
   /** Warp events from map.json */
   warpEvents: WarpEvent[];
+  /** Whether map.json marks this map as requiring Flash darkness defaults */
+  mapRequiresFlash: boolean;
 }
 
 // =============================================================================

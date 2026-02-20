@@ -360,6 +360,7 @@ export function createRenderContextFromSnapshot(
       coordEvents: [],
       bgEvents: [],
       mapWeather: m.mapWeather ?? null,
+      mapRequiresFlash: m.mapRequiresFlash ?? false,
     };
   });
 

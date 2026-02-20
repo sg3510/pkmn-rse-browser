@@ -43,7 +43,7 @@ function createHarness(): ObjectHarness {
     hasPartyPokemon: () => true,
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: () => {},
+    queueWarp: async () => {},
     forcePlayerStep: () => {},
     delayFrames: async () => {},
     movePlayer: async () => {},

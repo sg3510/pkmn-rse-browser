@@ -1,15 +1,11 @@
 import type { PlayerController } from '../../PlayerController.ts';
 import { FADE_TIMING } from '../../../field/types.ts';
+import {
+  tryUnlockInput,
+  type ScriptWarpInputGuards,
+} from './scriptWarpInputGuard.ts';
 
-interface MutableRef<T> {
-  current: T;
-}
-
-export interface InputUnlockGuards {
-  warpingRef: MutableRef<boolean>;
-  storyScriptRunningRef: MutableRef<boolean>;
-  dialogIsOpenRef: MutableRef<boolean>;
-}
+export interface InputUnlockGuards extends ScriptWarpInputGuards {}
 
 export function scheduleInputUnlock(
   player: PlayerController,
@@ -17,12 +13,6 @@ export function scheduleInputUnlock(
   delayMs: number = FADE_TIMING.DEFAULT_DURATION_MS
 ): void {
   setTimeout(() => {
-    if (
-      !guards.warpingRef.current
-      && !guards.storyScriptRunningRef.current
-      && !guards.dialogIsOpenRef.current
-    ) {
-      player.unlockInput();
-    }
+    tryUnlockInput(player, guards);
   }, delayMs);
 }

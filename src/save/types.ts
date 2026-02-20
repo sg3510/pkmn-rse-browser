@@ -108,6 +108,8 @@ export interface LocationState {
   location: WarpData;
   /** Where to continue from after loading save */
   continueGameWarp: WarpData;
+  /** MAP_DYNAMIC target used by dynamic return warps */
+  dynamicWarp: WarpData;
   /** Last Pokemon Center / heal location */
   lastHealLocation: WarpData;
   /** Escape Rope / Dig destination */
@@ -120,6 +122,8 @@ export interface LocationState {
   isSurfing: boolean;
   /** Whether currently in underwater traversal mode */
   isUnderwater: boolean;
+  /** SaveBlock1 flashLevel (0=bright, 8=fully black) */
+  flashLevel?: number;
   /** Active bike mode when mounted (0=none in C when not mounted). */
   bikeMode?: 'none' | 'mach' | 'acro';
   /** Whether the player is currently mounted on a bike. */

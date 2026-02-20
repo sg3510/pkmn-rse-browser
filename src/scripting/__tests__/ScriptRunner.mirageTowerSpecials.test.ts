@@ -35,7 +35,7 @@ function createContext(
     hasPartyPokemon: () => true,
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: () => {},
+    queueWarp: async () => {},
     forcePlayerStep: () => {},
     delayFrames: async (frames) => {
       delayFramesCalls.push(frames);

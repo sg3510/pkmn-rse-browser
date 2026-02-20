@@ -31,6 +31,7 @@ import { decodeGen3String } from './Gen3Charset.ts';
 import { mapGroupNumToMapId } from './mapResolver.ts';
 import { parseParty } from './Gen3Pokemon.ts';
 import { FLAG_ID_TO_NAME, VAR_ID_TO_NAME } from '../../data/flagVarMaps.gen.ts';
+import { clampFlashLevel } from '../../game/flash/FlashController.ts';
 import type {
   SaveData,
   PlayerProfile,
@@ -1011,10 +1012,18 @@ export function parseGen3Save(
     sectionSizes,
     (o) => data.getInt16(o, true)
   );
+  const flashLevel = clampFlashLevel(readFromSaveBlock1(
+    data,
+    selectedSaveBlock1.FLASH_LEVEL,
+    activeSectionMap,
+    sectionSizes,
+    (o) => data.getUint8(o)
+  ));
 
   // Location warp
   const locationWarp = readWarpData(data, selectedSaveBlock1.LOCATION_WARP, activeSectionMap, sectionSizes);
   const continueGameWarp = readWarpData(data, selectedSaveBlock1.CONTINUE_GAME_WARP, activeSectionMap, sectionSizes);
+  const dynamicWarp = readWarpData(data, selectedSaveBlock1.DYNAMIC_WARP_1, activeSectionMap, sectionSizes);
   const lastHealLocation = readWarpData(data, selectedSaveBlock1.LAST_HEAL_LOCATION, activeSectionMap, sectionSizes);
   const escapeWarp = readWarpData(data, selectedSaveBlock1.ESCAPE_WARP, activeSectionMap, sectionSizes);
 
@@ -1170,12 +1179,14 @@ export function parseGen3Save(
     pos: { x: posX, y: posY },
     location: locationWarp ?? defaultWarp,
     continueGameWarp: continueGameWarp ?? defaultWarp,
+    dynamicWarp: dynamicWarp ?? continueGameWarp ?? defaultWarp,
     lastHealLocation: lastHealLocation ?? defaultWarp,
     escapeWarp: escapeWarp ?? defaultWarp,
     direction: 'down', // Default direction (TODO: parse from save)
     elevation: 3, // Default elevation
     isSurfing: false,
     isUnderwater: false,
+    flashLevel,
     bikeMode: 'none',
     isRidingBike: false,
   };

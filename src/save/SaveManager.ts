@@ -29,6 +29,7 @@ import {
   type SaveSlotInfo,
   type SaveResult,
   type LocationState,
+  type WarpData,
   type PlayTime,
   type PlayerProfile,
   type GameOptions,
@@ -51,6 +52,17 @@ import { saveStateStore } from './SaveStateStore';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
 import { berryManager, isValidBerryEpochTimestamp } from '../game/berry/BerryManager.ts';
 import { buildLocationState } from '../world/locationStateFactory';
+import {
+  clearDynamicWarpTarget,
+  getDynamicWarpTarget,
+  setDynamicWarpTarget,
+} from '../game/DynamicWarp';
+import {
+  clearFixedEscapeWarpTarget,
+  getFixedEscapeWarpTarget,
+  setFixedEscapeWarpTarget,
+} from '../game/FixedEscapeWarp';
+import { clampFlashLevel } from '../game/flash/FlashController';
 
 /**
  * Number of save slots available (like Pokemon has 1 main save + backup)
@@ -65,9 +77,109 @@ function getSlotKey(slot: number): string {
   return `${SAVE_STORAGE_KEY}-slot-${slot}`;
 }
 
+const DEFAULT_FALLBACK_WARP: WarpData = {
+  mapId: 'MAP_LITTLEROOT_TOWN',
+  warpId: 0,
+  x: 5,
+  y: 3,
+};
+
+function normalizeWarpData(warp: Partial<WarpData> | null | undefined, fallback: WarpData): WarpData {
+  const rawWarpId = typeof warp?.warpId === 'number' ? warp.warpId : Number.NaN;
+  const rawX = typeof warp?.x === 'number' ? warp.x : Number.NaN;
+  const rawY = typeof warp?.y === 'number' ? warp.y : Number.NaN;
+  const mapId = typeof warp?.mapId === 'string' && warp.mapId.length > 0
+    ? warp.mapId
+    : fallback.mapId;
+  const warpId = Number.isFinite(rawWarpId) ? Math.trunc(rawWarpId) : fallback.warpId;
+  const x = Number.isFinite(rawX) ? Math.trunc(rawX) : fallback.x;
+  const y = Number.isFinite(rawY) ? Math.trunc(rawY) : fallback.y;
+  return { mapId, warpId, x, y };
+}
+
+function normalizeLocationWarpBuffers(
+  location: LocationState & { isUnderwater?: boolean; bikeMode?: 'none' | 'mach' | 'acro'; isRidingBike?: boolean }
+): void {
+  const locationWarp = normalizeWarpData(location.location, DEFAULT_FALLBACK_WARP);
+  const continueWarp = normalizeWarpData(location.continueGameWarp, locationWarp);
+
+  location.location = locationWarp;
+  location.continueGameWarp = continueWarp;
+  location.dynamicWarp = normalizeWarpData(location.dynamicWarp, continueWarp);
+  location.lastHealLocation = normalizeWarpData(location.lastHealLocation, DEFAULT_FALLBACK_WARP);
+  location.escapeWarp = normalizeWarpData(location.escapeWarp, location.lastHealLocation);
+}
+
+function syncRuntimeWarpBuffersFromLocation(
+  location: LocationState
+): void {
+  if (location.dynamicWarp.mapId) {
+    setDynamicWarpTarget(
+      location.dynamicWarp.mapId,
+      location.dynamicWarp.x,
+      location.dynamicWarp.y,
+      location.dynamicWarp.warpId
+    );
+  } else {
+    clearDynamicWarpTarget();
+  }
+
+  if (location.escapeWarp.mapId) {
+    setFixedEscapeWarpTarget(
+      location.escapeWarp.mapId,
+      location.escapeWarp.x,
+      location.escapeWarp.y,
+      location.escapeWarp.warpId
+    );
+  } else {
+    clearFixedEscapeWarpTarget();
+  }
+}
+
+function withRuntimeWarpBufferFallbacks(locationState: LocationState): LocationState {
+  const dynamicWarpTarget = getDynamicWarpTarget();
+  const escapeWarpTarget = getFixedEscapeWarpTarget();
+  const continueWarp = normalizeWarpData(locationState.continueGameWarp, DEFAULT_FALLBACK_WARP);
+  const locationWarp = normalizeWarpData(locationState.location, continueWarp);
+  const lastHealWarp = normalizeWarpData(locationState.lastHealLocation, DEFAULT_FALLBACK_WARP);
+
+  return {
+    ...locationState,
+    location: locationWarp,
+    continueGameWarp: continueWarp,
+    dynamicWarp: normalizeWarpData(
+      locationState.dynamicWarp
+        ?? (dynamicWarpTarget
+          ? {
+              mapId: dynamicWarpTarget.mapId,
+              warpId: dynamicWarpTarget.warpId,
+              x: dynamicWarpTarget.x,
+              y: dynamicWarpTarget.y,
+            }
+          : continueWarp),
+      continueWarp
+    ),
+    lastHealLocation: lastHealWarp,
+    escapeWarp: normalizeWarpData(
+      locationState.escapeWarp
+        ?? (escapeWarpTarget
+          ? {
+              mapId: escapeWarpTarget.mapId,
+              warpId: escapeWarpTarget.warpId,
+              x: escapeWarpTarget.x,
+              y: escapeWarpTarget.y,
+            }
+          : lastHealWarp),
+      lastHealWarp
+    ),
+  };
+}
+
 function normalizeLocationTraversal(
   location: LocationState & { isUnderwater?: boolean; bikeMode?: 'none' | 'mach' | 'acro'; isRidingBike?: boolean }
 ): void {
+  normalizeLocationWarpBuffers(location);
+  location.flashLevel = clampFlashLevel(location.flashLevel ?? 0);
   if (typeof location.isUnderwater !== 'boolean') {
     location.isUnderwater = false;
   }
@@ -310,6 +422,7 @@ class SaveManagerClass {
 
       const locationWithMigration = data.location as LocationState & { isUnderwater?: boolean };
       normalizeLocationTraversal(locationWithMigration);
+      syncRuntimeWarpBuffersFromLocation(locationWithMigration);
 
       // Prefer raw event state if present so unknown IDs are preserved.
       if (Array.isArray(data.rawFlags) && Array.isArray(data.rawVars)) {
@@ -422,12 +535,15 @@ class SaveManagerClass {
     berryState.lastUpdateTimestamp = Date.now();
     berryState.lastUpdateTimestampDomain = 'epoch-ms';
 
+    const normalizedLocationState = withRuntimeWarpBufferFallbacks(locationState);
+    normalizedLocationState.flashLevel = clampFlashLevel(normalizedLocationState.flashLevel ?? 0);
+
     const saveData: SaveData = {
       version: SAVE_VERSION,
       timestamp: Date.now(),
       profile: this.profile,
       playTime: this.playTime,
-      location: locationState,
+      location: normalizedLocationState,
       flags: gameFlags.getAllFlags(),
       rawFlags: saveStateStore.getRawFlags(),
       vars: gameVariables.getAllVars(),
@@ -449,7 +565,7 @@ class SaveManagerClass {
       const key = getSlotKey(slot);
       localStorage.setItem(key, JSON.stringify(saveData));
       this.activeSlot = slot;
-      this.currentMapId = locationState.location.mapId;
+      this.currentMapId = normalizedLocationState.location.mapId;
       console.log(`[SaveManager] Saved to slot ${slot}`);
       return { success: true };
     } catch (err) {

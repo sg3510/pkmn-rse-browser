@@ -8,14 +8,20 @@
 
 export interface DynamicWarpTarget {
   mapId: string;
+  warpId: number;
   x: number;
   y: number;
 }
 
 let dynamicWarpTarget: DynamicWarpTarget | null = null;
 
-export function setDynamicWarpTarget(mapId: string, x: number, y: number): void {
-  dynamicWarpTarget = { mapId, x, y };
+export function setDynamicWarpTarget(mapId: string, x: number, y: number, warpId: number = 0): void {
+  dynamicWarpTarget = {
+    mapId,
+    warpId,
+    x,
+    y,
+  };
 }
 
 export function getDynamicWarpTarget(): DynamicWarpTarget | null {
@@ -25,4 +31,3 @@ export function getDynamicWarpTarget(): DynamicWarpTarget | null {
 export function clearDynamicWarpTarget(): void {
   dynamicWarpTarget = null;
 }
-

@@ -133,6 +133,8 @@ export const SAVEBLOCK1 = {
 
   /** Saved map view position */
   SAVED_MAP_VIEW: 0x2C,
+  /** Cave darkness/flash level (0=bright, 8=black) */
+  FLASH_LEVEL: 0x30, // u8
 
   /** Party Pokemon count */
   PARTY_COUNT: 0x234, // u32

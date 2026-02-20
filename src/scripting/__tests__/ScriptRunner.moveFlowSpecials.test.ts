@@ -45,7 +45,7 @@ function createContext(
       partyRef.party = [...nextParty];
     },
     startFirstBattle: async () => {},
-    queueWarp: () => {},
+    queueWarp: async () => {},
     forcePlayerStep: () => {},
     delayFrames: async () => {},
     movePlayer: async () => {},

@@ -8,6 +8,7 @@
 import { gameFlags } from './GameFlags.ts';
 import { gameVariables, GAME_VARS } from './GameVariables.ts';
 import { clearDynamicWarpTarget } from './DynamicWarp.ts';
+import { clearFixedEscapeWarpTarget } from './FixedEscapeWarp.ts';
 import { clearFixedHoleWarpTarget } from './FixedHoleWarp.ts';
 import { resetDynamicObjectGfxVars } from './DynamicObjectGfx.ts';
 import { NEW_GAME_FLAGS } from '../data/newGameFlags.gen.ts';
@@ -19,6 +20,7 @@ export function initializeNewGameStoryState(): void {
   gameFlags.reset();
   gameVariables.reset();
   clearDynamicWarpTarget();
+  clearFixedEscapeWarpTarget();
   clearFixedHoleWarpTarget();
   resetDynamicObjectGfxVars();
 

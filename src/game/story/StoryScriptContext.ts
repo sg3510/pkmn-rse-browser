@@ -47,7 +47,7 @@ export interface StoryScriptContext {
     y: number,
     direction: ScriptDirection,
     options?: { style?: 'default' | 'fall' }
-  ) => void;
+  ) => Promise<void>;
   forcePlayerStep: (direction: ScriptDirection) => void;
   delayFrames: (frames: number) => Promise<void>;
   movePlayer: (direction: ScriptDirection, mode?: ScriptMoveMode) => Promise<void>;
@@ -126,8 +126,10 @@ export interface StoryScriptContext {
   setCyclingRoadChallengeActive?: (active: boolean) => void;
   /** Current cycling-road collision count from player runtime. */
   getCyclingRoadChallengeCollisions?: () => number;
-  /** Set flash/darkness level (0=bright, 7=darkest) for Dewford Gym etc. */
+  /** Set flash/darkness level (0=bright, 8=fully black) for caves/Dewford Gym. */
   setFlashLevel?: (level: number) => void;
+  /** Animate the darkness radius toward the target level without persisting it. */
+  animateFlashLevel?: (level: number) => Promise<void>;
   /** Get metatile ID at a map-local tile position (used by gym puzzle specials) */
   getMapMetatile?: (mapId: string, tileX: number, tileY: number) => number;
   /** Get all NPC local IDs on a given map (used by rotating tile puzzle) */

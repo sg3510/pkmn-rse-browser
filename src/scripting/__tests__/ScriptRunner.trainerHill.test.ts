@@ -45,7 +45,7 @@ function createContext(
     hasPartyPokemon: () => true,
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: () => {},
+    queueWarp: async () => {},
     forcePlayerStep: () => {},
     delayFrames: async () => {},
     movePlayer: async () => {},
@@ -141,7 +141,7 @@ test('ground-floor entry scripts do not mis-warp from stale state', async () => 
 
   const queuedWarps: Array<{ mapId: string; x: number; y: number; direction: 'up' | 'down' | 'left' | 'right' }> = [];
   const ctx = createContext({
-    queueWarp: (mapId, x, y, direction) => {
+    queueWarp: async (mapId, x, y, direction) => {
       queuedWarps.push({ mapId, x, y, direction });
     },
   });

@@ -46,7 +46,7 @@ type AssertSameKeys<A, B, Keys extends keyof A & keyof B> = {
 type _CheckBaseMapInstance = AssertSameKeys<
   WMLoadedMapInstance,
   ILoadedMapInstance,
-  'entry' | 'mapData' | 'offsetX' | 'offsetY' | 'borderMetatiles' | 'warpEvents'
+  'entry' | 'mapData' | 'offsetX' | 'offsetY' | 'borderMetatiles' | 'warpEvents' | 'mapRequiresFlash'
 >;
 
 // WorldManager's LoadedMapInstance should be assignable to IWebGLMapInstance
@@ -55,7 +55,15 @@ type _CheckWebGLMapInstance = AssertAssignable<WMLoadedMapInstance, IWebGLMapIns
 // Verify the assertions pass (will be `true` if types match)
 // Using these in an array silences "declared but never used" warnings
 const _mapInstanceCheck: _CheckWebGLMapInstance = true;
-const _baseMapInstanceCheck: _CheckBaseMapInstance = { entry: true, mapData: true, offsetX: true, offsetY: true, borderMetatiles: true, warpEvents: true };
+const _baseMapInstanceCheck: _CheckBaseMapInstance = {
+  entry: true,
+  mapData: true,
+  offsetX: true,
+  offsetY: true,
+  borderMetatiles: true,
+  warpEvents: true,
+  mapRequiresFlash: true,
+};
 
 // =============================================================================
 // WorldSnapshot vs IWebGLWorldState

@@ -7,6 +7,7 @@
 
 import { loadText } from '../utils/mapLoader';
 import type { ObjectEventData } from '../types/objectEvents';
+import { parseMapRequiresFlash } from './mapRequiresFlash';
 
 const PROJECT_ROOT = '/pokeemerald';
 
@@ -71,7 +72,10 @@ export interface MapEventsData {
   bgEvents: BgEvent[];
   mapWeather: string | null;
   mapAllowCycling: boolean;
+  mapRequiresFlash: boolean;
 }
+
+export { parseMapRequiresFlash } from './mapRequiresFlash';
 
 /**
  * Parse warp events from raw JSON array
@@ -216,6 +220,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
     const data = JSON.parse(jsonText) as {
       weather?: unknown;
       allow_cycling?: unknown;
+      requires_flash?: unknown;
       warp_events?: Array<Record<string, unknown>>;
       object_events?: Array<Record<string, unknown>>;
       coord_events?: Array<Record<string, unknown>>;
@@ -234,6 +239,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       bgEvents: parseBgEvents(bgEventsRaw),
       mapWeather: typeof data.weather === 'string' ? data.weather : null,
       mapAllowCycling: data.allow_cycling !== false,
+      mapRequiresFlash: parseMapRequiresFlash(data.requires_flash),
     };
   } catch {
     return {
@@ -243,6 +249,7 @@ export async function loadMapEvents(mapFolder: string): Promise<MapEventsData> {
       bgEvents: [],
       mapWeather: null,
       mapAllowCycling: true,
+      mapRequiresFlash: false,
     };
   }
 }

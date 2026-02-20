@@ -15,6 +15,7 @@ import { gameFlags } from '../game/GameFlags.ts';
 import { gameVariables } from '../game/GameVariables.ts';
 import { setDynamicWarpTarget } from '../game/DynamicWarp.ts';
 import { setFixedDiveWarpTarget } from '../game/FixedDiveWarp.ts';
+import { setFixedEscapeWarpTarget } from '../game/FixedEscapeWarp.ts';
 import { getFixedHoleWarpTarget, setFixedHoleWarpTarget } from '../game/FixedHoleWarp.ts';
 import {
   setDynamicObjectGfxVar,
@@ -28,6 +29,7 @@ import { moneyManager } from '../game/MoneyManager.ts';
 import { saveStateStore } from '../save/SaveStateStore.ts';
 import { menuStateManager } from '../menu/MenuStateManager.ts';
 import { isTrainerDefeated, setTrainerDefeated, clearTrainerDefeated } from './trainerFlags.ts';
+import { clampFlashLevel } from '../game/flash/FlashController.ts';
 import { MOVES, getMoveInfo, getMoveName } from '../data/moves.ts';
 import { PARTY_SIZE, STATUS, type PartyPokemon } from '../pokemon/types.ts';
 import { getRelearnableMoves, runMoveLearningSequence } from '../pokemon/moveLearning.ts';
@@ -1950,9 +1952,11 @@ export class ScriptRunner {
 
         case 'setdynamicwarp': {
           const mapId = args[0] as string;
-          const x = asNumber(args[1]);
-          const y = asNumber(args[2]);
-          setDynamicWarpTarget(mapId, x, y);
+          const hasExplicitWarpId = args.length > 3;
+          const warpId = hasExplicitWarpId ? asNumber(args[1]) : 0;
+          const x = hasExplicitWarpId ? asNumber(args[2]) : asNumber(args[1]);
+          const y = hasExplicitWarpId ? asNumber(args[3]) : asNumber(args[2]);
+          setDynamicWarpTarget(mapId, x, y, warpId);
           break;
         }
 
@@ -1975,6 +1979,21 @@ export class ScriptRunner {
                 setFixedDiveWarpTarget(targetMapId, targetX, targetY, targetWarpId);
               });
             setDiveWarp(mapId, x, y, warpId);
+          }
+          break;
+        }
+
+        case 'setescapewarp': {
+          const mapId = asString(args[0]);
+          if (mapId && mapId !== 'MAP_UNDEFINED') {
+            // formatwarp parity:
+            // - setescapewarp MAP, x, y
+            // - setescapewarp MAP, warpId, x, y
+            const hasExplicitWarpId = args.length > 3;
+            const warpId = hasExplicitWarpId ? asNumber(args[1]) : 0;
+            const x = hasExplicitWarpId ? asNumber(args[2]) : asNumber(args[1]);
+            const y = hasExplicitWarpId ? asNumber(args[3]) : asNumber(args[2]);
+            setFixedEscapeWarpTarget(mapId, x, y, warpId);
           }
           break;
         }
@@ -2973,9 +2992,9 @@ export class ScriptRunner {
           break;
         }
 
-        // --- setflashlevel: set darkness radius (0=bright, 7=darkest) ---
+        // --- setflashlevel: set darkness level (0=bright, 8=fully black) ---
         case 'setflashlevel': {
-          const level = asNumber(args[0]);
+          const level = clampFlashLevel(asNumber(args[0]));
           if (this.ctx.setFlashLevel) {
             this.ctx.setFlashLevel(level);
           }
@@ -2984,11 +3003,15 @@ export class ScriptRunner {
 
         // --- animateflash: animate flash level transition ---
         case 'animateflash': {
-          const targetLevel = asNumber(args[0]);
-          if (this.ctx.setFlashLevel) {
+          const targetLevel = clampFlashLevel(asNumber(args[0]));
+          if (this.ctx.animateFlashLevel) {
+            await this.ctx.animateFlashLevel(targetLevel);
+          } else if (this.ctx.setFlashLevel) {
             this.ctx.setFlashLevel(targetLevel);
+            await this.ctx.delayFrames(16);
+          } else {
+            await this.ctx.delayFrames(16);
           }
-          await this.ctx.delayFrames(16);
           break;
         }
 
@@ -3560,6 +3583,18 @@ export class ScriptRunner {
         // Rematch system not implemented — always return FALSE (0).
         // Prevents gym leaders and 70+ rematchable trainers from
         // incorrectly entering the rematch branch after initial defeat.
+        return 0;
+      case 'InitUnionRoom':
+        // Wireless subsystem is not modeled; scripts only need this to succeed.
+        return undefined;
+      case 'CountPlayerTrainerStars':
+        // Full trainer-card star accounting is not tracked yet.
+        return 0;
+      case 'PlayerNotAtTrainerHillEntrance':
+        return this.currentMapId === 'MAP_TRAINER_HILL_ENTRANCE' ? 0 : 1;
+      case 'BufferUnionRoomPlayerName':
+        // No wireless peers in single-player runtime.
+        stringVars['STR_VAR_1'] = '';
         return 0;
       case 'PlayTrainerEncounterMusic':
         // Music routing is handled by the field audio subsystem outside ScriptRunner.

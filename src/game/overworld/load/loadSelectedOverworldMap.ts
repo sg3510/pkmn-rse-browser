@@ -21,6 +21,8 @@ import type { LocationState } from '../../../save/types';
 import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
 import { runMapEntryScripts } from '../../../scripting/mapHooks/runMapEntryScripts';
 import { isDebugMode } from '../../../utils/debug';
+import { gameFlags } from '../../GameFlags';
+import { tryUnlockInput } from '../inputLock/scriptWarpInputGuard';
 
 interface MutableRef<T> {
   current: T;
@@ -28,8 +30,17 @@ interface MutableRef<T> {
 
 interface PendingScriptedWarpLike {
   mapId: string;
+  x: number;
+  y: number;
+  direction: 'up' | 'down' | 'left' | 'right';
   phase: 'pending' | 'fading' | 'loading';
   style?: 'default' | 'fall';
+  completion?: {
+    promise: Promise<void>;
+    resolve: () => void;
+    reject: (error?: unknown) => void;
+    settled: boolean;
+  };
 }
 
 type PendingOverworldEntryReason = 'continue' | 'new-game' | 'state-transition';
@@ -63,6 +74,7 @@ export interface LoadSelectedOverworldMapParams {
   warpingRef: MutableRef<boolean>;
   playerHiddenRef: MutableRef<boolean>;
   storyScriptRunningRef: MutableRef<boolean>;
+  mapEntryCutsceneGateRef: MutableRef<boolean>;
   mapScriptCacheRef: MutableRef<Map<string, unknown> | null>;
   lastCoordTriggerTileRef: MutableRef<{ mapId: string; x: number; y: number } | null>;
   lastPlayerMapIdRef: MutableRef<string | null>;
@@ -87,6 +99,9 @@ export interface LoadSelectedOverworldMapParams {
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   scriptRuntimeServices?: ScriptRuntimeServices;
+  setDefaultFlashLevel?: (input: { mapRequiresFlash: boolean; hasFlashFlag: boolean }) => void;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
 }
 
 export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams): () => void {
@@ -109,6 +124,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     warpingRef,
     playerHiddenRef,
     storyScriptRunningRef,
+    mapEntryCutsceneGateRef,
     mapScriptCacheRef,
     lastCoordTriggerTileRef,
     lastPlayerMapIdRef,
@@ -127,6 +143,9 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     initializeWorldFromSnapshot,
     setMapMetatile,
     scriptRuntimeServices,
+    setDefaultFlashLevel,
+    setFlashLevel,
+    animateFlashLevel,
   } = params;
 
   let cancelled = false;
@@ -313,6 +332,21 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         )
           ? 'return-to-field'
           : 'warp';
+
+        const shouldRestoreSavedFlash = Boolean(
+          savedLocation
+          && (pendingEntryReason === 'state-transition' || pendingEntryReason === 'continue')
+        );
+        if (shouldRestoreSavedFlash) {
+          setFlashLevel?.(savedLocation?.flashLevel ?? 0);
+        } else {
+          const currentMap = snapshot.maps.find((map) => map.entry.id === playerMapId) ?? null;
+          setDefaultFlashLevel?.({
+            mapRequiresFlash: currentMap?.mapRequiresFlash ?? false,
+            hasFlashFlag: gameFlags.isSet('FLAG_SYS_USE_FLASH'),
+          });
+        }
+
         await runMapEntryScripts({
           currentMapId: playerMapId,
           snapshot,
@@ -328,6 +362,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
             : undefined,
           scriptRuntimeServices,
           mode: mapEntryMode,
+          setFlashLevel,
+          animateFlashLevel,
         });
 
         if (pendingObjectEventRuntimeState) {
@@ -342,9 +378,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
         );
 
         playerHiddenRef.current = false;
-        if (!completingScriptedWarpLoad) {
-          storyScriptRunningRef.current = false;
-        }
+        mapEntryCutsceneGateRef.current = true;
 
         if (completingScriptedWarpLoad && scriptedWarp) {
           // Pre-seed the warp handler's last checked tile so the warp detector
@@ -365,7 +399,13 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           && !warpingRef.current
         );
         if (shouldUnlockInput) {
-          player.unlockInput();
+          tryUnlockInput(player, {
+            warpingRef,
+            storyScriptRunningRef,
+            dialogIsOpenRef: { current: false },
+            pendingScriptedWarpRef,
+            mapEntryCutsceneGateRef,
+          });
         }
       }
 
@@ -374,11 +414,19 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
       if (!cancelled) {
         const scriptedWarp = pendingScriptedWarpRef.current;
         if (scriptedWarp && scriptedWarp.mapId === entry.id) {
+          if (scriptedWarp.completion && !scriptedWarp.completion.settled) {
+            scriptedWarp.completion.settled = true;
+            scriptedWarp.completion.reject(error);
+          }
           pendingScriptedWarpRef.current = null;
           warpingRef.current = false;
-          if (!storyScriptRunningRef.current && !pendingScriptedWarpRef.current) {
-            playerRef.current?.unlockInput();
-          }
+          tryUnlockInput(playerRef.current, {
+            warpingRef,
+            storyScriptRunningRef,
+            dialogIsOpenRef: { current: false },
+            pendingScriptedWarpRef,
+            mapEntryCutsceneGateRef,
+          });
         }
 
         setStats((stats) => ({

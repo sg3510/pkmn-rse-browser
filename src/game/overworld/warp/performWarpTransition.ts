@@ -17,6 +17,8 @@ import { handleSpecialWarpArrival } from '../../SpecialWarpBehaviorRegistry';
 import type { ScriptRuntimeServices } from '../../../scripting/ScriptRunner';
 import { isSurfableBehavior } from '../../../utils/metatileBehaviors';
 import { isDebugMode } from '../../../utils/debug';
+import { maybePrimeDynamicWarpReturn } from './dynamicWarpParity';
+import { gameFlags } from '../../GameFlags';
 
 interface MutableRef<T> {
   current: T;
@@ -47,11 +49,14 @@ export interface PerformWarpTransitionParams {
   resolverVersion: number;
   setLastCoordTriggerTile: (tile: { mapId: string; x: number; y: number }) => void;
   warpingRef: MutableRef<boolean>;
-  resolveDynamicWarpTarget: () => { mapId: string; x: number; y: number } | null;
+  resolveDynamicWarpTarget: () => { mapId: string; warpId: number; x: number; y: number } | null;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
   /** Pre-populate frame table cache so ON_FRAME scripts fire on the first frame */
   mapScriptCache?: Map<string, MapScriptData | null>;
   scriptRuntimeServices?: ScriptRuntimeServices;
+  setDefaultFlashLevel?: (input: { mapRequiresFlash: boolean; hasFlashFlag: boolean }) => void;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
   /** Called after a warp completes with the new anchor map ID */
   onMapChanged?: (mapId: string) => void;
 }
@@ -92,6 +97,9 @@ export async function performWarpTransition(
     setMapMetatile,
     mapScriptCache,
     scriptRuntimeServices,
+    setDefaultFlashLevel,
+    setFlashLevel,
+    animateFlashLevel,
     onMapChanged,
   } = params;
 
@@ -102,19 +110,29 @@ export async function performWarpTransition(
   }
 
   let destMapId = trigger.warpEvent.destMap;
-  let dynamicWarpOverride: { x: number; y: number } | null = null;
+  let resolvedDestWarpId = trigger.warpEvent.destWarpId;
+  let dynamicWarpFallbackCoords: { x: number; y: number } | null = null;
+  let hasValidDynamicWarpWarpId = true;
 
   if (destMapId === 'MAP_DYNAMIC') {
     const dynamicWarp = resolveDynamicWarpTarget();
     if (!dynamicWarp) {
       console.warn('[WARP] MAP_DYNAMIC encountered, but no dynamic warp target is set.');
+      fadeController.startFadeIn(1, performance.now());
+      warpHandler.setInProgress(false);
       warpingRef.current = false;
       return { managesInputUnlock: false };
     }
 
     destMapId = dynamicWarp.mapId;
-    dynamicWarpOverride = { x: dynamicWarp.x, y: dynamicWarp.y };
+    resolvedDestWarpId = dynamicWarp.warpId;
+    dynamicWarpFallbackCoords = { x: dynamicWarp.x, y: dynamicWarp.y };
   }
+
+  const sourcePlayerLocalPosition = {
+    x: player.tileX - trigger.sourceMap.offsetX,
+    y: player.tileY - trigger.sourceMap.offsetY,
+  };
 
   const priorFacing = player.getFacingDirection();
   const priorBikeMode = player.getBikeMode();
@@ -155,6 +173,36 @@ export async function performWarpTransition(
       return { managesInputUnlock: false };
     }
 
+    if (trigger.warpEvent.destMap !== 'MAP_DYNAMIC') {
+      maybePrimeDynamicWarpReturn(
+        trigger.sourceMap.entry.id,
+        trigger.warpEvent,
+        trigger.sourceMap.warpEvents,
+        sourcePlayerLocalPosition,
+        destMap.warpEvents
+      );
+    }
+
+    if (dynamicWarpFallbackCoords) {
+      hasValidDynamicWarpWarpId = Number.isInteger(resolvedDestWarpId)
+        && resolvedDestWarpId >= 0
+        && resolvedDestWarpId < destMap.warpEvents.length;
+    }
+
+    const effectiveTrigger: WarpTrigger = (
+      trigger.warpEvent.destMap === destMapId
+      && trigger.warpEvent.destWarpId === resolvedDestWarpId
+    )
+      ? trigger
+      : {
+          ...trigger,
+          warpEvent: {
+            ...trigger.warpEvent,
+            destMap: destMapId,
+            destWarpId: resolvedDestWarpId,
+          },
+        };
+
     const renderContext = getRenderContextFromSnapshot(snapshot);
 
     const warpDeps: WarpExecutorDeps = {
@@ -186,7 +234,7 @@ export async function performWarpTransition(
       },
     };
 
-    executeWarp(warpDeps, trigger, destination, {
+    executeWarp(warpDeps, effectiveTrigger, destination, {
       ...options,
       priorFacing,
     });
@@ -195,7 +243,7 @@ export async function performWarpTransition(
       const currentResolved = destination.resolveTileAt(player.tileX, player.tileY);
       const currentBehavior = currentResolved?.attributes?.behavior ?? -1;
       const arrivalResult = handleSpecialWarpArrival({
-        trigger,
+        trigger: effectiveTrigger,
         destinationBehavior: currentBehavior,
         now: performance.now(),
         player,
@@ -206,10 +254,17 @@ export async function performWarpTransition(
       managesVisibility = arrivalResult.managesVisibility;
     }
 
-    if (dynamicWarpOverride) {
-      player.setPosition(dynamicWarpOverride.x, dynamicWarpOverride.y);
-      // Dynamic warp overrides the warp-event position; cancel any door-exit
-      // that executeWarp started for the fallback warp-event tile.
+    if (
+      dynamicWarpFallbackCoords
+      && !hasValidDynamicWarpWarpId
+      && dynamicWarpFallbackCoords.x >= 0
+      && dynamicWarpFallbackCoords.y >= 0
+    ) {
+      player.setPosition(dynamicWarpFallbackCoords.x, dynamicWarpFallbackCoords.y);
+      warpHandler.completeWarp(destMap.entry.id, dynamicWarpFallbackCoords.x, dynamicWarpFallbackCoords.y);
+      warpHandler.setCooldown(350);
+      // Dynamic warp with invalid warpId falls back to explicit coords. Cancel
+      // any door-exit that executeWarp started for the fallback warp-event tile.
       // The script (e.g. StepOffTruckMale) handles player movement instead.
       if (doorSequencer.isExitActive()) {
         doorSequencer.reset();
@@ -250,6 +305,12 @@ export async function performWarpTransition(
       y: player.tileY,
     });
 
+    const currentMap = snapshot.maps.find((map) => map.entry.id === currentMapId) ?? destMap;
+    setDefaultFlashLevel?.({
+      mapRequiresFlash: currentMap.mapRequiresFlash,
+      hasFlashFlag: gameFlags.isSet('FLAG_SYS_USE_FLASH'),
+    });
+
     // Run generated ON_LOAD, ON_TRANSITION, and ON_WARP_INTO scripts for the destination map.
     await runMapEntryScripts({
       currentMapId,
@@ -263,6 +324,8 @@ export async function performWarpTransition(
       mapScriptCache,
       setMapMetatile,
       scriptRuntimeServices,
+      setFlashLevel,
+      animateFlashLevel,
     });
 
     if (!managesVisibility) {

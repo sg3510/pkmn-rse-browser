@@ -106,6 +106,7 @@ export interface LoadedMapInstance {
   bgEvents: BgEvent[];  // Background events (signs, hidden items) from map.json
   mapWeather: string | null;  // Map default weather from map.json
   mapAllowCycling: boolean;  // Map allow_cycling flag from map.json
+  mapRequiresFlash: boolean;  // Map requires_flash flag from map.json
 }
 
 /**
@@ -974,6 +975,7 @@ export class WorldManager {
         bgEvents: mapEvents.bgEvents,
         mapWeather: mapEvents.mapWeather,
         mapAllowCycling: mapEvents.mapAllowCycling,
+        mapRequiresFlash: mapEvents.mapRequiresFlash,
       };
 
       this.maps.set(entry.id, mapInstance);

@@ -17,6 +17,8 @@ interface CreateMapScriptRunnerContextParams {
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
   lastUsedWarpMapType?: string | null;
   lastUsedWarpMapId?: string | null;
+  setFlashLevel?: (level: number) => void;
+  animateFlashLevel?: (level: number) => Promise<void>;
 }
 
 export function createMapScriptRunnerContext(
@@ -31,6 +33,8 @@ export function createMapScriptRunnerContext(
     setMapMetatile,
     lastUsedWarpMapType = null,
     lastUsedWarpMapId = null,
+    setFlashLevel,
+    animateFlashLevel,
   } = params;
 
   const mapLocalToWorld = (
@@ -59,7 +63,7 @@ export function createMapScriptRunnerContext(
     hasPartyPokemon: () => saveManager.hasParty(),
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: () => {},
+    queueWarp: async () => Promise.resolve(),
     forcePlayerStep: () => {},
     delayFrames: async () => {},
     movePlayer: async () => {},
@@ -130,5 +134,7 @@ export function createMapScriptRunnerContext(
       player.setCyclingRoadChallengeActive(active);
     },
     getCyclingRoadChallengeCollisions: () => player.getCyclingRoadChallengeCollisions(),
+    setFlashLevel,
+    animateFlashLevel,
   };
 }

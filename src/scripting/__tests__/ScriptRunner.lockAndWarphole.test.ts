@@ -4,6 +4,14 @@ import { ScriptRunner } from '../ScriptRunner.ts';
 import type { MapScriptData, ScriptCommand } from '../../data/scripts/types.ts';
 import type { StoryScriptContext } from '../../game/NewGameFlow.ts';
 import { gameVariables } from '../../game/GameVariables.ts';
+import {
+  clearDynamicWarpTarget,
+  getDynamicWarpTarget,
+} from '../../game/DynamicWarp.ts';
+import {
+  clearFixedEscapeWarpTarget,
+  getFixedEscapeWarpTarget,
+} from '../../game/FixedEscapeWarp.ts';
 
 interface QueueWarpCall {
   mapId: string;
@@ -42,7 +50,7 @@ function createContext(
     hasPartyPokemon: () => true,
     setParty: () => {},
     startFirstBattle: async () => {},
-    queueWarp: (mapId, x, y, direction, options) => {
+    queueWarp: async (mapId, x, y, direction, options) => {
       queueWarpCalls.push({ mapId, x, y, direction, style: options?.style });
     },
     forcePlayerStep: () => {},
@@ -174,6 +182,69 @@ test('warphole uses (-1,-1) fallback when no local position is available', async
   assert.deepEqual(queueWarpCalls, [
     { mapId: 'MAP_ROUTE111', x: -1, y: -1, direction: 'down', style: 'fall' },
   ]);
+});
+
+test('setescapewarp stores fixed escape warp target (x/y form)', async () => {
+  clearFixedEscapeWarpTarget();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setescapewarp', args: ['MAP_ROUTE112', 28, 28] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_ROUTE112_CABLE_CAR_STATION');
+  await runner.execute('Main');
+
+  assert.deepEqual(getFixedEscapeWarpTarget(), {
+    mapId: 'MAP_ROUTE112',
+    warpId: 0,
+    x: 28,
+    y: 28,
+  });
+});
+
+test('setescapewarp stores fixed escape warp target (warpId/x/y form)', async () => {
+  clearFixedEscapeWarpTarget();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setescapewarp', args: ['MAP_ROUTE112', 7, 28, 28] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_ROUTE112_CABLE_CAR_STATION');
+  await runner.execute('Main');
+
+  assert.deepEqual(getFixedEscapeWarpTarget(), {
+    mapId: 'MAP_ROUTE112',
+    warpId: 7,
+    x: 28,
+    y: 28,
+  });
+});
+
+test('setdynamicwarp stores dynamic warp target (warpId/x/y form)', async () => {
+  clearDynamicWarpTarget();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setdynamicwarp', args: ['MAP_ROUTE112', 7, 28, 28] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_ROUTE112_CABLE_CAR_STATION');
+  await runner.execute('Main');
+
+  assert.deepEqual(getDynamicWarpTarget(), {
+    mapId: 'MAP_ROUTE112',
+    warpId: 7,
+    x: 28,
+    y: 28,
+  });
 });
 
 test('setmaplayoutindex forwards layout ID to context handler when available', async () => {

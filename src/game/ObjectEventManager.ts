@@ -20,6 +20,7 @@ import {
   type ObjectEventData,
   type ItemBallObject,
   type NPCObject,
+  type NPCDirection,
   type NPCDisguiseState,
   type ScriptObject,
   type LargeObject,
@@ -121,6 +122,15 @@ function hasBuriedMovementType(movementTypeRaw: string): boolean {
   return movementTypeRaw.includes('BURIED');
 }
 
+interface PersistedBuriedTrainerState {
+  localTileX: number;
+  localTileY: number;
+  localInitialTileX: number;
+  localInitialTileY: number;
+  direction: NPCDirection;
+  movementTypeRaw: string;
+}
+
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
   private npcs: Map<string, NPCObject> = new Map();
@@ -136,6 +146,7 @@ export class ObjectEventManager {
   private tileElevationResolver: TileElevationResolver | null = null;
   private parsedMapIds: Set<string> = new Set();
   private parsedMapOffsets = new Map<string, { x: number; y: number }>();
+  private persistedRevealedBuriedTrainers = new Map<string, Map<string, PersistedBuriedTrainerState>>();
   private spawnDespawnDirty = true;
   private visibleCacheVersion = 0;
   private visibleNpcCacheVersion = -1;
@@ -194,6 +205,7 @@ export class ObjectEventManager {
     this.lastProcessedViewWindow = null;
     this.parsedMapIds.clear();
     this.parsedMapOffsets.clear();
+    this.persistedRevealedBuriedTrainers.clear();
     this.spawnDespawnDirty = true;
     this.invalidateVisibleObjectCaches();
   }
@@ -307,6 +319,27 @@ export class ObjectEventManager {
    */
   removeMapObjects(mapId: string): void {
     const prefix = `${mapId}_`;
+    const mapOffset = this.parsedMapOffsets.get(mapId) ?? null;
+    const revealedBuriedStateForMap = new Map<string, PersistedBuriedTrainerState>();
+    for (const [key, npc] of this.npcs) {
+      if (!key.startsWith(prefix)) continue;
+      if (npc.trainerType !== 'buried' || npc.spriteHidden) continue;
+      const localKey = npc.localId ?? String(npc.localIdNumber);
+      revealedBuriedStateForMap.set(localKey, {
+        localTileX: mapOffset ? npc.tileX - mapOffset.x : npc.tileX,
+        localTileY: mapOffset ? npc.tileY - mapOffset.y : npc.tileY,
+        localInitialTileX: mapOffset ? npc.initialTileX - mapOffset.x : npc.initialTileX,
+        localInitialTileY: mapOffset ? npc.initialTileY - mapOffset.y : npc.initialTileY,
+        direction: npc.direction,
+        movementTypeRaw: npc.movementTypeRaw,
+      });
+    }
+    if (revealedBuriedStateForMap.size > 0) {
+      this.persistedRevealedBuriedTrainers.set(mapId, revealedBuriedStateForMap);
+    } else {
+      this.persistedRevealedBuriedTrainers.delete(mapId);
+    }
+
     for (const key of [...this.npcs.keys()]) {
       if (key.startsWith(prefix)) this.npcs.delete(key);
     }
@@ -353,8 +386,8 @@ export class ObjectEventManager {
       const resolvedGraphicsId = resolveDynamicObjectGfx(obj.graphics_id, playerGender);
       const parseAsNpcStyleObject = isScriptAddressableLargeObject(obj, resolvedGraphicsId);
       // Convert local coordinates to world coordinates
-      const worldX = mapOffsetX + obj.x;
-      const worldY = mapOffsetY + obj.y;
+      let worldX = mapOffsetX + obj.x;
+      let worldY = mapOffsetY + obj.y;
 
       // C parity: large object templates with a local_id are script-addressable
       // object events. Route those through NPC-style storage so LOCALID script
@@ -416,13 +449,30 @@ export class ObjectEventManager {
         // Parse trainer sight range (could be "0" or a number)
         const trainerSightRange = parseInt(obj.trainer_sight_or_berry_tree_id, 10) || 0;
 
-        const movementType = parseMovementType(obj.movement_type);
         const trainerType = parseTrainerType(obj.trainer_type);
         const isBuriedTrainer =
           trainerType === 'buried'
           || hasBuriedMovementType(obj.movement_type);
+
+        const revealedBuriedStateByLocalId = this.persistedRevealedBuriedTrainers.get(mapId);
+        const persistedBuriedState = isBuriedTrainer
+          ? (
+              revealedBuriedStateByLocalId?.get(localId)
+              ?? revealedBuriedStateByLocalId?.get(String(objIndex + 1))
+              ?? null
+            )
+          : null;
+        const movementTypeRaw = persistedBuriedState?.movementTypeRaw ?? obj.movement_type;
+        const resolvedMovementType = parseMovementType(movementTypeRaw);
+        if (persistedBuriedState) {
+          worldX = mapOffsetX + persistedBuriedState.localTileX;
+          worldY = mapOffsetY + persistedBuriedState.localTileY;
+        }
+
         const disguiseState = this.createDisguiseStateForMovementType(obj.movement_type);
-        const spriteHidden = movementType === 'invisible' || disguiseState !== null || isBuriedTrainer;
+        const spriteHidden = persistedBuriedState
+          ? false
+          : (resolvedMovementType === 'invisible' || disguiseState !== null || isBuriedTrainer);
         this.npcs.set(id, {
           id,
           localId,
@@ -431,9 +481,9 @@ export class ObjectEventManager {
           tileY: worldY,
           elevation: obj.elevation,
           graphicsId: resolvedGraphicsId,
-          direction: getInitialDirection(obj.movement_type),
-          movementType,
-          movementTypeRaw: obj.movement_type,
+          direction: persistedBuriedState?.direction ?? getInitialDirection(movementTypeRaw),
+          movementType: resolvedMovementType,
+          movementTypeRaw,
           movementRangeX: obj.movement_range_x,
           movementRangeY: obj.movement_range_y,
           trainerType,
@@ -452,8 +502,12 @@ export class ObjectEventManager {
           subTileX: 0,
           subTileY: 0,
           isWalking: false,
-          initialTileX: worldX,
-          initialTileY: worldY,
+          initialTileX: persistedBuriedState
+            ? mapOffsetX + persistedBuriedState.localInitialTileX
+            : worldX,
+          initialTileY: persistedBuriedState
+            ? mapOffsetY + persistedBuriedState.localInitialTileY
+            : worldY,
         });
         this.offscreenDespawnedNpcIds.delete(id);
       }
