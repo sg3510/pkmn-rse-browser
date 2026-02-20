@@ -15,6 +15,44 @@ interface MutableRef<T> {
   current: T;
 }
 
+interface DeferredState {
+  completion: NonNullable<PendingScriptedWarp['completion']>;
+  getResolved: () => boolean;
+  getRejected: () => boolean;
+  getError: () => unknown;
+}
+
+function createWarpCompletionDeferred(): DeferredState {
+  let resolveCompletion!: () => void;
+  let rejectCompletion!: (error?: unknown) => void;
+  let resolved = false;
+  let rejected = false;
+  let rejectionError: unknown = null;
+  const promise = new Promise<void>((resolve, reject) => {
+    resolveCompletion = () => {
+      resolved = true;
+      resolve();
+    };
+    rejectCompletion = (error?: unknown) => {
+      rejected = true;
+      rejectionError = error;
+      reject(error);
+    };
+  });
+  void promise.catch(() => {});
+  return {
+    completion: {
+      promise,
+      resolve: resolveCompletion,
+      reject: rejectCompletion,
+      settled: false,
+    },
+    getResolved: () => resolved,
+    getRejected: () => rejected,
+    getError: () => rejectionError,
+  };
+}
+
 function createFadeStub() {
   let direction: 'in' | 'out' | null = null;
   let active = false;
@@ -129,7 +167,7 @@ test('style=fall keeps warp locked and defers unlock until fall sequencer comple
   assert.equal(unlockCalls.count, 0);
 });
 
-test('style=default keeps existing loading fallback behavior', () => {
+test('style=default resolves completion only after fade/unlock timeout', async () => {
   const originalSetTimeout = globalThis.setTimeout;
   const queuedTimeouts: Array<() => void> = [];
   globalThis.setTimeout = ((handler: TimerHandler) => {
@@ -143,6 +181,7 @@ test('style=default keeps existing loading fallback behavior', () => {
 
   try {
     const mapId = 'MAP_ROUTE111';
+    const deferred = createWarpCompletionDeferred();
     const pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null> = {
       current: {
         mapId,
@@ -151,6 +190,7 @@ test('style=default keeps existing loading fallback behavior', () => {
         direction: 'down',
         phase: 'loading',
         style: 'default',
+        completion: deferred.completion,
       },
     };
     const scriptedWarpLoadMonitorRef: MutableRef<ScriptedWarpLoadMonitor | null> = {
@@ -196,9 +236,14 @@ test('style=default keeps existing loading fallback behavior', () => {
       },
     });
 
+    await Promise.resolve();
+    assert.equal(deferred.getResolved(), false);
+    assert.equal(unlockCalls.count, 0);
+
     for (const runTimeout of queuedTimeouts) {
       runTimeout();
     }
+    await Promise.resolve();
 
     assert.equal(fallStartCalls, 0);
     assert.equal(getFadeInStarts(), 1);
@@ -206,6 +251,94 @@ test('style=default keeps existing loading fallback behavior', () => {
     assert.equal(pendingScriptedWarpRef.current, null);
     assert.equal(scriptedWarpLoadMonitorRef.current, null);
     assert.equal(warpingRef.current, false);
+    assert.equal(unlockCalls.count, 1);
+    assert.equal(deferred.getResolved(), true);
+    assert.equal(deferred.getRejected(), false);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test('loading retry exhaustion rejects completion and does not unlock before timeout', async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const queuedTimeouts: Array<() => void> = [];
+  globalThis.setTimeout = ((handler: TimerHandler) => {
+    queuedTimeouts.push(() => {
+      if (typeof handler === 'function') {
+        handler();
+      }
+    });
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+
+  try {
+    const mapId = 'MAP_SKY_PILLAR_5F';
+    const deferred = createWarpCompletionDeferred();
+    const pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null> = {
+      current: {
+        mapId,
+        x: 6,
+        y: 9,
+        direction: 'down',
+        phase: 'loading',
+        style: 'default',
+        completion: deferred.completion,
+      },
+    };
+    const scriptedWarpLoadMonitorRef: MutableRef<ScriptedWarpLoadMonitor | null> = {
+      current: {
+        mapId,
+        startedAt: 0,
+        retries: 3,
+        fallbackDeferredLogged: false,
+      },
+    };
+    const warpingRef: MutableRef<boolean> = { current: true };
+    const loadingRef: MutableRef<boolean> = { current: false };
+    const pendingSavedLocationRef: MutableRef<any> = { current: null };
+    const unlockCalls = { count: 0 };
+    const playerRef: MutableRef<PlayerController | null> = { current: createPlayerStub(unlockCalls) };
+    const worldManagerRef: MutableRef<WorldManager | null> = {
+      current: createWorldManagerStub('MAP_SKY_PILLAR_4F'),
+    };
+    const { fade, getFadeInStarts } = createFadeStub();
+    const warpHandler = createWarpHandlerStub({ count: 0 });
+    const inputUnlockGuards: InputUnlockGuards = {
+      warpingRef,
+      storyScriptRunningRef: { current: false },
+      dialogIsOpenRef: { current: false },
+    };
+
+    updateScriptedWarpStateMachine({
+      nowTime: 2000,
+      pendingScriptedWarpRef,
+      scriptedWarpLoadMonitorRef,
+      warpingRef,
+      loadingRef,
+      pendingSavedLocationRef,
+      warpHandler,
+      fadeController: fade,
+      playerRef,
+      worldManagerRef,
+      inputUnlockGuards,
+      selectMapForLoad: () => {},
+      startFallWarpArrival: () => false,
+    });
+
+    await Promise.resolve();
+    assert.equal(pendingScriptedWarpRef.current, null);
+    assert.equal(scriptedWarpLoadMonitorRef.current, null);
+    assert.equal(warpingRef.current, false);
+    assert.equal(getFadeInStarts(), 1);
+    assert.equal(deferred.getResolved(), false);
+    assert.equal(deferred.getRejected(), true);
+    assert.ok(deferred.getError() instanceof Error);
+    assert.equal(unlockCalls.count, 0);
+
+    for (const runTimeout of queuedTimeouts) {
+      runTimeout();
+    }
+    await Promise.resolve();
     assert.equal(unlockCalls.count, 1);
   } finally {
     globalThis.setTimeout = originalSetTimeout;

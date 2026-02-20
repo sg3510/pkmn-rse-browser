@@ -1946,7 +1946,7 @@ export class ScriptRunner {
           const mapId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          this.ctx.queueWarp(mapId, x, y, 'down');
+          this.queueWaitState(Promise.resolve(this.ctx.queueWarp(mapId, x, y, 'down')));
           break;
         }
 
@@ -2855,7 +2855,9 @@ export class ScriptRunner {
                 y: -1,
               },
             });
-            this.ctx.queueWarp(targetMapId, -1, -1, 'down', { style: 'fall' });
+            this.queueWaitState(
+              Promise.resolve(this.ctx.queueWarp(targetMapId, -1, -1, 'down', { style: 'fall' }))
+            );
             break;
           }
 
@@ -2871,7 +2873,9 @@ export class ScriptRunner {
               y: playerLocal.y,
             },
           });
-          this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down', { style: 'fall' });
+          this.queueWaitState(
+            Promise.resolve(this.ctx.queueWarp(targetMapId, playerLocal.x, playerLocal.y, 'down', { style: 'fall' }))
+          );
           break;
         }
 
@@ -2880,7 +2884,7 @@ export class ScriptRunner {
           const mapId = asString(args[0]);
           const x = asNumber(args[1]);
           const y = asNumber(args[2]);
-          this.ctx.queueWarp(mapId, x, y, 'down');
+          this.queueWaitState(Promise.resolve(this.ctx.queueWarp(mapId, x, y, 'down')));
           break;
         }
 

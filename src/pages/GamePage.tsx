@@ -163,6 +163,7 @@ import {
   type ScriptedWarpLoadMonitor,
   type FrameCounter,
 } from './gamePage/overworldGameUpdate';
+import { evaluatePreInputOnFrameGate } from './gamePage/preInputOnFrameGate';
 import { findTrainerSightEncounterSelection } from '../game/trainers/trainerSightEncounter.ts';
 import { getTrainerSightProbeTile } from '../game/trainers/trainerSightProbe.ts';
 import { TrainerApproachRuntime } from '../game/trainers/trainerApproachRuntime.ts';
@@ -2001,11 +2002,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         const worldManager = worldManagerRef.current;
         let preInputOnFrameTriggered = false;
         const mapEntryGateActive = mapEntryCutsceneGateRef.current;
-        let mapEntryGateSatisfiedThisFrame = !mapEntryGateActive;
-
-        if (mapEntryGateActive && storyScriptRunningRef.current) {
-          mapEntryGateSatisfiedThisFrame = true;
-        }
+        let mapObjectsReadyForGate = false;
+        let mapScriptCacheReadyForGate = false;
 
         // GBA-style priority: trainer sight checks before ON_FRAME scripts,
         // then ON_FRAME scripts before free movement input.
@@ -2133,25 +2131,27 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
             }
 
             if (mapEntryGateActive) {
-              const mapObjectsReady = currentMap.objectEvents.length === 0
+              mapObjectsReadyForGate = currentMap.objectEvents.length === 0
                 || objectEventManagerRef.current.hasMapObjects(currentMapId);
-              const mapScriptCacheReady = (
+              mapScriptCacheReadyForGate = (
                 mapScriptCacheRef.current.has(currentMapId)
                 && !mapScriptLoadingRef.current.has(currentMapId)
               );
-              if (mapObjectsReady && mapScriptCacheReady) {
-                mapEntryGateSatisfiedThisFrame = true;
-              }
             }
           }
         }
 
-        if (mapEntryGateActive && mapEntryGateSatisfiedThisFrame) {
+        const gateEvaluation = evaluatePreInputOnFrameGate({
+          mapEntryGateActive,
+          storyScriptRunning: storyScriptRunningRef.current,
+          mapObjectsReady: mapObjectsReadyForGate,
+          mapScriptCacheReady: mapScriptCacheReadyForGate,
+        });
+
+        if (gateEvaluation.shouldClearGate) {
           mapEntryCutsceneGateRef.current = false;
         }
-        const shouldBlockForMapEntryGate =
-          mapEntryGateActive
-          && !mapEntryGateSatisfiedThisFrame;
+        const shouldBlockForMapEntryGate = gateEvaluation.shouldBlockPlayerUpdate;
 
         if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning && !shouldBlockForMapEntryGate) {
           player.update(dt);

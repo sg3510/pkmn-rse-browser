@@ -71,6 +71,10 @@ export type DynamicCollisionChecker = (
   direction: 'up' | 'down' | 'left' | 'right'
 ) => boolean;
 
+export interface ForceMoveOptions {
+  suppressPostMoveSpecialTileCheck?: boolean;
+}
+
 export interface DoorWarpRequest {
   targetX: number;
   targetY: number;
@@ -840,6 +844,7 @@ export class PlayerController {
   public walkFrameAlternate: boolean = false; // Alternates between walk frame 1 and 2
   // Scripted applymovement may need per-step speed overrides (C MOVE_SPEED_* parity).
   private scriptedMoveSpeedPxPerMs: number | null = null;
+  private suppressPostMoveSpecialTileChecks: number = 0;
   private handleKeyDown: (e: KeyboardEvent) => void;
   private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
@@ -1023,6 +1028,7 @@ export class PlayerController {
     this.isMoving = false;
     this.pixelsMoved = 0;
     this.scriptedMoveSpeedPxPerMs = null;
+    this.suppressPostMoveSpecialTileChecks = 0;
     this.syncObjectCoordsToTile();
     
     // Initialize elevation from spawn tile
@@ -1081,6 +1087,7 @@ export class PlayerController {
     this.prevTileBehavior = undefined;
     this.previousTrackDirection = this.dir;
     this.scriptedMoveSpeedPxPerMs = null;
+    this.suppressPostMoveSpecialTileChecks = 0;
 
     // 4. Clear field effects (sand footprints, grass, water ripples)
     this.grassEffectManager.clear();
@@ -1211,6 +1218,7 @@ export class PlayerController {
       this.isMoving = false;
       this.pixelsMoved = 0;
       this.scriptedMoveSpeedPxPerMs = null;
+      this.suppressPostMoveSpecialTileChecks = 0;
       // Preserve traversal sprite domain during modal prompts.
       // Surf/underwater prompts should not force walking state, or frame/atlas
       // selection can desync in the renderer.
@@ -1789,7 +1797,8 @@ export class PlayerController {
   public forceMove(
     direction: 'up' | 'down' | 'left' | 'right',
     ignoreCollision: boolean = false,
-    speedOverridePxPerMs?: number
+    speedOverridePxPerMs?: number,
+    options?: ForceMoveOptions
   ) {
     this.dir = direction;
     const { dx, dy } = directionToOffset(direction);
@@ -1806,6 +1815,9 @@ export class PlayerController {
       this.pixelsMoved = 0;
       this.previousTrackDirection = direction;
       this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
+      if (options?.suppressPostMoveSpecialTileCheck) {
+        this.suppressPostMoveSpecialTileChecks++;
+      }
       return true;
     }
 
@@ -1819,6 +1831,9 @@ export class PlayerController {
       this.pixelsMoved = 0;
       this.previousTrackDirection = direction;
       this.scriptedMoveSpeedPxPerMs = speedOverridePxPerMs ?? null;
+      if (options?.suppressPostMoveSpecialTileCheck) {
+        this.suppressPostMoveSpecialTileChecks++;
+      }
       return true;
     }
     this.scriptedMoveSpeedPxPerMs = null;
@@ -3166,6 +3181,11 @@ export class PlayerController {
    * @returns true if state was changed
    */
   public checkAndHandleSpecialTile(): boolean {
+    if (this.suppressPostMoveSpecialTileChecks > 0) {
+      this.suppressPostMoveSpecialTileChecks--;
+      return false;
+    }
+
     const behavior = this.getCurrentTileBehavior();
     if (behavior === undefined) return false;
 

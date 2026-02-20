@@ -151,7 +151,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       gameFlags.clear('FLAG_HIDE_MAP_NAME_POPUP');
       ctx.setPlayerVisible(false);
       await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
-      ctx.queueWarp('MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F', 8, 8, 'up');
+      await ctx.queueWarp('MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F', 8, 8, 'up');
       return true;
     }
 
@@ -212,7 +212,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
       gameFlags.clear('FLAG_HIDE_MAP_NAME_POPUP');
       ctx.setPlayerVisible(false);
       await ctx.playDoorAnimation(mapId, houseDoorX, houseDoorY, 'close');
-      ctx.queueWarp('MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F', 2, 8, 'up');
+      await ctx.queueWarp('MAP_LITTLEROOT_TOWN_MAYS_HOUSE_1F', 2, 8, 'up');
       return true;
     }
 
@@ -298,9 +298,9 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
 
       // Warp to 2F
       if (isMaleHouse) {
-        ctx.queueWarp('MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F', 7, 1, 'down');
+        await ctx.queueWarp('MAP_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F', 7, 1, 'down');
       } else {
-        ctx.queueWarp('MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F', 1, 1, 'down');
+        await ctx.queueWarp('MAP_LITTLEROOT_TOWN_MAYS_HOUSE_2F', 1, 1, 'down');
       }
       console.log('[GoUpstairsToSetClock] Warp queued, returning');
       return true;
@@ -861,7 +861,7 @@ export async function executeStoryScript(scriptName: string, ctx: StoryScriptCon
         gameFlags.set('FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_RIVAL_BEDROOM');
       }
 
-      ctx.queueWarp('MAP_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB', 6, 5, 'up');
+      await ctx.queueWarp('MAP_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB', 6, 5, 'up');
       return true;
     }
 

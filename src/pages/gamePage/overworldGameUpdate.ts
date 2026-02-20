@@ -302,6 +302,15 @@ function rejectScriptedWarpCompletion(warp: PendingScriptedWarp, error: unknown)
   completion.reject(error);
 }
 
+function scheduleScriptedWarpCompletionAfterFade(
+  warp: PendingScriptedWarp,
+  delayMs: number = FADE_TIMING.DEFAULT_DURATION_MS
+): void {
+  setTimeout(() => {
+    resolveScriptedWarpCompletion(warp);
+  }, delayMs);
+}
+
 // ─── updateScriptedWarpStateMachine ──────────────────────────────────────────
 // Advances the scripted warp (warpsilent-style) state machine each frame.
 export function updateScriptedWarpStateMachine(params: {
@@ -401,6 +410,7 @@ export function updateScriptedWarpStateMachine(params: {
         && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
       if (!startedFallArrival) {
         warpingRef.current = false;
+        scheduleScriptedWarpCompletionAfterFade(scriptedWarp);
         scheduleInputUnlock(activePlayer, inputUnlockGuards);
       }
     } else {
@@ -433,6 +443,7 @@ export function updateScriptedWarpStateMachine(params: {
         && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
       if (!startedFallArrival) {
         warpingRef.current = false;
+        scheduleScriptedWarpCompletionAfterFade(scriptedWarp);
         scheduleInputUnlock(activePlayer, inputUnlockGuards);
       }
     } else if (activePlayer && activeMapId === scriptedWarp.mapId && loadingRef.current) {
@@ -475,6 +486,10 @@ export function updateScriptedWarpStateMachine(params: {
           selectMapForLoad(scriptedWarp.mapId);
         } else {
           overworldUpdateLogger.error('[ScriptedWarp] aborting stuck load', { mapId: scriptedWarp.mapId });
+          rejectScriptedWarpCompletion(
+            scriptedWarp,
+            new Error(`[ScriptedWarp] Timed out loading target map ${scriptedWarp.mapId}`)
+          );
           pendingScriptedWarpRef.current = null;
           scriptedWarpLoadMonitorRef.current = null;
           warpingRef.current = false;
@@ -876,6 +891,7 @@ export function advanceWarpSequences(params: {
         },
         onComplete: () => {
           warpingRef.current = false;
+          resolveScriptedWarpCompletion(scriptedWarp);
           recordStoryScriptTimelineEvent({
             kind: 'fall_warp_end',
             frame: null,

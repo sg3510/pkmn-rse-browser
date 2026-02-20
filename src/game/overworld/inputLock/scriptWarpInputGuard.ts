@@ -1,5 +1,8 @@
 import type { PlayerController } from '../../PlayerController.ts';
 
+// C parity reference:
+// - public/pokeemerald/src/scrcmd.c (ScrCmd_lockall / ScrCmd_releaseall / waitstate + warp commands)
+// - public/pokeemerald/src/event_object_lock.c (freeze/unfreeze ownership)
 interface MutableRef<T> {
   current: T;
 }
