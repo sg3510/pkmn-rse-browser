@@ -226,8 +226,6 @@ export type DialogState =
 
 export type DialogAction =
   | { type: 'OPEN'; messages: DialogMessage[]; options?: DialogOptions; textInput?: DialogTextInput }
-  | { type: 'ADVANCE_CHAR' }
-  | { type: 'COMPLETE_TEXT' }
   | { type: 'START_SCROLL' }
   | { type: 'UPDATE_SCROLL'; progress: number }
   | { type: 'FINISH_SCROLL' }

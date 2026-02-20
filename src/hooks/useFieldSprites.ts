@@ -58,7 +58,7 @@ export interface UseFieldSpritesReturn {
  */
 async function loadSpriteWithTransparency(path: string): Promise<HTMLCanvasElement> {
   return loadImageCanvasAsset(path, {
-    transparency: { type: 'top-left' },
+    transparency: { type: 'indexed-zero', fallback: { type: 'top-left' } },
   });
 }
 

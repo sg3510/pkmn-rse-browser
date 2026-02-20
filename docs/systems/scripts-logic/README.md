@@ -92,6 +92,7 @@ See individual documentation:
 | [TRIGGERS.md](./TRIGGERS.md) | How scripts are triggered |
 | [SPECIALS.md](./SPECIALS.md) | Special C functions |
 | [TYPESCRIPT_DESIGN.md](./TYPESCRIPT_DESIGN.md) | TypeScript implementation |
+| [CROSS_MAP_SCRIPT_RESOLUTION.md](./CROSS_MAP_SCRIPT_RESOLUTION.md) | Cross-map label ownership + fallback resolution |
 
 ## Implementation Strategy
 

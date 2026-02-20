@@ -1,6 +1,7 @@
 // Auto-generated script registry. DO NOT EDIT.
 // Regenerate with: npm run generate:scripts
-import type { MapScriptData } from './types';
+import type { MapScriptData, ScriptCommand } from './types';
+import { SCRIPT_LABEL_OWNER_COLLISIONS, SCRIPT_LABEL_OWNER_MAP } from './scriptLabelOwners.gen';
 
 type ScriptModule = { data: MapScriptData };
 
@@ -505,6 +506,43 @@ export async function getCommonScripts(): Promise<MapScriptData> {
 }
 
 /**
+ * Return the owning map ID for a script label, if known.
+ */
+export function getScriptOwnerMapId(label: string): string | null {
+  const owner = SCRIPT_LABEL_OWNER_MAP[label];
+  return typeof owner === "string" ? owner : null;
+}
+
+/**
+ * Resolve script commands for a label with cross-map fallback:
+ * active map -> owner map -> common scripts.
+ */
+export async function getScriptCommandsResolved(
+  activeMapId: string,
+  label: string
+): Promise<ScriptCommand[] | null> {
+  const activeMapData = await getMapScripts(activeMapId);
+  const activeCommands = activeMapData?.scripts?.[label] ?? null;
+  if (activeCommands) return activeCommands;
+
+  const collisions = SCRIPT_LABEL_OWNER_COLLISIONS[label];
+  if (Array.isArray(collisions) && collisions.length > 0) {
+    console.warn("[Scripts] Label owner collision; refusing fallback", { label, collisions, activeMapId });
+    return null;
+  }
+
+  const ownerMapId = getScriptOwnerMapId(label);
+  if (ownerMapId && ownerMapId !== activeMapId) {
+    const ownerMapData = await getMapScripts(ownerMapId);
+    const ownerCommands = ownerMapData?.scripts?.[label] ?? null;
+    if (ownerCommands) return ownerCommands;
+  }
+
+  const commonData = await getCommonScripts();
+  return commonData.scripts?.[label] ?? null;
+}
+
+/**
  * Resolve a script label to its commands, searching map data then common.
  */
 export async function resolveScript(
@@ -515,6 +553,15 @@ export async function resolveScript(
   if (mapId) {
     const mapData = await getMapScripts(mapId);
     if (mapData) sources.push(mapData);
+
+    const collisions = SCRIPT_LABEL_OWNER_COLLISIONS[label];
+    if (!(Array.isArray(collisions) && collisions.length > 0)) {
+      const ownerMapId = getScriptOwnerMapId(label);
+      if (ownerMapId && ownerMapId !== mapId) {
+        const ownerMapData = await getMapScripts(ownerMapId);
+        if (ownerMapData) sources.push(ownerMapData);
+      }
+    }
   }
   sources.push(await getCommonScripts());
 

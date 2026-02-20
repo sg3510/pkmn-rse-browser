@@ -624,7 +624,8 @@ function generateIndexFile(mapNames) {
   const lines = [];
   lines.push('// Auto-generated script registry. DO NOT EDIT.');
   lines.push('// Regenerate with: npm run generate:scripts');
-  lines.push("import type { MapScriptData } from './types';");
+  lines.push("import type { MapScriptData, ScriptCommand } from './types';");
+  lines.push("import { SCRIPT_LABEL_OWNER_COLLISIONS, SCRIPT_LABEL_OWNER_MAP } from './scriptLabelOwners.gen';");
   lines.push('');
   lines.push('type ScriptModule = { data: MapScriptData };');
   lines.push('');
@@ -665,6 +666,43 @@ function generateIndexFile(mapNames) {
   lines.push('}');
   lines.push('');
   lines.push('/**');
+  lines.push(' * Return the owning map ID for a script label, if known.');
+  lines.push(' */');
+  lines.push('export function getScriptOwnerMapId(label: string): string | null {');
+  lines.push('  const owner = SCRIPT_LABEL_OWNER_MAP[label];');
+  lines.push('  return typeof owner === "string" ? owner : null;');
+  lines.push('}');
+  lines.push('');
+  lines.push('/**');
+  lines.push(' * Resolve script commands for a label with cross-map fallback:');
+  lines.push(' * active map -> owner map -> common scripts.');
+  lines.push(' */');
+  lines.push('export async function getScriptCommandsResolved(');
+  lines.push('  activeMapId: string,');
+  lines.push('  label: string');
+  lines.push('): Promise<ScriptCommand[] | null> {');
+  lines.push('  const activeMapData = await getMapScripts(activeMapId);');
+  lines.push('  const activeCommands = activeMapData?.scripts?.[label] ?? null;');
+  lines.push('  if (activeCommands) return activeCommands;');
+  lines.push('');
+  lines.push('  const collisions = SCRIPT_LABEL_OWNER_COLLISIONS[label];');
+  lines.push('  if (Array.isArray(collisions) && collisions.length > 0) {');
+  lines.push('    console.warn("[Scripts] Label owner collision; refusing fallback", { label, collisions, activeMapId });');
+  lines.push('    return null;');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  const ownerMapId = getScriptOwnerMapId(label);');
+  lines.push('  if (ownerMapId && ownerMapId !== activeMapId) {');
+  lines.push('    const ownerMapData = await getMapScripts(ownerMapId);');
+  lines.push('    const ownerCommands = ownerMapData?.scripts?.[label] ?? null;');
+  lines.push('    if (ownerCommands) return ownerCommands;');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  const commonData = await getCommonScripts();');
+  lines.push('  return commonData.scripts?.[label] ?? null;');
+  lines.push('}');
+  lines.push('');
+  lines.push('/**');
   lines.push(' * Resolve a script label to its commands, searching map data then common.');
   lines.push(' */');
   lines.push('export async function resolveScript(');
@@ -675,6 +713,15 @@ function generateIndexFile(mapNames) {
   lines.push('  if (mapId) {');
   lines.push('    const mapData = await getMapScripts(mapId);');
   lines.push('    if (mapData) sources.push(mapData);');
+  lines.push('');
+  lines.push('    const collisions = SCRIPT_LABEL_OWNER_COLLISIONS[label];');
+  lines.push('    if (!(Array.isArray(collisions) && collisions.length > 0)) {');
+  lines.push('      const ownerMapId = getScriptOwnerMapId(label);');
+  lines.push('      if (ownerMapId && ownerMapId !== mapId) {');
+  lines.push('        const ownerMapData = await getMapScripts(ownerMapId);');
+  lines.push('        if (ownerMapData) sources.push(ownerMapData);');
+  lines.push('      }');
+  lines.push('    }');
   lines.push('  }');
   lines.push('  sources.push(await getCommonScripts());');
   lines.push('');
@@ -688,6 +735,33 @@ function generateIndexFile(mapNames) {
   lines.push('export const registeredMapIds = Object.keys(scriptModules);');
   lines.push('');
 
+  return lines.join('\n');
+}
+
+/**
+ * Generate scriptLabelOwners.gen.ts mapping script labels to their owning map.
+ */
+function generateScriptLabelOwnersFile(labelOwnerMap, labelOwnerCollisions) {
+  const lines = [];
+  lines.push('// Auto-generated script label ownership index. DO NOT EDIT.');
+  lines.push('// Regenerate with: npm run generate:scripts');
+  lines.push('');
+  lines.push('export const SCRIPT_LABEL_OWNER_MAP: Record<string, string> = {');
+  const sortedLabels = [...labelOwnerMap.keys()].sort();
+  for (const label of sortedLabels) {
+    const ownerMapId = labelOwnerMap.get(label);
+    lines.push(`  ${JSON.stringify(label)}: ${JSON.stringify(ownerMapId)},`);
+  }
+  lines.push('};');
+  lines.push('');
+  lines.push('export const SCRIPT_LABEL_OWNER_COLLISIONS: Record<string, string[]> = {');
+  const collisionLabels = [...labelOwnerCollisions.keys()].sort();
+  for (const label of collisionLabels) {
+    const owners = [...labelOwnerCollisions.get(label)].sort();
+    lines.push(`  ${JSON.stringify(label)}: ${JSON.stringify(owners)},`);
+  }
+  lines.push('};');
+  lines.push('');
   return lines.join('\n');
 }
 
@@ -706,6 +780,8 @@ function generate() {
   let totalScripts = 0;
   let totalMovements = 0;
   let totalText = 0;
+  const scriptLabelOwnerMap = new Map();
+  const scriptLabelOwnerCollisions = new Map();
 
   // Discover all maps with scripts.inc
   const allMaps = discoverMaps();
@@ -738,6 +814,22 @@ function generate() {
     totalScripts += scriptCount;
     totalMovements += movementCount;
     totalText += textCount;
+
+    const mapId = mapFolderToConstant(mapName);
+    for (const label of Object.keys(data.scripts)) {
+      const existingOwner = scriptLabelOwnerMap.get(label);
+      if (!existingOwner) {
+        scriptLabelOwnerMap.set(label, mapId);
+        continue;
+      }
+      if (existingOwner === mapId) {
+        continue;
+      }
+      if (!scriptLabelOwnerCollisions.has(label)) {
+        scriptLabelOwnerCollisions.set(label, new Set([existingOwner]));
+      }
+      scriptLabelOwnerCollisions.get(label).add(mapId);
+    }
 
     const tsContent = generateTsFile(mapName, data);
     const outPath = path.join(OUTPUT_DIR, `${mapName}.gen.ts`);
@@ -826,9 +918,11 @@ function generate() {
   // Generate index.ts
   const indexTs = generateIndexFile(generatedMaps);
   fs.writeFileSync(path.join(OUTPUT_DIR, 'index.ts'), indexTs);
+  const scriptLabelOwnersTs = generateScriptLabelOwnersFile(scriptLabelOwnerMap, scriptLabelOwnerCollisions);
+  fs.writeFileSync(path.join(OUTPUT_DIR, 'scriptLabelOwners.gen.ts'), scriptLabelOwnersTs);
 
   console.log(`\nTotals: ${totalScripts} scripts, ${totalMovements} movements, ${totalText} text entries`);
-  console.log(`Generated ${generatedMaps.length} map files + common.gen.ts + index.ts`);
+  console.log(`Generated ${generatedMaps.length} map files + common.gen.ts + index.ts + scriptLabelOwners.gen.ts`);
   console.log(`Output: ${OUTPUT_DIR}`);
 }
 

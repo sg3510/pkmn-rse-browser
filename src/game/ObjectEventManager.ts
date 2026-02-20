@@ -117,6 +117,10 @@ function getNowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
+function hasBuriedMovementType(movementTypeRaw: string): boolean {
+  return movementTypeRaw.includes('BURIED');
+}
+
 export class ObjectEventManager {
   private itemBalls: Map<string, ItemBallObject> = new Map();
   private npcs: Map<string, NPCObject> = new Map();
@@ -413,8 +417,12 @@ export class ObjectEventManager {
         const trainerSightRange = parseInt(obj.trainer_sight_or_berry_tree_id, 10) || 0;
 
         const movementType = parseMovementType(obj.movement_type);
+        const trainerType = parseTrainerType(obj.trainer_type);
+        const isBuriedTrainer =
+          trainerType === 'buried'
+          || hasBuriedMovementType(obj.movement_type);
         const disguiseState = this.createDisguiseStateForMovementType(obj.movement_type);
-        const spriteHidden = movementType === 'invisible' || disguiseState !== null;
+        const spriteHidden = movementType === 'invisible' || disguiseState !== null || isBuriedTrainer;
         this.npcs.set(id, {
           id,
           localId,
@@ -428,7 +436,7 @@ export class ObjectEventManager {
           movementTypeRaw: obj.movement_type,
           movementRangeX: obj.movement_range_x,
           movementRangeY: obj.movement_range_y,
-          trainerType: parseTrainerType(obj.trainer_type),
+          trainerType,
           trainerSightRange,
           script: obj.script,
           flag: obj.flag,
@@ -897,7 +905,7 @@ export class ObjectEventManager {
     const disguiseType = resolveTrainerDisguiseType(movementTypeRaw);
     npc.movementType = parseMovementType(movementTypeRaw);
     npc.movementTypeRaw = movementTypeRaw;
-    if (disguiseType) {
+    if (disguiseType || hasBuriedMovementType(movementTypeRaw)) {
       npc.spriteHidden = true;
     }
     this.syncNpcDisguiseState(npc);

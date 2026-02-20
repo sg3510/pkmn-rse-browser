@@ -25,7 +25,12 @@ import type {
   TrainerBattleStartRequest,
   WildBattleStartRequest,
 } from '../../battle/BattleStartRequest';
-import { getMapScripts, getCommonScripts } from '../../data/scripts';
+import {
+  getMapScripts,
+  getCommonScripts,
+  getScriptCommandsResolved,
+  getScriptOwnerMapId,
+} from '../../data/scripts';
 import { resolveBattleBackgroundProfile } from '../../battle/render/battleEnvironmentResolver';
 import { menuStateManager } from '../../menu/MenuStateManager';
 import { stepCallbackManager } from '../../game/StepCallbackManager';
@@ -142,14 +147,9 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
 
     // If not hand-coded, check if we have generated script data for it
     if (!isHandCoded) {
-      const [mapData, commonData] = await Promise.all([
-        getMapScripts(effectiveMapId),
-        getCommonScripts(),
-      ]);
-      // Script not in hand-coded set AND not in generated data → not handled
-      const inMapData = mapData && scriptName in mapData.scripts;
-      const inCommonData = scriptName in commonData.scripts;
-      if (!inMapData && !inCommonData) {
+      const resolvedCommands = await getScriptCommandsResolved(effectiveMapId, scriptName);
+      // Script not in hand-coded set AND not in generated/owner/common data → not handled
+      if (!resolvedCommands) {
         // Script doesn't exist — unlock immediately
         player.unlockInput();
         npcMovement.setEnabled(true);
@@ -851,10 +851,20 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
 
       // Priority 2: generated script data via ScriptRunner
       if (!handled) {
-        const [mapData, commonData] = await Promise.all([
+        const [activeMapData, commonData] = await Promise.all([
           getMapScripts(effectiveMapId),
           getCommonScripts(),
         ]);
+        let mapData = activeMapData;
+        if (!activeMapData?.scripts?.[scriptName]) {
+          const ownerMapId = getScriptOwnerMapId(scriptName);
+          if (ownerMapId && ownerMapId !== effectiveMapId) {
+            const ownerMapData = await getMapScripts(ownerMapId);
+            if (ownerMapData?.scripts?.[scriptName]) {
+              mapData = ownerMapData;
+            }
+          }
+        }
         const runner = new ScriptRunner(
           { mapData, commonData },
           scriptCtx,

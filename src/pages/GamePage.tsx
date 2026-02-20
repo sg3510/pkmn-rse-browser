@@ -130,6 +130,7 @@ import {
   type WildEncounterStepState,
 } from '../game/encounters/overworldWildEncounterFlow';
 import type { MapScriptData } from '../data/scripts/types';
+import { getScriptOwnerMapId } from '../data/scripts';
 import type { ScriptRuntimeServices } from '../scripting/ScriptRunner';
 import type { DiveActionResolution } from '../game/fieldActions/FieldActionResolver';
 import { ensureOverworldRuntimeAssets as ensureOverworldRuntimeAssetsUtil } from './gamePage/overworldAssets';
@@ -1984,6 +1985,13 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
             if (cameraView && tileResolver && steppedToNewTile) {
               ensureMapScriptsCached(trainerSightMapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
+              for (const npc of visibleNpcsForFrame) {
+                if (!npc.script || npc.script === '0x0') continue;
+                const ownerMapId = getScriptOwnerMapId(npc.script);
+                if (ownerMapId && ownerMapId !== trainerSightMapId) {
+                  ensureMapScriptsCached(ownerMapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
+                }
+              }
               const trainerSightSelection = findTrainerSightEncounterSelection({
                 npcs: visibleNpcsForFrame,
                 playerTileX: trainerSightProbeTile.tileX,
@@ -2000,7 +2008,15 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 getTrainerScriptCommands: (mapId, scriptName) => {
                   ensureMapScriptsCached(mapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
                   const scriptData = mapScriptCacheRef.current.get(mapId);
-                  return scriptData?.scripts?.[scriptName] ?? null;
+                  const mapCommands = scriptData?.scripts?.[scriptName] ?? null;
+                  if (mapCommands) return mapCommands;
+
+                  const ownerMapId = getScriptOwnerMapId(scriptName);
+                  if (!ownerMapId || ownerMapId === mapId) return null;
+
+                  ensureMapScriptsCached(ownerMapId, mapScriptCacheRef.current, mapScriptLoadingRef.current);
+                  const ownerMapData = mapScriptCacheRef.current.get(ownerMapId);
+                  return ownerMapData?.scripts?.[scriptName] ?? null;
                 },
                 isTrainerDefeated: (trainerId) => isTrainerDefeated(trainerId),
                 hasEnoughMonsForDoubleBattle: () => {

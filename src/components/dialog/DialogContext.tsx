@@ -90,21 +90,6 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
           activePromptKeyRef.current = null;
           return { type: 'printing', messageIndex: 0, charIndex: 0 };
 
-        case 'ADVANCE_CHAR':
-          if (currentState.type === 'printing') {
-            const currentMessage = messagesRef.current[currentState.messageIndex];
-            if (currentMessage && currentState.charIndex < currentMessage.text.length) {
-              return { ...currentState, charIndex: currentState.charIndex + 1 };
-            }
-          }
-          return currentState;
-
-        case 'COMPLETE_TEXT':
-          if (currentState.type === 'printing') {
-            return { type: 'waiting', messageIndex: currentState.messageIndex };
-          }
-          return currentState;
-
         case 'START_SCROLL':
           if (currentState.type === 'waiting') {
             return { type: 'scrolling', messageIndex: currentState.messageIndex, scrollProgress: 0 };
@@ -535,7 +520,6 @@ export function useDialogContext(): DialogContextValue {
  */
 export function useDialog(): UseDialogReturn {
   const context = useContext(DialogContext);
-  const resolveRef = useRef<((value: unknown) => void) | null>(null);
 
   const showMessages = useCallback(
     (messages: DialogMessage[], options?: DialogOptions, textInput?: DialogTextInput): Promise<unknown> => {
@@ -545,7 +529,6 @@ export function useDialog(): UseDialogReturn {
       }
 
       return new Promise((resolve) => {
-        resolveRef.current = resolve;
         context.setResolve(resolve);
         context.dispatch({ type: 'OPEN', messages, options, textInput });
       });

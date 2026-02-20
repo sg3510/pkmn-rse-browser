@@ -35,7 +35,7 @@ import {
   getSpriteInfo,
   getStaticFrameIndex,
 } from '../../data/spriteMetadata';
-import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
+import { loadImageCanvasAsset } from '../../utils/assetLoader';
 
 /** Base path for object event graphics */
 const SPRITE_BASE_PATH = '/pokeemerald/graphics/object_events/pics';
@@ -541,10 +541,12 @@ class NPCSpriteCache {
     // Start loading
     const loadPromise = (async () => {
       let loadedPath: string | null = null;
-      let img: HTMLImageElement | null = null;
+      let canvas: HTMLCanvasElement | null = null;
       for (const path of paths) {
         try {
-          img = await loadImageAsset(path);
+          canvas = await loadImageCanvasAsset(path, {
+            transparency: { type: 'indexed-zero', fallback: { type: 'top-left' } },
+          });
           loadedPath = path;
           break;
         } catch {
@@ -552,7 +554,7 @@ class NPCSpriteCache {
         }
       }
 
-      if (!img || !loadedPath) {
+      if (!canvas || !loadedPath) {
         throw new Error('Sprite load failed');
       }
 
@@ -560,15 +562,14 @@ class NPCSpriteCache {
         console.warn(`[NPCSpriteCache] Loaded ${graphicsId} using fallback sprite path: ${loadedPath}`);
       }
 
-      const canvas = makeTransparentCanvas(img, { type: 'top-left' });
       this.cache.set(graphicsId, canvas);
 
       const expected = getExpectedFrameDimensions(graphicsId);
       this.dimensions.set(graphicsId, {
         frameWidth: expected.width,
         frameHeight: expected.height,
-        totalWidth: img.width,
-        totalHeight: img.height,
+        totalWidth: canvas.width,
+        totalHeight: canvas.height,
       });
 
       this.loading.delete(graphicsId);

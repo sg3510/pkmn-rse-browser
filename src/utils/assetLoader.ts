@@ -7,6 +7,7 @@
 
 import { createCanvas2D } from './canvasHelper';
 import { toPublicAssetUrl } from './publicAssetUrl';
+import UPNG from 'upng-js';
 
 export interface RgbColor {
   r: number;
@@ -14,11 +15,18 @@ export interface RgbColor {
   b: number;
 }
 
-export type TransparencyMode =
+export type NonIndexedTransparencyMode =
   | { type: 'none' }
   | { type: 'top-left'; tolerance?: number }
   | { type: 'color'; color: RgbColor; tolerance?: number }
   | { type: 'most-common'; tolerance?: number; minAlpha?: number };
+
+export interface IndexedZeroTransparencyMode {
+  type: 'indexed-zero';
+  fallback?: NonIndexedTransparencyMode;
+}
+
+export type TransparencyMode = NonIndexedTransparencyMode | IndexedZeroTransparencyMode;
 
 export interface LoadImageOptions {
   crossOrigin?: string;
@@ -233,6 +241,11 @@ function applyTransparencyToCanvas(canvas: HTMLCanvasElement, mode?: Transparenc
     return;
   }
 
+  if (mode.type === 'indexed-zero') {
+    applyTransparencyToCanvas(canvas, mode.fallback ?? { type: 'top-left' });
+    return;
+  }
+
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
@@ -260,6 +273,90 @@ function applyTransparencyToCanvas(canvas: HTMLCanvasElement, mode?: Transparenc
   }
 
   ctx.putImageData(imageData, 0, 0);
+}
+
+function toUint8Array(data: ArrayBufferLike | Uint8Array): Uint8Array {
+  return data instanceof Uint8Array ? data : new Uint8Array(data);
+}
+
+function decodeIndexedPngPixels(buffer: ArrayBuffer): { width: number; height: number; pixels: Uint8Array } | null {
+  const image = UPNG.decode(buffer);
+  if (image.ctype !== 3) {
+    return null;
+  }
+
+  const pixelCount = image.width * image.height;
+  const packed = toUint8Array(image.data);
+
+  if (image.depth === 8) {
+    if (packed.length < pixelCount) return null;
+    return {
+      width: image.width,
+      height: image.height,
+      pixels: packed.subarray(0, pixelCount),
+    };
+  }
+
+  if (image.depth === 4) {
+    if (packed.length * 2 < pixelCount) return null;
+    const unpacked = new Uint8Array(pixelCount);
+    let out = 0;
+    for (let i = 0; i < packed.length && out < pixelCount; i++) {
+      const byte = packed[i];
+      unpacked[out++] = (byte >> 4) & 0x0f;
+      if (out < pixelCount) {
+        unpacked[out++] = byte & 0x0f;
+      }
+    }
+    return {
+      width: image.width,
+      height: image.height,
+      pixels: unpacked,
+    };
+  }
+
+  return null;
+}
+
+function applyIndexedZeroMask(
+  canvas: HTMLCanvasElement,
+  mask: { width: number; height: number; pixels: Uint8Array }
+): boolean {
+  if (canvas.width !== mask.width || canvas.height !== mask.height) {
+    return false;
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return false;
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const rgba = imageData.data;
+  const pixels = mask.pixels;
+  const count = Math.min(pixels.length, canvas.width * canvas.height);
+  for (let i = 0; i < count; i++) {
+    if (pixels[i] === 0) {
+      rgba[i * 4 + 3] = 0;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return true;
+}
+
+async function applyIndexedZeroTransparencyToCanvas(
+  canvas: HTMLCanvasElement,
+  src: string,
+  mode: IndexedZeroTransparencyMode
+): Promise<void> {
+  try {
+    const buffer = await loadBinaryAsset(src);
+    const decoded = decodeIndexedPngPixels(buffer);
+    if (decoded && applyIndexedZeroMask(canvas, decoded)) {
+      return;
+    }
+  } catch {
+    // Fall through to configured fallback mode.
+  }
+  applyTransparencyToCanvas(canvas, mode.fallback ?? { type: 'top-left' });
 }
 
 export function imageToCanvas(image: CanvasImageSource, width?: number, height?: number): HTMLCanvasElement {
@@ -336,7 +433,12 @@ export async function loadImageCanvasAsset(
     cachedPromise = (async () => {
       const img = await loadImageAsset(resolvedSrc, options);
       const canvas = imageToCanvas(img);
-      applyTransparencyToCanvas(canvas, options?.transparency);
+      const mode = options?.transparency;
+      if (mode?.type === 'indexed-zero') {
+        await applyIndexedZeroTransparencyToCanvas(canvas, resolvedSrc, mode);
+      } else {
+        applyTransparencyToCanvas(canvas, mode);
+      }
       canvasCache.updateSize(cacheKey, canvas.width * canvas.height * 4);
       return canvas;
     })().catch((error) => {

@@ -1000,7 +1000,7 @@ export class PlayerController {
 
   public async loadSprite(key: string, src: string): Promise<void> {
     this.sprites[key] = await loadImageCanvasAsset(src, {
-      transparency: { type: 'top-left' },
+      transparency: { type: 'indexed-zero', fallback: { type: 'top-left' } },
     });
   }
 

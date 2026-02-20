@@ -21,7 +21,7 @@ import {
   getRotatingGateAtlasName,
   ITEM_BALL_ATLAS_NAME,
 } from '../../rendering/spriteUtils';
-import { loadImageAsset, makeTransparentCanvas } from '../../utils/assetLoader';
+import { loadImageCanvasAsset } from '../../utils/assetLoader';
 import { LARGE_OBJECT_GRAPHICS_INFO } from '../../data/largeObjectGraphics.gen';
 import { FIELD_EFFECT_REGISTRY } from '../../data/fieldEffects.gen';
 import { ROTATING_GATE_SHAPE_ASSET_PATHS } from '../../game/RotatingGateManager';
@@ -221,8 +221,9 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
 
           for (const [shapeKey, imagePath] of Object.entries(ROTATING_GATE_SHAPE_ASSET_PATHS)) {
             try {
-              const img = await loadImageAsset(imagePath);
-              const canvas = makeTransparentCanvas(img, { type: 'top-left' });
+              const canvas = await loadImageCanvasAsset(imagePath, {
+                transparency: { type: 'indexed-zero', fallback: { type: 'top-left' } },
+              });
               const atlasName = getRotatingGateAtlasName(shapeKey);
               spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
                 frameWidth: canvas.width,
@@ -236,8 +237,9 @@ export function ensureOverworldRuntimeAssets(params: EnsureOverworldRuntimeAsset
 
           for (const [graphicsId, info] of Object.entries(LARGE_OBJECT_GRAPHICS_INFO)) {
             try {
-              const img = await loadImageAsset(info.imagePath);
-              const canvas = makeTransparentCanvas(img, { type: 'top-left' });
+              const canvas = await loadImageCanvasAsset(info.imagePath, {
+                transparency: { type: 'indexed-zero', fallback: { type: 'top-left' } },
+              });
               const atlasName = getLargeObjectAtlasName(graphicsId);
               spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
                 frameWidth: info.width,

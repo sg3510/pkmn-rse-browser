@@ -23,6 +23,13 @@ function createDisguisedTrainerObject(movementType: string): ObjectEventData {
   };
 }
 
+function createBuriedTrainerObject(movementType: string): ObjectEventData {
+  return {
+    ...createDisguisedTrainerObject(movementType),
+    trainer_type: 'TRAINER_TYPE_BURIED',
+  };
+}
+
 test('tree/mountain disguise trainers spawn hidden with active disguise overlay', () => {
   const manager = new ObjectEventManager();
   manager.parseMapObjects(MAP_ID, [createDisguisedTrainerObject('MOVEMENT_TYPE_TREE_DISGUISE')], 0, 0);
@@ -63,4 +70,29 @@ test('switching movement type away from disguise clears disguise state', () => {
   const npc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
   assert.ok(npc);
   assert.equal(npc.disguiseState, null);
+});
+
+test('buried trainers spawn hidden and stay visible once switched to face movement', () => {
+  const manager = new ObjectEventManager();
+  manager.parseMapObjects(MAP_ID, [createBuriedTrainerObject('MOVEMENT_TYPE_BURIED')], 0, 0);
+
+  const buriedNpc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
+  assert.ok(buriedNpc);
+  assert.equal(buriedNpc.spriteHidden, true);
+  assert.equal(buriedNpc.trainerType, 'buried');
+
+  assert.equal(manager.setNPCMovementTypeByLocalId(MAP_ID, LOCAL_ID, 'MOVEMENT_TYPE_FACE_RIGHT'), true);
+  const revealedNpc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
+  assert.ok(revealedNpc);
+  assert.equal(revealedNpc.spriteHidden, true);
+
+  manager.setNPCSpriteHiddenByLocalId(MAP_ID, LOCAL_ID, false);
+  const visibleNpc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
+  assert.ok(visibleNpc);
+  assert.equal(visibleNpc.spriteHidden, false);
+
+  assert.equal(manager.setNPCMovementTypeByLocalId(MAP_ID, LOCAL_ID, 'MOVEMENT_TYPE_FACE_LEFT'), true);
+  const stillVisibleNpc = manager.getNPCByLocalId(MAP_ID, LOCAL_ID);
+  assert.ok(stillVisibleNpc);
+  assert.equal(stillVisibleNpc.spriteHidden, false);
 });

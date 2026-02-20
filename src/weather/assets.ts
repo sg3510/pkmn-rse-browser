@@ -1,4 +1,4 @@
-import { loadImageCanvasAsset } from '../utils/assetLoader';
+import { loadImageCanvasAsset, type TransparencyMode } from '../utils/assetLoader';
 import type { WeatherAssetDescriptor } from './types';
 
 export async function loadWeatherAssets(
@@ -6,8 +6,12 @@ export async function loadWeatherAssets(
 ): Promise<Map<string, HTMLCanvasElement>> {
   const entries = await Promise.all(
     descriptors.map(async (descriptor) => {
+      const transparency: TransparencyMode =
+        descriptor.transparency?.type === 'top-left'
+          ? { type: 'indexed-zero', fallback: descriptor.transparency } as const
+          : (descriptor.transparency ?? { type: 'indexed-zero', fallback: { type: 'top-left' } });
       const canvas = await loadImageCanvasAsset(descriptor.path, {
-        transparency: descriptor.transparency ?? { type: 'top-left' },
+        transparency,
       });
       return [descriptor.key, canvas] as const;
     })
