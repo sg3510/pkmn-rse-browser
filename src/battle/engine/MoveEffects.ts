@@ -16,6 +16,7 @@ import {
   getBattleMoveData,
 } from '../../data/battleMoves.gen.ts';
 import { BATTLE_MOVE_EFFECT_IDS, BATTLE_MOVE_EFFECT_INDEX } from '../../data/battleMoveEffects.gen.ts';
+import { ABILITIES } from '../../data/abilities.ts';
 import { getMoveInfo, getMoveName, MOVES } from '../../data/moves.ts';
 import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen.ts';
 import { STATUS } from '../../pokemon/types.ts';
@@ -27,6 +28,7 @@ import { getBattlePokemonTypes } from './speciesTypes.ts';
 import { tryApplyStatus, applyConfusion, hasStatus } from './StatusEffects.ts';
 import { setWeather, getWeatherStartMessage, getWeatherAccuracyOverride } from './Weather.ts';
 import type { WeatherState } from './types.ts';
+import { executeBattleScriptForMoveEffect } from './scriptRuntime/BattleScriptRuntime.ts';
 
 export interface MoveContext {
   attacker: BattlePokemon;
@@ -75,6 +77,7 @@ export function executeMove(ctx: MoveContext): MoveResult {
   const moveName = getMoveName(moveId);
   const moveInfo = getMoveInfo(moveId);
   const battleData = getBattleMoveData(moveId);
+  const effect = battleData?.effect ?? MOVE_EFFECTS.EFFECT_HIT;
   const battler = attacker.isPlayer ? 0 : 1;
 
   events.push({
@@ -88,11 +91,15 @@ export function executeMove(ctx: MoveContext): MoveResult {
     return { events, success: false };
   }
 
-  if (shouldConsumePp(ctx, battleData.effect)) {
+  if (effect !== MOVE_EFFECTS.EFFECT_FURY_CUTTER) {
+    attacker.volatile.furyCutter = 0;
+  }
+
+  if (shouldConsumePp(ctx, effect)) {
     consumePP(attacker, ctx.moveSlot);
   }
 
-  if (isMoveBlockedByProtect(ctx, battleData)) {
+  if (isMoveBlockedByProtect(ctx, battleData, effect)) {
     events.push({
       type: 'message',
       battler: ctx.defender.isPlayer ? 0 : 1,
@@ -102,25 +109,29 @@ export function executeMove(ctx: MoveContext): MoveResult {
   }
 
   // Accuracy check (before effect)
-  if (!checkAccuracy(ctx, events)) {
-    if (battleData.effect === MOVE_EFFECTS.EFFECT_RECOIL_IF_MISS) {
+  if (shouldRunAccuracyCheck(ctx, effect) && !checkAccuracy(ctx, events)) {
+    if (effect === MOVE_EFFECTS.EFFECT_RECOIL_IF_MISS) {
       applyMissRecoil(ctx, events);
     }
     if (
-      battleData.effect === MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE
+      effect === MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE
       && attacker.volatile.chargeMove === moveId
     ) {
       attacker.volatile.chargeMove = MOVES.NONE;
       attacker.volatile.semiInvulnerableMove = MOVES.NONE;
     }
-    if (battleData.effect === MOVE_EFFECTS.EFFECT_ROLLOUT) {
+    if (effect === MOVE_EFFECTS.EFFECT_ROLLOUT) {
       attacker.volatile.rollout = 0;
+    }
+    if (effect === MOVE_EFFECTS.EFFECT_FURY_CUTTER) {
+      attacker.volatile.furyCutter = 0;
     }
     return { events, success: false };
   }
 
   // Dispatch to effect handler
-  const effect = battleData.effect;
+  executeBattleScriptForMoveEffect(effect);
+
   const handler = resolveEffectHandler(effect);
   if (handler) {
     return handler(ctx, events);
@@ -136,10 +147,32 @@ export function executeMove(ctx: MoveContext): MoveResult {
   return { events, success: false };
 }
 
-function isMoveBlockedByProtect(ctx: MoveContext, battleData: NonNullable<ReturnType<typeof getBattleMoveData>>): boolean {
+function isMoveBlockedByProtect(
+  ctx: MoveContext,
+  battleData: NonNullable<ReturnType<typeof getBattleMoveData>>,
+  effect: number,
+): boolean {
+  // Spit Up handles Protect in-script while still consuming stockpiles.
+  if (effect === MOVE_EFFECTS.EFFECT_SPIT_UP) return false;
   if (!ctx.defender.volatile.protect) return false;
   if ((battleData.flags & MOVE_FLAGS.FLAG_PROTECT_AFFECTED) === 0) return false;
   if (battleData.target === MOVE_TARGETS.USER || battleData.target === MOVE_TARGETS.OPPONENTS_FIELD) return false;
+  return true;
+}
+
+function shouldRunAccuracyCheck(ctx: MoveContext, moveEffect: number): boolean {
+  if (moveEffect === MOVE_EFFECTS.EFFECT_BIDE) {
+    return false;
+  }
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_FOCUS_PUNCH
+    && ctx.attacker.volatile.tookDamageThisTurn
+  ) {
+    return false;
+  }
+  if (isTwoTurnChargingEffect(moveEffect) && isChargingFirstTurn(ctx, moveEffect)) {
+    return false;
+  }
   return true;
 }
 
@@ -289,6 +322,9 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
   const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0, endureActive ? 1 : 0);
   const maxDamage = Math.max(0, defender.currentHp - minRemainingHp);
   let computedDamage = result.damage;
+  if (ctx.attacker.volatile.chargeTurns > 0 && (getMoveInfo(moveId)?.type ?? '') === 'ELECTRIC') {
+    computedDamage = Math.max(1, computedDamage * 2);
+  }
   if (dealsDoubleDamageToSemiInvulnerableTarget(moveId, defender.volatile.semiInvulnerableMove)) {
     computedDamage = Math.max(1, computedDamage * 2);
   }
@@ -302,6 +338,7 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
       value: appliedDamage,
       moveId,
     });
+    recordDamageTaken(defender, attacker, appliedDamage);
   }
 
   const enduredHit = endureActive
@@ -369,6 +406,7 @@ function doFixedDamage(
       battler: ctx.defender.isPlayer ? 0 : 1,
       value: damage,
     });
+    recordDamageTaken(ctx.defender, ctx.attacker, damage);
   }
 
   const enduredHit = endureActive
@@ -392,6 +430,18 @@ function doFixedDamage(
   }
 
   return { success: true, damage };
+}
+
+function recordDamageTaken(target: BattlePokemon, source: BattlePokemon, damage: number): void {
+  if (damage <= 0) return;
+  target.volatile.tookDamageThisTurn = true;
+  target.volatile.lastDamageTaken = damage;
+  target.volatile.lastDamagedByIsPlayer = source.isPlayer;
+
+  if (target.volatile.bide > 0) {
+    target.volatile.bideDamage += damage;
+    target.volatile.bideTargetIsPlayer = source.isPlayer;
+  }
 }
 
 // ── Stat change helper ──
@@ -498,6 +548,54 @@ function applyProtectLike(ctx: MoveContext, events: BattleEvent[], kind: 'protec
     events.push({ type: 'message', message: `${ctx.attacker.name} braced itself!` });
   }
   ctx.attacker.volatile.protectSuccessCount++;
+  return { events, success: true };
+}
+
+const TWO_TURN_CHARGING_EFFECTS = new Set<number>([
+  MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE,
+  MOVE_EFFECTS.EFFECT_RAZOR_WIND,
+  MOVE_EFFECTS.EFFECT_SKY_ATTACK,
+  MOVE_EFFECTS.EFFECT_SKULL_BASH,
+  MOVE_EFFECTS.EFFECT_SOLAR_BEAM,
+]);
+
+function isTwoTurnChargingEffect(moveEffect: number): boolean {
+  return TWO_TURN_CHARGING_EFFECTS.has(moveEffect);
+}
+
+function shouldSolarBeamSkipCharge(ctx: MoveContext): boolean {
+  if (ctx.moveId !== MOVES.SOLAR_BEAM) return false;
+  const abilityCancelsSun =
+    ctx.attacker.ability === ABILITIES.CLOUD_NINE
+    || ctx.attacker.ability === ABILITIES.AIR_LOCK
+    || ctx.defender.ability === ABILITIES.CLOUD_NINE
+    || ctx.defender.ability === ABILITIES.AIR_LOCK;
+  if (abilityCancelsSun) return false;
+  return ctx.weather.type === 'sun';
+}
+
+function isChargingFirstTurn(ctx: MoveContext, moveEffect: number): boolean {
+  if (!isTwoTurnChargingEffect(moveEffect)) return false;
+  if (moveEffect === MOVE_EFFECTS.EFFECT_SOLAR_BEAM && shouldSolarBeamSkipCharge(ctx)) {
+    return false;
+  }
+  return ctx.attacker.volatile.chargeMove !== ctx.moveId;
+}
+
+function beginChargingTurn(
+  ctx: MoveContext,
+  events: BattleEvent[],
+  message: string,
+): MoveResult {
+  ctx.attacker.volatile.chargeMove = ctx.moveId;
+  if (ctx.moveId === MOVES.FLY || ctx.moveId === MOVES.DIG || ctx.moveId === MOVES.DIVE || ctx.moveId === MOVES.BOUNCE) {
+    ctx.attacker.volatile.semiInvulnerableMove = ctx.moveId;
+  }
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message,
+  });
   return { events, success: true };
 }
 
@@ -1084,11 +1182,95 @@ registerEffect(MOVE_EFFECTS.EFFECT_FALSE_SWIPE, (ctx, events) => {
   return { events, success: dmg.effectiveness !== 0 };
 });
 
-// ── EFFECT_TRAP (42) — Damage + trap 4-5 turns (Wrap, Bind, etc.) ──
+// ── EFFECT_BIDE (26) — store damage, then retaliate ──
+registerEffect(MOVE_EFFECTS.EFFECT_BIDE, (ctx, events) => {
+  if (ctx.attacker.volatile.bide <= 0) {
+    ctx.attacker.volatile.bide = 2;
+    ctx.attacker.volatile.bideDamage = 0;
+    ctx.attacker.volatile.bideTargetIsPlayer = null;
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} is storing energy!`,
+    });
+    return { events, success: true };
+  }
+
+  ctx.attacker.volatile.bide--;
+  if (ctx.attacker.volatile.bide > 0) {
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} is storing energy!`,
+    });
+    return { events, success: true };
+  }
+
+  const storedDamage = ctx.attacker.volatile.bideDamage;
+  ctx.attacker.volatile.bideDamage = 0;
+  ctx.attacker.volatile.bideTargetIsPlayer = null;
+  if (storedDamage <= 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  const result = doFixedDamage(ctx, events, Math.max(1, storedDamage * 2));
+  return { events, success: result.success };
+});
+
+// ── EFFECT_RAZOR_WIND (39) — two-turn attack ──
+registerEffect(MOVE_EFFECTS.EFFECT_RAZOR_WIND, (ctx, events) => {
+  if (isChargingFirstTurn(ctx, MOVE_EFFECTS.EFFECT_RAZOR_WIND)) {
+    return beginChargingTurn(ctx, events, `${ctx.attacker.name} whipped up a whirlwind!`);
+  }
+  ctx.attacker.volatile.chargeMove = MOVES.NONE;
+  const dmg = doDamage(ctx, events);
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// ── EFFECT_SKY_ATTACK (75) — two-turn attack with flinch chance ──
+registerEffect(MOVE_EFFECTS.EFFECT_SKY_ATTACK, (ctx, events) => {
+  if (isChargingFirstTurn(ctx, MOVE_EFFECTS.EFFECT_SKY_ATTACK)) {
+    return beginChargingTurn(ctx, events, `${ctx.attacker.name} became cloaked in a harsh light!`);
+  }
+  ctx.attacker.volatile.chargeMove = MOVES.NONE;
+  const dmg = doDamage(ctx, events);
+  if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
+    const chance = getSecondaryEffectChance(ctx.moveId);
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
+      ctx.defender.volatile.flinch = true;
+    }
+  }
+  return { events, success: true };
+});
+
+// ── EFFECT_SKULL_BASH (145) — charge and raise defense, then attack ──
+registerEffect(MOVE_EFFECTS.EFFECT_SKULL_BASH, (ctx, events) => {
+  if (isChargingFirstTurn(ctx, MOVE_EFFECTS.EFFECT_SKULL_BASH)) {
+    applyStatChange(ctx.attacker, 'defense', 1, events);
+    return beginChargingTurn(ctx, events, `${ctx.attacker.name} lowered its head!`);
+  }
+  ctx.attacker.volatile.chargeMove = MOVES.NONE;
+  const dmg = doDamage(ctx, events);
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// ── EFFECT_SOLAR_BEAM (151) — charge unless sunlight is active ──
+registerEffect(MOVE_EFFECTS.EFFECT_SOLAR_BEAM, (ctx, events) => {
+  if (isChargingFirstTurn(ctx, MOVE_EFFECTS.EFFECT_SOLAR_BEAM)) {
+    return beginChargingTurn(ctx, events, `${ctx.attacker.name} took in sunlight!`);
+  }
+  ctx.attacker.volatile.chargeMove = MOVES.NONE;
+  const dmg = doDamage(ctx, events);
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// ── EFFECT_TRAP (42) — Damage + trap 3-6 turns (Wrap, Bind, etc.) ──
 registerEffect(MOVE_EFFECTS.EFFECT_TRAP, (ctx, events) => {
   const dmg = doDamage(ctx, events);
   if (dmg.damage > 0 && ctx.defender.currentHp > 0 && ctx.defender.volatile.trapped === 0) {
-    ctx.defender.volatile.trapped = battleRandomInt(4, 5);
+    ctx.defender.volatile.trapped = battleRandomInt(3, 6);
+    ctx.defender.volatile.trappedByIsPlayer = ctx.attacker.isPlayer;
     events.push({
       type: 'message',
       message: `${ctx.defender.name} was trapped!`,
@@ -1438,6 +1620,283 @@ registerEffect(MOVE_EFFECTS.EFFECT_LOCK_ON, (ctx, events) => {
   return { events, success: true };
 });
 
+// EFFECT_DISABLE (86)
+registerEffect(MOVE_EFFECTS.EFFECT_DISABLE, (ctx, events) => {
+  const moveId = ctx.defender.volatile.lastMoveUsed;
+  if (ctx.defender.volatile.disabled > 0 || moveId === MOVES.NONE) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  const moveSlot = ctx.defender.pokemon.moves.findIndex((entry, index) => entry === moveId && ctx.defender.pokemon.pp[index] > 0);
+  if (moveSlot < 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  ctx.defender.volatile.disabledMove = moveId;
+  ctx.defender.volatile.disabled = battleRandomInt(2, 5);
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name}'s ${getMoveName(moveId)} was disabled!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_ENCORE (90)
+registerEffect(MOVE_EFFECTS.EFFECT_ENCORE, (ctx, events) => {
+  const moveId = ctx.defender.volatile.lastMoveUsed;
+  if (
+    ctx.defender.volatile.encore > 0
+    || moveId === MOVES.NONE
+    || moveId === MOVES.STRUGGLE
+    || moveId === MOVES.ENCORE
+    || moveId === MOVES.MIRROR_MOVE
+  ) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  const moveSlot = ctx.defender.pokemon.moves.findIndex((entry, index) => entry === moveId && ctx.defender.pokemon.pp[index] > 0);
+  if (moveSlot < 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  ctx.defender.volatile.encoredMove = moveId;
+  ctx.defender.volatile.encore = battleRandomInt(3, 6);
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} got an encore!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_PERISH_SONG (114)
+registerEffect(MOVE_EFFECTS.EFFECT_PERISH_SONG, (_ctx, events) => {
+  const battlers = [_ctx.attacker, _ctx.defender];
+  let applied = false;
+  for (const battler of battlers) {
+    if (battler.volatile.perishSong > 0) continue;
+    if (battler.ability === ABILITIES.SOUNDPROOF) continue;
+    battler.volatile.perishSong = 4;
+    applied = true;
+  }
+  if (!applied) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  events.push({ type: 'message', message: 'All Pokémon hearing the song will faint in three turns!' });
+  return { events, success: true };
+});
+
+// EFFECT_FURY_CUTTER (119) — escalating power on consecutive hits
+registerEffect(MOVE_EFFECTS.EFFECT_FURY_CUTTER, (ctx, events) => {
+  const nextCounter = Math.min(5, Math.max(1, ctx.attacker.volatile.furyCutter + 1));
+  const basePower = getMoveInfo(ctx.moveId)?.power ?? 1;
+  const powerOverride = Math.max(1, basePower * (2 ** Math.max(0, nextCounter - 1)));
+  const dmg = doDamage(ctx, events, { powerOverride });
+  if (dmg.effectiveness === 0) {
+    ctx.attacker.volatile.furyCutter = 0;
+    return { events, success: false };
+  }
+  ctx.attacker.volatile.furyCutter = nextCounter;
+  return { events, success: true };
+});
+
+// EFFECT_UPROAR (159) — multi-turn lock with sleep prevention
+registerEffect(MOVE_EFFECTS.EFFECT_UPROAR, (ctx, events) => {
+  if (ctx.attacker.volatile.uproarTurns <= 0 || ctx.attacker.volatile.uproarMove !== ctx.moveId) {
+    ctx.attacker.volatile.uproarTurns = battleRandomInt(2, 5);
+    ctx.attacker.volatile.uproarMove = ctx.moveId;
+  }
+
+  const dmg = doDamage(ctx, events);
+  if (ctx.attacker.volatile.uproarTurns > 0) {
+    ctx.attacker.volatile.uproarTurns--;
+  }
+  if (ctx.attacker.volatile.uproarTurns <= 0) {
+    ctx.attacker.volatile.uproarTurns = 0;
+    ctx.attacker.volatile.uproarMove = MOVES.NONE;
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} calmed down.`,
+    });
+  }
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_STOCKPILE (160)
+registerEffect(MOVE_EFFECTS.EFFECT_STOCKPILE, (ctx, events) => {
+  if (ctx.attacker.volatile.stockpile >= 3) {
+    events.push({ type: 'message', message: "But it can't stockpile any more!" });
+    return { events, success: false };
+  }
+  ctx.attacker.volatile.stockpile++;
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: `${ctx.attacker.name} stockpiled ${ctx.attacker.volatile.stockpile}!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_SPIT_UP (161)
+registerEffect(MOVE_EFFECTS.EFFECT_SPIT_UP, (ctx, events) => {
+  const stockpileCount = ctx.attacker.volatile.stockpile;
+  if (stockpileCount <= 0) {
+    events.push({ type: 'message', message: 'But it failed to spit up a thing!' });
+    return { events, success: false };
+  }
+  if (ctx.defender.volatile.protect) {
+    ctx.attacker.volatile.stockpile = 0;
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} protected itself!`,
+    });
+    return { events, success: false };
+  }
+  const basePower = getMoveInfo(ctx.moveId)?.power ?? 1;
+  const powerOverride = Math.max(1, basePower * stockpileCount);
+  const dmg = doDamage(ctx, events, { powerOverride });
+  ctx.attacker.volatile.stockpile = 0;
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_SWALLOW (162)
+registerEffect(MOVE_EFFECTS.EFFECT_SWALLOW, (ctx, events) => {
+  const stockpileCount = ctx.attacker.volatile.stockpile;
+  if (stockpileCount <= 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  if (ctx.attacker.currentHp >= ctx.attacker.maxHp) {
+    ctx.attacker.volatile.stockpile = 0;
+    events.push({ type: 'message', message: `${ctx.attacker.name}'s HP is full!` });
+    return { events, success: false };
+  }
+  const healAmount = Math.max(1, Math.floor(ctx.attacker.maxHp / (2 ** (3 - stockpileCount))));
+  const actualHeal = Math.min(healAmount, ctx.attacker.maxHp - ctx.attacker.currentHp);
+  ctx.attacker.currentHp += actualHeal;
+  ctx.attacker.volatile.stockpile = 0;
+  events.push({
+    type: 'heal',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    value: actualHeal,
+    message: `${ctx.attacker.name}'s HP was restored.`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_TORMENT (165)
+registerEffect(MOVE_EFFECTS.EFFECT_TORMENT, (ctx, events) => {
+  if (ctx.defender.volatile.torment) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.defender.volatile.torment = true;
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} was subjected to torment!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_FOCUS_PUNCH (170)
+registerEffect(MOVE_EFFECTS.EFFECT_FOCUS_PUNCH, (ctx, events) => {
+  if (ctx.attacker.volatile.tookDamageThisTurn) {
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} lost its focus and couldn't move!`,
+    });
+    return { events, success: false };
+  }
+  const dmg = doDamage(ctx, events);
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_CHARGE (174)
+registerEffect(MOVE_EFFECTS.EFFECT_CHARGE, (ctx, events) => {
+  ctx.attacker.volatile.chargeTurns = 2;
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: `${ctx.attacker.name} began charging power!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_TAUNT (175)
+registerEffect(MOVE_EFFECTS.EFFECT_TAUNT, (ctx, events) => {
+  if (ctx.defender.volatile.taunt > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.defender.volatile.taunt = 2;
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} fell for the taunt!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_WISH (179)
+registerEffect(MOVE_EFFECTS.EFFECT_WISH, (ctx, events) => {
+  if (ctx.attackerSide.wishTurn > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.attackerSide.wishTurn = 2;
+  ctx.attackerSide.wishAmount = Math.max(1, Math.floor(ctx.attacker.maxHp / 2));
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: `${ctx.attacker.name} made a wish!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_REVENGE (185)
+registerEffect(MOVE_EFFECTS.EFFECT_REVENGE, (ctx, events) => {
+  const wasHitByTarget = ctx.attacker.volatile.tookDamageThisTurn
+    && ctx.attacker.volatile.lastDamagedByIsPlayer === ctx.defender.isPlayer;
+  const basePower = getMoveInfo(ctx.moveId)?.power ?? 1;
+  const powerOverride = wasHitByTarget ? Math.max(1, basePower * 2) : undefined;
+  const dmg = doDamage(ctx, events, { powerOverride });
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_YAWN (187)
+registerEffect(MOVE_EFFECTS.EFFECT_YAWN, (ctx, events) => {
+  const hasSleepImmunity = ctx.defender.ability === ABILITIES.INSOMNIA || ctx.defender.ability === ABILITIES.VITAL_SPIRIT;
+  if (ctx.defender.volatile.yawn > 0 || ctx.defender.pokemon.status !== STATUS.NONE || hasSleepImmunity) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  if (ctx.defenderSide.safeguard > 0) {
+    events.push({
+      type: 'message',
+      battler: ctx.defender.isPlayer ? 0 : 1,
+      message: `${ctx.defender.name} is protected by Safeguard!`,
+    });
+    return { events, success: false };
+  }
+  ctx.defender.volatile.yawn = 2;
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} grew drowsy!`,
+  });
+  return { events, success: true };
+});
+
 // EFFECT_FLAIL (99) — Flail / Reversal
 registerEffect(MOVE_EFFECTS.EFFECT_FLAIL, (ctx, events) => {
   const powerOverride = calculateFlailPower(ctx.attacker);
@@ -1592,8 +2051,15 @@ function shouldConsumePp(
   if (ctx.moveSlot < 0 || ctx.moveSlot > 3) return false;
 
   if (
-    moveEffect === MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE
+    isTwoTurnChargingEffect(moveEffect)
     && ctx.attacker.volatile.chargeMove === ctx.moveId
+  ) {
+    return false;
+  }
+
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_BIDE
+    && ctx.attacker.volatile.bide > 0
   ) {
     return false;
   }
@@ -1610,6 +2076,14 @@ function shouldConsumePp(
     moveEffect === MOVE_EFFECTS.EFFECT_ROLLOUT
     && ctx.attacker.volatile.rollout > 0
     && ctx.attacker.volatile.lastMoveUsed === ctx.moveId
+  ) {
+    return false;
+  }
+
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_UPROAR
+    && ctx.attacker.volatile.uproarTurns > 0
+    && ctx.attacker.volatile.uproarMove === ctx.moveId
   ) {
     return false;
   }

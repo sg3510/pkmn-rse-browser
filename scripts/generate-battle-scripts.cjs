@@ -60,6 +60,11 @@ out += '  BATTLE_MOVE_EFFECT_SCRIPTS.reduce((acc, entry) => {\n';
 out += '    acc[entry.effectId] = entry;\n';
 out += '    return acc;\n';
 out += '  }, {} as Record<number, BattleMoveEffectScriptEntry>);\n\n';
+out += 'export interface BattleScriptOp {\n';
+out += '  opcode: string;\n';
+out += '  args: string[];\n';
+out += '  raw: string;\n';
+out += '}\n\n';
 out += 'export const BATTLE_SCRIPTS: Record<string, string[]> = {\n';
 for (const label of sortedLabels) {
   out += `  ${label}: [\n`;
@@ -69,9 +74,23 @@ for (const label of sortedLabels) {
   out += '  ],\n';
 }
 out += '};\n\n';
+out += 'export const BATTLE_SCRIPT_OPS: Record<string, BattleScriptOp[]> = {\n';
+for (const label of sortedLabels) {
+  out += `  ${label}: [\n`;
+  for (const command of scriptBlocks[label]) {
+    const op = parseBattleScriptOp(command);
+    const argsList = op.args.map((arg) => `'${escapeSingleQuoted(arg)}'`).join(', ');
+    out += `    { opcode: '${escapeSingleQuoted(op.opcode)}', args: [${argsList}], raw: '${escapeSingleQuoted(op.raw)}' },\n`;
+  }
+  out += '  ],\n';
+}
+out += '};\n\n';
 out += 'export const BATTLE_SCRIPT_LABELS: string[] = Object.keys(BATTLE_SCRIPTS);\n\n';
 out += 'export function getBattleScript(label: string): string[] | undefined {\n';
 out += '  return BATTLE_SCRIPTS[label];\n';
+out += '}\n\n';
+out += 'export function getBattleScriptOps(label: string): BattleScriptOp[] | undefined {\n';
+out += '  return BATTLE_SCRIPT_OPS[label];\n';
 out += '}\n\n';
 out += 'export function getMoveEffectScript(effectId: number): BattleMoveEffectScriptEntry | undefined {\n';
 out += '  return BATTLE_MOVE_EFFECT_SCRIPT_BY_EFFECT_ID[effectId];\n';
@@ -167,6 +186,27 @@ function parseBattleScriptBlocks(source) {
   }
 
   return scripts;
+}
+
+function parseBattleScriptOp(command) {
+  const [head, ...rest] = command.trim().split(/\s+/);
+  const opcode = head || '';
+  const argsText = rest.join(' ').trim();
+  if (!argsText) {
+    return {
+      opcode,
+      args: [],
+      raw: command,
+    };
+  }
+  return {
+    opcode,
+    args: argsText
+      .split(',')
+      .map((arg) => arg.trim())
+      .filter((arg) => arg.length > 0),
+    raw: command,
+  };
 }
 
 function escapeSingleQuoted(text) {

@@ -16,7 +16,7 @@ import { STATUS } from '../../pokemon/types.ts';
 import { getAbility } from '../../pokemon/stats.ts';
 import { battleRandomInt } from './BattleRng.ts';
 import { executeMove } from './MoveEffects.ts';
-import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus } from './StatusEffects.ts';
+import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus, tryApplyStatus } from './StatusEffects.ts';
 import type {
   BattleAction,
   BattleActionValidationResult,
@@ -370,6 +370,20 @@ export class BattleEngine {
       return null;
     }
 
+    if (actor.volatile.bide > 0) {
+      const forced = this.findMoveSlotById(actor, MOVES.BIDE);
+      if (forced) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.bide = 0;
+      actor.volatile.bideDamage = 0;
+      actor.volatile.bideTargetIsPlayer = null;
+    }
+
     if (actor.volatile.chargeMove !== MOVES.NONE) {
       const forced = this.findUsableMoveById(actor, actor.volatile.chargeMove, true);
       if (forced) {
@@ -408,6 +422,44 @@ export class BattleEngine {
       actor.volatile.rollout = 0;
     }
 
+    if (actor.volatile.uproarTurns > 0 && actor.volatile.uproarMove !== MOVES.NONE) {
+      const forced = this.findUsableMoveById(actor, actor.volatile.uproarMove, true);
+      if (forced) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.uproarTurns = 0;
+      actor.volatile.uproarMove = MOVES.NONE;
+    }
+
+    if (actor.volatile.encore > 0 && actor.volatile.encoredMove !== MOVES.NONE) {
+      const forced = this.findMoveSlotById(actor, actor.volatile.encoredMove);
+      if (forced && forced.moveSlot >= 0 && actor.pokemon.pp[forced.moveSlot] > 0) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.encore = 0;
+      actor.volatile.encoredMove = MOVES.NONE;
+    }
+
+    return null;
+  }
+
+  private findMoveSlotById(actor: BattlePokemon, moveId: number): { moveId: number; moveSlot: number } | null {
+    for (let moveSlot = 0; moveSlot < actor.pokemon.moves.length; moveSlot++) {
+      const candidateMoveId = actor.pokemon.moves[moveSlot];
+      if (candidateMoveId !== moveId) continue;
+      return {
+        moveId: candidateMoveId,
+        moveSlot,
+      };
+    }
     return null;
   }
 
@@ -600,18 +652,22 @@ export class BattleEngine {
   }
 
   private applyEndOfTurn(events: BattleEvent[]): void {
+    this.refreshTrappedState(this.player);
+    this.refreshTrappedState(this.enemy);
+
     events.push(...applyEndOfTurnStatus(this.player));
     events.push(...applyEndOfTurnStatus(this.enemy));
 
     this.applyLeechSeed(events);
     this.applyFutureSight(events);
+    this.applyVolatileEndTurn(events);
 
     const weatherTick = tickWeather(this.weather, [this.player, this.enemy]);
     this.weather = weatherTick.weather;
     events.push(...weatherTick.events);
 
-    this.tickSideTimers(this.playerSide, true, events);
-    this.tickSideTimers(this.enemySide, false, events);
+    this.tickSideTimers(this.playerSide, this.player, true, events);
+    this.tickSideTimers(this.enemySide, this.enemy, false, events);
   }
 
   private applyLeechSeed(events: BattleEvent[]): void {
@@ -683,7 +739,121 @@ export class BattleEngine {
     }
   }
 
-  private tickSideTimers(side: SideState, isPlayerSide: boolean, events: BattleEvent[]): void {
+  private applyVolatileEndTurn(events: BattleEvent[]): void {
+    for (const mon of [this.player, this.enemy]) {
+      if (mon.currentHp <= 0) continue;
+
+      if (mon.volatile.disabled > 0) {
+        const moveSlot = mon.pokemon.moves.findIndex((moveId) => moveId === mon.volatile.disabledMove);
+        if (moveSlot < 0 || mon.pokemon.pp[moveSlot] <= 0) {
+          mon.volatile.disabled = 0;
+          mon.volatile.disabledMove = MOVES.NONE;
+        } else {
+          mon.volatile.disabled--;
+          if (mon.volatile.disabled <= 0) {
+            mon.volatile.disabled = 0;
+            mon.volatile.disabledMove = MOVES.NONE;
+            events.push({
+              type: 'message',
+              battler: mon.isPlayer ? 0 : 1,
+              message: `${mon.name} is no longer disabled!`,
+            });
+          }
+        }
+      }
+
+      if (mon.volatile.encore > 0) {
+        const moveSlot = mon.pokemon.moves.findIndex((moveId) => moveId === mon.volatile.encoredMove);
+        if (moveSlot < 0 || mon.pokemon.pp[moveSlot] <= 0) {
+          mon.volatile.encore = 0;
+          mon.volatile.encoredMove = MOVES.NONE;
+        } else {
+          mon.volatile.encore--;
+          if (mon.volatile.encore <= 0) {
+            mon.volatile.encore = 0;
+            mon.volatile.encoredMove = MOVES.NONE;
+            events.push({
+              type: 'message',
+              battler: mon.isPlayer ? 0 : 1,
+              message: `${mon.name}'s encore ended!`,
+            });
+          }
+        }
+      }
+
+      if (mon.volatile.chargeTurns > 0) {
+        mon.volatile.chargeTurns--;
+      }
+
+      if (mon.volatile.taunt > 0) {
+        mon.volatile.taunt--;
+      }
+
+      if (mon.volatile.yawn > 0) {
+        mon.volatile.yawn--;
+        if (
+          mon.volatile.yawn === 0
+          && !hasStatus(mon, STATUS.SLEEP)
+          && mon.pokemon.status === STATUS.NONE
+          && mon.ability !== ABILITIES.INSOMNIA
+          && mon.ability !== ABILITIES.VITAL_SPIRIT
+          && !this.isUproarBlockingSleep(mon)
+        ) {
+          this.clearMultiTurnLocks(mon);
+          tryApplyStatus(mon, STATUS.SLEEP, events);
+        }
+      }
+
+      if (mon.volatile.perishSong > 1) {
+        const count = mon.volatile.perishSong - 1;
+        mon.volatile.perishSong--;
+        events.push({
+          type: 'message',
+          battler: mon.isPlayer ? 0 : 1,
+          message: `${mon.name}'s perish count fell to ${count}!`,
+        });
+      } else if (mon.volatile.perishSong === 1) {
+        mon.volatile.perishSong = 0;
+        mon.currentHp = 0;
+        this.clearMultiTurnLocks(mon);
+        events.push({
+          type: 'message',
+          battler: mon.isPlayer ? 0 : 1,
+          message: `${mon.name}'s perish count reached 0!`,
+        });
+        events.push({
+          type: 'faint',
+          battler: mon.isPlayer ? 0 : 1,
+          message: `${mon.name} fainted!`,
+        });
+      }
+    }
+  }
+
+  private clearMultiTurnLocks(mon: BattlePokemon): void {
+    mon.volatile.chargeMove = MOVES.NONE;
+    mon.volatile.semiInvulnerableMove = MOVES.NONE;
+    mon.volatile.rampageTurns = 0;
+    mon.volatile.rampageMove = MOVES.NONE;
+    mon.volatile.rollout = 0;
+    mon.volatile.bide = 0;
+    mon.volatile.bideDamage = 0;
+    mon.volatile.bideTargetIsPlayer = null;
+    mon.volatile.uproarTurns = 0;
+    mon.volatile.uproarMove = MOVES.NONE;
+    mon.volatile.furyCutter = 0;
+  }
+
+  private isUproarBlockingSleep(target: BattlePokemon): boolean {
+    if (target.ability === ABILITIES.SOUNDPROOF) return false;
+    for (const mon of [this.player, this.enemy]) {
+      if (mon.currentHp <= 0) continue;
+      if (mon.volatile.uproarTurns > 0) return true;
+    }
+    return false;
+  }
+
+  private tickSideTimers(side: SideState, battler: BattlePokemon, isPlayerSide: boolean, events: BattleEvent[]): void {
     if (side.reflect > 0) {
       side.reflect--;
       if (side.reflect === 0) {
@@ -725,6 +895,28 @@ export class BattleEngine {
           battler: isPlayerSide ? 0 : 1,
           message: isPlayerSide ? "Your team's Mist faded!" : "Foe's Mist faded!",
         });
+      }
+    }
+
+    if (side.wishTurn > 0) {
+      side.wishTurn--;
+      if (side.wishTurn === 0) {
+        if (battler.currentHp > 0 && battler.currentHp < battler.maxHp) {
+          const heal = Math.min(Math.max(1, side.wishAmount), battler.maxHp - battler.currentHp);
+          battler.currentHp += heal;
+          events.push({
+            type: 'message',
+            battler: isPlayerSide ? 0 : 1,
+            message: `${battler.name}'s wish came true!`,
+          });
+          events.push({
+            type: 'heal',
+            battler: isPlayerSide ? 0 : 1,
+            value: heal,
+            message: `${battler.name} regained health!`,
+          });
+        }
+        side.wishAmount = 0;
       }
     }
   }
@@ -780,12 +972,29 @@ export class BattleEngine {
       }
       mon.volatile.protect = false;
       mon.volatile.endure = false;
+      mon.volatile.tookDamageThisTurn = false;
+      mon.volatile.lastDamageTaken = 0;
+      mon.volatile.lastDamagedByIsPlayer = null;
     }
+  }
+
+  private refreshTrappedState(actor: BattlePokemon): void {
+    if (actor.volatile.trapped <= 0) return;
+    const sourceIsPlayer = actor.volatile.trappedByIsPlayer;
+    if (sourceIsPlayer === null) return;
+    const source = sourceIsPlayer ? this.player : this.enemy;
+    if (source.currentHp > 0) return;
+    actor.volatile.trapped = 0;
+    actor.volatile.trappedBy = null;
+    actor.volatile.trappedByIsPlayer = null;
   }
 
   private isBattlerTrapped(actor: BattlePokemon): boolean {
     if (actor.volatile.trapped > 0) {
-      return true;
+      this.refreshTrappedState(actor);
+      if (actor.volatile.trapped > 0) {
+        return true;
+      }
     }
 
     const sourceIsPlayer = actor.volatile.meanLookSourceIsPlayer;
@@ -801,6 +1010,11 @@ export class BattleEngine {
     const target = sourceIsPlayer ? this.enemy : this.player;
     if (target.volatile.meanLookSourceIsPlayer === sourceIsPlayer) {
       target.volatile.meanLookSourceIsPlayer = null;
+    }
+    if (target.volatile.trappedByIsPlayer === sourceIsPlayer) {
+      target.volatile.trapped = 0;
+      target.volatile.trappedBy = null;
+      target.volatile.trappedByIsPlayer = null;
     }
   }
 }

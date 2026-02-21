@@ -35,6 +35,7 @@ export interface VolatileStatus {
   substitute: number;         // substitute HP (0 = no sub)
   trapped: number;            // turns remaining in Wrap/Bind
   trappedBy: 'attacker' | 'defender' | null;
+  trappedByIsPlayer: boolean | null;
   nightmare: boolean;
   curse: boolean;
   focusEnergy: boolean;
@@ -46,7 +47,7 @@ export interface VolatileStatus {
   encoredMove: number;        // forced move ID
   disabled: number;           // turns remaining
   disabledMove: number;       // disabled move ID
-  perishSong: number;         // turns until faint (0 = not active, 3/2/1 countdown)
+  perishSong: number;         // turns until faint (0 = inactive, internally 4/3/2/1)
   destinyBond: boolean;
   yawn: number;               // 0=none, 2=just yawned, 1=fall asleep next turn
   ingrain: boolean;
@@ -69,9 +70,17 @@ export interface VolatileStatus {
   futureSightAttackerIsPlayer: boolean | null;
   bide: number;               // turns remaining
   bideDamage: number;         // accumulated damage
+  bideTargetIsPlayer: boolean | null;
   rage: boolean;
   rollout: number;            // consecutive uses (0-4)
   furyCutter: number;         // consecutive uses (0-4)
+  stockpile: number;          // stacked stockpile count (0-3)
+  chargeTurns: number;        // charge boost turns remaining
+  uproarTurns: number;        // uproar lock turns remaining
+  uproarMove: number;         // move id used for uproar lock
+  tookDamageThisTurn: boolean;
+  lastDamageTaken: number;
+  lastDamagedByIsPlayer: boolean | null;
   toxicCounter: number;       // bad poison counter (increments each end turn while toxic)
 }
 
@@ -83,6 +92,7 @@ export function createDefaultVolatile(): VolatileStatus {
     substitute: 0,
     trapped: 0,
     trappedBy: null,
+    trappedByIsPlayer: null,
     nightmare: false,
     curse: false,
     focusEnergy: false,
@@ -117,9 +127,17 @@ export function createDefaultVolatile(): VolatileStatus {
     futureSightAttackerIsPlayer: null,
     bide: 0,
     bideDamage: 0,
+    bideTargetIsPlayer: null,
     rage: false,
     rollout: 0,
     furyCutter: 0,
+    stockpile: 0,
+    chargeTurns: 0,
+    uproarTurns: 0,
+    uproarMove: 0,
+    tookDamageThisTurn: false,
+    lastDamageTaken: 0,
+    lastDamagedByIsPlayer: null,
     toxicCounter: 0,
   };
 }
