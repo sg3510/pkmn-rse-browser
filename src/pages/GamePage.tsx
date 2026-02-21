@@ -291,6 +291,7 @@ const MOBILE_MIN_SCREEN_ASPECT = 0.75;
 const MOBILE_MAX_SCREEN_ASPECT = 2.1;
 const MOBILE_MIN_VIEWPORT_ASPECT = 1.0;
 const MOBILE_MAX_VIEWPORT_ASPECT = 16 / 9;
+const DESKTOP_VIEWPORT_HORIZONTAL_RESERVE_PX = 112;
 
 function waitFlashFrames(frames: number): Promise<void> {
   const delayMs = Math.max(1, Math.round(Math.max(0, frames) * GBA_FRAME_MS));
@@ -402,6 +403,15 @@ export function GamePage() {
   }, [windowMetrics.height, windowMetrics.width]);
 
   const activeViewportConfig = isTouchMobile ? mobileLayout.viewportConfig : viewportConfig;
+  const desktopZoom = useMemo(() => {
+    if (isTouchMobile) {
+      return zoom;
+    }
+    const viewportPixelSize = getViewportPixelSize(viewportConfig);
+    const fitWidth = Math.max(240, windowMetrics.width - DESKTOP_VIEWPORT_HORIZONTAL_RESERVE_PX);
+    const fitZoom = fitWidth / Math.max(1, viewportPixelSize.width);
+    return clampNumber(Math.min(zoom, fitZoom), 0.3, 3);
+  }, [isTouchMobile, viewportConfig, windowMetrics.width, zoom]);
 
   // Initialize state manager once
   useEffect(() => {
@@ -443,7 +453,7 @@ export function GamePage() {
 
   // Compute viewport pixel size for responsive menus
   const viewportPixelSize = getViewportPixelSize(activeViewportConfig);
-  const activeZoom = isTouchMobile ? mobileLayout.zoom : zoom;
+  const activeZoom = isTouchMobile ? mobileLayout.zoom : desktopZoom;
   const saveTextSpeed = saveManager.getOptions().textSpeed;
 
   const dialogConfig = useMemo(
@@ -460,6 +470,7 @@ export function GamePage() {
     <DialogProvider zoom={activeZoom} viewport={viewportPixelSize} config={dialogConfig}>
       <GamePageContent
         zoom={activeZoom}
+        selectedZoom={zoom}
         onZoomChange={setZoom}
         currentState={currentState}
         stateManager={stateManager}
@@ -473,6 +484,7 @@ export function GamePage() {
 
 interface GamePageContentProps {
   zoom: number;
+  selectedZoom: number;
   onZoomChange: (zoom: number) => void;
   currentState: GameState;
   stateManager: GameStateManager | null;
@@ -484,7 +496,16 @@ interface GamePageContentProps {
 /**
  * GamePageContent - main game rendering and logic
  */
-function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewportConfig, onViewportChange, isTouchMobile }: GamePageContentProps) {
+function GamePageContent({
+  zoom,
+  selectedZoom,
+  onZoomChange,
+  currentState,
+  stateManager,
+  viewportConfig,
+  onViewportChange,
+  isTouchMobile,
+}: GamePageContentProps) {
   const { pressButton, releasePointer, releaseAll } = useVirtualKeyboardBridge();
 
   // Compute viewport dimensions from config
@@ -2733,6 +2754,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
   const viewportDisplayWidth = viewportPixelSize.width * zoom;
   const viewportDisplayHeight = viewportPixelSize.height * zoom;
+  const autoFitZoomActive = !isTouchMobile && zoom < selectedZoom;
   const stitchTargetMapId = displayMapId || selectedMap?.id || '';
   const stitchTargetMapCount = useMemo(
     () => countReachableMapsWithinDepth(mapIndexData, stitchTargetMapId, 2),
@@ -2899,8 +2921,8 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                   style={{
                     padding: '2px 8px',
                     fontSize: 11,
-                    background: zoom === z ? '#4a90d9' : '#2a3a4a',
-                    color: zoom === z ? '#fff' : '#9fb0cc',
+                    background: selectedZoom === z ? '#4a90d9' : '#2a3a4a',
+                    color: selectedZoom === z ? '#fff' : '#9fb0cc',
                     border: 'none',
                     borderRadius: 3,
                     cursor: 'pointer',
@@ -2910,6 +2932,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
                 </button>
               ))}
             </span>
+            {autoFitZoomActive && (
+              <span>Auto-fit: {zoom.toFixed(2)}x</span>
+            )}
           </div>
         </div>
       </div>
