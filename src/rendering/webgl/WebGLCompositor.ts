@@ -12,6 +12,7 @@
 
 import { WebGLShaders, COMPOSITE_VERTEX_SHADER, COMPOSITE_FRAGMENT_SHADER } from './WebGLShaders';
 import type { ShaderProgram } from './types';
+import { computeCompositeRegionUv } from './compositeRegionUv';
 
 export class WebGLCompositor {
   private gl: WebGL2RenderingContext;
@@ -23,6 +24,8 @@ export class WebGLCompositor {
   private uniforms: {
     texture: WebGLUniformLocation | null;
     offset: WebGLUniformLocation | null;
+    uvScale: WebGLUniformLocation | null;
+    uvOffset: WebGLUniformLocation | null;
   } | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
@@ -48,6 +51,8 @@ export class WebGLCompositor {
     this.uniforms = {
       texture: this.shaders.getUniformLocation(gl, this.program, 'u_texture'),
       offset: this.shaders.getUniformLocation(gl, this.program, 'u_offset'),
+      uvScale: this.shaders.getUniformLocation(gl, this.program, 'u_uvScale'),
+      uvOffset: this.shaders.getUniformLocation(gl, this.program, 'u_uvOffset'),
     };
 
     // Create an empty VAO for fullscreen quad (uses gl_VertexID in shader)
@@ -87,7 +92,50 @@ export class WebGLCompositor {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
-    this.drawFullscreenQuad(passTexture, offsetX, offsetY);
+    this.drawFullscreenQuad(passTexture, offsetX, offsetY, 1, 1, 0, 0);
+  }
+
+  /**
+   * Composite a cropped region of a pass texture to screen.
+   *
+   * This avoids CPU-side blits when pass textures include overscan tiles.
+   */
+  compositeRegionToScreen(
+    passTexture: WebGLTexture,
+    sourceWidth: number,
+    sourceHeight: number,
+    sourceX: number,
+    sourceY: number,
+    sourceRegionWidth: number,
+    sourceRegionHeight: number,
+    viewportWidth: number,
+    viewportHeight: number,
+    clearFirst: boolean = false
+  ): void {
+    const { gl } = this;
+
+    if (!this.program || !this.uniforms) {
+      throw new Error('Compositor not initialized');
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, viewportWidth, viewportHeight);
+
+    if (clearFirst) {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    const { uvScaleX, uvScaleY, uvOffsetX, uvOffsetY } = computeCompositeRegionUv(
+      sourceWidth,
+      sourceHeight,
+      sourceX,
+      sourceY,
+      sourceRegionWidth,
+      sourceRegionHeight
+    );
+
+    this.drawFullscreenQuad(passTexture, 0, 0, uvScaleX, uvScaleY, uvOffsetX, uvOffsetY);
   }
 
   /**
@@ -117,7 +165,7 @@ export class WebGLCompositor {
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFramebuffer);
     gl.viewport(0, 0, targetWidth, targetHeight);
 
-    this.drawFullscreenQuad(passTexture, offsetX, offsetY);
+    this.drawFullscreenQuad(passTexture, offsetX, offsetY, 1, 1, 0, 0);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
@@ -128,7 +176,11 @@ export class WebGLCompositor {
   private drawFullscreenQuad(
     texture: WebGLTexture,
     offsetX: number,
-    offsetY: number
+    offsetY: number,
+    uvScaleX: number,
+    uvScaleY: number,
+    uvOffsetX: number,
+    uvOffsetY: number
   ): void {
     const { gl } = this;
 
@@ -146,6 +198,8 @@ export class WebGLCompositor {
 
     // Set offset (convert from pixels to clip space if needed)
     gl.uniform2f(this.uniforms.offset, offsetX, offsetY);
+    gl.uniform2f(this.uniforms.uvScale, uvScaleX, uvScaleY);
+    gl.uniform2f(this.uniforms.uvOffset, uvOffsetX, uvOffsetY);
 
     // Enable blending for transparent composition
     gl.enable(gl.BLEND);
