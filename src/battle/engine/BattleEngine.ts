@@ -19,11 +19,13 @@ import { executeMove } from './MoveEffects.ts';
 import { applyEndOfTurnStatus, checkPreMoveStatus, hasStatus } from './StatusEffects.ts';
 import type {
   BattleAction,
+  BattleActionValidationResult,
   BattleConfig,
   BattleEvent,
   BattleOutcome,
   BattlePokemon,
   FightAction,
+  MoveSelectionBlockReason,
   SideState,
   TurnResult,
   WeatherState,
@@ -80,25 +82,33 @@ export class BattleEngine {
     return this.outcome;
   }
 
+  validatePlayerAction(action: BattleAction): BattleActionValidationResult {
+    return this.validateAction(this.player, action, false);
+  }
+
   replacePlayerPokemon(pokemon: PartyPokemon, partyIndex: number): void {
+    this.clearEscapePreventionFromSource(true);
     this.applyPartyMonToBattler(this.player, pokemon, true, partyIndex);
     this.outcome = null;
   }
 
   replaceEnemyPokemon(pokemon: PartyPokemon, partyIndex: number): void {
+    this.clearEscapePreventionFromSource(false);
     this.applyPartyMonToBattler(this.enemy, pokemon, false, partyIndex);
     this.outcome = null;
   }
 
   executeTurn(playerAction: BattleAction): TurnResult {
     const events: BattleEvent[] = [];
+    let consumedTurn = false;
 
     if (this.outcome !== null) {
-      return { events, outcome: this.outcome };
+      return { events, outcome: this.outcome, consumedTurn: false };
     }
 
     if (playerAction.type === 'run') {
       const consumesTurn = this.handleRunAttempt(events);
+      consumedTurn = consumesTurn;
       if (consumesTurn && this.outcome === null && this.player.currentHp > 0 && this.enemy.currentHp > 0) {
         this.executeEnemyActionOnly(events);
       }
@@ -107,8 +117,24 @@ export class BattleEngine {
         this.resolveOutcome();
       }
       this.finalizeTurnState();
-      return { events, outcome: this.outcome };
+      return { events, outcome: this.outcome, consumedTurn };
     }
+
+    const validatedPlayerAction = this.validateAction(this.player, playerAction, false);
+    if (!validatedPlayerAction.ok) {
+      const message = validatedPlayerAction.blockedReason
+        ? getMoveSelectionBlockMessage(validatedPlayerAction.blockedReason)
+        : 'But it failed!';
+      events.push({
+        type: 'message',
+        battler: 0,
+        message,
+      });
+      this.finalizeTurnState();
+      return { events, outcome: this.outcome, consumedTurn: false };
+    }
+    playerAction = validatedPlayerAction.normalizedAction;
+    consumedTurn = true;
 
     const enemyAction = this.chooseEnemyAction();
     const ordered = this.orderActions(playerAction, enemyAction);
@@ -136,7 +162,7 @@ export class BattleEngine {
     }
 
     this.finalizeTurnState();
-    return { events, outcome: this.outcome };
+    return { events, outcome: this.outcome, consumedTurn };
   }
 
   private wrapPartyMon(pokemon: PartyPokemon, isPlayer: boolean, partyIndex: number): BattlePokemon {
@@ -173,7 +199,7 @@ export class BattleEngine {
   private chooseEnemyAction(): FightAction {
     const usableMoves = this.enemy.pokemon.moves
       .map((moveId, moveSlot) => ({ moveId, moveSlot }))
-      .filter((entry) => entry.moveId !== MOVES.NONE && this.enemy.pokemon.pp[entry.moveSlot] > 0);
+      .filter((entry) => this.isMoveSelectable(this.enemy, entry.moveId, entry.moveSlot) === null);
 
     if (usableMoves.length === 0) {
       return {
@@ -197,14 +223,14 @@ export class BattleEngine {
       actorSide: this.playerSide,
       target: this.enemy,
       targetSide: this.enemySide,
-      action: this.normalizeAction(this.player, playerAction),
+      action: this.validateAction(this.player, playerAction, true).normalizedAction,
     };
     const enemyOrdered: OrderedAction = {
       actor: this.enemy,
       actorSide: this.enemySide,
       target: this.player,
       targetSide: this.playerSide,
-      action: this.normalizeAction(this.enemy, enemyAction),
+      action: this.validateAction(this.enemy, enemyAction, true).normalizedAction,
     };
 
     const playerPriority = getActionPriority(playerOrdered.action);
@@ -229,36 +255,224 @@ export class BattleEngine {
       : [enemyOrdered, playerOrdered];
   }
 
-  private normalizeAction(actor: BattlePokemon, action: BattleAction): BattleAction {
+  private validateAction(
+    actor: BattlePokemon,
+    action: BattleAction,
+    allowFallback: boolean,
+  ): BattleActionValidationResult {
+    if (action.type === 'switch') {
+      if (this.isBattlerTrapped(actor)) {
+        return {
+          ok: false,
+          normalizedAction: action,
+        };
+      }
+      return {
+        ok: true,
+        normalizedAction: action,
+      };
+    }
+
+    if (action.type === 'run') {
+      if (actor.isPlayer && this.isBattlerTrapped(actor)) {
+        return {
+          ok: false,
+          normalizedAction: action,
+        };
+      }
+      return {
+        ok: true,
+        normalizedAction: action,
+      };
+    }
+
     if (action.type !== 'fight') {
-      return action;
+      return {
+        ok: true,
+        normalizedAction: action,
+      };
+    }
+
+    const forcedAction = this.resolveForcedFightAction(actor);
+    if (forcedAction) {
+      return {
+        ok: true,
+        normalizedAction: forcedAction,
+      };
     }
 
     if (action.moveSlot >= 0 && action.moveSlot < 4) {
       const moveId = actor.pokemon.moves[action.moveSlot];
-      const pp = actor.pokemon.pp[action.moveSlot];
-      if (moveId === action.moveId && moveId !== MOVES.NONE && pp > 0) {
-        return action;
+      if (moveId === action.moveId) {
+        const blockedReason = this.isMoveSelectable(actor, moveId, action.moveSlot);
+        if (blockedReason === null) {
+          return {
+            ok: true,
+            normalizedAction: action,
+          };
+        }
+        const fallback = this.findFirstUsableMove(actor);
+        if (fallback) {
+          if (allowFallback) {
+            return {
+              ok: true,
+              normalizedAction: {
+                type: 'fight',
+                moveId: fallback.moveId,
+                moveSlot: fallback.moveSlot,
+              },
+            };
+          }
+          return {
+            ok: false,
+            normalizedAction: action,
+            blockedReason,
+            blockedMoveSlot: action.moveSlot,
+          };
+        }
       }
     }
 
-    const fallback = actor.pokemon.moves
-      .map((moveId, moveSlot) => ({ moveId, moveSlot }))
-      .find((entry) => entry.moveId !== MOVES.NONE && actor.pokemon.pp[entry.moveSlot] > 0);
+    const fallback = this.findFirstUsableMove(actor);
 
     if (fallback) {
+      if (allowFallback) {
+        return {
+          ok: true,
+          normalizedAction: {
+            type: 'fight',
+            moveId: fallback.moveId,
+            moveSlot: fallback.moveSlot,
+          },
+        };
+      }
       return {
-        type: 'fight',
-        moveId: fallback.moveId,
-        moveSlot: fallback.moveSlot,
+        ok: false,
+        normalizedAction: action,
+        blockedReason: 'disabled',
+        blockedMoveSlot: action.moveSlot,
       };
     }
 
     return {
-      type: 'fight',
-      moveId: MOVES.STRUGGLE,
-      moveSlot: -1,
+      ok: true,
+      normalizedAction: {
+        type: 'fight',
+        moveId: MOVES.STRUGGLE,
+        moveSlot: -1,
+      },
+      allMovesUnusable: true,
     };
+  }
+
+  private resolveForcedFightAction(actor: BattlePokemon): FightAction | null {
+    if (actor.volatile.recharging) {
+      return null;
+    }
+
+    if (actor.volatile.chargeMove !== MOVES.NONE) {
+      const forced = this.findUsableMoveById(actor, actor.volatile.chargeMove, true);
+      if (forced) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.chargeMove = MOVES.NONE;
+      actor.volatile.semiInvulnerableMove = MOVES.NONE;
+    }
+
+    if (actor.volatile.rampageTurns > 0 && actor.volatile.rampageMove !== MOVES.NONE) {
+      const forced = this.findUsableMoveById(actor, actor.volatile.rampageMove, true);
+      if (forced) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.rampageTurns = 0;
+      actor.volatile.rampageMove = MOVES.NONE;
+    }
+
+    if (actor.volatile.rollout > 0 && actor.volatile.lastMoveUsed !== MOVES.NONE) {
+      const forced = this.findUsableMoveById(actor, actor.volatile.lastMoveUsed, true);
+      if (forced) {
+        return {
+          type: 'fight',
+          moveId: forced.moveId,
+          moveSlot: forced.moveSlot,
+        };
+      }
+      actor.volatile.rollout = 0;
+    }
+
+    return null;
+  }
+
+  private findUsableMoveById(
+    actor: BattlePokemon,
+    moveId: number,
+    ignoreSelectionRestrictions = false,
+  ): { moveId: number; moveSlot: number } | null {
+    for (let moveSlot = 0; moveSlot < actor.pokemon.moves.length; moveSlot++) {
+      const candidateMoveId = actor.pokemon.moves[moveSlot];
+      if (candidateMoveId !== moveId) continue;
+      if (!ignoreSelectionRestrictions && this.isMoveSelectable(actor, candidateMoveId, moveSlot) !== null) continue;
+      return {
+        moveId: candidateMoveId,
+        moveSlot,
+      };
+    }
+    return null;
+  }
+
+  private findFirstUsableMove(actor: BattlePokemon): { moveId: number; moveSlot: number } | null {
+    for (let moveSlot = 0; moveSlot < actor.pokemon.moves.length; moveSlot++) {
+      const moveId = actor.pokemon.moves[moveSlot];
+      if (this.isMoveSelectable(actor, moveId, moveSlot) !== null) continue;
+      return {
+        moveId,
+        moveSlot,
+      };
+    }
+    return null;
+  }
+
+  private isMoveSelectable(
+    actor: BattlePokemon,
+    moveId: number,
+    moveSlot: number,
+  ): MoveSelectionBlockReason | null {
+    if (moveId === MOVES.NONE || moveSlot < 0 || moveSlot >= 4) {
+      return 'disabled';
+    }
+    if (actor.pokemon.pp[moveSlot] <= 0) {
+      return 'no_pp';
+    }
+    if (actor.volatile.disabledMove === moveId && actor.volatile.disabled > 0) {
+      return 'disabled';
+    }
+
+    const moveData = getBattleMoveData(moveId);
+    if (actor.volatile.taunt > 0 && (moveData?.power ?? 0) === 0) {
+      return 'taunt';
+    }
+    if (actor.volatile.torment && actor.volatile.lastMoveUsed === moveId && moveId !== MOVES.STRUGGLE) {
+      return 'torment';
+    }
+
+    const holdEffect = getItemBattleEffect(actor.pokemon.heldItem)?.holdEffect;
+    const isChoiceBandLocked = holdEffect === HOLD_EFFECTS.HOLD_EFFECT_CHOICE_BAND
+      && actor.volatile.lastMoveUsed !== MOVES.NONE
+      && actor.volatile.lastMoveUsed !== MOVES.STRUGGLE
+      && actor.volatile.lastMoveUsed !== moveId;
+    if (isChoiceBandLocked) {
+      return 'choice_lock';
+    }
+
+    return null;
   }
 
   /**
@@ -275,7 +489,7 @@ export class BattleEngine {
       actorSide: this.enemySide,
       target: this.player,
       targetSide: this.playerSide,
-      action: this.normalizeAction(this.enemy, enemyAction),
+      action: this.validateAction(this.enemy, enemyAction, true).normalizedAction,
     };
 
     const preCheck = checkPreMoveStatus(enemyStep.actor);
@@ -294,11 +508,16 @@ export class BattleEngine {
           defender: step.target,
           moveId: step.action.moveId,
           moveSlot: step.action.moveSlot,
+          battleType: this.config.type,
           weather: this.weather,
           attackerSide: step.actorSide,
           defenderSide: step.targetSide,
         });
         events.push(...result.events);
+        const forcedOutcome = result.events.find((event) => event.type === 'battle_end')?.detail;
+        if (forcedOutcome === 'win' || forcedOutcome === 'lose' || forcedOutcome === 'draw' || forcedOutcome === 'flee') {
+          this.outcome = forcedOutcome;
+        }
         if (result.weather) {
           this.weather = result.weather;
         }
@@ -325,6 +544,15 @@ export class BattleEngine {
         message: "No! There's no running from this battle!",
       });
       return false;
+    }
+
+    if (this.isBattlerTrapped(this.player)) {
+      events.push({
+        type: 'message',
+        battler: 0,
+        message: "Can't escape!",
+      });
+      return true;
     }
 
     const playerCanAlwaysRun = this.player.ability === ABILITIES.RUN_AWAY
@@ -376,6 +604,7 @@ export class BattleEngine {
     events.push(...applyEndOfTurnStatus(this.enemy));
 
     this.applyLeechSeed(events);
+    this.applyFutureSight(events);
 
     const weatherTick = tickWeather(this.weather, [this.player, this.enemy]);
     this.weather = weatherTick.weather;
@@ -412,6 +641,45 @@ export class BattleEngine {
         value: actualDrain,
         message: `${this.enemy.name}'s health is sapped by Leech Seed!`,
       });
+    }
+  }
+
+  private applyFutureSight(events: BattleEvent[]): void {
+    for (const target of [this.player, this.enemy]) {
+      if (target.currentHp <= 0) continue;
+      if (target.volatile.futureSightTurns <= 0) continue;
+
+      target.volatile.futureSightTurns--;
+      if (target.volatile.futureSightTurns > 0) continue;
+
+      const moveId = target.volatile.futureSightMoveId || MOVES.FUTURE_SIGHT;
+      const attackName = moveId === MOVES.DOOM_DESIRE ? 'Doom Desire' : 'Future Sight';
+      events.push({
+        type: 'message',
+        battler: target.isPlayer ? 0 : 1,
+        message: `${target.name} took the ${attackName} attack!`,
+      });
+
+      const damage = Math.min(target.currentHp, Math.max(1, target.volatile.futureSightDamage));
+      target.currentHp = Math.max(0, target.currentHp - damage);
+      events.push({
+        type: 'damage',
+        battler: target.isPlayer ? 0 : 1,
+        value: damage,
+        moveId,
+      });
+
+      if (target.currentHp <= 0) {
+        events.push({
+          type: 'faint',
+          battler: target.isPlayer ? 0 : 1,
+          message: `${target.name} fainted!`,
+        });
+      }
+
+      target.volatile.futureSightMoveId = MOVES.NONE;
+      target.volatile.futureSightDamage = 0;
+      target.volatile.futureSightAttackerIsPlayer = null;
     }
   }
 
@@ -503,9 +771,52 @@ export class BattleEngine {
       if (!mon.volatile.protect && !mon.volatile.endure) {
         mon.volatile.protectSuccessCount = 0;
       }
+      if (mon.volatile.lockOnTurns > 0) {
+        mon.volatile.lockOnTurns--;
+        if (mon.volatile.lockOnTurns <= 0) {
+          mon.volatile.lockOnTurns = 0;
+          mon.volatile.lockOnTargetIsPlayer = null;
+        }
+      }
       mon.volatile.protect = false;
       mon.volatile.endure = false;
     }
+  }
+
+  private isBattlerTrapped(actor: BattlePokemon): boolean {
+    if (actor.volatile.trapped > 0) {
+      return true;
+    }
+
+    const sourceIsPlayer = actor.volatile.meanLookSourceIsPlayer;
+    if (sourceIsPlayer === null || sourceIsPlayer === actor.isPlayer) {
+      return false;
+    }
+
+    const source = sourceIsPlayer ? this.player : this.enemy;
+    return source.currentHp > 0;
+  }
+
+  private clearEscapePreventionFromSource(sourceIsPlayer: boolean): void {
+    const target = sourceIsPlayer ? this.enemy : this.player;
+    if (target.volatile.meanLookSourceIsPlayer === sourceIsPlayer) {
+      target.volatile.meanLookSourceIsPlayer = null;
+    }
+  }
+}
+
+export function getMoveSelectionBlockMessage(reason: MoveSelectionBlockReason): string {
+  switch (reason) {
+    case 'no_pp':
+      return "There's no PP left for this move!";
+    case 'disabled':
+      return 'This move is disabled!';
+    case 'taunt':
+      return "Taunt prevents status moves!";
+    case 'torment':
+      return 'Torment prevents using the same move twice!';
+    case 'choice_lock':
+      return 'The held item prevents selecting that move!';
   }
 }
 

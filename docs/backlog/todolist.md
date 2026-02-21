@@ -79,6 +79,16 @@ Birch Rescue → Choose Starter → Battle Poochyena → Return to Lab
 - [x] Remove dead legacy menu duplicates (`src/menu/components/PartyMenu.tsx`, `src/menu/components/PokemonSummary.tsx`) after zero runtime references.
 - [x] Migrate overworld `src/components/dialog/DialogContext.tsx` prompt printing/waiting state and modal input flow to shared `src/core/prompt/PromptController.ts` while retaining local UI state for choice/text-entry submodes.
 
+## Battle Full Parity Pass (2026-02-21)
+
+- [x] Add explicit battle party selection contract (`selectionReason`, `allowCancel`, `initialCursorIndex`, `blockedPartyIndexes`) and wire forced-faint selection flow.
+- [x] Restore party menu reorder parity (`SELECT` swap mode) in non-battle contexts.
+- [x] Enforce move selection legality (no silent remap) with explicit blocked reasons and no-turn-consume on invalid picks.
+- [x] Centralize PP bonus math and update battle/menu/summary move PP displays to PP-bonus-aware max PP.
+- [x] Implement field vitamins + `PP UP`/`PP MAX` usage flow with Emerald EV/PP caps and consume-on-success behavior.
+- [x] Normalize battle intro/send-out message ordering via shared sequence builders.
+- [x] Implement targeted move-effect parity for all missing referenced effects with `moveCount >= 2`.
+
 ---
 
 ## Phase 0: Foundation Systems (Prerequisite)

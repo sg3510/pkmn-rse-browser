@@ -41,6 +41,10 @@ export interface DamageContext {
   defenderSide: SideState;
   /** Is this a critical hit override? (e.g., forced crit moves) */
   forceCrit?: boolean;
+  /** Override base move power for effects like Flail/Eruption/Rollout. */
+  powerOverride?: number;
+  /** Foresight/Odor Sleuth: let Normal/Fighting hit Ghost. */
+  ignoreNormalFightGhostImmunity?: boolean;
 }
 
 /**
@@ -52,7 +56,8 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
 
   const moveInfo = getMoveInfo(moveId);
   const battleMoveData = getBattleMoveData(moveId);
-  if (!moveInfo || moveInfo.power <= 0) {
+  const basePower = Math.max(0, Math.floor(ctx.powerOverride ?? moveInfo?.power ?? 0));
+  if (!moveInfo || basePower <= 0) {
     return { damage: 0, critical: false, effectiveness: 1, hits: 0 };
   }
 
@@ -63,7 +68,12 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
   const isPhysical = isPhysicalType(moveType);
 
   // ── Type effectiveness ──
-  const effectiveness = getTypeEffectiveness(moveType, defenderTypes[0], defenderTypes[1]);
+  const effectivenessParts = resolveTypeEffectiveness(
+    moveType,
+    defenderTypes,
+    ctx.ignoreNormalFightGhostImmunity ?? false,
+  );
+  const effectiveness = effectivenessParts.overall;
   if (effectiveness === 0) {
     return { damage: 0, critical: false, effectiveness: 0, hits: 0 };
   }
@@ -119,7 +129,7 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
   const level = attacker.pokemon.level;
   let damage = Math.floor(
     Math.floor(
-      Math.floor(((2 * level) / 5 + 2) * moveInfo.power * attackStat / defenseStat) / 50
+      Math.floor(((2 * level) / 5 + 2) * basePower * attackStat / defenseStat) / 50
     ) + 2
   );
 
@@ -145,13 +155,11 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
 
   // ── Type effectiveness ──
   // Apply in two steps to match GBA integer truncation
-  if (defenderTypes[0]) {
-    const eff1 = getTypeEffectiveness(moveType, defenderTypes[0]);
-    if (eff1 !== 1) damage = Math.floor(damage * eff1);
+  if (effectivenessParts.eff1 !== 1) {
+    damage = Math.floor(damage * effectivenessParts.eff1);
   }
-  if (defenderTypes[1] && defenderTypes[1] !== defenderTypes[0]) {
-    const eff2 = getTypeEffectiveness(moveType, defenderTypes[1]);
-    if (eff2 !== 1) damage = Math.floor(damage * eff2);
+  if (effectivenessParts.eff2 !== 1) {
+    damage = Math.floor(damage * effectivenessParts.eff2);
   }
 
   // ── Screens (ignored on critical) ──
@@ -175,6 +183,38 @@ export function calculateDamage(ctx: DamageContext): DamageResult {
   damage = Math.max(1, damage);
 
   return { damage, critical, effectiveness, hits: 1 };
+}
+
+function resolveTypeEffectiveness(
+  moveType: string,
+  defenderTypes: readonly [string, string],
+  ignoreNormalFightGhostImmunity: boolean,
+): { overall: number; eff1: number; eff2: number } {
+  const eff1 = getAdjustedSingleTypeEffectiveness(moveType, defenderTypes[0], ignoreNormalFightGhostImmunity);
+  const hasSecondType = Boolean(defenderTypes[1]) && defenderTypes[1] !== defenderTypes[0];
+  const eff2 = hasSecondType
+    ? getAdjustedSingleTypeEffectiveness(moveType, defenderTypes[1], ignoreNormalFightGhostImmunity)
+    : 1;
+  return {
+    overall: eff1 * eff2,
+    eff1,
+    eff2,
+  };
+}
+
+function getAdjustedSingleTypeEffectiveness(
+  moveType: string,
+  defenseType: string,
+  ignoreNormalFightGhostImmunity: boolean,
+): number {
+  if (
+    ignoreNormalFightGhostImmunity
+    && defenseType === 'GHOST'
+    && (moveType === 'NORMAL' || moveType === 'FIGHTING')
+  ) {
+    return 1;
+  }
+  return getTypeEffectiveness(moveType, defenseType);
 }
 
 // ── Critical hit roll ──

@@ -382,3 +382,135 @@ test('simultaneous faint resolves as draw', () => {
   assert.equal(engine.getPlayer().currentHp, 0);
   assert.equal(engine.getEnemy().currentHp, 0);
 });
+
+test('selecting move with no PP does not consume turn and does not remap move', () => {
+  const player = makePartyMon({
+    species: SPECIES.TREECKO,
+    moves: [MOVES.POUND, MOVES.QUICK_ATTACK, 0, 0],
+    hp: 120,
+    speed: 120,
+  });
+  player.pp[0] = 0;
+  const enemy = makePartyMon({
+    species: SPECIES.MUDKIP,
+    moves: [MOVES.TACKLE, 0, 0, 0],
+    hp: 120,
+    speed: 20,
+  });
+
+  const engine = new BattleEngine({
+    config: { type: 'wild' },
+    playerPokemon: player,
+    enemyPokemon: enemy,
+  });
+
+  const enemyHpBefore = engine.getEnemy().currentHp;
+  const result = engine.executeTurn({
+    type: 'fight',
+    moveId: MOVES.POUND,
+    moveSlot: 0,
+  });
+
+  assert.equal(result.consumedTurn, false);
+  assert.equal(result.events.some((event) => event.message === "There's no PP left for this move!"), true);
+  assert.equal(engine.getEnemy().currentHp, enemyHpBefore);
+});
+
+test('all-unusable moves force Struggle and consume turn', () => {
+  const player = makePartyMon({
+    species: SPECIES.TREECKO,
+    moves: [MOVES.POUND, MOVES.QUICK_ATTACK, MOVES.PURSUIT, MOVES.SLAM],
+    hp: 120,
+    speed: 120,
+  });
+  player.pp = [0, 0, 0, 0];
+  const enemy = makePartyMon({
+    species: SPECIES.MUDKIP,
+    moves: [MOVES.SPLASH, 0, 0, 0],
+    hp: 120,
+    speed: 1,
+  });
+
+  const engine = new BattleEngine({
+    config: { type: 'wild' },
+    playerPokemon: player,
+    enemyPokemon: enemy,
+  });
+
+  const result = engine.executeTurn({
+    type: 'fight',
+    moveId: MOVES.POUND,
+    moveSlot: 0,
+  });
+
+  assert.equal(result.consumedTurn, true);
+  assert.equal(result.events.some((event) => event.message?.includes('used Struggle')), true);
+});
+
+test('run attempt is blocked by mean look and still consumes the turn', () => {
+  const engine = new BattleEngine({
+    config: { type: 'wild' },
+    playerPokemon: makePartyMon({
+      species: SPECIES.TREECKO,
+      moves: [MOVES.POUND, 0, 0, 0],
+      hp: 120,
+      speed: 120,
+    }),
+    enemyPokemon: makePartyMon({
+      species: SPECIES.GASTLY,
+      moves: [MOVES.MEAN_LOOK, 0, 0, 0],
+      hp: 120,
+      speed: 10,
+    }),
+  });
+
+  engine.getPlayer().volatile.meanLookSourceIsPlayer = false;
+  const result = engine.executeTurn({ type: 'run' });
+
+  assert.equal(result.consumedTurn, true);
+  assert.equal(result.events.some((event) => event.message === "Can't escape!"), true);
+});
+
+test('future sight resolves as delayed end-of-turn damage', () => {
+  setBattleRngAdapter({ next: () => 0 });
+  try {
+    const engine = new BattleEngine({
+      config: { type: 'wild' },
+      playerPokemon: makePartyMon({
+        species: SPECIES.ABRA,
+        moves: [MOVES.FUTURE_SIGHT, MOVES.SPLASH, 0, 0],
+        hp: 120,
+        speed: 120,
+      }),
+      enemyPokemon: makePartyMon({
+        species: SPECIES.MUDKIP,
+        moves: [MOVES.SPLASH, 0, 0, 0],
+        hp: 120,
+        speed: 1,
+      }),
+    });
+
+    const turn1 = engine.executeTurn({
+      type: 'fight',
+      moveId: MOVES.FUTURE_SIGHT,
+      moveSlot: 0,
+    });
+    assert.equal(turn1.events.some((event) => event.type === 'damage' && event.battler === 1), false);
+
+    engine.executeTurn({
+      type: 'fight',
+      moveId: MOVES.SPLASH,
+      moveSlot: 1,
+    });
+
+    const turn3 = engine.executeTurn({
+      type: 'fight',
+      moveId: MOVES.SPLASH,
+      moveSlot: 1,
+    });
+    assert.equal(turn3.events.some((event) => event.message?.includes('Future Sight attack')), true);
+    assert.equal(turn3.events.some((event) => event.type === 'damage' && event.battler === 1), true);
+  } finally {
+    resetBattleRngAdapter();
+  }
+});

@@ -6,6 +6,7 @@ import { useMemo, useCallback } from 'react';
 import { useMenuInput, useMenuState } from '../hooks/useMenuState';
 import { getMenuDataFor, menuStateManager } from '../MenuStateManager';
 import { getMoveInfo, getMoveName, MOVES } from '../../data/moves';
+import { calculateMoveMaxPp } from '../../pokemon/pp';
 import { createMoveListModel } from '../moves/MoveListModel';
 import { MoveRowFields, formatMoveTypePp } from '../moves/MoveRow';
 import { useMoveListNavigation } from '../moves/useMoveListNavigation';
@@ -21,6 +22,7 @@ export function MoveForgetMenuContent() {
     ?? [MOVES.NONE, MOVES.NONE, MOVES.NONE, MOVES.NONE];
   const pokemonPp = menuData?.pokemonPp
     ?? [0, 0, 0, 0];
+  const pokemonPpBonuses = menuData?.pokemonPpBonuses ?? 0;
   const moveToLearnId = menuData?.moveToLearnId ?? MOVES.NONE;
   const onMoveSlotChosen = menuData?.onMoveSlotChosen;
   const promptText = menuData?.promptText;
@@ -28,8 +30,8 @@ export function MoveForgetMenuContent() {
   const effectiveCursor = Math.max(0, Math.min(4, cursorIndex));
   const focusedMoveSlot = effectiveCursor < 4 ? effectiveCursor : null;
   const moveRows = useMemo(
-    () => createMoveListModel({ moves: pokemonMoves, pp: pokemonPp }),
-    [pokemonMoves, pokemonPp],
+    () => createMoveListModel({ moves: pokemonMoves, pp: pokemonPp, ppBonuses: pokemonPpBonuses }),
+    [pokemonMoves, pokemonPp, pokemonPpBonuses],
   );
 
   const focusedMove = useMemo(() => {
@@ -122,7 +124,7 @@ export function MoveForgetMenuContent() {
                 {formatMoveTypePp({
                   type: moveToLearnInfo?.type ?? 'NORMAL',
                   pp: moveToLearnInfo?.pp ?? 0,
-                  maxPp: moveToLearnInfo?.pp ?? 0,
+                  maxPp: calculateMoveMaxPp(moveToLearnId, 0, 0),
                 })}
               </div>
             </div>

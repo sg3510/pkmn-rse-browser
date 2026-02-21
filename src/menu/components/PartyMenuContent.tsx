@@ -6,7 +6,7 @@
  * Clicking a Pokemon navigates to pokemonSummary via MenuStateManager.
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useMenuState, useMenuInput } from '../hooks/useMenuState';
 import {
   getMenuDataFor,
@@ -73,6 +73,11 @@ export function PartyMenuContent() {
   const battleMode = battleData !== null;
   const fieldItemMode = fieldData !== null;
   const activePartyIndex = typeof battleData?.activePartyIndex === 'number' ? battleData.activePartyIndex : 0;
+  const selectionReason = battleData?.selectionReason ?? 'manualSwitch';
+  const allowBattleCancel = battleData?.allowCancel ?? true;
+  const initialCursorIndex = battleData?.initialCursorIndex;
+  const blockedPartyIndexes = battleData?.blockedPartyIndexes ?? [];
+  const blockedSet = useMemo(() => new Set(blockedPartyIndexes), [blockedPartyIndexes]);
   const onBattlePartySelected = battleData?.onBattlePartySelected;
   const onFieldPartySelected = fieldData?.onFieldPartySelected;
 
@@ -84,38 +89,56 @@ export function PartyMenuContent() {
     }
   }, [isOpen, currentMenu]);
 
-  // Handlers
-  const handleConfirm = useCallback(() => {
-    const pokemon = party[cursorIndex];
+  useEffect(() => {
+    if (!isOpen || currentMenu !== 'party' || !battleMode) {
+      return;
+    }
+    if (typeof initialCursorIndex === 'number') {
+      menuStateManager.setCursor(Math.max(0, Math.min(5, initialCursorIndex)));
+    }
+  }, [isOpen, currentMenu, battleMode, initialCursorIndex]);
+
+  const confirmAtIndex = useCallback((index: number) => {
+    const pokemon = party[index];
+    const liveParty = saveManager.getParty();
+    const livePokemon = liveParty[index];
 
     if (mode === 'select') {
-      if (pokemon) {
-        if (battleMode) {
-          if (cursorIndex === activePartyIndex || pokemon.stats.hp <= 0) {
-            return;
-          }
-          onBattlePartySelected?.(cursorIndex);
-          menuStateManager.resolveAsync(cursorIndex);
+      if (battleMode) {
+        if (
+          !livePokemon
+          || blockedSet.has(index)
+          || index === activePartyIndex
+          || livePokemon.stats.hp <= 0
+        ) {
           return;
         }
-        if (fieldItemMode) {
-          onFieldPartySelected?.(cursorIndex);
-          menuStateManager.resolveAsync(cursorIndex);
+        onBattlePartySelected?.(index);
+        menuStateManager.resolveAsync(index);
+        return;
+      }
+      if (fieldItemMode) {
+        if (!livePokemon) {
           return;
         }
+        onFieldPartySelected?.(index);
+        menuStateManager.resolveAsync(index);
+        return;
+      }
 
+      if (pokemon) {
         // Navigate to summary screen via MenuStateManager
         menuStateManager.open('pokemonSummary', {
           pokemon,
-          partyIndex: cursorIndex,
+          partyIndex: index,
         });
       }
     } else if (mode === 'swap') {
-      if (swapSourceIndex !== null && swapSourceIndex !== cursorIndex) {
+      if (swapSourceIndex !== null && swapSourceIndex !== index) {
         // Perform swap in local state
         const newParty = [...localParty];
-        [newParty[swapSourceIndex], newParty[cursorIndex]] =
-          [newParty[cursorIndex], newParty[swapSourceIndex]];
+        [newParty[swapSourceIndex], newParty[index]] =
+          [newParty[index], newParty[swapSourceIndex]];
         setLocalParty(newParty);
 
         // Also update SaveManager if it has the party
@@ -124,7 +147,7 @@ export function PartyMenuContent() {
         }
         // Also update PartyContext if available
         if (partyContext) {
-          partyContext.swapPokemon(swapSourceIndex, cursorIndex);
+          partyContext.swapPokemon(swapSourceIndex, index);
         }
       }
       setMode('select');
@@ -132,17 +155,22 @@ export function PartyMenuContent() {
     }
   }, [
     mode,
-    cursorIndex,
     swapSourceIndex,
     party,
     partyContext,
     localParty,
     battleMode,
     fieldItemMode,
+    blockedSet,
     activePartyIndex,
     onBattlePartySelected,
     onFieldPartySelected,
   ]);
+
+  // Handlers
+  const handleConfirm = useCallback(() => {
+    confirmAtIndex(cursorIndex);
+  }, [confirmAtIndex, cursorIndex]);
 
   const handleCancel = useCallback(() => {
     if (mode === 'swap') {
@@ -150,6 +178,9 @@ export function PartyMenuContent() {
       setMode('select');
       setSwapSourceIndex(null);
     } else if (battleMode) {
+      if (!allowBattleCancel) {
+        return;
+      }
       onBattlePartySelected?.(null);
       menuStateManager.resolveAsync(null);
     } else if (fieldItemMode) {
@@ -159,7 +190,18 @@ export function PartyMenuContent() {
       // Go back via MenuStateManager
       menuStateManager.back();
     }
-  }, [mode, battleMode, fieldItemMode, onBattlePartySelected, onFieldPartySelected]);
+  }, [mode, battleMode, fieldItemMode, allowBattleCancel, onBattlePartySelected, onFieldPartySelected]);
+
+  const handleSelect = useCallback(() => {
+    if (battleMode || fieldItemMode || mode === 'swap') {
+      return;
+    }
+    if (!party[cursorIndex]) {
+      return;
+    }
+    setMode('swap');
+    setSwapSourceIndex(cursorIndex);
+  }, [battleMode, fieldItemMode, mode, party, cursorIndex]);
 
   const handleUp = useCallback(() => {
     const newIndex = navigateGrid(cursorIndex, 'up', 2, 6);
@@ -185,6 +227,7 @@ export function PartyMenuContent() {
   useMenuInput({
     onConfirm: handleConfirm,
     onCancel: handleCancel,
+    onSelect: handleSelect,
     onUp: handleUp,
     onDown: handleDown,
     onLeft: handleLeft,
@@ -212,7 +255,7 @@ export function PartyMenuContent() {
             isSwapTarget={mode === 'swap' && swapSourceIndex === index}
             onClick={() => {
               menuStateManager.setCursor(index);
-              handleConfirm();
+              confirmAtIndex(index);
             }}
             onMouseEnter={() => {
               menuStateManager.setCursor(index);
@@ -229,10 +272,12 @@ export function PartyMenuContent() {
           <span className="party-hint">
             {partyCount === 0 ? 'No POKéMON' : (
               battleMode
-                ? 'A: Switch  B: Cancel'
+                ? (selectionReason === 'forcedFaint'
+                  ? 'A: Send Out'
+                  : `A: Switch  ${allowBattleCancel ? 'B: Cancel' : ''}`.trim())
                 : fieldItemMode
                   ? 'A: Use  B: Cancel'
-                  : 'A: View  B: Back'
+                  : 'A: View  SELECT: Swap  B: Back'
             )}
           </span>
         )}

@@ -259,6 +259,39 @@
 - Added generator script: `scripts/generate-battle-move-effects.cjs`.
 - Added generated artifact: `src/data/battleMoveEffects.gen.ts` (effect -> moves/script index + move -> effect index).
 
+## 2026-02-21 Emerald Full Parity Pass (Critical + Targeted Core)
+
+### Completed IDs
+
+- `BPP-001`, `BPP-002`, `BPP-003`, `BPP-004`, `BPP-005`, `BPP-006`
+- `BPP-007`, `BPP-008`, `BPP-009`, `BPP-010`, `BPP-011`, `BPP-012`
+
+### Shipped changes
+
+- Added explicit battle-party selection contract and enforced forced-faint replacement selection flow.
+- Fixed non-battle party reorder parity (`SELECT` swap mode) while preserving battle/field-item selection behavior.
+- Added battle action validation with explicit blocked reasons; no-PP and other illegal move picks no longer remap silently or consume turn.
+- Added shared PP utility module and switched move/max-PP UI paths to PP-bonus-aware max PP calculations.
+- Implemented field-item parity for vitamins + `PP UP`/`PP MAX` via shared `pokemon/fieldItemEffects.ts`.
+- Replaced ad-hoc battle intro/send-out/switch text strings with shared message-sequence builders.
+- Implemented targeted move effects:
+  - `EFFECT_RECHARGE`, `EFFECT_FLINCH_MINIMIZE_HIT`, `EFFECT_SEMI_INVULNERABLE`, `EFFECT_RAMPAGE`
+  - `EFFECT_MEAN_LOOK`, `EFFECT_ROAR`, `EFFECT_RECOIL_IF_MISS`, `EFFECT_LOCK_ON`
+  - `EFFECT_FLAIL`, `EFFECT_HEAL_BELL`, `EFFECT_THIEF`, `EFFECT_FORESIGHT`
+  - `EFFECT_ROLLOUT`, `EFFECT_FUTURE_SIGHT`, `EFFECT_SOFTBOILED`, `EFFECT_ERUPTION`
+- Added deterministic tests for targeted effect behavior and for no-PP/Struggle/Future Sight regression paths.
+- Coverage result: missing referenced move effects reduced from `110` to `94` (exact `-16` targeted IDs).
+
+### Validation
+
+- `npm run build`: PASS
+- `npm run report:battle:move-effects`: PASS (`missing referenced effects: 94`)
+- `node --test src/battle/engine/__tests__/MoveEffects.scalable.test.ts`: PASS
+- `node --test src/battle/engine/__tests__/BattleParity.test.ts`: PASS
+- `node --test src/battle/mechanics/__tests__/cParityBattle.test.ts`: PASS
+- `node --test src/pokemon/__tests__/fieldItemEffects.test.ts`: PASS
+- `npm run verify:generated:battle`: PASS
+
 ## 2026-02-18 Wild Encounter + Capture Scale Pass (Started)
 
 ### Tracker IDs

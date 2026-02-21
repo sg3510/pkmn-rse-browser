@@ -54,7 +54,19 @@ export interface VolatileStatus {
   torment: boolean;
   lastMoveUsed: number;       // for Torment/Encore checks
   chargeMove: number;         // two-turn move charging (0 = not charging)
+  semiInvulnerableMove: number; // active semi-invulnerable move (Fly/Dig/Dive/Bounce)
   recharging: boolean;        // Hyper Beam recharge turn
+  lockOnTurns: number;        // lock-on turns remaining
+  lockOnTargetIsPlayer: boolean | null;
+  meanLookSourceIsPlayer: boolean | null;
+  foresight: boolean;
+  minimized: boolean;
+  rampageTurns: number;
+  rampageMove: number;
+  futureSightTurns: number;
+  futureSightMoveId: number;
+  futureSightDamage: number;
+  futureSightAttackerIsPlayer: boolean | null;
   bide: number;               // turns remaining
   bideDamage: number;         // accumulated damage
   rage: boolean;
@@ -90,7 +102,19 @@ export function createDefaultVolatile(): VolatileStatus {
     torment: false,
     lastMoveUsed: 0,
     chargeMove: 0,
+    semiInvulnerableMove: 0,
     recharging: false,
+    lockOnTurns: 0,
+    lockOnTargetIsPlayer: null,
+    meanLookSourceIsPlayer: null,
+    foresight: false,
+    minimized: false,
+    rampageTurns: 0,
+    rampageMove: 0,
+    futureSightTurns: 0,
+    futureSightMoveId: 0,
+    futureSightDamage: 0,
+    futureSightAttackerIsPlayer: null,
     bide: 0,
     bideDamage: 0,
     rage: false,
@@ -199,6 +223,21 @@ export interface RunAction {
 
 export type BattleAction = FightAction | SwitchAction | ItemAction | RunAction;
 
+export type MoveSelectionBlockReason =
+  | 'no_pp'
+  | 'disabled'
+  | 'taunt'
+  | 'torment'
+  | 'choice_lock';
+
+export interface BattleActionValidationResult {
+  ok: boolean;
+  normalizedAction: BattleAction;
+  blockedReason?: MoveSelectionBlockReason;
+  blockedMoveSlot?: number;
+  allMovesUnusable?: boolean;
+}
+
 // ── Battle events (emitted by engine, consumed by UI) ──
 
 export type BattleEventType =
@@ -262,6 +301,7 @@ export type BattleOutcome = 'win' | 'lose' | 'draw' | 'flee' | 'capture';
 export interface TurnResult {
   events: BattleEvent[];
   outcome: BattleOutcome | null;
+  consumedTurn: boolean;
 }
 
 // ── Physical/Special split (Gen 3 = type-based) ──

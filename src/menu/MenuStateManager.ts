@@ -44,6 +44,7 @@ export interface MoveForgetMenuOpenData {
   pokemonName: string;
   pokemonMoves: [number, number, number, number];
   pokemonPp: [number, number, number, number];
+  pokemonPpBonuses: number;
   moveToLearnId?: number;
   onMoveSlotChosen?: (moveSlot: number | null) => void;
 }
@@ -76,6 +77,10 @@ export interface FieldItemPartyMenuOpenData {
 export interface BattlePartyMenuOpenData {
   mode: 'battle';
   activePartyIndex: number;
+  selectionReason: 'manualSwitch' | 'forcedFaint';
+  allowCancel: boolean;
+  initialCursorIndex?: number;
+  blockedPartyIndexes?: number[];
   onBattlePartySelected?: (partyIndex: number | null) => void;
 }
 

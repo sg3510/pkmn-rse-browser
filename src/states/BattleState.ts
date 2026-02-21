@@ -31,9 +31,10 @@ import { getMovesAtLevel } from '../data/learnsets.gen.ts';
 import { EVOLUTION_MODES } from '../data/evolutions.gen.ts';
 import { getExpForLevel, recalculatePartyStatsCStyle } from '../pokemon/stats';
 import { createTestPokemon } from '../pokemon/testFactory';
+import { calculateMoveMaxPp } from '../pokemon/pp';
 import { PARTY_SIZE, STATUS, type IVs, type PartyPokemon } from '../pokemon/types';
 import type { SpriteInstance } from '../rendering/types';
-import { BattleEngine } from '../battle/engine/BattleEngine';
+import { BattleEngine, getMoveSelectionBlockMessage } from '../battle/engine/BattleEngine';
 import type { BattleEnemyPokemonSpec, BattleStartRequest, BattleTrainerSpec } from '../battle/BattleStartRequest';
 import { toMoveSet } from '../battle/BattleStartRequest';
 import { battleRandomInt } from '../battle/engine/BattleRng';
@@ -60,6 +61,12 @@ import {
   resolveCaptureShakes,
   scaleTrainerIvToBattleIv,
 } from '../battle/mechanics/cParityBattle';
+import {
+  buildBattleIntroMessages,
+  buildPlayerSendOutMessage,
+  buildPlayerSwitchMessages,
+  buildTrainerSendOutMessage,
+} from '../battle/messages/battleMessageSequences';
 import { getEvolutionTargetSpecies } from '../pokemon/evolution';
 import {
   getLevelUpMovesBetween,
@@ -486,9 +493,12 @@ export class BattleState implements StateRenderer {
     }
 
     const trainerLabel = this.trainer?.trainerName?.trim() || 'Trainer';
-    const introMessages = this.battleType === 'trainer'
-      ? [`${trainerLabel} would like to battle!`, `${trainerLabel} sent out ${this.enemyMon.name}!`, `Go! ${this.playerMon.name}!`]
-      : [`Wild ${this.enemyMon.name} appeared!`, `Go! ${this.playerMon.name}!`];
+    const introMessages = buildBattleIntroMessages({
+      battleType: this.battleType,
+      trainerLabel,
+      enemyName: this.enemyMon.name,
+      playerName: this.playerMon.name,
+    });
 
     this.queueMessages(introMessages, () => {
       this.phase = 'action';
@@ -681,6 +691,19 @@ export class BattleState implements StateRenderer {
 
       if (confirmPressed) {
         const selectedMove = moves[this.moveIndex];
+        if (this.engine) {
+          const validation = this.engine.validatePlayerAction({
+            type: 'fight',
+            moveId: selectedMove.moveId,
+            moveSlot: selectedMove.moveSlot,
+          });
+          if (!validation.ok) {
+            this.queueMessages([getMoveSelectionBlockMessage(validation.blockedReason ?? 'disabled')], () => {
+              this.phase = 'move';
+            });
+            return null;
+          }
+        }
         this.executeTurn(selectedMove.moveId, selectedMove.moveSlot);
       }
 
@@ -972,7 +995,7 @@ export class BattleState implements StateRenderer {
         return {
           name: getMoveName(moveId),
           pp: player?.pokemon.pp[moveSlot] ?? 0,
-          maxPp: info?.pp ?? 0,
+          maxPp: calculateMoveMaxPp(moveId, player?.pokemon.ppBonuses ?? 0, moveSlot),
           type: info?.type ?? 'NORMAL',
         };
       });
@@ -1163,6 +1186,28 @@ export class BattleState implements StateRenderer {
     return null;
   }
 
+  private getBlockedBattlePartyIndexes(
+    selectionReason: 'manualSwitch' | 'forcedFaint',
+  ): number[] {
+    const party = saveManager.getParty();
+    const blocked = new Set<number>();
+    blocked.add(this.playerPartyIndex);
+
+    for (let i = 0; i < party.length; i++) {
+      const mon = party[i];
+      if (!mon || mon.stats.hp <= 0) {
+        blocked.add(i);
+      }
+    }
+
+    if (selectionReason === 'forcedFaint') {
+      // Fainted active slot must stay blocked.
+      blocked.add(this.playerPartyIndex);
+    }
+
+    return [...blocked];
+  }
+
   private markPlayerPartyParticipant(partyIndex: number): void {
     if (partyIndex < 0 || partyIndex >= PARTY_SIZE) {
       return;
@@ -1204,9 +1249,28 @@ export class BattleState implements StateRenderer {
   }
 
   private async handlePokemonAction(): Promise<void> {
+    if (
+      this.playerMon
+      && (
+        this.playerMon.volatile.trapped > 0
+        || (
+          this.playerMon.volatile.meanLookSourceIsPlayer === false
+          && (this.enemyMon?.currentHp ?? 0) > 0
+        )
+      )
+    ) {
+      this.queueMessages(["Can't escape!"], () => {
+        this.phase = 'action';
+      });
+      return;
+    }
+
     this.waitingForBattleMenu = true;
     try {
-      const partyIndex = await this.openBattlePartyMenu();
+      const partyIndex = await this.openBattlePartyMenu({
+        selectionReason: 'manualSwitch',
+        allowCancel: true,
+      });
       if (partyIndex === null) {
         this.phase = 'action';
         return;
@@ -1221,10 +1285,18 @@ export class BattleState implements StateRenderer {
     return menuStateManager.openAsync<'bag'>('bag', { mode: 'battle' });
   }
 
-  private openBattlePartyMenu(): Promise<number | null> {
+  private openBattlePartyMenu(options: {
+    selectionReason: 'manualSwitch' | 'forcedFaint';
+    allowCancel: boolean;
+    initialCursorIndex?: number;
+  }): Promise<number | null> {
     return menuStateManager.openAsync<'party'>('party', {
       mode: 'battle',
       activePartyIndex: this.playerPartyIndex,
+      selectionReason: options.selectionReason,
+      allowCancel: options.allowCancel,
+      initialCursorIndex: options.initialCursorIndex,
+      blockedPartyIndexes: this.getBlockedBattlePartyIndexes(options.selectionReason),
     });
   }
 
@@ -1486,10 +1558,7 @@ export class BattleState implements StateRenderer {
     this.displayedPlayerExpPercent = this.getPlayerExpTarget().percent;
     this.playerExpTargetLevel = this.displayedPlayerExpLevel;
     this.playerExpTargetPercent = this.displayedPlayerExpPercent;
-    this.executePlayerAction(
-      { type: 'switch', partyIndex },
-      [`${currentName}, that's enough! Come back!`, `Go! ${targetName}!`],
-    );
+    this.executePlayerAction({ type: 'switch', partyIndex }, buildPlayerSwitchMessages(currentName, targetName));
     this.startBattlerSendOutAnimation('player');
     this.startSwitchSpriteAnimation('player');
   }
@@ -1532,20 +1601,13 @@ export class BattleState implements StateRenderer {
     const result = this.engine.executeTurn(action);
     this.syncFromEngine();
     this.persistPlayerBattleState();
-    if (this.didActionConsumeTurn(action)) {
+    if (result.consumedTurn) {
       this.battleTurnCounter++;
     }
 
     const turnEntries = this.collectTurnMessageEntries(result.events, prefixMessages);
     turnEntries.push(...this.collectEnemyFaintExpEntries(result.events));
     this.handleTurnOutcome(result.outcome, turnEntries);
-  }
-
-  private didActionConsumeTurn(action: BattleAction): boolean {
-    if (action.type !== 'run') {
-      return true;
-    }
-    return !(this.battleType === 'trainer' || this.firstBattle);
   }
 
   private collectTurnMessageEntries(events: BattleEvent[], prefixMessages: string[]): BattleMessageEntry[] {
@@ -1932,17 +1994,50 @@ export class BattleState implements StateRenderer {
       };
     }
 
-    const nextPartyMon = party[nextPartyIndex];
-    if (!nextPartyMon || nextPartyMon.stats.hp <= 0) {
-      saveManager.setParty(party);
-      return false;
-    }
     saveManager.setParty(party);
 
     this.queueTurnMessagesAndContinue(turnMessages, () => {
-      void this.sendOutPlayerReplacement(nextPartyIndex, nextPartyMon);
+      void this.promptForcedPlayerReplacement(nextPartyIndex);
     });
     return true;
+  }
+
+  private async promptForcedPlayerReplacement(initialCursorIndex: number): Promise<void> {
+    if (!this.engine) {
+      return;
+    }
+
+    this.waitingForBattleMenu = true;
+    try {
+      let cursorIndex = initialCursorIndex;
+      while (true) {
+        const selectedPartyIndex = await this.openBattlePartyMenu({
+          selectionReason: 'forcedFaint',
+          allowCancel: false,
+          initialCursorIndex: cursorIndex,
+        });
+        if (selectedPartyIndex === null) {
+          continue;
+        }
+
+        const party = saveManager.getParty();
+        const nextPartyMon = party[selectedPartyIndex];
+        if (!nextPartyMon || nextPartyMon.stats.hp <= 0 || selectedPartyIndex === this.playerPartyIndex) {
+          const fallbackIndex = this.getNextUsablePlayerPartyIndex();
+          if (fallbackIndex === null) {
+            this.phase = 'finished';
+            return;
+          }
+          cursorIndex = fallbackIndex;
+          continue;
+        }
+
+        await this.sendOutPlayerReplacement(selectedPartyIndex, nextPartyMon);
+        return;
+      }
+    } finally {
+      this.waitingForBattleMenu = false;
+    }
   }
 
   private async sendOutTrainerReplacement(
@@ -1971,7 +2066,7 @@ export class BattleState implements StateRenderer {
     this.startSwitchSpriteAnimation('enemy');
 
     const nextEnemyName = this.enemyMon?.name ?? getSpeciesName(nextEnemyPokemon.species);
-    this.queueMessages([`${trainerLabel} sent out ${nextEnemyName}!`], () => {
+    this.queueMessages([buildTrainerSendOutMessage(trainerLabel, nextEnemyName)], () => {
       this.phase = 'action';
     });
   }
@@ -1981,6 +2076,9 @@ export class BattleState implements StateRenderer {
     nextPartyMon: PartyPokemon,
   ): Promise<void> {
     if (!this.engine) {
+      return;
+    }
+    if (nextPartyMon.stats.hp <= 0 || nextPartyIndex === this.playerPartyIndex) {
       return;
     }
 
@@ -2005,7 +2103,7 @@ export class BattleState implements StateRenderer {
     this.startSwitchSpriteAnimation('player');
 
     const nextName = this.playerMon?.name ?? getSpeciesName(nextPartyMon.species);
-    this.queueMessages([`Go! ${nextName}!`], () => {
+    this.queueMessages([buildPlayerSendOutMessage(nextName)], () => {
       this.phase = 'action';
     });
   }

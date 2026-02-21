@@ -2,7 +2,7 @@
 title: Battle Recovery Plan (Doc-First + Generator-First)
 status: in_progress
 written_on: 2026-02-18
-last_verified: 2026-02-19
+last_verified: 2026-02-21
 ---
 
 # Battle Recovery Plan (Doc-First + Generator-First)
@@ -119,6 +119,22 @@ CI/verification rule:
 - [x] `MOV-011` Node ESM stability for battle engine tests/report tooling (`.ts` import normalization + deterministic flaky test fix).
 - [x] `MOV-012` Generated move-effect index import path (`scripts/generate-battle-move-effects.cjs` -> `src/data/battleMoveEffects.gen.ts`).
 - [x] `MOV-013` Battle generator verification includes move scripting artifacts (`battleScripts.gen.ts`, `battleMoveEffects.gen.ts`).
+
+## Full Parity Pass (2026-02-21)
+
+- [x] `BPP-001` Battle party menu open contract extended with explicit selection reason/cancel/cursor/block metadata.
+- [x] `BPP-002` Party menu `SELECT` swap parity in non-battle contexts; battle/field-item paths remain selection-only.
+- [x] `BPP-003` Forced player faint replacement flow (no auto-send first usable slot, no cancel, blocked invalid slots).
+- [x] `BPP-004` Player action validation layer for move selection legality (`no_pp`, `disabled`, `taunt`, `torment`, `choice_lock`).
+- [x] `BPP-005` Invalid move selection no longer silently remaps to another move; invalid selections do not consume turn.
+- [x] `BPP-006` Shared PP helpers and PP-bonus-aware max PP display in battle/menu/summary/move-forget flows.
+- [x] `BPP-007` Field vitamins and PP items (`PP UP`, `PP MAX`) with Emerald EV/PP constraints and consume-on-success behavior.
+- [x] `BPP-008` Shared message sequence builders for intro/send-out/switch ordering consistency.
+- [x] `BPP-009` Targeted move-effect parity implementation for all missing referenced effects with `moveCount >= 2`.
+- [x] `BPP-010` Deterministic tests added for targeted effect behavior and no-PP/Struggle/Future Sight regressions.
+- [x] `BPP-011` Missing referenced effect count reduced from `110` to `94` (`-16`, matching targeted IDs).
+
+See detailed mapping/checklist: `docs/features/battle/full-parity-pass-2026-02-21.md`.
 
 ## Wild Encounter + Capture Scale Track (2026-02-18)
 

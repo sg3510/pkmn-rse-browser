@@ -111,9 +111,15 @@ import { getDynamicWarpTarget } from '../game/DynamicWarp';
 import { bagManager } from '../game/BagManager';
 import { moneyManager } from '../game/MoneyManager';
 import { ITEMS } from '../data/items';
+import { getMoveName } from '../data/moves';
 import { getSpeciesInfo } from '../data/speciesInfo';
 import { getExpForLevel, recalculatePartyStatsCStyle } from '../pokemon/stats';
 import type { PartyPokemon } from '../pokemon/types';
+import {
+  tryApplyPpMax,
+  tryApplyPpUp,
+  tryApplyVitaminByItem,
+} from '../pokemon/fieldItemEffects';
 import {
   getLevelUpMovesBetween,
   runMoveLearningSequence,
@@ -789,6 +795,17 @@ function GamePageContent({
     [],
   );
 
+  const openMoveSelectionMenu = useCallback(
+    (mon: PartyPokemon, promptText: string): Promise<number | null> => {
+      return openMoveForgetMenuGateway({
+        pokemon: mon,
+        mode: 'delete',
+        promptText,
+      });
+    },
+    [],
+  );
+
   const useRareCandyInField = useCallback(async (): Promise<boolean> => {
     const partyIndex = await openFieldItemPartyMenu();
     if (partyIndex === null) {
@@ -914,6 +931,100 @@ function GamePageContent({
     openMoveForgetMenu,
   ]);
 
+  const useVitaminInField = useCallback(async (itemId: number): Promise<boolean> => {
+    const partyIndex = await openFieldItemPartyMenu();
+    if (partyIndex === null) {
+      return false;
+    }
+
+    menuStateManager.close();
+
+    const party = saveManager.getParty();
+    const mon = party[partyIndex];
+    if (!mon) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    const result = tryApplyVitaminByItem(mon, itemId);
+    if (!result.used) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    if (!bagManager.removeItem(itemId, 1)) {
+      await showFieldMessage("There's no such item in your BAG.");
+      return false;
+    }
+
+    const latestParty = saveManager.getParty();
+    if (!latestParty[partyIndex]) {
+      return false;
+    }
+    latestParty[partyIndex] = result.pokemon;
+    saveManager.setParty(latestParty);
+
+    const statLabelByKey: Record<string, string> = {
+      hp: 'HP',
+      attack: 'ATTACK',
+      defense: 'DEFENSE',
+      speed: 'SPEED',
+      spAttack: 'SP. ATK',
+      spDefense: 'SP. DEF',
+    };
+    const statLabel = statLabelByKey[result.stat ?? ''] ?? 'stat';
+    await showFieldMessage(`${formatPokemonDisplayName(result.pokemon)}'s ${statLabel} rose.`);
+    return true;
+  }, [openFieldItemPartyMenu, showFieldMessage]);
+
+  const usePpItemInField = useCallback(async (itemId: number): Promise<boolean> => {
+    const partyIndex = await openFieldItemPartyMenu();
+    if (partyIndex === null) {
+      return false;
+    }
+
+    menuStateManager.close();
+
+    const party = saveManager.getParty();
+    const mon = party[partyIndex];
+    if (!mon) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    const promptText = itemId === ITEMS.ITEM_PP_MAX
+      ? 'Use PP MAX on which move?'
+      : 'Use PP UP on which move?';
+    const moveSlot = await openMoveSelectionMenu(mon, promptText);
+    if (moveSlot === null) {
+      return false;
+    }
+
+    const result = itemId === ITEMS.ITEM_PP_MAX
+      ? tryApplyPpMax(mon, moveSlot)
+      : tryApplyPpUp(mon, moveSlot);
+    if (!result.used) {
+      await showFieldMessage("It won't have any effect.");
+      return false;
+    }
+
+    if (!bagManager.removeItem(itemId, 1)) {
+      await showFieldMessage("There's no such item in your BAG.");
+      return false;
+    }
+
+    const latestParty = saveManager.getParty();
+    if (!latestParty[partyIndex]) {
+      return false;
+    }
+    latestParty[partyIndex] = result.pokemon;
+    saveManager.setParty(latestParty);
+
+    const moveName = getMoveName(result.pokemon.moves[moveSlot] ?? 0);
+    await showFieldMessage(`${moveName}'s PP increased.`);
+    return true;
+  }, [openFieldItemPartyMenu, showFieldMessage, openMoveSelectionMenu]);
+
   const tryUseFieldItem = useCallback(async (itemId: number): Promise<boolean> => {
     const activePlayer = playerRef.current;
     if (!activePlayer) return false;
@@ -925,6 +1036,21 @@ function GamePageContent({
 
     if (itemId === ITEMS.ITEM_RARE_CANDY) {
       return useRareCandyInField();
+    }
+
+    if (
+      itemId === ITEMS.ITEM_HP_UP
+      || itemId === ITEMS.ITEM_PROTEIN
+      || itemId === ITEMS.ITEM_IRON
+      || itemId === ITEMS.ITEM_CARBOS
+      || itemId === ITEMS.ITEM_CALCIUM
+      || itemId === ITEMS.ITEM_ZINC
+    ) {
+      return useVitaminInField(itemId);
+    }
+
+    if (itemId === ITEMS.ITEM_PP_UP || itemId === ITEMS.ITEM_PP_MAX) {
+      return usePpItemInField(itemId);
     }
 
     if (itemId !== ITEMS.ITEM_MACH_BIKE && itemId !== ITEMS.ITEM_ACRO_BIKE) {
@@ -946,7 +1072,7 @@ function GamePageContent({
     // Keep SELECT registration synced to the bike the player just used.
     moneyManager.setRegisteredItem(itemId);
     return true;
-  }, [showFieldMessage, useRareCandyInField]);
+  }, [showFieldMessage, useRareCandyInField, useVitaminInField, usePpItemInField]);
 
   const registerFieldItem = useCallback((itemId: number): void => {
     moneyManager.setRegisteredItem(itemId);

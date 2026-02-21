@@ -29,12 +29,14 @@ export function createMoveForgetMenuData(
   pokemonName: string;
   pokemonMoves: [number, number, number, number];
   pokemonPp: [number, number, number, number];
+  pokemonPpBonuses: number;
   moveToLearnId: number;
 } {
   return {
     pokemonName: formatPokemonDisplayName(pokemon),
     pokemonMoves: pokemon.moves,
     pokemonPp: pokemon.pp,
+    pokemonPpBonuses: pokemon.ppBonuses,
     moveToLearnId,
   };
 }

@@ -118,6 +118,16 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
   const events: BattleEvent[] = [];
   const battler = mon.isPlayer ? 0 : 1;
 
+  if (mon.volatile.recharging) {
+    mon.volatile.recharging = false;
+    events.push({
+      type: 'message',
+      battler,
+      message: `${mon.name} must recharge!`,
+    });
+    return { canAct: false, events };
+  }
+
   // Sleep check
   if (hasStatus(mon, STATUS.SLEEP)) {
     const turnsLeft = getSleepTurns(mon);

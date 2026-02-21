@@ -16,7 +16,7 @@ import {
   getBattleMoveData,
 } from '../../data/battleMoves.gen.ts';
 import { BATTLE_MOVE_EFFECT_IDS, BATTLE_MOVE_EFFECT_INDEX } from '../../data/battleMoveEffects.gen.ts';
-import { getMoveInfo, getMoveName } from '../../data/moves.ts';
+import { getMoveInfo, getMoveName, MOVES } from '../../data/moves.ts';
 import { getTypeEffectiveness } from '../../data/typeEffectiveness.gen.ts';
 import { STATUS } from '../../pokemon/types.ts';
 import { battleRandomChance, battleRandomInt } from './BattleRng.ts';
@@ -33,6 +33,7 @@ export interface MoveContext {
   defender: BattlePokemon;
   moveId: number;
   moveSlot: number;
+  battleType?: 'wild' | 'trainer';
   weather: WeatherState;
   attackerSide: SideState;
   defenderSide: SideState;
@@ -82,12 +83,13 @@ export function executeMove(ctx: MoveContext): MoveResult {
     message: `${attacker.name} used ${moveName}!`,
   });
 
-  // PP consumption
-  consumePP(attacker, ctx.moveSlot);
-
   if (!moveInfo || !battleData) {
     events.push({ type: 'miss', battler, message: 'But it failed!' });
     return { events, success: false };
+  }
+
+  if (shouldConsumePp(ctx, battleData.effect)) {
+    consumePP(attacker, ctx.moveSlot);
   }
 
   if (isMoveBlockedByProtect(ctx, battleData)) {
@@ -101,6 +103,19 @@ export function executeMove(ctx: MoveContext): MoveResult {
 
   // Accuracy check (before effect)
   if (!checkAccuracy(ctx, events)) {
+    if (battleData.effect === MOVE_EFFECTS.EFFECT_RECOIL_IF_MISS) {
+      applyMissRecoil(ctx, events);
+    }
+    if (
+      battleData.effect === MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE
+      && attacker.volatile.chargeMove === moveId
+    ) {
+      attacker.volatile.chargeMove = MOVES.NONE;
+      attacker.volatile.semiInvulnerableMove = MOVES.NONE;
+    }
+    if (battleData.effect === MOVE_EFFECTS.EFFECT_ROLLOUT) {
+      attacker.volatile.rollout = 0;
+    }
     return { events, success: false };
   }
 
@@ -135,6 +150,26 @@ function checkAccuracy(ctx: MoveContext, events: BattleEvent[]): boolean {
   const moveInfo = getMoveInfo(moveId);
   if (!moveInfo) return false;
 
+  if (
+    attacker.volatile.lockOnTurns > 0
+    && attacker.volatile.lockOnTargetIsPlayer !== null
+    && attacker.volatile.lockOnTargetIsPlayer === defender.isPlayer
+  ) {
+    return true;
+  }
+
+  if (
+    defender.volatile.semiInvulnerableMove !== MOVES.NONE
+    && !canHitSemiInvulnerableTarget(moveId, defender.volatile.semiInvulnerableMove)
+  ) {
+    events.push({
+      type: 'miss',
+      battler: attacker.isPlayer ? 0 : 1,
+      message: `${attacker.name}'s attack missed!`,
+    });
+    return false;
+  }
+
   let accuracy = moveInfo.accuracy;
   if (accuracy <= 0) return true; // always-hit moves
 
@@ -143,7 +178,10 @@ function checkAccuracy(ctx: MoveContext, events: BattleEvent[]): boolean {
   if (weatherOverride !== null) accuracy = weatherOverride;
 
   // Apply accuracy/evasion stages
-  const accMult = getAccuracyMultiplier(attacker.stages.accuracy, defender.stages.evasion);
+  const ignoreAccuracyStages = defender.volatile.foresight;
+  const accMult = ignoreAccuracyStages
+    ? 1
+    : getAccuracyMultiplier(attacker.stages.accuracy, defender.stages.evasion);
   accuracy = Math.floor(accuracy * accMult);
 
   // Hustle: -20% accuracy on physical moves
@@ -163,6 +201,52 @@ function checkAccuracy(ctx: MoveContext, events: BattleEvent[]): boolean {
   return true;
 }
 
+function canHitSemiInvulnerableTarget(moveId: number, semiInvulnerableMoveId: number): boolean {
+  if (semiInvulnerableMoveId === MOVES.NONE) return true;
+  if (semiInvulnerableMoveId === MOVES.DIG) {
+    return moveId === MOVES.EARTHQUAKE || moveId === MOVES.MAGNITUDE;
+  }
+  if (semiInvulnerableMoveId === MOVES.DIVE) {
+    return moveId === MOVES.SURF || moveId === MOVES.WHIRLPOOL;
+  }
+  if (semiInvulnerableMoveId === MOVES.FLY || semiInvulnerableMoveId === MOVES.BOUNCE) {
+    return moveId === MOVES.GUST || moveId === MOVES.TWISTER;
+  }
+  return false;
+}
+
+function dealsDoubleDamageToSemiInvulnerableTarget(moveId: number, semiInvulnerableMoveId: number): boolean {
+  if (semiInvulnerableMoveId === MOVES.DIG) {
+    return moveId === MOVES.EARTHQUAKE || moveId === MOVES.MAGNITUDE;
+  }
+  if (semiInvulnerableMoveId === MOVES.DIVE) {
+    return moveId === MOVES.SURF || moveId === MOVES.WHIRLPOOL;
+  }
+  if (semiInvulnerableMoveId === MOVES.FLY || semiInvulnerableMoveId === MOVES.BOUNCE) {
+    return moveId === MOVES.GUST || moveId === MOVES.TWISTER;
+  }
+  return false;
+}
+
+function applyMissRecoil(ctx: MoveContext, events: BattleEvent[]): void {
+  const recoil = Math.max(1, Math.floor(ctx.attacker.maxHp / 2));
+  const actualRecoil = Math.min(recoil, ctx.attacker.currentHp);
+  ctx.attacker.currentHp = Math.max(0, ctx.attacker.currentHp - actualRecoil);
+  events.push({
+    type: 'recoil',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    value: actualRecoil,
+    message: `${ctx.attacker.name} kept going and crashed!`,
+  });
+  if (ctx.attacker.currentHp <= 0) {
+    events.push({
+      type: 'faint',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} fainted!`,
+    });
+  }
+}
+
 // ── Generic damaging move handler ──
 
 function handleDamagingMove(ctx: MoveContext, events: BattleEvent[]): MoveResult {
@@ -172,6 +256,7 @@ function handleDamagingMove(ctx: MoveContext, events: BattleEvent[]): MoveResult
 
 interface DamageOptions {
   minRemainingHp?: number;
+  powerOverride?: number;
 }
 
 function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOptions = {}): DamageResult {
@@ -180,6 +265,8 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
     attacker,
     defender,
     moveId,
+    powerOverride: options.powerOverride,
+    ignoreNormalFightGhostImmunity: defender.volatile.foresight,
     weather: ctx.weather.type,
     attackerSide: ctx.attackerSide,
     defenderSide: ctx.defenderSide,
@@ -201,7 +288,11 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
   const endureActive = defender.volatile.endure;
   const minRemainingHp = Math.max(0, options.minRemainingHp ?? 0, endureActive ? 1 : 0);
   const maxDamage = Math.max(0, defender.currentHp - minRemainingHp);
-  const appliedDamage = Math.min(result.damage, maxDamage);
+  let computedDamage = result.damage;
+  if (dealsDoubleDamageToSemiInvulnerableTarget(moveId, defender.volatile.semiInvulnerableMove)) {
+    computedDamage = Math.max(1, computedDamage * 2);
+  }
+  const appliedDamage = Math.min(computedDamage, maxDamage);
   defender.currentHp = Math.max(0, defender.currentHp - appliedDamage);
 
   if (appliedDamage > 0) {
@@ -215,7 +306,7 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
 
   const enduredHit = endureActive
     && hpBefore > 1
-    && result.damage >= hpBefore
+    && computedDamage >= hpBefore
     && defender.currentHp === 1;
   if (enduredHit) {
     events.push({
@@ -1202,7 +1293,364 @@ registerEffect(MOVE_EFFECTS.EFFECT_ALWAYS_HIT, (ctx, events) => {
   return handleDamagingMove(ctx, events);
 });
 
+// EFFECT_RECHARGE (80) — Hyper Beam family
+registerEffect(MOVE_EFFECTS.EFFECT_RECHARGE, (ctx, events) => {
+  const dmg = doDamage(ctx, events);
+  if (dmg.effectiveness !== 0) {
+    ctx.attacker.volatile.recharging = true;
+  }
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_FLINCH_MINIMIZE_HIT (150) — Stomp family
+registerEffect(MOVE_EFFECTS.EFFECT_FLINCH_MINIMIZE_HIT, (ctx, events) => {
+  const basePower = getMoveInfo(ctx.moveId)?.power ?? 0;
+  const powerOverride = ctx.defender.volatile.minimized ? Math.max(1, basePower * 2) : undefined;
+  const dmg = doDamage(ctx, events, { powerOverride });
+  if (dmg.damage > 0 && ctx.defender.currentHp > 0) {
+    const chance = getSecondaryEffectChance(ctx.moveId);
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
+      ctx.defender.volatile.flinch = true;
+    }
+  }
+  return { events, success: true };
+});
+
+// EFFECT_SEMI_INVULNERABLE (155) — Fly / Dig / Dive / Bounce
+registerEffect(MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE, (ctx, events) => {
+  const continuing = ctx.attacker.volatile.chargeMove === ctx.moveId;
+  if (!continuing) {
+    ctx.attacker.volatile.chargeMove = ctx.moveId;
+    ctx.attacker.volatile.semiInvulnerableMove = ctx.moveId;
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: getSemiInvulnerableChargeMessage(ctx.attacker.name, ctx.moveId),
+    });
+    return { events, success: true };
+  }
+
+  ctx.attacker.volatile.chargeMove = MOVES.NONE;
+  ctx.attacker.volatile.semiInvulnerableMove = MOVES.NONE;
+  const dmg = doDamage(ctx, events);
+  if (ctx.moveId === MOVES.BOUNCE && dmg.damage > 0 && ctx.defender.currentHp > 0) {
+    const chance = getSecondaryEffectChance(ctx.moveId);
+    if (chance > 0 && battleRandomInt(1, 100) <= chance) {
+      tryApplyStatusWithSafeguard(ctx, STATUS.PARALYSIS, events);
+    }
+  }
+  return { events, success: true };
+});
+
+// EFFECT_RAMPAGE (27) — Thrash / Outrage / Petal Dance
+registerEffect(MOVE_EFFECTS.EFFECT_RAMPAGE, (ctx, events) => {
+  if (ctx.attacker.volatile.rampageMove !== ctx.moveId || ctx.attacker.volatile.rampageTurns <= 0) {
+    ctx.attacker.volatile.rampageMove = ctx.moveId;
+    ctx.attacker.volatile.rampageTurns = battleRandomInt(2, 3);
+  }
+
+  const dmg = doDamage(ctx, events);
+  if (dmg.effectiveness === 0) {
+    ctx.attacker.volatile.rampageTurns = 0;
+    ctx.attacker.volatile.rampageMove = MOVES.NONE;
+    return { events, success: false };
+  }
+
+  if (ctx.attacker.volatile.rampageTurns > 0) {
+    ctx.attacker.volatile.rampageTurns--;
+  }
+
+  if (ctx.attacker.volatile.rampageTurns <= 0) {
+    ctx.attacker.volatile.rampageTurns = 0;
+    ctx.attacker.volatile.rampageMove = MOVES.NONE;
+    if (ctx.attacker.currentHp > 0) {
+      applyConfusion(ctx.attacker, events);
+    }
+  }
+
+  return { events, success: true };
+});
+
+// EFFECT_MEAN_LOOK (106) — prevent escape/switch
+registerEffect(MOVE_EFFECTS.EFFECT_MEAN_LOOK, (ctx, events) => {
+  if (ctx.defender.volatile.substitute > 0 || ctx.defender.volatile.meanLookSourceIsPlayer !== null) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.defender.volatile.meanLookSourceIsPlayer = ctx.attacker.isPlayer;
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} can no longer escape!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_ROAR (28) — force out / end wild battle
+registerEffect(MOVE_EFFECTS.EFFECT_ROAR, (ctx, events) => {
+  const battleType = ctx.battleType ?? 'trainer';
+  if (battleType === 'trainer') {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  const attackerLevel = ctx.attacker.pokemon.level;
+  const defenderLevel = ctx.defender.pokemon.level;
+  if (attackerLevel < defenderLevel) {
+    const random = battleRandomInt(0, 255);
+    const threshold = Math.floor((random * (attackerLevel + defenderLevel)) / 256) + 1;
+    if (threshold <= Math.floor(defenderLevel / 4)) {
+      events.push({ type: 'message', message: 'But it failed!' });
+      return { events, success: false };
+    }
+  }
+
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} was blown away!`,
+  });
+  events.push({
+    type: 'battle_end',
+    detail: 'flee',
+  });
+  return { events, success: true };
+});
+
+// EFFECT_RECOIL_IF_MISS (45) — Jump Kick / Hi Jump Kick
+registerEffect(MOVE_EFFECTS.EFFECT_RECOIL_IF_MISS, (ctx, events) => {
+  return handleDamagingMove(ctx, events);
+});
+
+// EFFECT_LOCK_ON (94) — Mind Reader / Lock-On
+registerEffect(MOVE_EFFECTS.EFFECT_LOCK_ON, (ctx, events) => {
+  if (ctx.defender.volatile.substitute > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.attacker.volatile.lockOnTurns = 2;
+  ctx.attacker.volatile.lockOnTargetIsPlayer = ctx.defender.isPlayer;
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: `${ctx.attacker.name} took aim at ${ctx.defender.name}!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_FLAIL (99) — Flail / Reversal
+registerEffect(MOVE_EFFECTS.EFFECT_FLAIL, (ctx, events) => {
+  const powerOverride = calculateFlailPower(ctx.attacker);
+  const dmg = doDamage(ctx, events, { powerOverride });
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
+// EFFECT_HEAL_BELL (102) — Heal Bell / Aromatherapy
+registerEffect(MOVE_EFFECTS.EFFECT_HEAL_BELL, (ctx, events) => {
+  const hadStatus = ctx.attacker.pokemon.status !== STATUS.NONE;
+  if (hadStatus) {
+    ctx.attacker.pokemon.status = STATUS.NONE;
+    ctx.attacker.volatile.toxicCounter = 0;
+    ctx.attacker.volatile.nightmare = false;
+  }
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: ctx.moveId === MOVES.HEAL_BELL
+      ? 'A bell chimed!'
+      : 'A soothing aroma wafted through the area!',
+  });
+  return { events, success: hadStatus || ctx.moveId === MOVES.HEAL_BELL || ctx.moveId === MOVES.AROMATHERAPY };
+});
+
+// EFFECT_THIEF (105) — damage then steal held item
+registerEffect(MOVE_EFFECTS.EFFECT_THIEF, (ctx, events) => {
+  const dmg = doDamage(ctx, events);
+  if (
+    dmg.damage > 0
+    && ctx.attacker.pokemon.heldItem === 0
+    && ctx.defender.pokemon.heldItem !== 0
+  ) {
+    ctx.attacker.pokemon.heldItem = ctx.defender.pokemon.heldItem;
+    ctx.defender.pokemon.heldItem = 0;
+    events.push({
+      type: 'message',
+      battler: ctx.attacker.isPlayer ? 0 : 1,
+      message: `${ctx.attacker.name} stole ${ctx.defender.name}'s item!`,
+    });
+  }
+  return { events, success: true };
+});
+
+// EFFECT_FORESIGHT (113) — identify target
+registerEffect(MOVE_EFFECTS.EFFECT_FORESIGHT, (ctx, events) => {
+  if (ctx.defender.volatile.foresight) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  ctx.defender.volatile.foresight = true;
+  events.push({
+    type: 'message',
+    battler: ctx.defender.isPlayer ? 0 : 1,
+    message: `${ctx.defender.name} was identified!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_ROLLOUT (117) — escalating multi-turn move
+registerEffect(MOVE_EFFECTS.EFFECT_ROLLOUT, (ctx, events) => {
+  const previousTurns = ctx.attacker.volatile.rollout;
+  const turnIndex = previousTurns <= 0 ? 1 : previousTurns;
+  const basePower = getMoveInfo(ctx.moveId)?.power ?? 0;
+  const powerOverride = Math.max(1, basePower * (2 ** Math.max(0, turnIndex - 1)));
+  const dmg = doDamage(ctx, events, { powerOverride });
+
+  if (dmg.effectiveness === 0) {
+    ctx.attacker.volatile.rollout = 0;
+    return { events, success: false };
+  }
+
+  if (turnIndex >= 5) {
+    ctx.attacker.volatile.rollout = 0;
+  } else {
+    ctx.attacker.volatile.rollout = turnIndex + 1;
+  }
+
+  return { events, success: true };
+});
+
+// EFFECT_FUTURE_SIGHT (148) — delayed hit
+registerEffect(MOVE_EFFECTS.EFFECT_FUTURE_SIGHT, (ctx, events) => {
+  if (ctx.defender.volatile.futureSightTurns > 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  const preview = calculateDamage({
+    attacker: ctx.attacker,
+    defender: ctx.defender,
+    moveId: ctx.moveId,
+    weather: ctx.weather.type,
+    attackerSide: ctx.attackerSide,
+    defenderSide: ctx.defenderSide,
+    ignoreNormalFightGhostImmunity: ctx.defender.volatile.foresight,
+  });
+  if (preview.effectiveness === 0) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+
+  ctx.defender.volatile.futureSightTurns = 3;
+  ctx.defender.volatile.futureSightMoveId = ctx.moveId;
+  ctx.defender.volatile.futureSightDamage = Math.max(1, preview.damage);
+  ctx.defender.volatile.futureSightAttackerIsPlayer = ctx.attacker.isPlayer;
+  events.push({
+    type: 'message',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    message: ctx.moveId === MOVES.DOOM_DESIRE
+      ? `${ctx.attacker.name} chose Doom Desire as its destiny!`
+      : `${ctx.attacker.name} foresaw an attack!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_SOFTBOILED (157) — restore half max HP
+registerEffect(MOVE_EFFECTS.EFFECT_SOFTBOILED, (ctx, events) => {
+  if (ctx.attacker.currentHp >= ctx.attacker.maxHp) {
+    events.push({ type: 'message', message: 'But it failed!' });
+    return { events, success: false };
+  }
+  const healAmount = Math.max(1, Math.floor(ctx.attacker.maxHp / 2));
+  const actualHeal = Math.min(healAmount, ctx.attacker.maxHp - ctx.attacker.currentHp);
+  ctx.attacker.currentHp += actualHeal;
+  events.push({
+    type: 'heal',
+    battler: ctx.attacker.isPlayer ? 0 : 1,
+    value: actualHeal,
+    message: `${ctx.attacker.name} regained health!`,
+  });
+  return { events, success: true };
+});
+
+// EFFECT_ERUPTION (190) — scales with current HP
+registerEffect(MOVE_EFFECTS.EFFECT_ERUPTION, (ctx, events) => {
+  const powerOverride = calculateHpRatioPower(ctx.attacker, ctx.moveId);
+  const dmg = doDamage(ctx, events, { powerOverride });
+  return { events, success: dmg.damage > 0 || dmg.effectiveness === 0 };
+});
+
 // ── Utility ──
+
+function getSecondaryEffectChance(moveId: number): number {
+  return getBattleMoveData(moveId)?.secondaryEffectChance ?? 0;
+}
+
+function shouldConsumePp(
+  ctx: MoveContext,
+  moveEffect: number,
+): boolean {
+  if (ctx.moveSlot < 0 || ctx.moveSlot > 3) return false;
+
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_SEMI_INVULNERABLE
+    && ctx.attacker.volatile.chargeMove === ctx.moveId
+  ) {
+    return false;
+  }
+
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_RAMPAGE
+    && ctx.attacker.volatile.rampageMove === ctx.moveId
+    && ctx.attacker.volatile.rampageTurns > 0
+  ) {
+    return false;
+  }
+
+  if (
+    moveEffect === MOVE_EFFECTS.EFFECT_ROLLOUT
+    && ctx.attacker.volatile.rollout > 0
+    && ctx.attacker.volatile.lastMoveUsed === ctx.moveId
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function getSemiInvulnerableChargeMessage(attackerName: string, moveId: number): string {
+  switch (moveId) {
+    case MOVES.FLY:
+      return `${attackerName} flew up high!`;
+    case MOVES.DIG:
+      return `${attackerName} dug underground!`;
+    case MOVES.DIVE:
+      return `${attackerName} hid underwater!`;
+    case MOVES.BOUNCE:
+      return `${attackerName} sprang up!`;
+    default:
+      return `${attackerName} became semi-invulnerable!`;
+  }
+}
+
+function calculateFlailPower(attacker: BattlePokemon): number {
+  const maxHp = Math.max(1, attacker.maxHp);
+  let hpFraction = Math.floor((attacker.currentHp * 48) / maxHp);
+  if (hpFraction === 0 && attacker.currentHp > 0) {
+    hpFraction = 1;
+  }
+  if (hpFraction <= 1) return 200;
+  if (hpFraction <= 4) return 150;
+  if (hpFraction <= 9) return 100;
+  if (hpFraction <= 16) return 80;
+  if (hpFraction <= 32) return 40;
+  return 20;
+}
+
+function calculateHpRatioPower(attacker: BattlePokemon, moveId: number): number {
+  const basePower = getMoveInfo(moveId)?.power ?? 1;
+  const scaled = Math.floor((attacker.currentHp * basePower) / Math.max(1, attacker.maxHp));
+  return Math.max(1, scaled);
+}
 
 function consumePP(attacker: BattlePokemon, moveSlot: number): void {
   if (moveSlot >= 0 && moveSlot < 4) {

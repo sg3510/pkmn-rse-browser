@@ -1,4 +1,5 @@
 import { getMoveDescription, getMoveInfo, getMoveName, MOVES } from '../../data/moves';
+import { calculateMoveMaxPp } from '../../pokemon/pp';
 import type { PartyPokemon } from '../../pokemon/types';
 
 export interface MoveListEntry {
@@ -13,7 +14,9 @@ export interface MoveListEntry {
 }
 
 export function createMoveListModel(
-  pokemon: Pick<PartyPokemon, 'moves' | 'pp'>,
+  pokemon: Pick<PartyPokemon, 'moves' | 'pp'> & {
+    ppBonuses?: number;
+  },
 ): MoveListEntry[] {
   return pokemon.moves.map((moveId, slot) => {
     const info = getMoveInfo(moveId);
@@ -23,11 +26,10 @@ export function createMoveListModel(
       moveId,
       name: getMoveName(moveId),
       pp: pokemon.pp[slot] ?? 0,
-      maxPp: info?.pp ?? 0,
+      maxPp: calculateMoveMaxPp(moveId, pokemon.ppBonuses ?? 0, slot),
       type: info?.type ?? 'NORMAL',
       description: getMoveDescription(moveId) || 'No description available.',
       isEmpty,
     };
   });
 }
-
