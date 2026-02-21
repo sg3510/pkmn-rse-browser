@@ -33,7 +33,7 @@ interface PendingScriptedWarpLike {
   x: number;
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
-  phase: 'pending' | 'fading' | 'loading';
+  phase: 'pending' | 'fading' | 'loading' | 'exiting';
   style?: 'default' | 'fall';
   completion?: {
     promise: Promise<void>;
@@ -379,6 +379,13 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
 
         playerHiddenRef.current = false;
         mapEntryCutsceneGateRef.current = true;
+        if (isDebugMode('field')) {
+          console.log('[MAP_ENTRY_GATE] armed', {
+            mapId: entry.id,
+            scriptedWarpLoad: completingScriptedWarpLoad,
+            storyScriptRunning: storyScriptRunningRef.current,
+          });
+        }
 
         if (completingScriptedWarpLoad && scriptedWarp) {
           // Pre-seed the warp handler's last checked tile so the warp detector

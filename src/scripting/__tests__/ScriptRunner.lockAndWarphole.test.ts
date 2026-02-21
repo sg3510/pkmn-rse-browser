@@ -124,6 +124,76 @@ test('lock continues immediately when waitForPlayerIdle resolves immediately', a
   assert.equal(gameVariables.getVar('VAR_0x8004'), 2);
 });
 
+test('lock waits for selected NPC idle before continuing script execution', async () => {
+  gameVariables.reset();
+  gameVariables.setVar('VAR_LAST_TALKED', 7);
+
+  let playerWaitCalls = 0;
+  let npcWaitCalls = 0;
+  const npcWaitArgs: Array<{ mapId: string; localId: string }> = [];
+  let resolveNpcIdleWait: (() => void) | null = null;
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls, {
+    hasNpc: (mapId, localId) =>
+      mapId === 'MAP_SOOTOPOLIS_CITY_GYM_1F' && localId === '7',
+    waitForPlayerIdle: async () => {
+      playerWaitCalls++;
+    },
+    waitForNpcIdle: async (mapId, localId) => {
+      npcWaitCalls++;
+      npcWaitArgs.push({ mapId, localId });
+      await new Promise<void>((resolve) => {
+        resolveNpcIdleWait = resolve;
+      });
+    },
+  });
+
+  const { mapData, commonData } = createData([
+    { cmd: 'lock' },
+    { cmd: 'setvar', args: ['VAR_0x8004', 3] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SOOTOPOLIS_CITY_GYM_1F');
+  const execution = runner.execute('Main');
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(playerWaitCalls, 1);
+  assert.equal(npcWaitCalls, 1);
+  assert.deepEqual(npcWaitArgs, [{ mapId: 'MAP_SOOTOPOLIS_CITY_GYM_1F', localId: '7' }]);
+  assert.equal(gameVariables.getVar('VAR_0x8004'), 0);
+
+  resolveNpcIdleWait?.();
+  await execution;
+
+  assert.equal(gameVariables.getVar('VAR_0x8004'), 3);
+});
+
+test('faceplayer resolves selected NPC from VAR_LAST_TALKED', async () => {
+  gameVariables.reset();
+  gameVariables.setVar('VAR_LAST_TALKED', 12);
+
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const faceCalls: Array<{ mapId: string; localId: string }> = [];
+  const ctx = createContext(queueWarpCalls, {
+    hasNpc: (mapId, localId) =>
+      mapId === 'MAP_SOOTOPOLIS_CITY_GYM_1F' && localId === '12',
+    faceNpcToPlayer: (mapId, localId) => {
+      faceCalls.push({ mapId, localId });
+    },
+  });
+
+  const { mapData, commonData } = createData([
+    { cmd: 'faceplayer' },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_SOOTOPOLIS_CITY_GYM_1F');
+  await runner.execute('Main');
+
+  assert.deepEqual(faceCalls, [{ mapId: 'MAP_SOOTOPOLIS_CITY_GYM_1F', localId: '12' }]);
+});
+
 test('warphole prefers destination-local coordinates when available', async () => {
   const queueWarpCalls: QueueWarpCall[] = [];
   const ctx = createContext(queueWarpCalls, {

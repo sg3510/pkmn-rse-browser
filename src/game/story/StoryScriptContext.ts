@@ -104,6 +104,11 @@ export interface StoryScriptContext {
   getPlayerDestLocalPosition?: () => { x: number; y: number } | null;
   /** Wait for the player to finish any in-flight movement before continuing script execution. */
   waitForPlayerIdle?: () => Promise<void>;
+  /**
+   * Wait for a specific NPC to finish in-flight movement (lock command parity).
+   * mapId/localId use script-visible identifiers (map constant + local object ID).
+   */
+  waitForNpcIdle?: (mapId: string, localId: string) => Promise<void>;
   /** Current GBA frame for debug tracing. */
   getCurrentGbaFrame?: () => number;
   /** Previous map type from last used warp (C: GetLastUsedWarpMapType). */

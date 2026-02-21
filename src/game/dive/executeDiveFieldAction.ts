@@ -25,7 +25,7 @@ interface PendingScriptedWarpLike {
   x: number;
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
-  phase: 'pending' | 'fading' | 'loading';
+  phase: 'pending' | 'fading' | 'loading' | 'exiting';
   style?: 'default' | 'fall';
   traversal?: {
     surfing: boolean;

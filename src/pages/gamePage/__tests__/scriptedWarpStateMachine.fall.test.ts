@@ -344,3 +344,96 @@ test('loading retry exhaustion rejects completion and does not unlock before tim
     globalThis.setTimeout = originalSetTimeout;
   }
 });
+
+test('loading completion enters scripted warp exiting phase before resolving waitstate', async () => {
+  const mapId = 'MAP_PETALBURG_CITY';
+  const deferred = createWarpCompletionDeferred();
+  const pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null> = {
+    current: {
+      mapId,
+      x: 15,
+      y: 8,
+      direction: 'down',
+      phase: 'loading',
+      style: 'default',
+      completion: deferred.completion,
+    },
+  };
+  const scriptedWarpLoadMonitorRef: MutableRef<ScriptedWarpLoadMonitor | null> = {
+    current: {
+      mapId,
+      startedAt: 0,
+      retries: 0,
+      fallbackDeferredLogged: false,
+    },
+  };
+  const warpingRef: MutableRef<boolean> = { current: true };
+  const loadingRef: MutableRef<boolean> = { current: false };
+  const pendingSavedLocationRef: MutableRef<any> = { current: { mapId, x: 15, y: 8 } };
+  const unlockCalls = { count: 0 };
+  const playerRef: MutableRef<PlayerController | null> = { current: createPlayerStub(unlockCalls) };
+  const worldManagerRef: MutableRef<WorldManager | null> = { current: createWorldManagerStub(mapId) };
+  const updateLastCheckedTileCalls = { count: 0 };
+  const { fade, getFadeInStarts } = createFadeStub();
+  const warpHandler = createWarpHandlerStub(updateLastCheckedTileCalls);
+  const inputUnlockGuards: InputUnlockGuards = {
+    warpingRef,
+    storyScriptRunningRef: { current: false },
+    dialogIsOpenRef: { current: false },
+  };
+  let exitStartCalls = 0;
+
+  updateScriptedWarpStateMachine({
+    nowTime: 100,
+    pendingScriptedWarpRef,
+    scriptedWarpLoadMonitorRef,
+    warpingRef,
+    loadingRef,
+    pendingSavedLocationRef,
+    warpHandler,
+    fadeController: fade,
+    playerRef,
+    worldManagerRef,
+    inputUnlockGuards,
+    selectMapForLoad: () => {},
+    startFallWarpArrival: () => false,
+    startScriptedWarpExit: () => {
+      exitStartCalls++;
+      return true;
+    },
+  });
+
+  await Promise.resolve();
+  assert.equal(exitStartCalls, 1);
+  assert.equal(getFadeInStarts(), 1);
+  assert.equal(updateLastCheckedTileCalls.count, 1);
+  assert.equal(pendingSavedLocationRef.current, null);
+  assert.equal(scriptedWarpLoadMonitorRef.current, null);
+  assert.equal(pendingScriptedWarpRef.current?.phase, 'exiting');
+  assert.equal(warpingRef.current, true);
+  assert.equal(unlockCalls.count, 0);
+  assert.equal(deferred.getResolved(), false);
+  assert.equal(deferred.getRejected(), false);
+
+  updateScriptedWarpStateMachine({
+    nowTime: 116,
+    pendingScriptedWarpRef,
+    scriptedWarpLoadMonitorRef,
+    warpingRef,
+    loadingRef,
+    pendingSavedLocationRef,
+    warpHandler,
+    fadeController: fade,
+    playerRef,
+    worldManagerRef,
+    inputUnlockGuards,
+    selectMapForLoad: () => {},
+    startFallWarpArrival: () => false,
+    startScriptedWarpExit: () => {
+      exitStartCalls++;
+      return true;
+    },
+  });
+  assert.equal(exitStartCalls, 1);
+  assert.equal(pendingScriptedWarpRef.current?.phase, 'exiting');
+});

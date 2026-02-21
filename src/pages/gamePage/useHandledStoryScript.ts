@@ -47,7 +47,7 @@ interface PendingScriptedWarpLike {
   x: number;
   y: number;
   direction: 'up' | 'down' | 'left' | 'right';
-  phase: 'pending' | 'fading' | 'loading';
+  phase: 'pending' | 'fading' | 'loading' | 'exiting';
   style?: 'default' | 'fall';
   traversal?: {
     surfing: boolean;
@@ -843,6 +843,36 @@ export function useHandledStoryScript(params: UseHandledStoryScriptParams): (scr
             console.warn('[StoryScript] waitForPlayerIdle timed out while player was still moving.', {
               scriptName,
               mapId: effectiveMapId,
+              frame: gbaFrameRef.current,
+            });
+          }
+        },
+        waitForNpcIdle: async (mapId, localId) => {
+          if (isPlayerLocalId(localId)) {
+            await scriptCtx.waitForPlayerIdle?.();
+            return;
+          }
+          const objectManager = objectEventManagerRef.current;
+          let guard = 0;
+          while (guard < 120) {
+            const npc = objectManager.getNPCByLocalId(mapId, localId);
+            if (!npc) {
+              return;
+            }
+            if (!npc.isWalking && npc.subTileX === 0 && npc.subTileY === 0) {
+              return;
+            }
+            await waitFrames(1);
+            guard++;
+          }
+
+          const timedOutNpc = objectManager.getNPCByLocalId(mapId, localId);
+          if (timedOutNpc && (timedOutNpc.isWalking || timedOutNpc.subTileX !== 0 || timedOutNpc.subTileY !== 0)) {
+            console.warn('[StoryScript] waitForNpcIdle timed out while NPC was still moving.', {
+              scriptName,
+              mapId: effectiveMapId,
+              npcMapId: mapId,
+              localId,
               frame: gbaFrameRef.current,
             });
           }

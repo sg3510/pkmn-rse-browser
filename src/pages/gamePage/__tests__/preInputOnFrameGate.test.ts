@@ -5,7 +5,8 @@ import { evaluatePreInputOnFrameGate } from '../preInputOnFrameGate.ts';
 test('blocks player movement while map-entry gate is active and ON_FRAME prerequisites are not ready', () => {
   const result = evaluatePreInputOnFrameGate({
     mapEntryGateActive: true,
-    storyScriptRunning: false,
+    preInputOnFrameEvaluated: false,
+    preInputOnFrameTriggered: false,
     mapObjectsReady: false,
     mapScriptCacheReady: false,
   });
@@ -14,10 +15,24 @@ test('blocks player movement while map-entry gate is active and ON_FRAME prerequ
   assert.equal(result.shouldBlockPlayerUpdate, true);
 });
 
-test('clears map-entry gate immediately when a story script has already started', () => {
+test('keeps gate locked until pre-input ON_FRAME evaluation has run', () => {
   const result = evaluatePreInputOnFrameGate({
     mapEntryGateActive: true,
-    storyScriptRunning: true,
+    preInputOnFrameEvaluated: false,
+    preInputOnFrameTriggered: false,
+    mapObjectsReady: true,
+    mapScriptCacheReady: true,
+  });
+
+  assert.equal(result.shouldClearGate, false);
+  assert.equal(result.shouldBlockPlayerUpdate, true);
+});
+
+test('clears map-entry gate immediately when pre-input checks trigger a script', () => {
+  const result = evaluatePreInputOnFrameGate({
+    mapEntryGateActive: true,
+    preInputOnFrameEvaluated: true,
+    preInputOnFrameTriggered: true,
     mapObjectsReady: false,
     mapScriptCacheReady: false,
   });
@@ -26,10 +41,11 @@ test('clears map-entry gate immediately when a story script has already started'
   assert.equal(result.shouldBlockPlayerUpdate, false);
 });
 
-test('clears map-entry gate once map objects and script cache are both ready', () => {
+test('clears map-entry gate after a completed pre-input evaluation when no script fired', () => {
   const result = evaluatePreInputOnFrameGate({
     mapEntryGateActive: true,
-    storyScriptRunning: false,
+    preInputOnFrameEvaluated: true,
+    preInputOnFrameTriggered: false,
     mapObjectsReady: true,
     mapScriptCacheReady: true,
   });

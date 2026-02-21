@@ -20,7 +20,11 @@ import type { UseDoorSequencerReturn } from '../../hooks/useDoorSequencer';
 import type { UseDoorAnimationsReturn } from '../../hooks/useDoorAnimations';
 import { runDoorEntryUpdate, runDoorExitUpdate, type DoorSequenceDeps } from '../../game/DoorSequenceRunner.ts';
 import { FADE_TIMING, type CardinalDirection } from '../../field/types.ts';
-import { isSurfableBehavior } from '../../utils/metatileBehaviors.ts';
+import {
+  isDoorBehavior,
+  isSurfableBehavior,
+  requiresDoorExitSequence,
+} from '../../utils/metatileBehaviors.ts';
 import { gameVariables, GAME_VARS } from '../../game/GameVariables.ts';
 import { getMapScripts } from '../../data/scripts/index.ts';
 import { shouldRunCoordEvent } from '../../game/NewGameFlow.ts';
@@ -257,7 +261,7 @@ export function processCoordEventsForTile(params: {
 // ─── Scripted Warp Types ─────────────────────────────────────────────────────
 
 type ScriptedWarpDirection = 'up' | 'down' | 'left' | 'right';
-type ScriptedWarpPhase = 'pending' | 'fading' | 'loading';
+type ScriptedWarpPhase = 'pending' | 'fading' | 'loading' | 'exiting';
 
 export type PendingScriptedWarp = {
   mapId: string;
@@ -311,6 +315,61 @@ function scheduleScriptedWarpCompletionAfterFade(
   }, delayMs);
 }
 
+function completeScriptedWarpArrival(params: {
+  scriptedWarp: PendingScriptedWarp;
+  activePlayer: PlayerController;
+  nowTime: number;
+  warpHandler: WarpHandler;
+  fade: FadeController;
+  warpingRef: MutableRef<boolean>;
+  pendingSavedLocationRef: MutableRef<any>;
+  pendingScriptedWarpRef: MutableRef<PendingScriptedWarp | null>;
+  scriptedWarpLoadMonitorRef: MutableRef<ScriptedWarpLoadMonitor | null>;
+  inputUnlockGuards: InputUnlockGuards;
+  startFallWarpArrival?: (scriptedWarp: PendingScriptedWarp, player: PlayerController, nowTime: number) => boolean;
+  startScriptedWarpExit?: (scriptedWarp: PendingScriptedWarp, player: PlayerController, nowTime: number) => boolean;
+}): void {
+  const {
+    scriptedWarp,
+    activePlayer,
+    nowTime,
+    warpHandler,
+    fade,
+    warpingRef,
+    pendingSavedLocationRef,
+    pendingScriptedWarpRef,
+    scriptedWarpLoadMonitorRef,
+    inputUnlockGuards,
+    startFallWarpArrival,
+    startScriptedWarpExit,
+  } = params;
+
+  pendingSavedLocationRef.current = null;
+  scriptedWarpLoadMonitorRef.current = null;
+  warpHandler.updateLastCheckedTile(activePlayer.tileX, activePlayer.tileY, scriptedWarp.mapId);
+  if (fade.getDirection() !== 'in' || !fade.isActive()) {
+    fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
+  }
+
+  const startedFallArrival = scriptedWarp.style === 'fall'
+    && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
+  if (startedFallArrival) {
+    pendingScriptedWarpRef.current = null;
+    return;
+  }
+
+  if (startScriptedWarpExit?.(scriptedWarp, activePlayer, nowTime)) {
+    scriptedWarp.phase = 'exiting';
+    pendingScriptedWarpRef.current = scriptedWarp;
+    return;
+  }
+
+  pendingScriptedWarpRef.current = null;
+  warpingRef.current = false;
+  scheduleScriptedWarpCompletionAfterFade(scriptedWarp);
+  scheduleInputUnlock(activePlayer, inputUnlockGuards);
+}
+
 // ─── updateScriptedWarpStateMachine ──────────────────────────────────────────
 // Advances the scripted warp (warpsilent-style) state machine each frame.
 export function updateScriptedWarpStateMachine(params: {
@@ -327,6 +386,7 @@ export function updateScriptedWarpStateMachine(params: {
   inputUnlockGuards: InputUnlockGuards;
   selectMapForLoad: (mapId: string) => void;
   startFallWarpArrival?: (scriptedWarp: PendingScriptedWarp, player: PlayerController, nowTime: number) => boolean;
+  startScriptedWarpExit?: (scriptedWarp: PendingScriptedWarp, player: PlayerController, nowTime: number) => boolean;
 }): void {
   const {
     nowTime,
@@ -342,6 +402,7 @@ export function updateScriptedWarpStateMachine(params: {
     inputUnlockGuards,
     selectMapForLoad,
     startFallWarpArrival,
+    startScriptedWarpExit,
   } = params;
 
   const scriptedWarp = pendingScriptedWarpRef.current;
@@ -402,17 +463,20 @@ export function updateScriptedWarpStateMachine(params: {
         }
         activePlayer.setTraversalState(traversal);
       }
-      fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-      pendingSavedLocationRef.current = null;
-      pendingScriptedWarpRef.current = null;
-      warpHandler.updateLastCheckedTile(targetWorldX, targetWorldY, scriptedWarp.mapId);
-      const startedFallArrival = scriptedWarp.style === 'fall'
-        && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
-      if (!startedFallArrival) {
-        warpingRef.current = false;
-        scheduleScriptedWarpCompletionAfterFade(scriptedWarp);
-        scheduleInputUnlock(activePlayer, inputUnlockGuards);
-      }
+      completeScriptedWarpArrival({
+        scriptedWarp,
+        activePlayer,
+        nowTime,
+        warpHandler,
+        fade,
+        warpingRef,
+        pendingSavedLocationRef,
+        pendingScriptedWarpRef,
+        scriptedWarpLoadMonitorRef,
+        inputUnlockGuards,
+        startFallWarpArrival,
+        startScriptedWarpExit,
+      });
     } else {
       debugLog('[ScriptedWarp] different map -> loading', { mapId: scriptedWarp.mapId });
       scriptedWarp.phase = 'loading';
@@ -433,19 +497,20 @@ export function updateScriptedWarpStateMachine(params: {
 
     if (activePlayer && activeMapId === scriptedWarp.mapId && !loadingRef.current) {
       overworldUpdateLogger.warn('[ScriptedWarp] loading fallback completion', { mapId: scriptedWarp.mapId });
-      pendingScriptedWarpRef.current = null;
-      scriptedWarpLoadMonitorRef.current = null;
-      warpHandler.updateLastCheckedTile(activePlayer.tileX, activePlayer.tileY, scriptedWarp.mapId);
-      if (fade.getDirection() !== 'in' || !fade.isActive()) {
-        fade.startFadeIn(FADE_TIMING.DEFAULT_DURATION_MS, nowTime);
-      }
-      const startedFallArrival = scriptedWarp.style === 'fall'
-        && startFallWarpArrival?.(scriptedWarp, activePlayer, nowTime);
-      if (!startedFallArrival) {
-        warpingRef.current = false;
-        scheduleScriptedWarpCompletionAfterFade(scriptedWarp);
-        scheduleInputUnlock(activePlayer, inputUnlockGuards);
-      }
+      completeScriptedWarpArrival({
+        scriptedWarp,
+        activePlayer,
+        nowTime,
+        warpHandler,
+        fade,
+        warpingRef,
+        pendingSavedLocationRef,
+        pendingScriptedWarpRef,
+        scriptedWarpLoadMonitorRef,
+        inputUnlockGuards,
+        startFallWarpArrival,
+        startScriptedWarpExit,
+      });
     } else if (activePlayer && activeMapId === scriptedWarp.mapId && loadingRef.current) {
       let monitor = scriptedWarpLoadMonitorRef.current;
       if (!monitor || monitor.mapId !== scriptedWarp.mapId) {
@@ -502,6 +567,10 @@ export function updateScriptedWarpStateMachine(params: {
         }
       }
     }
+  } else if (scriptedWarp.phase === 'exiting') {
+    // Door/non-animated warp-exit sequence completion is handled in advanceWarpSequences,
+    // once runDoorExitUpdate reports that the step/door close lifecycle is done.
+    return;
   }
 }
 
@@ -797,6 +866,7 @@ export function advanceWarpSequences(params: {
   } = params;
 
   // Advance door sequences using shared DoorSequenceRunner
+  let doorExitCompleted = false;
   if (player) {
     const doorDeps: DoorSequenceDeps = {
       player,
@@ -816,7 +886,26 @@ export function advanceWarpSequences(params: {
     };
 
     runDoorEntryUpdate(doorDeps, nowTime);
-    runDoorExitUpdate(doorDeps, nowTime);
+    doorExitCompleted = runDoorExitUpdate(doorDeps, nowTime);
+  }
+
+  if (player && doorExitCompleted) {
+    const scriptedWarp = pendingScriptedWarpRef.current;
+    if (scriptedWarp?.phase === 'exiting') {
+      pendingScriptedWarpRef.current = null;
+      scriptedWarpLoadMonitorRef.current = null;
+      warpingRef.current = false;
+      resolveScriptedWarpCompletion(scriptedWarp);
+      if (isDebugMode('field')) {
+        console.log('[SCRIPTED_WARP_EXIT] completed', {
+          mapId: scriptedWarp.mapId,
+          x: player.tileX,
+          y: player.tileY,
+          direction: player.dir,
+        });
+      }
+      scheduleInputUnlock(player, inputUnlockGuards);
+    }
   }
 
   // Advance Lavaridge warp sequences
@@ -901,6 +990,38 @@ export function advanceWarpSequences(params: {
           scheduleInputUnlock(activePlayer, inputUnlockGuards);
         },
       });
+      return true;
+    },
+    startScriptedWarpExit: (_scriptedWarp, activePlayer, startedAt) => {
+      const resolved = activePlayer.getTileResolver()?.(activePlayer.tileX, activePlayer.tileY);
+      const behavior = resolved?.attributes?.behavior;
+      if (behavior === undefined || !requiresDoorExitSequence(behavior)) {
+        return false;
+      }
+
+      const isAnimatedDoor = isDoorBehavior(behavior);
+      const exitDirection: CardinalDirection = isAnimatedDoor ? 'down' : activePlayer.dir;
+      playerHiddenRef.current = true;
+      if (isDebugMode('field')) {
+        console.log('[SCRIPTED_WARP_EXIT] started', {
+          mapId: _scriptedWarp.mapId,
+          x: activePlayer.tileX,
+          y: activePlayer.tileY,
+          behavior,
+          isAnimatedDoor,
+          exitDirection,
+        });
+      }
+      doorSequencer.startExit(
+        {
+          doorWorldX: activePlayer.tileX,
+          doorWorldY: activePlayer.tileY,
+          metatileId: resolved?.mapTile?.metatileId ?? 0,
+          isAnimatedDoor,
+          exitDirection,
+        },
+        startedAt
+      );
       return true;
     },
   });

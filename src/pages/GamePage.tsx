@@ -656,6 +656,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   const visibleItemsRef = useRef<ItemBallObject[]>([]);
   const storyScriptRunningRef = useRef<boolean>(false);
   const mapEntryCutsceneGateRef = useRef<boolean>(false);
+  const mapEntryGateDebugSignatureRef = useRef<string | null>(null);
   const lastCoordTriggerTileRef = useRef<{ mapId: string; x: number; y: number } | null>(null);
   const lastPlayerMapIdRef = useRef<string | null>(null);
   const lastWildEncounterStepRef = useRef<WildEncounterStepState | null>(null);
@@ -1998,9 +1999,19 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
       const menuOpen = menuStateManager.isMenuOpen();
       const truckLocked = isTruckSequenceLocked(truckRuntimeRef.current);
       const dialogOpen = dialogIsOpenRef.current;
-      if (player && playerLoadedRef.current && !warpingRef.current && !menuOpen && !truckLocked && !dialogOpen) {
+      const doorExitActive = doorSequencer.isExitActive();
+      const allowDoorExitDuringWarp = warpingRef.current && doorExitActive;
+      if (
+        player
+        && playerLoadedRef.current
+        && (!warpingRef.current || allowDoorExitDuringWarp)
+        && !menuOpen
+        && !truckLocked
+        && !dialogOpen
+      ) {
         const worldManager = worldManagerRef.current;
         let preInputOnFrameTriggered = false;
+        let preInputOnFrameEvaluated = false;
         const mapEntryGateActive = mapEntryCutsceneGateRef.current;
         let mapObjectsReadyForGate = false;
         let mapScriptCacheReadyForGate = false;
@@ -2016,6 +2027,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
         ) {
           const currentMap = worldManager.findMapAtPosition(player.tileX, player.tileY);
           if (currentMap) {
+            preInputOnFrameEvaluated = true;
             const currentMapId = currentMap.entry.id;
             const runScript = (scriptName: string, mapId: string) => void runHandledStoryScriptRef.current(scriptName, mapId);
             const cameraView = cameraRef.current?.getView(0);
@@ -2143,15 +2155,36 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         const gateEvaluation = evaluatePreInputOnFrameGate({
           mapEntryGateActive,
-          storyScriptRunning: storyScriptRunningRef.current,
+          preInputOnFrameEvaluated,
+          preInputOnFrameTriggered,
           mapObjectsReady: mapObjectsReadyForGate,
           mapScriptCacheReady: mapScriptCacheReadyForGate,
         });
 
-        if (gateEvaluation.shouldClearGate) {
-          mapEntryCutsceneGateRef.current = false;
+        if (isDebugMode('field') && mapEntryGateActive) {
+          const debugSignature = [
+            `evaluated=${preInputOnFrameEvaluated ? 1 : 0}`,
+            `triggered=${preInputOnFrameTriggered ? 1 : 0}`,
+            `story=${storyScriptRunningRef.current ? 1 : 0}`,
+            `mapObjectsReady=${mapObjectsReadyForGate ? 1 : 0}`,
+            `mapScriptCacheReady=${mapScriptCacheReadyForGate ? 1 : 0}`,
+            `clear=${gateEvaluation.shouldClearGate ? 1 : 0}`,
+            `block=${gateEvaluation.shouldBlockPlayerUpdate ? 1 : 0}`,
+          ].join(' ');
+          if (mapEntryGateDebugSignatureRef.current !== debugSignature) {
+            mapEntryGateDebugSignatureRef.current = debugSignature;
+            console.log('[MAP_ENTRY_GATE]', debugSignature);
+          }
         }
-        const shouldBlockForMapEntryGate = gateEvaluation.shouldBlockPlayerUpdate;
+
+        if (gateEvaluation.shouldClearGate) {
+          if (isDebugMode('field')) {
+            console.log('[MAP_ENTRY_GATE] cleared');
+          }
+          mapEntryCutsceneGateRef.current = false;
+          mapEntryGateDebugSignatureRef.current = null;
+        }
+        const shouldBlockForMapEntryGate = gateEvaluation.shouldBlockPlayerUpdate && !doorExitActive;
 
         if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning && !shouldBlockForMapEntryGate) {
           player.update(dt);

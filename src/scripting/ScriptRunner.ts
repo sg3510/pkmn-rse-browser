@@ -1272,6 +1272,26 @@ export class ScriptRunner {
     }
   }
 
+  private getSelectedObjectLocalIdFromLastTalked(): string | null {
+    const localIdNumber = gameVariables.getVar('VAR_LAST_TALKED');
+    if (!Number.isFinite(localIdNumber) || localIdNumber <= 0) {
+      return null;
+    }
+    return String(localIdNumber);
+  }
+
+  private getSelectedObjectContext(): { mapId: string; localId: string } | null {
+    const localId = this.getSelectedObjectLocalIdFromLastTalked();
+    if (!localId) {
+      return null;
+    }
+    const mapId = this.resolveObjectMapId(localId);
+    if (this.ctx.hasNpc && !this.ctx.hasNpc(mapId, localId)) {
+      return null;
+    }
+    return { mapId, localId };
+  }
+
   /**
    * Execute a script by label name.
    * Returns true if the script was found and executed.
@@ -1620,6 +1640,12 @@ export class ScriptRunner {
           });
 
           await this.ctx.waitForPlayerIdle?.();
+          if (cmd === 'lock') {
+            const selectedObject = this.getSelectedObjectContext();
+            if (selectedObject) {
+              await this.ctx.waitForNpcIdle?.(selectedObject.mapId, selectedObject.localId);
+            }
+          }
 
           const frameAfter = this.ctx.getCurrentGbaFrame?.() ?? null;
           const waitedFrames =
@@ -1644,9 +1670,13 @@ export class ScriptRunner {
           // Input unlocked by useHandledStoryScript finally block
           break;
 
-        case 'faceplayer':
-          // NPC facing player — handled by the interaction trigger
+        case 'faceplayer': {
+          const selectedObject = this.getSelectedObjectContext();
+          if (selectedObject) {
+            this.ctx.faceNpcToPlayer(selectedObject.mapId, selectedObject.localId);
+          }
           break;
+        }
 
         // --- Message ---
         case 'msgbox': {
@@ -1797,6 +1827,17 @@ export class ScriptRunner {
             console.warn(`[ScriptRunner] Movement not found: ${movementLabel}`);
             break;
           }
+          const shouldLogMovementDebug = isDebugMode('field');
+          if (shouldLogMovementDebug) {
+            console.log('[SCRIPT_MOVE] queue', {
+              mapId: objectMapId,
+              objectId,
+              resolvedObjectId: resolvedObjId,
+              movementLabel,
+              stepCount: steps.length,
+              start: this.getMovementDebugPosition(objectMapId, resolvedObjId, isPlayerObj),
+            });
+          }
 
           if (isCameraObj && this.services.camera?.applyMovement) {
             const promise = this.services.camera.applyMovement(steps);
@@ -1815,7 +1856,18 @@ export class ScriptRunner {
           }
           // Start movement asynchronously — will be awaited by waitmovement
           const promise = this.executeMovement(objectId, steps, objectMapId);
-          this.pendingMovements.set(objectId, promise);
+          const instrumentedPromise = shouldLogMovementDebug
+            ? promise.then(() => {
+              console.log('[SCRIPT_MOVE] done', {
+                mapId: objectMapId,
+                objectId,
+                resolvedObjectId: resolvedObjId,
+                movementLabel,
+                end: this.getMovementDebugPosition(objectMapId, resolvedObjId, isPlayerObj),
+              });
+            })
+            : promise;
+          this.pendingMovements.set(objectId, instrumentedPromise);
           break;
         }
 
@@ -3461,6 +3513,22 @@ export class ScriptRunner {
       console.warn(`[ScriptRunner] Unknown movement command: ${step}`);
       await this.ctx.delayFrames(1);
     }
+  }
+
+  private getMovementDebugPosition(
+    objectMapId: string,
+    resolvedObjectId: string,
+    isPlayer: boolean
+  ): string {
+    if (isPlayer) {
+      const local = this.ctx.getPlayerLocalPosition?.();
+      if (!local) return 'playerLocal=(unknown)';
+      return `playerLocal=(${local.x},${local.y})`;
+    }
+
+    const npc = this.ctx.getNpcPosition?.(objectMapId, resolvedObjectId);
+    if (!npc) return `npcLocalId=${resolvedObjectId} pos=(missing)`;
+    return `npcLocalId=${resolvedObjectId} pos=(${npc.tileX},${npc.tileY})`;
   }
 
   /**
