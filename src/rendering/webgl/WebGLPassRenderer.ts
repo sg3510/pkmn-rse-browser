@@ -78,6 +78,35 @@ export class WebGLPassRenderer {
   }
 
   /**
+   * Render all three passes from a single tile iteration.
+   */
+  renderAllPasses(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn,
+    filterBelow: ElevationFilterFn,
+    filterAbove: ElevationFilterFn,
+    width: number,
+    height: number
+  ): void {
+    const split = this.instanceBuilder.buildSplitPassInstances(
+      view,
+      resolveTile,
+      filterBelow,
+      filterAbove
+    );
+
+    this.cachedInstances.set('background', split.background);
+    this.cachedInstances.set('topBelow', split.topBelow);
+    this.cachedInstances.set('topAbove', split.topAbove);
+
+    this.renderPassToFramebuffer('background', split.background, width, height);
+    this.renderPassToFramebuffer('topBelow', split.topBelow, width, height);
+    this.renderPassToFramebuffer('topAbove', split.topAbove, width, height);
+
+    this.checkArrayReferenceBug();
+  }
+
+  /**
    * Render ONLY layer 0 (bottom layer) of all metatiles
    *
    * Used for reflection rendering where we need to insert reflections

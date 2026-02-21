@@ -659,6 +659,51 @@ export class ObjectEventManager {
     return null;
   }
 
+  getInteractableAtWithElevation(
+    tileX: number,
+    tileY: number,
+    playerElevation: number
+  ): { type: 'item'; data: ItemBallObject } | { type: 'npc'; data: NPCObject } | { type: 'script'; data: ScriptObject } | null {
+    const itemBall = this.getItemBallAtWithElevation(tileX, tileY, playerElevation);
+    if (itemBall) {
+      if (itemBall.itemId > 0) {
+        return { type: 'item', data: itemBall };
+      }
+      const marker = '_item_';
+      const markerIdx = itemBall.id.indexOf(marker);
+      const mapId = markerIdx > 0 ? itemBall.id.slice(0, markerIdx) : '';
+      return {
+        type: 'script',
+        data: {
+          id: itemBall.id,
+          mapId,
+          localId: null,
+          localIdNumber: null,
+          tileX: itemBall.tileX,
+          tileY: itemBall.tileY,
+          elevation: itemBall.elevation,
+          graphicsId: OBJ_EVENT_GFX_ITEM_BALL,
+          script: itemBall.script,
+          flag: itemBall.flag,
+          visible: !itemBall.collected,
+          berryTreeId: 0,
+        },
+      };
+    }
+
+    const npc = this.getNPCAtWithElevation(tileX, tileY, playerElevation);
+    if (npc) {
+      return { type: 'npc', data: npc };
+    }
+
+    const scriptObject = this.getScriptObjectAtWithElevation(tileX, tileY, playerElevation);
+    if (scriptObject) {
+      return { type: 'script', data: scriptObject };
+    }
+
+    return null;
+  }
+
   /**
    * Reconcile object state from flags after load/save boundaries.
    *
@@ -1032,6 +1077,28 @@ export class ObjectEventManager {
     return null;
   }
 
+  private getNpcEffectiveElevation(npc: NPCObject): number {
+    let npcElevation = npc.elevation;
+    if (this.tileElevationResolver) {
+      const tileElev = this.tileElevationResolver(npc.tileX, npc.tileY);
+      if (tileElev !== null && tileElev !== 15) {
+        // Mirrors ObjectEventUpdateElevation: runtime elevation follows tile elevation.
+        npcElevation = tileElev;
+      }
+    }
+    return npcElevation;
+  }
+
+  getNPCAtWithElevation(tileX: number, tileY: number, playerElevation: number): NPCObject | null {
+    const npc = this.getNPCAt(tileX, tileY);
+    if (!npc) return null;
+
+    const npcElevation = this.getNpcEffectiveElevation(npc);
+    if (playerElevation === 0 || playerElevation === 15) return npc;
+    if (npcElevation === 0 || npcElevation === 15) return npc;
+    return npcElevation === playerElevation ? npc : null;
+  }
+
   /**
    * Check if there's a blocking NPC at a position.
    * Uses current+previous occupancy while NPC is moving.
@@ -1054,27 +1121,7 @@ export class ObjectEventManager {
    * @param playerElevation The player's current elevation
    */
   hasNPCAtWithElevation(tileX: number, tileY: number, playerElevation: number): boolean {
-    const npc = this.getNPCAt(tileX, tileY);
-    if (!npc) return false;
-
-    // Get the NPC's actual elevation from the tile they're standing on
-    // This mirrors pokeemerald's ObjectEventUpdateElevation behavior
-    let npcElevation = npc.elevation;
-    if (this.tileElevationResolver) {
-      const tileElev = this.tileElevationResolver(npc.tileX, npc.tileY);
-      if (tileElev !== null && tileElev !== 15) {
-        // Update to tile elevation (15 is special - preserves previous)
-        npcElevation = tileElev;
-      }
-    }
-
-    // Ground level (0) or universal (15) can interact with any elevation
-    // Reference: AreElevationsCompatible - "if (a == 0 || b == 0) return TRUE;"
-    if (playerElevation === 0 || playerElevation === 15) return true;
-    if (npcElevation === 0 || npcElevation === 15) return true;
-
-    // Same elevation = collision
-    return npcElevation === playerElevation;
+    return this.getNPCAtWithElevation(tileX, tileY, playerElevation) !== null;
   }
 
   /**

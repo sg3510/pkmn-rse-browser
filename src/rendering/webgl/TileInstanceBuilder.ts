@@ -31,6 +31,9 @@ const TILE_SIZE = 8;
 export class TileInstanceBuilder {
   // Reusable array to avoid allocation per frame
   private instanceBuffer: TileInstance[] = [];
+  private backgroundBuffer: TileInstance[] = [];
+  private topBelowBuffer: TileInstance[] = [];
+  private topAboveBuffer: TileInstance[] = [];
 
   /**
    * Build tile instances for the background pass
@@ -177,6 +180,90 @@ export class TileInstanceBuilder {
   }
 
   /**
+   * Build background + topBelow + topAbove pass instances in a single tile iteration.
+   *
+   * This avoids repeated resolveTile calls and map lookups across three independent passes.
+   */
+  buildSplitPassInstances(
+    view: WorldCameraView,
+    resolveTile: TileResolverFn,
+    filterBelow?: ElevationFilterFn,
+    filterAbove?: ElevationFilterFn
+  ): {
+    background: TileInstance[];
+    topBelow: TileInstance[];
+    topAbove: TileInstance[];
+  } {
+    this.backgroundBuffer.length = 0;
+    this.topBelowBuffer.length = 0;
+    this.topAboveBuffer.length = 0;
+
+    this.forEachVisibleTile(view, (worldX, worldY, screenX, screenY) => {
+      const resolved = resolveTile(worldX, worldY);
+      if (!resolved?.metatile) return;
+
+      const layerType = resolved.attributes?.layerType ?? METATILE_LAYER_TYPE_COVERED;
+      const tilesetPairIndex = resolved.tilesetPairIndex ?? 0;
+
+      // Background always draws layer 0.
+      this.addMetatileLayerToBuffer(
+        this.backgroundBuffer,
+        resolved.metatile,
+        screenX,
+        screenY,
+        0,
+        tilesetPairIndex
+      );
+
+      // COVERED layer-1 belongs to background pass.
+      if (layerType === METATILE_LAYER_TYPE_COVERED) {
+        this.addMetatileLayerToBuffer(
+          this.backgroundBuffer,
+          resolved.metatile,
+          screenX,
+          screenY,
+          1,
+          tilesetPairIndex
+        );
+        return;
+      }
+
+      if (layerType !== METATILE_LAYER_TYPE_NORMAL && layerType !== METATILE_LAYER_TYPE_SPLIT) {
+        return;
+      }
+
+      // For top layer, evaluate both elevation filters once per visible tile.
+      if (!filterBelow || filterBelow(resolved.mapTile, worldX, worldY)) {
+        this.addMetatileLayerToBuffer(
+          this.topBelowBuffer,
+          resolved.metatile,
+          screenX,
+          screenY,
+          1,
+          tilesetPairIndex
+        );
+      }
+
+      if (!filterAbove || filterAbove(resolved.mapTile, worldX, worldY)) {
+        this.addMetatileLayerToBuffer(
+          this.topAboveBuffer,
+          resolved.metatile,
+          screenX,
+          screenY,
+          1,
+          tilesetPairIndex
+        );
+      }
+    });
+
+    return {
+      background: this.backgroundBuffer,
+      topBelow: this.topBelowBuffer,
+      topAbove: this.topAboveBuffer,
+    };
+  }
+
+  /**
    * Build all tile instances for a full render (no layer splitting)
    *
    * Useful for simple rendering or debugging.
@@ -225,6 +312,24 @@ export class TileInstanceBuilder {
     layer: 0 | 1,
     tilesetPairIndex: number = 0
   ): void {
+    this.addMetatileLayerToBuffer(
+      this.instanceBuffer,
+      metatile,
+      screenX,
+      screenY,
+      layer,
+      tilesetPairIndex
+    );
+  }
+
+  private addMetatileLayerToBuffer(
+    buffer: TileInstance[],
+    metatile: Metatile,
+    screenX: number,
+    screenY: number,
+    layer: 0 | 1,
+    tilesetPairIndex: number = 0
+  ): void {
     for (let i = 0; i < 4; i++) {
       const tileIndex = layer * 4 + i;
       const tile = metatile.tiles[tileIndex];
@@ -237,7 +342,7 @@ export class TileInstanceBuilder {
       const { isSecondary, index: effectiveTileId } = resolveMetatileIndex(tile.tileId);
       const tilesetIndex = isSecondary ? 1 : 0;
 
-      this.instanceBuffer.push({
+      buffer.push({
         x: screenX + subX,
         y: screenY + subY,
         tileId: effectiveTileId,

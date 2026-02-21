@@ -17,7 +17,6 @@ import {
   MB_SAND,
   MB_SECRET_BASE_WALL,
   isDoorBehavior,
-  isSurfableBehavior,
 } from '../../utils/metatileBehaviors.ts';
 import { areElevationsCompatible } from '../../utils/elevation.ts';
 
@@ -154,7 +153,6 @@ function isTileWalkableForTrainerSight(resolved: ResolvedTile): boolean {
   if (behavior === MB_SAND || behavior === MB_DEEP_SAND) return true;
   if (!isCollisionPassable(collision) && !isDoorBehavior(behavior)) return false;
   if (behavior === MB_SECRET_BASE_WALL) return false;
-  if (isSurfableBehavior(behavior)) return false;
   if (behavior >= MB_IMPASSABLE_EAST && behavior <= MB_JUMP_SOUTHWEST) return false;
   if (behavior === MB_IMPASSABLE_SOUTH_AND_NORTH || behavior === MB_IMPASSABLE_WEST_AND_EAST) return false;
   return true;

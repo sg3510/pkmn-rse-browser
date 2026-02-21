@@ -155,7 +155,6 @@ export function useActionInput({
       || divePromptInProgressRef.current
       || itemPickupInProgressRef.current
       || player.isMoving
-      || player.isSurfing()
     ) return;
 
     // Calculate the tile the player is facing
@@ -201,7 +200,11 @@ export function useActionInput({
       }
     };
 
-    let interactable = objectEventManager.getInteractableAt(facingTileX, facingTileY);
+    let interactable = objectEventManager.getInteractableAtWithElevation(
+      facingTileX,
+      facingTileY,
+      player.getElevation()
+    );
 
     // C parity: MB_COUNTER extends interaction 1 tile further (field_control_avatar.c:286-314)
     if (!interactable) {
@@ -214,7 +217,11 @@ export function useActionInput({
         else if (player.dir === 'down') counterTileY += 1;
         else if (player.dir === 'left') counterTileX -= 1;
         else if (player.dir === 'right') counterTileX += 1;
-        interactable = objectEventManager.getInteractableAt(counterTileX, counterTileY);
+        interactable = objectEventManager.getInteractableAtWithElevation(
+          counterTileX,
+          counterTileY,
+          player.getElevation()
+        );
       }
     }
 

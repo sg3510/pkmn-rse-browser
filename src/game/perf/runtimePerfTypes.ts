@@ -14,6 +14,7 @@ export const RUNTIME_PERF_COUNTERS = [
   'waterMaskBuilds',
   'waterMaskUploads',
   'readPixelsCalls',
+  'webglCanvasBlits',
   'setStateFromRafCalls',
   'visibleListRebuilds',
 ] as const;
@@ -53,4 +54,3 @@ export interface RuntimePerfCapture {
   samples: RuntimePerfSample[];
   summary?: RuntimePerfSummary;
 }
-

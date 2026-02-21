@@ -22,6 +22,7 @@ import { ElevationFilter } from '../ElevationFilter';
 import { WebGLAnimationManager } from './WebGLAnimationManager';
 import { resetTilesetUploadDedupeState } from './TilesetUploader';
 import { RENDERING_CONFIG } from '../../config/rendering';
+import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder';
 import type {
   WorldCameraView,
   RenderContext,
@@ -404,25 +405,11 @@ export class WebGLRenderPipeline {
     // Create elevation filters
     const { below: filterBelow, above: filterAbove } = this.elevationFilter.createFilter(playerElevation);
 
-    // Render all three passes
-    this.passRenderer.renderBackground(
-      view,
-      this.resolveTile,
-      renderWidth,
-      renderHeight
-    );
-
-    this.passRenderer.renderTopBelow(
+    // Render all three passes in one tile iteration.
+    this.passRenderer.renderAllPasses(
       view,
       this.resolveTile,
       filterBelow,
-      renderWidth,
-      renderHeight
-    );
-
-    this.passRenderer.renderTopAbove(
-      view,
-      this.resolveTile,
       filterAbove,
       renderWidth,
       renderHeight
@@ -471,10 +458,24 @@ export class WebGLRenderPipeline {
   }
 
   /**
+   * Composite only the background layer directly to screen (GPU-only path).
+   */
+  compositeBackgroundToScreen(view: WorldCameraView): void {
+    this.compositePassToScreen('background', view, true);
+  }
+
+  /**
    * Composite only the topBelow layer
    */
   compositeTopBelowOnly(mainCtx: CanvasRenderingContext2D, view: WorldCameraView): void {
     this.compositePassToCanvas('topBelow', mainCtx, view, false);
+  }
+
+  /**
+   * Composite only the topBelow layer directly to screen (GPU-only path).
+   */
+  compositeTopBelowToScreen(view: WorldCameraView): void {
+    this.compositePassToScreen('topBelow', view, false);
   }
 
   /**
@@ -524,6 +525,13 @@ export class WebGLRenderPipeline {
    */
   compositeTopAbove(mainCtx: CanvasRenderingContext2D, view: WorldCameraView): void {
     this.compositePassToCanvas('topAbove', mainCtx, view, false);
+  }
+
+  /**
+   * Composite topAbove directly to screen (GPU-only path).
+   */
+  compositeTopAboveToScreen(view: WorldCameraView): void {
+    this.compositePassToScreen('topAbove', view, false);
   }
 
   /**
@@ -633,39 +641,64 @@ export class WebGLRenderPipeline {
     const dims = this.framebufferManager.getDimensions(pass);
     if (!dims) return;
 
-    // Ensure WebGL canvas matches render dimensions
-    if (this.canvas.width !== dims.width || this.canvas.height !== dims.height) {
-      this.canvas.width = dims.width;
-      this.canvas.height = dims.height;
-    }
-
-    // Read pixels from framebuffer
     const passTexture = this.framebufferManager.getPassTexture(pass);
-
-    // Always clear WebGL canvas before drawing each pass texture
-    // (we want just this pass's content, not blended with previous)
-    this.compositor.compositeToScreen(
-      passTexture,
-      dims.width,
-      dims.height,
-      0, // No sub-pixel offset for now
-      0,
-      true // Always clear WebGL canvas
-    );
-
-    // Calculate sub-tile offset for smooth scrolling (0-15 pixels within the tile)
-    const offsetX = view.subTileOffsetX;
-    const offsetY = view.subTileOffsetY;
+    this.compositePassTextureToCanvas(passTexture, dims.width, dims.height, view, clearFirst);
 
     // Copy WebGL canvas to 2D context with offset
     if (clearFirst) {
       mainCtx.clearRect(0, 0, mainCtx.canvas.width, mainCtx.canvas.height);
     }
-
+    incrementRuntimePerfCounter('webglCanvasBlits');
     mainCtx.drawImage(
       this.canvas,
-      -offsetX,
-      -offsetY
+      0,
+      0
+    );
+  }
+
+  /**
+   * Composite one pass texture directly to the default framebuffer.
+   */
+  private compositePassToScreen(
+    pass: 'background' | 'topBelow' | 'topAbove',
+    view: WorldCameraView,
+    clearFirst: boolean
+  ): void {
+    const dims = this.framebufferManager.getDimensions(pass);
+    if (!dims) return;
+
+    const passTexture = this.framebufferManager.getPassTexture(pass);
+    this.compositePassTextureToCanvas(passTexture, dims.width, dims.height, view, clearFirst);
+  }
+
+  /**
+   * Shared pass composition path used by both Canvas2D copy mode and direct GPU mode.
+   * Renders the visible viewport region from an overscan pass texture into this.canvas.
+   */
+  private compositePassTextureToCanvas(
+    passTexture: WebGLTexture,
+    sourceWidth: number,
+    sourceHeight: number,
+    view: WorldCameraView,
+    clearFirst: boolean
+  ): void {
+    // Ensure the presentation canvas matches the final viewport size.
+    if (this.canvas.width !== view.pixelWidth || this.canvas.height !== view.pixelHeight) {
+      this.canvas.width = view.pixelWidth;
+      this.canvas.height = view.pixelHeight;
+    }
+
+    this.compositor.compositeRegionToScreen(
+      passTexture,
+      sourceWidth,
+      sourceHeight,
+      view.subTileOffsetX,
+      view.subTileOffsetY,
+      view.pixelWidth,
+      view.pixelHeight,
+      view.pixelWidth,
+      view.pixelHeight,
+      clearFirst
     );
   }
 

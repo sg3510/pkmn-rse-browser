@@ -1,7 +1,7 @@
 ---
 title: Performance Optimization TODO List
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-20
 ---
 
 # Performance Optimization TODO List
@@ -9,7 +9,40 @@ last_verified: 2026-01-13
 > Consolidated action items from all performance investigations
 > **Priority Order: Phase 0 → Phase 1 → Phase 2 → Phase 3**
 
-**Last Updated:** 2025-12-03
+**Last Updated:** 2026-02-20
+
+## 2026-02-20 Runtime Stability + Stitching Update
+
+### Completed
+- Added shared fixed-step spike guard in `src/utils/fixedStepGuard.ts` and integrated it into:
+  - `src/pages/GamePage.tsx`
+  - `src/engine/GameLoop.ts`
+  - `src/hooks/useGameLoop.ts`
+  - `src/hooks/useUnifiedGameLoop.ts`
+- Added resume-safe timing defaults in `src/config/timing.ts`:
+  - `RESUME_RESET_THRESHOLD_MS`
+  - `MAX_SIMULATION_DELTA_MS`
+  - `MAX_CATCHUP_STEPS_PER_TICK`
+- Added explicit tab lifecycle clock resync in `src/pages/GamePage.tsx` via `visibilitychange` + `pageshow`.
+- Hardened WebGL context restore in:
+  - `src/rendering/webgl/WebGLRenderPipeline.ts`
+  - `src/pages/GamePage.tsx` (resource recreation + reupload + controlled fallback reload).
+- Implemented two-phase world stitching in `src/game/WorldManager.ts`:
+  - blocking initialize depth defaults to `1`
+  - background stitching continues to depth `2`
+  - per-map event churn is suppressed during blocking initialize
+  - concurrent connected-load runs are guarded.
+- Added cooperative stitching yields in `src/game/WorldManager.ts` so connected/background map loads yield back to the browser between chunks.
+- Added background loading signal event:
+  - `WorldManagerEvent` now includes `loadingStateChanged`
+  - wired through `src/game/worldManagerEvents.ts`
+  - consumed by `src/game/overworld/load/loadSelectedOverworldMap.ts` and `src/pages/GamePage.tsx`.
+- Coalesced `mapsChanged` object-event reload churn in `src/game/worldManagerEvents.ts` and enabled cooperative object parsing/upload chunks in `src/game/loadObjectEventsFromSnapshot.ts`.
+- Added non-blocking stitch progress chip (`Stitching nearby maps... X/Y`) in `src/pages/GamePage.tsx` + `src/pages/GamePage.css`.
+- Added map-graph helper for stable target counts in `src/game/mapGraph.ts`.
+- Added unit coverage:
+  - `src/utils/__tests__/fixedStepGuard.test.ts`
+  - `src/game/__tests__/mapGraph.test.ts`
 
 ---
 

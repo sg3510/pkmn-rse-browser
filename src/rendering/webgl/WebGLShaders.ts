@@ -242,6 +242,8 @@ export const COMPOSITE_VERTEX_SHADER = `#version 300 es
 precision highp float;
 
 uniform vec2 u_offset;
+uniform vec2 u_uvScale;
+uniform vec2 u_uvOffset;
 out vec2 v_texCoord;
 
 void main() {
@@ -257,10 +259,10 @@ void main() {
   // Apply sub-pixel offset
   gl_Position = vec4(pos + u_offset, 0.0, 1.0);
 
-  // Texture coordinates (0,0) to (1,1)
+  // Texture coordinates (0,0) to (1,1), optionally cropped to a source region.
   // Note: No Y-flip needed here because the tile shader already flips Y
   // when rendering to the framebuffer, so the texture is in screen orientation
-  v_texCoord = pos * 0.5 + 0.5;
+  v_texCoord = (pos * 0.5 + 0.5) * u_uvScale + u_uvOffset;
 }
 `;
 

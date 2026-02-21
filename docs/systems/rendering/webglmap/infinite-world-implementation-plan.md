@@ -1,7 +1,7 @@
 ---
 title: Infinite World Roaming - Implementation Plan
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-02-20
 ---
 
 # Infinite World Roaming - Implementation Plan
@@ -9,6 +9,20 @@ last_verified: 2026-01-13
 ## Goal
 
 Allow the player to roam the entire Pokemon Emerald overworld seamlessly, with no fades or loading screens when crossing between maps with different tilesets.
+
+## 2026-02-20 Implementation Notes
+
+- `WorldManager.initialize` now supports `WorldInitializeOptions`:
+  - `initialDepth` (default `1`)
+  - `targetDepth` (default `2`)
+  - `backgroundStitch` (default `true`)
+- Startup now uses two-phase stitching:
+  - phase 1 blocks only on depth `1` for faster first paint
+  - phase 2 continues stitching to depth `2` in background.
+- Per-map `mapsChanged` / `tilesetsChanged` emissions are suppressed during blocking initialize to reduce startup churn.
+- Runtime stitching depth remains `2` during movement updates.
+- `loadingStateChanged` was added to `WorldManagerEvent` and is now used by the UI to show non-blocking stitch progress.
+- Runtime/background stitching now uses cooperative yields so map loading work does not monopolize the main thread.
 
 ## Architecture Overview
 

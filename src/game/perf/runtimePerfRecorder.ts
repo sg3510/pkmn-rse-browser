@@ -24,6 +24,7 @@ function createCounterMap(): RuntimePerfCounterMap {
     waterMaskBuilds: 0,
     waterMaskUploads: 0,
     readPixelsCalls: 0,
+    webglCanvasBlits: 0,
     setStateFromRafCalls: 0,
     visibleListRebuilds: 0,
   };

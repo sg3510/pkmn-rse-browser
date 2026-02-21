@@ -148,6 +148,7 @@ function applyTrackOrientation(effect: FieldEffect): void {
 
 export class FieldEffectManager {
   private effects: Map<string, FieldEffect> = new Map();
+  private renderCache: Map<string, FieldEffectForRendering> = new Map();
   private nextId = 0;
 
   /**
@@ -322,8 +323,8 @@ export class FieldEffectManager {
   /**
    * Get all effects formatted for rendering.
    */
-  getEffectsForRendering(): FieldEffectForRendering[] {
-    const results: FieldEffectForRendering[] = [];
+  getEffectsForRendering(output: FieldEffectForRendering[] = []): FieldEffectForRendering[] {
+    output.length = 0;
 
     for (const effect of this.effects.values()) {
       const worldX = effect.tileX * 16 + 8;
@@ -334,24 +335,49 @@ export class FieldEffectManager {
         subpriorityOffset = 4;
       }
 
-      results.push({
-        id: effect.id,
-        worldX,
-        worldY,
-        frame: effect.animationFrame,
-        type: effect.type,
-        registryKey: effect.registryKey,
-        subpriorityOffset,
-        visible: effect.visible,
-        direction: effect.direction,
-        flipHorizontal: effect.flipHorizontal,
-        flipVertical: effect.flipVertical,
-        renderBehindPlayer: effect.renderBehindPlayer,
-        ownerObjectId: effect.ownerObjectId,
-      });
+      let renderEntry = this.renderCache.get(effect.id);
+      if (!renderEntry) {
+        renderEntry = {
+          id: effect.id,
+          worldX,
+          worldY,
+          frame: effect.animationFrame,
+          type: effect.type,
+          registryKey: effect.registryKey,
+          subpriorityOffset,
+          visible: effect.visible,
+          direction: effect.direction,
+          flipHorizontal: effect.flipHorizontal,
+          flipVertical: effect.flipVertical,
+          renderBehindPlayer: effect.renderBehindPlayer,
+          ownerObjectId: effect.ownerObjectId,
+        };
+        this.renderCache.set(effect.id, renderEntry);
+      } else {
+        renderEntry.worldX = worldX;
+        renderEntry.worldY = worldY;
+        renderEntry.frame = effect.animationFrame;
+        renderEntry.type = effect.type;
+        renderEntry.registryKey = effect.registryKey;
+        renderEntry.subpriorityOffset = subpriorityOffset;
+        renderEntry.visible = effect.visible;
+        renderEntry.direction = effect.direction;
+        renderEntry.flipHorizontal = effect.flipHorizontal;
+        renderEntry.flipVertical = effect.flipVertical;
+        renderEntry.renderBehindPlayer = effect.renderBehindPlayer;
+        renderEntry.ownerObjectId = effect.ownerObjectId;
+      }
+
+      output.push(renderEntry);
     }
 
-    return results;
+    for (const cachedId of this.renderCache.keys()) {
+      if (!this.effects.has(cachedId)) {
+        this.renderCache.delete(cachedId);
+      }
+    }
+
+    return output;
   }
 
   /**
@@ -370,9 +396,11 @@ export class FieldEffectManager {
    */
   clear(): void {
     this.effects.clear();
+    this.renderCache.clear();
   }
 
   removeEffectById(id: string): void {
     this.effects.delete(id);
+    this.renderCache.delete(id);
   }
 }

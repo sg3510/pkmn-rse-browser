@@ -12,7 +12,7 @@
  * Returns sorted sprite batches ready for rendering.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { SpriteInstance } from '../rendering/types';
 import type { PlayerController } from '../game/PlayerController';
 import type { WebGLSpriteRenderer } from '../rendering/webgl/WebGLSpriteRenderer';
@@ -132,7 +132,33 @@ export interface UseWebGLSpriteBuilderReturn {
   buildSprites: (ctx: SpriteBuildContext) => SpriteBuildResult;
 }
 
+interface SpriteBuildScratch {
+  lowPrioritySprites: SpriteInstance[];
+  allSprites: SpriteInstance[];
+  priority0Sprites: SpriteInstance[];
+  doorSprites: SpriteInstance[];
+  newDoorSpritesUploaded: string[];
+}
+
+const doorUploadCanvas = typeof document !== 'undefined'
+  ? document.createElement('canvas')
+  : null;
+const doorUploadCtx = doorUploadCanvas?.getContext('2d') ?? null;
+
+function resetArray<T>(array: T[]): T[] {
+  array.length = 0;
+  return array;
+}
+
 export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
+  const scratchRef = useRef<SpriteBuildScratch>({
+    lowPrioritySprites: [],
+    allSprites: [],
+    priority0Sprites: [],
+    doorSprites: [],
+    newDoorSpritesUploaded: [],
+  });
+
   const buildSprites = useCallback((ctx: SpriteBuildContext): SpriteBuildResult => {
     const {
       player,
@@ -155,13 +181,14 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       computeReflectionState,
     } = ctx;
 
-    const lowPrioritySprites: SpriteInstance[] = [];
-    const allSprites: SpriteInstance[] = [];
-    const priority0Sprites: SpriteInstance[] = [];
-    const doorSprites: SpriteInstance[] = [];
+    const scratch = scratchRef.current;
+    const lowPrioritySprites = resetArray(scratch.lowPrioritySprites);
+    const allSprites = resetArray(scratch.allSprites);
+    const priority0Sprites = resetArray(scratch.priority0Sprites);
+    const doorSprites = resetArray(scratch.doorSprites);
     let arrowSprite: SpriteInstance | null = null;
     let surfBlobSprite: SpriteInstance | null = null;
-    const newDoorSpritesUploaded: string[] = [];
+    const newDoorSpritesUploaded = resetArray(scratch.newDoorSpritesUploaded);
     let arrowSpriteWasUploaded = false;
 
     const playerWorldY = playerLoaded ? getPlayerCenterY(player) : 0;
@@ -172,19 +199,19 @@ export function useWebGLSpriteBuilder(): UseWebGLSpriteBuilderReturn {
       const atlasName = getDoorAtlasName(anim.metatileId);
       if (!doorSpritesUploaded.has(atlasName)) {
         const spriteData = doorAnimations.getSpriteForUpload(anim.metatileId);
-        if (spriteData) {
-          const canvas = document.createElement('canvas');
-          canvas.width = spriteData.width;
-          canvas.height = spriteData.height;
-          const canvasCtx = canvas.getContext('2d');
-          if (canvasCtx) {
-            canvasCtx.drawImage(spriteData.image, 0, 0);
-            spriteRenderer.uploadSpriteSheet(atlasName, canvas, {
-              frameWidth: spriteData.width,
-              frameHeight: 32,
-            });
-            newDoorSpritesUploaded.push(atlasName);
+        if (spriteData && doorUploadCanvas && doorUploadCtx) {
+          if (doorUploadCanvas.width !== spriteData.width || doorUploadCanvas.height !== spriteData.height) {
+            doorUploadCanvas.width = spriteData.width;
+            doorUploadCanvas.height = spriteData.height;
           }
+
+          doorUploadCtx.clearRect(0, 0, spriteData.width, spriteData.height);
+          doorUploadCtx.drawImage(spriteData.image, 0, 0);
+          spriteRenderer.uploadSpriteSheet(atlasName, doorUploadCanvas, {
+            frameWidth: spriteData.width,
+            frameHeight: 32,
+          });
+          newDoorSpritesUploaded.push(atlasName);
         }
       }
 

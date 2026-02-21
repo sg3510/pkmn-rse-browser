@@ -38,8 +38,8 @@ export interface CompositeFrameContext {
   fadeRenderer: WebGLFadeRenderer | null;
   /** Scanline renderer for CRT effect */
   scanlineRenderer: WebGLScanlineRenderer | null;
-  /** 2D context for final compositing */
-  ctx2d: CanvasRenderingContext2D;
+  /** Optional 2D context for final compositing/fallback overlays */
+  ctx2d?: CanvasRenderingContext2D | null;
   /** WebGL canvas for sprite rendering */
   webglCanvas: HTMLCanvasElement;
   /** Camera view for rendering */
@@ -108,6 +108,17 @@ const compositeScratch = {
   overlaySprites: [] as SpriteInstance[],
 };
 
+const waterMaskCache: {
+  key: string;
+  mask: WaterMaskData | null;
+} = {
+  key: '',
+  mask: null,
+};
+
+const waterMaskSnapshotIds = new WeakMap<WorldSnapshot, number>();
+let nextWaterMaskSnapshotId = 1;
+
 // =============================================================================
 // Main Compositing Function
 // =============================================================================
@@ -131,7 +142,17 @@ export function compositeWebGLFrame(
   sprites: SpriteGroups,
   options: CompositeFrameOptions
 ): void {
-  const { pipeline, spriteRenderer, fadeRenderer, scanlineRenderer, ctx2d, webglCanvas, view, snapshot, tilesetRuntimes } = ctx;
+  const {
+    pipeline,
+    spriteRenderer,
+    fadeRenderer,
+    scanlineRenderer,
+    ctx2d = null,
+    webglCanvas,
+    view,
+    snapshot,
+    tilesetRuntimes,
+  } = ctx;
   const { renderWeather, renderScriptScreenEffect, renderDarknessMask } = ctx;
   const { lowPrioritySprites, allSprites, priority0Sprites, doorSprites, arrowSprite, surfBlobSprite } = sprites;
   const { fadeAlpha, scanlineIntensity = 0, zoom = 1, nowMs = performance.now() } = options;
@@ -218,46 +239,59 @@ export function compositeWebGLFrame(
   }
 
   // TopAbove layer (renders on both paths)
-  pipeline.compositeTopAbove(ctx2d, view);
+  pipeline.compositeTopAboveToScreen(view);
 
   // Priority 0 sprites (above all BG layers)
   if (priority0Sprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(priority0Sprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
+    renderSpriteBatchToScreen(spriteRenderer, priority0Sprites, gl, webglCanvas, view);
   }
 
-  // Weather renders as a post-composite field layer, below scanline/fade overlays.
-  renderWeather?.(ctx2d, view, nowMs, weatherWaterMask, gl, webglCanvas);
+  if (ctx2d) {
+    // One full-scene copy from WebGL -> Canvas2D, then apply any 2D-only overlays.
+    blitWebGLCanvasTo2D(ctx2d, webglCanvas, true);
 
-  // Scripted screen effects render after weather but before scanline/fade overlays.
-  renderScriptScreenEffect?.({
-    ctx2d,
-    view,
-    nowMs,
-    gl,
-    webglCanvas,
-  });
+    // Weather renders as a post-composite field layer, below scanline/fade overlays.
+    renderWeather?.(ctx2d, view, nowMs, weatherWaterMask, gl, webglCanvas);
 
-  // Darkness mask renders after scripted/weather effects and before scanline/fade.
-  renderDarknessMask?.({
-    ctx2d,
-    view,
-    nowMs,
-  });
+    // Scripted screen effects render after weather but before scanline/fade overlays.
+    renderScriptScreenEffect?.({
+      ctx2d,
+      view,
+      nowMs,
+      gl,
+      webglCanvas,
+    });
 
-  // Scanline overlay (CRT effect when menu is open)
-  if (scanlineIntensity > 0 && scanlineRenderer) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    scanlineRenderer.render(scanlineIntensity, view.pixelWidth, view.pixelHeight, zoom);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+    // Darkness mask renders after scripted/weather effects and before scanline/fade.
+    renderDarknessMask?.({
+      ctx2d,
+      view,
+      nowMs,
+    });
 
-  // Fade overlay
-  if (fadeAlpha > 0 && fadeRenderer) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    fadeRenderer.render(fadeAlpha);
-    ctx2d.drawImage(webglCanvas, 0, 0);
+    // Scanline overlay (CRT effect when menu is open)
+    if (scanlineIntensity > 0 && scanlineRenderer) {
+      bindDefaultFramebuffer(gl, webglCanvas, view, true);
+      scanlineRenderer.render(scanlineIntensity, view.pixelWidth, view.pixelHeight, zoom);
+      blitWebGLCanvasTo2D(ctx2d, webglCanvas, false);
+    }
+
+    // Fade overlay
+    if (fadeAlpha > 0 && fadeRenderer) {
+      bindDefaultFramebuffer(gl, webglCanvas, view, true);
+      fadeRenderer.render(fadeAlpha);
+      blitWebGLCanvasTo2D(ctx2d, webglCanvas, false);
+    }
+  } else {
+    // Pure WebGL output path.
+    if (scanlineIntensity > 0 && scanlineRenderer) {
+      bindDefaultFramebuffer(gl, webglCanvas, view, false);
+      scanlineRenderer.render(scanlineIntensity, view.pixelWidth, view.pixelHeight, zoom);
+    }
+    if (fadeAlpha > 0 && fadeRenderer) {
+      bindDefaultFramebuffer(gl, webglCanvas, view, false);
+      fadeRenderer.render(fadeAlpha);
+    }
   }
 }
 
@@ -275,46 +309,27 @@ function compositeWithReflections(
   gl: WebGL2RenderingContext,
   waterMask: WaterMaskData | null
 ): void {
-  const { pipeline, spriteRenderer, ctx2d, webglCanvas, view } = ctx;
+  const { pipeline, spriteRenderer, webglCanvas, view } = ctx;
 
   // Step 1: Background layer (layer 0 + COVERED layer 1)
-  pipeline.compositeBackgroundOnly(ctx2d, view);
+  pipeline.compositeBackgroundToScreen(view);
 
   // Step 2: Render reflection-layer sprites with water mask
-  clearAndBindFramebuffer(gl, webglCanvas, view);
   spriteRenderer.setWaterMask(waterMask);
-
-  if (reflectionLayerSprites.length > 0) {
-    spriteRenderer.renderBatch(reflectionLayerSprites, view);
-  }
-  if (lowPriorityReflections.length > 0) {
-    spriteRenderer.renderBatch(lowPriorityReflections, view);
-  }
-  ctx2d.drawImage(webglCanvas, 0, 0);
+  renderSpriteBatchToScreen(spriteRenderer, reflectionLayerSprites, gl, webglCanvas, view);
+  renderSpriteBatchToScreen(spriteRenderer, lowPriorityReflections, gl, webglCanvas, view);
 
   // Step 2.5: Render low priority sprites before topBelow
-  if (normalLowPrioritySprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(normalLowPrioritySprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, normalLowPrioritySprites, gl, webglCanvas, view);
 
   // Step 3: TopBelow layer (BG1 tiles that render behind player)
-  pipeline.compositeTopBelowOnly(ctx2d, view);
+  pipeline.compositeTopBelowToScreen(view);
 
   // Step 3.5: Door + arrow overlays
-  if (overlaySprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(overlaySprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, overlaySprites, gl, webglCanvas, view);
 
   // Step 4: Render P1 normal sprites + player
-  if (normalSprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(normalSprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, normalSprites, gl, webglCanvas, view);
 }
 
 function buildViewportWaterMask(
@@ -322,8 +337,13 @@ function buildViewportWaterMask(
   snapshot: WorldSnapshot,
   tilesetRuntimes: Map<string, TilesetRuntimeType>
 ): WaterMaskData {
+  const cacheKey = buildWaterMaskCacheKey(view, snapshot, tilesetRuntimes);
+  if (waterMaskCache.mask && waterMaskCache.key === cacheKey) {
+    return waterMaskCache.mask;
+  }
+
   incrementRuntimePerfCounter('waterMaskBuilds');
-  return buildWaterMaskFromView(
+  const mask = buildWaterMaskFromView(
     view.pixelWidth,
     view.pixelHeight,
     view.cameraWorldX,
@@ -333,6 +353,9 @@ function buildViewportWaterMask(
       return meta?.meta ? { isReflective: meta.meta.isReflective, pixelMask: meta.meta.pixelMask } : null;
     }
   );
+  waterMaskCache.key = cacheKey;
+  waterMaskCache.mask = mask;
+  return mask;
 }
 
 function compositeStandard(
@@ -342,43 +365,47 @@ function compositeStandard(
   overlaySprites: SpriteInstance[],
   gl: WebGL2RenderingContext
 ): void {
-  const { pipeline, spriteRenderer, ctx2d, webglCanvas, view } = ctx;
+  const { pipeline, spriteRenderer, webglCanvas, view } = ctx;
 
   // Background layer
-  pipeline.compositeBackgroundOnly(ctx2d, view);
+  pipeline.compositeBackgroundToScreen(view);
 
   // Low priority sprites before TopBelow
-  if (lowPrioritySprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(lowPrioritySprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, lowPrioritySprites, gl, webglCanvas, view);
 
   // TopBelow layer
-  pipeline.compositeTopBelowOnly(ctx2d, view);
+  pipeline.compositeTopBelowToScreen(view);
 
   // Door + arrow overlays
-  if (overlaySprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(overlaySprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, overlaySprites, gl, webglCanvas, view);
 
   // P1 sprites + player
-  if (allSprites.length > 0) {
-    clearAndBindFramebuffer(gl, webglCanvas, view);
-    spriteRenderer.renderBatch(allSprites, view);
-    ctx2d.drawImage(webglCanvas, 0, 0);
-  }
+  renderSpriteBatchToScreen(spriteRenderer, allSprites, gl, webglCanvas, view);
 }
 
 /**
- * Clear framebuffer, resize canvas to match view, and set viewport
+ * Render one sprite batch directly to the default framebuffer.
  */
-function clearAndBindFramebuffer(
+function renderSpriteBatchToScreen(
+  spriteRenderer: WebGLSpriteRenderer,
+  sprites: SpriteInstance[],
   gl: WebGL2RenderingContext,
   canvas: HTMLCanvasElement,
   view: WorldCameraView
+): void {
+  if (sprites.length === 0) return;
+  bindDefaultFramebuffer(gl, canvas, view, false);
+  spriteRenderer.renderBatch(sprites, view);
+}
+
+/**
+ * Bind the default framebuffer, resize canvas to match view, and set viewport.
+ */
+function bindDefaultFramebuffer(
+  gl: WebGL2RenderingContext,
+  canvas: HTMLCanvasElement,
+  view: WorldCameraView,
+  clearFirst: boolean
 ): void {
   // Ensure canvas matches the view dimensions for proper 1:1 pixel rendering
   if (canvas.width !== view.pixelWidth || canvas.height !== view.pixelHeight) {
@@ -388,9 +415,57 @@ function clearAndBindFramebuffer(
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, view.pixelWidth, view.pixelHeight);
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  if (clearFirst) {
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
 }
+
+function blitWebGLCanvasTo2D(
+  ctx2d: CanvasRenderingContext2D,
+  webglCanvas: HTMLCanvasElement,
+  clearFirst: boolean
+): void {
+  ctx2d.imageSmoothingEnabled = false;
+  if (clearFirst) {
+    ctx2d.clearRect(0, 0, ctx2d.canvas.width, ctx2d.canvas.height);
+  }
+  incrementRuntimePerfCounter('webglCanvasBlits');
+  ctx2d.drawImage(webglCanvas, 0, 0);
+}
+
+function buildWaterMaskCacheKey(
+  view: WorldCameraView,
+  snapshot: WorldSnapshot,
+  tilesetRuntimes: Map<string, TilesetRuntimeType>
+): string {
+  const snapshotId = getOrCreateWaterMaskSnapshotId(snapshot);
+  const tilesetVersionKey = buildTilesetRuntimeVersionKey(tilesetRuntimes);
+  const cameraWorldX = Number.isFinite(view.cameraWorldX) ? view.cameraWorldX.toFixed(3) : '0';
+  const cameraWorldY = Number.isFinite(view.cameraWorldY) ? view.cameraWorldY.toFixed(3) : '0';
+  return `${snapshotId}:${tilesetVersionKey}:${view.pixelWidth}x${view.pixelHeight}:${cameraWorldX},${cameraWorldY}`;
+}
+
+function getOrCreateWaterMaskSnapshotId(snapshot: WorldSnapshot): number {
+  let snapshotId = waterMaskSnapshotIds.get(snapshot);
+  if (snapshotId === undefined) {
+    snapshotId = nextWaterMaskSnapshotId++;
+    waterMaskSnapshotIds.set(snapshot, snapshotId);
+  }
+  return snapshotId;
+}
+
+function buildTilesetRuntimeVersionKey(tilesetRuntimes: Map<string, TilesetRuntimeType>): string {
+  if (tilesetRuntimes.size === 0) return 'none';
+  let key = '';
+  for (const [tilesetPairId, runtime] of tilesetRuntimes.entries()) {
+    key += `${tilesetPairId}:${runtime.lastPatchedKey};`;
+  }
+  return key;
+}
+
+export const __testBuildWaterMaskCacheKey = buildWaterMaskCacheKey;
+export const __testBuildTilesetRuntimeVersionKey = buildTilesetRuntimeVersionKey;
 
 /**
  * Find insertion index for a sorted array (binary search)

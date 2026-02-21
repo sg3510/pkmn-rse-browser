@@ -23,6 +23,7 @@ import type { NPCObject, ItemBallObject, ScriptObject, LargeObject } from '../..
 import type { ScriptFieldEffectAnimationManager } from '../../game/ScriptFieldEffectAnimationManager';
 import type { OrbEffectRuntime } from '../../game/scriptEffects/orbEffectRuntime';
 import type { MirageTowerCollapseRuntime } from '../../game/scriptEffects/mirageTowerCollapseRuntime';
+import type { FieldEffectForRendering } from '../../game/FieldEffectManager';
 import { calculateSortKey, getRotatingGateAtlasName } from '../spriteUtils';
 import { getReflectionTileGridDebug } from '../../components/debug';
 import { compositeWebGLFrame } from '../compositeWebGLFrame';
@@ -30,7 +31,7 @@ import { buildPriorityDebugInfo } from '../../components/debug/buildPriorityDebu
 import { menuStateManager } from '../../menu';
 import type { PendingScriptedWarp } from '../../pages/gamePage/overworldGameUpdate';
 import { createLogger } from '../../utils/logger';
-import { recordRuntimePerfSection } from '../../game/perf/runtimePerfRecorder';
+import { incrementRuntimePerfCounter, recordRuntimePerfSection } from '../../game/perf/runtimePerfRecorder';
 import type { WebGLOrbEffectRenderer } from '../webgl/WebGLOrbEffectRenderer';
 import { getFlashRadiusForLevel } from '../../game/flash/FlashController';
 
@@ -39,6 +40,11 @@ interface MutableRef<T> {
 }
 
 const renderLogger = createLogger('OVERWORLD_RENDER');
+const renderScratch = {
+  fieldEffects: [] as FieldEffectForRendering[],
+  mergeBuffer: [] as SpriteInstance[],
+  mergeInputBuffer: [] as SpriteInstance[],
+};
 
 export interface RenderOverworldSpritesParams {
   player: PlayerController;
@@ -55,7 +61,7 @@ export interface RenderOverworldSpritesParams {
   pipeline: WebGLRenderPipeline;
   fadeRenderer: WebGLFadeRenderer | null;
   scanlineRenderer: WebGLScanlineRenderer | null;
-  ctx2d: CanvasRenderingContext2D;
+  ctx2d?: CanvasRenderingContext2D | null;
   webglCanvas: HTMLCanvasElement;
 
   // Managers
@@ -136,7 +142,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
     pipeline,
     fadeRenderer,
     scanlineRenderer,
-    ctx2d,
+    ctx2d = null,
     webglCanvas,
     worldManager,
     weatherManager,
@@ -237,9 +243,13 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
       result.visibleItems = items;
 
       // Get field effects
+      const fieldEffectsBuffer = renderScratch.fieldEffects;
       const fieldEffects = fieldSpritesLoaded
-        ? player.getGrassEffectManager().getEffectsForRendering()
-        : [];
+        ? player.getGrassEffectManager().getEffectsForRendering(fieldEffectsBuffer)
+        : (() => {
+          fieldEffectsBuffer.length = 0;
+          return fieldEffectsBuffer;
+        })();
 
       // Build all sprites
       const spriteBuildStart = performance.now();
@@ -266,7 +276,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
       recordRuntimePerfSection('spriteBuild', performance.now() - spriteBuildStart);
 
       // Track newly uploaded sprites
-      result.newDoorSpritesUploaded = [...spriteBuildResult.newDoorSpritesUploaded];
+      result.newDoorSpritesUploaded = spriteBuildResult.newDoorSpritesUploaded;
       result.arrowSpriteWasUploaded = spriteBuildResult.arrowSpriteWasUploaded;
 
       // Extract sprite groups
@@ -292,7 +302,8 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         );
 
         if (rotatingGateSprites.length > 0) {
-          const gateSpriteInstances: SpriteInstance[] = [];
+          const gateSpriteInstances = renderScratch.mergeInputBuffer;
+          gateSpriteInstances.length = 0;
           for (const gateSprite of rotatingGateSprites) {
             const atlasName = getRotatingGateAtlasName(gateSprite.shapeKey);
             if (!spriteRenderer.hasSpriteSheet(atlasName)) continue;
@@ -320,7 +331,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           }
 
           if (gateSpriteInstances.length > 0) {
-            allSprites = [...allSprites, ...gateSpriteInstances].sort((a, b) => a.sortKey - b.sortKey);
+            allSprites = mergeSortedSpritesInPlace(allSprites, gateSpriteInstances, renderScratch.mergeBuffer);
           }
         }
       }
@@ -330,7 +341,7 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
         (atlasName) => spriteRenderer.hasSpriteSheet(atlasName)
       );
       if (scriptFieldEffectSprites.length > 0) {
-        allSprites = [...allSprites, ...scriptFieldEffectSprites].sort((a, b) => a.sortKey - b.sortKey);
+        allSprites = mergeSortedSpritesInPlace(allSprites, scriptFieldEffectSprites, renderScratch.mergeBuffer);
       }
 
       // Priority debug info
@@ -359,6 +370,18 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
       }
 
       const scanlineIntensity = menuStateManager.isMenuOpen() ? 1.0 : 0.0;
+      const weatherNeedsRender = weatherManager.hasActiveVisualEffects();
+      const orbState = orbEffectRuntime.getRenderState();
+      const mirageState = mirageTowerCollapseRuntime.getRenderState();
+      const shouldRenderScriptScreenEffect = !!orbState || !!mirageState;
+
+      const rawFlashRadius = getFlashRenderRadius?.();
+      const fullBrightRadius = getFlashRadiusForLevel(0);
+      const normalizedFlashRadius = Number.isFinite(rawFlashRadius)
+        ? Math.max(0, Math.trunc(rawFlashRadius as number))
+        : null;
+      const shouldRenderDarknessMask =
+        normalizedFlashRadius !== null && normalizedFlashRadius < fullBrightRadius;
 
       const compositeStart = performance.now();
       compositeWebGLFrame(
@@ -372,88 +395,87 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
           view: spriteView,
           snapshot: currentSnapshot,
           tilesetRuntimes,
-          renderWeather: (
-            weatherCtx,
-            weatherView,
-            weatherNowMs,
-            weatherWaterMask,
-            weatherGl,
-            weatherWebglCanvas
-          ) => {
-            weatherManager.render(
+          renderWeather: weatherNeedsRender
+            ? (
               weatherCtx,
               weatherView,
               weatherNowMs,
               weatherWaterMask,
               weatherGl,
               weatherWebglCanvas
-            );
-          },
-          renderScriptScreenEffect: (effectCtx) => {
-            const state = orbEffectRuntime.getRenderState();
-            const targetWidth = effectCtx.ctx2d.canvas.width;
-            const targetHeight = effectCtx.ctx2d.canvas.height;
+            ) => {
+              weatherManager.render(
+                weatherCtx,
+                weatherView,
+                weatherNowMs,
+                weatherWaterMask,
+                weatherGl,
+                weatherWebglCanvas
+              );
+            }
+            : undefined,
+          renderScriptScreenEffect: shouldRenderScriptScreenEffect
+            ? (effectCtx) => {
+              const targetWidth = effectCtx.ctx2d.canvas.width;
+              const targetHeight = effectCtx.ctx2d.canvas.height;
 
-            if (state && orbEffectRenderer) {
-              const gl = effectCtx.gl;
-              if (
-                effectCtx.webglCanvas.width !== targetWidth
-                || effectCtx.webglCanvas.height !== targetHeight
-              ) {
-                effectCtx.webglCanvas.width = targetWidth;
-                effectCtx.webglCanvas.height = targetHeight;
+              if (orbState && orbEffectRenderer) {
+                const gl = effectCtx.gl;
+                if (
+                  effectCtx.webglCanvas.width !== targetWidth
+                  || effectCtx.webglCanvas.height !== targetHeight
+                ) {
+                  effectCtx.webglCanvas.width = targetWidth;
+                  effectCtx.webglCanvas.height = targetHeight;
+                }
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.viewport(0, 0, targetWidth, targetHeight);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                orbEffectRenderer.render(orbState, targetWidth, targetHeight);
+                incrementRuntimePerfCounter('webglCanvasBlits');
+                effectCtx.ctx2d.drawImage(effectCtx.webglCanvas, 0, 0, targetWidth, targetHeight);
               }
-              gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-              gl.viewport(0, 0, targetWidth, targetHeight);
-              gl.clearColor(0, 0, 0, 0);
-              gl.clear(gl.COLOR_BUFFER_BIT);
-              orbEffectRenderer.render(state, targetWidth, targetHeight);
-              effectCtx.ctx2d.drawImage(effectCtx.webglCanvas, 0, 0, targetWidth, targetHeight);
+
+              if (mirageState) {
+                mirageTowerCollapseRuntime.render(
+                  effectCtx.ctx2d,
+                  effectCtx.view,
+                  targetWidth,
+                  targetHeight
+                );
+              }
             }
+            : undefined,
+          renderDarknessMask: shouldRenderDarknessMask && normalizedFlashRadius !== null
+            ? ({ ctx2d: maskCtx, view: maskView }) => {
+              const width = maskView.pixelWidth;
+              const height = maskView.pixelHeight;
+              const playerFrame = player.getFrameInfo();
+              const defaultCenterX = width / 2;
+              const defaultCenterY = height / 2;
+              const playerScreenCenterX = playerFrame
+                ? (playerFrame.renderX + playerFrame.sw / 2) - maskView.cameraWorldX
+                : defaultCenterX;
+              const playerScreenCenterY = playerFrame
+                ? (playerFrame.renderY + playerFrame.sh / 2) - maskView.cameraWorldY
+                : defaultCenterY;
+              const centerX = Math.max(0, Math.min(width - 1, playerScreenCenterX));
+              const centerY = Math.max(0, Math.min(height - 1, playerScreenCenterY));
+              maskCtx.save();
+              maskCtx.fillStyle = '#000000';
+              if (normalizedFlashRadius <= 0) {
+                maskCtx.fillRect(0, 0, width, height);
+              } else {
+                maskCtx.beginPath();
+                maskCtx.rect(0, 0, width, height);
+                maskCtx.arc(centerX, centerY, normalizedFlashRadius, 0, Math.PI * 2);
+                maskCtx.fill('evenodd');
+              }
 
-            mirageTowerCollapseRuntime.render(
-              effectCtx.ctx2d,
-              effectCtx.view,
-              targetWidth,
-              targetHeight
-            );
-          },
-          renderDarknessMask: ({ ctx2d: maskCtx, view: maskView }) => {
-            const radius = getFlashRenderRadius?.();
-            if (!Number.isFinite(radius)) return;
-
-            const normalizedRadius = Math.max(0, Math.trunc(radius as number));
-            const fullBrightRadius = getFlashRadiusForLevel(0);
-            if (normalizedRadius >= fullBrightRadius) {
-              return;
+              maskCtx.restore();
             }
-
-            const width = maskView.pixelWidth;
-            const height = maskView.pixelHeight;
-            const playerFrame = player.getFrameInfo();
-            const defaultCenterX = width / 2;
-            const defaultCenterY = height / 2;
-            const playerScreenCenterX = playerFrame
-              ? (playerFrame.renderX + playerFrame.sw / 2) - maskView.cameraWorldX
-              : defaultCenterX;
-            const playerScreenCenterY = playerFrame
-              ? (playerFrame.renderY + playerFrame.sh / 2) - maskView.cameraWorldY
-              : defaultCenterY;
-            const centerX = Math.max(0, Math.min(width - 1, playerScreenCenterX));
-            const centerY = Math.max(0, Math.min(height - 1, playerScreenCenterY));
-            maskCtx.save();
-            maskCtx.fillStyle = '#000000';
-            if (normalizedRadius <= 0) {
-              maskCtx.fillRect(0, 0, width, height);
-            } else {
-              maskCtx.beginPath();
-              maskCtx.rect(0, 0, width, height);
-              maskCtx.arc(centerX, centerY, normalizedRadius, 0, Math.PI * 2);
-              maskCtx.fill('evenodd');
-            }
-
-            maskCtx.restore();
-          },
+            : undefined,
         },
         {
           lowPrioritySprites,
@@ -471,3 +493,35 @@ export function renderOverworldSprites(params: RenderOverworldSpritesParams): Re
 
   return result;
 }
+
+function mergeSortedSpritesInPlace(
+  target: SpriteInstance[],
+  additions: SpriteInstance[],
+  scratch: SpriteInstance[]
+): SpriteInstance[] {
+  if (additions.length === 0) return target;
+
+  additions.sort((a, b) => a.sortKey - b.sortKey);
+
+  scratch.length = 0;
+  let left = 0;
+  let right = 0;
+  while (left < target.length && right < additions.length) {
+    if (target[left].sortKey <= additions[right].sortKey) {
+      scratch.push(target[left++]);
+    } else {
+      scratch.push(additions[right++]);
+    }
+  }
+  while (left < target.length) scratch.push(target[left++]);
+  while (right < additions.length) scratch.push(additions[right++]);
+
+  target.length = 0;
+  for (let i = 0; i < scratch.length; i++) {
+    target.push(scratch[i]);
+  }
+
+  return target;
+}
+
+export const __testMergeSortedSpritesInPlace = mergeSortedSpritesInPlace;

@@ -5,6 +5,7 @@ import {
   findTrainerSightEncounterSelection,
   findTrainerSightEncounterTrigger,
 } from '../trainerSightEncounter.ts';
+import { MB_POND_WATER } from '../../../utils/metatileBehaviors.ts';
 
 function createTrainerNpc(overrides: Partial<NPCObject> = {}): NPCObject {
   return {
@@ -38,6 +39,10 @@ function createTrainerNpc(overrides: Partial<NPCObject> = {}): NPCObject {
 }
 
 const PASSABLE_TILE = { attributes: { behavior: 0 }, mapTile: { collision: 0, elevation: 0 } };
+const SURFABLE_WATER_TILE = {
+  attributes: { behavior: MB_POND_WATER },
+  mapTile: { collision: 0, elevation: 1 },
+};
 
 test('triggers for an in-viewport trainer with clear line of sight', () => {
   const trigger = findTrainerSightEncounterTrigger({
@@ -89,6 +94,25 @@ test('does not trigger when path between trainer and player is blocked', () => {
   });
 
   assert.equal(trigger, null);
+});
+
+test('triggers for swimmer trainers across surfable water when elevation matches', () => {
+  const trigger = findTrainerSightEncounterTrigger({
+    npcs: [createTrainerNpc({
+      graphicsId: 'OBJ_EVENT_GFX_SWIMMER_M',
+      elevation: 1,
+    })],
+    playerTileX: 6,
+    playerTileY: 2,
+    viewport: { left: 0, right: 12, top: 0, bottom: 10 },
+    resolveTile: () => SURFABLE_WATER_TILE,
+    hasBlockingObjectAt: () => false,
+    getTrainerScriptCommands: () => [{ cmd: 'trainerbattle_single', args: ['TRAINER_SWIMMER', 'Intro', 'Defeat'] }],
+    isTrainerDefeated: () => false,
+  });
+
+  assert.ok(trigger);
+  assert.equal(trigger.approachDistance, 3);
 });
 
 test('does not trigger when trainer battle flag is already set', () => {

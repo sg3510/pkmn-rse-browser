@@ -296,6 +296,14 @@ export class WeatherManager {
     };
   }
 
+  hasActiveVisualEffects(): boolean {
+    if (this.previousEffect || this.effect) return true;
+    if (this.activeWeather !== WEATHER_NONE_NAME) return true;
+
+    const { eva, evb } = this.colorPipeline.getBlendCoeffs();
+    return this.colorPipeline.getCurrentColorMapIndex() !== 0 || eva !== 16 || evb !== 0;
+  }
+
   clear(): void {
     this.previousEffect?.onExit?.();
     this.previousEffect = null;

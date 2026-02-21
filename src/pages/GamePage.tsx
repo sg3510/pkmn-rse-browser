@@ -28,7 +28,7 @@ import { WebGLFadeRenderer } from '../rendering/webgl/WebGLFadeRenderer';
 import { WebGLScanlineRenderer } from '../rendering/webgl/WebGLScanlineRenderer';
 import { WebGLOrbEffectRenderer } from '../rendering/webgl/WebGLOrbEffectRenderer';
 import { uploadTilesetsFromSnapshot } from '../rendering/webgl/TilesetUploader';
-import type { TileResolverFn, RenderContext } from '../rendering/types';
+import type { TileResolverFn, RenderContext, WorldCameraView } from '../rendering/types';
 import { PlayerController, type TileResolver as PlayerTileResolver } from '../game/PlayerController';
 import { CameraController } from '../game/CameraController';
 import { TileResolverFactory } from '../game/TileResolverFactory';
@@ -41,7 +41,7 @@ import {
 } from '../game/snapshotUtils';
 import { updateWorldBounds } from '../game/worldManagerEvents';
 import { ObjectEventManager, type VisibleObjectEventSnapshot } from '../game/ObjectEventManager';
-import { buildWorldCameraView } from '../game/buildWorldCameraView';
+import { buildWorldCameraView, buildWorldCameraViewInto } from '../game/buildWorldCameraView';
 import { loadObjectEventsFromSnapshot as loadObjectEventsFromSnapshotUtil } from '../game/loadObjectEventsFromSnapshot';
 import { npcSpriteCache } from '../game/npc/NPCSpriteLoader';
 import { npcAnimationManager } from '../game/npc/NPCAnimationEngine';
@@ -145,6 +145,7 @@ import { countReachableMapsWithinDepth } from '../game/mapGraph';
 import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
 import { setMapMetatileInSnapshot, createMetatileUpdater } from '../game/overworld/metatile/mapMetatileUtils';
 import type { InputUnlockGuards } from '../game/overworld/inputLock/scheduleInputUnlock';
+import { tryUnlockInput } from '../game/overworld/inputLock/scriptWarpInputGuard';
 import { applyTruckOnLoadMetatileCompatibility } from '../game/overworld/load/storyCompatibility';
 import { createNPCMovementProviders } from './gamePage/npcMovementProviders';
 import { useDebugTileGrid } from './gamePage/useDebugTileGrid';
@@ -609,6 +610,7 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
   // Animation updates every 10 GBA frames (~167ms) to match GBA behavior
   const ANIMATION_FRAME_TICKS = 10;
   const lastAnimationFrameRef = useRef<number>(0);
+  const mutableWorldViewRef = useRef<WorldCameraView | null>(null);
 
   // Player controller ref
   const playerRef = useRef<PlayerController | null>(null);
@@ -2183,6 +2185,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
           }
           mapEntryCutsceneGateRef.current = false;
           mapEntryGateDebugSignatureRef.current = null;
+          if (!preInputOnFrameTriggered && player.inputLocked) {
+            tryUnlockInput(player, inputUnlockGuards);
+          }
         }
         const shouldBlockForMapEntryGate = gateEvaluation.shouldBlockPlayerUpdate && !doorExitActive;
 
@@ -2359,19 +2364,9 @@ function GamePageContent({ zoom, onZoomChange, currentState, stateManager, viewp
 
         // Get camera view for rendering
         const camView = camera.getView(1);  // +1 tile for sub-tile scrolling
-        // Build world camera view using shared utility
-        const view = buildWorldCameraView({
-          cameraX: camView.x,
-          cameraY: camView.y,
-          startTileX: camView.startTileX,
-          startTileY: camView.startTileY,
-          subTileOffsetX: camView.subTileOffsetX,
-          subTileOffsetY: camView.subTileOffsetY,
-          tilesWide: camView.tilesWide,
-          tilesHigh: camView.tilesHigh,
-          pixelWidth: camView.pixelWidth,
-          pixelHeight: camView.pixelHeight,
-        });
+        const view = mutableWorldViewRef.current
+          ? buildWorldCameraViewInto(mutableWorldViewRef.current, camView)
+          : (mutableWorldViewRef.current = buildWorldCameraView(camView));
 
         // Truck sequence: execute metatile swaps, camera panning, and moving-box offsets.
         applyTruckSequenceFrame({
