@@ -163,6 +163,7 @@ import {
   type PendingScriptedWarp,
   type ScriptedWarpLoadMonitor,
   type FrameCounter,
+  type LastWorldUpdateState,
 } from './gamePage/overworldGameUpdate';
 import { evaluatePreInputOnFrameGate } from './gamePage/preInputOnFrameGate';
 import { findTrainerSightEncounterSelection } from '../game/trainers/trainerSightEncounter.ts';
@@ -637,7 +638,7 @@ function GamePageContent({
   const playerRef = useRef<PlayerController | null>(null);
   const playerSpritesLoadPromiseRef = useRef<Promise<void> | null>(null);
   const fieldSpritesLoadPromiseRef = useRef<Promise<void> | null>(null);
-  const lastWorldUpdateRef = useRef<{ tileX: number; tileY: number; direction: 'up' | 'down' | 'left' | 'right' } | null>(null);
+  const lastWorldUpdateRef = useRef<LastWorldUpdateState | null>(null);
 
   // Warp system refs
   const warpHandlerRef = useRef<WarpHandler>(new WarpHandler());
@@ -1115,6 +1116,8 @@ function GamePageContent({
     }>;
     boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
     nearbyBoundaryCount: number;
+    visiblePairCount: number;
+    visiblePairOverflow: boolean;
   } | null>(null);
 
   // Debug state for warp/tileset tracking

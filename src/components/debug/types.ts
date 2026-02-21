@@ -204,6 +204,8 @@ export interface MapStitchingDebugInfo {
   }>;
   boundaries: TilesetBoundaryDebugInfo[];
   nearbyBoundaryCount: number;
+  visiblePairCount: number;
+  visiblePairOverflow: boolean;
 }
 
 /**

@@ -16,6 +16,7 @@
  */
 
 import type { TilesetPairInfo, LoadedMapInstance } from './WorldManager';
+import type { VisiblePairPriority } from './viewportCoveragePlanner';
 
 /** Distance in tiles from tileset boundary to start preloading */
 const PRELOAD_DISTANCE = 3;
@@ -391,78 +392,110 @@ export class TilesetPairScheduler {
     playerTileX: number,
     playerTileY: number,
     currentMapPairId: string,
-    playerDirection: 'up' | 'down' | 'left' | 'right' | null = null
+    playerDirection: 'up' | 'down' | 'left' | 'right' | null = null,
+    options: {
+      visiblePairPriorities?: VisiblePairPriority[];
+    } = {}
   ): { needsRebuild: boolean; newSlot0: string | null; newSlot1: string | null; newSlot2: string | null } {
     this.currentFrame++;
 
     let needsRebuild = false;
 
-    // Ensure current pair is in slot 0
-    if (this.gpuSlot0 !== currentMapPairId) {
-      const cached = this.cache.get(currentMapPairId);
-      if (cached && this.onUploadToGpu) {
-        // Current pair needs to be in slot 0
-        // If it's in slot 1 or 2, swap. If not in GPU, upload.
-        if (this.gpuSlot1 === currentMapPairId) {
-          // Swap slots: current slot0 -> slot1, currentMapPairId -> slot0
-          const oldSlot0 = this.gpuSlot0;
-          if (oldSlot0) {
-            const oldCached = this.cache.get(oldSlot0);
-            if (oldCached) {
-              this.onUploadToGpu(oldCached.data, 1);
-              this.setGpuSlot(oldSlot0, 1);
-            }
-          }
-          this.onUploadToGpu(cached.data, 0);
-          this.setGpuSlot(currentMapPairId, 0);
-          needsRebuild = true;
-        } else if (this.gpuSlot2 === currentMapPairId) {
-          // Swap slots: current slot0 -> slot2, currentMapPairId -> slot0
-          const oldSlot0 = this.gpuSlot0;
-          if (oldSlot0) {
-            const oldCached = this.cache.get(oldSlot0);
-            if (oldCached) {
-              this.onUploadToGpu(oldCached.data, 2);
-              this.setGpuSlot(oldSlot0, 2);
-            }
-          }
-          this.onUploadToGpu(cached.data, 0);
-          this.setGpuSlot(currentMapPairId, 0);
-          needsRebuild = true;
-        } else {
-          // Not in GPU at all, upload to slot 0
-          // Move current slot 0 to slot 1 if needed
-          if (this.gpuSlot0) {
-            const oldCached = this.cache.get(this.gpuSlot0);
-            if (oldCached) {
-              this.onUploadToGpu(oldCached.data, 1);
-              this.setGpuSlot(this.gpuSlot0, 1);
-            }
-          }
-          this.onUploadToGpu(cached.data, 0);
-          this.setGpuSlot(currentMapPairId, 0);
-          needsRebuild = true;
-        }
-      }
+    needsRebuild = this.ensurePairInSlot(currentMapPairId, 0) || needsRebuild;
+
+    const adjacentPairIds = this.selectAdjacentPairCandidates(
+      playerTileX,
+      playerTileY,
+      currentMapPairId,
+      playerDirection,
+      options.visiblePairPriorities ?? null
+    );
+
+    const pairId1 = adjacentPairIds[0];
+    if (pairId1) {
+      needsRebuild = this.ensurePairInSlot(pairId1, 1) || needsRebuild;
     }
 
-    // Get ALL nearby boundaries (not just direction-based)
-    // This ensures we load tilesets for all visible adjacent maps
-    const nearbyBoundaries = this.getNearbyBoundaries(playerTileX, playerTileY, PRELOAD_DISTANCE + 5);
+    const pairId2 = adjacentPairIds[1];
+    if (pairId2) {
+      needsRebuild = this.ensurePairInSlot(pairId2, 2) || needsRebuild;
+    }
 
-    // Collect all unique adjacent pair IDs (excluding current map's pair)
+    return {
+      needsRebuild,
+      newSlot0: this.gpuSlot0,
+      newSlot1: this.gpuSlot1,
+      newSlot2: this.gpuSlot2,
+    };
+  }
+
+  private selectAdjacentPairCandidates(
+    playerTileX: number,
+    playerTileY: number,
+    currentMapPairId: string,
+    playerDirection: 'up' | 'down' | 'left' | 'right' | null,
+    visiblePairPriorities: VisiblePairPriority[] | null
+  ): string[] {
+    const upcomingPairId = this.getUpcomingPairId(playerTileX, playerTileY, currentMapPairId, playerDirection);
+
+    if (visiblePairPriorities && visiblePairPriorities.length > 0) {
+      const uniqueVisiblePairIds = new Set<string>();
+      const coverageByPair = new Map<string, VisiblePairPriority>();
+      for (const priority of visiblePairPriorities) {
+        if (!priority.pairId || priority.pairId === currentMapPairId) {
+          continue;
+        }
+        if (!coverageByPair.has(priority.pairId)) {
+          coverageByPair.set(priority.pairId, priority);
+          uniqueVisiblePairIds.add(priority.pairId);
+        }
+      }
+
+      return Array.from(uniqueVisiblePairIds)
+        .sort((pairIdA, pairIdB) => {
+          const priorityA = coverageByPair.get(pairIdA)!;
+          const priorityB = coverageByPair.get(pairIdB)!;
+
+          if (priorityB.coverageTiles !== priorityA.coverageTiles) {
+            return priorityB.coverageTiles - priorityA.coverageTiles;
+          }
+
+          const isUpcomingA = upcomingPairId === pairIdA;
+          const isUpcomingB = upcomingPairId === pairIdB;
+          if (isUpcomingA !== isUpcomingB) {
+            return isUpcomingA ? -1 : 1;
+          }
+
+          if (priorityA.nearestTileDistanceSq !== priorityB.nearestTileDistanceSq) {
+            return priorityA.nearestTileDistanceSq - priorityB.nearestTileDistanceSq;
+          }
+
+          const slotA = this.getGpuSlotForPair(pairIdA);
+          const slotB = this.getGpuSlotForPair(pairIdB);
+          if (slotA !== null && slotB === null) {
+            return -1;
+          }
+          if (slotA === null && slotB !== null) {
+            return 1;
+          }
+
+          return pairIdA.localeCompare(pairIdB);
+        })
+        .slice(0, 2);
+    }
+
+    // Fallback for call sites without viewport visibility hints.
+    const nearbyBoundaries = this.getNearbyBoundaries(playerTileX, playerTileY, PRELOAD_DISTANCE + 5);
     const adjacentPairIds: string[] = [];
     for (const boundary of nearbyBoundaries) {
       const otherPairId = boundary.pairIdA === currentMapPairId ? boundary.pairIdB : boundary.pairIdA;
-      if (otherPairId !== currentMapPairId && !adjacentPairIds.includes(otherPairId)) {
-        adjacentPairIds.push(otherPairId);
+      if (!otherPairId || otherPairId === currentMapPairId || adjacentPairIds.includes(otherPairId)) {
+        continue;
       }
+      adjacentPairIds.push(otherPairId);
     }
 
-    // Prioritize the direction-based upcoming pair if available
-    const upcomingPairId = this.getUpcomingPairId(playerTileX, playerTileY, currentMapPairId, playerDirection);
     if (upcomingPairId && upcomingPairId !== currentMapPairId) {
-      // Move upcoming pair to front of list
       const idx = adjacentPairIds.indexOf(upcomingPairId);
       if (idx > 0) {
         adjacentPairIds.splice(idx, 1);
@@ -472,44 +505,31 @@ export class TilesetPairScheduler {
       }
     }
 
-    // Load first adjacent pair into slot 1
-    if (adjacentPairIds.length > 0) {
-      const pairId1 = adjacentPairIds[0];
-      if (!this.isPairInGpu(pairId1) || this.getGpuSlotForPair(pairId1) === 2) {
-        // Need to load into slot 1 (or move from slot 2 to slot 1)
-        const cached = this.cache.get(pairId1);
-        if (cached && this.onUploadToGpu) {
-          this.onUploadToGpu(cached.data, 1);
-          this.setGpuSlot(pairId1, 1);
-          needsRebuild = true;
-        } else if (!this.loadingPairs.has(pairId1) && this.onLoadPair) {
-          this.preloadPair(pairId1);
-        }
-      }
+    return adjacentPairIds.slice(0, 2);
+  }
+
+  private ensurePairInSlot(pairId: string, targetSlot: 0 | 1 | 2): boolean {
+    if (!pairId) {
+      return false;
     }
 
-    // Load second adjacent pair into slot 2
-    if (adjacentPairIds.length > 1) {
-      const pairId2 = adjacentPairIds[1];
-      if (!this.isPairInGpu(pairId2) || this.getGpuSlotForPair(pairId2) === 1) {
-        // Need to load into slot 2 (or move from slot 1 to slot 2)
-        const cached = this.cache.get(pairId2);
-        if (cached && this.onUploadToGpu) {
-          this.onUploadToGpu(cached.data, 2);
-          this.setGpuSlot(pairId2, 2);
-          needsRebuild = true;
-        } else if (!this.loadingPairs.has(pairId2) && this.onLoadPair) {
-          this.preloadPair(pairId2);
-        }
-      }
+    const existingSlot = this.getGpuSlotForPair(pairId);
+    if (existingSlot === targetSlot) {
+      return false;
     }
 
-    return {
-      needsRebuild,
-      newSlot0: this.gpuSlot0,
-      newSlot1: this.gpuSlot1,
-      newSlot2: this.gpuSlot2,
-    };
+    const cached = this.cache.get(pairId);
+    if (cached && this.onUploadToGpu) {
+      this.onUploadToGpu(cached.data, targetSlot);
+      this.setGpuSlot(pairId, targetSlot);
+      return true;
+    }
+
+    if (!this.loadingPairs.has(pairId) && this.onLoadPair) {
+      void this.preloadPair(pairId);
+    }
+
+    return false;
   }
 
   /**

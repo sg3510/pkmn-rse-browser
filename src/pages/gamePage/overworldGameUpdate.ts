@@ -39,14 +39,71 @@ import { createLogger } from '../../utils/logger.ts';
 import { isDebugMode } from '../../utils/debug.ts';
 import { recordStoryScriptTimelineEvent } from '../../game/debug/storyScriptTimeline.ts';
 import { incrementRuntimePerfCounter } from '../../game/perf/runtimePerfRecorder.ts';
+import {
+  buildViewportCoverageHint,
+  type ViewportCoverageHint,
+} from '../../game/viewportCoveragePlanner.ts';
 import type { MutableRef } from './types';
 
 
 const overworldUpdateLogger = createLogger('OVERWORLD_UPDATE');
+const WORLD_UPDATE_IDLE_REFRESH_MS = 100;
+const DEFAULT_VIEWPORT_PRELOAD_MARGIN_TILES = 3;
+
+export interface LastWorldUpdateState {
+  tileX: number;
+  tileY: number;
+  direction: 'up' | 'down' | 'left' | 'right';
+  viewportKey: string | null;
+  updatedAtMs: number;
+}
 
 function debugLog(...args: unknown[]): void {
   if (!isDebugMode()) return;
   overworldUpdateLogger.debug(...args);
+}
+
+function buildViewportUpdateInput(
+  camera: CameraController | null,
+  playerTileX: number,
+  playerTileY: number,
+  direction: 'up' | 'down' | 'left' | 'right'
+): { hint: ViewportCoverageHint | null; key: string | null } {
+  if (!camera) {
+    return { hint: null, key: null };
+  }
+
+  const view = camera.getView(0);
+  const baseTiles = Math.max(view.tilesWide, view.tilesHigh);
+  const preloadMarginTiles = Math.max(
+    DEFAULT_VIEWPORT_PRELOAD_MARGIN_TILES,
+    Math.min(8, Math.ceil(baseTiles * 0.1))
+  );
+
+  const hint = buildViewportCoverageHint({
+    startTileX: view.startTileX,
+    startTileY: view.startTileY,
+    tilesWide: view.tilesWide,
+    tilesHigh: view.tilesHigh,
+    focusTileX: playerTileX,
+    focusTileY: playerTileY,
+    direction,
+    preloadMarginTiles,
+  });
+
+  const key = [
+    hint.minTileX,
+    hint.minTileY,
+    hint.maxTileX,
+    hint.maxTileY,
+    hint.viewportTilesWide,
+    hint.viewportTilesHigh,
+    hint.preloadMarginTiles,
+    hint.focusTileX,
+    hint.focusTileY,
+  ].join(':');
+
+  return { hint, key };
 }
 
 // ─── resolveMapScriptCompareValue ────────────────────────────────────────────
@@ -1060,7 +1117,7 @@ export function handleWorldUpdateAndEvents(params: {
   worldSnapshotRef: MutableRef<WorldSnapshot | null>;
   weatherDefaultsSnapshotRef: MutableRef<WorldSnapshot | null>;
   weatherManagerRef: MutableRef<WeatherManager>;
-  lastWorldUpdateRef: MutableRef<{ tileX: number; tileY: number; direction: 'up' | 'down' | 'left' | 'right' } | null>;
+  lastWorldUpdateRef: MutableRef<LastWorldUpdateState | null>;
   lastCoordTriggerTileRef: MutableRef<{ mapId: string; x: number; y: number } | null>;
   lastPlayerMapIdRef: MutableRef<string | null>;
   cameraRef: MutableRef<CameraController | null>;
@@ -1123,18 +1180,35 @@ export function handleWorldUpdateAndEvents(params: {
 
   // World manager position update + dirty check
   const playerDirection = player.getFacingDirection();
+  const viewportUpdateInput = buildViewportUpdateInput(
+    cameraRef.current,
+    player.tileX,
+    player.tileY,
+    playerDirection
+  );
   const lastWorldUpdate = lastWorldUpdateRef.current;
+  const nowMs = performance.now();
+  const elapsedSinceLastUpdate = lastWorldUpdate ? nowMs - lastWorldUpdate.updatedAtMs : Number.POSITIVE_INFINITY;
   if (
     !lastWorldUpdate
     || lastWorldUpdate.tileX !== player.tileX
     || lastWorldUpdate.tileY !== player.tileY
     || lastWorldUpdate.direction !== playerDirection
+    || lastWorldUpdate.viewportKey !== viewportUpdateInput.key
+    || elapsedSinceLastUpdate >= WORLD_UPDATE_IDLE_REFRESH_MS
   ) {
-    void worldManager.update(player.tileX, player.tileY, playerDirection);
+    void worldManager.update(
+      player.tileX,
+      player.tileY,
+      playerDirection,
+      viewportUpdateInput.hint
+    );
     lastWorldUpdateRef.current = {
       tileX: player.tileX,
       tileY: player.tileY,
       direction: playerDirection,
+      viewportKey: viewportUpdateInput.key,
+      updatedAtMs: nowMs,
     };
   }
 

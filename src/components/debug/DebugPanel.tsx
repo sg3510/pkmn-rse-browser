@@ -1970,6 +1970,15 @@ const WebGLTab: React.FC<{ webglState: WebGLDebugState; debugState: DebugState }
           }}>
             Nearby: {mapStitching.nearbyBoundaryCount} {mapStitching.nearbyBoundaryCount > 0 ? '(preloading)' : ''}
           </div>
+          <div style={{
+            marginTop: 2,
+            fontSize: '10px',
+            color: mapStitching.visiblePairOverflow ? '#f88' : '#8f8',
+          }}>
+            Visible Pairs: {mapStitching.visiblePairCount}
+            {' '}
+            {mapStitching.visiblePairOverflow ? '(overflow > 3)' : '(within 3-slot budget)'}
+          </div>
         </Section>
       )}
 

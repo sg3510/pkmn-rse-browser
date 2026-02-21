@@ -17,6 +17,10 @@ export const RUNTIME_PERF_COUNTERS = [
   'webglCanvasBlits',
   'setStateFromRafCalls',
   'visibleListRebuilds',
+  'visiblePairCount',
+  'visiblePairOverflowFrames',
+  'resolverGpuFallbackTiles',
+  'viewportDrivenMapLoads',
 ] as const;
 
 export type RuntimePerfCounter = (typeof RUNTIME_PERF_COUNTERS)[number];

@@ -40,11 +40,19 @@ import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import type { LoadedAnimation } from '../rendering/types';
 import { TilesetPairScheduler } from './TilesetPairScheduler';
+import { incrementRuntimePerfCounter } from './perf/runtimePerfRecorder';
 import { loadTilesetAnimations } from './loadTilesetAnimations';
 import {
   computeSpatialConnectionOffset,
   isSpatialConnectionDirection,
 } from './mapConnections';
+import {
+  computeViewportCoverageForMaps,
+  expandTileBounds,
+  mapIntersectsTileBounds,
+  type ViewportCoverageHint,
+  type VisiblePairPriority,
+} from './viewportCoveragePlanner';
 import { applyTrainerHillDynamicFloorLayout } from './trainerHillFloorLayout';
 
 const PROJECT_ROOT = '/pokeemerald';
@@ -61,6 +69,9 @@ const MAX_TILESET_PAIRS_IN_MEMORY = 16;
 
 /** Runtime stitch depth while moving */
 const RUNTIME_STITCH_DEPTH = 2;
+/** Extra maps loaded because they intersect the current viewport + margin. */
+const VIEWPORT_LOAD_CAP_PER_UPDATE = 4;
+const DEFAULT_VIEWPORT_PRELOAD_MARGIN_TILES = 3;
 /** Default depth loaded synchronously during initialize() */
 const DEFAULT_INITIAL_STITCH_DEPTH = 1;
 /** Default target depth after background stitching completes */
@@ -69,6 +80,7 @@ const DEFAULT_TARGET_STITCH_DEPTH = 2;
 const STITCH_COOPERATIVE_SLICE_MS = 4;
 
 const mapIndexData = mapIndexJson as MapIndexEntry[];
+const mapIndexById = new Map(mapIndexData.map((entry) => [entry.id, entry]));
 
 /**
  * Complete tileset pair data (primary + secondary tilesets)
@@ -177,6 +189,10 @@ export class WorldManager {
   private lastPlayerTileX: number | null = null;
   private lastPlayerTileY: number | null = null;
   private lastPlayerDirection: 'up' | 'down' | 'left' | 'right' | null = null;
+  /** Latest viewport hint used by scheduler + viewport-driven map loading. */
+  private lastViewportCoverageHint: ViewportCoverageHint | null = null;
+  /** Debug state for transition logs. */
+  private lastVisiblePairOverflow = false;
   /** Prevent overlapping connected-map load runs */
   private connectedMapsLoadInFlight: Promise<void> | null = null;
   /** Track background initialize stitching */
@@ -335,6 +351,8 @@ export class WorldManager {
     this.lastPlayerTileX = null;
     this.lastPlayerTileY = null;
     this.lastPlayerDirection = null;
+    this.lastViewportCoverageHint = null;
+    this.lastVisiblePairOverflow = false;
     this.connectedMapsLoadInFlight = null;
     this.backgroundInitializeLoadInFlight = null;
 
@@ -396,8 +414,12 @@ export class WorldManager {
   async update(
     playerTileX: number,
     playerTileY: number,
-    playerDirection: 'up' | 'down' | 'left' | 'right' | null = null
+    playerDirection: 'up' | 'down' | 'left' | 'right' | null = null,
+    viewportCoverageHint: ViewportCoverageHint | null = null
   ): Promise<void> {
+    const normalizedHint = this.normalizeViewportCoverageHint(viewportCoverageHint);
+    this.lastViewportCoverageHint = normalizedHint;
+
     // Find which map the player is currently in
     const currentMap = this.findMapAtPosition(playerTileX, playerTileY);
     if (!currentMap) {
@@ -422,7 +444,15 @@ export class WorldManager {
       this.lastPlayerTileX = playerTileX;
       this.lastPlayerTileY = playerTileY;
       this.lastPlayerDirection = playerDirection;
-      this.refreshSchedulerSlots(playerTileX, playerTileY, playerDirection, currentPair.id);
+      const visibility = this.computeVisiblePairPriorities(normalizedHint);
+      this.recordVisiblePairCounters(visibility.visiblePairCount);
+      this.refreshSchedulerSlots(
+        playerTileX,
+        playerTileY,
+        playerDirection,
+        currentPair.id,
+        visibility.visiblePairPriorities
+      );
     }
 
     // Lightweight anchor tracking: update anchorMapId when player enters a new map
@@ -440,13 +470,15 @@ export class WorldManager {
     playerTileX: number,
     playerTileY: number,
     playerDirection: 'up' | 'down' | 'left' | 'right' | null,
-    currentPairId: string
+    currentPairId: string,
+    visiblePairPriorities: VisiblePairPriority[] = []
   ): void {
     const result = this.scheduler.update(
       playerTileX,
       playerTileY,
       currentPairId,
-      playerDirection
+      playerDirection,
+      { visiblePairPriorities }
     );
 
     if (!result.needsRebuild) {
@@ -496,12 +528,91 @@ export class WorldManager {
       return;
     }
 
+    const visibility = this.computeVisiblePairPriorities(this.lastViewportCoverageHint);
     this.refreshSchedulerSlots(
       this.lastPlayerTileX,
       this.lastPlayerTileY,
       this.lastPlayerDirection,
-      pair.id
+      pair.id,
+      visibility.visiblePairPriorities
     );
+  }
+
+  private normalizeViewportCoverageHint(
+    hint: ViewportCoverageHint | null
+  ): ViewportCoverageHint | null {
+    if (!hint) {
+      return null;
+    }
+
+    const minTileX = Math.floor(Math.min(hint.minTileX, hint.maxTileX));
+    const minTileY = Math.floor(Math.min(hint.minTileY, hint.maxTileY));
+    const maxTileX = Math.floor(Math.max(hint.minTileX, hint.maxTileX));
+    const maxTileY = Math.floor(Math.max(hint.minTileY, hint.maxTileY));
+    const viewportTilesWide = Math.max(1, Math.floor(hint.viewportTilesWide));
+    const viewportTilesHigh = Math.max(1, Math.floor(hint.viewportTilesHigh));
+    const preloadMarginTiles = Number.isFinite(hint.preloadMarginTiles)
+      ? Math.max(0, Math.floor(hint.preloadMarginTiles))
+      : DEFAULT_VIEWPORT_PRELOAD_MARGIN_TILES;
+
+    return {
+      minTileX,
+      minTileY,
+      maxTileX,
+      maxTileY,
+      viewportTilesWide,
+      viewportTilesHigh,
+      preloadMarginTiles,
+      focusTileX: Math.floor(hint.focusTileX),
+      focusTileY: Math.floor(hint.focusTileY),
+      direction: hint.direction ?? null,
+    };
+  }
+
+  private computeVisiblePairPriorities(
+    viewportCoverageHint: ViewportCoverageHint | null
+  ): {
+    visiblePairPriorities: VisiblePairPriority[];
+    visiblePairCount: number;
+  } {
+    if (!viewportCoverageHint || this.maps.size === 0) {
+      return { visiblePairPriorities: [], visiblePairCount: 0 };
+    }
+
+    const summary = computeViewportCoverageForMaps({
+      maps: Array.from(this.maps.values()),
+      resolvePairId: (mapId: string) => {
+        const pairIndex = this.mapTilesetPairIndex.get(mapId);
+        if (pairIndex === undefined) {
+          return null;
+        }
+        return this.tilesetPairs[pairIndex]?.id ?? null;
+      },
+      hint: viewportCoverageHint,
+    });
+
+    return {
+      visiblePairPriorities: summary.visiblePairPriorities,
+      visiblePairCount: summary.visiblePairIds.size,
+    };
+  }
+
+  private recordVisiblePairCounters(visiblePairCount: number): void {
+    incrementRuntimePerfCounter('visiblePairCount', visiblePairCount);
+    const overflow = visiblePairCount > 3;
+    if (overflow) {
+      incrementRuntimePerfCounter('visiblePairOverflowFrames');
+    }
+    if (overflow !== this.lastVisiblePairOverflow) {
+      if (overflow) {
+        this.debugWarn(
+          `[VIEWPORT] Visible tileset-pair overflow (${visiblePairCount} pairs visible with 3 GPU slots)`
+        );
+      } else {
+        this.debugLog('[VIEWPORT] Visible tileset-pair overflow resolved');
+      }
+      this.lastVisiblePairOverflow = overflow;
+    }
   }
 
   /**
@@ -660,7 +771,7 @@ export class WorldManager {
           continue;
         }
 
-        const neighborEntry = mapIndexData.find(m => m.id === connection.map);
+        const neighborEntry = mapIndexById.get(connection.map);
         if (!neighborEntry) continue;
 
         // Calculate offset for connected map
@@ -721,6 +832,13 @@ export class WorldManager {
       }
     }
 
+    const viewportLoadResult = await this.loadViewportIntersectingMaps(
+      fromMap,
+      startEpoch,
+      lastYieldMs
+    );
+    lastYieldMs = viewportLoadResult.lastYieldMs;
+
     // Final epoch check before updating scheduler
     if (this.worldEpoch !== startEpoch) {
       this.debugLog(`[LOAD_CONNECTED] Aborting scheduler update - epoch changed from ${startEpoch} to ${this.worldEpoch}`);
@@ -733,6 +851,128 @@ export class WorldManager {
       this.mapTilesetPairIndex,
       this.tilesetPairs
     );
+
+    this.refreshSchedulerSlotsForLastPlayerPosition();
+  }
+
+  private async loadViewportIntersectingMaps(
+    fromMap: LoadedMapInstance,
+    expectedEpoch: number,
+    lastYieldMs: number
+  ): Promise<{ loadedCount: number; lastYieldMs: number }> {
+    const hint = this.lastViewportCoverageHint;
+    if (!hint) {
+      return { loadedCount: 0, lastYieldMs };
+    }
+
+    const expandedBounds = expandTileBounds(hint, hint.preloadMarginTiles);
+    const queue: LoadedMapInstance[] = Array.from(this.maps.values()).filter((map) =>
+      mapIntersectsTileBounds(map, expandedBounds)
+    );
+
+    if (queue.length === 0) {
+      queue.push(fromMap);
+    }
+
+    const visited = new Set<string>(queue.map((map) => map.entry.id));
+    let loadedCount = 0;
+    const currentPairId = this.getTilesetPairId(
+      fromMap.entry.primaryTilesetId,
+      fromMap.entry.secondaryTilesetId
+    );
+
+    while (queue.length > 0 && loadedCount < VIEWPORT_LOAD_CAP_PER_UPDATE) {
+      if (this.worldEpoch !== expectedEpoch) {
+        this.debugLog(
+          `[LOAD_VIEWPORT] Aborting - epoch changed from ${expectedEpoch} to ${this.worldEpoch}`
+        );
+        break;
+      }
+
+      const currentMap = queue.shift()!;
+      const spatialConnections = (currentMap.entry.connections ?? []).filter((connection) =>
+        isSpatialConnectionDirection(connection.direction)
+      );
+
+      for (const connection of spatialConnections) {
+        if (loadedCount >= VIEWPORT_LOAD_CAP_PER_UPDATE) {
+          break;
+        }
+        if (visited.has(connection.map)) {
+          continue;
+        }
+        visited.add(connection.map);
+
+        const neighborEntry = mapIndexById.get(connection.map);
+        if (!neighborEntry) {
+          continue;
+        }
+
+        const connectionOffset = this.computeConnectionOffset(
+          currentMap.entry,
+          neighborEntry,
+          connection,
+          currentMap.offsetX,
+          currentMap.offsetY
+        );
+        if (!connectionOffset) {
+          continue;
+        }
+
+        const neighborRectCandidate = {
+          offsetX: connectionOffset.offsetX,
+          offsetY: connectionOffset.offsetY,
+          entry: neighborEntry,
+        };
+        if (!mapIntersectsTileBounds(neighborRectCandidate, expandedBounds)) {
+          continue;
+        }
+
+        const existingMap = this.maps.get(connection.map);
+        if (existingMap) {
+          queue.push(existingMap);
+          continue;
+        }
+
+        if (this.loadingMaps.has(connection.map)) {
+          continue;
+        }
+
+        const pairId = this.getTilesetPairId(
+          neighborEntry.primaryTilesetId,
+          neighborEntry.secondaryTilesetId
+        );
+        const sharesTileset = pairId === currentPairId || this.tilesetPairMap.has(pairId);
+        if (!sharesTileset && this.tilesetPairs.length >= MAX_TILESET_PAIRS_IN_MEMORY) {
+          continue;
+        }
+
+        try {
+          await this.loadMap(neighborEntry, connectionOffset.offsetX, connectionOffset.offsetY, expectedEpoch, {
+            sourceMapId: currentMap.entry.id,
+            connection: { direction: connection.direction, offset: connection.offset },
+          });
+          loadedCount++;
+          incrementRuntimePerfCounter('viewportDrivenMapLoads');
+          lastYieldMs = await this.maybeYieldForCooperativeStitch(lastYieldMs);
+          if (this.worldEpoch !== expectedEpoch) {
+            this.debugLog(
+              `[LOAD_VIEWPORT] Aborting after load - epoch changed from ${expectedEpoch} to ${this.worldEpoch}`
+            );
+            return { loadedCount, lastYieldMs };
+          }
+
+          const loadedMap = this.maps.get(connection.map);
+          if (loadedMap) {
+            queue.push(loadedMap);
+          }
+        } catch (err) {
+          this.debugWarn(`Failed viewport-driven map load for ${connection.map}:`, err);
+        }
+      }
+    }
+
+    return { loadedCount, lastYieldMs };
   }
 
   /**
@@ -1144,6 +1384,8 @@ export class WorldManager {
     }>;
     boundaries: Array<{ x: number; y: number; length: number; orientation: string; pairA: string; pairB: string }>;
     nearbyBoundaryCount: number;
+    visiblePairCount: number;
+    visiblePairOverflow: boolean;
   } {
     const currentMap = this.findMapAtPosition(playerTileX, playerTileY);
     const gpuSlots = this.scheduler.getGpuSlots();
@@ -1152,7 +1394,7 @@ export class WorldManager {
       const pairIndex = this.mapTilesetPairIndex.get(m.entry.id) ?? -1;
       const pair = pairIndex >= 0 ? this.tilesetPairs[pairIndex] : null;
       const pairId = pair?.id ?? 'none';
-      const inGpu = pairId === gpuSlots.slot0 || pairId === gpuSlots.slot1;
+      const inGpu = pairId === gpuSlots.slot0 || pairId === gpuSlots.slot1 || pairId === gpuSlots.slot2;
       return {
         id: m.entry.id,
         offsetX: m.offsetX,
@@ -1223,6 +1465,8 @@ export class WorldManager {
 
     // Get nearby boundaries (within preload distance of player)
     const nearbyBoundaries = this.scheduler.getNearbyBoundaries(playerTileX, playerTileY);
+    const visibility = this.computeVisiblePairPriorities(this.lastViewportCoverageHint);
+    const visiblePairCount = visibility.visiblePairCount;
 
     return {
       currentMap: currentMap?.entry.id ?? null,
@@ -1236,6 +1480,8 @@ export class WorldManager {
       tilesetAnimations,
       boundaries,
       nearbyBoundaryCount: nearbyBoundaries.length,
+      visiblePairCount,
+      visiblePairOverflow: visiblePairCount > 3,
     };
   }
 
@@ -1250,6 +1496,8 @@ export class WorldManager {
     this.eventHandlers = [];
     this.loadingMaps.clear();
     this.lastLoadingCount = 0;
+    this.lastViewportCoverageHint = null;
+    this.lastVisiblePairOverflow = false;
     this.connectedMapsLoadInFlight = null;
     this.backgroundInitializeLoadInFlight = null;
     this.suppressLoadEvents = false;

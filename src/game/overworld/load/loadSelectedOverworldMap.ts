@@ -49,6 +49,8 @@ interface LastWorldUpdate {
   tileX: number;
   tileY: number;
   direction: 'up' | 'down' | 'left' | 'right';
+  viewportKey?: string | null;
+  updatedAtMs?: number;
 }
 
 function isUnderwaterMapType(mapType: string | null): boolean {

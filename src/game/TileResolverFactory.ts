@@ -13,13 +13,14 @@ import type {
   TileResolverFn,
   ResolvedTile,
   RenderContext,
-} from '../rendering/types';
-import type { WorldSnapshot } from './WorldManager';
-import { resolveTileAt } from '../components/map/utils';
-import type { MetatileAttributes } from '../utils/mapLoader';
-import { resolveMetatileIndex } from '../utils/mapLoader';
-import type { TileResolver as PlayerTileResolver } from './PlayerController';
-import { buildSnapshotSpatialIndex } from './snapshotSpatialIndex';
+} from '../rendering/types.ts';
+import type { WorldSnapshot } from './WorldManager.ts';
+import { resolveTileAt } from '../components/map/utils.ts';
+import type { MetatileAttributes } from '../utils/mapLoader.ts';
+import { resolveMetatileIndex } from '../utils/mapLoader.ts';
+import type { TileResolver as PlayerTileResolver } from './PlayerController.ts';
+import { buildSnapshotSpatialIndex } from './snapshotSpatialIndex.ts';
+import { incrementRuntimePerfCounter } from './perf/runtimePerfRecorder.ts';
 
 // =============================================================================
 // Types
@@ -97,6 +98,35 @@ export class TileResolverFactory {
         .map((map) => map.entry.id)
     );
 
+    const getNearestGpuFallback = (worldX: number, worldY: number): {
+      gpuSlot: number;
+      pairId: string;
+    } | null => {
+      if (mapIdsWithGpuTilesets.size === 0) {
+        return null;
+      }
+      const nearestMap = spatialIndex.getNearestMap(worldX, worldY, mapIdsWithGpuTilesets);
+      if (!nearestMap) {
+        return null;
+      }
+      const nearestPairIndex = mapTilesetPairIndex.get(nearestMap.entry.id);
+      if (nearestPairIndex === undefined) {
+        return null;
+      }
+      const nearestPair = tilesetPairs[nearestPairIndex];
+      if (!nearestPair) {
+        return null;
+      }
+      const nearestGpuSlot = getGpuSlot(nearestPairIndex);
+      if (nearestGpuSlot === null) {
+        return null;
+      }
+      return {
+        gpuSlot: nearestGpuSlot,
+        pairId: nearestPair.id,
+      };
+    };
+
     return (worldX: number, worldY: number): ResolvedTile | null => {
       const map = spatialIndex.getMapAt(worldX, worldY);
       if (map) {
@@ -129,7 +159,33 @@ export class TileResolverFactory {
 
         // Use GPU slot index (0 or 1), not array index
         const gpuSlot = getGpuSlot(pairIndex);
-        if (gpuSlot === null) return null;
+        if (gpuSlot === null) {
+          const fallback = getNearestGpuFallback(worldX, worldY);
+          if (!fallback) {
+            return null;
+          }
+
+          incrementRuntimePerfCounter('resolverGpuFallbackTiles');
+
+          if (shouldLog) {
+            log(
+              `[RESOLVE:${resolverId}] world(${worldX},${worldY}) -> map:${map.entry.id} metatile:${metatileId} fallbackSlot:${fallback.gpuSlot} fallbackPair:${fallback.pairId}`
+            );
+          }
+
+          return {
+            metatile,
+            attributes,
+            mapTile,
+            map: null as any,
+            tileset: null as any,
+            isSecondary,
+            isBorder: false,
+            tilesetPairIndex: fallback.gpuSlot,
+            usedGpuFallback: true,
+            gpuFallbackPairId: fallback.pairId,
+          };
+        }
 
         if (shouldLog) {
           log(
@@ -146,6 +202,7 @@ export class TileResolverFactory {
           isSecondary,
           isBorder: false,
           tilesetPairIndex: gpuSlot,
+          usedGpuFallback: false,
         };
       }
 

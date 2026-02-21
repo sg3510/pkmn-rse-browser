@@ -27,6 +27,10 @@ function createCounterMap(): RuntimePerfCounterMap {
     webglCanvasBlits: 0,
     setStateFromRafCalls: 0,
     visibleListRebuilds: 0,
+    visiblePairCount: 0,
+    visiblePairOverflowFrames: 0,
+    resolverGpuFallbackTiles: 0,
+    viewportDrivenMapLoads: 0,
   };
 }
 

@@ -127,6 +127,10 @@ export interface ResolvedTile {
   isBorder: boolean;
   /** Which tileset pair this tile belongs to (0 or 1) for multi-tileset worlds */
   tilesetPairIndex?: number;
+  /** True when resolver used a temporary in-GPU fallback pair to avoid black output. */
+  usedGpuFallback?: boolean;
+  /** Pair ID selected as fallback when true. */
+  gpuFallbackPairId?: string;
 }
 
 /**
