@@ -60,6 +60,7 @@ import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
 import { GBA_FRAME_MS } from '../config/timing';
+import { getBattlePresentationMode } from '../battle/render/battlePresentationMode';
 import { guardFixedStep } from '../utils/fixedStepGuard';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
@@ -1894,7 +1895,11 @@ function GamePageContent({
     window.addEventListener('pageshow', handlePageShow);
 
     const renderLoop = () => {
-      if (currentStateRef.current !== GameState.OVERWORLD) {
+      const isOverworldState = currentStateRef.current === GameState.OVERWORLD;
+      const isBattleOverlayState =
+        currentStateRef.current === GameState.BATTLE
+        && getBattlePresentationMode(viewportTilesRef.current) === 'overlay';
+      if (!isOverworldState && !isBattleOverlayState) {
         resetLoopTiming();
         rafRef.current = requestAnimationFrame(renderLoop);
         return;
@@ -1944,51 +1949,52 @@ function GamePageContent({
 
       // Update shimmer animation (GBA-accurate reflection distortion)
       getGlobalShimmer().update(nowTime);
-      npcAnimationManager.update();
-      scriptFieldEffectAnimationManagerRef.current.update(dt);
-      orbEffectRuntimeRef.current.update(gbaFramesAdvanced, cameraRef.current);
-      mirageTowerCollapseRuntimeRef.current.update(gbaFramesAdvanced);
-
-      const objectSpawnDespawnStart = performance.now();
-      const player = playerRef.current;
-      if (player) {
-        const viewportTiles = viewportTilesRef.current;
-        const camera = cameraRef.current;
-        if (camera && camera.getBounds()) {
-          const view = camera.getView(0);
-          objectEventManagerRef.current.updateObjectEventSpawnDespawnForCamera(
-            view.startTileX,
-            view.startTileY,
-            viewportTiles.tilesWide,
-            viewportTiles.tilesHigh
-          );
-        } else {
-          objectEventManagerRef.current.updateObjectEventSpawnDespawn(
-            player.tileX,
-            player.tileY,
-            viewportTiles.tilesWide,
-            viewportTiles.tilesHigh
-          );
-        }
+      if (isOverworldState) {
+        npcAnimationManager.update();
+        scriptFieldEffectAnimationManagerRef.current.update(dt);
+        orbEffectRuntimeRef.current.update(gbaFramesAdvanced, cameraRef.current);
+        mirageTowerCollapseRuntimeRef.current.update(gbaFramesAdvanced);
       }
-      recordRuntimePerfSection('objectSpawnDespawn', performance.now() - objectSpawnDespawnStart);
-      const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
-      const worldUpdateStart = performance.now();
 
-      // Update overworld object-event affine animation state and prune stale NPC entries.
-      const visibleObjectsForMovement: VisibleObjectEventSnapshot = objectEventManagerRef.current.getVisibleObjectsSnapshot();
-      const visibleNpcsForFrame = visibleObjectsForMovement.npcs;
-      objectEventAffineManager.syncNPCs(visibleNpcsForFrame);
-      objectEventAffineManager.update(dt);
-
+      const player = playerRef.current;
+      const camera = cameraRef.current;
       const { width, height, minX, minY } = worldBoundsRef.current;
-
-      // World bounds are tracked in pixel space.
       const worldMinX = minX;
       const worldMinY = minY;
 
-      // Update warp handler cooldown
-      warpHandlerRef.current.update(dt);
+      if (isOverworldState) {
+        const objectSpawnDespawnStart = performance.now();
+        if (player) {
+          const viewportTiles = viewportTilesRef.current;
+          if (camera && camera.getBounds()) {
+            const view = camera.getView(0);
+            objectEventManagerRef.current.updateObjectEventSpawnDespawnForCamera(
+              view.startTileX,
+              view.startTileY,
+              viewportTiles.tilesWide,
+              viewportTiles.tilesHigh
+            );
+          } else {
+            objectEventManagerRef.current.updateObjectEventSpawnDespawn(
+              player.tileX,
+              player.tileY,
+              viewportTiles.tilesWide,
+              viewportTiles.tilesHigh
+            );
+          }
+        }
+        recordRuntimePerfSection('objectSpawnDespawn', performance.now() - objectSpawnDespawnStart);
+        const seamTransitionScriptsRunning = seamTransitionScriptsInFlightRef.current.size > 0;
+        const worldUpdateStart = performance.now();
+
+        // Update overworld object-event affine animation state and prune stale NPC entries.
+        const visibleObjectsForMovement: VisibleObjectEventSnapshot = objectEventManagerRef.current.getVisibleObjectsSnapshot();
+        const visibleNpcsForFrame = visibleObjectsForMovement.npcs;
+        objectEventAffineManager.syncNPCs(visibleNpcsForFrame);
+        objectEventAffineManager.update(dt);
+
+        // Update warp handler cooldown
+        warpHandlerRef.current.update(dt);
 
       // Update NPC movement (GBA-accurate wandering behavior)
       // Only update when not warping and game is active
@@ -2360,18 +2366,18 @@ function GamePageContent({
         performWarp,
       });
 
-      // Camera follows player (using CameraController)
-      const camera = cameraRef.current;
-      if (camera && player && playerLoadedRef.current) {
-        // Update camera bounds (may have changed due to world updates)
-        camera.setBounds({ minX: worldMinX, minY: worldMinY, width, height });
-        if (scriptedCameraStateRef.current.active) {
-          camera.followTarget(scriptedCameraTargetRef.current);
-        } else {
-          camera.followTarget(player);
+        // Camera follows player (using CameraController)
+        if (camera && player && playerLoadedRef.current) {
+          // Update camera bounds (may have changed due to world updates)
+          camera.setBounds({ minX: worldMinX, minY: worldMinY, width, height });
+          if (scriptedCameraStateRef.current.active) {
+            camera.followTarget(scriptedCameraTargetRef.current);
+          } else {
+            camera.followTarget(player);
+          }
         }
+        recordRuntimePerfSection('worldUpdate', performance.now() - worldUpdateStart);
       }
-      recordRuntimePerfSection('worldUpdate', performance.now() - worldUpdateStart);
 
       // Read current viewport size from ref (avoids stale closure)
       const viewportWidth = viewportPixelSizeRef.current.width;
@@ -2392,16 +2398,18 @@ function GamePageContent({
           ? buildWorldCameraViewInto(mutableWorldViewRef.current, camView)
           : (mutableWorldViewRef.current = buildWorldCameraView(camView));
 
-        // Truck sequence: execute metatile swaps, camera panning, and moving-box offsets.
-        applyTruckSequenceFrame({
-          runtime: truckRuntimeRef.current,
-          gbaFrame: gbaFrameRef.current,
-          view,
-          camera: cameraRef.current,
-          objectEventManager: objectEventManagerRef.current,
-          setMapMetatileLocal,
-          invalidateMap: () => pipeline.invalidate(),
-        });
+        // Truck sequence mutates the overworld; keep it frozen while battle overlay is active.
+        if (isOverworldState) {
+          applyTruckSequenceFrame({
+            runtime: truckRuntimeRef.current,
+            gbaFrame: gbaFrameRef.current,
+            view,
+            camera: cameraRef.current,
+            objectEventManager: objectEventManagerRef.current,
+            setMapMetatileLocal,
+            invalidateMap: () => pipeline.invalidate(),
+          });
+        }
 
         weatherManagerRef.current.update(nowTime, view);
 
@@ -2436,8 +2444,10 @@ function GamePageContent({
         // because we need to know if there are reflections to decide the render order.
         // See "SPLIT LAYER RENDERING FOR REFLECTIONS" below.
 
-        // Prune expired door animations (actual rendering happens after layer compositing)
-        doorAnimations.prune(nowTime);
+        // Prune door animations only while actively simulating overworld logic.
+        if (isOverworldState) {
+          doorAnimations.prune(nowTime);
+        }
 
         // Sprite rendering + compositing (extracted)
         const webglCanvas = webglCanvasRef.current;
@@ -2757,6 +2767,9 @@ function GamePageContent({
 
   const viewportDisplayWidth = viewportPixelSize.width * zoom;
   const viewportDisplayHeight = viewportPixelSize.height * zoom;
+  const isBattleOverlayMode =
+    currentState === GameState.BATTLE
+    && getBattlePresentationMode(viewportConfig) === 'overlay';
   const autoFitZoomActive = !isTouchMobile && zoom < selectedZoom;
   const stitchTargetMapId = displayMapId || selectedMap?.id || '';
   const stitchTargetMapCount = useMemo(
@@ -2776,16 +2789,25 @@ function GamePageContent({
   };
 
   const viewportStack = (
-    <div style={{ position: 'relative' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: viewportDisplayWidth,
+        height: viewportDisplayHeight,
+      }}
+    >
       {/* WebGL canvas for overworld rendering */}
       <canvas
         ref={displayCanvasRef}
         className="game-canvas"
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
           width: viewportDisplayWidth,
           height: viewportDisplayHeight,
           imageRendering: 'pixelated',
-          display: currentState === GameState.OVERWORLD ? 'block' : 'none',
+          display: currentState === GameState.OVERWORLD || isBattleOverlayMode ? 'block' : 'none',
         }}
       />
       {/* 2D canvas for state machine rendering (title screen, menus) */}
@@ -2795,9 +2817,13 @@ function GamePageContent({
         width={viewportPixelSize.width}
         height={viewportPixelSize.height}
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
           width: viewportDisplayWidth,
           height: viewportDisplayHeight,
           imageRendering: 'pixelated',
+          background: isBattleOverlayMode ? 'transparent' : undefined,
           display: currentState !== GameState.OVERWORLD ? 'block' : 'none',
         }}
       />

@@ -2,7 +2,7 @@
 title: Battle System Implementation Plan & Status
 status: planned
 written_on: 2026-02-12
-last_verified: 2026-02-12
+last_verified: 2026-02-21
 ---
 
 # Battle System — Implementation Plan & Status
@@ -146,7 +146,7 @@ last_verified: 2026-02-12
 | □ | Party ball indicators | From `ball_display.png` |
 | ■ | Battle text box | `drawTextBox` / menus use `textbox.png` backdrop |
 | □ | Trainer sprites | From `graphics/trainers/front_pics/` |
-| □ | Overlay mode (>25×18 viewport) | Battle on top of frozen overworld |
+| ■ | Overlay mode (strictly larger than GBA+2 on both axes) | Overlay activates only when `tilesWide > 17 && tilesHigh > 12`, with centered battle over map backdrop and Emerald frame corners |
 | ■ | Pixel-perfect constraints | Integer sprite placement + nearest-neighbor rendering in battle WebGL path |
 | ■ | Player back sprite (trainer) | Intro throw sequence uses `graphics/trainers/back_pics/` frames |
 | □ | HP digit font rendering | From `numbers1.png` + `numbers2.png` |
@@ -329,7 +329,7 @@ last_verified: 2026-02-12
 | □ | BattleMenuBridge (class↔MenuOverlay) | Open party/bag during battle |
 | □ | Save persistence after battle | HP, PP, status, exp, items, money, flags |
 | □ | Caught Pokemon → party/PC | Add to party or first open PC box |
-| □ | Deterministic timing in overlay mode | Map + battle timing consistent |
+| ■ | Deterministic timing in overlay mode | Passive map animation (water/etc) continues while movement/scripts/warps/camera updates stay frozen |
 | □ | Golden tests (damage, turns, status) | Parity validation vs C source |
 | □ | Scripted replay tests | Curated encounter fixtures |
 | □ | Perf benchmarks | Frame time, draw calls, texture swaps |

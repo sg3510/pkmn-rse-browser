@@ -30,6 +30,10 @@ import { inputMap } from '../../core/InputMap';
 import { consumeModalInputEvent, getModalInputAction } from '../../core/input/modalKeyRouting';
 import { PromptController } from '../../core/prompt/PromptController';
 import { paginateDialogText } from './textPagination';
+import {
+  DIALOG_PROGRESSION_ACTION,
+  getProgressionActionForResolvedPrompt,
+} from './dialogProgression';
 
 // === Context ===
 
@@ -323,23 +327,44 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
       resolveRef.current = null;
     };
 
-    const advanceWaitingMessage = (
-      waitingState: Extract<DialogState, { type: 'waiting' }>,
+    const advanceAfterResolvedPrompt = (
+      promptState: Extract<DialogState, { type: 'printing' | 'waiting' }>,
     ) => {
       const messages = messagesRef.current;
       const options = optionsRef.current;
       const textInput = textInputRef.current;
-      const isLastMessage = waitingState.messageIndex === messages.length - 1;
+      const nextMsg = messages[promptState.messageIndex + 1];
+      const progressionAction = getProgressionActionForResolvedPrompt({
+        stateType: promptState.type,
+        messageIndex: promptState.messageIndex,
+        messageCount: messages.length,
+        hasOptions: options !== null,
+        hasTextInput: textInput !== null,
+        nextMessageTransition: nextMsg?.transition,
+      });
 
-      if (!isLastMessage) {
-        const nextMsg = messages[waitingState.messageIndex + 1];
-        dispatch({ type: nextMsg?.transition === 'scroll' ? 'START_SCROLL' : 'NEXT_MESSAGE' });
-        return;
-      }
-
-      if (!options && !textInput) {
-        dispatch({ type: 'CLOSE' });
-        resolveAndClear(undefined);
+      switch (progressionAction) {
+        case DIALOG_PROGRESSION_ACTION.NEXT_MESSAGE:
+          dispatch({ type: 'NEXT_MESSAGE' });
+          return;
+        case DIALOG_PROGRESSION_ACTION.START_SCROLL:
+          dispatch({ type: 'START_SCROLL' });
+          return;
+        case DIALOG_PROGRESSION_ACTION.SHOW_OPTIONS:
+          if (options) {
+            dispatch({ type: 'SHOW_OPTIONS', options });
+          }
+          return;
+        case DIALOG_PROGRESSION_ACTION.START_EDITING:
+          dispatch({ type: 'START_EDITING', initialValue: textInput?.initialValue ?? '' });
+          return;
+        case DIALOG_PROGRESSION_ACTION.CLOSE_AND_RESOLVE_VOID:
+          dispatch({ type: 'CLOSE' });
+          resolveAndClear(undefined);
+          return;
+        case DIALOG_PROGRESSION_ACTION.NOOP:
+        default:
+          return;
       }
     };
 
@@ -430,8 +455,8 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
             downPressed: false,
           });
 
-          if (wasActive && !promptController.isActive() && currentState.type === 'waiting') {
-            advanceWaitingMessage(currentState);
+          if (wasActive && !promptController.isActive()) {
+            advanceAfterResolvedPrompt(currentState);
           }
           return;
         }

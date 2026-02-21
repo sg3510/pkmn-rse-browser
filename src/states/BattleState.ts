@@ -92,6 +92,12 @@ import {
   type BattleTerrain,
   type BattleBackgroundProfile,
 } from '../battle/render/BattleBackground';
+import { getBattlePresentationMode } from '../battle/render/battlePresentationMode';
+import {
+  BATTLE_OVERLAY_FRAME_BORDER_PX,
+  drawBattleOverlayFrame,
+  primeBattleOverlayFrameAssets,
+} from '../battle/render/BattleOverlayFrame';
 import type { PokemonSpriteCoords } from '../data/pokemonSpriteCoords.gen';
 
 // Health box rendering (ctx2d overlay)
@@ -138,6 +144,7 @@ const ENEMY_TRAINER_END_X = BATTLE_LAYOUT.trainerIntro.enemyEndX;
 const ENEMY_TRAINER_Y = BATTLE_LAYOUT.trainerIntro.enemyY;
 const MOVE_FLASH_MS = 120;
 const BATTLE_FADE_MS = 220;
+const OVERLAY_BACKDROP_TINT = 'rgba(10, 20, 38, 0.26)';
 
 const TRAINER_THROW_FRAMES: ReadonlyArray<{ frame: number; duration: number }> = [
   { frame: 0, duration: 24 },
@@ -486,6 +493,8 @@ export class BattleState implements StateRenderer {
     this.queueMessages(introMessages, () => {
       this.phase = 'action';
     });
+
+    primeBattleOverlayFrameAssets();
   }
 
   async exit(): Promise<void> {
@@ -710,10 +719,18 @@ export class BattleState implements StateRenderer {
     const { ctx2d, viewport } = context;
     const viewportWidth = viewport.width;
     const viewportHeight = viewport.height;
+    const presentationMode = getBattlePresentationMode(context.viewportConfig);
+    const isOverlayPresentation = presentationMode === 'overlay';
 
     // Calculate offset for centering the 240×160 battle scene
     const offsetX = Math.floor((viewportWidth - BATTLE_WIDTH) / 2);
     const offsetY = Math.floor((viewportHeight - BATTLE_HEIGHT) / 2);
+
+    if (isOverlayPresentation) {
+      // Slightly dark blue tint so the map backdrop recedes behind the battle scene.
+      ctx2d.fillStyle = OVERLAY_BACKDROP_TINT;
+      ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
+    }
 
     const player = this.playerMon;
     const enemy = this.enemyMon;
@@ -838,11 +855,17 @@ export class BattleState implements StateRenderer {
       this.webgl.renderSprites(sprites);
 
       // Composite WebGL onto ctx2d
-      this.webgl.compositeOnto(ctx2d, viewportWidth, viewportHeight);
+      this.webgl.compositeOnto(ctx2d, viewportWidth, viewportHeight, {
+        drawBackdrop: !isOverlayPresentation,
+      });
     } else {
       // Fallback: solid color fill
       ctx2d.fillStyle = '#88c070';
-      ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
+      if (isOverlayPresentation) {
+        ctx2d.fillRect(offsetX, offsetY, BATTLE_WIDTH, BATTLE_HEIGHT);
+      } else {
+        ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
+      }
     }
 
     if (this.moveFlashMs > 0) {
@@ -856,6 +879,16 @@ export class BattleState implements StateRenderer {
     if (this.fadeAlpha > 0) {
       ctx2d.fillStyle = `rgba(0, 0, 0, ${this.fadeAlpha})`;
       ctx2d.fillRect(offsetX, offsetY, BATTLE_WIDTH, BATTLE_HEIGHT);
+    }
+
+    if (isOverlayPresentation) {
+      drawBattleOverlayFrame(
+        ctx2d,
+        offsetX - BATTLE_OVERLAY_FRAME_BORDER_PX,
+        offsetY - BATTLE_OVERLAY_FRAME_BORDER_PX,
+        BATTLE_WIDTH + (BATTLE_OVERLAY_FRAME_BORDER_PX * 2),
+        BATTLE_HEIGHT + (BATTLE_OVERLAY_FRAME_BORDER_PX * 2),
+      );
     }
 
     // --- ctx2d overlay: health boxes, text, menus ---

@@ -13,6 +13,11 @@ import type { SpriteInstance, WorldCameraView, SpriteSheetInfo } from '../../ren
 export const BATTLE_WIDTH = 240;
 export const BATTLE_HEIGHT = 160;
 
+interface BattleCompositeOptions {
+  /** Fill viewport outside the centered battle rect (legacy dedicated-mode behavior). */
+  drawBackdrop?: boolean;
+}
+
 /**
  * Battle-scene camera view — a fixed camera (no scrolling) at GBA resolution.
  * Sprites use screen coordinates directly (worldX = screenX).
@@ -107,12 +112,14 @@ export class BattleWebGLContext {
     ctx2d: CanvasRenderingContext2D,
     viewportWidth: number,
     viewportHeight: number,
+    options?: BattleCompositeOptions,
   ): void {
+    const drawBackdrop = options?.drawBackdrop ?? true;
     const offsetX = Math.floor((viewportWidth - BATTLE_WIDTH) / 2);
     const offsetY = Math.floor((viewportHeight - BATTLE_HEIGHT) / 2);
 
     // If viewport > battle size, darken borders
-    if (viewportWidth > BATTLE_WIDTH || viewportHeight > BATTLE_HEIGHT) {
+    if (drawBackdrop && (viewportWidth > BATTLE_WIDTH || viewportHeight > BATTLE_HEIGHT)) {
       ctx2d.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx2d.fillRect(0, 0, viewportWidth, viewportHeight);
     }

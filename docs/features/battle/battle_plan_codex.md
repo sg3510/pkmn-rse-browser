@@ -2,7 +2,7 @@
 title: Battle Plan (Codex)
 status: planned
 written_on: 2026-02-12
-last_verified: 2026-02-12
+last_verified: 2026-02-21
 ---
 
 # Battle Plan (Codex)
@@ -23,7 +23,7 @@ Build a complete battle system that is performant (WebGL), visually/authenticall
 | Infra for battle animations | □ | No battle animation scheduler/runtime yet. |
 | Investigate/implement battle scripting | □ | Docs exist; no battle script interpreter runtime in TS. |
 | Use global key mapping system | □ | Battle state hardcodes key codes; no `inputMap` usage. |
-| Overlay battle on top of map for large viewports | □ | Battle is separate non-overworld state canvas. |
+| Overlay battle on top of map for large viewports | ■ | Overlay now activates only when `tilesWide > 17 && tilesHigh > 12` (strictly larger than GBA+2 each axis), rendering centered battle over the map with Emerald frame corners. |
 | Wild + single trainer support, doubles-ready infra | □ | MVP wild flow exists; trainer battles are mapped placeholders. |
 | In-battle items + item scripting support | □ | Bag/items exist globally; no in-battle item execution. |
 
@@ -349,11 +349,12 @@ This is the full reference map for battle work, from runtime logic through asset
 
 ### Phase 4: Battle Placement and Overlay Rules
 
-- □ Implement viewport-based presentation mode:
-  - If viewport tiles > `25x18`, render battle as top overlay above live map (Start-menu style).
+- ■ Implement viewport-based presentation mode:
+  - If viewport tiles are both greater than GBA+2 (`tilesWide > 17 && tilesHigh > 12`), render battle as top overlay above map.
   - Else use dedicated battle scene mode.
-- □ Freeze/lock overworld movement and interactions while battle overlay is active.
-- □ Keep map and battle timing deterministic when overlay mode is used.
+- ■ Freeze/lock overworld movement and interactions while battle overlay is active.
+- ■ Keep map and battle timing deterministic when overlay mode is used.
+  - Passive map animation continues (water/etc) while movement/scripts/warps/camera follow stay frozen.
 
 ### Phase 5: Core Mechanics Parity (Single Battles First)
 
