@@ -6,14 +6,23 @@ import {
 } from './PromptHost';
 import {
   PromptController,
+  type PromptControllerOptions,
   type PromptInputFrame,
   type PromptRenderState,
 } from './PromptController';
 
-export type { PromptInputFrame, PromptRenderState } from './PromptController';
+export type {
+  PromptControllerOptions,
+  PromptInputFrame,
+  PromptRenderState,
+} from './PromptController';
 
 export class PromptService {
-  private controller = new PromptController();
+  private controller: PromptController;
+
+  constructor(options?: PromptControllerOptions) {
+    this.controller = new PromptController(options);
+  }
 
   clear(): void {
     this.controller.clear();

@@ -15,7 +15,10 @@ import {
 } from '../core/GameState';
 import type { ViewportConfig } from '../config/viewport';
 import { inputMap, GameButton } from '../core/InputMap';
-import { PromptService, drawPromptYesNo } from '../core/prompt/PromptService';
+import { PromptCanvasRenderer } from '../core/prompt/PromptCanvasRenderer';
+import { PromptService } from '../core/prompt/PromptService';
+import { EVOLUTION_MESSAGE_PROFILE } from '../core/prompt/PromptWindowProfiles';
+import { BattleTextboxSkin } from '../core/prompt/skins/BattleTextboxSkin';
 import { getBattlePromptDelayMs } from '../core/prompt/textSpeed';
 import { saveManager } from '../save/SaveManager';
 import type { LocationState } from '../save/types';
@@ -26,7 +29,6 @@ import { getSpeciesName, SPECIES } from '../data/species';
 import { recalculatePartyStatsCStyle } from '../pokemon/stats';
 import { menuStateManager } from '../menu';
 import {
-  drawTextBox,
   preloadBattleInterfaceAssets,
 } from '../battle/render/BattleHealthBox';
 import {
@@ -54,7 +56,14 @@ export class EvolutionState implements StateRenderer {
 
   private renderer = new EvolutionRenderer();
   private queue: EvolutionQueueEntry[] = [];
-  private promptService = new PromptService();
+  private promptService = new PromptService({
+    maxLines: EVOLUTION_MESSAGE_PROFILE.text.maxLines,
+    maxCharsPerLine: 34,
+    scrollDurationMs: EVOLUTION_MESSAGE_PROFILE.scrollDurationMs,
+  });
+  private promptCanvasRenderer = new PromptCanvasRenderer();
+  private battleTextboxSkin = new BattleTextboxSkin();
+  private renderFrameCount = 0;
   private pendingTransition: StateTransition | null = null;
   private waitingForMenu = false;
   private bHeld = false;
@@ -92,7 +101,10 @@ export class EvolutionState implements StateRenderer {
     this.sceneResolver = null;
     this.runToken++;
 
-    await preloadBattleInterfaceAssets();
+    await Promise.all([
+      preloadBattleInterfaceAssets(),
+      this.promptCanvasRenderer.preload(this.battleTextboxSkin),
+    ]);
 
     if (this.queue.length === 0) {
       this.finishToOverworld();
@@ -115,6 +127,7 @@ export class EvolutionState implements StateRenderer {
   }
 
   update(dt: number, _frameCount: number): void {
+    this.renderFrameCount = Math.max(0, Math.trunc(_frameCount));
     this.promptService.tick(dt, this.getBattleTextDelayMs());
 
     const status = this.renderer.update(dt, this.bHeld);
@@ -163,10 +176,15 @@ export class EvolutionState implements StateRenderer {
 
     const promptRenderState = this.promptService.getRenderState();
     if (promptRenderState) {
-      drawTextBox(ctx2d, offsetX, offsetY, promptRenderState.text, promptRenderState.visibleChars);
-      if (promptRenderState.type === 'yesNo' && promptRenderState.isFullyVisible) {
-        drawPromptYesNo(ctx2d, offsetX, offsetY, promptRenderState.cursor ?? 0);
-      }
+      this.promptCanvasRenderer.render(ctx2d, {
+        profile: EVOLUTION_MESSAGE_PROFILE,
+        skin: this.battleTextboxSkin,
+        state: promptRenderState,
+        originX: offsetX,
+        originY: offsetY,
+        showArrow: promptRenderState.type === 'message' && promptRenderState.isFullyVisible,
+        arrowFrameIndex: Math.floor(this.renderFrameCount / 8),
+      });
     }
   }
 

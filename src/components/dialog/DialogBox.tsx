@@ -10,12 +10,16 @@
  * Positioned at bottom of viewport, centered horizontally.
  */
 
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDialogContext } from './DialogContext';
 import { DialogFrame } from './DialogFrame';
 import { DialogText, DialogArrow } from './DialogText';
 import { YesNoMenu, OptionMenu } from './OptionMenu';
 import { DIALOG_DIMENSIONS, YESNO_DIMENSIONS, TILE_SIZE, TEXT_SPECS, tilesToPx } from './types';
+import type { PromptRenderState } from '../../core/prompt/PromptController';
+import { PromptCanvasRenderer } from '../../core/prompt/PromptCanvasRenderer';
+import { FIELD_MESSAGE_PROFILE } from '../../core/prompt/PromptWindowProfiles';
+import { FieldTextWindowSkin } from '../../core/prompt/skins/FieldTextWindowSkin';
 
 interface DialogBoxProps {
   /** Viewport width in pixels */
@@ -30,11 +34,25 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 }) => {
   const context = useDialogContext();
   const { state, messages, options, config, zoom } = context;
+  const isClosed = state.type === 'closed';
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef(new PromptCanvasRenderer());
+  const fieldSkinRef = useRef(new FieldTextWindowSkin(config.frameStyle));
+  const [skinReadyVersion, setSkinReadyVersion] = useState(0);
+  const [arrowFrameIndex, setArrowFrameIndex] = useState(0);
 
-  // Don't render if closed
-  if (state.type === 'closed') {
-    return null;
-  }
+  useEffect(() => {
+    fieldSkinRef.current.setFrameStyle(config.frameStyle);
+    let canceled = false;
+    void rendererRef.current.preload(fieldSkinRef.current, { frameStyle: config.frameStyle }).then(() => {
+      if (!canceled) {
+        setSkinReadyVersion((version) => version + 1);
+      }
+    });
+    return () => {
+      canceled = true;
+    };
+  }, [config.frameStyle]);
 
   // Calculate dimensions
   // Dialog box dimensions
@@ -49,7 +67,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const dialogY = viewportHeight - dialogHeight - tilesToPx(bottomOffsetTiles, zoom);
 
   // Get current message
-  const currentMessage = messages[state.messageIndex] ?? { text: '' };
+  const currentMessageIndex = isClosed ? 0 : state.messageIndex;
+  const currentMessage = messages[currentMessageIndex] ?? { text: '' };
 
   // Line height for scroll offset calculation
   const lineHeight = TILE_SIZE * TEXT_SPECS.lineHeightMultiplier * zoom;
@@ -70,6 +89,9 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   } else if (state.type === 'editing') {
     renderedText = `${currentMessage.text}\n${state.value}_`;
     visibleChars = renderedText.length;
+  } else if (isClosed) {
+    renderedText = '';
+    visibleChars = 0;
   } else {
     renderedText = currentMessage.text;
     if (state.type === 'printing') {
@@ -81,6 +103,90 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
   // Show arrow when waiting for input (not during choosing or scrolling)
   const showArrow = state.type === 'waiting' && !options;
+  const useSharedCanvasRenderer =
+    state.type === 'printing' || state.type === 'waiting' || state.type === 'scrolling';
+  const sharedRenderState: PromptRenderState | null = useMemo(() => {
+    if (!useSharedCanvasRenderer) {
+      return null;
+    }
+    return {
+      type: 'message',
+      text: renderedText,
+      visibleChars,
+      isFullyVisible: visibleChars >= renderedText.length,
+    };
+  }, [useSharedCanvasRenderer, renderedText, visibleChars]);
+  const sharedScrollProgress = state.type === 'scrolling' ? state.scrollProgress : 0;
+
+  useEffect(() => {
+    if (!useSharedCanvasRenderer || !showArrow) {
+      setArrowFrameIndex(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setArrowFrameIndex((value) => (value + 1) & 3);
+    }, 1000 / 7.5);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [useSharedCanvasRenderer, showArrow]);
+
+  useEffect(() => {
+    if (!useSharedCanvasRenderer || !sharedRenderState) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const widthPx = Math.max(1, Math.round(dialogWidth));
+    const heightPx = Math.max(1, Math.round(dialogHeight));
+    if (canvas.width !== widthPx) {
+      canvas.width = widthPx;
+    }
+    if (canvas.height !== heightPx) {
+      canvas.height = heightPx;
+    }
+
+    ctx.clearRect(0, 0, widthPx, heightPx);
+    rendererRef.current.render(ctx, {
+      profile: FIELD_MESSAGE_PROFILE,
+      skin: fieldSkinRef.current,
+      state: sharedRenderState,
+      originX: 0,
+      originY: 0,
+      scale: zoom,
+      frameStyle: config.frameStyle,
+      showArrow,
+      arrowFrameIndex,
+      scrollProgress: sharedScrollProgress,
+      textColor: config.textColor,
+      shadowColor: config.shadowColor,
+      fontFamily: config.fontFamily,
+    });
+  }, [
+    useSharedCanvasRenderer,
+    sharedRenderState,
+    sharedScrollProgress,
+    showArrow,
+    arrowFrameIndex,
+    dialogWidth,
+    dialogHeight,
+    zoom,
+    config.frameStyle,
+    config.textColor,
+    config.shadowColor,
+    config.fontFamily,
+    skinReadyVersion,
+  ]);
 
   // Determine if we're showing a Yes/No menu
   const isYesNoMenu = options && options.choices.length === 2 &&
@@ -154,6 +260,10 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     };
   })();
 
+  if (isClosed) {
+    return null;
+  }
+
   return (
     <div
       style={{
@@ -167,32 +277,45 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       }}
     >
       {/* Main dialog box */}
-      <div
-        style={{
-          position: 'absolute',
-          left: dialogX,
-          top: dialogY,
-          pointerEvents: 'auto',
-        }}
-      >
-        <DialogFrame
-          width={dialogWidth}
-          height={dialogHeight}
-          style={config.frameStyle}
-          zoom={zoom}
+        <div
+          style={{
+            position: 'absolute',
+            left: dialogX,
+            top: dialogY,
+            pointerEvents: 'auto',
+          }}
         >
-          <DialogText
-            text={renderedText}
-            visibleChars={visibleChars}
-            zoom={zoom}
-            color={config.textColor}
-            shadowColor={config.shadowColor}
-            fontFamily={config.fontFamily}
-            scrollOffset={scrollOffset}
-          />
-          <DialogArrow visible={showArrow} zoom={zoom} />
-        </DialogFrame>
-      </div>
+          {useSharedCanvasRenderer ? (
+            <canvas
+              ref={canvasRef}
+              width={Math.max(1, Math.round(dialogWidth))}
+              height={Math.max(1, Math.round(dialogHeight))}
+              style={{
+                width: dialogWidth,
+                height: dialogHeight,
+                imageRendering: 'pixelated',
+              }}
+            />
+          ) : (
+            <DialogFrame
+              width={dialogWidth}
+              height={dialogHeight}
+              style={config.frameStyle}
+              zoom={zoom}
+            >
+              <DialogText
+                text={renderedText}
+                visibleChars={visibleChars}
+                zoom={zoom}
+                color={config.textColor}
+                shadowColor={config.shadowColor}
+                fontFamily={config.fontFamily}
+                scrollOffset={scrollOffset}
+              />
+              <DialogArrow visible={showArrow} zoom={zoom} />
+            </DialogFrame>
+          )}
+        </div>
 
       {/* Option menu (if showing choices) */}
       {state.type === 'choosing' && options && (

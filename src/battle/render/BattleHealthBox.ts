@@ -21,7 +21,7 @@ interface BattleInterfaceAssets {
 }
 
 export type PartyBallState = 'healthy' | 'status' | 'fainted' | 'empty';
-type BattleWindowPage = 'message' | 'action' | 'move';
+export type BattleWindowPage = 'message' | 'action' | 'move';
 
 let assets: BattleInterfaceAssets | null = null;
 let assetsPromise: Promise<void> | null = null;
@@ -296,7 +296,7 @@ function drawTextboxBackdrop(
   ctx.fillRect(x + 4, y + 4, width - 8, height - 8);
 }
 
-function drawBattleWindowPage(
+export function drawBattleWindowPageChrome(
   ctx: CanvasRenderingContext2D,
   offsetX: number,
   offsetY: number,
@@ -459,7 +459,7 @@ export function drawTextBox(
   text: string,
   visibleChars?: number,
 ): void {
-  drawBattleWindowPage(ctx, offsetX, offsetY, 'message');
+  drawBattleWindowPageChrome(ctx, offsetX, offsetY, 'message');
 
   const window = BATTLE_LAYOUT.windows.message;
   ctx.fillStyle = '#383838';
@@ -499,7 +499,7 @@ export function drawActionMenu(
   pokemonName: string,
   firstBattle: boolean,
 ): void {
-  drawBattleWindowPage(ctx, offsetX, offsetY, 'action');
+  drawBattleWindowPageChrome(ctx, offsetX, offsetY, 'action');
 
   const promptWindow = BATTLE_LAYOUT.windows.actionPrompt;
   const actionWindow = BATTLE_LAYOUT.windows.actionMenu;
@@ -543,7 +543,7 @@ export function drawMoveMenu(
   moves: Array<{ name: string; pp: number; maxPp: number; type: string }>,
   selectedIndex: number,
 ): void {
-  drawBattleWindowPage(ctx, offsetX, offsetY, 'move');
+  drawBattleWindowPageChrome(ctx, offsetX, offsetY, 'move');
 
   setBattleFont(ctx, 9);
   ctx.textBaseline = 'top';

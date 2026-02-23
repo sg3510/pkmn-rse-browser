@@ -2,7 +2,7 @@
 title: Battle Message System
 status: reference
 written_on: 2025-11-26
-last_verified: 2026-01-13
+last_verified: 2026-02-22
 ---
 
 # Battle Message System
@@ -268,79 +268,28 @@ Message display speed is controlled by player settings:
 #define OPTIONS_TEXT_SPEED_FAST   2  // Fast
 ```
 
-## Implementation Notes for React
+## Current TypeScript Layering (2026-02-22)
 
-```typescript
-// Message template system
-interface BattleMessage {
-  stringId: number;
-  template: string;
-}
+- Shared printer core:
+  - `src/core/prompt/PromptPrinterEngine.ts`
+  - `src/core/prompt/PromptController.ts`
+  - `src/core/prompt/PromptService.ts`
+- Shared renderer core:
+  - `src/core/prompt/PromptCanvasRenderer.ts`
+  - `src/core/prompt/PromptWindowProfiles.ts` (`battle_message`, `battle_action_prompt`, `battle_yesno`, `evolution_message`, `field_message`)
+- Battle-specific skin/template:
+  - `src/core/prompt/skins/BattleTextboxSkin.ts`
+  - Draws battle textbox pages via `src/battle/render/BattleHealthBox.ts` page extraction path (`battle_interface/textbox*.{png,pal,bin}`)
 
-const BATTLE_MESSAGES: Map<number, string> = new Map([
-  [STRINGID_USEDMOVE, '{ATK_NAME} used {MOVE}!'],
-  [STRINGID_CRITICALHIT, 'A critical hit!'],
-  [STRINGID_SUPEREFFECTIVE, "It's super effective!"],
-  [STRINGID_NOTVERYEFFECTIVE, "It's not very effective..."],
-  // ... all messages
-]);
+### Battle State Wiring
 
-interface MessageContext {
-  attackerName: string;
-  defenderName: string;
-  playerName: string;
-  trainerName: string;
-  moveName: string;
-  typeName: string;
-  statName: string;
-  itemName: string;
-  abilityName: string;
-  number1: number;
-  number2: number;
-  number3: number;
-}
+- `src/states/BattleState.ts`
+  - Battle message progression uses the shared prompt printer controller.
+  - Prompt windows (message + yes/no) render through `PromptCanvasRenderer` + `BattleTextboxSkin`.
+  - Action and move menu geometry/layout remains battle-local and unchanged.
 
-function formatBattleMessage(
-  stringId: number,
-  context: MessageContext
-): string {
-  const template = BATTLE_MESSAGES.get(stringId);
-  if (!template) return '';
+### C-Authentic Notes
 
-  return template
-    .replace('{ATK_NAME}', context.attackerName)
-    .replace('{DEF_NAME}', context.defenderName)
-    .replace('{PLAYER_NAME}', context.playerName)
-    .replace('{MOVE}', context.moveName)
-    .replace('{TYPE}', context.typeName)
-    .replace('{STAT}', context.statName)
-    .replace('{ITEM}', context.itemName)
-    .replace('{NUM1}', String(context.number1))
-    .replace('{NUM2}', String(context.number2))
-    .replace('{NUM3}', String(context.number3));
-}
-
-// Message queue for sequential display
-class BattleMessageQueue {
-  private messages: string[] = [];
-  private currentIndex = 0;
-
-  add(message: string) {
-    this.messages.push(message);
-  }
-
-  getNext(): string | null {
-    if (this.currentIndex >= this.messages.length) return null;
-    return this.messages[this.currentIndex++];
-  }
-
-  hasMore(): boolean {
-    return this.currentIndex < this.messages.length;
-  }
-
-  clear() {
-    this.messages = [];
-    this.currentIndex = 0;
-  }
-}
-```
+- Shared printer behavior follows C layering: shared text printer state machine + battle-local window template.
+- A/B both speed up printing and advance while waiting, matching `text.c` printer wait semantics.
+- Battle keeps battle-owned window geometry/colors and does not inherit overworld layout assumptions.

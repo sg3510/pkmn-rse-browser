@@ -1,7 +1,7 @@
 ---
 title: Prompt and Menu Unification
 status: in-progress
-last_verified: 2026-02-20
+last_verified: 2026-02-22
 ---
 
 # Prompt and Menu Unification
@@ -14,6 +14,14 @@ Reduce duplicated prompt/menu/move-selection code paths while preserving gamepla
 
 - Shared prompt core primitives in `src/core/prompt/`:
   - `PromptService.ts`
+  - `PromptController.ts` (adapter over `PromptPrinterEngine.ts`)
+  - `PromptPrinterEngine.ts`
+  - `PromptCanvasRenderer.ts`
+  - `PromptWindowProfile.ts`
+  - `PromptWindowProfiles.ts`
+  - `PromptWindowSkin.ts`
+  - `skins/FieldTextWindowSkin.ts`
+  - `skins/BattleTextboxSkin.ts`
   - `PromptHost.ts`
   - `textLayout.ts`
 - Shared typed menu await flow in `src/menu/MenuStateManager.ts`:
@@ -38,10 +46,11 @@ Reduce duplicated prompt/menu/move-selection code paths while preserving gamepla
 ## Parity Notes
 
 - Move learning, relearner, and deleter flows now use the same prompt/menu adapter pathway for yes/no + move replacement selection.
-- Battle and evolution keep their own visual textbox placement, but prompt yes/no behavior is shared through prompt core APIs.
+- Battle and evolution now share the same prompt printer and prompt canvas renderer, while keeping battle-specific textbox skin/template placement.
+- Overworld printing/waiting/scrolling message display now uses the same shared prompt canvas renderer with field-specific skin/profile.
+- A/B speed-up and A/B wait/advance behavior is now centralized in the prompt printer engine for battle/evolution/overworld prompt flows.
 - Script callback-special fade/wait semantics for berry bag select remain parity-safe after async menu migration.
 
 ## Remaining Gap
 
-- Overworld prompt printing/waiting timing + confirm/cancel flow now runs through `src/core/prompt/PromptController.ts`.
 - Choice-menu and text-entry submodes in `src/components/dialog/DialogContext.tsx` still keep local UI state handling (by design) while sharing modal key routing.

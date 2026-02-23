@@ -15,7 +15,11 @@ import {
   type StateTransition,
 } from '../core/GameState';
 import { inputMap, GameButton } from '../core/InputMap';
-import { PromptService, drawPromptYesNo } from '../core/prompt/PromptService';
+import { PromptController } from '../core/prompt/PromptController';
+import { PromptCanvasRenderer } from '../core/prompt/PromptCanvasRenderer';
+import { PromptService } from '../core/prompt/PromptService';
+import { BATTLE_MESSAGE_PROFILE } from '../core/prompt/PromptWindowProfiles';
+import { BattleTextboxSkin } from '../core/prompt/skins/BattleTextboxSkin';
 import { getBattlePromptDelayMs } from '../core/prompt/textSpeed';
 import type { ViewportConfig } from '../config/viewport';
 import type { LocationState } from '../save/types';
@@ -112,7 +116,6 @@ import {
   preloadBattleInterfaceAssets,
   drawEnemyHealthBox,
   drawPlayerHealthBox,
-  drawTextBox,
   drawActionMenu,
   drawMoveMenu,
   drawPartyBallIndicators,
@@ -254,8 +257,14 @@ export class BattleState implements StateRenderer {
   private messageQueue: string[] = [];
   private messageStartCallbacks: Array<(() => void) | null> = [];
   private onMessagesFinished: (() => void) | null = null;
-  private messageVisibleChars = 0;
-  private messageElapsedMs = 0;
+  private messagePromptController = new PromptController({
+    maxLines: BATTLE_MESSAGE_PROFILE.text.maxLines,
+    maxCharsPerLine: 34,
+    scrollDurationMs: BATTLE_MESSAGE_PROFILE.scrollDurationMs,
+  });
+  private promptCanvasRenderer = new PromptCanvasRenderer();
+  private battleTextboxSkin = new BattleTextboxSkin();
+  private renderFrameCount = 0;
 
   private actionIndex = 0;
   private moveIndex = 0;
@@ -309,7 +318,11 @@ export class BattleState implements StateRenderer {
   private pendingLevelUpMoveLearning: PendingLevelUpMoveLearning[] = [];
   private leveledPartySlots = new Set<number>();
   private evolutionQueue: EvolutionQueueEntry[] = [];
-  private promptService = new PromptService();
+  private promptService = new PromptService({
+    maxLines: BATTLE_MESSAGE_PROFILE.text.maxLines,
+    maxCharsPerLine: 34,
+    scrollDurationMs: BATTLE_MESSAGE_PROFILE.scrollDurationMs,
+  });
 
   // WebGL rendering
   private webgl: BattleWebGLContext | null = null;
@@ -332,6 +345,7 @@ export class BattleState implements StateRenderer {
     this.leveledPartySlots.clear();
     this.evolutionQueue = [];
     this.promptService.clear();
+    this.messagePromptController.clear();
     this.transitionReady = false;
     this.waitingForBattleMenu = false;
     this.battleTurnCounter = 0;
@@ -473,6 +487,7 @@ export class BattleState implements StateRenderer {
         _introLoaded,
         _miscLoaded,
         _interfaceLoaded,
+        _promptSkinLoaded,
         enemyTrainerFrontPicId,
       ] = await Promise.all([
         loadPokemonBattleSprites(this.webgl, playerPokemon.species),
@@ -481,6 +496,7 @@ export class BattleState implements StateRenderer {
         loadBattleIntroSprites(this.webgl, this.playerGender),
         loadBattleMiscSprites(this.webgl),
         preloadBattleInterfaceAssets(),
+        this.promptCanvasRenderer.preload(this.battleTextboxSkin),
         trainerFrontLoad,
       ]);
       this.playerSpriteCoords = playerCoords;
@@ -522,12 +538,11 @@ export class BattleState implements StateRenderer {
     this.leveledPartySlots.clear();
     this.evolutionQueue = [];
     this.promptService.clear();
+    this.messagePromptController.clear();
     this.waitingForBattleMenu = false;
     this.battleTurnCounter = 0;
     this.isUnderwaterBattle = false;
     this.messageStartCallbacks = [];
-    this.messageVisibleChars = 0;
-    this.messageElapsedMs = 0;
     this.playerHpTarget = 0;
     this.enemyHpTarget = 0;
     this.playerExpTargetLevel = 1;
@@ -546,6 +561,7 @@ export class BattleState implements StateRenderer {
   }
 
   update(_dt: number, _frameCount: number): void {
+    this.renderFrameCount = Math.max(0, Math.trunc(_frameCount));
     this.introElapsedMs += _dt;
     if (!this.playerSendOutStarted) {
       const activeMessage = this.messageQueue[0] ?? '';
@@ -602,13 +618,18 @@ export class BattleState implements StateRenderer {
     }
 
     if (this.phase === 'message') {
-      if (confirmPressed) {
-        const activeMessage = this.messageQueue[0] ?? '';
-        if (this.messageVisibleChars < activeMessage.length) {
-          this.revealCurrentMessage();
-          return null;
+      if (confirmPressed || cancelPressed) {
+        const wasActive = this.messagePromptController.isActive();
+        this.messagePromptController.handleInput({
+          confirmPressed,
+          cancelPressed,
+          upPressed: false,
+          downPressed: false,
+        });
+
+        if (wasActive && !this.messagePromptController.isActive()) {
+          this.advanceMessage();
         }
-        this.advanceMessage();
       }
       return null;
     }
@@ -954,17 +975,17 @@ export class BattleState implements StateRenderer {
     this.renderStatIndicators(ctx2d, offsetX, offsetY);
 
     const promptRenderState = this.promptService.getRenderState();
+    const arrowFrameIndex = Math.floor(this.renderFrameCount / 8);
     if (promptRenderState) {
-      drawTextBox(
-        ctx2d,
-        offsetX,
-        offsetY,
-        promptRenderState.text,
-        promptRenderState.visibleChars,
-      );
-      if (promptRenderState.type === 'yesNo' && promptRenderState.isFullyVisible) {
-        drawPromptYesNo(ctx2d, offsetX, offsetY, promptRenderState.cursor ?? 0);
-      }
+      this.promptCanvasRenderer.render(ctx2d, {
+        profile: BATTLE_MESSAGE_PROFILE,
+        skin: this.battleTextboxSkin,
+        state: promptRenderState,
+        originX: offsetX,
+        originY: offsetY,
+        showArrow: promptRenderState.type === 'message' && promptRenderState.isFullyVisible,
+        arrowFrameIndex,
+      });
       ctx2d.restore();
       return;
     }
@@ -972,7 +993,21 @@ export class BattleState implements StateRenderer {
     // Text box / menus
     if (this.phase === 'message') {
       const message = this.messageQueue[0] ?? '';
-      drawTextBox(ctx2d, offsetX, offsetY, message, this.messageVisibleChars);
+      const renderState = this.messagePromptController.getRenderState() ?? {
+        type: 'message' as const,
+        text: message,
+        visibleChars: message.length,
+        isFullyVisible: true,
+      };
+      this.promptCanvasRenderer.render(ctx2d, {
+        profile: BATTLE_MESSAGE_PROFILE,
+        skin: this.battleTextboxSkin,
+        state: renderState,
+        originX: offsetX,
+        originY: offsetY,
+        showArrow: renderState.isFullyVisible,
+        arrowFrameIndex,
+      });
       ctx2d.restore();
       return;
     }
@@ -1004,7 +1039,19 @@ export class BattleState implements StateRenderer {
       return;
     }
 
-    drawTextBox(ctx2d, offsetX, offsetY, 'Battle finished.');
+    const finishedText = 'Battle finished.';
+    this.promptCanvasRenderer.render(ctx2d, {
+      profile: BATTLE_MESSAGE_PROFILE,
+      skin: this.battleTextboxSkin,
+      state: {
+        type: 'message',
+        text: finishedText,
+        visibleChars: finishedText.length,
+        isFullyVisible: true,
+      },
+      originX: offsetX,
+      originY: offsetY,
+    });
     ctx2d.restore();
   }
 
@@ -1058,40 +1105,22 @@ export class BattleState implements StateRenderer {
   }
 
   private resetMessagePrinter(): void {
-    this.messageVisibleChars = 0;
-    this.messageElapsedMs = 0;
+    this.messagePromptController.clear();
     if (this.messageQueue.length === 0) {
       return;
     }
     const nextMessage = this.messageQueue[0] ?? '';
     if (nextMessage.length === 0) {
-      this.messageVisibleChars = 0;
       return;
     }
-  }
-
-  private revealCurrentMessage(): void {
-    const message = this.messageQueue[0] ?? '';
-    this.messageVisibleChars = message.length;
-    this.messageElapsedMs = this.getBattleTextDelayMs() * Math.max(0, message.length);
+    void this.messagePromptController.showMessage(nextMessage);
   }
 
   private tickMessagePrinter(dt: number): void {
     if (this.phase !== 'message') {
       return;
     }
-    const message = this.messageQueue[0] ?? '';
-    if (message.length === 0) {
-      this.messageVisibleChars = 0;
-      return;
-    }
-    if (this.messageVisibleChars >= message.length) {
-      return;
-    }
-
-    this.messageElapsedMs += dt;
-    const chars = Math.floor(this.messageElapsedMs / this.getBattleTextDelayMs());
-    this.messageVisibleChars = Math.max(0, Math.min(message.length, chars));
+    this.messagePromptController.tick(dt, this.getBattleTextDelayMs());
   }
 
   private showPromptMessage(text: string): Promise<void> {
