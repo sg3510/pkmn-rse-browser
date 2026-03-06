@@ -32,6 +32,17 @@ For parity-sensitive features, implementation follows this pattern:
 
 `public/pokeemerald/` is treated as read-only reference source.
 
+## Upstream Reference (`pret/pokeemerald`)
+
+The upstream decompilation project this port is based on is:
+
+- [pret/pokeemerald](https://github.com/pret/pokeemerald)
+
+This TypeScript project uses that codebase as the behavioral source of truth
+for parity work. In practice, we read the original C logic first, then
+implement equivalent behavior for browser runtime systems (gameplay logic,
+scripts, movement, and rendering rules).
+
 ## Rendering Architecture (WebGL + Browser)
 
 The runtime uses a tile/camera model similar to the GBA game, then renders
@@ -129,5 +140,5 @@ Detailed implementation status and plans live in `docs/`:
 
 ## Credits
 
-- Original game decompilation and reference project:
-  `pret/pokeemerald` ([github.com/pret/pokeemerald](https://github.com/pret/pokeemerald))
+- Original game decompilation and primary reference:
+  [pret/pokeemerald](https://github.com/pret/pokeemerald)
