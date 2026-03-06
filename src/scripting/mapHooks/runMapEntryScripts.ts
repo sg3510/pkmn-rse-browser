@@ -36,6 +36,7 @@ export interface RunMapEntryScriptsParams {
   lastUsedWarpMapId?: string | null;
   mapScriptCache?: Map<string, MapScriptData | null>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   scriptRuntimeServices?: ScriptRuntimeServices;
   mode?: 'warp' | 'camera-transition' | 'return-to-field';
   setFlashLevel?: (level: number) => void;
@@ -94,6 +95,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
     lastUsedWarpMapId,
     mapScriptCache,
     setMapMetatile,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
     mode = 'warp',
     setFlashLevel,
@@ -148,6 +150,7 @@ export async function runMapEntryScripts(params: RunMapEntryScriptsParams): Prom
       player,
       playerHiddenRef,
       setMapMetatile,
+      setCurrentMapLayoutById,
       lastUsedWarpMapType,
       lastUsedWarpMapId,
       setFlashLevel,

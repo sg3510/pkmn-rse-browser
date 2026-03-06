@@ -1,0 +1,8 @@
+{
+  "backend": "claude",
+  "model": "claude-sonnet-4-6",
+  "delay": 2000,
+  "charLimit": 150000,
+  "concurrency": 5,
+  "resume": true
+}

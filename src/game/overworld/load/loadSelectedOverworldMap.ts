@@ -100,6 +100,7 @@ export interface LoadSelectedOverworldMapParams {
   ) => Promise<void>;
   initializeWorldFromSnapshot: (snapshot: WorldSnapshot, pipeline: WebGLRenderPipeline) => Promise<void>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   scriptRuntimeServices?: ScriptRuntimeServices;
   setDefaultFlashLevel?: (input: { mapRequiresFlash: boolean; hasFlashFlag: boolean }) => void;
   setFlashLevel?: (level: number) => void;
@@ -144,6 +145,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     loadObjectEventsFromSnapshot,
     initializeWorldFromSnapshot,
     setMapMetatile,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
     setDefaultFlashLevel,
     setFlashLevel,
@@ -362,11 +364,43 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
                 setMapMetatile(mapId, tileX, tileY, metatileId, collision);
               }
             : undefined,
+          setCurrentMapLayoutById,
           scriptRuntimeServices,
           mode: mapEntryMode,
           setFlashLevel,
           animateFlashLevel,
         });
+
+        // Map-entry scripts may swap layout variants (setmaplayoutindex), which can
+        // change the destination tile from water to land (or vice versa).
+        // Re-resolve traversal against the post-script tile to keep surf state in sync.
+        const postScriptMap = worldManager.findMapAtPosition(player.tileX, player.tileY)
+          ?? snapshot.maps.find((map) => map.entry.id === playerMapId)
+          ?? null;
+        if (postScriptMap) {
+          const postScriptUnderwater = isUnderwaterMapType(postScriptMap.entry.mapType);
+          const postScriptBehavior = player.getTileResolver()?.(player.tileX, player.tileY)?.attributes?.behavior;
+          const postScriptSurfing = !postScriptUnderwater
+            && postScriptBehavior !== undefined
+            && isSurfableBehavior(postScriptBehavior);
+          const bikeMode = player.getBikeMode();
+          const bikeRiding = player.isBikeRiding()
+            && !postScriptSurfing
+            && !postScriptUnderwater
+            && postScriptMap.mapAllowCycling;
+          player.setTraversalState({
+            surfing: postScriptSurfing,
+            underwater: postScriptUnderwater,
+            bikeMode: bikeRiding ? bikeMode : 'none',
+            bikeRiding,
+          });
+          lastCoordTriggerTileRef.current = {
+            mapId: postScriptMap.entry.id,
+            x: player.tileX,
+            y: player.tileY,
+          };
+          lastPlayerMapIdRef.current = postScriptMap.entry.id;
+        }
 
         if (pendingObjectEventRuntimeState) {
           objectEventManagerRef.current.applyRuntimeState(pendingObjectEventRuntimeState);

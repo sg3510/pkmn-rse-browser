@@ -51,6 +51,7 @@ export interface PerformWarpTransitionParams {
   warpingRef: MutableRef<boolean>;
   resolveDynamicWarpTarget: () => { mapId: string; warpId: number; x: number; y: number } | null;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   /** Pre-populate frame table cache so ON_FRAME scripts fire on the first frame */
   mapScriptCache?: Map<string, MapScriptData | null>;
   scriptRuntimeServices?: ScriptRuntimeServices;
@@ -95,6 +96,7 @@ export async function performWarpTransition(
     warpingRef,
     resolveDynamicWarpTarget,
     setMapMetatile,
+    setCurrentMapLayoutById,
     mapScriptCache,
     scriptRuntimeServices,
     setDefaultFlashLevel,
@@ -299,11 +301,6 @@ export async function performWarpTransition(
       bikeMode: preserveBike ? priorBikeMode : 'none',
       bikeRiding: preserveBike,
     });
-    setLastCoordTriggerTile({
-      mapId: currentMapId,
-      x: player.tileX,
-      y: player.tileY,
-    });
 
     const currentMap = snapshot.maps.find((map) => map.entry.id === currentMapId) ?? destMap;
     setDefaultFlashLevel?.({
@@ -323,9 +320,35 @@ export async function performWarpTransition(
       lastUsedWarpMapId: trigger.sourceMap.entry.id,
       mapScriptCache,
       setMapMetatile,
+      setCurrentMapLayoutById,
       scriptRuntimeServices,
       setFlashLevel,
       animateFlashLevel,
+    });
+
+    // Some map-entry scripts (e.g. Route131) change layout via setmaplayoutindex.
+    // Re-resolve traversal from the post-script tile so surfing/bike state
+    // matches the final metatile behavior.
+    const postScriptMap = worldManager.findMapAtPosition(player.tileX, player.tileY) ?? currentMap;
+    const postScriptUnderwater = isUnderwaterMapType(postScriptMap.entry.mapType);
+    const postScriptBehavior = player.getTileResolver()?.(player.tileX, player.tileY)?.attributes?.behavior;
+    const postScriptSurfing = !postScriptUnderwater
+      && postScriptBehavior !== undefined
+      && isSurfableBehavior(postScriptBehavior);
+    const preserveBikePostScript = priorBikeRiding
+      && !postScriptSurfing
+      && !postScriptUnderwater
+      && postScriptMap.mapAllowCycling;
+    player.setTraversalState({
+      surfing: postScriptSurfing,
+      underwater: postScriptUnderwater,
+      bikeMode: preserveBikePostScript ? priorBikeMode : 'none',
+      bikeRiding: preserveBikePostScript,
+    });
+    setLastCoordTriggerTile({
+      mapId: postScriptMap.entry.id,
+      x: player.tileX,
+      y: player.tileY,
     });
 
     if (!managesVisibility) {

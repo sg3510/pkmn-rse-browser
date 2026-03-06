@@ -15,6 +15,7 @@ interface CreateMapScriptRunnerContextParams {
   player: PlayerController;
   playerHiddenRef: MutableRef<boolean>;
   setMapMetatile?: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => void;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   lastUsedWarpMapType?: string | null;
   lastUsedWarpMapId?: string | null;
   setFlashLevel?: (level: number) => void;
@@ -31,6 +32,7 @@ export function createMapScriptRunnerContext(
     player,
     playerHiddenRef,
     setMapMetatile,
+    setCurrentMapLayoutById,
     lastUsedWarpMapType = null,
     lastUsedWarpMapId = null,
     setFlashLevel,
@@ -97,6 +99,7 @@ export function createMapScriptRunnerContext(
           setMapMetatile(mapId, tileX, tileY, metatileId, collision);
         }
       : undefined,
+    setCurrentMapLayoutById,
     getMapMetatile: (mapId, tileX, tileY) => {
       const map = snapshot.maps.find((m) => m.entry.id === mapId);
       if (!map) return 0;

@@ -55,7 +55,7 @@ import type { WorldManager, WorldSnapshot } from '../game/WorldManager';
 import mapIndexJson from '../data/mapIndex.json';
 import type { MapIndexEntry } from '../types/maps';
 import { type NPCObject, type ItemBallObject, type ObjectEventRuntimeState } from '../types/objectEvents';
-import { METATILE_SIZE, loadMapLayout, loadBorderMetatiles } from '../utils/mapLoader';
+import { METATILE_SIZE, loadMapLayout, loadBorderMetatiles, loadText } from '../utils/mapLoader';
 import { createLogger } from '../utils/logger';
 import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
@@ -300,6 +300,12 @@ const MOBILE_MAX_SCREEN_ASPECT = 2.1;
 const MOBILE_MIN_VIEWPORT_ASPECT = 1.0;
 const MOBILE_MAX_VIEWPORT_ASPECT = 16 / 9;
 const DESKTOP_VIEWPORT_HORIZONTAL_RESERVE_PX = 112;
+const DESKTOP_DEFAULT_VIEWPORT_TARGET_ZOOM = 2;
+const DESKTOP_DEFAULT_VIEWPORT_PRESETS: ReadonlyArray<ViewportConfig> = [
+  { tilesWide: 30, tilesHigh: 20 },
+  { tilesWide: 25, tilesHigh: 18 },
+  DEFAULT_VIEWPORT_CONFIG,
+];
 
 function waitFlashFrames(frames: number): Promise<void> {
   const delayMs = Math.max(1, Math.round(Math.max(0, frames) * GBA_FRAME_MS));
@@ -314,6 +320,19 @@ function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
 }
 
+function getDesktopDefaultViewport(windowWidth: number): ViewportConfig {
+  const fitWidth = Math.max(240, windowWidth - DESKTOP_VIEWPORT_HORIZONTAL_RESERVE_PX);
+  const maxTilesWideAtDefaultZoom = Math.floor(
+    fitWidth / (METATILE_SIZE * DESKTOP_DEFAULT_VIEWPORT_TARGET_ZOOM)
+  );
+
+  const matchingPreset = DESKTOP_DEFAULT_VIEWPORT_PRESETS.find(
+    (preset) => maxTilesWideAtDefaultZoom >= preset.tilesWide
+  );
+
+  return matchingPreset ?? DEFAULT_VIEWPORT_CONFIG;
+}
+
 /**
  * GamePage wrapper - provides DialogProvider context and state machine
  */
@@ -322,7 +341,12 @@ export function GamePage() {
   const [currentState, setCurrentState] = useState<GameState>(GameState.TITLE_SCREEN);
   const isTouchMobile = useIsTouchMobile();
   // Viewport configuration - can be changed via debug panel
-  const [viewportConfig, setViewportConfig] = useState<ViewportConfig>(DEFAULT_VIEWPORT_CONFIG);
+  const [viewportConfig, setViewportConfig] = useState<ViewportConfig>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_VIEWPORT_CONFIG;
+    }
+    return getDesktopDefaultViewport(window.innerWidth);
+  });
   // Use state instead of ref so child re-renders when manager is ready
   const [stateManager, setStateManager] = useState<GameStateManager | null>(null);
   const [windowMetrics, setWindowMetrics] = useState<{ width: number; height: number }>(() => ({
@@ -1306,12 +1330,8 @@ function GamePageContent({
   const getLayoutCatalog = useCallback(async (): Promise<Map<string, LayoutCatalogEntry>> => {
     if (!layoutCatalogPromiseRef.current) {
       layoutCatalogPromiseRef.current = (async () => {
-        const response = await fetch(`${POKEEMERALD_ASSET_ROOT}/data/layouts/layouts.json`);
-        if (!response.ok) {
-          throw new Error(`Failed to load layouts.json (${response.status})`);
-        }
-
-        const payload = (await response.json()) as LayoutCatalogJson;
+        const text = await loadText(`${POKEEMERALD_ASSET_ROOT}/data/layouts/layouts.json`);
+        const payload = JSON.parse(text) as LayoutCatalogJson;
         const layouts = Array.isArray(payload.layouts) ? payload.layouts : [];
         const byId = new Map<string, LayoutCatalogEntry>();
         for (const layout of layouts) {
@@ -1569,11 +1589,12 @@ function GamePageContent({
       onFrameSuppressedRef,
       seamTransitionScriptsInFlightRef,
       setMapMetatile: setMapMetatileAndInvalidate,
+      setCurrentMapLayoutById,
       scriptRuntimeServices,
       setFlashLevel,
       animateFlashLevel,
     });
-  }, [scriptRuntimeServices, setMapMetatileLocal, setFlashLevel, animateFlashLevel]);
+  }, [scriptRuntimeServices, setMapMetatileLocal, setCurrentMapLayoutById, setFlashLevel, animateFlashLevel]);
 
   // Action input hook (handles X key for surf/item pickup dialogs)
   const actionCallbacks = useMemo(() => createActionCallbacks({
@@ -1879,6 +1900,7 @@ function GamePageContent({
       warpingRef,
       resolveDynamicWarpTarget: () => getDynamicWarpTarget(),
       setMapMetatile: setMapMetatileAndInvalidate,
+      setCurrentMapLayoutById,
       mapScriptCache: mapScriptCacheRef.current,
       scriptRuntimeServices,
       setDefaultFlashLevel,
@@ -1896,6 +1918,7 @@ function GamePageContent({
     doorAnimations,
     npcMovement,
     scriptRuntimeServices,
+    setCurrentMapLayoutById,
     setDefaultFlashLevel,
     setFlashLevel,
     animateFlashLevel,
@@ -2796,6 +2819,7 @@ function GamePageContent({
       loadObjectEventsFromSnapshot,
       initializeWorldFromSnapshot,
       setMapMetatile: setMapMetatileAndInvalidate,
+      setCurrentMapLayoutById,
       scriptRuntimeServices,
       setDefaultFlashLevel,
       setFlashLevel,
@@ -2814,6 +2838,7 @@ function GamePageContent({
     createSnapshotPlayerTileResolver,
     loadObjectEventsFromSnapshot,
     scriptRuntimeServices,
+    setCurrentMapLayoutById,
     setDefaultFlashLevel,
     setFlashLevel,
     animateFlashLevel,

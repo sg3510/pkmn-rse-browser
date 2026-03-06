@@ -34,6 +34,7 @@ export interface SeamTransitionScriptsParams {
   onFrameSuppressedRef: MutableRef<Map<string, number>>;
   seamTransitionScriptsInFlightRef: MutableRef<Set<string>>;
   setMapMetatile: (mapId: string, tileX: number, tileY: number, metatileId: number, collision?: number) => boolean;
+  setCurrentMapLayoutById?: (layoutId: string) => Promise<boolean>;
   scriptRuntimeServices: ScriptRuntimeServices;
   setFlashLevel?: (level: number) => void;
   animateFlashLevel?: (level: number) => Promise<void>;
@@ -53,6 +54,7 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
     onFrameSuppressedRef,
     seamTransitionScriptsInFlightRef,
     setMapMetatile,
+    setCurrentMapLayoutById,
     scriptRuntimeServices,
     setFlashLevel,
     animateFlashLevel,
@@ -101,6 +103,7 @@ export async function executeSeamTransitionScripts(params: SeamTransitionScripts
       pipeline,
       mapScriptCache: mapScriptCacheRef.current,
       setMapMetatile,
+      setCurrentMapLayoutById,
       scriptRuntimeServices,
       mode: 'camera-transition',
       setFlashLevel,
