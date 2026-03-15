@@ -46,8 +46,8 @@ export interface RenderingConfig {
  * Default rendering configuration
  */
 export const DEFAULT_RENDERING_CONFIG: RenderingConfig = {
-  enableWebGL: false,  // Disabled in main game - use debug page for WebGL testing
-  forceCanvas2D: true,
+  enableWebGL: true,
+  forceCanvas2D: false,
 
   webgl: {
     maxTextureSize: 4096,

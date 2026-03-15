@@ -1,6 +1,6 @@
-import { useCallback, useRef } from 'react';
-import { useInput } from './useInput';
-import { inputMap, GameButton } from '../core/InputMap';
+import { useCallback, useEffect, useRef } from 'react';
+import { GameButton } from '../core/InputMap';
+import { inputController } from '../core/InputController';
 import type { PlayerController } from '../game/PlayerController';
 import type { ObjectEventManager } from '../game/ObjectEventManager';
 import type { WorldManager } from '../game/WorldManager';
@@ -56,11 +56,9 @@ export function useActionInput({
   const divePromptInProgressRef = useRef<boolean>(false);
   const itemPickupInProgressRef = useRef<boolean>(false);
 
-  const handleActionKeyDown = useCallback(async (e: KeyboardEvent) => {
+  const handleActionPress = useCallback(async (button: typeof GameButton.A | typeof GameButton.B) => {
     if (!enabled) return;
-    const isA = inputMap.matchesCode(e.code, GameButton.A);
-    const isB = inputMap.matchesCode(e.code, GameButton.B);
-    if (!isA && !isB) return;
+    const isB = button === GameButton.B;
 
     const player = playerControllerRef.current;
     if (!player) return;
@@ -254,7 +252,17 @@ export function useActionInput({
     onTileInteract,
   ]);
 
-  useInput({ onKeyDown: handleActionKeyDown });
+  useEffect(() => {
+    return inputController.subscribe((event) => {
+      if (event.type !== 'buttondown') {
+        return;
+      }
+      if (event.button !== GameButton.A && event.button !== GameButton.B) {
+        return;
+      }
+      void handleActionPress(event.button);
+    });
+  }, [handleActionPress]);
 
   return {
     surfPromptInProgressRef,

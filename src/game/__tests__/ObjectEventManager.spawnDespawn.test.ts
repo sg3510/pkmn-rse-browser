@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ObjectEventManager } from '../ObjectEventManager.ts';
+import { createViewportPolicy, usesExpandedActivation } from '../viewportPolicy.ts';
 import type { ObjectEventData } from '../../types/objectEvents.ts';
 import { saveStateStore } from '../../save/SaveStateStore.ts';
 
@@ -158,6 +159,31 @@ test('expanded viewport height keeps distant NPC within camera spawn window', ()
 
   // With larger 30-tile viewport: bottom = 32, NPC y=25 is inside.
   manager.updateObjectEventSpawnDespawnForCamera(0, 0, 20, 30);
+  assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), true);
+});
+
+test('strict viewport policy keeps simulation on Emerald activation bounds', () => {
+  resetRuntimeState();
+
+  const manager = createManagerWithNpc(5, 25);
+  const strictPolicy = createViewportPolicy({ tilesWide: 20, tilesHigh: 30 });
+  const expandedPolicy = createViewportPolicy(
+    { tilesWide: 20, tilesHigh: 30 },
+    { activationMode: 'expanded' }
+  );
+
+  assert.equal(usesExpandedActivation(strictPolicy), false);
+  assert.equal(usesExpandedActivation(expandedPolicy), true);
+
+  manager.updateObjectEventSpawnDespawn(5, 10);
+  assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), false);
+
+  manager.updateObjectEventSpawnDespawnForCamera(
+    0,
+    0,
+    expandedPolicy.renderViewport.tilesWide,
+    expandedPolicy.renderViewport.tilesHigh
+  );
   assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), true);
 });
 

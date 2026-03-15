@@ -1,17 +1,17 @@
 ---
 title: What the user sees
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-03-15
 ---
 
 Viewport resize stretch investigation (Codex)  
 Date: 2025-12-04
 
 ## What the user sees
-- Changing the viewport in the debug panel (e.g., 20×20 → 30×20) makes the map **stretch** instead of showing more tiles. A 320 px wide view simply scales up to 480 px instead of revealing ~10 extra tiles.
+- Changing the viewport from the desktop bottom controls, or from the mobile debug panel (e.g., 20×20 → 30×20), makes the map **stretch** instead of showing more tiles. A 320 px wide view simply scales up to 480 px instead of revealing ~10 extra tiles.
 
 ## How the viewport size is supposed to flow
-- `DebugPanel` → `onViewportChange` updates `GamePage` state `viewportConfig`.
+- The viewport controls UI → `onViewportChange` updates `GamePage` state `viewportConfig`.
 - `GamePage` derives `viewportPixelSize = tilesWide * 16` / `tilesHigh * 16` in render.
 - `useEffect([stateManager, viewportConfig])` pushes the config to the `GameStateManager` so states know the new viewport.
 - `useEffect([viewportConfig])` calls `camera.updateConfig(...)`, so the camera math (tile count, clamping) picks up the new size.
@@ -39,4 +39,3 @@ Date: 2025-12-04
   1) Add `viewportPixelSize`/`viewportConfig` as dependencies and recreate the loop when they change (reset RAF + canvas sizing).  
   2) Store the latest viewport dimensions in a ref and read from that inside the loop instead of the captured value.
 - Ensure the display canvas `.width/.height` attributes are updated when the viewport changes so the backing store matches the CSS size (maintains 1:1 pixels and the correct tile count).
-

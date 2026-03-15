@@ -134,12 +134,89 @@
 }
 
 .map-stats {
+  margin-top: 0.75rem;
+}
+
+.map-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 0.75rem;
+  gap: 0.85rem 1rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.map-toolbar__left {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.map-toolbar__right {
+  flex: 0 1 380px;
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.map-toolbar__zoom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: #9fb0cc;
+  font-size: 11px;
+}
+
+.map-toolbar__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8d5ff;
+}
+
+.map-toolbar__zoom-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.map-toolbar__auto-fit {
+  color: #7f92b0;
+}
+
+.map-toolbar__hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.map-toolbar__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #242a38;
+  background: #0f131c;
   color: #cdd7f1;
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.map-toolbar__hint kbd {
+  padding: 0.16rem 0.34rem;
+  border-radius: 4px;
+  border: 1px solid #33405a;
+  background: #182133;
+  color: #fff;
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font-size: 0.72rem;
+  line-height: 1;
 }
 
 .game-footer {
@@ -280,6 +357,18 @@
   width: min(100%, 180px);
   aspect-ratio: 1 / 1;
   justify-self: start;
+  position: relative;
+  padding: 0.22rem;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 35%, rgba(120, 136, 156, 0.35), rgba(26, 34, 44, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 12px 24px rgba(0, 0, 0, 0.2);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mobile-control-deck__actions {
@@ -324,7 +413,7 @@
   opacity: 0.45;
 }
 
-.mobile-control-btn--dpad {
+.mobile-control-dpad__segment {
   background: linear-gradient(180deg, #4e5867 0%, #343c48 100%);
   border-radius: 12px;
   box-shadow:
@@ -332,26 +421,49 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.35),
     0 2px 4px rgba(0, 0, 0, 0.35);
   font-size: 1rem;
+  display: grid;
+  place-items: center;
+  color: #f4f7ff;
+  font-family: 'Pokemon Emerald Pro', system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: transform 120ms ease, filter 120ms ease;
 }
 
-.mobile-control-btn--up {
+.mobile-control-dpad__segment.is-active {
+  filter: brightness(1.18);
+  transform: translateY(1px);
+}
+
+.mobile-control-dpad__segment--up {
   grid-column: 2;
   grid-row: 1;
 }
 
-.mobile-control-btn--left {
+.mobile-control-dpad__segment--left {
   grid-column: 1;
   grid-row: 2;
 }
 
-.mobile-control-btn--right {
+.mobile-control-dpad__segment--right {
   grid-column: 3;
   grid-row: 2;
 }
 
-.mobile-control-btn--down {
+.mobile-control-dpad__segment--down {
   grid-column: 2;
   grid-row: 3;
+}
+
+.mobile-control-dpad__core {
+  grid-column: 2;
+  grid-row: 2;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(111, 126, 148, 0.45), rgba(31, 38, 47, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
 
 .mobile-control-btn--face {
@@ -395,6 +507,12 @@
 
   .mobile-shell__controls-frame {
     margin-top: auto;
+  }
+}
+
+@media (max-width: 960px) {
+  .map-toolbar__right {
+    flex-basis: 100%;
   }
 }
 

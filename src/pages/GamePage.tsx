@@ -11,8 +11,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { GameState, GameStateManager } from '../core';
-import { inputMap, GameButton } from '../core/InputMap';
+import { GameState, GameStateManager, inputController } from '../core';
+import { GameButton } from '../core/InputMap';
 import {
   createTitleScreenState,
   createMainMenuState,
@@ -61,6 +61,7 @@ import { isDebugMode } from '../utils/debug';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
 import { GBA_FRAME_MS } from '../config/timing';
 import { getBattlePresentationMode } from '../battle/render/battlePresentationMode';
+import { HYBRID_MODERN_DEFAULTS } from '../config/hybridModern';
 import { guardFixedStep } from '../utils/fixedStepGuard';
 import type { TilesetRuntime as TilesetRuntimeType } from '../utils/tilesetUtils';
 import {
@@ -84,6 +85,7 @@ import {
   DebugPanel,
   DEFAULT_DEBUG_OPTIONS,
   isDiagnosticsEnabled,
+  ViewportControls,
   type DebugOptions,
   type DebugState,
   type DebugTileInfo,
@@ -201,6 +203,7 @@ import {
 import { useIsTouchMobile } from '../hooks/useIsTouchMobile';
 import { useVirtualKeyboardBridge } from '../hooks/useVirtualKeyboardBridge';
 import { MobileControlDeck } from '../components/controls/MobileControlDeck';
+import { createViewportPolicy, usesExpandedActivation } from '../game/viewportPolicy';
 import './GamePage.css';
 
 const gamePageLogger = createLogger('GamePage');
@@ -550,6 +553,15 @@ function GamePageContent({
   viewportPixelSizeRef.current = viewportPixelSize;
   const viewportTilesRef = useRef({ tilesWide: viewportTilesWide, tilesHigh: viewportTilesHigh });
   viewportTilesRef.current = { tilesWide: viewportTilesWide, tilesHigh: viewportTilesHigh };
+  const viewportPolicy = useMemo(
+    () => createViewportPolicy(viewportConfig, {
+      fidelityMode: HYBRID_MODERN_DEFAULTS.fidelityMode,
+      activationMode: HYBRID_MODERN_DEFAULTS.activationMode,
+    }),
+    [viewportConfig]
+  );
+  const viewportPolicyRef = useRef(viewportPolicy);
+  viewportPolicyRef.current = viewportPolicy;
 
   // Ref to store current zoom for render loop (avoids stale closure)
   const zoomRef = useRef(zoom);
@@ -1156,7 +1168,8 @@ function GamePageContent({
 
   // START/SELECT handler
   useEffect(() => {
-    const handleMenuKey = (e: KeyboardEvent) => {
+    return inputController.subscribe((event) => {
+      if (event.type !== 'buttondown') return;
       // Only open menu in OVERWORLD state
       if (currentState !== GameState.OVERWORLD) return;
       // Don't open if dialog is open
@@ -1173,16 +1186,13 @@ function GamePageContent({
       if (menuStateManager.isMenuOpen()) return;
 
       // START button opens menu
-      if (inputMap.matchesCode(e.code, GameButton.START)) {
-        e.preventDefault();
+      if (event.button === GameButton.START) {
         openStartMenu();
         return;
       }
 
       // SELECT uses the registered key item (bike parity path).
-      if (inputMap.matchesCode(e.code, GameButton.SELECT)) {
-        e.preventDefault();
-
+      if (event.button === GameButton.SELECT) {
         void (async () => {
           const registeredItem = moneyManager.getRegisteredItem();
           if (!registeredItem || registeredItem === ITEMS.ITEM_NONE) {
@@ -1198,10 +1208,7 @@ function GamePageContent({
           await tryUseFieldItem(registeredItem);
         })();
       }
-    };
-
-    window.addEventListener('keydown', handleMenuKey);
-    return () => window.removeEventListener('keydown', handleMenuKey);
+    });
   }, [currentState, dialogIsOpen, showFieldMessage, openStartMenu, tryUseFieldItem]);
 
   const renderableMaps = useMemo(
@@ -2110,12 +2117,14 @@ function GamePageContent({
       const { width, height, minX, minY } = worldBoundsRef.current;
       const worldMinX = minX;
       const worldMinY = minY;
+      const overworldInputFrame = isOverworldState ? inputController.consumeFrameState() : null;
 
       if (isOverworldState) {
         const objectSpawnDespawnStart = performance.now();
         if (player) {
-          const viewportTiles = viewportTilesRef.current;
-          if (camera && camera.getBounds()) {
+          const activationPolicy = viewportPolicyRef.current;
+          if (usesExpandedActivation(activationPolicy) && camera && camera.getBounds()) {
+            const viewportTiles = activationPolicy.renderViewport;
             const view = camera.getView(0);
             objectEventManagerRef.current.updateObjectEventSpawnDespawnForCamera(
               view.startTileX,
@@ -2124,12 +2133,7 @@ function GamePageContent({
               viewportTiles.tilesHigh
             );
           } else {
-            objectEventManagerRef.current.updateObjectEventSpawnDespawn(
-              player.tileX,
-              player.tileY,
-              viewportTiles.tilesWide,
-              viewportTiles.tilesHigh
-            );
+            objectEventManagerRef.current.updateObjectEventSpawnDespawn(player.tileX, player.tileY);
           }
         }
         recordRuntimePerfSection('objectSpawnDespawn', performance.now() - objectSpawnDespawnStart);
@@ -2371,7 +2375,7 @@ function GamePageContent({
         const shouldBlockForMapEntryGate = gateEvaluation.shouldBlockPlayerUpdate && !doorExitActive;
 
         if (!preInputOnFrameTriggered && !seamTransitionScriptsRunning && !shouldBlockForMapEntryGate) {
-          player.update(dt);
+          player.update(dt, overworldInputFrame ?? undefined);
         }
 
         // Run per-step callback (Sootopolis ice, ash grass, etc.)
@@ -3034,6 +3038,7 @@ function GamePageContent({
           mapLoading={loading}
           viewportConfig={viewportConfig}
           onViewportChange={onViewportChange}
+          showViewportControls
         />
       </div>
     );
@@ -3090,30 +3095,47 @@ function GamePageContent({
           {viewportStack}
         </div>
         <div className="map-stats">
-          <div style={{ fontSize: 11, color: '#9fb0cc', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span>Arrow Keys to move. Z to run. X to interact. ` for debug panel.</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              Zoom:
-              {[1, 2, 3].map((z) => (
-                <button
-                  key={z}
-                  onClick={() => onZoomChange(z)}
-                  style={{
-                    padding: '2px 8px',
-                    fontSize: 11,
-                    background: selectedZoom === z ? '#4a90d9' : '#2a3a4a',
-                    color: selectedZoom === z ? '#fff' : '#9fb0cc',
-                    border: 'none',
-                    borderRadius: 3,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {z}x
-                </button>
-              ))}
-            </span>
-            {autoFitZoomActive && (
-              <span>Auto-fit: {zoom.toFixed(2)}x</span>
+          <div className="map-toolbar">
+            <div className="map-toolbar__left">
+              <div className="map-toolbar__zoom-row">
+                <span className="map-toolbar__label">Zoom</span>
+                <div className="map-toolbar__zoom-buttons">
+                  {[1, 2, 3].map((z) => (
+                    <button
+                      key={z}
+                      onClick={() => onZoomChange(z)}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: 11,
+                        background: selectedZoom === z ? '#4a90d9' : '#2a3a4a',
+                        color: selectedZoom === z ? '#fff' : '#9fb0cc',
+                        border: 'none',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {z}x
+                    </button>
+                  ))}
+                </div>
+                {autoFitZoomActive && (
+                  <span className="map-toolbar__auto-fit">Auto-fit: {zoom.toFixed(2)}x</span>
+                )}
+              </div>
+              <div className="map-toolbar__hints">
+                <span className="map-toolbar__hint"><kbd>Z</kbd> Run</span>
+                <span className="map-toolbar__hint"><kbd>X</kbd> Interact</span>
+                <span className="map-toolbar__hint"><kbd>`</kbd> Debug Panel</span>
+              </div>
+            </div>
+            {onViewportChange && (
+              <div className="map-toolbar__right">
+                <ViewportControls
+                  config={viewportConfig}
+                  onChange={onViewportChange}
+                  variant="toolbar"
+                />
+              </div>
             )}
           </div>
         </div>
@@ -3191,6 +3213,7 @@ function GamePageContent({
         mapLoading={loading}
         viewportConfig={viewportConfig}
         onViewportChange={onViewportChange}
+        showViewportControls={false}
       />
     </div>
   );

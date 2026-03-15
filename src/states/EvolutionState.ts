@@ -151,8 +151,8 @@ export class EvolutionState implements StateRenderer {
       this.promptService.handleInput({
         confirmPressed,
         cancelPressed,
-        upPressed: inputMap.isPressed(input, GameButton.UP),
-        downPressed: inputMap.isPressed(input, GameButton.DOWN),
+        upPressed: inputMap.isPressedOrRepeated(input, GameButton.UP),
+        downPressed: inputMap.isPressedOrRepeated(input, GameButton.DOWN),
       });
       return null;
     }

@@ -1,39 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { GameButton, inputMap } from '../core/InputMap';
-
-function codeToKey(code: string): string {
-  if (code.startsWith('Key') && code.length === 4) return code.slice(3).toLowerCase();
-  if (code.startsWith('Digit') && code.length === 6) return code.slice(5);
-
-  switch (code) {
-    case 'ArrowUp':
-    case 'ArrowDown':
-    case 'ArrowLeft':
-    case 'ArrowRight':
-    case 'Enter':
-    case 'Backspace':
-    case 'Escape':
-      return code;
-    case 'Space':
-      return ' ';
-    case 'ShiftLeft':
-    case 'ShiftRight':
-      return 'Shift';
-    default:
-      return code;
-  }
-}
-
-function dispatchSyntheticKeyEvent(type: 'keydown' | 'keyup', code: string): void {
-  if (typeof window === 'undefined') return;
-  const event = new KeyboardEvent(type, {
-    bubbles: true,
-    cancelable: true,
-    code,
-    key: codeToKey(code),
-  });
-  window.dispatchEvent(event);
-}
+import { type GameButton } from '../core/InputMap';
+import { inputController } from '../core/InputController';
 
 interface VirtualKeyboardBridge {
   pressButton: (button: GameButton, pointerId: number) => void;
@@ -42,55 +9,36 @@ interface VirtualKeyboardBridge {
 }
 
 export function useVirtualKeyboardBridge(): VirtualKeyboardBridge {
-  const pointerToCodeRef = useRef<Map<number, string>>(new Map());
-  const codePressCountRef = useRef<Map<string, number>>(new Map());
+  const pointerToButtonRef = useRef<Map<number, GameButton>>(new Map());
 
   const releasePointer = useCallback((pointerId: number) => {
-    const pointerToCode = pointerToCodeRef.current;
-    const code = pointerToCode.get(pointerId);
-    if (!code) return;
+    const pointerToButton = pointerToButtonRef.current;
+    const button = pointerToButton.get(pointerId);
+    if (!button) return;
 
-    pointerToCode.delete(pointerId);
-    const codePressCount = codePressCountRef.current;
-    const currentCount = codePressCount.get(code) ?? 0;
-
-    if (currentCount <= 1) {
-      codePressCount.delete(code);
-      dispatchSyntheticKeyEvent('keyup', code);
-      return;
-    }
-
-    codePressCount.set(code, currentCount - 1);
+    pointerToButton.delete(pointerId);
+    inputController.setButtonActive(button, false, 'touch', pointerId);
   }, []);
 
   const releaseAll = useCallback(() => {
-    const codePressCount = codePressCountRef.current;
-    for (const code of codePressCount.keys()) {
-      dispatchSyntheticKeyEvent('keyup', code);
-    }
-    codePressCount.clear();
-    pointerToCodeRef.current.clear();
+    inputController.releaseAll('touch');
+    pointerToButtonRef.current.clear();
   }, []);
 
   const pressButton = useCallback((button: GameButton, pointerId: number) => {
-    const code = inputMap.getPrimaryBinding(button);
-    if (!code) return;
-
-    const pointerToCode = pointerToCodeRef.current;
-    const existingCode = pointerToCode.get(pointerId);
-    if (existingCode === code) return;
-    if (existingCode) {
-      releasePointer(pointerId);
+    const pointerToButton = pointerToButtonRef.current;
+    const existingButton = pointerToButton.get(pointerId);
+    if (existingButton === button) {
+      return;
     }
 
-    pointerToCode.set(pointerId, code);
-    const codePressCount = codePressCountRef.current;
-    const currentCount = codePressCount.get(code) ?? 0;
-    if (currentCount === 0) {
-      dispatchSyntheticKeyEvent('keydown', code);
+    if (existingButton) {
+      inputController.setButtonActive(existingButton, false, 'touch', pointerId);
     }
-    codePressCount.set(code, currentCount + 1);
-  }, [releasePointer]);
+
+    pointerToButton.set(pointerId, button);
+    inputController.setButtonActive(button, true, 'touch', pointerId);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -123,4 +71,3 @@ export function useVirtualKeyboardBridge(): VirtualKeyboardBridge {
 
   return { pressButton, releasePointer, releaseAll };
 }
-

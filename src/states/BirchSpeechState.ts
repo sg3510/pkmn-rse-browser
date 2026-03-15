@@ -14,6 +14,7 @@ import {
   type StateRenderer,
   type StateTransition,
 } from '../core/GameState';
+import { inputMap, GameButton } from '../core/InputMap';
 import type { ViewportConfig } from '../config/viewport';
 import type { LocationState } from '../save/types';
 import { saveManager } from '../save/SaveManager';
@@ -112,7 +113,7 @@ export class BirchSpeechState implements StateRenderer {
       return transition;
     }
 
-    const cancelPressed = input.pressed.has('Escape') || input.pressed.has('KeyX');
+    const cancelPressed = inputMap.isPressed(input, GameButton.A, GameButton.B);
     const dialogOpen = getDialogBridge()?.isOpen() ?? false;
 
     if (cancelPressed && !dialogOpen) {

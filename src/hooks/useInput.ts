@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { inputMap } from '../core/InputMap';
+import { inputController } from '../core/InputController';
 
 export interface UseInputOptions {
   onKeyDown?: (event: KeyboardEvent, pressed: Record<string, boolean>) => void;
@@ -12,17 +13,16 @@ export interface UseInputOptions {
 const DEFAULT_PREVENT_KEYS = inputMap.getAllCodes();
 
 /**
- * useInput - tracks pressed keys and exposes change callbacks.
+ * useInput - tracks the shared game input state and exposes change callbacks.
  *
- * PlayerController still owns its own listeners; this hook is meant to
- * coordinate ancillary game input (surf prompts, item pickup) in a single
- * place without sprinkling window listeners across the component.
+ * The low-level DOM listeners now live in InputController so keyboard and
+ * touch-driven button events share the same state transitions.
  */
 export function useInput(options: UseInputOptions = {}): {
   pressedKeys: Record<string, boolean>;
   pressedKeysRef: MutableRefObject<Record<string, boolean>>;
 } {
-  const { onKeyDown, onKeyUp, target = window, preventDefaultKeys } = options;
+  const { onKeyDown, onKeyUp, preventDefaultKeys } = options;
   const pressedRef = useRef<Record<string, boolean>>({});
   const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
 
@@ -33,46 +33,45 @@ export function useInput(options: UseInputOptions = {}): {
   }, [preventDefaultKeys]);
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (preventKeys.has(e.code)) {
-        e.preventDefault();
+    const createKeyboardEvent = (type: 'keydown' | 'keyup', code: string): KeyboardEvent => {
+      if (typeof KeyboardEvent === 'function') {
+        return new KeyboardEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          code,
+          key: code,
+        });
       }
-      if (pressedRef.current[e.code]) {
-        onKeyDown?.(e, pressedRef.current);
-        return;
-      }
-      pressedRef.current = { ...pressedRef.current, [e.code]: true };
-      setPressedKeys(pressedRef.current);
-      onKeyDown?.(e, pressedRef.current);
+      return { code } as KeyboardEvent;
     };
 
-    const up = (e: KeyboardEvent) => {
-      if (preventKeys.has(e.code)) {
-        e.preventDefault();
-      }
-      if (!pressedRef.current[e.code]) {
-        onKeyUp?.(e, pressedRef.current);
-        return;
-      }
-      const next = { ...pressedRef.current };
-      delete next[e.code];
+    const syncHeldRecord = (): Record<string, boolean> => {
+      const next = inputController.getHeldRecord();
       pressedRef.current = next;
       setPressedKeys(next);
-      onKeyUp?.(e, pressedRef.current);
+      return next;
     };
 
-    const eventTarget: Window | Document = target;
-    const downListener = down as EventListener;
-    const upListener = up as EventListener;
+    pressedRef.current = inputController.getHeldRecord();
+    setPressedKeys(pressedRef.current);
 
-    eventTarget.addEventListener('keydown', downListener);
-    eventTarget.addEventListener('keyup', upListener);
+    return inputController.subscribe((event) => {
+      if (!preventKeys.has(event.code)) {
+        return;
+      }
 
-    return () => {
-      eventTarget.removeEventListener('keydown', downListener);
-      eventTarget.removeEventListener('keyup', upListener);
-    };
-  }, [onKeyDown, onKeyUp, preventKeys, target]);
+      if (event.type === 'keydown') {
+        const next = syncHeldRecord();
+        onKeyDown?.(createKeyboardEvent('keydown', event.code), next);
+        return;
+      }
+
+      if (event.type === 'keyup') {
+        const next = syncHeldRecord();
+        onKeyUp?.(createKeyboardEvent('keyup', event.code), next);
+      }
+    });
+  }, [onKeyDown, onKeyUp, preventKeys]);
 
   return { pressedKeys, pressedKeysRef: pressedRef };
 }

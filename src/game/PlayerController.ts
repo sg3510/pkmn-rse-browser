@@ -47,6 +47,8 @@ import { directionToOffset } from '../utils/direction.ts';
 import { areElevationsCompatible } from '../utils/elevation.ts';
 import { JUMP_ARC_HIGH, JUMP_ARC_NORMAL, JUMP_ARC_LOW } from './jumpArc.ts';
 import { inputMap, GameButton } from '../core/InputMap.ts';
+import { inputController } from '../core/InputController.ts';
+import type { InputState } from '../core/inputTypes.ts';
 import { getUnderwaterBobOffset as getUnderwaterBobOffsetAtTime } from './playerBobbing.ts';
 import { getSurfingFrameSelection } from './playerFrameSelection.ts';
 import { gameFlags } from './GameFlags.ts';
@@ -845,8 +847,6 @@ export class PlayerController {
   // Scripted applymovement may need per-step speed overrides (C MOVE_SPEED_* parity).
   private scriptedMoveSpeedPxPerMs: number | null = null;
   private suppressPostMoveSpecialTileChecks: number = 0;
-  private handleKeyDown: (e: KeyboardEvent) => void;
-  private handleKeyUp: (e: KeyboardEvent) => void;
   private tileResolver: TileResolver | null = null;
   private doorWarpHandler: ((request: DoorWarpRequest) => void) | null = null;
   private objectCollisionChecker: ObjectCollisionChecker | null = null;
@@ -909,9 +909,6 @@ export class PlayerController {
   private previousTileElevation: number = 0;
 
   private readonly TILE_PIXELS = 16;
-  // Keys that should have their default browser behavior prevented.
-  // Derived from InputMap bindings (uses e.code values).
-  private static readonly GAME_CONTROL_KEYS = inputMap.getAllCodes();
 
   private debugLog(...args: unknown[]): void {
     if (!(isDebugMode() || isDebugMode('field'))) return;
@@ -925,19 +922,6 @@ export class PlayerController {
 
   constructor() {
     this.currentState = new NormalState();
-    this.handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent default browser behavior for game control keys (uses e.code)
-      if (PlayerController.GAME_CONTROL_KEYS.has(e.code)) {
-        e.preventDefault();
-      }
-      this.keysPressed[e.code] = true;
-    };
-    this.handleKeyUp = (e: KeyboardEvent) => {
-      if (PlayerController.GAME_CONTROL_KEYS.has(e.code)) {
-        e.preventDefault();
-      }
-      this.keysPressed[e.code] = false;
-    };
 
     // Initialize prevTileX/Y to current position, behavior to undefined
     this.prevTileX = this.tileX;
@@ -949,13 +933,6 @@ export class PlayerController {
     this.objCurrentTileY = this.tileY;
     this.objPreviousTileX = this.tileX;
     this.objPreviousTileY = this.tileY;
-
-    this.bindInputEvents();
-  }
-
-  private bindInputEvents() {
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
   }
 
   /**
@@ -1258,7 +1235,11 @@ export class PlayerController {
     this.currentState.enter(this);
   }
 
-  public update(delta: number): boolean {
+  public update(delta: number, inputState?: Pick<InputState, 'held'>): boolean {
+    this.keysPressed = inputState
+      ? Object.fromEntries(Array.from(inputState.held, (code) => [code, true]))
+      : inputController.getHeldRecord();
+
     if (this.inputLocked && !this.isMoving) {
       return false;
     }
@@ -2377,8 +2358,7 @@ export class PlayerController {
   }
 
   public destroy() {
-      window.removeEventListener('keydown', this.handleKeyDown);
-      window.removeEventListener('keyup', this.handleKeyUp);
+      this.keysPressed = {};
   }
 
   public setTileResolver(resolver: TileResolver | null) {

@@ -8,6 +8,7 @@
  */
 
 export { DebugPanel } from './DebugPanel';
+export { ViewportControls } from './ViewportControls';
 export type {
   DebugOptions,
   DebugState,

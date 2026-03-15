@@ -1,14 +1,31 @@
-import { StrictMode, useState, useEffect } from 'react'
+import { StrictMode, Suspense, lazy, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { GamePage } from './pages/GamePage.tsx'
-import { LegacyCanvasPage } from './pages/LegacyCanvasPage.tsx'
-import { WebGLTestPage } from './pages/WebGLTestPage.tsx'
-import { SurfingSpriteDebugPage } from './pages/SurfingSpriteDebugPage.tsx'
-import { DialogDebugPage } from './pages/DialogDebugPage.tsx'
-import Rayquaza3DDebugPage from './pages/Rayquaza3DDebugPage.tsx'
-import Birch3DDebugPage from './pages/Birch3DDebugPage.tsx'
 import { toPublicAssetUrl } from './utils/publicAssetUrl'
+
+const LegacyCanvasPage = lazy(async () => {
+  const mod = await import('./pages/LegacyCanvasPage.tsx');
+  return { default: mod.LegacyCanvasPage };
+});
+
+const WebGLTestPage = lazy(async () => {
+  const mod = await import('./pages/WebGLTestPage.tsx');
+  return { default: mod.WebGLTestPage };
+});
+
+const SurfingSpriteDebugPage = lazy(async () => {
+  const mod = await import('./pages/SurfingSpriteDebugPage.tsx');
+  return { default: mod.SurfingSpriteDebugPage };
+});
+
+const DialogDebugPage = lazy(async () => {
+  const mod = await import('./pages/DialogDebugPage.tsx');
+  return { default: mod.DialogDebugPage };
+});
+
+const Rayquaza3DDebugPage = lazy(() => import('./pages/Rayquaza3DDebugPage.tsx'));
+const Birch3DDebugPage = lazy(() => import('./pages/Birch3DDebugPage.tsx'));
 
 function ensurePublicAssetFontFaces(): void {
   if (typeof document === 'undefined') {
@@ -86,31 +103,29 @@ function Router() {
   }, []);
 
   // Route to appropriate page
+  let content = <GamePage />;
+
   if (route === '#/webgl-test') {
-    return <WebGLTestPage />;
-  }
-  if (route === '#/legacy') {
-    return <LegacyCanvasPage />;
-  }
-  if (route === '#/surfing-sprite') {
-    return <SurfingSpriteDebugPage />;
-  }
-  if (route === '#/dialog-debug') {
-    return <DialogDebugPage />;
-  }
-  if (route === '#/rayquaza-debug') {
-    return <Rayquaza3DDebugPage />;
-  }
-  if (route === '#/birch-debug') {
-    return <Birch3DDebugPage />;
-  }
-  // Canonical runtime path: GamePage (WebGL overworld)
-  if (route === '#/play' || route.startsWith('#/play?')) {
-    return <GamePage />;
+    content = <WebGLTestPage />;
+  } else if (route === '#/legacy') {
+    content = <LegacyCanvasPage />;
+  } else if (route === '#/surfing-sprite') {
+    content = <SurfingSpriteDebugPage />;
+  } else if (route === '#/dialog-debug') {
+    content = <DialogDebugPage />;
+  } else if (route === '#/rayquaza-debug') {
+    content = <Rayquaza3DDebugPage />;
+  } else if (route === '#/birch-debug') {
+    content = <Birch3DDebugPage />;
+  } else if (route === '#/play' || route.startsWith('#/play?')) {
+    content = <GamePage />;
   }
 
-  // WebGL game page is the default
-  return <GamePage />;
+  return (
+    <Suspense fallback={<div className="route-loading">Loading...</div>}>
+      {content}
+    </Suspense>
+  );
 }
 
 createRoot(document.getElementById('root')!).render(

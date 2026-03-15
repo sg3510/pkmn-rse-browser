@@ -14,6 +14,7 @@ import {
   type RenderContext,
 } from './GameState';
 import { DEFAULT_VIEWPORT_CONFIG, getViewportPixelSize, type ViewportConfig } from '../config/viewport';
+import { inputController, type InputController } from './InputController';
 
 export interface GameStateManagerConfig {
   /** Initial state to boot into */
@@ -22,6 +23,8 @@ export interface GameStateManagerConfig {
   viewport?: ViewportConfig;
   /** Callback when state changes */
   onStateChange?: (from: GameState | null, to: GameState) => void;
+  /** Shared input controller */
+  inputController?: InputController;
 }
 
 export class GameStateManager {
@@ -32,33 +35,12 @@ export class GameStateManager {
   private isTransitioning = false;
   private viewport: ViewportConfig;
   private onStateChange?: (from: GameState | null, to: GameState) => void;
-
-  // Input tracking
-  private keysPressed = new Set<string>();
-  private keysHeld = new Set<string>();
-  private keysReleased = new Set<string>();
-  private keyDownHandler: (e: KeyboardEvent) => void;
-  private keyUpHandler: (e: KeyboardEvent) => void;
+  private readonly inputController: InputController;
 
   constructor(config: GameStateManagerConfig) {
     this.viewport = config.viewport ?? DEFAULT_VIEWPORT_CONFIG;
     this.onStateChange = config.onStateChange;
-
-    // Set up input handlers
-    this.keyDownHandler = (e: KeyboardEvent) => {
-      if (!this.keysHeld.has(e.code)) {
-        this.keysPressed.add(e.code);
-      }
-      this.keysHeld.add(e.code);
-    };
-
-    this.keyUpHandler = (e: KeyboardEvent) => {
-      this.keysHeld.delete(e.code);
-      this.keysReleased.add(e.code);
-    };
-
-    window.addEventListener('keydown', this.keyDownHandler);
-    window.addEventListener('keyup', this.keyUpHandler);
+    this.inputController = config.inputController ?? inputController;
   }
 
   /**
@@ -145,16 +127,7 @@ export class GameStateManager {
   update(dt: number, frameCount: number): void {
     if (!this.currentState || this.isTransitioning) return;
 
-    // Build input state
-    const input: InputState = {
-      pressed: new Set(this.keysPressed),
-      held: new Set(this.keysHeld),
-      released: new Set(this.keysReleased),
-    };
-
-    // Clear frame-specific input
-    this.keysPressed.clear();
-    this.keysReleased.clear();
+    const input: InputState = this.inputController.consumeFrameState();
 
     // Let state handle input
     const transition = this.currentState.handleInput(input);
@@ -198,9 +171,6 @@ export class GameStateManager {
    * Cleanup
    */
   dispose(): void {
-    window.removeEventListener('keydown', this.keyDownHandler);
-    window.removeEventListener('keyup', this.keyUpHandler);
-
     if (this.currentState) {
       void this.currentState.exit();
       this.currentState = null;

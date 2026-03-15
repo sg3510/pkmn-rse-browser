@@ -92,6 +92,24 @@ class InputMap {
     return false;
   }
 
+  /** Check if any of the given buttons are repeating this frame. */
+  isRepeated(input: { repeated: Set<string> }, ...buttons: GameButton[]): boolean {
+    for (const button of buttons) {
+      const codes = this.bindings.get(button);
+      if (codes) {
+        for (const code of codes) {
+          if (input.repeated.has(code)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** Check if any button was newly pressed or repeated this frame. */
+  isPressedOrRepeated(input: { pressed: Set<string>; repeated: Set<string> }, ...buttons: GameButton[]): boolean {
+    return this.isPressed(input, ...buttons) || this.isRepeated(input, ...buttons);
+  }
+
   /** Check if any of the given buttons are held (InputState.held). */
   isHeld(input: { held: Set<string> }, ...buttons: GameButton[]): boolean {
     for (const button of buttons) {
@@ -121,6 +139,16 @@ class InputMap {
   /** Get all bound codes (for preventDefault sets). */
   getAllCodes(): Set<string> {
     return new Set(this.reverseMap.keys());
+  }
+
+  /** Check whether a code is bound to any game button. */
+  hasBinding(code: string): boolean {
+    return this.reverseMap.has(code);
+  }
+
+  /** Get all buttons bound to a code. */
+  getButtonsForCode(code: string): GameButton[] {
+    return [...(this.reverseMap.get(code) ?? [])];
   }
 
   /** Get all bound codes for a button. */

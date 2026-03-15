@@ -196,12 +196,12 @@ export class MainMenuState implements StateRenderer {
 
   handleInput(input: InputState): StateTransition | null {
     // Navigate up
-    if (inputMap.isPressed(input, GameButton.UP)) {
+    if (inputMap.isPressedOrRepeated(input, GameButton.UP)) {
       this.selectedIndex = Math.max(0, this.selectedIndex - 1);
     }
 
     // Navigate down
-    if (inputMap.isPressed(input, GameButton.DOWN)) {
+    if (inputMap.isPressedOrRepeated(input, GameButton.DOWN)) {
       this.selectedIndex = Math.min(this.menuOptions.length - 1, this.selectedIndex + 1);
     }
 

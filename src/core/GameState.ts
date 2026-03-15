@@ -6,6 +6,8 @@
  */
 
 import type { ViewportConfig } from '../config/viewport';
+import type { InputState } from './inputTypes';
+export type { InputState } from './inputTypes';
 
 /**
  * All possible game states
@@ -24,18 +26,6 @@ export const GameState = {
 } as const;
 
 export type GameState = typeof GameState[keyof typeof GameState];
-
-/**
- * Input state passed to states for handling
- */
-export interface InputState {
-  /** Keys pressed this frame */
-  pressed: Set<string>;
-  /** Keys currently held */
-  held: Set<string>;
-  /** Keys released this frame */
-  released: Set<string>;
-}
 
 /**
  * Transition request from a state

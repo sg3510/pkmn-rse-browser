@@ -1,6 +1,8 @@
 import type { ViewportConfig } from '../../config/viewport';
+import { HYBRID_MODERN_DEFAULTS } from '../../config/hybridModern.ts';
 
-export type BattlePresentationMode = 'dedicated' | 'overlay';
+export type BattlePresentationMode = 'scene' | 'overlay';
+export type BattlePresentationPreference = 'scene' | 'overlay';
 
 /** GBA native viewport dimensions in tiles (15x10 => 240x160). */
 export const GBA_VIEWPORT_TILES_WIDE = 15;
@@ -17,6 +19,12 @@ export function isBattleOverlayViewport(viewportConfig: ViewportConfig): boolean
   );
 }
 
-export function getBattlePresentationMode(viewportConfig: ViewportConfig): BattlePresentationMode {
-  return isBattleOverlayViewport(viewportConfig) ? 'overlay' : 'dedicated';
+export function getBattlePresentationMode(
+  viewportConfig: ViewportConfig,
+  preference: BattlePresentationPreference = HYBRID_MODERN_DEFAULTS.battlePresentationPreference
+): BattlePresentationMode {
+  if (preference === 'scene') {
+    return 'scene';
+  }
+  return isBattleOverlayViewport(viewportConfig) ? 'overlay' : 'scene';
 }

@@ -25,6 +25,7 @@ import type { ViewportConfig } from '../../config/viewport';
 import { getSpritePriorityForElevation } from '../../utils/elevationPriority';
 import { gameFlags } from '../../game/GameFlags';
 import { gameVariables } from '../../game/GameVariables';
+import { ViewportControls } from './ViewportControls';
 
 const PANEL_WIDTH = 480;
 
@@ -56,6 +57,7 @@ interface DebugPanelProps {
   /** Viewport configuration props */
   viewportConfig?: ViewportConfig;
   onViewportChange?: (config: ViewportConfig) => void;
+  showViewportControls?: boolean;
 }
 
 export const DebugPanel: React.FC<DebugPanelProps> = ({
@@ -78,6 +80,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   mapLoading,
   viewportConfig,
   onViewportChange,
+  showViewportControls = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'general' | 'objects' | 'tile' | 'state' | 'webgl'>(maps ? 'map' : 'general');
@@ -278,6 +281,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               state={state}
               viewportConfig={viewportConfig}
               onViewportChange={onViewportChange}
+              showViewportControls={showViewportControls}
             />
           )}
           {activeTab === 'objects' && diagnosticsEnabled && <ObjectsTab state={state} />}
@@ -482,14 +486,6 @@ const ElevationLegend: React.FC = () => {
   );
 };
 
-// Viewport presets for quick selection
-const VIEWPORT_PRESETS = [
-  { label: 'GBA', tilesWide: 15, tilesHigh: 10 },
-  { label: '20×20', tilesWide: 20, tilesHigh: 20 },
-  { label: '25×18', tilesWide: 25, tilesHigh: 18 },
-  { label: '30×20', tilesWide: 30, tilesHigh: 20 },
-] as const;
-
 // General tab with overlay toggles
 const GeneralTab: React.FC<{
   options: DebugOptions;
@@ -497,95 +493,22 @@ const GeneralTab: React.FC<{
   state: DebugState;
   viewportConfig?: ViewportConfig;
   onViewportChange?: (config: ViewportConfig) => void;
-}> = ({ options, updateOption, state, viewportConfig, onViewportChange }) => (
+  showViewportControls?: boolean;
+}> = ({
+  options,
+  updateOption,
+  state,
+  viewportConfig,
+  onViewportChange,
+  showViewportControls = true,
+}) => (
   <>
-    {/* Viewport Size Controls */}
-    {viewportConfig && onViewportChange && (
+    {showViewportControls && viewportConfig && onViewportChange && (
       <Section title="Viewport Size">
-        {/* Preset buttons */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-          {VIEWPORT_PRESETS.map((preset) => {
-            const isActive = viewportConfig.tilesWide === preset.tilesWide &&
-                            viewportConfig.tilesHigh === preset.tilesHigh;
-            return (
-              <button
-                key={preset.label}
-                onClick={() => onViewportChange({ tilesWide: preset.tilesWide, tilesHigh: preset.tilesHigh })}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  fontFamily: 'monospace',
-                  background: isActive ? '#4a9eff' : '#2f2f2f',
-                  color: isActive ? '#fff' : '#ccc',
-                  border: isActive ? '1px solid #4a9eff' : '1px solid #444',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                }}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
-        </div>
-        {/* Manual inputs */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: '10px', color: '#888' }}>
-            W:
-            <input
-              type="number"
-              min={10}
-              max={50}
-              value={viewportConfig.tilesWide}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 10 && val <= 50) {
-                  onViewportChange({ ...viewportConfig, tilesWide: val });
-                }
-              }}
-              style={{
-                width: 50,
-                marginLeft: 4,
-                padding: '2px 4px',
-                fontSize: '10px',
-                fontFamily: 'monospace',
-                background: '#1a1a2e',
-                color: '#fff',
-                border: '1px solid #333',
-                borderRadius: 3,
-              }}
-            />
-          </label>
-          <label style={{ fontSize: '10px', color: '#888' }}>
-            H:
-            <input
-              type="number"
-              min={10}
-              max={50}
-              value={viewportConfig.tilesHigh}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 10 && val <= 50) {
-                  onViewportChange({ ...viewportConfig, tilesHigh: val });
-                }
-              }}
-              style={{
-                width: 50,
-                marginLeft: 4,
-                padding: '2px 4px',
-                fontSize: '10px',
-                fontFamily: 'monospace',
-                background: '#1a1a2e',
-                color: '#fff',
-                border: '1px solid #333',
-                borderRadius: 3,
-              }}
-            />
-          </label>
-          <span style={{ fontSize: '9px', color: '#666' }}>tiles</span>
-        </div>
-        <div style={{ fontSize: '9px', color: '#666', marginTop: 4 }}>
-          {viewportConfig.tilesWide * 16}×{viewportConfig.tilesHigh * 16}px
-        </div>
+        <ViewportControls
+          config={viewportConfig}
+          onChange={onViewportChange}
+        />
       </Section>
     )}
 

@@ -604,8 +604,8 @@ export class BattleState implements StateRenderer {
       this.promptService.handleInput({
         confirmPressed,
         cancelPressed,
-        upPressed: inputMap.isPressed(input, GameButton.UP),
-        downPressed: inputMap.isPressed(input, GameButton.DOWN),
+        upPressed: inputMap.isPressedOrRepeated(input, GameButton.UP),
+        downPressed: inputMap.isPressedOrRepeated(input, GameButton.DOWN),
       });
       return null;
     }
@@ -635,16 +635,16 @@ export class BattleState implements StateRenderer {
     }
 
     if (this.phase === 'action') {
-      if (inputMap.isPressed(input, GameButton.UP)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.UP)) {
         this.actionIndex = this.actionIndex >= 2 ? this.actionIndex - 2 : this.actionIndex;
       }
-      if (inputMap.isPressed(input, GameButton.DOWN)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.DOWN)) {
         this.actionIndex = this.actionIndex < 2 ? this.actionIndex + 2 : this.actionIndex;
       }
-      if (inputMap.isPressed(input, GameButton.LEFT)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.LEFT)) {
         this.actionIndex = this.actionIndex % 2 === 1 ? this.actionIndex - 1 : this.actionIndex;
       }
-      if (inputMap.isPressed(input, GameButton.RIGHT)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.RIGHT)) {
         this.actionIndex = this.actionIndex % 2 === 0 ? this.actionIndex + 1 : this.actionIndex;
       }
 
@@ -690,17 +690,17 @@ export class BattleState implements StateRenderer {
         return null;
       }
 
-      if (inputMap.isPressed(input, GameButton.UP)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.UP)) {
         this.moveIndex = this.moveIndex >= 2 ? this.moveIndex - 2 : this.moveIndex;
       }
-      if (inputMap.isPressed(input, GameButton.DOWN)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.DOWN)) {
         this.moveIndex = this.moveIndex < 2 && this.moveIndex + 2 < moves.length
           ? this.moveIndex + 2 : this.moveIndex;
       }
-      if (inputMap.isPressed(input, GameButton.LEFT)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.LEFT)) {
         this.moveIndex = this.moveIndex % 2 === 1 ? this.moveIndex - 1 : this.moveIndex;
       }
-      if (inputMap.isPressed(input, GameButton.RIGHT)) {
+      if (inputMap.isPressedOrRepeated(input, GameButton.RIGHT)) {
         this.moveIndex = this.moveIndex % 2 === 0 && this.moveIndex + 1 < moves.length
           ? this.moveIndex + 1 : this.moveIndex;
       }
