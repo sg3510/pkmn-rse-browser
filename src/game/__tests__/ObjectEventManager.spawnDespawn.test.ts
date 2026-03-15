@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ObjectEventManager } from '../ObjectEventManager.ts';
 import { createViewportPolicy, usesExpandedActivation } from '../viewportPolicy.ts';
+import { HYBRID_MODERN_DEFAULTS } from '../../config/hybridModern.ts';
 import type { ObjectEventData } from '../../types/objectEvents.ts';
 import { saveStateStore } from '../../save/SaveStateStore.ts';
 
@@ -183,6 +184,26 @@ test('strict viewport policy keeps simulation on Emerald activation bounds', () 
     0,
     expandedPolicy.renderViewport.tilesWide,
     expandedPolicy.renderViewport.tilesHigh
+  );
+  assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), true);
+});
+
+test('hybrid modern defaults use expanded activation for large camera viewports', () => {
+  resetRuntimeState();
+
+  const manager = createManagerWithNpc(5, 25);
+  const hybridPolicy = createViewportPolicy(
+    { tilesWide: 20, tilesHigh: 30 },
+    { activationMode: HYBRID_MODERN_DEFAULTS.activationMode }
+  );
+
+  assert.equal(usesExpandedActivation(hybridPolicy), true);
+
+  manager.updateObjectEventSpawnDespawnForCamera(
+    0,
+    0,
+    hybridPolicy.renderViewport.tilesWide,
+    hybridPolicy.renderViewport.tilesHigh
   );
   assert.equal(manager.getVisibleNPCs().some((npc) => npc.id === NPC_ID), true);
 });

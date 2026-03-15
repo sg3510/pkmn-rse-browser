@@ -17,7 +17,9 @@ export interface HybridModernDefaults {
 export const HYBRID_MODERN_DEFAULTS: HybridModernDefaults = {
   presentationMode: 'hybrid-modern',
   fidelityMode: 'strict',
-  activationMode: 'emerald',
+  // Hybrid mode uses the real camera viewport for object activation so NPCs
+  // that can actually appear on screen stay spawned on larger layouts.
+  activationMode: 'expanded',
   battlePresentationPreference: 'overlay',
   titlePresentationMode: 'rayquaza-3d',
   touchControlsEnabled: true,

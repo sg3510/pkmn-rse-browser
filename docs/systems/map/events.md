@@ -1,7 +1,7 @@
 ---
 title: Map Events System
 status: reference
-last_verified: 2026-01-13
+last_verified: 2026-03-15
 ---
 
 # Map Events System
@@ -67,6 +67,16 @@ struct MapEvents {
 ## Object Events
 
 NPCs, trainers, items, and other interactive objects.
+
+### Hybrid-Modern Activation
+
+In hybrid-modern gameplay, object-event activation follows the live camera
+viewport rather than Emerald's smaller player-centered spawn box. This keeps
+NPCs, item balls, and other object-event sprites spawned whenever they can
+actually appear on screen in enlarged layouts.
+
+Strict Emerald-sized activation remains available through the viewport policy's
+`activationMode: 'emerald'` path for parity-focused flows and tests.
 
 ### ObjectEventTemplate Structure
 ```c
