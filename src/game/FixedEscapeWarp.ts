@@ -6,6 +6,8 @@
  * - public/pokeemerald/src/overworld.c (SetEscapeWarp, SetWarpDestinationToEscapeWarp)
  */
 
+import { WARP_ID_NONE } from './warpConstants.ts';
+
 export interface FixedEscapeWarpTarget {
   mapId: string;
   warpId: number;
@@ -19,7 +21,7 @@ export function setFixedEscapeWarpTarget(
   mapId: string,
   x: number,
   y: number,
-  warpId: number = 0
+  warpId: number = WARP_ID_NONE
 ): void {
   fixedEscapeWarpTarget = { mapId, warpId, x, y };
 }

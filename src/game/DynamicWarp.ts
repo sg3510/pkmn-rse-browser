@@ -6,6 +6,8 @@
  * - public/pokeemerald/data/maps/InsideOfTruck/scripts.inc
  */
 
+import { WARP_ID_NONE } from './warpConstants.ts';
+
 export interface DynamicWarpTarget {
   mapId: string;
   warpId: number;
@@ -15,7 +17,7 @@ export interface DynamicWarpTarget {
 
 let dynamicWarpTarget: DynamicWarpTarget | null = null;
 
-export function setDynamicWarpTarget(mapId: string, x: number, y: number, warpId: number = 0): void {
+export function setDynamicWarpTarget(mapId: string, x: number, y: number, warpId: number = WARP_ID_NONE): void {
   dynamicWarpTarget = {
     mapId,
     warpId,

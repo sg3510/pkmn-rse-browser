@@ -12,6 +12,12 @@ const VIEWPORT_PRESETS = [
   { label: '30x20', tilesWide: 30, tilesHigh: 20 },
 ] as const;
 
+function getMatchingViewportPreset(config: ViewportConfig): (typeof VIEWPORT_PRESETS)[number] | null {
+  return VIEWPORT_PRESETS.find(
+    (preset) => preset.tilesWide === config.tilesWide && preset.tilesHigh === config.tilesHigh
+  ) ?? null;
+}
+
 function clampViewportTiles(value: number): number {
   return Math.max(MIN_VIEWPORT_TILES, Math.min(MAX_VIEWPORT_TILES, Math.trunc(value)));
 }
@@ -20,11 +26,17 @@ function isViewportDraft(value: string): boolean {
   return value === '' || /^[0-9]+$/.test(value);
 }
 
+function parseViewportDraft(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export const ViewportControls: React.FC<{
   config: ViewportConfig;
   onChange: (config: ViewportConfig) => void;
-  variant?: 'panel' | 'toolbar';
+  variant?: 'panel' | 'toolbar' | 'embedded';
 }> = ({ config, onChange, variant = 'panel' }) => {
+  const [customMode, setCustomMode] = useState(() => getMatchingViewportPreset(config) === null);
   const [widthDraft, setWidthDraft] = useState(() => String(config.tilesWide));
   const [heightDraft, setHeightDraft] = useState(() => String(config.tilesHigh));
 
@@ -36,6 +48,12 @@ export const ViewportControls: React.FC<{
     setHeightDraft(String(config.tilesHigh));
   }, [config.tilesHigh]);
 
+  useEffect(() => {
+    if (getMatchingViewportPreset(config) === null) {
+      setCustomMode(true);
+    }
+  }, [config.tilesHigh, config.tilesWide]);
+
   const applyViewportUpdate = useCallback((next: Partial<ViewportConfig>) => {
     onChange({
       ...config,
@@ -43,9 +61,27 @@ export const ViewportControls: React.FC<{
     });
   }, [config, onChange]);
 
+  const updateWidthDraft = useCallback((value: string) => {
+    if (!isViewportDraft(value)) return;
+    setWidthDraft(value);
+    const parsed = parseViewportDraft(value);
+    if (parsed !== null && parsed >= MIN_VIEWPORT_TILES && parsed <= MAX_VIEWPORT_TILES) {
+      applyViewportUpdate({ tilesWide: parsed });
+    }
+  }, [applyViewportUpdate]);
+
+  const updateHeightDraft = useCallback((value: string) => {
+    if (!isViewportDraft(value)) return;
+    setHeightDraft(value);
+    const parsed = parseViewportDraft(value);
+    if (parsed !== null && parsed >= MIN_VIEWPORT_TILES && parsed <= MAX_VIEWPORT_TILES) {
+      applyViewportUpdate({ tilesHigh: parsed });
+    }
+  }, [applyViewportUpdate]);
+
   const commitWidthDraft = useCallback(() => {
-    const parsed = Number.parseInt(widthDraft, 10);
-    if (Number.isFinite(parsed)) {
+    const parsed = parseViewportDraft(widthDraft);
+    if (parsed !== null) {
       applyViewportUpdate({ tilesWide: clampViewportTiles(parsed) });
       return;
     }
@@ -53,8 +89,8 @@ export const ViewportControls: React.FC<{
   }, [applyViewportUpdate, config.tilesWide, widthDraft]);
 
   const commitHeightDraft = useCallback(() => {
-    const parsed = Number.parseInt(heightDraft, 10);
-    if (Number.isFinite(parsed)) {
+    const parsed = parseViewportDraft(heightDraft);
+    if (parsed !== null) {
       applyViewportUpdate({ tilesHigh: clampViewportTiles(parsed) });
       return;
     }
@@ -78,6 +114,10 @@ export const ViewportControls: React.FC<{
   }, []);
 
   const isToolbar = variant === 'toolbar';
+  const isEmbedded = variant === 'embedded';
+  const showHeading = isToolbar || isEmbedded;
+  const matchingPreset = getMatchingViewportPreset(config);
+  const customActive = customMode || matchingPreset === null;
   const tileSummary = `${config.tilesWide}x${config.tilesHigh} tiles`;
   const pixelSummary = `${config.tilesWide * 16}x${config.tilesHigh * 16}px`;
   const containerStyle: CSSProperties = {
@@ -85,15 +125,15 @@ export const ViewportControls: React.FC<{
     flexDirection: 'column',
     gap: 10,
     minWidth: 0,
-    width: isToolbar ? 'min(100%, 380px)' : undefined,
-    maxWidth: isToolbar ? '100%' : undefined,
+    width: isToolbar || isEmbedded ? 'min(100%, 380px)' : '100%',
+    maxWidth: '100%',
     padding: isToolbar ? '0.7rem 0.8rem' : 0,
     background: isToolbar ? '#0f131c' : 'transparent',
     border: isToolbar ? '1px solid #242a38' : 'none',
     borderRadius: isToolbar ? 8 : 0,
   };
   const headingStyle: CSSProperties = {
-    fontSize: isToolbar ? 11 : 10,
+    fontSize: showHeading ? 11 : 10,
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
@@ -145,19 +185,23 @@ export const ViewportControls: React.FC<{
 
   return (
     <div style={containerStyle}>
-      {isToolbar && <div style={headingStyle}>Viewport</div>}
+      {showHeading && <div style={headingStyle}>Viewport</div>}
 
       <div style={rowStyle}>
         <span style={labelStyle}>Snap</span>
         <div style={presetWrapStyle}>
           {VIEWPORT_PRESETS.map((preset) => {
-            const isActive = config.tilesWide === preset.tilesWide
-              && config.tilesHigh === preset.tilesHigh;
+            const isActive = !customActive
+              && matchingPreset?.tilesWide === preset.tilesWide
+              && matchingPreset.tilesHigh === preset.tilesHigh;
 
             return (
               <button
                 key={preset.label}
-                onClick={() => onChange({ tilesWide: preset.tilesWide, tilesHigh: preset.tilesHigh })}
+                onClick={() => {
+                  setCustomMode(false);
+                  onChange({ tilesWide: preset.tilesWide, tilesHigh: preset.tilesHigh });
+                }}
                 style={{
                   padding: '4px 8px',
                   fontSize: 10,
@@ -173,64 +217,79 @@ export const ViewportControls: React.FC<{
               </button>
             );
           })}
+          <button
+            onClick={() => setCustomMode(true)}
+            style={{
+              padding: '4px 8px',
+              fontSize: 10,
+              fontFamily: 'monospace',
+              background: customActive ? '#4a90d9' : '#192234',
+              color: customActive ? '#fff' : '#c8d6f2',
+              border: customActive ? '1px solid #4a90d9' : '1px solid #2d3646',
+              borderRadius: 4,
+              cursor: 'pointer',
+            }}
+          >
+            Custom
+          </button>
         </div>
       </div>
 
-      <div style={rowStyle}>
-        <span style={labelStyle}>Custom</span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-          <div style={inputWrapStyle}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#cdd7f1' }}>
-              <span>W</span>
-              <input
-                aria-label="Viewport width in tiles"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={widthDraft}
-                onChange={(event) => {
-                  if (isViewportDraft(event.target.value)) {
-                    setWidthDraft(event.target.value);
-                  }
-                }}
-                onBlur={commitWidthDraft}
-                onKeyDown={(event) => handleDraftKeyDown(
-                  event,
-                  commitWidthDraft,
-                  () => setWidthDraft(String(config.tilesWide)),
-                )}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#cdd7f1' }}>
-              <span>H</span>
-              <input
-                aria-label="Viewport height in tiles"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={heightDraft}
-                onChange={(event) => {
-                  if (isViewportDraft(event.target.value)) {
-                    setHeightDraft(event.target.value);
-                  }
-                }}
-                onBlur={commitHeightDraft}
-                onKeyDown={(event) => handleDraftKeyDown(
-                  event,
-                  commitHeightDraft,
-                  () => setHeightDraft(String(config.tilesHigh)),
-                )}
-                style={inputStyle}
-              />
-            </label>
-            <span style={metaStyle}>
-              {MIN_VIEWPORT_TILES}-{MAX_VIEWPORT_TILES} tiles
-            </span>
-          </div>
-          <div style={metaStyle}>
-            {tileSummary} · {pixelSummary}
+      {customActive && (
+        <div style={rowStyle}>
+          <span style={labelStyle}>Custom</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+            <div style={inputWrapStyle}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#cdd7f1' }}>
+                <span>W</span>
+                <input
+                  type="number"
+                  aria-label="Viewport width in tiles"
+                  min={MIN_VIEWPORT_TILES}
+                  max={MAX_VIEWPORT_TILES}
+                  step={1}
+                  inputMode="numeric"
+                  value={widthDraft}
+                  onChange={(event) => updateWidthDraft(event.target.value)}
+                  onBlur={commitWidthDraft}
+                  onKeyDown={(event) => handleDraftKeyDown(
+                    event,
+                    commitWidthDraft,
+                    () => setWidthDraft(String(config.tilesWide)),
+                  )}
+                  style={inputStyle}
+                />
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#cdd7f1' }}>
+                <span>H</span>
+                <input
+                  type="number"
+                  aria-label="Viewport height in tiles"
+                  min={MIN_VIEWPORT_TILES}
+                  max={MAX_VIEWPORT_TILES}
+                  step={1}
+                  inputMode="numeric"
+                  value={heightDraft}
+                  onChange={(event) => updateHeightDraft(event.target.value)}
+                  onBlur={commitHeightDraft}
+                  onKeyDown={(event) => handleDraftKeyDown(
+                    event,
+                    commitHeightDraft,
+                    () => setHeightDraft(String(config.tilesHigh)),
+                  )}
+                  style={inputStyle}
+                />
+              </label>
+              <span style={metaStyle}>
+                {MIN_VIEWPORT_TILES}-{MAX_VIEWPORT_TILES} tiles
+              </span>
+            </div>
+            <div style={metaStyle}>
+              {tileSummary} · {pixelSummary}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

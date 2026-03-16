@@ -155,7 +155,6 @@ import { useHandledStoryScript } from './gamePage/useHandledStoryScript';
 import { setMapMetatileInSnapshot, createMetatileUpdater } from '../game/overworld/metatile/mapMetatileUtils';
 import type { InputUnlockGuards } from '../game/overworld/inputLock/scheduleInputUnlock';
 import { tryUnlockInput } from '../game/overworld/inputLock/scriptWarpInputGuard';
-import { applyTruckOnLoadMetatileCompatibility } from '../game/overworld/load/storyCompatibility';
 import { createNPCMovementProviders } from './gamePage/npcMovementProviders';
 import { useDebugTileGrid } from './gamePage/useDebugTileGrid';
 import { createScriptRuntimeServices } from '../scripting/runtime/createScriptRuntimeServices';
@@ -183,8 +182,10 @@ import { executeSeamTransitionScripts } from '../game/overworld/seam/seamTransit
 import { createActionCallbacks } from './gamePage/actionCallbacks';
 import {
   applyTruckSequenceFrame,
+  bootstrapTruckSequence,
   createTruckSequenceRuntime,
   isTruckSequenceLocked,
+  shouldRunTruckSequenceForMap,
   syncTruckSequenceRuntime,
 } from '../game/TruckSequenceRunner';
 import { isTrainerDefeated } from '../scripting/trainerFlags.ts';
@@ -1435,11 +1436,17 @@ function GamePageContent({
     mapEntryCutsceneGateRef,
   }), []);
 
-  const applyTruckOnLoadMetatileCompatibilityLocal = useCallback((): void => {
-    const changed = applyTruckOnLoadMetatileCompatibility(worldSnapshotRef.current, setMapMetatileLocal);
-    if (changed) {
-      pipelineRef.current?.invalidate();
-    }
+  const bootstrapTruckSequenceAfterMapEntryLocal = useCallback((snapshot: WorldSnapshot | null, currentMapId?: string): void => {
+    const introState = gameVariables.getVar(GAME_VARS.VAR_LITTLEROOT_INTRO_STATE);
+    bootstrapTruckSequence({
+      runtime: truckRuntimeRef.current,
+      shouldRun: shouldRunTruckSequenceForMap(currentMapId ?? snapshot?.anchorMapId, introState),
+      gbaFrame: gbaFrameRef.current,
+      setMapMetatileLocal,
+      invalidateMap: () => {
+        pipelineRef.current?.invalidate();
+      },
+    });
   }, [setMapMetatileLocal]);
 
   const buildLocationStateFromPlayer = useCallback((player: PlayerController, mapId: string): LocationState => {
@@ -1793,13 +1800,11 @@ function GamePageContent({
 
     // Load object events (NPCs, items) and upload sprites to WebGL
     await loadObjectEventsFromSnapshot(snapshot);
-    applyTruckOnLoadMetatileCompatibilityLocal();
   }, [
     buildTilesetRuntimesFromSnapshot,
     createSnapshotTileResolver,
     uploadTilesetsFromSnapshot,
     loadObjectEventsFromSnapshot,
-    applyTruckOnLoadMetatileCompatibilityLocal,
     pruneLocalMapScriptCache,
   ]);
 
@@ -1916,6 +1921,9 @@ function GamePageContent({
       onMapChanged: (mapId: string) => {
         setDisplayMapId(mapId);
       },
+      afterMapEntryScripts: (snapshot, currentMapId) => {
+        bootstrapTruckSequenceAfterMapEntryLocal(snapshot, currentMapId);
+      },
     });
   }, [
     initializeWorldFromSnapshot,
@@ -1929,6 +1937,7 @@ function GamePageContent({
     setDefaultFlashLevel,
     setFlashLevel,
     animateFlashLevel,
+    bootstrapTruckSequenceAfterMapEntryLocal,
   ]);
 
   // Initialize WebGL pipeline and player once
@@ -2172,10 +2181,7 @@ function GamePageContent({
           : undefined;
         const fallbackMapId = worldSnapshotRef.current?.anchorMapId;
         const activeMapId = playerMapId ?? fallbackMapId;
-        const shouldRunTruckSequence =
-          activeMapId === 'MAP_INSIDE_OF_TRUCK'
-          && introState >= 0
-          && introState <= 2;
+        const shouldRunTruckSequence = shouldRunTruckSequenceForMap(activeMapId, introState);
         syncTruckSequenceRuntime(truckRuntimeRef.current, shouldRunTruckSequence, gbaFrameRef.current);
       }
 
@@ -2828,6 +2834,9 @@ function GamePageContent({
       setDefaultFlashLevel,
       setFlashLevel,
       animateFlashLevel,
+      afterMapEntryScripts: (snapshot, currentMapId) => {
+        bootstrapTruckSequenceAfterMapEntryLocal(snapshot, currentMapId);
+      },
     });
   }, [
     selectedMap,
@@ -2846,6 +2855,7 @@ function GamePageContent({
     setDefaultFlashLevel,
     setFlashLevel,
     animateFlashLevel,
+    bootstrapTruckSequenceAfterMapEntryLocal,
   ]);
 
   // Update camera controller when viewport config changes
@@ -3050,7 +3060,7 @@ function GamePageContent({
         <h1>Pkmn RSE Browser</h1>
         <div className="header-buttons">
           <button
-            className="menu-button"
+            className="header-btn header-btn--blue"
             onClick={() => {
               const player = playerRef.current;
               const truckLocked = isTruckSequenceLocked(truckRuntimeRef.current);
@@ -3091,107 +3101,110 @@ function GamePageContent({
       {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
 
       <div className="map-card">
+        <div
+          className="map-intro"
+          style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
+        >
+          <div className="map-intro__links">
+            <a
+              className="map-intro__link"
+              href="https://sebgrubb.com/blog/pokemon-rse-browser"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              How I made this
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+                <path
+                  fill="currentColor"
+                  d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"
+                />
+              </svg>
+            </a>
+            <a
+              className="map-intro__link"
+              href="https://github.com/sg3510/pkmn-rse-browser"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open repository: sg3510/pkmn-rse-browser"
+            >
+              GitHub repo
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+                <path
+                  fill="currentColor"
+                  d="M12 0.3C5.4 0.3 0 5.7 0 12.4c0 5.3 3.4 9.8 8.2 11.4 0.6 0.1 0.8-0.2 0.8-0.6
+                     0-0.3 0-1.1 0-2.2-3.4 0.8-4.1-1.5-4.1-1.5-0.6-1.4-1.3-1.8-1.3-1.8-1.1-0.8 0.1-0.8 0.1-0.8
+                     1.2 0.1 1.9 1.3 1.9 1.3 1.1 1.9 2.8 1.3 3.5 1 0.1-0.8 0.4-1.3 0.7-1.6-2.7-0.3-5.6-1.4-5.6-6
+                     0-1.3 0.5-2.4 1.2-3.3-0.1-0.3-0.5-1.5 0.1-3.1 0 0 1-0.3 3.3 1.2a11.5 11.5 0 0 1 6 0
+                     c2.3-1.5 3.3-1.2 3.3-1.2 0.6 1.6 0.2 2.8 0.1 3.1 0.8 0.9 1.2 2 1.2 3.3 0 4.7-2.9 5.7-5.7 6
+                     0.5 0.4 0.8 1.1 0.8 2.3 0 1.6 0 2.9 0 3.3 0 0.3 0.2 0.7 0.8 0.6 4.8-1.6 8.2-6.1 8.2-11.4
+                     C24 5.7 18.6 0.3 12 0.3z"
+                />
+              </svg>
+            </a>
+          </div>
+          <p className="map-intro__copy">
+            This is a port of the Pokemon Emerald game engine from C code to TypeScript with a few modernizations like more viewport support.
+          </p>
+        </div>
         <div className="map-canvas-wrapper">
           {viewportStack}
         </div>
         <div className="map-stats">
-          <div className="map-toolbar">
-            <div className="map-toolbar__left">
-              <div className="map-toolbar__zoom-row">
-                <span className="map-toolbar__label">Zoom</span>
-                <div className="map-toolbar__zoom-buttons">
-                  {[1, 2, 3].map((z) => (
-                    <button
-                      key={z}
-                      onClick={() => onZoomChange(z)}
-                      style={{
-                        padding: '2px 8px',
-                        fontSize: 11,
-                        background: selectedZoom === z ? '#4a90d9' : '#2a3a4a',
-                        color: selectedZoom === z ? '#fff' : '#9fb0cc',
-                        border: 'none',
-                        borderRadius: 3,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {z}x
-                    </button>
-                  ))}
+          <div
+            className="map-toolbar"
+            style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
+          >
+            <div className="map-toolbar__controls-card">
+              <div className="map-toolbar__controls-row">
+                <div className="map-toolbar__zoom-panel">
+                  <span className="map-toolbar__label">Zoom</span>
+                  <div className="map-toolbar__zoom-buttons">
+                    {[1, 2, 3].map((z) => (
+                      <button
+                        key={z}
+                        onClick={() => onZoomChange(z)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: 11,
+                          background: selectedZoom === z ? '#4a90d9' : '#2a3a4a',
+                          color: selectedZoom === z ? '#fff' : '#9fb0cc',
+                          border: 'none',
+                          borderRadius: 3,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {z}x
+                      </button>
+                    ))}
+                  </div>
+                  {autoFitZoomActive && (
+                    <span className="map-toolbar__auto-fit">Auto-fit: {zoom.toFixed(2)}x</span>
+                  )}
                 </div>
-                {autoFitZoomActive && (
-                  <span className="map-toolbar__auto-fit">Auto-fit: {zoom.toFixed(2)}x</span>
+                {onViewportChange && (
+                  <div className="map-toolbar__viewport-panel">
+                    <ViewportControls
+                      config={viewportConfig}
+                      onChange={onViewportChange}
+                      variant="embedded"
+                    />
+                  </div>
                 )}
               </div>
-              <div className="map-toolbar__hints">
-                <span className="map-toolbar__hint"><kbd>Z</kbd> Run</span>
-                <span className="map-toolbar__hint"><kbd>X</kbd> Interact</span>
-                <span className="map-toolbar__hint"><kbd>`</kbd> Debug Panel</span>
+              <div className="map-toolbar__hints-section">
+                <span className="map-toolbar__hints-heading">Controls &amp; Mapping</span>
+                <div className="map-toolbar__hints">
+                  <span className="map-toolbar__hint"><kbd>Arrows</kbd><span>/</span><kbd>WASD</kbd> Move</span>
+                  <span className="map-toolbar__hint"><kbd>X</kbd><span>/</span><kbd>Enter</kbd><span>/</span><kbd>Space</kbd> A: Talk / Confirm</span>
+                  <span className="map-toolbar__hint"><kbd>Z</kbd><span>/</span><kbd>Esc</kbd> B: Hold to Run / Cancel</span>
+                  <span className="map-toolbar__hint"><kbd>Backspace</kbd> Start: Menu</span>
+                  <span className="map-toolbar__hint"><kbd>Shift</kbd><span>/</span><kbd>C</kbd> Select: Registered Item</span>
+                </div>
               </div>
             </div>
-            {onViewportChange && (
-              <div className="map-toolbar__right">
-                <ViewportControls
-                  config={viewportConfig}
-                  onChange={onViewportChange}
-                  variant="toolbar"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
-
-      <footer
-        className="game-footer"
-        style={{ width: viewportDisplayWidth, maxWidth: '100%' }}
-      >
-        <p>
-          Pokemon Emerald TS is a fun side-project to be able to re-run the gba game from{' '}
-          <a
-            className="game-footer-gh-link"
-            href="https://github.com/pret/pokeemerald"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            pret/pokeemerald
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
-              <path
-                fill="currentColor"
-                d="M12 0.3C5.4 0.3 0 5.7 0 12.4c0 5.3 3.4 9.8 8.2 11.4 0.6 0.1 0.8-0.2 0.8-0.6
-                   0-0.3 0-1.1 0-2.2-3.4 0.8-4.1-1.5-4.1-1.5-0.6-1.4-1.3-1.8-1.3-1.8-1.1-0.8 0.1-0.8 0.1-0.8
-                   1.2 0.1 1.9 1.3 1.9 1.3 1.1 1.9 2.8 1.3 3.5 1 0.1-0.8 0.4-1.3 0.7-1.6-2.7-0.3-5.6-1.4-5.6-6
-                   0-1.3 0.5-2.4 1.2-3.3-0.1-0.3-0.5-1.5 0.1-3.1 0 0 1-0.3 3.3 1.2a11.5 11.5 0 0 1 6 0
-                   c2.3-1.5 3.3-1.2 3.3-1.2 0.6 1.6 0.2 2.8 0.1 3.1 0.8 0.9 1.2 2 1.2 3.3 0 4.7-2.9 5.7-5.7 6
-                   0.5 0.4 0.8 1.1 0.8 2.3 0 1.6 0 2.9 0 3.3 0 0.3 0.2 0.7 0.8 0.6 4.8-1.6 8.2-6.1 8.2-11.4
-                   C24 5.7 18.6 0.3 12 0.3z"
-              />
-            </svg>
-          </a>
-          {' '}decompile in typescript - with added features like viewport change to be able to play it on a much bigger
-          screen that was possible on GBA! There is still a lot to do like battle system!
-        </p>
-        <a
-          className="game-footer-repo-link game-footer-gh-link"
-          href="https://github.com/sg3510/pkmn-rse-browser"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open repository: sg3510/pkmn-rse-browser"
-        >
-          Repo: sg3510/pkmn-rse-browser
-          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
-            <path
-              fill="currentColor"
-              d="M12 0.3C5.4 0.3 0 5.7 0 12.4c0 5.3 3.4 9.8 8.2 11.4 0.6 0.1 0.8-0.2 0.8-0.6
-                 0-0.3 0-1.1 0-2.2-3.4 0.8-4.1-1.5-4.1-1.5-0.6-1.4-1.3-1.8-1.3-1.8-1.1-0.8 0.1-0.8 0.1-0.8
-                 1.2 0.1 1.9 1.3 1.9 1.3 1.1 1.9 2.8 1.3 3.5 1 0.1-0.8 0.4-1.3 0.7-1.6-2.7-0.3-5.6-1.4-5.6-6
-                 0-1.3 0.5-2.4 1.2-3.3-0.1-0.3-0.5-1.5 0.1-3.1 0 0 1-0.3 3.3 1.2a11.5 11.5 0 0 1 6 0
-                 c2.3-1.5 3.3-1.2 3.3-1.2 0.6 1.6 0.2 2.8 0.1 3.1 0.8 0.9 1.2 2 1.2 3.3 0 4.7-2.9 5.7-5.7 6
-                 0.5 0.4 0.8 1.1 0.8 2.3 0 1.6 0 2.9 0 3.3 0 0.3 0.2 0.7 0.8 0.6 4.8-1.6 8.2-6.1 8.2-11.4
-                 C24 5.7 18.6 0.3 12 0.3z"
-            />
-          </svg>
-        </a>
-      </footer>
 
       {/* Debug Panel - slide-out sidebar with map selection and WebGL tab */}
       <DebugPanel

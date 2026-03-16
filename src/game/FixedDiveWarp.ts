@@ -6,6 +6,8 @@
  * - public/pokeemerald/src/overworld.c (SetFixedDiveWarp, SetDiveWarp)
  */
 
+import { WARP_ID_NONE } from './warpConstants.ts';
+
 export interface FixedDiveWarpTarget {
   mapId: string;
   warpId: number;
@@ -19,7 +21,7 @@ export function setFixedDiveWarpTarget(
   mapId: string,
   x: number,
   y: number,
-  warpId: number = 0
+  warpId: number = WARP_ID_NONE
 ): void {
   fixedDiveWarpTarget = { mapId, warpId, x, y };
 }

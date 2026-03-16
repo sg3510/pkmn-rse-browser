@@ -22,6 +22,7 @@ const MAP_INSIDE_OF_TRUCK = 'MAP_INSIDE_OF_TRUCK';
 const LOCALID_TRUCK_BOX_TOP = 'LOCALID_TRUCK_BOX_TOP';
 const LOCALID_TRUCK_BOX_BOTTOM_L = 'LOCALID_TRUCK_BOX_BOTTOM_L';
 const LOCALID_TRUCK_BOX_BOTTOM_R = 'LOCALID_TRUCK_BOX_BOTTOM_R';
+type SetMapMetatileLocal = (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
 
 function createTruckOutput(
   complete: boolean,
@@ -65,6 +66,13 @@ export function isTruckSequenceLocked(runtime: TruckSequenceRuntime): boolean {
   return runtime.sequence !== null && !runtime.sequence.isComplete();
 }
 
+export function shouldRunTruckSequenceForMap(
+  activeMapId: string | undefined,
+  introState: number
+): boolean {
+  return activeMapId === MAP_INSIDE_OF_TRUCK && introState >= 0 && introState <= 2;
+}
+
 export function syncTruckSequenceRuntime(
   runtime: TruckSequenceRuntime,
   shouldRun: boolean,
@@ -89,7 +97,7 @@ export function syncTruckSequenceRuntime(
 }
 
 function setDoorClosed(
-  setMapMetatileLocal: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean
+  setMapMetatileLocal: SetMapMetatileLocal
 ): boolean {
   let changed = false;
   changed = setMapMetatileLocal(MAP_INSIDE_OF_TRUCK, 4, 1, METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP) || changed;
@@ -99,12 +107,45 @@ function setDoorClosed(
 }
 
 function setDoorOpened(
-  setMapMetatileLocal: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean
+  setMapMetatileLocal: SetMapMetatileLocal
 ): boolean {
   let changed = false;
   changed = setMapMetatileLocal(MAP_INSIDE_OF_TRUCK, 4, 1, METATILE_INSIDE_TRUCK_EXIT_LIGHT_TOP) || changed;
   changed = setMapMetatileLocal(MAP_INSIDE_OF_TRUCK, 4, 2, METATILE_INSIDE_TRUCK_EXIT_LIGHT_MID) || changed;
   changed = setMapMetatileLocal(MAP_INSIDE_OF_TRUCK, 4, 3, METATILE_INSIDE_TRUCK_EXIT_LIGHT_BOTTOM) || changed;
+  return changed;
+}
+
+export interface BootstrapTruckSequenceParams {
+  runtime: TruckSequenceRuntime;
+  shouldRun: boolean;
+  gbaFrame: number;
+  setMapMetatileLocal: SetMapMetatileLocal;
+  invalidateMap: () => void;
+}
+
+export function bootstrapTruckSequence(params: BootstrapTruckSequenceParams): boolean {
+  const {
+    runtime,
+    shouldRun,
+    gbaFrame,
+    setMapMetatileLocal,
+    invalidateMap,
+  } = params;
+
+  syncTruckSequenceRuntime(runtime, shouldRun, gbaFrame);
+
+  if (!shouldRun || runtime.sequence === null || runtime.doorClosedApplied) {
+    return false;
+  }
+
+  runtime.doorClosedApplied = true;
+  runtime.doorOpenedApplied = false;
+
+  const changed = setDoorClosed(setMapMetatileLocal);
+  if (changed) {
+    invalidateMap();
+  }
   return changed;
 }
 
@@ -136,7 +177,7 @@ export interface ApplyTruckSequenceFrameParams {
   view: WorldCameraView;
   camera?: CameraController | null;
   objectEventManager: ObjectEventManager;
-  setMapMetatileLocal: (mapId: string, tileX: number, tileY: number, metatileId: number) => boolean;
+  setMapMetatileLocal: SetMapMetatileLocal;
   invalidateMap: () => void;
 }
 
@@ -152,13 +193,6 @@ export function applyTruckSequenceFrame(params: ApplyTruckSequenceFrameParams): 
 
   if (!runtime.sequence) {
     return;
-  }
-
-  if (!runtime.doorClosedApplied) {
-    runtime.doorClosedApplied = true;
-    if (setDoorClosed(setMapMetatileLocal)) {
-      invalidateMap();
-    }
   }
 
   const frameDelta = gbaFrame - runtime.lastGbaFrame;

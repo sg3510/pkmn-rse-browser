@@ -85,6 +85,7 @@ import {
   trainerHillStartChallenge,
   trainerHillIsTrainerDefeated,
 } from '../game/trainerHillRuntime.ts';
+import { WARP_ID_NONE } from '../game/warpConstants.ts';
 import {
   BERRY_STAGE_CONSTANTS,
   BERRY_TREE_CONSTANTS,
@@ -379,6 +380,30 @@ function asNumber(val: string | number): number {
 
 function asString(val: string | number): string {
   return String(val);
+}
+
+interface ParsedFormatWarpArgs {
+  mapId: string;
+  warpId: number;
+  x: number;
+  y: number;
+}
+
+function parseFormatWarpArgs(args: ReadonlyArray<string | number>): ParsedFormatWarpArgs {
+  const rawMapId = args[0];
+  const mapId = rawMapId === undefined ? '' : asString(rawMapId);
+
+  // C parity: public/pokeemerald/asm/macros/event.inc formatwarp
+  if (args.length <= 1) {
+    return { mapId, warpId: WARP_ID_NONE, x: -1, y: -1 };
+  }
+  if (args.length === 2) {
+    return { mapId, warpId: asNumber(args[1]), x: -1, y: -1 };
+  }
+  if (args.length === 3) {
+    return { mapId, warpId: WARP_ID_NONE, x: asNumber(args[1]), y: asNumber(args[2]) };
+  }
+  return { mapId, warpId: asNumber(args[1]), x: asNumber(args[2]), y: asNumber(args[3]) };
 }
 
 /**
@@ -2003,11 +2028,7 @@ export class ScriptRunner {
         }
 
         case 'setdynamicwarp': {
-          const mapId = args[0] as string;
-          const hasExplicitWarpId = args.length > 3;
-          const warpId = hasExplicitWarpId ? asNumber(args[1]) : 0;
-          const x = hasExplicitWarpId ? asNumber(args[2]) : asNumber(args[1]);
-          const y = hasExplicitWarpId ? asNumber(args[3]) : asNumber(args[2]);
+          const { mapId, warpId, x, y } = parseFormatWarpArgs(args);
           setDynamicWarpTarget(mapId, x, y, warpId);
           break;
         }
@@ -2021,11 +2042,8 @@ export class ScriptRunner {
         }
 
         case 'setdivewarp': {
-          const mapId = asString(args[0]);
+          const { mapId, warpId, x, y } = parseFormatWarpArgs(args);
           if (mapId && mapId !== 'MAP_UNDEFINED') {
-            const x = asNumber(args[1]);
-            const y = asNumber(args[2]);
-            const warpId = args.length > 3 ? asNumber(args[3]) : 0;
             const setDiveWarp = this.services.setDiveWarp
               ?? ((targetMapId: string, targetX: number, targetY: number, targetWarpId: number) => {
                 setFixedDiveWarpTarget(targetMapId, targetX, targetY, targetWarpId);
@@ -2036,15 +2054,8 @@ export class ScriptRunner {
         }
 
         case 'setescapewarp': {
-          const mapId = asString(args[0]);
+          const { mapId, warpId, x, y } = parseFormatWarpArgs(args);
           if (mapId && mapId !== 'MAP_UNDEFINED') {
-            // formatwarp parity:
-            // - setescapewarp MAP, x, y
-            // - setescapewarp MAP, warpId, x, y
-            const hasExplicitWarpId = args.length > 3;
-            const warpId = hasExplicitWarpId ? asNumber(args[1]) : 0;
-            const x = hasExplicitWarpId ? asNumber(args[2]) : asNumber(args[1]);
-            const y = hasExplicitWarpId ? asNumber(args[3]) : asNumber(args[2]);
             setFixedEscapeWarpTarget(mapId, x, y, warpId);
           }
           break;

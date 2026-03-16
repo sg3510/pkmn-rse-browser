@@ -105,6 +105,7 @@ export interface LoadSelectedOverworldMapParams {
   setDefaultFlashLevel?: (input: { mapRequiresFlash: boolean; hasFlashFlag: boolean }) => void;
   setFlashLevel?: (level: number) => void;
   animateFlashLevel?: (level: number) => Promise<void>;
+  afterMapEntryScripts?: (snapshot: WorldSnapshot, currentMapId: string) => void;
 }
 
 export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams): () => void {
@@ -150,6 +151,7 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
     setDefaultFlashLevel,
     setFlashLevel,
     animateFlashLevel,
+    afterMapEntryScripts,
   } = params;
 
   let cancelled = false;
@@ -370,6 +372,8 @@ export function loadSelectedOverworldMap(params: LoadSelectedOverworldMapParams)
           setFlashLevel,
           animateFlashLevel,
         });
+
+        afterMapEntryScripts?.(snapshot, playerMapId);
 
         // Map-entry scripts may swap layout variants (setmaplayoutindex), which can
         // change the destination tile from water to land (or vice versa).

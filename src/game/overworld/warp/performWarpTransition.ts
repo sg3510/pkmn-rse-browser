@@ -60,6 +60,7 @@ export interface PerformWarpTransitionParams {
   animateFlashLevel?: (level: number) => Promise<void>;
   /** Called after a warp completes with the new anchor map ID */
   onMapChanged?: (mapId: string) => void;
+  afterMapEntryScripts?: (snapshot: WorldSnapshot, currentMapId: string) => void;
 }
 
 export interface PerformWarpTransitionResult {
@@ -103,6 +104,7 @@ export async function performWarpTransition(
     setFlashLevel,
     animateFlashLevel,
     onMapChanged,
+    afterMapEntryScripts,
   } = params;
 
   if (!worldManager || !player || !pipeline) {
@@ -325,6 +327,8 @@ export async function performWarpTransition(
       setFlashLevel,
       animateFlashLevel,
     });
+
+    afterMapEntryScripts?.(snapshot, currentMapId);
 
     // Some map-entry scripts (e.g. Route131) change layout via setmaplayoutindex.
     // Re-resolve traversal from the post-script tile so surfing/bike state

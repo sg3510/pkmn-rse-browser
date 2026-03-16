@@ -1,0 +1,52 @@
+[
+  {
+    "file": "pre-birch.json",
+    "name": "Littleroot Town",
+    "description": "Before Prof. Birch encounter"
+  },
+  {
+    "file": "birch_bag.json",
+    "name": "Route 101",
+    "description": "Birch's bag on the ground"
+  },
+  {
+    "file": "wallyhouse.json",
+    "name": "Wally's House",
+    "description": "Petalburg City"
+  },
+  {
+    "file": "peeko.json",
+    "name": "Mr. Briney's House",
+    "description": "Route 104 — rescued Peeko"
+  },
+  {
+    "file": "mach_bike.json",
+    "name": "Mauville Bike Shop",
+    "description": "Mach Bike obtained"
+  },
+  {
+    "file": "acro_bike.json",
+    "name": "Route 104",
+    "description": "Acro Bike obtained"
+  },
+  {
+    "file": "berry.json",
+    "name": "Route 104",
+    "description": "Berry patches"
+  },
+  {
+    "file": "roxanne.json",
+    "name": "Rustboro City",
+    "description": "Near Roxanne's gym"
+  },
+  {
+    "file": "chimney.json",
+    "name": "Mt. Chimney",
+    "description": "Summit area"
+  },
+  {
+    "file": "route119.json",
+    "name": "Route 119",
+    "description": "Weather Institute area"
+  }
+]

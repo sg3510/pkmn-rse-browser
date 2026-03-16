@@ -12,6 +12,10 @@ import {
   clearFixedEscapeWarpTarget,
   getFixedEscapeWarpTarget,
 } from '../../game/FixedEscapeWarp.ts';
+import {
+  clearFixedDiveWarpTarget,
+  getFixedDiveWarpTarget,
+} from '../../game/FixedDiveWarp.ts';
 
 interface QueueWarpCall {
   mapId: string;
@@ -269,7 +273,7 @@ test('setescapewarp stores fixed escape warp target (x/y form)', async () => {
 
   assert.deepEqual(getFixedEscapeWarpTarget(), {
     mapId: 'MAP_ROUTE112',
-    warpId: 0,
+    warpId: -1,
     x: 28,
     y: 28,
   });
@@ -314,6 +318,48 @@ test('setdynamicwarp stores dynamic warp target (warpId/x/y form)', async () => 
     warpId: 7,
     x: 28,
     y: 28,
+  });
+});
+
+test('setdynamicwarp stores dynamic warp target (x/y form)', async () => {
+  clearDynamicWarpTarget();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setdynamicwarp', args: ['MAP_ROUTE112', 28, 28] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_ROUTE112_CABLE_CAR_STATION');
+  await runner.execute('Main');
+
+  assert.deepEqual(getDynamicWarpTarget(), {
+    mapId: 'MAP_ROUTE112',
+    warpId: -1,
+    x: 28,
+    y: 28,
+  });
+});
+
+test('setdivewarp stores fixed dive warp target (x/y form)', async () => {
+  clearFixedDiveWarpTarget();
+  const queueWarpCalls: QueueWarpCall[] = [];
+  const ctx = createContext(queueWarpCalls);
+
+  const { mapData, commonData } = createData([
+    { cmd: 'setdivewarp', args: ['MAP_ROUTE134', 8, 6] },
+    { cmd: 'end' },
+  ]);
+
+  const runner = new ScriptRunner({ mapData, commonData }, ctx, 'MAP_UNDERWATER_ROUTE134');
+  await runner.execute('Main');
+
+  assert.deepEqual(getFixedDiveWarpTarget(), {
+    mapId: 'MAP_ROUTE134',
+    warpId: -1,
+    x: 8,
+    y: 6,
   });
 });
 

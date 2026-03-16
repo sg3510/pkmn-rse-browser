@@ -128,8 +128,8 @@ export function calculateSpawnPosition(
   destMap: WarpDestinationMap,
   destWarpId: number
 ): SpawnPosition {
-  // Try to find the specific warp event
-  if (destMap.warpEvents.length > destWarpId) {
+  // C parity: only non-negative warp IDs index the destination warp table.
+  if (destWarpId >= 0 && destMap.warpEvents.length > destWarpId) {
     const destWarp = destMap.warpEvents[destWarpId];
     return {
       x: destMap.offsetX + destWarp.x,

@@ -3,13 +3,19 @@
  *
  * Provides Save and Load buttons for the game UI.
  * - Save: Opens dropdown with "Save to Browser", "Export .json"
- * - Load: Opens file picker for .json or .sav files
+ * - Load: Opens dropdown with sample saves + "Load from File"
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveManager } from '../save/SaveManager';
 import type { LocationState } from '../save/types';
 import type { ObjectEventRuntimeState } from '../types/objectEvents';
+
+interface SampleSave {
+  file: string;
+  name: string;
+  description: string;
+}
 
 interface SaveLoadButtonsProps {
   /** Whether the game is ready for saving (in overworld, player loaded) */
@@ -35,8 +41,20 @@ export function SaveLoadButtons({
   onError,
 }: SaveLoadButtonsProps) {
   const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const [showLoadMenu, setShowLoadMenu] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [sampleSaves, setSampleSaves] = useState<SampleSave[]>([]);
+  const [loadingSample, setLoadingSample] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch sample save manifest once
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL ?? '/';
+    fetch(`${base}sample_save/manifest.json`)
+      .then((res) => res.json())
+      .then((data: SampleSave[]) => setSampleSaves(data))
+      .catch(() => { /* manifest not available, no sample saves shown */ });
+  }, []);
 
   // Handle save to browser
   const handleSaveToBrowser = useCallback(() => {
@@ -72,8 +90,6 @@ export function SaveLoadButtons({
   const handleExportJson = useCallback(() => {
     setShowSaveMenu(false);
 
-    // When gameplay is in a saveable state, capture current runtime state
-    // before exporting so the file reflects latest map/flags/vars.
     if (canSave) {
       const locationState = getLocationState();
       if (!locationState) {
@@ -95,7 +111,7 @@ export function SaveLoadButtons({
     }
   }, [canSave, getLocationState, getObjectEventRuntimeState, onError]);
 
-  // Handle file input change (load)
+  // Handle file input change (load from file)
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -108,15 +124,46 @@ export function SaveLoadButtons({
       onError?.(result.error ?? 'Import failed');
     }
 
-    // Reset input so the same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }, [onLoad, onError]);
 
-  // Handle load button click
-  const handleLoadClick = useCallback(() => {
+  // Handle "Load from File" click
+  const handleLoadFromFile = useCallback(() => {
+    setShowLoadMenu(false);
     fileInputRef.current?.click();
+  }, []);
+
+  // Handle loading a sample save
+  const handleLoadSample = useCallback(async (sample: SampleSave) => {
+    setLoadingSample(sample.file);
+    try {
+      const base = import.meta.env.BASE_URL ?? '/';
+      const res = await fetch(`${base}sample_save/${sample.file}`);
+      if (!res.ok) {
+        onError?.(`Failed to fetch ${sample.name}`);
+        return;
+      }
+      const text = await res.text();
+      const result = saveManager.importFromJson(text, 0);
+      if (result.success) {
+        onLoad?.();
+      } else {
+        onError?.(result.error ?? 'Import failed');
+      }
+    } catch {
+      onError?.(`Failed to load ${sample.name}`);
+    } finally {
+      setLoadingSample(null);
+      setShowLoadMenu(false);
+    }
+  }, [onLoad, onError]);
+
+  // Close any open menu
+  const closeMenus = useCallback(() => {
+    setShowSaveMenu(false);
+    setShowLoadMenu(false);
   }, []);
 
   // Status indicator
@@ -127,48 +174,6 @@ export function SaveLoadButtons({
       case 'error': return '#ff4444';
       default: return 'transparent';
     }
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    padding: '4px 10px',
-    fontSize: 11,
-    background: '#2a3a4a',
-    color: '#9fb0cc',
-    border: 'none',
-    borderRadius: 3,
-    cursor: 'pointer',
-    position: 'relative',
-  };
-
-  const buttonHoverStyle: React.CSSProperties = {
-    ...buttonStyle,
-    background: '#3a4a5a',
-  };
-
-  const menuStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: 4,
-    background: '#1a2a3a',
-    border: '1px solid #4a5a6a',
-    borderRadius: 4,
-    padding: 4,
-    zIndex: 100,
-    minWidth: 140,
-  };
-
-  const menuItemStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    padding: '6px 10px',
-    fontSize: 11,
-    background: 'transparent',
-    color: '#9fb0cc',
-    border: 'none',
-    borderRadius: 2,
-    cursor: 'pointer',
-    textAlign: 'left',
   };
 
   return (
@@ -187,10 +192,8 @@ export function SaveLoadButtons({
       {/* Save button with dropdown */}
       <div style={{ position: 'relative' }}>
         <button
-          style={buttonStyle}
-          onClick={() => setShowSaveMenu(!showSaveMenu)}
-          onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonHoverStyle)}
-          onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyle)}
+          className="header-btn"
+          onClick={() => { setShowLoadMenu(false); setShowSaveMenu(!showSaveMenu); }}
           disabled={!canSave && saveStatus === 'idle'}
           title={canSave ? 'Save game' : 'Cannot save in current state'}
         >
@@ -198,44 +201,55 @@ export function SaveLoadButtons({
         </button>
 
         {showSaveMenu && (
-          <div style={menuStyle}>
-            <button
-              style={menuItemStyle}
-              onClick={handleSaveToBrowser}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#2a3a4a'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
+          <div className="header-dropdown">
+            <button className="header-dropdown__item" onClick={handleSaveToBrowser}>
               Save to Browser
             </button>
-            <button
-              style={menuItemStyle}
-              onClick={handleExportJson}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#2a3a4a'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
+            <button className="header-dropdown__item" onClick={handleExportJson}>
               Export .json
             </button>
-            <button
-              style={{ ...menuItemStyle, color: '#666', cursor: 'not-allowed' }}
-              disabled
-              title="Coming soon"
-            >
+            <button className="header-dropdown__item" disabled title="Coming soon">
               Export .sav
             </button>
           </div>
         )}
       </div>
 
-      {/* Load button */}
-      <button
-        style={buttonStyle}
-        onClick={handleLoadClick}
-        onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonHoverStyle)}
-        onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyle)}
-        title="Load .json or .sav file"
-      >
-        Load
-      </button>
+      {/* Load button with dropdown */}
+      <div style={{ position: 'relative' }}>
+        <button
+          className="header-btn"
+          onClick={() => { setShowSaveMenu(false); setShowLoadMenu(!showLoadMenu); }}
+          title="Load a save file"
+        >
+          Load
+        </button>
+
+        {showLoadMenu && (
+          <div className="header-dropdown header-dropdown--right">
+            <button className="header-dropdown__item" onClick={handleLoadFromFile}>
+              Load from File...
+            </button>
+            {sampleSaves.length > 0 && (
+              <>
+                <div className="header-dropdown__divider" />
+                <div className="header-dropdown__heading">Sample Saves</div>
+                {sampleSaves.map((sample) => (
+                  <button
+                    key={sample.file}
+                    className="header-dropdown__item"
+                    onClick={() => void handleLoadSample(sample)}
+                    disabled={loadingSample !== null}
+                  >
+                    <span className="header-dropdown__item-name">{sample.name}</span>
+                    <span className="header-dropdown__item-desc">{sample.description}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Hidden file input */}
       <input
@@ -246,8 +260,8 @@ export function SaveLoadButtons({
         onChange={handleFileSelect}
       />
 
-      {/* Click outside to close menu */}
-      {showSaveMenu && (
+      {/* Click outside to close menus */}
+      {(showSaveMenu || showLoadMenu) && (
         <div
           style={{
             position: 'fixed',
@@ -257,7 +271,7 @@ export function SaveLoadButtons({
             bottom: 0,
             zIndex: 99,
           }}
-          onClick={() => setShowSaveMenu(false)}
+          onClick={closeMenus}
         />
       )}
     </div>

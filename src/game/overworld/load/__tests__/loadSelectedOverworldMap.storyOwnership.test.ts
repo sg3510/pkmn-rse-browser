@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadSelectedOverworldMap } from '../loadSelectedOverworldMap.ts';
 import { WorldManager } from '../../../WorldManager.ts';
+import {
+  METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM,
+  METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID,
+  METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP,
+} from '../../../TruckSequenceRunner.ts';
 import type { MapIndexEntry } from '../../../../types/maps.ts';
 
 interface MutableRef<T> {
@@ -242,4 +247,146 @@ test('loadSelectedOverworldMap does not clear story ownership and keeps input lo
   });
   assert.equal(withOnlyEntryGate.mapEntryGate, true);
   assert.equal(withOnlyEntryGate.unlockCalls, 0);
+});
+
+test('loadSelectedOverworldMap runs post-entry bootstrap after InsideOfTruck OnLoad metatile writes', async () => {
+  const mapId = 'MAP_INSIDE_OF_TRUCK';
+  const snapshot = createSnapshot(mapId);
+  snapshot.maps[0].entry.mapType = 'MAP_TYPE_INDOOR';
+
+  const entry = {
+    id: mapId,
+    name: 'Inside Truck',
+    width: 12,
+    height: 12,
+  } as unknown as MapIndexEntry;
+
+  const player: any = {
+    tileX: 1,
+    tileY: 1,
+    dir: 'down',
+    _tileResolver: null as any,
+    setTileResolver(resolver: any) {
+      this._tileResolver = resolver;
+    },
+    getTileResolver() {
+      return this._tileResolver;
+    },
+    setMapAllowsCyclingResolver: () => {},
+    setPosition(x: number, y: number) {
+      this.tileX = x;
+      this.tileY = y;
+    },
+    setTraversalState: () => {},
+    setCyclingRoadChallengeActive: () => {},
+    getElevation: () => 0,
+    isSurfing: () => false,
+    isUnderwater: () => false,
+    getBikeMode: () => 'none',
+    isBikeRiding: () => false,
+    unlockInput: () => {},
+  };
+
+  let resolveDone!: () => void;
+  const done = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
+  let sawLoading = false;
+  const finishWhenLoaded = (loading: boolean) => {
+    if (loading) {
+      sawLoading = true;
+      return;
+    }
+    if (sawLoading) {
+      resolveDone();
+    }
+  };
+
+  await withWorldManagerPrototypeStubs(snapshot, async () => {
+    const cleanup = loadSelectedOverworldMap({
+      entry,
+      viewportTilesWide: 15,
+      viewportTilesHigh: 10,
+      pipeline: {
+        invalidate: () => {},
+      } as any,
+      loadingRef: { current: false },
+      worldSnapshotRef: { current: null },
+      playerRef: { current: player },
+      cameraRef: { current: null },
+      worldBoundsRef: { current: { width: 0, height: 0, minX: 0, minY: 0 } },
+      worldManagerRef: { current: null },
+      objectEventManagerRef: {
+        current: {
+          setTileElevationResolver: () => {},
+          applyRuntimeState: () => {},
+          refreshMapLoadState: () => {},
+        },
+      },
+      pendingSavedLocationRef: {
+        current: {
+          location: { mapId },
+          pos: { x: 1, y: 1 },
+          direction: 'down',
+          isSurfing: false,
+          isUnderwater: false,
+          bikeMode: 'none',
+          isRidingBike: false,
+          flashLevel: 0,
+        },
+      },
+      pendingOverworldEntryReasonRef: { current: null },
+      consumePendingObjectEventRuntimeState: () => null,
+      pendingScriptedWarpRef: { current: null },
+      warpingRef: { current: false },
+      playerHiddenRef: { current: false },
+      storyScriptRunningRef: { current: false },
+      mapEntryCutsceneGateRef: { current: false },
+      mapScriptCacheRef: { current: new Map() },
+      lastCoordTriggerTileRef: { current: null },
+      lastPlayerMapIdRef: { current: null },
+      warpHandlerRef: {
+        current: {
+          updateLastCheckedTile: () => {},
+        },
+      },
+      lastWorldUpdateRef: { current: null },
+      fadeControllerRef: {
+        current: {
+          getDirection: () => 'in',
+          isActive: () => true,
+          startFadeIn: () => {},
+        },
+      },
+      setLoading: finishWhenLoaded,
+      setStats: () => {},
+      setCameraDisplay: () => {},
+      setWorldSize: () => {},
+      setStitchedMapCount: () => {},
+      onLoadingStateChanged: () => {},
+      createSnapshotTileResolver: () => (() => null),
+      createSnapshotPlayerTileResolver: () => (() => null),
+      loadObjectEventsFromSnapshot: async () => {},
+      initializeWorldFromSnapshot: async () => {},
+      setMapMetatile: (targetMapId, tileX, tileY, metatileId) => {
+        const map = snapshot.maps.find((candidate) => candidate.entry.id === targetMapId);
+        assert.ok(map);
+        map.mapData.layout[tileY * map.mapData.width + tileX].metatileId = metatileId;
+        return true;
+      },
+      afterMapEntryScripts: (_loadedSnapshot, currentMapId) => {
+        assert.equal(currentMapId, mapId);
+        snapshot.maps[0].mapData.layout[1 * snapshot.maps[0].mapData.width + 4].metatileId = METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP;
+        snapshot.maps[0].mapData.layout[2 * snapshot.maps[0].mapData.width + 4].metatileId = METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID;
+        snapshot.maps[0].mapData.layout[3 * snapshot.maps[0].mapData.width + 4].metatileId = METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM;
+      },
+    });
+
+    await done;
+    cleanup();
+  });
+
+  assert.equal(snapshot.maps[0].mapData.layout[1 * snapshot.maps[0].mapData.width + 4].metatileId, METATILE_INSIDE_TRUCK_DOOR_CLOSED_TOP);
+  assert.equal(snapshot.maps[0].mapData.layout[2 * snapshot.maps[0].mapData.width + 4].metatileId, METATILE_INSIDE_TRUCK_DOOR_CLOSED_MID);
+  assert.equal(snapshot.maps[0].mapData.layout[3 * snapshot.maps[0].mapData.width + 4].metatileId, METATILE_INSIDE_TRUCK_DOOR_CLOSED_BOTTOM);
 });

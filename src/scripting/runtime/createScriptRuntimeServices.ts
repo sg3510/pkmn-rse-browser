@@ -22,6 +22,7 @@ import { berryManager } from '../../game/berry/BerryManager.ts';
 import { saveManager } from '../../save/SaveManager';
 import type { LocationState } from '../../save/types';
 import { buildLocationState } from '../../world/locationStateFactory';
+import { WARP_ID_NONE } from '../../game/warpConstants.ts';
 
 interface MutableRef<T> {
   current: T;
@@ -282,7 +283,7 @@ export function createScriptRuntimeServices(deps: ScriptRuntimeServicesDeps): Sc
   };
 
   const runtimeServices: ScriptRuntimeServices = {
-    setDiveWarp: (mapId, x, y, warpId = 0) => {
+    setDiveWarp: (mapId, x, y, warpId = WARP_ID_NONE) => {
       setFixedDiveWarpTarget(mapId, x, y, warpId);
     },
     fade: {
