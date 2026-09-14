@@ -280,7 +280,13 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
         const sprite = sprites[batchEnd];
         const sameAtlas = sprite.atlasName === firstAtlas;
         const sameShader = (sprite.isReflection || sprite.isReflectionLayer) === firstIsReflectionLayer;
-        if (!sameAtlas || !sameShader) break;
+        const sameBlend = sprite.gbaBlend?.[0] === firstSprite.gbaBlend?.[0]
+          && sprite.gbaBlend?.[1] === firstSprite.gbaBlend?.[1];
+        const samePalette = sprite.paletteBlend?.[0] === firstSprite.paletteBlend?.[0]
+          && sprite.paletteBlend?.[1] === firstSprite.paletteBlend?.[1]
+          && sprite.paletteBlend?.[2] === firstSprite.paletteBlend?.[2]
+          && sprite.paletteBlend?.[3] === firstSprite.paletteBlend?.[3];
+        if (!sameAtlas || !sameShader || !sameBlend || !samePalette) break;
         batchEnd++;
       }
 
@@ -293,6 +299,16 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       }
 
       const batchCount = batchEnd - batchStart;
+
+      if (firstSprite.gbaBlend) {
+        // GBA: source * EVA/16 + destination * EVB/16, saturated per channel.
+        // Transparent texels are discarded by the sprite shader; preserve battlefield alpha.
+        const destination = firstSprite.gbaBlend[1] / 16;
+        gl.blendColor(destination, destination, destination, destination);
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.CONSTANT_COLOR, gl.ZERO, gl.ONE);
+      } else {
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
 
       // Render with appropriate shader
       if (firstIsReflectionLayer) {
@@ -312,6 +328,9 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
           this.setUniforms(this.spriteProgram, view, sheet);
+          const palette = firstSprite.paletteBlend;
+          gl.uniform4f(this.shaders.getUniformLocation(gl, this.spriteProgram, 'u_paletteBlend'),
+            palette?.[0] ?? 0, palette?.[1] ?? 0, palette?.[2] ?? 0, palette?.[3] ?? 0);
           this.renderSpriteBatchRange(sprites, batchStart, batchCount, view, sheet);
         }
       }
@@ -632,7 +651,7 @@ export class WebGLSpriteRenderer implements ISpriteRenderer {
       data[i++] = sprite.tintR;
       data[i++] = sprite.tintG;
       data[i++] = sprite.tintB;
-      data[i++] = sprite.alpha;
+      data[i++] = sprite.alpha * (sprite.gbaBlend ? sprite.gbaBlend[0] / 16 : 1);
 
       // a_flags: packed flags
       const flags = (sprite.flipX ? 1 : 0) | (sprite.flipY ? 2 : 0);

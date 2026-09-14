@@ -126,9 +126,10 @@ test('battle message renderer operations are deterministic', () => {
     'fillRect:0,112,240,48:#202020',
     'save',
     'beginPath',
-    'rect:18,121,198,32',
+    'rect:16,121,208,32',
     'clip',
-    'fillText:BATTLE:18,121:normal 10px "Pokemon Emerald", monospace:#383838',
+    'fillText:BATTLE:16,121:normal 15px "Pokemon Emerald", monospace:#6a5a73',
+    'fillText:BATTLE:16,121:normal 15px "Pokemon Emerald", monospace:#ffffff',
     'restore',
   ]);
 });
@@ -152,7 +153,8 @@ test('field message renderer operations are deterministic', () => {
     'fillRect:0,0,480,88:#202020',
     'save',
     'beginPath',
-    'rect:16,12,448,48',
+    // The existing renderer reserves the full 32px font height for each line.
+    'rect:16,12,448,64',
     'clip',
     'fillText:HI:18,14:normal 32px "Pokemon Emerald", "Pokemon RS", monospace:#a8a8a8',
     'fillText:HI:16,12:normal 32px "Pokemon Emerald", "Pokemon RS", monospace:#303030',
@@ -198,4 +200,24 @@ test('evolution yes/no renderer operations are deterministic', () => {
     'fillText:▶ NO:188,122:10px "Pokemon Emerald", monospace:#383838',
     'restore',
   ]);
+});
+
+
+test('custom text painter supplies both wrapping metrics and scaled, scrolling drawing', () => {
+  const renderer = new PromptCanvasRenderer();
+  const ctx = new MockCanvasContext();
+  const drawn: Array<[string, number, number, number]> = [];
+  renderer.render(ctx as unknown as CanvasRenderingContext2D, {
+    profile: { ...BATTLE_MESSAGE_PROFILE, text: { ...BATTLE_MESSAGE_PROFILE.text, width: 60 } },
+    skin: createRecordingSkin(),
+    state: createMessageState('WIDE WORD'),
+    originX: 4, originY: 6, scale: 2, scrollProgress: 0.5,
+    textPainter: {
+      measure: (text) => text.length * 8,
+      draw: (_ctx, text, x, y, scale) => { drawn.push([text, x, y, scale]); },
+    },
+  });
+  // The browser font would fit this on one line; the supplied bitmap advances require two.
+  assert.deepEqual(drawn, [['WIDE', 36, 232, 2], ['WORD', 36, 264, 2]]);
+  assert.ok(!ctx.ops.some((operation) => operation.startsWith('fillText:')));
 });

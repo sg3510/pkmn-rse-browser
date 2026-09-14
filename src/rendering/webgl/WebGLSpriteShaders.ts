@@ -117,6 +117,7 @@ in float v_shimmerScale;    // Unused in normal shader, but must match vertex ou
 
 // Texture samplers
 uniform sampler2D u_spriteAtlas;
+uniform vec4 u_paletteBlend;
 
 // Output
 out vec4 fragColor;
@@ -133,7 +134,7 @@ void main() {
   // Apply tint (multiply RGB) and alpha
   // For normal sprites: colorMod = (1,1,1,1)
   // For reflections: colorMod = (tintR, tintG, tintB, alpha)
-  fragColor = vec4(texColor.rgb * v_colorMod.rgb, texColor.a * v_colorMod.a);
+  fragColor = vec4(mix(texColor.rgb, u_paletteBlend.rgb, u_paletteBlend.a) * v_colorMod.rgb, texColor.a * v_colorMod.a);
 }
 `;
 

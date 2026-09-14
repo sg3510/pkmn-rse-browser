@@ -9,6 +9,12 @@ last_verified: 2026-01-13
 
 This documentation provides a comprehensive analysis of the Pokemon Emerald battle system based on the pokeemerald decompilation source code. The goal is to understand all mechanics well enough to simulate battles from start to finish.
 
+## Related
+
+- [docs/features/battle/animation-implementation-plan.md](./animation-implementation-plan.md) — Browser animation architecture, delivery milestones, and verification gates.
+- [docs/features/battle/animation-first-slice.md](./animation-first-slice.md) — Implemented Tackle/Growl runtime, presentation sequencing, preview, and validation.
+- [docs/features/battle/animation-expanded-moves.md](./animation-expanded-moves.md) — Current twelve-move coverage, shared projectile/palette/background effects, and validation.
+
 ## Table of Contents
 
 1. [Damage Calculation](./01-damage-calculation.md) - Complete damage formula

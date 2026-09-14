@@ -24,6 +24,9 @@ const DialogDebugPage = lazy(async () => {
   return { default: mod.DialogDebugPage };
 });
 
+const BattleRenderDebugPage = lazy(() => import('./pages/BattleRenderDebugPage.tsx'));
+const BattleAnimationsDebugPage = lazy(() => import('./pages/BattleAnimationsDebugPage.tsx'));
+const RayquazaFlightDebugPage = lazy(() => import('./pages/RayquazaFlightDebugPage.tsx'));
 const Rayquaza3DDebugPage = lazy(() => import('./pages/Rayquaza3DDebugPage.tsx'));
 const Birch3DDebugPage = lazy(() => import('./pages/Birch3DDebugPage.tsx'));
 
@@ -113,6 +116,12 @@ function Router() {
     content = <SurfingSpriteDebugPage />;
   } else if (route === '#/dialog-debug') {
     content = <DialogDebugPage />;
+  } else if (route === '#/battle-render') {
+    content = <BattleRenderDebugPage />;
+  } else if (route === '#/battle-animations') {
+    content = <BattleAnimationsDebugPage />;
+  } else if (route === '#/rayquaza-flight') {
+    content = <RayquazaFlightDebugPage />;
   } else if (route === '#/rayquaza-debug') {
     content = <Rayquaza3DDebugPage />;
   } else if (route === '#/birch-debug') {

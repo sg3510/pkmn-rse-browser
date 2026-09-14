@@ -293,6 +293,24 @@ export type BattleEventType =
   | 'capture_success'
   | 'capture_fail';
 
+export interface BattlePresentationSnapshot {
+  readonly slot: 0 | 1;
+  readonly identity: string;
+  readonly species: number;
+  readonly hp: number;
+  readonly maxHp: number;
+  readonly status: number;
+}
+
+export interface MovePresentationEvent {
+  readonly actionId: number;
+  readonly attacker: 0 | 1;
+  readonly target: 0 | 1;
+  readonly phase: 'execute' | 'charge' | 'release';
+  readonly before: readonly BattlePresentationSnapshot[];
+  readonly after: readonly BattlePresentationSnapshot[];
+}
+
 export interface BattleEvent {
   type: BattleEventType;
   /** Which battler this event concerns (0 = player, 1 = enemy). */
@@ -305,6 +323,11 @@ export interface BattleEvent {
   detail?: string;
   /** Move ID for animation events. */
   moveId?: number;
+  /** Immutable animation inputs from the actual move resolution, independent of later turn mutations. */
+  presentation?: MovePresentationEvent;
+  hpBefore?: number;
+  hpAfter?: number;
+  statusAfter?: number;
   /** Move info for learn_move events. */
   newMoveId?: number;
   replacedMoveSlot?: number;

@@ -1,14 +1,14 @@
 /**
  * Title Screen State
  *
+ * Reference: public/pokeemerald/src/title_screen.c
  * Full implementation of the Pokemon Emerald title screen.
  * Uses Three.js for 3D Rayquaza model rendering.
  * Integer scaling (1x, 2x, 3x) for pixel-perfect rendering.
  */
 
 import * as THREE from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+import { RayquazaFlight, RAYQUAZA_ENTRANCE_SECONDS } from '../title/RayquazaFlight';
 import {
   GameState,
   type StateRenderer,
@@ -55,7 +55,7 @@ const TitlePhase = {
   PHASE1_SHINE_ON_BLACK: 1,    // Black bg, logo centered, shine animations
   PHASE2_LOGO_RISE: 2,          // Logo rises, version slides down
   PHASE3_BACKGROUND_FADE: 3,    // Gradient + clouds fade in
-  PHASE4_RAYQUAZA_FADE: 4,      // Rayquaza fades in
+  PHASE4_RAYQUAZA_ENTRANCE: 4,  // Rayquaza flies in and settles
   PHASE5_INTERACTIVE: 5,        // Full screen, press start blinks
 } as const;
 type TitlePhase = typeof TitlePhase[keyof typeof TitlePhase];
@@ -64,7 +64,7 @@ type TitlePhase = typeof TitlePhase[keyof typeof TitlePhase];
 const PHASE1_FRAMES = 256;      // Shine animations on black
 const PHASE2_FRAMES = 144;      // Logo rise + version slide
 const PHASE3_FRAMES = 45;       // Background fade in (~0.75 sec)
-const PHASE4_FRAMES = 45;       // Rayquaza fade in (~0.75 sec)
+const PHASE4_FRAMES = Math.round(RAYQUAZA_ENTRANCE_SECONDS * 1000 / GBA_FRAME_MS); // Fly in and settle
 
 interface TilemapEntry {
   tileIndex: number;
@@ -111,8 +111,8 @@ export class TitleScreenState implements StateRenderer {
   private threeRenderer: THREE.WebGLRenderer | null = null;
   private threeScene: THREE.Scene | null = null;
   private threeCamera: THREE.PerspectiveCamera | null = null;
-  private rayquazaWrapper: THREE.Group | null = null;  // Wrapper for transforms
-  private rayquazaModel: THREE.Object3D | null = null;  // Actual model inside wrapper
+  private rayquazaFlight: RayquazaFlight | null = null;
+  private flightSeconds = 0;
   private rayquazaCanvas: HTMLCanvasElement | null = null;
   private mainLight: THREE.DirectionalLight | null = null;
   private rayquazaRenderWidth = 0;
@@ -140,9 +140,6 @@ export class TitleScreenState implements StateRenderer {
   // Background fade (gradient + clouds)
   private backgroundAlpha = 0;
 
-  // Rayquaza fade
-  private rayquazaAlpha = 0;
-
   // Cloud scrolling (GBA scrolls vertically, not horizontally)
   private cloudScrollY = 0;
   // Wave effect phase (for horizontal scanline distortion)
@@ -155,11 +152,6 @@ export class TitleScreenState implements StateRenderer {
   private scale = 1;
   private viewportWidth = 320;
   private viewportHeight = 320;
-
-  // Mouse tracking for interactive light
-  private mouseX = 0.5;  // Normalized 0-1 (0.5 = center)
-  private mouseY = 0.5;
-  private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 
   async enter(viewport: ViewportConfig): Promise<void> {
     console.log('[TitleScreenState] Entering...');
@@ -177,6 +169,7 @@ export class TitleScreenState implements StateRenderer {
     this.phaseFrameCount = PHASE1_FRAMES;
     this.gbaFrameAccumulator = 0;
     this.totalFrames = 0;
+    this.flightSeconds = 0;
     this.shineMode = ShineMode.INACTIVE;
     this.shineX = 0;
     this.shineTrailX = -80;
@@ -185,7 +178,6 @@ export class TitleScreenState implements StateRenderer {
     this.versionAlpha = 0;
     this.versionYOffset = -64 * this.scale;  // Start above final position
     this.backgroundAlpha = 0;
-    this.rayquazaAlpha = 0;
     this.cloudScrollY = 0;
     this.cloudWavePhase = 0;
     this.pressStartVisible = true;
@@ -202,13 +194,6 @@ export class TitleScreenState implements StateRenderer {
     // Start Phase 1: Shine on black background
     this.phase = TitlePhase.PHASE1_SHINE_ON_BLACK;
     this.startShine(ShineMode.SINGLE_NO_BG);
-
-    // Set up mouse tracking for interactive light
-    this.mouseMoveHandler = (e: MouseEvent) => {
-      this.mouseX = e.clientX / window.innerWidth;
-      this.mouseY = e.clientY / window.innerHeight;
-    };
-    window.addEventListener('mousemove', this.mouseMoveHandler);
 
     console.log('[TitleScreenState] Ready, scale:', this.scale);
   }
@@ -238,15 +223,11 @@ export class TitleScreenState implements StateRenderer {
     // Create scene
     this.threeScene = new THREE.Scene();
 
-    // Create camera with config from debug page (OBJ model)
+    // Fixed framing for the authored coil
     // Aspect ratio is the same regardless of pixel ratio
     this.threeCamera = new THREE.PerspectiveCamera(35, this.viewportWidth / this.viewportHeight, 0.1, 1000);
-    this.threeCamera.position.set(-0.0573375473447843, 1.0725984662026167, 4.521194911609615);
-    this.threeCamera.lookAt(-0.0573375473447843, 1.0725984662026167, 0.002196338516005314);
-
-    // Create wrapper group for model transforms
-    this.rayquazaWrapper = new THREE.Group();
-    this.threeScene.add(this.rayquazaWrapper);
+    this.threeCamera.position.set(0, 0, 5.5 / Math.min(1, this.threeCamera.aspect));
+    this.threeCamera.lookAt(0, 0, 0);
 
     // Add lighting
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
@@ -269,65 +250,15 @@ export class TitleScreenState implements StateRenderer {
   }
 
   private async loadRayquaza3D(): Promise<void> {
-    return new Promise((resolve) => {
-      const mtlLoader = new MTLLoader();
-      const modelPath = toPublicAssetUrl('/3dmodels/rayquaza-wii/');
-
-      // First load the MTL file for materials
-      mtlLoader.setPath(modelPath);
-      mtlLoader.load(
-        'Rayquaza.mtl',
-        (materials) => {
-          materials.preload();
-
-          // Now load the OBJ file with materials
-          const objLoader = new OBJLoader();
-          objLoader.setMaterials(materials);
-          objLoader.setPath(modelPath);
-
-          objLoader.load(
-            'Rayquaza.obj',
-            (object) => {
-              this.rayquazaModel = object;
-
-              // Center the model (offset from debug page - OBJ config)
-              this.rayquazaModel.position.set(0.0599, -0.9696, -0.0077);
-
-              // Add model to wrapper
-              if (this.rayquazaWrapper) {
-                this.rayquazaWrapper.add(this.rayquazaModel);
-
-                // Apply transforms to wrapper (from debug page config - OBJ)
-                this.rayquazaWrapper.scale.set(0.1, 0.1, 0.1);
-                this.rayquazaWrapper.position.set(0, 0, 0);
-                this.rayquazaWrapper.rotation.set(0, 1.1, 0);
-              }
-
-              console.log('[TitleScreenState] 3D Rayquaza (OBJ Wii) loaded');
-              resolve();
-            },
-            (progress) => {
-              if (progress.total > 0) {
-                console.log('[TitleScreenState] Loading Rayquaza OBJ:', Math.round((progress.loaded / progress.total) * 100) + '%');
-              }
-            },
-            (error) => {
-              console.error('[TitleScreenState] Failed to load Rayquaza OBJ:', error);
-              resolve(); // Continue without 3D model
-            }
-          );
-        },
-        (progress) => {
-          if (progress.total > 0) {
-            console.log('[TitleScreenState] Loading Rayquaza MTL:', Math.round((progress.loaded / progress.total) * 100) + '%');
-          }
-        },
-        (error) => {
-          console.error('[TitleScreenState] Failed to load Rayquaza MTL:', error);
-          resolve(); // Continue without 3D model
-        }
-      );
-    });
+    const flight = new RayquazaFlight();
+    this.rayquazaFlight = flight;
+    this.threeScene?.add(flight.group);
+    try {
+      await flight.load();
+    } catch (error) {
+      console.error('[TitleScreenState] Failed to load Rayquaza:', error);
+      flight.dispose();
+    }
   }
 
   private async loadAssets(): Promise<void> {
@@ -615,11 +546,8 @@ export class TitleScreenState implements StateRenderer {
   async exit(): Promise<void> {
     console.log('[TitleScreenState] Exiting...');
 
-    // Remove mouse listener
-    if (this.mouseMoveHandler) {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
-      this.mouseMoveHandler = null;
-    }
+    this.rayquazaFlight?.dispose();
+    this.rayquazaFlight = null;
 
     // Cleanup Three.js resources
     if (this.threeRenderer) {
@@ -631,8 +559,6 @@ export class TitleScreenState implements StateRenderer {
       this.threeScene = null;
     }
     this.threeCamera = null;
-    this.rayquazaWrapper = null;
-    this.rayquazaModel = null;
     this.rayquazaCanvas = null;
     this.mainLight = null;
     this.rayquazaRenderWidth = 0;
@@ -667,6 +593,7 @@ export class TitleScreenState implements StateRenderer {
     // Update camera aspect ratio
     if (this.threeCamera) {
       this.threeCamera.aspect = this.viewportWidth / this.viewportHeight;
+      this.threeCamera.position.z = 5.5 / Math.min(1, this.threeCamera.aspect);
       this.threeCamera.updateProjectionMatrix();
     }
 
@@ -684,35 +611,9 @@ export class TitleScreenState implements StateRenderer {
       this.updateGbaFrame();
     }
 
-    // Update Rayquaza 3D model animation
-    this.updateRayquaza3D(dt);
-  }
-
-  private updateRayquaza3D(_dt: number): void {
-    if (!this.rayquazaWrapper) return;
-
-    // Base rotation from debug config (OBJ): (0, 1.1, 0)
-    const baseRotX = 0;
-    const baseRotY = 1.1;
-    const baseRotZ = 0;
-
-    // Keep X and Z rotation fixed
-    this.rayquazaWrapper.rotation.x = baseRotX;
-    this.rayquazaWrapper.rotation.z = baseRotZ;
-
-    // Animate Y yaw: oscillate between -0.5 and +0.5 offset from base
-    const yawOffset = Math.sin(this.totalFrames * 0.015) * 0.5;
-    this.rayquazaWrapper.rotation.y = baseRotY + yawOffset;
-
-    // Update light position based on mouse (interactive lighting!)
-    if (this.mainLight) {
-      // Map mouse position to light position
-      // mouseX: 0 (left) to 1 (right) -> lightX: -2 to 2
-      // mouseY: 0 (top) to 1 (bottom) -> lightY: 2 to -2
-      const lightX = (this.mouseX - 0.5) * 4;
-      const lightY = (0.5 - this.mouseY) * 4;
-      const lightZ = 1.5;  // Keep Z relatively constant
-      this.mainLight.position.set(lightX, lightY, lightZ);
+    if (this.phase >= TitlePhase.PHASE4_RAYQUAZA_ENTRANCE) {
+      this.flightSeconds += dt / 1000;
+      this.rayquazaFlight?.update(this.flightSeconds, this.viewportWidth / this.viewportHeight);
     }
   }
 
@@ -735,6 +636,7 @@ export class TitleScreenState implements StateRenderer {
     this.threeRenderer.setSize(width, height, false);
 
     this.threeCamera.aspect = width / height;
+    this.threeCamera.position.z = 5.5 / Math.min(1, this.threeCamera.aspect);
     this.threeCamera.updateProjectionMatrix();
 
     this.rayquazaRenderWidth = width;
@@ -752,8 +654,8 @@ export class TitleScreenState implements StateRenderer {
       case TitlePhase.PHASE3_BACKGROUND_FADE:
         this.updatePhase3BackgroundFade();
         break;
-      case TitlePhase.PHASE4_RAYQUAZA_FADE:
-        this.updatePhase4RayquazaFade();
+      case TitlePhase.PHASE4_RAYQUAZA_ENTRANCE:
+        this.updatePhase4RayquazaEntrance();
         break;
       case TitlePhase.PHASE5_INTERACTIVE:
         this.updatePhase5Interactive();
@@ -821,21 +723,17 @@ export class TitleScreenState implements StateRenderer {
 
     if (this.phaseFrameCount <= 0) {
       this.backgroundAlpha = 1;
-      // Transition to Rayquaza fade
-      this.phase = TitlePhase.PHASE4_RAYQUAZA_FADE;
+      // Transition to Rayquaza entrance
+      this.phase = TitlePhase.PHASE4_RAYQUAZA_ENTRANCE;
       this.phaseFrameCount = PHASE4_FRAMES;
     }
   }
 
-  // Phase 4: Rayquaza fades in
-  private updatePhase4RayquazaFade(): void {
+  // Phase 4: Rayquaza flies into the resting coil
+  private updatePhase4RayquazaEntrance(): void {
     this.phaseFrameCount--;
 
-    const progress = 1 - (this.phaseFrameCount / PHASE4_FRAMES);
-    this.rayquazaAlpha = Math.min(1, progress);
-
     if (this.phaseFrameCount <= 0) {
-      this.rayquazaAlpha = 1;
       // Transition to interactive
       this.phase = TitlePhase.PHASE5_INTERACTIVE;
     }
@@ -935,10 +833,9 @@ export class TitleScreenState implements StateRenderer {
       ctx2d.restore();
     }
 
-    // Rayquaza (fades in during phase 4, visible in phase 5)
-    if (this.phase >= TitlePhase.PHASE4_RAYQUAZA_FADE) {
+    // Rayquaza flight continues independently during the interactive phase
+    if (this.phase >= TitlePhase.PHASE4_RAYQUAZA_ENTRANCE) {
       ctx2d.save();
-      ctx2d.globalAlpha = this.rayquazaAlpha;
       this.renderRayquaza3D(ctx2d);
       ctx2d.restore();
     }
@@ -1002,7 +899,7 @@ export class TitleScreenState implements StateRenderer {
 
     // GBA uses BLDALPHA_BLEND(6, 15) - clouds at 6/16 = 37.5% opacity
     ctx.save();
-    ctx.globalAlpha = 6 / 16;
+    ctx.globalAlpha *= 6 / 16;
     ctx.imageSmoothingEnabled = false;
 
     // Use integer scroll position to avoid sub-pixel gaps

@@ -82,6 +82,7 @@ export function tryApplyStatus(
   events.push({
     type: 'status_applied',
     battler,
+    statusAfter: target.pokemon.status,
     detail: getStatusName(status),
     message: getStatusApplyMessage(target.name, status),
   });
@@ -100,6 +101,7 @@ export function cureStatus(target: BattlePokemon, events: BattleEvent[]): void {
   events.push({
     type: 'status_cured',
     battler: target.isPlayer ? 0 : 1,
+    statusAfter: target.pokemon.status,
     detail: getStatusName(oldStatus),
     message: `${target.name} was cured of its ${getStatusName(oldStatus)}!`,
   });
@@ -147,6 +149,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
       events.push({
         type: 'wake_up',
         battler,
+        statusAfter: mon.pokemon.status,
         message: `${mon.name} woke up!`,
       });
     }
@@ -159,6 +162,7 @@ export function checkPreMoveStatus(mon: BattlePokemon): {
       events.push({
         type: 'thaw',
         battler,
+        statusAfter: mon.pokemon.status,
         message: `${mon.name} thawed out!`,
       });
     } else {

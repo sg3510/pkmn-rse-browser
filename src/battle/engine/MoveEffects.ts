@@ -29,12 +29,15 @@ import { tryApplyStatus, applyConfusion, hasStatus } from './StatusEffects.ts';
 import { setWeather, getWeatherStartMessage, getWeatherAccuracyOverride } from './Weather.ts';
 import type { WeatherState } from './types.ts';
 import { executeBattleScriptForMoveEffect } from './scriptRuntime/BattleScriptRuntime.ts';
+import { snapshotBattlePokemon } from './battlePresentationEvents.ts';
 
 export interface MoveContext {
   attacker: BattlePokemon;
   defender: BattlePokemon;
   moveId: number;
   moveSlot: number;
+  /** Monotonic battle-local action identity; no mechanics RNG or save state involved. */
+  actionId?: number;
   battleType?: 'wild' | 'trainer';
   weather: WeatherState;
   attackerSide: SideState;
@@ -132,14 +135,32 @@ export function executeMove(ctx: MoveContext): MoveResult {
   // Dispatch to effect handler
   executeBattleScriptForMoveEffect(effect);
 
+  const before = Object.freeze([snapshotBattlePokemon(attacker), snapshotBattlePokemon(ctx.defender)]);
+  const releasing = attacker.volatile.chargeMove === moveId;
+  const present = (result: MoveResult): MoveResult => {
+    // A move animation is one action, not one damage event (recoil/drain/multi-hit can emit several).
+    // Failure/protection/accuracy paths above never reach this boundary.
+    if (result.success && !result.events.some((event) => event.type === 'effectiveness' && event.value === 0)) {
+      result.events.splice(1, 0, {
+        type: 'animation', battler, moveId,
+        presentation: Object.freeze({
+          actionId: ctx.actionId ?? 0, attacker: attacker.isPlayer ? 0 : 1, target: ctx.defender.isPlayer ? 0 : 1,
+          phase: releasing ? 'release' : attacker.volatile.chargeMove === moveId ? 'charge' : 'execute',
+          before, after: Object.freeze([snapshotBattlePokemon(attacker), snapshotBattlePokemon(ctx.defender)]),
+        }),
+      });
+    }
+    return result;
+  };
+
   const handler = resolveEffectHandler(effect);
   if (handler) {
-    return handler(ctx, events);
+    return present(handler(ctx, events));
   }
 
   // Default: plain damaging move (EFFECT_HIT = 0)
   if (moveInfo.power > 0) {
-    return handleDamagingMove(ctx, events);
+    return present(handleDamagingMove(ctx, events));
   }
 
   // Non-damaging move with no handler
@@ -337,6 +358,8 @@ function doDamage(ctx: MoveContext, events: BattleEvent[], options: DamageOption
       battler: defBattler,
       value: appliedDamage,
       moveId,
+      hpBefore,
+      hpAfter: defender.currentHp,
     });
     recordDamageTaken(defender, attacker, appliedDamage);
   }
@@ -1020,6 +1043,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_REST, (ctx, events) => {
     type: 'heal',
     battler: ctx.attacker.isPlayer ? 0 : 1,
     value: heal,
+    statusAfter: ctx.attacker.pokemon.status,
     message: `${ctx.attacker.name} went to sleep and became healthy!`,
   });
   return { events, success: true };
@@ -1309,6 +1333,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_THAW_HIT, (ctx, events) => {
     events.push({
       type: 'thaw',
       battler: ctx.defender.isPlayer ? 0 : 1,
+      statusAfter: ctx.defender.pokemon.status,
       message: `${ctx.defender.name} thawed out!`,
     });
   }
@@ -1915,6 +1940,7 @@ registerEffect(MOVE_EFFECTS.EFFECT_HEAL_BELL, (ctx, events) => {
   events.push({
     type: 'message',
     battler: ctx.attacker.isPlayer ? 0 : 1,
+    statusAfter: ctx.attacker.pokemon.status,
     message: ctx.moveId === MOVES.HEAL_BELL
       ? 'A bell chimed!'
       : 'A soothing aroma wafted through the area!',

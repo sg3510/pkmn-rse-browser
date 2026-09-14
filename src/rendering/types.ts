@@ -283,6 +283,10 @@ export interface SpriteInstance {
   // === Appearance ===
   /** Overall opacity (0-1) */
   alpha: number;
+  /** Optional GBA OBJ blend coefficients (0–16); used by battle animation sprites. */
+  /** Full-palette blend color and coefficient, applied before regular tint. */
+  paletteBlend?: readonly [number, number, number, number];
+  gbaBlend?: readonly [source: number, destination: number];
   /** Tint red component (0-1, 1 = no tint) */
   tintR: number;
   /** Tint green component (0-1, 1 = no tint) */

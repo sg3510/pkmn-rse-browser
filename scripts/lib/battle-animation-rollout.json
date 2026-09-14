@@ -1,0 +1,108 @@
+{
+  "moveLabels": [
+    "Move_TACKLE",
+    "Move_GROWL",
+    "Move_POUND",
+    "Move_SCRATCH",
+    "Move_TAIL_WHIP",
+    "Move_EMBER",
+    "Move_WATER_GUN",
+    "Move_ABSORB",
+    "Move_PSYCHIC",
+    "Move_CALM_MIND",
+    "Move_THUNDERBOLT",
+    "Move_SHADOW_BALL"
+  ],
+  "spriteTemplates": [
+    "gHorizontalLungeSpriteTemplate",
+    "gBasicHitSplatSpriteTemplate",
+    "gRoarNoiseLineSpriteTemplate",
+    "gScratchSpriteTemplate",
+    "gEmberFlareSpriteTemplate",
+    "gEmberSpriteTemplate",
+    "gWaterGunDropletSpriteTemplate",
+    "gWaterGunProjectileSpriteTemplate",
+    "gWaterHitSplatSpriteTemplate",
+    "gAbsorptionOrbSpriteTemplate",
+    "gHealingBlueStarSpriteTemplate",
+    "gSimplePaletteBlendSpriteTemplate",
+    "gThinRingShrinkingSpriteTemplate",
+    "gElectricitySpriteTemplate",
+    "gSparkElectricityFlashingSpriteTemplate",
+    "gThunderboltOrbSpriteTemplate",
+    "gShadowBallSpriteTemplate",
+    "gElectricBoltSegmentSpriteTemplate"
+  ],
+  "backgrounds": [
+    "BG_PSYCHIC",
+    "BG_GHOST"
+  ],
+  "extraFrames": {
+    "gElectricitySpriteTemplate": [
+      {
+        "tileOffset": 4,
+        "width": 16,
+        "height": 16
+      },
+      {
+        "tileOffset": 8,
+        "width": 16,
+        "height": 16
+      }
+    ],
+    "gSparkElectricityFlashingSpriteTemplate": [
+      {
+        "tileOffset": 4,
+        "width": 16,
+        "height": 16
+      },
+      {
+        "tileOffset": 8,
+        "width": 16,
+        "height": 16
+      }
+    ],
+    "gElectricBoltSegmentSpriteTemplate": [
+      {
+        "tileOffset": 0,
+        "width": 8,
+        "height": 16
+      },
+      {
+        "tileOffset": 1,
+        "width": 8,
+        "height": 16
+      },
+      {
+        "tileOffset": 2,
+        "width": 8,
+        "height": 16
+      },
+      {
+        "tileOffset": 3,
+        "width": 8,
+        "height": 16
+      },
+      {
+        "tileOffset": 8,
+        "width": 16,
+        "height": 16
+      },
+      {
+        "tileOffset": 12,
+        "width": 16,
+        "height": 16
+      },
+      {
+        "tileOffset": 16,
+        "width": 16,
+        "height": 16
+      },
+      {
+        "tileOffset": 20,
+        "width": 16,
+        "height": 16
+      }
+    ]
+  }
+}

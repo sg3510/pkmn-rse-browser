@@ -6,7 +6,7 @@
  * - public/pokeemerald/src/data/graphics/battle_environment.h
  *
  * Runtime layout (single battles):
- * - BG2 main layer: tiles + map.bin (64x32 tilemap, screenblock layout)
+ * - BG3 main layer: tiles + map.bin (64x32 tilemap, screenblock layout)
  * - BG1 entry/overlay layer: anim_tiles + anim_map.bin (32x32 tilemap)
  */
 import type { BattleWebGLContext } from './BattleWebGLContext';
@@ -34,16 +34,18 @@ export interface BattleBackgroundProfile {
 }
 
 const BG_ATLAS = 'battle_bg';
+const ENTRY_ATLAS = 'battle_entry';
+export const BATTLE_ENTRY_DURATION_MS = 1200;
 const BATTLE_BG_ROOT = '/pokeemerald/graphics/battle_environment';
 const BATTLE_PALETTE_BANK_OFFSET = 2;
 
-// battle_bg.c: BG2 uses screenSize=1 (64x32), BG1 entry layer uses 32x32.
+// battle_bg.c: BG3 uses screenSize=1 (64x32), BG1 entry layer uses 32x32.
 const MAIN_MAP_WIDTH_TILES = 64;
 const MAIN_MAP_HEIGHT_TILES = 32;
 const ENTRY_MAP_WIDTH_TILES = 32;
 const ENTRY_MAP_HEIGHT_TILES = 32;
 
-const composedBackgroundCache = new Map<string, HTMLCanvasElement>();
+const composedBackgroundCache = new Map<string, { main: HTMLCanvasElement; entry: HTMLCanvasElement }>();
 
 const FALLBACK_COLORS: Record<BattleTerrain, string> = {
   tall_grass: '#88c070',
@@ -86,15 +88,6 @@ function createBattleCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = BATTLE_WIDTH;
   canvas.height = BATTLE_HEIGHT;
-  return canvas;
-}
-
-function cloneCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
-  const canvas = createBattleCanvas();
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(source, 0, 0);
   return canvas;
 }
 
@@ -146,10 +139,12 @@ function toIndexedTilesetSource(tileset: TilesetImageData): IndexedGbaTilesetSou
   };
 }
 
-async function composeBattleBackground(profile: Required<BattleBackgroundProfile>): Promise<HTMLCanvasElement> {
+async function composeBattleBackground(profile: Required<BattleBackgroundProfile>) {
   const canvas = createBattleCanvas();
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
+  const ctx = canvas.getContext('2d')!;
+  const entry = createBattleCanvas();
+  entry.width = 256;
+  const entryCtx = entry.getContext('2d')!;
 
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = FALLBACK_COLORS[profile.terrain];
@@ -190,7 +185,7 @@ async function composeBattleBackground(profile: Required<BattleBackgroundProfile
       `Failed to load main battle background for terrain '${profile.terrain}' variant '${profile.variant}':`,
       error,
     );
-    return canvas;
+    return { main: canvas, entry };
   }
 
   try {
@@ -200,13 +195,13 @@ async function composeBattleBackground(profile: Required<BattleBackgroundProfile
     ]);
 
     drawGbaBgTilemap(
-      ctx,
+      entryCtx,
       toIndexedTilesetSource(entryTiles),
       decodeGbaBgTilemap(entryMapBuffer),
       {
         mapWidthTiles: ENTRY_MAP_WIDTH_TILES,
         mapHeightTiles: ENTRY_MAP_HEIGHT_TILES,
-        visibleWidthPx: BATTLE_WIDTH,
+        visibleWidthPx: entry.width,
         visibleHeightPx: BATTLE_HEIGHT,
         layoutMode: 'screenblock',
         skipZeroEntries: true,
@@ -219,18 +214,18 @@ async function composeBattleBackground(profile: Required<BattleBackgroundProfile
     // Anim layer is optional for some terrains.
   }
 
-  return canvas;
+  return { main: canvas, entry };
 }
 
-async function getComposedBackground(profile: Required<BattleBackgroundProfile>): Promise<HTMLCanvasElement> {
+async function getComposedBackground(profile: Required<BattleBackgroundProfile>) {
   const cacheKey = profileCacheKey(profile);
   const cached = composedBackgroundCache.get(cacheKey);
   if (cached) {
-    return cloneCanvas(cached);
+    return cached;
   }
 
   const composed = await composeBattleBackground(profile);
-  composedBackgroundCache.set(cacheKey, cloneCanvas(composed));
+  composedBackgroundCache.set(cacheKey, composed);
   return composed;
 }
 
@@ -246,11 +241,29 @@ export async function loadBattleBackground(
   }
 
   const normalizedProfile = normalizeProfile(profile);
-  const backgroundCanvas = await getComposedBackground(normalizedProfile);
-  webgl.uploadSpriteSheet(BG_ATLAS, backgroundCanvas, {
+  const background = await getComposedBackground(normalizedProfile);
+  webgl.uploadSpriteSheet(BG_ATLAS, background.main, {
     width: BATTLE_WIDTH,
     height: BATTLE_HEIGHT,
   });
+  if (webgl.hasSpriteSheet(ENTRY_ATLAS)) webgl.removeSpriteSheet(ENTRY_ATLAS);
+  webgl.uploadSpriteSheet(ENTRY_ATLAS, background.entry, { width: 256, height: BATTLE_HEIGHT });
+}
+
+/** Temporary BG1 scroll. battle_intro.c clears this layer at the end of the entrance. */
+export function createEntryBackgroundSprites(elapsedMs: number): SpriteInstance[] {
+  if (elapsedMs < 0 || elapsedMs >= BATTLE_ENTRY_DURATION_MS) return [];
+  const scroll = Math.floor(elapsedMs * 0.36) % 256;
+  const drop = Math.round(Math.max(0, elapsedMs - 500) / 700 * 56);
+  return [-scroll, 256 - scroll].map((x) => ({
+    ...createBackgroundSprite(),
+    atlasName: ENTRY_ATLAS,
+    width: 256,
+    atlasWidth: 256,
+    worldX: x,
+    worldY: drop,
+    sortKey: 1,
+  }));
 }
 
 /** Create the background sprite instance (covers full battle area). */

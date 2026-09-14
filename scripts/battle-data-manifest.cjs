@@ -50,6 +50,12 @@ const BATTLE_DATA_GENERATORS = Object.freeze([
     description: 'Battle script command blocks and move-effect table',
   },
   {
+    id: 'battle-animations',
+    script: 'scripts/generate-battle-animations.cjs',
+    outputs: ['src/data/battleAnimations.gen.ts', 'src/data/battleAnimationPrograms.gen.ts', 'src/data/battleAnimationInventory.gen.json'],
+    description: 'Animation scripts, source dependency inventory, and enabled runtime programs',
+  },
+  {
     id: 'battle-move-effects',
     script: 'scripts/generate-battle-move-effects.cjs',
     outputs: ['src/data/battleMoveEffects.gen.ts'],

@@ -11,11 +11,14 @@ import { loadTilesetImage, parsePalette, type TilesetImageData } from '../../uti
 import { STATUS } from '../../pokemon/types';
 import { wrapPromptParagraphs } from '../../core/prompt/textLayout';
 import { BATTLE_LAYOUT } from './BattleLayout';
+import { drawGbaText, measureGbaText, preloadGbaFonts } from '../../rendering/GbaFont';
 
 interface BattleInterfaceAssets {
   enemyHealthbox: HTMLCanvasElement;
   playerHealthbox: HTMLCanvasElement;
   statusIcons: HTMLCanvasElement;
+  hpBar: HTMLCanvasElement;
+  expBar: HTMLCanvasElement;
   ballDisplay: HTMLCanvasElement;
   windowPages: Record<BattleWindowPage, HTMLCanvasElement>;
 }
@@ -25,10 +28,8 @@ export type BattleWindowPage = 'message' | 'action' | 'move';
 
 let assets: BattleInterfaceAssets | null = null;
 let assetsPromise: Promise<void> | null = null;
-let fontReadyPromise: Promise<void> | null = null;
 
-const ENEMY_HEALTHBOX_SRC = { x: 1, y: 2, width: 100, height: 28 };
-const PLAYER_HEALTHBOX_SRC = { x: 1, y: 2, width: 103, height: 36 };
+
 const BATTLE_BG0_MAP_WIDTH_TILES = 32;
 const BATTLE_BG0_MAP_HEIGHT_TILES = 64;
 const BATTLE_BG0_TILE_SIZE = 8;
@@ -131,38 +132,6 @@ async function buildBattleWindowPages(): Promise<Record<BattleWindowPage, HTMLCa
   };
 }
 
-function setBattleFont(
-  ctx: CanvasRenderingContext2D,
-  sizePx: number,
-  weight: 'normal' | 'bold' = 'normal',
-): void {
-  ctx.font = `${weight} ${sizePx}px "Pokemon Emerald", monospace`;
-}
-
-function preloadBattleFonts(): Promise<void> {
-  if (fontReadyPromise) {
-    return fontReadyPromise;
-  }
-
-  fontReadyPromise = (async () => {
-    if (typeof document === 'undefined' || !('fonts' in document)) {
-      return;
-    }
-
-    try {
-      await Promise.all([
-        document.fonts.load('8px "Pokemon Emerald"'),
-        document.fonts.load('9px "Pokemon Emerald"'),
-        document.fonts.load('10px "Pokemon Emerald"'),
-      ]);
-    } catch (error) {
-      console.warn('[BattleHealthBox] Failed to preload Pokemon Emerald font:', error);
-    }
-  })();
-
-  return fontReadyPromise;
-}
-
 /**
  * Preload battle UI assets. Call once during battle state enter.
  */
@@ -180,29 +149,39 @@ export async function preloadBattleInterfaceAssets(): Promise<void> {
         enemyHealthbox,
         playerHealthbox,
         statusIcons,
+        hpBar,
+        expBar,
         ballDisplay,
         windowPages,
       ] = await Promise.all([
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/healthbox_singles_opponent.png', {
-          transparency: { type: 'top-left' },
+          transparency: { type: 'indexed-zero' },
         }),
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/healthbox_singles_player.png', {
-          transparency: { type: 'top-left' },
+          transparency: { type: 'indexed-zero' },
         }),
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/status.png', {
           transparency: { type: 'none' },
         }),
+        loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/hpbar.png', {
+          transparency: { type: 'indexed-zero' },
+        }),
+        loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/expbar.png', {
+          transparency: { type: 'indexed-zero' },
+        }),
         loadImageCanvasAsset('/pokeemerald/graphics/battle_interface/ball_display.png', {
-          transparency: { type: 'top-left' },
+          transparency: { type: 'indexed-zero' },
         }),
         buildBattleWindowPages(),
-        preloadBattleFonts(),
+        preloadGbaFonts(),
       ]);
 
       assets = {
         enemyHealthbox,
         playerHealthbox,
         statusIcons,
+        hpBar,
+        expBar,
         ballDisplay,
         windowPages,
       };
@@ -212,13 +191,6 @@ export async function preloadBattleInterfaceAssets(): Promise<void> {
   })();
 
   return assetsPromise;
-}
-
-/** HP bar color by percentage. */
-function getHpColor(percent: number): string {
-  if (percent > 0.5) return '#48d848';
-  if (percent > 0.2) return '#f8d030';
-  return '#f85858';
 }
 
 function statusRowFromStatus(status: number): number | null {
@@ -276,11 +248,7 @@ function drawStatusIcon(
   }
 
   const labels = ['PSN', 'PAR', 'SLP', 'FRZ', 'BRN'];
-  ctx.fillStyle = '#383838';
-  setBattleFont(ctx, 7);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(labels[row] ?? '', x, y);
+  drawGbaText(ctx, labels[row] ?? '', x, y, { font: 'small' });
 }
 
 function drawTextboxBackdrop(
@@ -306,6 +274,9 @@ export function drawBattleWindowPageChrome(
   if (pageCanvas) {
     const previousSmoothing = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
+    // BG0 color zero exposes the GBA backdrop, never the battlefield behind a menu corner.
+    ctx.fillStyle = '#4a4152';
+    ctx.fillRect(offsetX, offsetY + 112, 240, 48);
     ctx.drawImage(pageCanvas, offsetX, offsetY);
     ctx.imageSmoothingEnabled = previousSmoothing;
     return;
@@ -320,135 +291,81 @@ export function drawBattleWindowPageChrome(
   );
 }
 
-/** Draw the enemy's health box (single battle). */
+/** Six 8-pixel HP tiles, with the original label, white rails, and two-tone fill. */
+function drawHpBar(ctx: CanvasRenderingContext2D, x: number, y: number, hp: number, maxHp: number, showLabel = true): void {
+  if (!assets) return;
+  const pixels = getHpBarPixels(hp, maxHp);
+  if (showLabel) ctx.drawImage(assets.hpBar, 8, 0, 16, 8, x, y, 16, 8);
+  for (let tile = 0; tile < 6; tile++) {
+    ctx.drawImage(assets.hpBar, 24, 0, 8, 8, x + 16 + tile * 8, y, 8, 8);
+  }
+  // Rectangles reproduce the two ink rows; rails and rounded caps remain intact.
+  const colors = pixels > 24 ? ['#5ad583', '#73ffac']
+    : pixels > 9 ? ['#cdac08', '#ffe639'] : ['#ac414a', '#ff5a39'];
+  for (let row = 0; row < 2; row++) {
+    ctx.fillStyle = colors[row];
+    ctx.fillRect(x + 16, y + 3 + row, pixels, 1);
+  }
+}
+
+export function getHpBarPixels(hp: number, maxHp: number): number {
+  if (hp <= 0 || maxHp <= 0) return 0;
+  return Math.max(1, Math.floor(48 * clamp01(hp / maxHp)));
+}
+
+function drawHealthboxHeading(
+  ctx: CanvasRenderingContext2D, x: number, y: number, name: string, level: number, gender: string,
+): void {
+  const levelText = `⒧${level}`;
+  const nameWidth = 80 - measureGbaText(levelText, 'small') - 1;
+  // Nidoran's default species name already contains its gender glyph.
+  const symbol = name.endsWith('♂') || name.endsWith('♀') ? '' : gender;
+  let displayName = name;
+  while (measureGbaText(displayName + symbol, 'small') > nameWidth && displayName.length > 0) {
+    displayName = displayName.slice(0, -1);
+  }
+  drawGbaText(ctx, displayName, x, y, { font: 'small', shadow: '#ded5b4' });
+  drawGbaText(ctx, symbol, x + measureGbaText(displayName, 'small'), y, {
+    font: 'small', color: symbol === '♀' ? '#f69c7b' : '#5aace6', shadow: '#ded5b4',
+  });
+  drawGbaText(ctx, levelText, x + 80, y, { font: 'small', align: 'right', shadow: '#ded5b4' });
+}
+
+/** Draw the enemy's health box (single battle). Coordinates include the full shadow. */
 export function drawEnemyHealthBox(
-  ctx: CanvasRenderingContext2D,
-  offsetX: number,
-  offsetY: number,
-  name: string,
-  level: number,
-  currentHp: number,
-  maxHp: number,
-  status: number = STATUS.NONE,
+  ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number,
+  name: string, level: number, currentHp: number, maxHp: number,
+  status: number = STATUS.NONE, gender = '',
 ): void {
   const x = offsetX + BATTLE_LAYOUT.enemy.healthboxX;
   const y = offsetY + BATTLE_LAYOUT.enemy.healthboxY;
-  const boxW = ENEMY_HEALTHBOX_SRC.width;
-
-  if (assets) {
-    ctx.drawImage(
-      assets.enemyHealthbox,
-      ENEMY_HEALTHBOX_SRC.x,
-      ENEMY_HEALTHBOX_SRC.y,
-      ENEMY_HEALTHBOX_SRC.width,
-      ENEMY_HEALTHBOX_SRC.height,
-      x,
-      y,
-      ENEMY_HEALTHBOX_SRC.width,
-      ENEMY_HEALTHBOX_SRC.height,
-    );
-  } else {
-    ctx.fillStyle = '#f0e8d0';
-    ctx.fillRect(x, y, boxW, ENEMY_HEALTHBOX_SRC.height);
-    ctx.strokeStyle = '#585048';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, boxW, ENEMY_HEALTHBOX_SRC.height);
-  }
-
-  ctx.fillStyle = '#383028';
-  setBattleFont(ctx, 9);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(name, x + 8, y + 2);
-  ctx.textAlign = 'right';
-  ctx.fillText(`Lv${level}`, x + boxW - 8, y + 2);
-
-  const hpPercent = maxHp > 0 ? clamp01(currentHp / maxHp) : 0;
-  const barX = x + 37;
-  const barY = y + 14;
-  const barW = 48;
-  const barH = 4;
-
-  ctx.fillStyle = '#484848';
-  ctx.fillRect(barX, barY, barW, barH);
-  ctx.fillStyle = getHpColor(hpPercent);
-  ctx.fillRect(barX, barY, Math.floor(barW * hpPercent), barH);
-
-  drawStatusIcon(ctx, x + 73, y + 16, status);
+  if (assets) ctx.drawImage(assets.enemyHealthbox, x, y);
+  drawHealthboxHeading(ctx, x + 8, y + 3, name, level, gender);
+  drawHpBar(ctx, x + 24, y + 16, currentHp, maxHp, statusRowFromStatus(status) === null);
+  drawStatusIcon(ctx, x + 8, y + 16, status);
 }
 
 /** Draw the player's health box (single battle). */
 export function drawPlayerHealthBox(
-  ctx: CanvasRenderingContext2D,
-  offsetX: number,
-  offsetY: number,
-  name: string,
-  level: number,
-  currentHp: number,
-  maxHp: number,
-  expPercent = 0,
-  status: number = STATUS.NONE,
+  ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number,
+  name: string, level: number, currentHp: number, maxHp: number,
+  expPercent = 0, status: number = STATUS.NONE, gender = '',
 ): void {
   const x = offsetX + BATTLE_LAYOUT.player.healthboxX;
   const y = offsetY + BATTLE_LAYOUT.player.healthboxY;
-  const boxW = PLAYER_HEALTHBOX_SRC.width;
-
+  if (assets) ctx.drawImage(assets.playerHealthbox, x, y);
+  drawHealthboxHeading(ctx, x + 16, y + 3, name, level, gender);
+  drawHpBar(ctx, x + 32, y + 16, currentHp, maxHp);
+  drawGbaText(ctx, `${Math.max(0, Math.round(currentHp))}/${maxHp}`, x + 96, y + 21,
+    { font: 'small', align: 'right', shadow: '#ded5b4' });
+  const expPixels = level >= 100 ? 0 : Math.floor(clamp01(expPercent) * 64);
   if (assets) {
-    ctx.drawImage(
-      assets.playerHealthbox,
-      PLAYER_HEALTHBOX_SRC.x,
-      PLAYER_HEALTHBOX_SRC.y,
-      PLAYER_HEALTHBOX_SRC.width,
-      PLAYER_HEALTHBOX_SRC.height,
-      x,
-      y,
-      PLAYER_HEALTHBOX_SRC.width,
-      PLAYER_HEALTHBOX_SRC.height,
-    );
-  } else {
-    ctx.fillStyle = '#f0e8d0';
-    ctx.fillRect(x, y, boxW, PLAYER_HEALTHBOX_SRC.height);
-    ctx.strokeStyle = '#585048';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, boxW, PLAYER_HEALTHBOX_SRC.height);
+    for (let tile = 0; tile < 8; tile++) {
+      const fill = Math.max(0, Math.min(8, expPixels - tile * 8));
+      ctx.drawImage(assets.expBar, fill * 8, 0, 8, 8, x + 32 + tile * 8, y + 32, 8, 8);
+    }
   }
-
-  ctx.fillStyle = '#383028';
-  setBattleFont(ctx, 9);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(name, x + 8, y + 2);
-  ctx.textAlign = 'right';
-  ctx.fillText(`Lv${level}`, x + boxW - 8, y + 2);
-
-  const hpPercent = maxHp > 0 ? clamp01(currentHp / maxHp) : 0;
-  const barX = x + 47;
-  const barY = y + 14;
-  const barW = 48;
-  const barH = 4;
-
-  ctx.fillStyle = '#484848';
-  ctx.fillRect(barX, barY, barW, barH);
-  ctx.fillStyle = getHpColor(hpPercent);
-  ctx.fillRect(barX, barY, Math.floor(barW * hpPercent), barH);
-
-  ctx.fillStyle = '#383028';
-  setBattleFont(ctx, 8);
-  ctx.textAlign = 'right';
-  ctx.fillText(`${Math.max(0, currentHp)}/${maxHp}`, x + boxW - 6, y + 21);
-
-  const expBarX = x + 31;
-  const expBarY = y + 31;
-  const expBarW = 64;
-  const expBarH = 4;
-  const clampedExpPercent = clamp01(expPercent);
-
-  ctx.fillStyle = '#404040';
-  ctx.fillRect(expBarX, expBarY, expBarW, expBarH);
-  ctx.fillStyle = '#58a8f8';
-  ctx.fillRect(expBarX, expBarY, Math.floor(expBarW * clampedExpPercent), expBarH);
-
-  drawStatusIcon(ctx, x + 7, y + 21, status);
+  drawStatusIcon(ctx, x + 16, y + 24, status);
 }
 
 /** Draw the battle message text box. */
@@ -462,10 +379,6 @@ export function drawTextBox(
   drawBattleWindowPageChrome(ctx, offsetX, offsetY, 'message');
 
   const window = BATTLE_LAYOUT.windows.message;
-  ctx.fillStyle = '#383838';
-  setBattleFont(ctx, 10);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
 
   const clampedVisibleChars = visibleChars === undefined
     ? text.length
@@ -476,16 +389,17 @@ export function drawTextBox(
     visibleText,
     {
       maxWidth: window.textWidth,
-      measureText: (value) => ctx.measureText(value).width,
+      measureText: (value) => measureGbaText(value),
     },
     window.maxLines,
   );
 
   for (let i = 0; i < Math.min(lines.length, window.maxLines); i++) {
-    ctx.fillText(
+    drawGbaText(ctx,
       lines[i] ?? '',
       offsetX + window.textX,
       offsetY + window.textY + (i * window.lineHeight),
+      { color: '#ffffff', shadow: '#6a5a73' },
     );
   }
 }
@@ -504,18 +418,16 @@ export function drawActionMenu(
   const promptWindow = BATTLE_LAYOUT.windows.actionPrompt;
   const actionWindow = BATTLE_LAYOUT.windows.actionMenu;
   const displayName = pokemonName.length > 10 ? `${pokemonName.slice(0, 10)}...` : pokemonName;
-  ctx.fillStyle = '#383838';
-  setBattleFont(ctx, 10);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('What will', offsetX + promptWindow.textX, offsetY + promptWindow.textY);
-  ctx.fillText(
+  const promptStyle = { color: '#ffffff', shadow: '#6a5a73' };
+  drawGbaText(ctx, 'What will', offsetX + promptWindow.textX, offsetY + promptWindow.textY, promptStyle);
+  drawGbaText(ctx,
     `${displayName} do?`,
     offsetX + promptWindow.textX,
     offsetY + promptWindow.textY + promptWindow.lineHeight,
+    promptStyle,
   );
 
-  const actions = ['FIGHT', 'BAG', 'POKeMON', 'RUN'];
+  const actions = ['FIGHT', 'BAG', 'POKéMON', 'RUN'];
   for (let i = 0; i < 4; i++) {
     const col = i % 2;
     const row = Math.floor(i / 2);
@@ -525,13 +437,11 @@ export function drawActionMenu(
     const disabled = firstBattle && i !== 0;
 
     if (isSelected) {
-      ctx.fillStyle = '#383838';
-      ctx.fillText('▶', offsetX + bx - actionWindow.cursorOffsetX, offsetY + by);
+      drawGbaText(ctx, '▶', offsetX + bx - actionWindow.cursorOffsetX, offsetY + by);
     }
 
-    ctx.fillStyle = disabled ? '#989898' : '#383838';
-    setBattleFont(ctx, 9);
-    ctx.fillText(actions[i] ?? '', offsetX + bx, offsetY + by);
+    drawGbaText(ctx, actions[i] ?? '', offsetX + bx, offsetY + by,
+      { color: disabled ? '#989898' : '#414141' });
   }
 }
 
@@ -545,9 +455,6 @@ export function drawMoveMenu(
 ): void {
   drawBattleWindowPageChrome(ctx, offsetX, offsetY, 'move');
 
-  setBattleFont(ctx, 9);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
 
   const moveWindows = [
     BATTLE_LAYOUT.windows.moveName1,
@@ -567,15 +474,12 @@ export function drawMoveMenu(
       const isSelected = i === selectedIndex;
 
       if (isSelected) {
-        ctx.fillStyle = '#383838';
-        ctx.fillText('▶', mx - 8, my);
+        drawGbaText(ctx, '▶', mx - 8, my);
       }
 
-      ctx.fillStyle = '#383838';
-      ctx.fillText(move?.name ?? '-', mx, my);
+      drawGbaText(ctx, move?.name ?? '-', mx, my, { font: 'narrow' });
     } else {
-      ctx.fillStyle = '#a0a0a0';
-      ctx.fillText('-', mx, my);
+      drawGbaText(ctx, '-', mx, my, { color: '#a0a0a0' });
     }
   }
 
@@ -585,13 +489,9 @@ export function drawMoveMenu(
     const ppValue = BATTLE_LAYOUT.windows.movePpValue;
     const moveType = BATTLE_LAYOUT.windows.moveType;
 
-    ctx.fillStyle = '#383838';
-    setBattleFont(ctx, 9);
-    ctx.fillText('PP', offsetX + ppLabel.textX, offsetY + ppLabel.textY);
-    ctx.fillText(`${move?.pp ?? 0}/${move?.maxPp ?? 0}`, offsetX + ppValue.textX, offsetY + ppValue.textY);
-
-    setBattleFont(ctx, 8);
-    ctx.fillText(`TYPE/${move?.type ?? 'NORMAL'}`, offsetX + moveType.textX, offsetY + moveType.textY);
+    drawGbaText(ctx, 'PP', offsetX + ppLabel.textX, offsetY + ppLabel.textY, { font: 'narrow' });
+    drawGbaText(ctx, `${move?.pp ?? 0}/${move?.maxPp ?? 0}`, offsetX + ppValue.textX, offsetY + ppValue.textY);
+    drawGbaText(ctx, `TYPE/${move?.type ?? 'NORMAL'}`, offsetX + moveType.textX, offsetY + moveType.textY, { font: 'narrow' });
   }
 }
 

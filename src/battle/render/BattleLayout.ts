@@ -1,6 +1,7 @@
 /**
  * Shared battle scene/layout constants.
  *
+ * C refs: public/pokeemerald/src/battle_interface.c, battle_anim_mons.c, battle_bg.c.
  * Centralizes 240x160 battle coordinates so sprite/UI alignment changes are
  * done in one place.
  */
@@ -25,18 +26,18 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 208,
       height: 32,
-      textX: 18,
+      textX: 16,
       textY: 121,
       lineHeight: 16,
       maxLines: 2,
-      textWidth: 198,
+      textWidth: 208,
     },
     actionPrompt: {
       x: 8,
       y: 120,
       width: 112,
       height: 32,
-      textX: 10,
+      textX: 9,
       textY: 121,
       lineHeight: 16,
     },
@@ -45,8 +46,8 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 96,
       height: 32,
-      leftColumnX: 148,
-      rightColumnX: 196,
+      leftColumnX: 136,
+      rightColumnX: 192,
       topRowY: 121,
       bottomRowY: 137,
       cursorOffsetX: 8,
@@ -56,7 +57,7 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 64,
       height: 16,
-      textX: 22,
+      textX: 16,
       textY: 121,
     },
     moveName2: {
@@ -64,7 +65,7 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 64,
       height: 16,
-      textX: 94,
+      textX: 88,
       textY: 121,
     },
     moveName3: {
@@ -72,7 +73,7 @@ export const BATTLE_LAYOUT = {
       y: 136,
       width: 64,
       height: 16,
-      textX: 22,
+      textX: 16,
       textY: 137,
     },
     moveName4: {
@@ -80,7 +81,7 @@ export const BATTLE_LAYOUT = {
       y: 136,
       width: 64,
       height: 16,
-      textX: 94,
+      textX: 88,
       textY: 137,
     },
     movePpLabel: {
@@ -88,7 +89,7 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 32,
       height: 16,
-      textX: 170,
+      textX: 168,
       textY: 121,
     },
     movePpValue: {
@@ -96,7 +97,7 @@ export const BATTLE_LAYOUT = {
       y: 120,
       width: 32,
       height: 16,
-      textX: 202,
+      textX: 200,
       textY: 121,
     },
     moveType: {
@@ -104,23 +105,23 @@ export const BATTLE_LAYOUT = {
       y: 136,
       width: 64,
       height: 16,
-      textX: 170,
+      textX: 168,
       textY: 137,
     },
   },
   enemy: {
     spriteX: 144,
-    spriteY: 12,
-    healthboxX: 16,
-    healthboxY: 8,
+    spriteY: 8,
+    healthboxX: 12,
+    healthboxY: 14,
     partyBallsX: 18,
     partyBallsY: 40,
   },
   player: {
     spriteX: 40,
-    spriteY: 56,
-    healthboxX: 128,
-    healthboxY: 76,
+    spriteY: 48,
+    healthboxX: 126,
+    healthboxY: 72,
     partyBallsX: 174,
     partyBallsY: 68,
   },

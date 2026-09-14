@@ -28,6 +28,9 @@ This folder uses frontmatter in every markdown document to make status explicit.
 - experiments: `docs/experiments/`
 
 ## Recently Updated
+- Battle animation first slice (implemented): [docs/features/battle/animation-first-slice.md](./features/battle/animation-first-slice.md)
+- Battle animation expansion (implemented, twelve moves): [docs/features/battle/animation-expanded-moves.md](./features/battle/animation-expanded-moves.md)
+- Scalable battle animation implementation plan (in progress): [docs/features/battle/animation-implementation-plan.md](./features/battle/animation-implementation-plan.md)
 - Birch intro rendering/layering + scaling notes: `docs/architecture/intro/birch-intro-rendering.md`
 - Prompt/menu/move-flow unification architecture note: `docs/architecture/prompt-menu-unification.md`
 

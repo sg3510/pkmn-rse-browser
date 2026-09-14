@@ -59,6 +59,7 @@ export class BattleEngine {
 
   private outcome: BattleOutcome | null = null;
   private escapeAttempts = 0;
+  private presentationActionId = 0;
 
   constructor(init: BattleEngineInit) {
     this.config = init.config;
@@ -560,6 +561,7 @@ export class BattleEngine {
           defender: step.target,
           moveId: step.action.moveId,
           moveSlot: step.action.moveSlot,
+          actionId: ++this.presentationActionId,
           battleType: this.config.type,
           weather: this.weather,
           attackerSide: step.actorSide,

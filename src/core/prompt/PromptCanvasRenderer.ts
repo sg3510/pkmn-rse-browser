@@ -10,7 +10,13 @@ import type { PromptWindowProfile } from './PromptWindowProfile.ts';
 import type { PromptWindowSkin } from './PromptWindowSkin.ts';
 import { wrapPromptParagraphs } from './textLayout.ts';
 
+export interface PromptTextPainter {
+  measure(text: string): number;
+  draw(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, scale: number): void;
+}
+
 export interface PromptCanvasRendererRequest {
+  textPainter?: PromptTextPainter;
   profile: PromptWindowProfile;
   skin: PromptWindowSkin;
   state: PromptRenderState | null;
@@ -120,6 +126,7 @@ export class PromptCanvasRenderer {
       shadowColor,
       fontFamily,
       scrollProgress: request.scrollProgress,
+      textPainter: request.textPainter,
     });
 
     if (showArrow && profile.arrow) {
@@ -167,6 +174,7 @@ export class PromptCanvasRenderer {
       shadowColor?: string;
       fontFamily?: string;
       scrollProgress?: number;
+      textPainter?: PromptTextPainter;
     },
   ): PromptTextLayoutSnapshot {
     const { profile, state, originX, originY, scale } = options;
@@ -185,11 +193,14 @@ export class PromptCanvasRenderer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
+    const measure = (value: string) => options.textPainter
+      ? options.textPainter.measure(value) * scale
+      : ctx.measureText(value).width;
     const lines = wrapPromptParagraphs(
       visibleText,
       {
         maxWidth: profile.text.width * scale,
-        measureText: (value) => ctx.measureText(value).width,
+        measureText: measure,
       },
       Math.max(1, profile.text.maxLines + 1),
     );
@@ -213,6 +224,11 @@ export class PromptCanvasRenderer {
       const drawX = clipX;
       const drawY = clipY + (i * lineHeightPx) - scrollOffset;
 
+      if (options.textPainter) {
+        options.textPainter.draw(ctx, line, drawX, drawY, scale);
+        continue;
+      }
+
       if (resolvedShadowColor) {
         ctx.fillStyle = resolvedShadowColor;
         ctx.fillText(
@@ -226,7 +242,7 @@ export class PromptCanvasRenderer {
       ctx.fillText(line, drawX, drawY);
     }
 
-    const lineWidths = lines.map((line) => ctx.measureText(line).width);
+    const lineWidths = lines.map(measure);
     ctx.restore();
 
     return {
