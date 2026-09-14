@@ -128,10 +128,11 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
         onClick={togglePanel}
         style={{
           position: 'fixed',
-          right: isOpen ? PANEL_WIDTH : 0,
+          right: isOpen ? `min(${PANEL_WIDTH}px, calc(100vw - 44px))` : 0,
+          minWidth: 44,
           top: '50%',
           transform: 'translateY(-50%)',
-          zIndex: 1001,
+          zIndex: 3001,
           padding: '12px 6px',
           backgroundColor: isOpen ? '#2d2d2d' : '#1a1a1a',
           color: '#888',
@@ -164,11 +165,12 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
           position: 'fixed',
           right: isOpen ? 0 : -PANEL_WIDTH,
           top: 0,
-          width: PANEL_WIDTH,
-          height: '100vh',
+          width: `min(${PANEL_WIDTH}px, calc(100vw - 44px))`,
+          height: '100dvh',
+          visibility: isOpen ? 'visible' : 'hidden',
           backgroundColor: '#1a1a1a',
           color: '#e0e0e0',
-          zIndex: 1000,
+          zIndex: 3000,
           transition: 'right 0.3s ease',
           display: 'flex',
           flexDirection: 'column',
@@ -201,7 +203,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
               />
               Diagnostics
             </label>
-            <span style={{ color: '#666', fontSize: '10px' }}>Press ` to toggle</span>
+            <button type="button" onClick={togglePanel} aria-label="Close debug panel" style={{ minWidth: 44, minHeight: 44 }}>×</button>
           </div>
         </div>
 

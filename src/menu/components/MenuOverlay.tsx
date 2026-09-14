@@ -12,7 +12,7 @@
  * - Switching menus does NOT change container size
  */
 
-import { useMenuState } from '../hooks/useMenuState';
+import { useMenuState, useMenuInput } from '../hooks/useMenuState';
 import {
   menuStateManager,
   type AnyMenuData,
@@ -145,6 +145,7 @@ function MenuContent({ currentMenu, data }: MenuContentProps) {
 }
 
 function PlaceholderContent({ title }: { title: string }) {
+  useMenuInput({ onCancel: () => menuStateManager.back() });
   return (
     <div className="menu-placeholder">
       <h2>{title}</h2>

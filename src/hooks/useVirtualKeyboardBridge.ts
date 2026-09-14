@@ -1,3 +1,4 @@
+import { subscribeTouchReset } from '../core/input/subscribeTouchReset';
 import { useCallback, useEffect, useRef } from 'react';
 import { type GameButton } from '../core/InputMap';
 import { inputController } from '../core/InputController';
@@ -41,32 +42,7 @@ export function useVirtualKeyboardBridge(): VirtualKeyboardBridge {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        releaseAll();
-      }
-    };
-
-    const handleBlur = () => releaseAll();
-    const handleOrientationChange = () => releaseAll();
-    const orientationMedia = typeof window.matchMedia === 'function'
-      ? window.matchMedia('(orientation: portrait)')
-      : null;
-
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('orientationchange', handleOrientationChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    orientationMedia?.addEventListener('change', handleOrientationChange);
-
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('orientationchange', handleOrientationChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      orientationMedia?.removeEventListener('change', handleOrientationChange);
-      releaseAll();
-    };
+    return subscribeTouchReset(releaseAll);
   }, [releaseAll]);
 
   return { pressButton, releasePointer, releaseAll };

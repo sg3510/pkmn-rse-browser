@@ -314,6 +314,18 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     dispatch({ type: 'START_EDITING', initialValue });
   }, [state, dispatch]);
 
+  const submitTextInput = useCallback(() => {
+    const current = stateRef.current;
+    if (current.type !== 'editing') return;
+    const input = textInputRef.current;
+    const value = input?.normalize ? input.normalize(current.value) : current.value;
+    if (!(input?.allowEmpty ?? false) && !value.trim()) return;
+    const resolve = resolveRef.current;
+    resolveRef.current = null;
+    dispatch({ type: 'CLOSE' });
+    resolve?.(value);
+  }, [dispatch]);
+
   // Shared modal input handling (overworld prompt + choices + text entry).
   useEffect(() => {
     if (state.type === 'closed') {
@@ -371,7 +383,10 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     };
 
     const handleInput = (code: string, nativeEvent?: KeyboardEvent) => {
-      const consume = () => { if (nativeEvent) consumeModalInputEvent(nativeEvent); };
+      const consume = () => {
+        if (nativeEvent) consumeModalInputEvent(nativeEvent);
+        else inputController.consumeCodeUntilRelease(code);
+      };
       const currentState = stateRef.current;
       if (!currentState || currentState.type === 'closed') {
         return;
@@ -379,21 +394,17 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
       const options = optionsRef.current;
       const textInput = textInputRef.current;
-      const mappedAction = getModalInputAction(code);
+      const nativeEditing = currentState.type === 'editing' && nativeEvent?.target instanceof HTMLInputElement;
+      if (nativeEditing && (nativeEvent.isComposing || !['Enter', 'NumpadEnter', 'Escape'].includes(code))) return;
+      const mappedAction = nativeEditing
+        ? (code === 'Escape' ? 'cancel' : 'confirm')
+        : getModalInputAction(code);
 
       if (currentState.type === 'editing') {
         if (mappedAction === 'confirm' || code === 'NumpadEnter') {
           consume();
 
-          const normalize = textInput?.normalize;
-          const normalizedValue = normalize ? normalize(currentState.value) : currentState.value;
-          const allowEmpty = textInput?.allowEmpty ?? false;
-          if (!allowEmpty && normalizedValue.trim().length === 0) {
-            return;
-          }
-
-          dispatch({ type: 'CLOSE' });
-          resolveAndClear(normalizedValue);
+          submitTextInput();
           return;
         }
 
@@ -418,7 +429,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
         let append: string | null = null;
         if (textInput?.mapKey) {
           append = nativeEvent ? textInput.mapKey(nativeEvent) : null;
-        } else {
+        } else if (nativeEvent) {
           const letterMatch = code.match(/^Key([A-Z])$/);
           const digitMatch = code.match(/^Digit([0-9])$/);
           if (letterMatch) append = letterMatch[1];
@@ -500,7 +511,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     };
 
     return subscribeDialogInput(inputController, window, handleInput);
-  }, [state.type, config.advanceKeys, config.cancelKeys, config.allowSkip, dispatch]);
+  }, [state.type, config.advanceKeys, config.cancelKeys, config.allowSkip, dispatch, submitTextInput]);
 
   // Resolve setter/getter
   const setResolve = useCallback((fn: ((value: unknown) => void) | null) => {
@@ -520,6 +531,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
     dispatch,
     setResolve,
     getResolve,
+    submitTextInput,
   };
 
   return (
@@ -638,6 +650,7 @@ export function useDialog(): UseDialogReturn {
         allowEmpty: input?.allowEmpty ?? false,
         cancelable: input?.cancelable ?? true,
         mapKey: input?.mapKey,
+        filterValue: input?.filterValue,
         normalize: input?.normalize,
       };
       return showMessages([{ text }], undefined, textInput) as Promise<string | null>;

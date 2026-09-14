@@ -1,3 +1,4 @@
+import { isEditableTarget } from './input/isEditableTarget.ts';
 import { GameButton, inputMap, type GameButton as GameButtonType } from './InputMap.ts';
 import {
   DEFAULT_INPUT_REPEAT_POLICY,
@@ -42,9 +43,10 @@ export class InputController {
   private readonly holdFrames = new Map<string, number>();
   private readonly pressedThisFrame = new Set<string>();
   private readonly releasedThisFrame = new Set<string>();
+  private readonly consumedCodes = new Set<string>();
   private keyboardListenersBound = false;
   private readonly handleKeyDown = (event: KeyboardEvent) => {
-    if (!inputMap.hasBinding(event.code)) return;
+    if (isEditableTarget(event.target) || !inputMap.hasBinding(event.code)) return;
     event.preventDefault();
     this.setCodeActive(event.code, true, 'keyboard', event.code);
   };
@@ -123,7 +125,7 @@ export class InputController {
   }
 
   private getHeldCodes(): Set<string> {
-    return new Set(this.codeSources.keys());
+    return new Set([...this.codeSources.keys()].filter(code => !this.consumedCodes.has(code)));
   }
 
   private emitCodeTransition(code: string, becameActive: boolean, source: InputSource): void {
@@ -174,6 +176,7 @@ export class InputController {
     if (currentSources.size === 0) {
       this.codeSources.delete(code);
       this.holdFrames.delete(code);
+      this.consumedCodes.delete(code);
       if (wasCodeActive) {
         this.releasedThisFrame.add(code);
         this.emitCodeTransition(code, false, source);
@@ -209,12 +212,19 @@ export class InputController {
     }
   }
 
+  /** A modal press must not leak into gameplay when the modal closes. */
+  consumeCodeUntilRelease(code: string): void {
+    this.pressedThisFrame.delete(code);
+    if (this.codeSources.has(code)) this.consumedCodes.add(code);
+  }
+
   consumeFrameState(): InputState {
     const held = this.getHeldCodes();
     const repeated = new Set<string>();
     const sourceMask = new Set<InputSource>();
 
     for (const [code, sources] of this.codeSources) {
+      if (this.consumedCodes.has(code)) continue;
       const priorFrames = this.holdFrames.get(code) ?? 0;
       const nextFrames = priorFrames + 1;
       this.holdFrames.set(code, nextFrames);
@@ -252,7 +262,7 @@ export class InputController {
 
   getHeldRecord(): Record<string, boolean> {
     const record: Record<string, boolean> = {};
-    for (const code of this.codeSources.keys()) {
+    for (const code of this.getHeldCodes()) {
       record[code] = true;
     }
     return record;

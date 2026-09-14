@@ -1,3 +1,4 @@
+import { subscribeTouchReset } from '../../core/input/subscribeTouchReset';
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { GameButton } from '../../core/InputMap';
 
@@ -63,7 +64,6 @@ function getButtonClass(baseClass: string, isActive: boolean, enabled: boolean):
 
 function resolveDpadDirection(
   event: PointerEvent<HTMLDivElement>,
-  currentButton: DpadButton | null
 ): DpadButton | null {
   const rect = event.currentTarget.getBoundingClientRect();
   const centerX = rect.left + (rect.width / 2);
@@ -74,7 +74,7 @@ function resolveDpadDirection(
   const deadzone = maxAxis * DPAD_DEADZONE_RATIO;
 
   if (Math.hypot(dx, dy) <= deadzone) {
-    return currentButton;
+    return null;
   }
 
   const absX = Math.abs(dx);
@@ -95,6 +95,7 @@ function resolveDpadDirection(
 
 export function MobileControlDeck({ enabled, onPress, onReleasePointer }: MobileControlDeckProps) {
   const [activeCounts, setActiveCounts] = useState<Record<ControlButton, number>>(INITIAL_ACTIVE_COUNTS);
+  const dpadPointers = useRef(new Set<number>());
   const pointerToButtonRef = useRef<Map<number, ControlButton>>(new Map());
 
   const adjustButtonCount = useCallback((button: ControlButton, delta: number) => {
@@ -129,7 +130,7 @@ export function MobileControlDeck({ enabled, onPress, onReleasePointer }: Mobile
   }, [adjustButtonCount, onPress, releaseTrackedPointer]);
 
   const handleButtonPointerDown = useCallback((button: Exclude<ControlButton, DpadButton>, event: PointerEvent<HTMLButtonElement>) => {
-    if (!enabled) return;
+    if (!enabled || event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     pressTrackedPointer(button, event.pointerId);
@@ -144,19 +145,20 @@ export function MobileControlDeck({ enabled, onPress, onReleasePointer }: Mobile
   }, [releaseTrackedPointer]);
 
   const handleDpadPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!enabled) return;
+    if (!enabled || event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    const nextButton = resolveDpadDirection(event, null);
+    dpadPointers.current.add(event.pointerId);
+    const nextButton = resolveDpadDirection(event);
     if (nextButton) {
       pressTrackedPointer(nextButton, event.pointerId);
     }
   }, [enabled, pressTrackedPointer]);
 
   const handleDpadPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!enabled) return;
+    if (!enabled || !dpadPointers.current.has(event.pointerId)) return;
     const currentButton = pointerToButtonRef.current.get(event.pointerId) as DpadButton | undefined;
-    const nextButton = resolveDpadDirection(event, currentButton ?? null);
+    const nextButton = resolveDpadDirection(event);
     if (nextButton) {
       pressTrackedPointer(nextButton, event.pointerId);
       return;
@@ -167,6 +169,7 @@ export function MobileControlDeck({ enabled, onPress, onReleasePointer }: Mobile
   }, [enabled, pressTrackedPointer, releaseTrackedPointer]);
 
   const handleDpadPointerRelease = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    dpadPointers.current.delete(event.pointerId);
     event.preventDefault();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -174,8 +177,16 @@ export function MobileControlDeck({ enabled, onPress, onReleasePointer }: Mobile
     releaseTrackedPointer(event.pointerId, true);
   }, [releaseTrackedPointer]);
 
+  const resetPointers = useCallback(() => {
+    dpadPointers.current.clear();
+    for (const pointerId of [...pointerToButtonRef.current.keys()]) releaseTrackedPointer(pointerId, true);
+  }, [releaseTrackedPointer]);
+
+  useEffect(() => subscribeTouchReset(resetPointers), [resetPointers]);
+
   useEffect(() => {
     if (enabled) return;
+    dpadPointers.current.clear();
     const pointerIds = Array.from(pointerToButtonRef.current.keys());
     for (const pointerId of pointerIds) {
       releaseTrackedPointer(pointerId, true);

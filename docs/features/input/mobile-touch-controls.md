@@ -8,11 +8,12 @@ last_verified: 2026-09-14
 
 Mobile devices render a virtual control deck that feeds the shared `InputController` using `setButtonActive`. It resolves button bindings through `InputMap`; it does not dispatch browser keyboard events.
 
-Desktop behavior is unchanged.
+Keyboard and touch share the same modal input paths. Native text fields retain normal keyboard editing.
 
 ## Scope
 
-- Touch controls are shown only when `(hover: none) and (pointer: coarse)` matches.
+- Touch controls are shown when `(hover: none) and (pointer: coarse)` matches.
+- `?controls=touch` or `?controls=keyboard` overrides detection for hybrid devices and responsive testing (before the hash route).
 - Controls are active across all game states:
   - title
   - main menu
@@ -68,3 +69,21 @@ Controls use `touch-action: none` and `user-select: none` only on control button
 - `src/components/controls/MobileControlDeck.tsx`
 - `src/pages/GamePage.tsx`
 - `src/pages/GamePage.css`
+
+## Mobile compatibility pass (2026-09-14)
+
+- Shared `src/core/input/subscribeModalInput.ts` routes controller press edges to dialogs and every menu using `useMenuInput` (Start, Bag, Party, summary, move forgetting and script choices). Placeholder menus also support B to return.
+- Modal presses are consumed until release so a quick A/B tap cannot leak into the next gameplay frame after closing a menu.
+- Text entry renders a native input and OK button; tapping the field opens the device keyboard. Game bindings ignore editable targets. Birch names filter pasted/typed values to seven uppercase letters. Native Enter and virtual A share validation; composing text does not submit prematurely.
+- The D-pad requires an active pointer press before movement can change direction. Returning to its center releases movement. Visual and logical touch state use the same blur, hidden-page, rotation and unmount reset lifecycle.
+- Start/Select targets are at least 44 CSS pixels tall. Narrow portrait reserves a larger D-pad; landscape control columns match the game viewport rather than overlapping it.
+- Mobile Files exposes the existing save/export/load tools, with a bounded scrolling dropdown. No save-format changes.
+- The debug drawer fits narrow screens, has an explicit close button and sits above the Files control.
+
+### Verification and remaining device checks
+
+Fourteen input/dialog tests pass, covering quick taps, remapping, duplicate keyboard prevention, modal press consumption, rotation/background reset notifications and subscription cleanup. TypeScript/Vite build and targeted lint pass.
+
+Browser pointer checks used production components in an isolated fixture: virtual D-pad navigation into Bag, A confirmation, B back through nested menus, native typing of game-bound letters (AXZW), name filtering and virtual A submission. Frame inspection after modal closure showed no queued pressed/held input. The actual game shell was inspected at 320×568, 390×844, 568×320 and 844×390; compact landscape overlap was reproduced and corrected. Files and debug drawer access were checked at narrow sizes.
+
+These are desktop browser viewport/pointer checks, not physical mobile-device certification. Still validate iOS Safari and Android Chrome keyboard presentation, safe-area insets, multi-finger movement+A/B, OS interruptions while holding controls, file picker/download behavior, and sustained battle/3D performance on hardware. Browser save data remains origin-local; clearing browser storage removes it. Broad audio support remains deferred.

@@ -167,6 +167,7 @@ export interface DialogTextInput {
   cancelable?: boolean;
   /** Optional key mapper (return appended text, or null to ignore key) */
   mapKey?: (event: KeyboardEvent) => string | null;
+  filterValue?: (value: string) => string;
   /** Optional normalization before resolving */
   normalize?: (value: string) => string;
 }
@@ -264,6 +265,7 @@ export interface UseDialogReturn {
 // === Context Types ===
 
 export interface DialogContextValue {
+  submitTextInput: () => void;
   state: DialogState;
   messages: DialogMessage[];
   options: DialogOptions | null;

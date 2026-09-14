@@ -6,6 +6,9 @@ function getCurrentTouchMobileState(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
   }
+  const override = new URLSearchParams(window.location.search).get('controls');
+  if (override === 'touch') return true;
+  if (override === 'keyboard') return false;
   return window.matchMedia(TOUCH_MEDIA_QUERY).matches;
 }
 
@@ -18,7 +21,7 @@ export function useIsTouchMobile(): boolean {
     }
 
     const mediaQueryList = window.matchMedia(TOUCH_MEDIA_QUERY);
-    const update = () => setIsTouchMobile(mediaQueryList.matches);
+    const update = () => setIsTouchMobile(getCurrentTouchMobileState());
 
     update();
     mediaQueryList.addEventListener('change', update);

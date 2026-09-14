@@ -276,6 +276,7 @@ export class BirchSpeechState implements StateRenderer {
         maxLength: MAX_PLAYER_NAME_LENGTH,
         allowEmpty: false,
         cancelable: false,
+        filterValue: (value) => value.toUpperCase().replace(/[^A-Z]/g, ''),
         mapKey: (event) => {
           const letterMatch = event.code.match(/^Key([A-Z])$/);
           return letterMatch ? letterMatch[1] : null;

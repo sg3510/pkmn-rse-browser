@@ -263,6 +263,27 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   if (isClosed) {
     return null;
   }
+  if (state.type === 'editing') {
+    return (
+      <form onSubmit={(event) => { event.preventDefault(); context.submitTextInput(); }}
+        style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: '50%',
+          transform: 'translateX(-50%)', width: 'min(320px, calc(100vw - 24px))',
+          padding: 12, boxSizing: 'border-box', background: '#fffbe8', color: '#222',
+          border: '3px solid #52634f', borderRadius: 8, zIndex: 2000, pointerEvents: 'auto' }}>
+        <label style={{ display: 'block', fontSize: 16 }}>
+          {currentMessage.text}
+          <input aria-label={currentMessage.text} value={state.value}
+            maxLength={context.textInput?.maxLength ?? 12} autoCapitalize="characters"
+            autoComplete="off" spellCheck={false} enterKeyHint="done"
+            onChange={(event) => context.dispatch({ type: 'UPDATE_INPUT', value:
+              (context.textInput?.filterValue?.(event.target.value) ?? event.target.value)
+                .slice(0, context.textInput?.maxLength ?? 12) })}
+            style={{ width: '100%', boxSizing: 'border-box', minHeight: 44, fontSize: 18, margin: '8px 0' }} />
+        </label>
+        <button type="submit" style={{ minHeight: 44, minWidth: 64, fontSize: 16 }}>OK</button>
+      </form>
+    );
+  }
 
   return (
     <div

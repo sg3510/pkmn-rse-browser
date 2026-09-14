@@ -9,6 +9,9 @@ import {
   type MenuType,
   type MenuDataFor,
 } from '../MenuStateManager';
+import { inputController } from '../../core/InputController';
+import { subscribeModalInput } from '../../core/input/subscribeModalInput';
+import { getDialogBridge } from '../../components/dialog/DialogBridge';
 import { consumeModalInputEvent, getModalInputAction } from '../../core/input/modalKeyRouting';
 
 /**
@@ -78,13 +81,15 @@ export function useMenuInput(options: {
   useEffect(() => {
     if (!enabled) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const action = getModalInputAction(e.code);
+    const handleKeyDown = (code: string, e?: KeyboardEvent) => {
+      if (getDialogBridge()?.isOpen()) return;
+      const action = getModalInputAction(code);
       if (action === null) {
         return;
       }
 
-      consumeModalInputEvent(e);
+      if (e) consumeModalInputEvent(e);
+      else inputController.consumeCodeUntilRelease(code);
       switch (action) {
         case 'confirm':
           onConfirm?.();
@@ -112,7 +117,6 @@ export function useMenuInput(options: {
 
     // Use capture phase to intercept events before PlayerController
     // This ensures menu navigation takes priority over game input
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    return subscribeModalInput(inputController, window, handleKeyDown);
   }, [enabled, onConfirm, onCancel, onSelect, onUp, onDown, onLeft, onRight]);
 }

@@ -602,7 +602,7 @@
 
 .mobile-control-btn--meta {
   min-width: 4.1rem;
-  height: 1.7rem;
+  min-height: 44px;
   border-radius: 999px;
   background: linear-gradient(180deg, #2f3746 0%, #1f2530 100%);
   box-shadow:
@@ -689,3 +689,24 @@
     pointer-events: auto;
   }
 }
+
+/* Keep the landscape control columns aligned with the actual game viewport. */
+@media (orientation: landscape) {
+  .mobile-shell { padding: 0.5rem; grid-template-columns: minmax(0, 1fr) var(--mobile-screen-width) minmax(0, 1fr); }
+  .mobile-shell__controls-frame .mobile-control-deck {
+    grid-template-columns: minmax(0, 1fr) var(--mobile-screen-width) minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+  .mobile-control-deck__dpad { max-width: 140px; box-sizing: border-box; }
+}
+@media (max-width: 380px) and (orientation: portrait) {
+  .mobile-control-deck { grid-template-columns: 132px minmax(0, 1fr); gap: 6px; }
+  .mobile-control-deck__dpad { width: 132px; box-sizing: border-box; gap: 2px; padding: 0; }
+  .mobile-control-deck__face-buttons, .mobile-control-deck__meta-buttons { gap: 4px; }
+  .mobile-control-btn--meta { min-width: 48px; padding: 0; }
+}
+.mobile-save-tools { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 1100; }
+.mobile-save-tools > summary { cursor: pointer; min-height: 44px; display: grid; place-items: center; padding: 0 10px; color: #ddd; background: #202835; border-radius: 8px; }
+.mobile-save-tools[open] { padding: 8px; background: #202835; border-radius: 8px; }
+.mobile-save-tools .header-btn, .mobile-save-tools .header-dropdown__item { min-height: 44px; }
+.mobile-save-tools .header-dropdown { box-sizing: border-box; position: fixed; top: max(112px, calc(env(safe-area-inset-top) + 102px)); right: 12px; left: auto; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 130px); overflow-y: auto; }

@@ -3010,9 +3010,20 @@ function GamePageContent({
   if (isTouchMobile) {
     return (
       <div className="game-page game-page--mobile">
+        <details className="mobile-save-tools">
+          <summary aria-label="Save and load tools">Files</summary>
+          <SaveLoadButtons
+            canSave={currentState === GameState.OVERWORLD && playerLoadedRef.current}
+            getLocationState={getLocationState}
+            getObjectEventRuntimeState={getObjectEventRuntimeState}
+            onSave={handleSaveComplete}
+            onLoad={handleLoadComplete}
+            onError={handleSaveError}
+          />
+        </details>
         {stats.error && <div style={{ marginBottom: 8, color: '#ff6666' }}>Error: {stats.error}</div>}
 
-        <div className="mobile-shell" data-orientation-shell>
+        <div className="mobile-shell" data-orientation-shell style={{ '--mobile-screen-width': `${viewportDisplayWidth + 34}px` } as React.CSSProperties}>
           <div className="mobile-shell__screen-frame">
             <div className="map-canvas-wrapper map-canvas-wrapper--mobile">
               {viewportStack}
