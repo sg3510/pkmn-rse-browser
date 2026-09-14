@@ -27,6 +27,8 @@ import type {
 } from './types';
 import { DEFAULT_CONFIG, TEXT_SPEED_DELAYS } from './types';
 import { inputMap } from '../../core/InputMap';
+import { inputController } from '../../core/InputController';
+import { subscribeDialogInput } from './dialogInput';
 import { consumeModalInputEvent, getModalInputAction } from '../../core/input/modalKeyRouting';
 import { PromptController } from '../../core/prompt/PromptController';
 import { paginateDialogText } from './textPagination';
@@ -368,7 +370,8 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
       }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleInput = (code: string, nativeEvent?: KeyboardEvent) => {
+      const consume = () => { if (nativeEvent) consumeModalInputEvent(nativeEvent); };
       const currentState = stateRef.current;
       if (!currentState || currentState.type === 'closed') {
         return;
@@ -376,11 +379,11 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
       const options = optionsRef.current;
       const textInput = textInputRef.current;
-      const mappedAction = getModalInputAction(e.code);
+      const mappedAction = getModalInputAction(code);
 
       if (currentState.type === 'editing') {
-        if (mappedAction === 'confirm' || e.code === 'NumpadEnter') {
-          consumeModalInputEvent(e);
+        if (mappedAction === 'confirm' || code === 'NumpadEnter') {
+          consume();
 
           const normalize = textInput?.normalize;
           const normalizedValue = normalize ? normalize(currentState.value) : currentState.value;
@@ -395,14 +398,14 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
         }
 
         if (mappedAction === 'cancel' && (textInput?.cancelable ?? true)) {
-          consumeModalInputEvent(e);
+          consume();
           dispatch({ type: 'CANCEL' });
           resolveAndClear(null);
           return;
         }
 
-        if (e.code === 'Backspace') {
-          consumeModalInputEvent(e);
+        if (code === 'Backspace') {
+          consume();
           dispatch({ type: 'UPDATE_INPUT', value: currentState.value.slice(0, -1) });
           return;
         }
@@ -414,27 +417,27 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
         let append: string | null = null;
         if (textInput?.mapKey) {
-          append = textInput.mapKey(e);
+          append = nativeEvent ? textInput.mapKey(nativeEvent) : null;
         } else {
-          const letterMatch = e.code.match(/^Key([A-Z])$/);
-          const digitMatch = e.code.match(/^Digit([0-9])$/);
+          const letterMatch = code.match(/^Key([A-Z])$/);
+          const digitMatch = code.match(/^Digit([0-9])$/);
           if (letterMatch) append = letterMatch[1];
           else if (digitMatch) append = digitMatch[1];
-          else if (e.code === 'Space') append = ' ';
+          else if (code === 'Space') append = ' ';
         }
 
         if (append && append.length > 0) {
-          consumeModalInputEvent(e);
+          consume();
           dispatch({ type: 'UPDATE_INPUT', value: (currentState.value + append).slice(0, maxLength) });
         }
         return;
       }
 
-      const isConfirm = mappedAction === 'confirm' || inputMap.matchesCode(e.code, ...config.advanceKeys);
-      const isCancel = mappedAction === 'cancel' || inputMap.matchesCode(e.code, ...config.cancelKeys);
+      const isConfirm = mappedAction === 'confirm' || inputMap.matchesCode(code, ...config.advanceKeys);
+      const isCancel = mappedAction === 'cancel' || inputMap.matchesCode(code, ...config.cancelKeys);
 
       if (isConfirm || isCancel) {
-        consumeModalInputEvent(e);
+        consume();
 
         if (currentState.type === 'scrolling') {
           dispatch({ type: 'FINISH_SCROLL' });
@@ -481,13 +484,13 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
 
       if (currentState.type === 'choosing' && options) {
         if (mappedAction === 'up') {
-          consumeModalInputEvent(e);
+          consume();
           const newIndex = Math.max(0, currentState.selectedIndex - 1);
           dispatch({ type: 'SELECT_OPTION', index: newIndex });
           options.onSelectionChange?.(newIndex);
         }
         if (mappedAction === 'down') {
-          consumeModalInputEvent(e);
+          consume();
           const newIndex = Math.min(options.choices.length - 1, currentState.selectedIndex + 1);
           dispatch({ type: 'SELECT_OPTION', index: newIndex });
           options.onSelectionChange?.(newIndex);
@@ -496,8 +499,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    return subscribeDialogInput(inputController, window, handleInput);
   }, [state.type, config.advanceKeys, config.cancelKeys, config.allowSkip, dispatch]);
 
   // Resolve setter/getter

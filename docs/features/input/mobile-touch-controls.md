@@ -1,12 +1,12 @@
 ---
 title: "Mobile Touch Controls"
 status: implemented
-last_verified: 2026-02-13
+last_verified: 2026-09-14
 ---
 
 # Mobile Touch Controls
 
-Mobile devices now render a virtual control deck that feeds the existing keyboard input pipeline by dispatching synthetic `keydown`/`keyup` events using `KeyboardEvent.code`.
+Mobile devices render a virtual control deck that feeds the shared `InputController` using `setButtonActive`. It resolves button bindings through `InputMap`; it does not dispatch browser keyboard events.
 
 Desktop behavior is unchanged.
 
@@ -30,9 +30,15 @@ Desktop behavior is unchanged.
 
 All virtual buttons resolve to key codes via `src/core/InputMap.ts`:
 
-- `inputMap.getPrimaryBinding(button)` selects the code used for synthetic events.
+- `inputMap.getPrimaryBinding(button)` selects the code used by the shared controller.
 - `SELECT` now defaults to `ShiftRight`.
 - No parallel touch-only mapping table is used.
+
+## Dialog input fix (2026-09-14)
+
+Birch's speech and other React dialogs previously listened only for native `window.keydown`, so the control deck's controller events never reached them. `src/components/dialog/dialogInput.ts` now subscribes dialogs to non-keyboard controller press edges while retaining native keyboard capture for modal propagation and text entry. Both paths use the same dialog handler and `InputMap` bindings. Release events and keyboard events reported by the controller do not produce duplicate actions.
+
+Validation: eleven input/dialog tests passed, including quick touch taps, remapped controls, subscription cleanup and keyboard deduplication. An isolated browser fixture using the production `MobileControlDeck`, touch bridge and `DialogProvider` advanced Birch's opening messages with the on-screen A button and confirmed a choice. TypeScript/Vite build and targeted lint passed. This was a pointer-input browser check, not a physical iOS/Android device test.
 
 ## Safety Behavior
 
@@ -62,4 +68,3 @@ Controls use `touch-action: none` and `user-select: none` only on control button
 - `src/components/controls/MobileControlDeck.tsx`
 - `src/pages/GamePage.tsx`
 - `src/pages/GamePage.css`
-
