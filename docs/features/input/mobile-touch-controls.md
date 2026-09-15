@@ -87,3 +87,9 @@ Fourteen input/dialog tests pass, covering quick taps, remapping, duplicate keyb
 Browser pointer checks used production components in an isolated fixture: virtual D-pad navigation into Bag, A confirmation, B back through nested menus, native typing of game-bound letters (AXZW), name filtering and virtual A submission. Frame inspection after modal closure showed no queued pressed/held input. The actual game shell was inspected at 320×568, 390×844, 568×320 and 844×390; compact landscape overlap was reproduced and corrected. Files and debug drawer access were checked at narrow sizes.
 
 These are desktop browser viewport/pointer checks, not physical mobile-device certification. Still validate iOS Safari and Android Chrome keyboard presentation, safe-area insets, multi-finger movement+A/B, OS interruptions while holding controls, file picker/download behavior, and sustained battle/3D performance on hardware. Browser save data remains origin-local; clearing browser storage removes it. Broad audio support remains deferred.
+
+## Screenshot follow-up: clipped sides and dialog seams
+
+The mobile viewport minimum was 14 metatiles (224 pixels), narrower than the fixed 240-pixel battle scene and field message window. At that minimum, centering clipped eight native pixels from each side. The minimum is now 15 metatiles; CSS zoom still fits the complete viewport into the phone shell.
+
+Field messages now compose at their native 240×44 resolution and scale the completed canvas in CSS. This avoids independently rasterizing adjacent frame tiles at fractional coordinates, which could expose thin transparent seams. A browser fixture at 321/240 zoom verified an unbroken window over contrasting stripes; production build and targeted lint passed. Physical Safari verification remains outstanding.

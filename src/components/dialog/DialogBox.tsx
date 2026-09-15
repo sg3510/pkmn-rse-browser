@@ -147,8 +147,10 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       return;
     }
 
-    const widthPx = Math.max(1, Math.round(dialogWidth));
-    const heightPx = Math.max(1, Math.round(dialogHeight));
+    // Compose on the native integer pixel grid, then scale the complete canvas in CSS.
+    // Fractional per-tile drawing can expose seams through the window on mobile.
+    const widthPx = FIELD_MESSAGE_PROFILE.window.width;
+    const heightPx = FIELD_MESSAGE_PROFILE.window.height;
     if (canvas.width !== widthPx) {
       canvas.width = widthPx;
     }
@@ -163,7 +165,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       state: sharedRenderState,
       originX: 0,
       originY: 0,
-      scale: zoom,
+      scale: 1,
       frameStyle: config.frameStyle,
       showArrow,
       arrowFrameIndex,
@@ -309,8 +311,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
           {useSharedCanvasRenderer ? (
             <canvas
               ref={canvasRef}
-              width={Math.max(1, Math.round(dialogWidth))}
-              height={Math.max(1, Math.round(dialogHeight))}
+              width={FIELD_MESSAGE_PROFILE.window.width}
+              height={FIELD_MESSAGE_PROFILE.window.height}
               style={{
                 width: dialogWidth,
                 height: dialogHeight,

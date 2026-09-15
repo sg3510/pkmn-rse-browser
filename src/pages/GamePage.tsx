@@ -295,7 +295,8 @@ const EMPTY_DEBUG_STATE: DebugState = {
   offscreenDespawnedNpcIds: [],
 };
 const LOCAL_MAP_SCRIPT_CACHE_MAX_ENTRIES = 32;
-const MOBILE_MIN_VIEWPORT_TILES_WIDE = 14;
+// Battles and field dialogs require the complete 240px GBA width (15 metatiles).
+const MOBILE_MIN_VIEWPORT_TILES_WIDE = 15;
 const MOBILE_MAX_VIEWPORT_TILES_WIDE = 42;
 const MOBILE_MIN_VIEWPORT_TILES_HIGH = 12;
 const MOBILE_MAX_VIEWPORT_TILES_HIGH = 30;
