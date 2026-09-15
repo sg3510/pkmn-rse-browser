@@ -58,6 +58,9 @@ export const DialogFrame: React.FC<DialogFrameProps> = ({
   const roundedWidth = Math.round(width / scaledTileSize) * scaledTileSize;
   const roundedHeight = Math.round(height / scaledTileSize) * scaledTileSize;
 
+  const nativeWidth = Math.round(width / scaledTileSize) * TILE_SIZE;
+  const nativeHeight = Math.round(height / scaledTileSize) * TILE_SIZE;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -73,19 +76,19 @@ export const DialogFrame: React.FC<DialogFrameProps> = ({
         if (cancelled) return;
 
         // Set canvas size
-        canvas.width = roundedWidth;
-        canvas.height = roundedHeight;
+        canvas.width = nativeWidth;
+        canvas.height = nativeHeight;
 
         // Disable smoothing for pixel-perfect rendering
         ctx.imageSmoothingEnabled = false;
 
         // Clear canvas
-        ctx.clearRect(0, 0, roundedWidth, roundedHeight);
+        ctx.clearRect(0, 0, nativeWidth, nativeHeight);
 
         // Source tile size (always 8px in source image)
         const srcTile = TILE_SIZE;
-        // Destination tile size (scaled by zoom)
-        const dstTile = scaledTileSize;
+        // Compose at native resolution; CSS scales the complete frame.
+        const dstTile = TILE_SIZE;
 
         // Draw 9-slice frame
         // The source image is 24x24 (3x3 tiles)
@@ -97,39 +100,39 @@ export const DialogFrame: React.FC<DialogFrameProps> = ({
         // Top-left
         ctx.drawImage(img, 0, 0, srcTile, srcTile, 0, 0, dstTile, dstTile);
         // Top-right
-        ctx.drawImage(img, srcTile * 2, 0, srcTile, srcTile, roundedWidth - dstTile, 0, dstTile, dstTile);
+        ctx.drawImage(img, srcTile * 2, 0, srcTile, srcTile, nativeWidth - dstTile, 0, dstTile, dstTile);
         // Bottom-left
-        ctx.drawImage(img, 0, srcTile * 2, srcTile, srcTile, 0, roundedHeight - dstTile, dstTile, dstTile);
+        ctx.drawImage(img, 0, srcTile * 2, srcTile, srcTile, 0, nativeHeight - dstTile, dstTile, dstTile);
         // Bottom-right
-        ctx.drawImage(img, srcTile * 2, srcTile * 2, srcTile, srcTile, roundedWidth - dstTile, roundedHeight - dstTile, dstTile, dstTile);
+        ctx.drawImage(img, srcTile * 2, srcTile * 2, srcTile, srcTile, nativeWidth - dstTile, nativeHeight - dstTile, dstTile, dstTile);
 
         // === Edges (tile to fill) ===
         // Top edge
-        for (let x = dstTile; x < roundedWidth - dstTile; x += dstTile) {
-          const drawWidth = Math.min(dstTile, roundedWidth - dstTile - x);
+        for (let x = dstTile; x < nativeWidth - dstTile; x += dstTile) {
+          const drawWidth = Math.min(dstTile, nativeWidth - dstTile - x);
           ctx.drawImage(img, srcTile, 0, srcTile, srcTile, x, 0, drawWidth, dstTile);
         }
         // Bottom edge
-        for (let x = dstTile; x < roundedWidth - dstTile; x += dstTile) {
-          const drawWidth = Math.min(dstTile, roundedWidth - dstTile - x);
-          ctx.drawImage(img, srcTile, srcTile * 2, srcTile, srcTile, x, roundedHeight - dstTile, drawWidth, dstTile);
+        for (let x = dstTile; x < nativeWidth - dstTile; x += dstTile) {
+          const drawWidth = Math.min(dstTile, nativeWidth - dstTile - x);
+          ctx.drawImage(img, srcTile, srcTile * 2, srcTile, srcTile, x, nativeHeight - dstTile, drawWidth, dstTile);
         }
         // Left edge
-        for (let y = dstTile; y < roundedHeight - dstTile; y += dstTile) {
-          const drawHeight = Math.min(dstTile, roundedHeight - dstTile - y);
+        for (let y = dstTile; y < nativeHeight - dstTile; y += dstTile) {
+          const drawHeight = Math.min(dstTile, nativeHeight - dstTile - y);
           ctx.drawImage(img, 0, srcTile, srcTile, srcTile, 0, y, dstTile, drawHeight);
         }
         // Right edge
-        for (let y = dstTile; y < roundedHeight - dstTile; y += dstTile) {
-          const drawHeight = Math.min(dstTile, roundedHeight - dstTile - y);
-          ctx.drawImage(img, srcTile * 2, srcTile, srcTile, srcTile, roundedWidth - dstTile, y, dstTile, drawHeight);
+        for (let y = dstTile; y < nativeHeight - dstTile; y += dstTile) {
+          const drawHeight = Math.min(dstTile, nativeHeight - dstTile - y);
+          ctx.drawImage(img, srcTile * 2, srcTile, srcTile, srcTile, nativeWidth - dstTile, y, dstTile, drawHeight);
         }
 
         // === Center (tile to fill interior) ===
-        for (let y = dstTile; y < roundedHeight - dstTile; y += dstTile) {
-          for (let x = dstTile; x < roundedWidth - dstTile; x += dstTile) {
-            const drawWidth = Math.min(dstTile, roundedWidth - dstTile - x);
-            const drawHeight = Math.min(dstTile, roundedHeight - dstTile - y);
+        for (let y = dstTile; y < nativeHeight - dstTile; y += dstTile) {
+          for (let x = dstTile; x < nativeWidth - dstTile; x += dstTile) {
+            const drawWidth = Math.min(dstTile, nativeWidth - dstTile - x);
+            const drawHeight = Math.min(dstTile, nativeHeight - dstTile - y);
             ctx.drawImage(img, srcTile, srcTile, srcTile, srcTile, x, y, drawWidth, drawHeight);
           }
         }
@@ -145,7 +148,7 @@ export const DialogFrame: React.FC<DialogFrameProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [style, roundedWidth, roundedHeight, scaledTileSize, zoom]);
+  }, [style, nativeWidth, nativeHeight]);
 
   return (
     <div

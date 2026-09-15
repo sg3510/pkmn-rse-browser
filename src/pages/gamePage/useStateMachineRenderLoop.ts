@@ -44,7 +44,9 @@ export function useStateMachineRenderLoop(params: UseStateMachineRenderLoopParam
       const logicalHeight = viewportPixelSizeRef.current.height;
 
       const dpr = window.devicePixelRatio || 1;
-      const scale = dpr * zoom;
+      // Rasterize adjacent pixel-art tiles on an integer grid. Fractional zoom
+      // belongs to the completed canvas, not each individual draw operation.
+      const scale = Math.max(1, Math.ceil(dpr * zoom));
       const targetWidth = Math.round(logicalWidth * scale);
       const targetHeight = Math.round(logicalHeight * scale);
 
